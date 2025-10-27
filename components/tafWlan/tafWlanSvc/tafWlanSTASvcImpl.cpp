@@ -28,6 +28,466 @@ LE_MEM_DEFINE_STATIC_POOL ( tafWlanStaCtxPool,
                             TAF_WLAN_MAX_NUM_STA,
                             (sizeof(StaCtx_t)) );
 
+
+// Internal args used to queue fd monitor creation in the client-events thread.
+struct WpaMonSetupArgs_t
+{
+    taf_WlanSTASvcImpl *self;
+    StaCtx_t *ctxPtr;
+    std::vector<std::string> events;
+    SuppFdCtx_t **outFdCtxPtr;
+    std::promise<le_result_t> *promisePtr;
+};
+
+void taf_WlanSTASvcImpl::QueueCreateWpaSupplicantMonitor(void *param1Ptr, void *param2Ptr)
+{
+    LE_UNUSED(param2Ptr);
+    WpaMonSetupArgs_t *args = static_cast<WpaMonSetupArgs_t *>(param1Ptr);
+    if (!args)
+    {
+        return;
+    }
+
+    taf_WlanSTASvcImpl *self = args->self;
+    SuppFdCtx_t *fdCtxRaw = nullptr;
+    le_result_t res = LE_FAULT;
+
+    do
+    {
+        if (!args->ctxPtr || strlen(args->ctxPtr->IntfName) == 0)
+        {
+            LE_ERROR("Invalid context or interface name for WPA monitor setup");
+            break;
+        }
+
+        std::string wpa_supplicant_path(WPA_SUPPLICANT_LOCATION_PATH);
+        wpa_supplicant_path += args->ctxPtr->IntfName;
+        LE_DEBUG("Supplicant path: %s", wpa_supplicant_path.c_str());
+
+        struct wpa_ctrl *ctrl = wpa_ctrl_open(wpa_supplicant_path.c_str());
+        if (ctrl == nullptr)
+        {
+            LE_ERROR("Failed to open WPA control interface: %s", strerror(errno));
+            break;
+        }
+
+        if (wpa_ctrl_attach(ctrl) != 0)
+        {
+            LE_ERROR("Failed to attach to WPA control interface");
+            wpa_ctrl_close(ctrl);
+            break;
+        }
+
+        int fd = wpa_ctrl_get_fd(ctrl);
+        if (fd < 0)
+        {
+            LE_ERROR("wpa_ctrl_get_fd failed");
+            wpa_ctrl_detach(ctrl);
+            wpa_ctrl_close(ctrl);
+            break;
+        }
+
+        le_fdMonitor_Ref_t monRef = le_fdMonitor_Create(
+            "WpaCtrlMon",
+            fd,
+            taf_WlanSTASvcImpl::WpaSupplicantFdHandler,
+            POLLIN);
+
+        if (!monRef)
+        {
+            LE_ERROR("le_fdMonitor_Create failed");
+            wpa_ctrl_detach(ctrl);
+            wpa_ctrl_close(ctrl);
+            break;
+        }
+
+        std::unique_ptr<SuppFdCtx_t> fdCtx = std::make_unique<SuppFdCtx_t>();
+        if (!fdCtx)
+        {
+            LE_ERROR("Failed to allocate SuppFdCtx_t");
+            le_fdMonitor_Delete(monRef);
+            wpa_ctrl_detach(ctrl);
+            wpa_ctrl_close(ctrl);
+            break;
+        }
+
+        fdCtx->ctrl = ctrl;
+        fdCtx->fd = fd;
+        fdCtx->fdMonitorRef = monRef;
+        fdCtx->EventsToMonitor = args->events;
+        fdCtx->resultEvent = EVT_WPA_ERROR;
+        fdCtx->eventCompleted = false;
+
+        fdCtxRaw = fdCtx.get();
+        self->suppFdContextMap[ctrl] = std::move(fdCtx);
+        res = LE_OK;
+    } while (0);
+
+    if (args->outFdCtxPtr)
+    {
+        *(args->outFdCtxPtr) = fdCtxRaw;
+    }
+    if (args->promisePtr)
+    {
+        args->promisePtr->set_value(res);
+    }
+
+    delete args;
+}
+
+void taf_WlanSTASvcImpl::QueueDeleteWpaSupplicantMonitor(void *param1Ptr, void *param2Ptr)
+{
+    LE_UNUSED(param2Ptr);
+
+    auto *ctrl = static_cast<struct wpa_ctrl *>(param1Ptr);
+    if (!ctrl)
+    {
+        LE_WARN("QueueDeleteWpaSupplicantMonitor: ctrl is null");
+        return;
+    }
+
+    auto &self = taf_WlanSTASvcImpl::GetInstance();
+    auto it = self.suppFdContextMap.find(ctrl);
+    if (it != self.suppFdContextMap.end())
+    {
+        if (it->second)
+        {
+            // Inert the ctx and wake any waiters before tearing down resources.
+            {
+                std::lock_guard<std::mutex> lock(it->second->mutex);
+                it->second->resultEvent    = EVT_WPA_ERROR;
+                it->second->eventCompleted = true;
+                it->second->EventsToMonitor.clear();
+                it->second->fd             = -1;
+            }
+            it->second->eventCv.notify_all();
+
+            // Delete fd monitor first to stop callbacks.
+            if (it->second->fdMonitorRef)
+            {
+                le_fdMonitor_Delete(it->second->fdMonitorRef);
+                it->second->fdMonitorRef = nullptr;
+            }
+        }
+
+        wpa_ctrl_detach(ctrl);
+        wpa_ctrl_close(ctrl);
+
+        self.suppFdContextMap.erase(it);
+        LE_INFO("WPA supplicant monitor removed and ctrl closed");
+    }
+    else
+    {
+        LE_WARN("QueueDeleteWpaSupplicantMonitor: no context found for ctrl %p (already cleaned?)",
+            ctrl);
+    }
+}
+
+// Create WPA ctrl fd monitor in staClientEventsThreadRef_ and return its ctx
+le_result_t taf_WlanSTASvcImpl::SetupWpaSupplicantMonitoring(
+    StaCtx_t *CtxPtr,
+    const std::vector<std::string> &eventsToMonitor,
+    SuppFdCtx_t **fdCtxPtrPtr)
+{
+    // Validate inputs
+    TAF_ERROR_IF_RET_VAL(CtxPtr == nullptr, LE_BAD_PARAMETER, "CtxPtr is NULL!");
+    TAF_ERROR_IF_RET_VAL(fdCtxPtrPtr == nullptr, LE_BAD_PARAMETER, "fdCtxPtrPtr is NULL!");
+    TAF_ERROR_IF_RET_VAL(staClientEventsThreadRef_ == nullptr, LE_FAULT,
+                         "Client events thread not started");
+
+    // Prepare args for queued creation on client events thread
+    auto *args = new (std::nothrow) WpaMonSetupArgs_t();
+    if (!args)
+    {
+        LE_ERROR("Failed to allocate WpaMonSetupArgs_t");
+        return LE_FAULT;
+    }
+
+    // Promise/future to synchronize monitor creation
+    std::promise<le_result_t> prom;
+    std::future<le_result_t> fut = prom.get_future();
+
+    args->self        = this;
+    args->ctxPtr      = CtxPtr;
+    args->events      = eventsToMonitor;
+    args->outFdCtxPtr = fdCtxPtrPtr;
+    args->promisePtr  = &prom;
+
+    le_event_QueueFunctionToThread(
+        staClientEventsThreadRef_,
+        taf_WlanSTASvcImpl::QueueCreateWpaSupplicantMonitor,
+        args,
+        nullptr);
+
+    // Wait for completion
+    le_result_t res = fut.get();
+    if (res != LE_OK || *fdCtxPtrPtr == nullptr)
+    {
+        LE_ERROR("SetupWpaSupplicantMonitoring failed (res:%d ctx:%p)", res, *fdCtxPtrPtr);
+        return LE_FAULT;
+    }
+
+    return LE_OK;
+}
+
+// Queue cleanup on client events thread to safely delete monitor and close socket.
+void taf_WlanSTASvcImpl::CleanupWpaSupplicantMonitoring(SuppFdCtx_t *fdCtxPtr)
+{
+    if (!fdCtxPtr) return;
+
+    le_event_QueueFunctionToThread(staClientEventsThreadRef_,
+        taf_WlanSTASvcImpl::QueueDeleteWpaSupplicantMonitor,
+        fdCtxPtr->ctrl,
+        nullptr);
+}
+
+bool taf_WlanSTASvcImpl::IsConnectedToSSID(StaCtx_t *CtxPtr, const char *targetSsid)
+{
+    if (CtxPtr == nullptr || targetSsid == nullptr || strlen(targetSsid) == 0)
+    {
+        LE_ERROR("IsConnectedToSSID bad params");
+        return false;
+    }
+
+    char rsp_buf[WPA_CTRL_RSP_BUF_LEN] = {0};
+    le_result_t res = runWPACommand(CtxPtr, "STATUS", rsp_buf, sizeof(rsp_buf));
+    if (res != LE_OK)
+    {
+        LE_WARN("STATUS command failed");
+        return false;
+    }
+
+    std::string status(rsp_buf);
+
+    // Must be in COMPLETED state
+    if (status.find("wpa_state=COMPLETED") == std::string::npos)
+    {
+        LE_INFO("IsConnectedToSSID: wpa_state not COMPLETED");
+        return false;
+    }
+
+    // Helper to trim CR/LF and spaces at both ends and strip quotes
+    auto normalize = [](std::string s) -> std::string
+    {
+        // trim end
+        while (!s.empty() && (s.back() == '\r' || s.back() == '\n' || s.back() == ' '
+            || s.back() == '\t'))
+        {
+            s.pop_back();
+        }
+
+        // trim start
+        while (!s.empty() && (s.front() == '\r' || s.front() == '\n' || s.front() == ' '
+            || s.front() == '\t'))
+        {
+            s.erase(s.begin());
+        }
+
+        // strip surrounding quotes
+        if (s.size() >= 2 && s.front() == '"' && s.back() == '"')
+            s = s.substr(1, s.size() - 2);
+        {
+            return s;
+        }
+    };
+
+    const std::string target = normalize(std::string(targetSsid));
+
+    // 1) Try ssid= line
+    {
+        const std::string key = "ssid=";
+        size_t pos = status.find(key);
+        if (pos != std::string::npos)
+        {
+            size_t end = status.find('\n', pos);
+            std::string ssidVal = status.substr(pos + key.length(),
+                    (end == std::string::npos) ? std::string::npos : (end - (pos + key.length())));
+            ssidVal = normalize(ssidVal);
+
+            LE_INFO("IsConnectedToSSID: STATUS ssid='%s', target='%s'",
+                     ssidVal.c_str(), target.c_str());
+            if (!ssidVal.empty() && ssidVal == target)
+            {
+                return true;
+            }
+        }
+    }
+
+    // 2) Try id=<n> + GET_NETWORK <n> ssid
+    int currentId = -1;
+    {
+        const std::string idKey = "id=";
+        size_t pos = status.find(idKey);
+        if (pos != std::string::npos)
+        {
+            pos += idKey.length();
+            size_t end = status.find('\n', pos);
+            std::string idStr = status.substr(pos, (end == std::string::npos) ?
+                std::string::npos : (end - pos));
+            // Trim any trailing junk
+            idStr = normalize(idStr);
+            try
+            {
+                currentId = std::stoi(idStr);
+            }
+            catch (...)
+            {
+                currentId = -1;
+            }
+        }
+    }
+    if (currentId >= 0)
+    {
+        char getBuf[WPA_CTRL_RSP_BUF_LEN] = {0};
+        std::string getCmd = "GET_NETWORK " + std::to_string(currentId) + " ssid";
+        if (runWPACommand(CtxPtr, getCmd.c_str(), getBuf, sizeof(getBuf)) == LE_OK)
+        {
+            std::string netSsid = normalize(std::string(getBuf));
+            LE_INFO("IsConnectedToSSID: GET_NETWORK id=%d ssid='%s', target='%s'",
+                     currentId, netSsid.c_str(), target.c_str());
+            if (!netSsid.empty() && netSsid == target)
+            {
+                return true;
+            }
+        }
+    }
+
+    // 3) Fallback: LIST_NETWORKS, find [CURRENT] row and compare SSID
+    {
+        char listBuf[WPA_CTRL_RSP_BUF_LEN] = {0};
+        if (runWPACommand(CtxPtr, "LIST_NETWORKS", listBuf, sizeof(listBuf)) == LE_OK)
+        {
+            // Rows: "network id\tssid\tbssid\tflags"
+            std::istringstream ss(listBuf);
+            std::string line;
+            while (std::getline(ss, line))
+            {
+                if (line.find("[CURRENT]") == std::string::npos)
+                {
+                    continue;
+                }
+
+                // Split by tab; SSID is column 2
+                std::vector<std::string> cols;
+                std::istringstream ls(line);
+                std::string tok;
+                while (std::getline(ls, tok, '\t')) cols.push_back(tok);
+                if (cols.size() >= 2)
+                {
+                    std::string curSsid = normalize(cols[1]);
+                    LE_INFO("IsConnectedToSSID: LIST_NETWORKS CURRENT ssid='%s', target='%s'",
+                             curSsid.c_str(), target.c_str());
+                    if (!curSsid.empty() && curSsid == target)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+// FD monitor handler: read WPA events and signal waiting code.
+void taf_WlanSTASvcImpl::WpaSupplicantFdHandler(int fd, short events)
+{
+    LE_UNUSED(events);
+    auto &self = taf_WlanSTASvcImpl::GetInstance();
+
+    SuppFdCtx_t *ctxMatch = nullptr;
+    for (const auto &pair : self.suppFdContextMap)
+    {
+        const auto *ctx = pair.second.get();
+        if (ctx && ctx->fd == fd)
+        {
+            ctxMatch = const_cast<SuppFdCtx_t *>(ctx);
+            break;
+        }
+    }
+
+    if (!ctxMatch || !ctxMatch->ctrl)
+    {
+        LE_WARN("WpaSupplicantFdHandler: context not found for fd %d", fd);
+        return;
+    }
+
+    // Early exit guards to avoid unnecessary work on inert/completed contexts.
+    if (ctxMatch->eventCompleted)
+    {
+        LE_DEBUG("WpaSupplicantFdHandler: event already completed for fd %d", fd);
+        return;
+    }
+    if (ctxMatch->EventsToMonitor.empty())
+    {
+        LE_DEBUG("WpaSupplicantFdHandler: no events to monitor; returning.");
+        return;
+    }
+
+    // Read exactly one message; let the monitor re-invoke us if more data remains.
+    char rsp[WPA_CTRL_RSP_BUF_LEN] = {0};
+    size_t len = sizeof(rsp);
+    int ret = wpa_ctrl_recv(ctxMatch->ctrl, rsp, &len);
+    if (ret < 0)
+    {
+        LE_WARN("wpa_ctrl_recv failed");
+        std::lock_guard<std::mutex> lock(ctxMatch->mutex);
+        ctxMatch->resultEvent = EVT_WPA_ERROR;
+        ctxMatch->eventCompleted = true;
+        ctxMatch->eventCv.notify_all();
+        return;
+    }
+
+    std::string evt(rsp, len);
+    LE_INFO("WPA evt len:%zu data:%s", len, evt.c_str());
+
+    // Try to match one of the monitored substrings against the full event line.
+    for (const std::string &evtToMonitor : ctxMatch->EventsToMonitor)
+    {
+        if (evt.find(evtToMonitor) != std::string::npos)
+        {
+            StaWpaEvt_e matched = EVT_WPA_ERROR;
+            if (evtToMonitor == WPA_EVENT_SCAN_RESULTS)
+                matched = EVT_WPA_AP_SCAN_DONE;
+            else if (evtToMonitor == WPA_EVENT_CONNECTED)
+                matched = EVT_WPA_AP_CONNECTED;
+            else if (evtToMonitor == WPA_EVENT_TEMP_DISABLED)
+                matched = EVT_WPA_AP_TEMP_DISABLED;
+            else if (evtToMonitor == WPA_EVENT_DISCONNECTED)
+                matched = EVT_WPA_AP_DISCONNECTED;
+
+            {
+                std::lock_guard<std::mutex> lock(ctxMatch->mutex);
+                ctxMatch->resultEvent = matched;
+                ctxMatch->eventCompleted = true;
+            }
+            ctxMatch->eventCv.notify_all();
+            LE_INFO("Matched WPA event: %s", evtToMonitor.c_str());
+            return;
+        }
+    }
+}
+
+bool taf_WlanSTASvcImpl::WaitForSupplicantEvent(SuppFdCtx_t *ctx, int timeoutMs,
+    StaWpaEvt_e &outEvt)
+{
+    if (!ctx)
+    {
+        return false;
+    }
+    std::unique_lock<std::mutex> lock(ctx->mutex);
+    bool signaled = ctx->eventCv.wait_for(
+        lock, std::chrono::milliseconds(timeoutMs),
+        [&]{ return ctx->eventCompleted; });
+
+    if (!signaled)
+    {
+        return false;
+    }
+    outEvt = ctx->resultEvent;
+    return true;
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * First layer STA event handler.
@@ -114,125 +574,6 @@ void taf_WlanSTASvcImpl::RemoveEventHandler(taf_wlanSta_EventHandlerRef_t handle
 {
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
     return;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Thread to monitor WPA supplicant events
- */
-//--------------------------------------------------------------------------------------------------
-void *taf_WlanSTASvcImpl::StaWpaSuppMonitorThreadHdlr(void *context)
-{
-    struct wpa_ctrl *ctrl = nullptr;
-    SuppThreadCtx_t *ThreadCtxPtr = (SuppThreadCtx_t *)context;
-    std::string wpa_supplicant_path(WPA_SUPPLICANT_LOCATION_PATH);
-    wpa_supplicant_path = wpa_supplicant_path + ThreadCtxPtr->IntfName;
-    LE_DEBUG("Supplicant: %s", wpa_supplicant_path.c_str());
-
-    StaWpaEvt_e resultEvent = EVT_WPA_ERROR;
-    bool eventFound = false;
-
-    ctrl = wpa_ctrl_open(wpa_supplicant_path.c_str());
-    if (ctrl == nullptr)
-    {
-        LE_ERROR("Failed to open control interface");
-        {
-            std::lock_guard<std::mutex> lock(ThreadCtxPtr->mutex);
-            ThreadCtxPtr->resultEvent = EVT_WPA_ERROR;
-            ThreadCtxPtr->eventCompleted = true;
-        }
-        return nullptr;
-    }
-
-    int ret = wpa_ctrl_attach(ctrl);
-    if (ret != 0)
-    {
-        LE_ERROR("Failed to attach to control interface");
-        {
-            std::lock_guard<std::mutex> lock(ThreadCtxPtr->mutex);
-            ThreadCtxPtr->resultEvent = EVT_WPA_ERROR;
-            ThreadCtxPtr->eventCompleted = true;
-        }
-        wpa_ctrl_close(ctrl);
-        return nullptr;
-    }
-
-    while(!eventFound && !ThreadCtxPtr->shouldExit)
-    {
-        ret = wpa_ctrl_pending(ctrl);
-        if (1 == ret)
-        {
-            char rsp[WPA_CTRL_RSP_BUF_LEN] = {0};
-            size_t len = WPA_CTRL_RSP_BUF_LEN;
-            // Event pending;
-            ret = wpa_ctrl_recv(ctrl, rsp, &len);
-            if (ret < 0)
-            {
-                LE_WARN("wpa_ctrl_recv failed");
-                resultEvent = EVT_WPA_ERROR;
-                eventFound = true;
-                break;
-            }
-            LE_DEBUG("Received response Len: %zu", len);
-            LE_DEBUG("Received response    : %s", rsp);
-            // Split the received buffer using space as delimiter
-            std::vector<std::string> ind = taf_WlanHelper::StrSplit(rsp, ' ');
-            if (!ind.empty()) {
-                LE_DEBUG("Received Event: %s", ind[0].c_str());
-                // Check if the event that is received is the one we are waiting on
-                for(const std::string& evt : ThreadCtxPtr->EventsToMonitor)
-                {
-                    LE_INFO("Wait for event: %s", evt.c_str());
-                    std::string s1 = taf_WlanHelper::StrTrimEndSpace(evt);
-                    std::string s2 = taf_WlanHelper::StrTrimEndSpace(ind[0]);
-                    if (s2.find(s1) != std::string::npos)
-                    {
-                        if (s1 == taf_WlanHelper::StrTrimEndSpace(WPA_EVENT_SCAN_RESULTS))
-                        {
-                            // Scanning is done
-                            resultEvent = EVT_WPA_AP_SCAN_DONE;
-                        }
-                        else if (s1 == taf_WlanHelper::StrTrimEndSpace(WPA_EVENT_CONNECTED))
-                        {
-                            // Network connection was successful
-                            LE_DEBUG("Network connection successful");
-                            resultEvent = EVT_WPA_AP_CONNECTED;
-                        }
-                        else if (s1 == taf_WlanHelper::StrTrimEndSpace(WPA_EVENT_TEMP_DISABLED))
-                        {
-                            LE_DEBUG("Network temporarily disabled");
-                            resultEvent = EVT_WPA_AP_TEMP_DISABLED;
-                        }
-                        LE_DEBUG("Found event, Exiting thread");
-                        eventFound = true;
-                        break;
-                    }
-                }
-            }
-        }
-        else if (ret < 0) {
-            // Error occurred
-            LE_ERROR("wpa_ctrl_pending failed");
-            resultEvent = EVT_WPA_ERROR;
-            eventFound = true;
-            break;
-        }
-        else {
-            // No events pending, sleep a bit to avoid busy waiting
-            usleep(10000); // 10ms
-        }
-    }
-
-    // Store the result in the thread context
-    {
-        std::lock_guard<std::mutex> lock(ThreadCtxPtr->mutex);
-        ThreadCtxPtr->resultEvent = resultEvent;
-        ThreadCtxPtr->eventCompleted = true;
-    }
-
-    LE_DEBUG("Exiting thread with result: %d", static_cast<int>(resultEvent));
-    wpa_ctrl_close(ctrl);
-    return nullptr;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -721,7 +1062,6 @@ void taf_WlanSTASvcImpl::PerformScan(StaCtx_t *CtxPtr)
 {
     TAF_ERROR_IF_RET_NIL(CtxPtr == nullptr, "Null context pointer provided to PerformScan");
 
-    // Check if interface name is valid
     if (CtxPtr->IntfName == nullptr || strlen(CtxPtr->IntfName) == 0)
     {
         LE_ERROR("Invalid interface name in context");
@@ -729,94 +1069,54 @@ void taf_WlanSTASvcImpl::PerformScan(StaCtx_t *CtxPtr)
         return;
     }
 
-    // Start a thread of monitoring WPA control events
-    le_thread_Ref_t supplicantThreadRef = nullptr;
-    // Pass the interface to use and event that we are waiting for.
-    SuppThreadCtx_t ThreadCtx;
-
-    le_result_t result = le_utf8_Copy(ThreadCtx.IntfName, CtxPtr->IntfName,
-                                     TAF_NET_INTERFACE_NAME_MAX_LEN + 1, nullptr);
-    if (result != LE_OK) {
-        LE_ERROR("Failed to copy interface name: %s", LE_RESULT_TXT(result));
-        // Ensure null termination
-        ThreadCtx.IntfName[0] = '\0';
+    // Set up fd monitoring for SCAN_RESULTS
+    SuppFdCtx_t *fdCtxPtr = nullptr;
+    std::vector<std::string> eventsToMonitor = { WPA_EVENT_SCAN_RESULTS };
+    if (SetupWpaSupplicantMonitoring(CtxPtr, eventsToMonitor, &fdCtxPtr) != LE_OK) {
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_FAILED);
         return;
     }
-
-    ThreadCtx.eventCompleted = false;
-    ThreadCtx.shouldExit = false;
-
-    ThreadCtx.EventsToMonitor.push_back(WPA_EVENT_SCAN_RESULTS);
-    supplicantThreadRef = le_thread_Create("suppThread", StaWpaSuppMonitorThreadHdlr,
-                                                                          (void *)&ThreadCtx);
 
     char rsp_buf[WPA_CTRL_RSP_BUF_LEN] = {0};
 
     // Start SCAN
     LE_DEBUG("WPA CMD: SCAN");
-    memset(rsp_buf, 0, WPA_CTRL_RSP_BUF_LEN);
     std::string wpaReqCmd = "SCAN";
     le_result_t res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
-    if(res != LE_OK)
+    if(res != LE_OK || strncmp(rsp_buf, "OK", strlen("OK")) != 0)
     {
-        LE_ERROR("Failed to send SCAN command");
-        ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_FAILED);
-        return;
-    }
-    if (0 != strncmp(rsp_buf, "OK", strlen("OK")))
-    {
+        LE_ERROR("SCAN command failed");
+        CleanupWpaSupplicantMonitoring(fdCtxPtr);
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_FAILED);
         return;
     }
 
-    le_thread_Start(supplicantThreadRef);
-
-    // SCAN is running. Wait for it to complete with timeout
-    const int MAX_WAIT_TIME_SEC = 15;
-    const int POLL_INTERVAL_MS = 100;
-    int elapsed_ms = 0;
-    bool eventCompleted = false;
-    StaWpaEvt_e resultEvent;
-
-    while (elapsed_ms < (MAX_WAIT_TIME_SEC * 1000))
+    // Wait for SCAN_RESULTS event with timeout (event-driven, no polling)
+    StaWpaEvt_e resultEvent = EVT_WPA_ERROR;
+    bool signaled = false;
     {
+        std::unique_lock<std::mutex> lock(fdCtxPtr->mutex);
+        signaled = fdCtxPtr->eventCv.wait_for(
+            lock, std::chrono::seconds(15),
+            [&]{ return fdCtxPtr->eventCompleted; });
+        if (signaled)
         {
-            // Use mutex to safely check shared state
-            std::lock_guard<std::mutex> lock(ThreadCtx.mutex);
-            eventCompleted = ThreadCtx.eventCompleted;
-            if (eventCompleted)
-            {
-                resultEvent = ThreadCtx.resultEvent;
-                break;
-            }
+            resultEvent = fdCtxPtr->resultEvent;
         }
-        usleep(POLL_INTERVAL_MS * 1000);
-        elapsed_ms += POLL_INTERVAL_MS;
     }
 
-    if (!eventCompleted)
-    {
-        LE_ERROR("Scan operation timed out");
-        ThreadCtx.shouldExit = true;
-        le_thread_Join(supplicantThreadRef, nullptr);
-        ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_FAILED);
-        return;
-    }
+    // Cleanup fd monitor (queue to client-events thread)
+    CleanupWpaSupplicantMonitoring(fdCtxPtr);
 
-    // Wait for thread to finish
-    le_thread_Join(supplicantThreadRef, nullptr);
-
-    // Check the SCAN completion return
-    if (resultEvent != EVT_WPA_AP_SCAN_DONE)
+    if (!signaled || resultEvent != EVT_WPA_AP_SCAN_DONE)
     {
-        LE_ERROR("WPA AP scan failed");
+        LE_ERROR("WPA AP scan failed or timed out");
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_FAILED);
         return;
     }
 
     // Get the scan results
-    memset(rsp_buf, 0, WPA_CTRL_RSP_BUF_LEN);
+    memset(rsp_buf, 0, sizeof(rsp_buf));
     wpaReqCmd = "SCAN_RESULTS";
     res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
     if(res != LE_OK)
@@ -825,10 +1125,10 @@ void taf_WlanSTASvcImpl::PerformScan(StaCtx_t *CtxPtr)
         return;
     }
 
-    // SCAN_RESULTS are in! Store them in the relevant context
+    // Store results
     PopulateScanResults(CtxPtr, rsp_buf);
 
-    // Report scan completed and clean up
+    // Report completion
     ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_COMPLETED);
 }
 
@@ -1018,7 +1318,6 @@ le_result_t taf_WlanSTASvcImpl::Connect(
     TAF_ERROR_IF_RET_VAL(CtxPtr == nullptr, LE_FAULT, "Received null context");
     TAF_ERROR_IF_RET_VAL(0 == strlen(ApInfo->SSID), LE_BAD_PARAMETER, "SSID is empty");
 
-    // The network should have been added before connect is called.
     if (mNetID.empty())
     {
         LE_ERROR("Network not added");
@@ -1026,120 +1325,79 @@ le_result_t taf_WlanSTASvcImpl::Connect(
         return LE_FAULT;
     }
 
-    // Start separate thread for monitoring required WPA events
-    le_thread_Ref_t networkConnectedThreadRef = nullptr;
-    SuppThreadCtx_t ThreadCtx;
-
-    if (CtxPtr->IntfName != nullptr && strlen(CtxPtr->IntfName) > 0)
+    if (IsConnectedToSSID(CtxPtr, ApInfo->SSID))
     {
-        le_result_t result = le_utf8_Copy(ThreadCtx.IntfName, CtxPtr->IntfName,
-                                         TAF_NET_INTERFACE_NAME_MAX_LEN + 1, NULL);
-        if (result != LE_OK)
-        {
-            LE_ERROR("Failed to copy interface name: %s", LE_RESULT_TXT(result));
-            // Ensure null termination
-            ThreadCtx.IntfName[0] = '\0';
-            ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
-            return LE_FAULT;
-        }
+        LE_INFO("Already connected to AP %s; reporting CONNECTED", ApInfo->SSID);
+        ReportStaState(CtxPtr, TAF_WLANSTA_STATE_CONNECTED);
+        return LE_OK;
     }
-    else
+
+    // Set up fd monitoring
+    SuppFdCtx_t *fdCtxPtr = nullptr;
+    std::vector<std::string> eventsToMonitor = { WPA_EVENT_CONNECTED, WPA_EVENT_TEMP_DISABLED };
+    if (SetupWpaSupplicantMonitoring(CtxPtr, eventsToMonitor, &fdCtxPtr) != LE_OK)
     {
-        LE_ERROR("Interface name is null or empty");
-        ThreadCtx.IntfName[0] = '\0';
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
         return LE_FAULT;
     }
-
-    ThreadCtx.eventCompleted = false;
-    ThreadCtx.shouldExit = false;
-
-    ThreadCtx.EventsToMonitor.push_back(WPA_EVENT_CONNECTED);
-    ThreadCtx.EventsToMonitor.push_back(WPA_EVENT_TEMP_DISABLED);
-
-    networkConnectedThreadRef = le_thread_Create("connThread",
-        StaWpaSuppMonitorThreadHdlr, (void *)&ThreadCtx);
-    le_thread_Start(networkConnectedThreadRef);
 
     char rsp_buf[WPA_CTRL_RSP_BUF_LEN] = {0};
-    // enable network
-    memset(rsp_buf, 0, WPA_CTRL_RSP_BUF_LEN);
-    std::string wpaReqCmd = "ENABLE_NETWORK " + mNetID;
+
+    // Select the network and enable it
+    std::string wpaReqCmd = "SELECT_NETWORK " + mNetID;
     le_result_t res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
-    if(res == LE_FAULT)
+    if (res == LE_FAULT || strncmp(rsp_buf, "OK", strlen("OK")) != 0)
     {
-        ThreadCtx.shouldExit = true;
-        le_thread_Join(networkConnectedThreadRef, nullptr);
-        ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
-        return LE_FAULT;
-    }
-    if (strncmp(rsp_buf, "OK", strlen("OK")) != 0)
-    {
-        LE_ERROR("ENABLE_NETWORK failed");
-        ThreadCtx.shouldExit = true;
-        le_thread_Join(networkConnectedThreadRef, nullptr);
+        CleanupWpaSupplicantMonitoring(fdCtxPtr);
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
         return LE_FAULT;
     }
 
-    // Force reassociation(for cases where Network ID was already added)
-    memset(rsp_buf, 0, WPA_CTRL_RSP_BUF_LEN);
-    wpaReqCmd = "REASSOCIATE";
+    memset(rsp_buf, 0, sizeof(rsp_buf));
+    wpaReqCmd = "ENABLE_NETWORK " + mNetID;
     res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
-    if(res == LE_FAULT)
+    if(res == LE_FAULT || strncmp(rsp_buf, "OK", strlen("OK")) != 0)
     {
-        ThreadCtx.shouldExit = true;
-        le_thread_Join(networkConnectedThreadRef, nullptr);
+        CleanupWpaSupplicantMonitoring(fdCtxPtr);
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
         return LE_FAULT;
     }
-    if (strncmp(rsp_buf, "OK", strlen("OK")) != 0)
+
+    // Prefer RECONNECT to avoid a forced disconnect if already connected
+    memset(rsp_buf, 0, sizeof(rsp_buf));
+    wpaReqCmd = "RECONNECT";
+    res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
+    if(res == LE_FAULT || strncmp(rsp_buf, "OK", strlen("OK")) != 0)
     {
-        LE_ERROR("REASSOCIATE failed");
-        ThreadCtx.shouldExit = true;
-        le_thread_Join(networkConnectedThreadRef, nullptr);
+        CleanupWpaSupplicantMonitoring(fdCtxPtr);
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
         return LE_FAULT;
     }
 
     // Wait for connection result with timeout
-    const int MAX_WAIT_TIME_SEC = 15;
-    const int POLL_INTERVAL_MS = 100;
-    int elapsed_ms = 0;
-    bool eventCompleted = false;
-    StaWpaEvt_e resultEvent;
-
-    while (elapsed_ms < (MAX_WAIT_TIME_SEC * 1000))
+    StaWpaEvt_e resultEvent = EVT_WPA_ERROR;
+    bool signaled = false;
     {
+        std::unique_lock<std::mutex> lock(fdCtxPtr->mutex);
+        signaled = fdCtxPtr->eventCv.wait_for(
+            lock, std::chrono::seconds(15),
+            [&]{ return fdCtxPtr->eventCompleted; });
+        if (signaled)
         {
-            // Use mutex to safely check shared state
-            std::lock_guard<std::mutex> lock(ThreadCtx.mutex);
-            eventCompleted = ThreadCtx.eventCompleted;
-            if (eventCompleted)
-            {
-                resultEvent = ThreadCtx.resultEvent;
-                break;
-            }
+            resultEvent = fdCtxPtr->resultEvent;
         }
-        usleep(POLL_INTERVAL_MS * 1000);
-        elapsed_ms += POLL_INTERVAL_MS;
     }
 
-    if (!eventCompleted)
-    {
-        LE_TEST_INFO("Timeout waiting for connection event");
-        ThreadCtx.shouldExit = true;
-    }
+    // Cleanup monitor
+    CleanupWpaSupplicantMonitoring(fdCtxPtr);
 
-    // Wait for thread to finish
-    le_thread_Join(networkConnectedThreadRef, nullptr);
-
-    if (eventCompleted)
+    if (signaled)
     {
         if (resultEvent == EVT_WPA_AP_CONNECTED)
         {
             LE_INFO("Connection to AP %s was successful", ApInfo->SSID);
-            // TAF_WLANSTA_STATE_CONNECTED event will be sent from onStationStatusChanged
+            // Notify clients immediately to satisfy tests waiting on CONNECTED.
+            ReportStaState(CtxPtr, TAF_WLANSTA_STATE_CONNECTED);
             return LE_OK;
         }
         else if (resultEvent == EVT_WPA_AP_TEMP_DISABLED)
@@ -1150,7 +1408,14 @@ le_result_t taf_WlanSTASvcImpl::Connect(
         }
     }
 
-    // Default case - timeout or other error
+    // Final fallback on timeout: verify STATUS
+    if (IsConnectedToSSID(CtxPtr, ApInfo->SSID))
+    {
+        LE_INFO("Connected to AP %s (detected via STATUS) after timeout", ApInfo->SSID);
+        ReportStaState(CtxPtr, TAF_WLANSTA_STATE_CONNECTED);
+        return LE_OK;
+    }
+
     LE_WARN("Connection attempt to AP %s timed out or failed", ApInfo->SSID);
     return LE_FAULT;
 }
@@ -1248,7 +1513,7 @@ le_result_t taf_WlanSTASvcImpl::Disconnect(
         return LE_FAULT;
     }
 
-    // disable network
+    // Disable network
     memset(rsp_buf, 0, WPA_CTRL_RSP_BUF_LEN);
     wpaReqCmd = "DISABLE_NETWORK " + netID;
     res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
@@ -1262,7 +1527,8 @@ le_result_t taf_WlanSTASvcImpl::Disconnect(
         return LE_FAULT;
     }
 
-    // TAF_WLANSTA_STATE_DISCONNECTED event will be sent from onStationStatusChanged
+    LE_INFO("Reporting DISCONNECTED state");
+    ReportStaState(CtxPtr, TAF_WLANSTA_STATE_DISCONNECTED);
     return LE_OK;
 }
 

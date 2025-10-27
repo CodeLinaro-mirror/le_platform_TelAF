@@ -777,6 +777,7 @@ le_result_t TafDcsProfileManager::SvcSetApnTypes
 le_result_t TafDcsProfileManager::SvcSetPDP(taf_dcs_ProfileRef_t profileRef, taf_dcs_Pdp_t pdp)
 {
     TAF_ERROR_IF_RET_VAL(nullptr == profileRef, LE_BAD_PARAMETER, "profileRef is NULL");
+    LE_WARN_IF(TAF_DCS_PDP_UNKNOWN == pdp, "PDP is TAF_DCS_PDP_UNKNOWN");
 
     // Get a reference (profile) to TafDcsProfile object object that matches profileRef
     GET_DCS_PROFILE_FROM_REF_RET_VAL(profileRef, LE_NOT_FOUND);
@@ -813,7 +814,7 @@ le_result_t TafDcsProfileManager::SvcSetPDP(taf_dcs_ProfileRef_t profileRef, taf
 
     // Update the details in the profile.
     result = profile.SetPdp(pdp);
-    TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "SetName failed.");
+    TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "SetPdp failed.");
 
     return LE_OK;
 }
@@ -1255,9 +1256,9 @@ le_result_t TafDcsProfileManager::SvcGetIPv6SubnetMask
     std::string dummyStr;
     unsigned int gwMask, dummyMask;
 
-    le_result_t result = profile.GetIPv4Addresses(dummyStr, dummyStr, dummyStr, dummyStr,
+    le_result_t result = profile.GetIPv6Addresses(dummyStr, dummyStr, dummyStr, dummyStr,
                                                                             gwMask, dummyMask);
-    TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "GetIPv4Address failed: %d", TO_INT(result));
+    TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "GetIPv6Address failed: %d", TO_INT(result));
 
     *maskPtr = gwMask;
     return LE_OK;
@@ -1460,7 +1461,7 @@ le_result_t TafDcsProfileManager::SvcGetCallEndReason
 
     // A data call should have been setup
     TAF_ERROR_IF_RET_VAL(!profile.GetCallSetup(), LE_UNAVAILABLE,
-                                                "Data calll has not been setup yet.");
+                                                "Data call has not been setup yet.");
 
     // Call the TafDcsProfile API with the object reference to get the session state
     taf_dcs_ConState_t connState, ipv4state, ipv6state;
@@ -2001,8 +2002,6 @@ le_result_t TafDcsProfileManager::SvcStopSessionSync
     le_msg_SessionRef_t clientRef
 )
 {
-    TAF_ERROR_IF_RET_VAL(nullptr == profileRef, LE_BAD_PARAMETER, "profileRef is NULL");
-
     TAF_ERROR_IF_RET_VAL(nullptr == profileRef, LE_BAD_PARAMETER, "profileRef is NULL");
 
     // Get a reference (profile) to TafDcsProfile object object that matches profileRef
@@ -4042,7 +4041,7 @@ void TafDcsProfileManager::registerStartSessionAsyncRspEventHandler
     LE_UNUSED(param1Ptr);
     LE_UNUSED(param2Ptr);
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    le_event_AddHandler("paSessionStateChangeEvtId_ Hdlr", tafDcsSvc.GetStartSessionAsyncRspEvtId(),
+    le_event_AddHandler("startSessionAsyncRspEvtId_ Hdlr", tafDcsSvc.GetStartSessionAsyncRspEvtId(),
                                                                 startSessionAsyncRspEventHandler);
 }
 

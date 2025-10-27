@@ -6,25 +6,30 @@
 #include <iostream>
 #include <string>
 #include <cstring>
+#include <atomic>
 
 #include "legato.h"
 #include "interfaces.h"
 
 using namespace std;
 
-static le_sem_Ref_t TestSemRef, semaphore;
+static le_sem_Ref_t TestSemRef;
 static le_thread_Ref_t threadRef = NULL;
 static taf_dcs_ProfileRef_t TestProfileRef = NULL;
 static taf_dcs_SessionStateHandlerRef_t TestSessionStateRef = NULL;
 static int TC_No = 1;
 char ApnStr_bak[TAF_DCS_APN_NAME_MAX_LEN];
 
+static std::atomic<bool> bIPv4Connected{false};
+static std::atomic<bool> bIPv6Connected{false};
+static std::atomic<le_result_t> asyncResult{LE_FAULT};
+
 static const char *callEventToString(taf_dcs_ConState_t callEvent)
 {
     switch (callEvent)
     {
         case TAF_DCS_DISCONNECTED:
-            return "disconnect";
+            return "disconnected";
         case TAF_DCS_CONNECTING:
             return "connecting";
         case TAF_DCS_CONNECTED:
@@ -32,108 +37,51 @@ static const char *callEventToString(taf_dcs_ConState_t callEvent)
         case TAF_DCS_DISCONNECTING:
             return "disconnecting";
         default:
-            LE_ERROR("unknown status: %d", callEvent);
-            return "unknow status";
+            LE_TEST_INFO ("ERR: Unknown status: %d", callEvent);
+            return "ERR: UNKNOWN";
     }
-    return "unknow status";
 }
 
-const char* return_val(le_result_t result)
+static const char *pdpTypeToString(taf_dcs_Pdp_t pdp)
 {
-    const char* ret_val;
-    switch (result)
+    switch (pdp)
     {
-        case 0:
-            ret_val = "LE_OK";
-            break;
-        case -1:
-            ret_val = "LE_NOT_FOUND";
-            break;
-        case -2:
-            ret_val = "LE_NOT_POSSIBLE";
-            break;
-        case -3:
-            ret_val = "LE_OUT_OF_RANGE";
-            break;
-        case -4:
-            ret_val = "LE_NO_MEMORY";
-            break;
-        case -5:
-            ret_val = "LE_NOT_PERMITTED";
-            break;
-        case -6:
-            ret_val = "LE_FAULT";
-            break;
-        case -7:
-            ret_val = "LE_COMM_ERROR";
-            break;
-        case -8:
-            ret_val = "LE_TIMEOUT";
-            break;
-        case -9:
-            ret_val = "LE_OVERFLOW";
-            break;
-        case -10:
-            ret_val = "LE_UNDERFLOW";
-            break;
-        case -11:
-            ret_val = "LE_WOULD_BLOCK";
-            break;
-        case -12:
-            ret_val = "LE_DEADLOCK";
-            break;
-        case -13:
-            ret_val = "LE_FORMAT_ERROR";
-            break;
-        case -14:
-            ret_val = "LE_DUPLICATE";
-            break;
-        case -15:
-            ret_val = "LE_BAD_PARAMETER";
-            break;
-        case -16:
-            ret_val = "LE_CLOSED";
-            break;
-        case -17:
-            ret_val = "LE_BUSY";
-            break;
-        case -18:
-            ret_val = "LE_UNSUPPORTED";
-            break;
-        case -19:
-            ret_val = "LE_IO_ERROR";
-            break;
-        case -20:
-            ret_val = "LE_NOT_IMPLEMENTED";
-            break;
-        case -21:
-            ret_val = "LE_UNAVAILABLE";
-            break;
-        case -22:
-            ret_val = "LE_TERMINATED";
-            break;
-        case -23:
-            ret_val = "LE_IN_PROGRESS";
-            break;
-        case -24:
-            ret_val = "LE_SUSPENDED";
-            break;
-        default:
-            ret_val = "LE_OK";
-            break;
+    case TAF_DCS_PDP_IPV4:
+        return "IPV4";
+    case TAF_DCS_PDP_IPV6:
+        return "IPV6";
+    case TAF_DCS_PDP_IPV4V6:
+        return "IPV4V6";
+    case TAF_DCS_PDP_UNKNOWN:
+        return "UNKNOWN";
+    default:
+        LE_TEST_INFO("ERR: Unsupported pdp: %d", pdp);
+        return "ERR: UNSUPPORTED";
     }
-    return ret_val;
 }
 
-void report(le_result_t expected_result, le_result_t actual_result, string API_Name)
+static void report(le_result_t expected_result, le_result_t actual_result, string API_Name)
 {
     if (expected_result == actual_result)
     {
-        std::cout<<TC_No<<". "<<API_Name<<" - "<<return_val(expected_result)<<" - Pass"<<endl;
+        std::cout<<TC_No<<". "<<API_Name<<" - "<< LE_RESULT_TXT(expected_result)<<" - Pass"<<endl;
     }
     else
     {
-        std::cout<<TC_No<<". "<<API_Name<<" - "<<return_val(expected_result)<<" - Fail"<<endl;
+        std::cout<<TC_No<<". "<<API_Name<<" - "<< LE_RESULT_TXT(actual_result)<<" - Fail"<<endl;
+    }
+    TC_No += 1;
+}
+
+static void report(bool expected_result, bool actual_result, string API_Name)
+{
+    if (expected_result == actual_result)
+    {
+        std::cout << TC_No << ". " << API_Name << " - " << " - Pass" << endl;
+    }
+    else
+    {
+        std::cout << TC_No << ". " << API_Name << " - " << " - Fail" << endl;
     }
     TC_No += 1;
 }
@@ -145,10 +93,16 @@ static void StartSessionAsyncHandlerFunc
     void* contextPtr
 )
 {
+    LE_TEST_INFO("**** Handler for Start Session Asynchronously (Begin)****");
+
+    LE_TEST_OK(LE_OK == result, "taf_dcs_StartSessionAsync IPv4v6: %d", result);
+
+    asyncResult.store(result);
+
     int32_t profileId = taf_dcs_GetProfileIndex(profileRef);
-    LE_INFO("**** Handler for Start Session Asynchronously (Begin)****");
-    LE_INFO("profileId= %d, result: %d", profileId, result);
-    LE_INFO("**** Handler for Start Session Asynchronously (End)****");
+
+    LE_TEST_INFO("profileId= %d, result: %d", profileId, result);
+    LE_TEST_INFO("**** Handler for Start Session Asynchronously (End)****");
     le_sem_Post(TestSemRef);
 }
 
@@ -166,10 +120,15 @@ static void StopSessionAsyncHandlerFunc
     void* contextPtr
 )
 {
+    LE_TEST_INFO("**** Handler for Stop Session Asynchronously (Begin)****");
+
+    LE_TEST_OK(LE_OK == result, "taf_dcs_StopSessionAsync IPv4v6: %d", result);
+
+    asyncResult.store(result);
+
     int32_t profileId = taf_dcs_GetProfileIndex(profileRef);
-    LE_INFO("**** Handler for Stop Session Asynchronously (Begin)****");
-    LE_INFO("profileId= %d, result: %d", profileId, result);
-    LE_INFO("**** Handler for Stop Session Asynchronously (End)****");
+    LE_TEST_INFO("profileId= %d, result: %d", profileId, result);
+    LE_TEST_INFO("**** Handler for Stop Session Asynchronously (End)****");
     le_sem_Post(TestSemRef);
 }
 
@@ -188,34 +147,70 @@ void data_event_handler
     void* contextPtr
 )
 {
+    LE_UNUSED(contextPtr);
     le_result_t result;
     char interfaceName[64];
-    taf_dcs_Pdp_t expectIpType = *(taf_dcs_Pdp_t *)contextPtr;
+    uint32_t profileId = 0;
 
-    LE_TEST_INFO("Get data handler event. profile ref: %p, callEvent: %s, ip: %d, expect ip: %d\n",
-        profileRef, callEventToString(callEvent), infoPtr->ipType, expectIpType);
+    result = taf_dcs_GetProfileId(profileRef, &profileId);
+    LE_TEST_OK(LE_OK == result, "taf_dcs_GetProfileId: %d", result);
 
-    if ((callEvent == TAF_DCS_CONNECTED) && (infoPtr->ipType == expectIpType))
+    LE_TEST_INFO("Profile: %d(%p), callEvent: %s, PDP: %s", profileId, profileRef,
+                                callEventToString(callEvent), pdpTypeToString(infoPtr->ipType));
+
+    LE_TEST_OK((TAF_DCS_PDP_IPV4 == infoPtr->ipType) || (TAF_DCS_PDP_IPV6 == infoPtr->ipType),
+                                                "data event handler PDP should be IPv4 or IPv6" );
+
+    if (callEvent == TAF_DCS_CONNECTED)
     {
         result = taf_dcs_GetInterfaceName(profileRef, interfaceName, 64);
         LE_TEST_OK(result == LE_OK,"taf_dcs_GetInterfaceName - LE_OK");
         LE_TEST_INFO("Data call connected, interface : %s", interfaceName);
-    }
-    else if ((callEvent == TAF_DCS_DISCONNECTED) && (infoPtr->ipType == expectIpType))
-    {
-        result = taf_dcs_GetInterfaceName(profileRef, interfaceName, 64);
-        LE_TEST_OK(result == LE_NOT_POSSIBLE,"taf_dcs_GetInterfaceName - LE_OK");
-        LE_TEST_INFO("Data call disconnected");
-    }
-    else if ((callEvent == TAF_DCS_CONNECTING) && (infoPtr->ipType == expectIpType))
-    {
-        LE_TEST_INFO("Data call connecting");
-    }
-    else if ((callEvent == TAF_DCS_DISCONNECTING) && (infoPtr->ipType == expectIpType))
-    {
-        LE_TEST_INFO("Data call disconnecting");
+        if (TAF_DCS_PDP_IPV4 == infoPtr->ipType)
+        {
+            LE_TEST_INFO("Call Connected: TAF_DCS_PDP_IPV4");
+            std::cout << "Call Connected: TAF_DCS_PDP_IPV4" << endl;
+            bIPv4Connected.store(true);
+        }
+        else if (TAF_DCS_PDP_IPV6 == infoPtr->ipType)
+        {
+            LE_TEST_INFO("Call Connected: TAF_DCS_PDP_IPV6");
+            std::cout << "Call Connected: TAF_DCS_PDP_IPV6" << endl;
+            bIPv6Connected.store(true);
+        }
+        else
+        {
+            LE_TEST_INFO("ERR: Call Connected: PDP type not supported: %d", infoPtr->ipType);
+            std::cout << "ERR: Call Connected: PDP type not supported: " << infoPtr->ipType << endl;
+        }
+        return;
     }
 
+    if ((callEvent == TAF_DCS_DISCONNECTED))
+    {
+        result = taf_dcs_GetInterfaceName(profileRef, interfaceName, 64);
+        LE_TEST_OK(result == LE_UNAVAILABLE, "taf_dcs_GetInterfaceName - LE_UNAVAILABLE");
+        if (TAF_DCS_PDP_IPV4 == infoPtr->ipType)
+        {
+            LE_TEST_INFO("Call Disconnected: TAF_DCS_PDP_IPV4");
+            std::cout << "Call Disconnected: TAF_DCS_PDP_IPV4" << endl;
+            bIPv4Connected.store(false);
+        }
+        else if (TAF_DCS_PDP_IPV6 == infoPtr->ipType)
+        {
+            LE_TEST_INFO("Call Disconnected: TAF_DCS_PDP_IPV6");
+            std::cout << "Call Disconnected: TAF_DCS_PDP_IPV6" << endl;
+            bIPv6Connected.store(false);
+        }
+        else
+        {
+            LE_TEST_INFO("ERR: Call Disconnected: PDP type not supported: %d", infoPtr->ipType);
+            std::cout << "ERR: Call Disconnected: PDP type not supported: " << infoPtr->ipType <<
+                                                                                               endl;
+        }
+        return;
+    }
+    return;
 }
 
 void profile_list_test()
@@ -301,11 +296,12 @@ void set_auth_test()
 
 static void* taf_data_session_handler(void* ctxPtr)
 {
+    LE_UNUSED(ctxPtr);
     taf_dcs_ConnectService();
 
     // Test Case
     TestSessionStateRef = taf_dcs_AddSessionStateHandler(TestProfileRef,
-                          (taf_dcs_SessionStateHandlerFunc_t)data_event_handler, ctxPtr);
+                          (taf_dcs_SessionStateHandlerFunc_t)data_event_handler, nullptr);
     LE_TEST_OK(TestSessionStateRef != NULL, "taf_dcs_AddSessionStateHandler - !NULL");
     if(TestSessionStateRef != NULL)
     {
@@ -325,11 +321,10 @@ static void* taf_data_session_handler(void* ctxPtr)
 static void* remove_handler(void* ctxPtr)
 {
     LE_TEST_INFO("Inside remove_handler");
-    taf_dcs_SessionStateHandlerRef_t* session_handler_ref =
-                                      (taf_dcs_SessionStateHandlerRef_t*) ctxPtr;
-    taf_dcs_SessionStateHandlerRef_t session_handler = *session_handler_ref;
-    taf_dcs_RemoveSessionStateHandler(session_handler);
-    le_sem_Post(semaphore);
+    LE_UNUSED(ctxPtr);
+    if (TestSessionStateRef)
+        taf_dcs_RemoveSessionStateHandler(TestSessionStateRef);
+    le_sem_Post(TestSemRef);
     return NULL;
 }
 
@@ -340,16 +335,7 @@ void set_pdp_test(taf_dcs_Pdp_t pdp)
 
     // Test Case
     result = taf_dcs_SetPDP(TestProfileRef, pdp);
-    if (TAF_DCS_PDP_UNKNOWN == pdp)
-    {
-        LE_TEST_OK(result == LE_BAD_PARAMETER, "taf_dcs_SetPDP - LE_BAD_PARAMETER");
-        TC_No += 1;
-        return;
-    }
-    else
-    {
-        LE_TEST_OK(result == LE_OK, "taf_dcs_SetPDP - LE_OK");
-    }
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetPDP - LE_OK");
     report(LE_OK,result,"taf_dcs_SetPDP");
 
     // Test Case
@@ -521,6 +507,9 @@ static void* ipv4_check(void* ipType)
         {
             std::cout<<TC_No<<". taf_dcs_IsIPv4 - FALSE - Fail"<<endl;
         }
+        // Return from here as other tests are not valid.
+        TC_No += 1;
+        return nullptr;
     }
     TC_No += 1;
 
@@ -560,7 +549,7 @@ static void* ipv4_check(void* ipType)
     LE_TEST_INFO("IPv4 Dns0: %s, Dns1: %s", ipAddr0, ipAddr1);
     if(result == LE_OK)
     {
-        std::cout<<TC_No<<". taf_dcs_GetIPv4DNSAddresses - LE_OK - Pass - "<<ipAddr1<<endl;
+        std::cout << TC_No << ". taf_dcs_GetIPv4DNSAddresses - LE_OK - Pass - " << ipAddr0 << endl;
     }
     else
     {
@@ -603,6 +592,9 @@ static void* ipv6_check(void* ipType)
         {
             std::cout<<TC_No<<". taf_dcs_IsIPv6 - FALSE - Fail"<<endl;
         }
+        TC_No += 1;
+        // Return from here as other tests are not valid.
+        return nullptr;
     }
     TC_No += 1;
 
@@ -642,7 +634,7 @@ static void* ipv6_check(void* ipType)
     LE_TEST_INFO("IPv6 Dns0: %s, Dns1: %s", ipAddr0, ipAddr1);
     if(result == LE_OK)
     {
-        std::cout<<TC_No<<". taf_dcs_GetIPv6DNSAddresses - LE_OK - Pass - "<<ipAddr1<<endl;
+        std::cout << TC_No << ". taf_dcs_GetIPv6DNSAddresses - LE_OK - Pass - " << ipAddr0 << endl;
     }
     else
     {
@@ -694,57 +686,28 @@ COMPONENT_INIT
 {
     le_result_t result;
     taf_dcs_Pdp_t ipType;
-    const char* apnPtr = "jionet";
+    int iCount = 0;
+
     int NumberOfArgs = le_arg_NumArgs();
-    LE_INFO("Total NumberOfArgs: %d", NumberOfArgs);
-    if (NumberOfArgs >= 1)
-    {
-        apnPtr = le_arg_GetArg(0);
-        if (NULL == apnPtr)
-        {
-            LE_ERROR("parameter is NULL");
-            exit(EXIT_FAILURE);
-        }
-    }
-    else // if no arguments passed in the command line argument
-    {
-        LE_ERROR("NumberOfArgs: %d", NumberOfArgs);
-        std::cout <<"No Parameters passed, provide apn name. Exiting the application"<< endl;
-        exit(EXIT_FAILURE);
-    }
+    LE_TEST_ASSERT (NumberOfArgs >= 1, "At least one argument required: %d", NumberOfArgs);
+    const char *apnPtr = le_arg_GetArg(0);
+    LE_TEST_ASSERT(nullptr != apnPtr, "APN parameter: %s", apnPtr ? apnPtr : "(null)");
 
-    LE_TEST_PLAN(10);
-
+    le_clk_Time_t timeout60Sec = {60, 0}; // 1 minute.
     uint32_t profile_index =5;// Use profile 5 to test, because profile 1 used by xtra-daemon
-
     TestSemRef = le_sem_Create("tafDataAppSem", 0);
 
-    std::cout <<endl;
-    std::cout <<"************************************************" << endl;
-    std::cout <<"Pre-Condition:" << endl;
-    std::cout <<"************************************************" << endl;
+    LE_TEST_PLAN(LE_TEST_NO_PLAN);
+
+    std::cout << std::endl;
+    std::cout << "************************************************" << std::endl;
+    std::cout << "Prerequisites: " << std::endl
+              << " 1. NAD should be registered." << std::endl
+              << " 2. APN used should support both IPv4 and IPv4 data calls." << std::endl;
+    std::cout << "************************************************" << std::endl;
     default_profile_set_get_test(profile_index);
 
     set_auth_test();
-
-    /* Taf Data Call with PDP - TAF_DCS_PDP_IPV4V6 */
-    LE_TEST_INFO("Test Taf Data Call with PDP - TAF_DCS_PDP_IPV4V6");
-    std::cout <<endl;
-    std::cout <<"************************************************" << endl;
-    std::cout <<"Test Taf Data Call with PDP - TAF_DCS_PDP_IPV4V6" << endl;
-    std::cout <<"************************************************" << endl;
-    ipType = TAF_DCS_PDP_IPV4V6;
-    set_pdp_test(ipType);
-    set_apn_test(apnPtr);
-    // profile_list_test();
-    result=taf_dcs_StartSession(TestProfileRef);
-    LE_TEST_OK(result ==  LE_OK, "taf_dcs_StartSession -  LE_OK");
-    report(LE_OK,result,"taf_dcs_StartSession");
-    ipv4_check(&ipType);
-    ipv6_check(&ipType);
-    result=taf_dcs_StopSession(TestProfileRef);
-    LE_TEST_OK(result == LE_OK, "stop_session_sync_test - LE_OK");
-    report(LE_OK,result,"stop_session_sync_test");
 
     /* Taf Data Call with PDP - TAF_DCS_PDP_IPV4 */
     LE_TEST_INFO("Test Taf Data Call with PDP - TAF_DCS_PDP_IPV4");
@@ -752,19 +715,37 @@ COMPONENT_INIT
     std::cout <<"**********************************************" << endl;
     std::cout <<"Test Taf Data Call with PDP - TAF_DCS_PDP_IPV4" << endl;
     std::cout <<"**********************************************" << endl;
+    LE_TEST_INFO ("**********************************************");
+    LE_TEST_INFO("Test Taf Data Call with PDP - TAF_DCS_PDP_IPV4");
+    LE_TEST_INFO("**********************************************");
     TC_No = 1;
     ipType = TAF_DCS_PDP_IPV4;
     set_pdp_test(ipType);
     set_apn_test(apnPtr);
     // profile_list_test();
     result=taf_dcs_StartSession(TestProfileRef);
-    LE_TEST_OK(result ==  LE_OK, "taf_dcs_StartSession -  LE_OK");
+    LE_TEST_OK(result == LE_OK, "taf_dcs_StartSession -  LE_OK");
     report(LE_OK,result,"taf_dcs_StartSession");
-    ipv4_check(&ipType);
-    ipv6_check(&ipType);
-    result=taf_dcs_StopSession(TestProfileRef);
-    LE_TEST_OK(result == LE_OK, "stop_session_sync_test - LE_OK");
-    report(LE_OK,result,"stop_session_sync_test");
+    if (LE_OK == result)
+    {
+        ipv4_check(&ipType);
+        ipv6_check(&ipType);
+        std::cout << "Waiting 10s before stopping data session" << endl;
+        LE_TEST_INFO("Waiting 10s before stopping data session");
+        sleep(10); // Sleep for 10s and then stop session.
+        result = taf_dcs_StopSession(TestProfileRef);
+        LE_TEST_OK(result == LE_OK, "stop_session_sync_test - LE_OK");
+        report(LE_OK,result,"stop_session_sync_test");
+
+        std::cout << "Waiting 10s before next test" << endl;
+        LE_TEST_INFO("Waiting 10s before next test");
+        sleep(10); // Sleep for 10s
+    }
+    else
+    {
+        LE_TEST_INFO("ERR: Skipping IPv4 tests as taf_dcs_StartSession failed.");
+        std::cout << "ERR: Skipping IPv4 tests as taf_dcs_StartSession failed." << endl;
+    }
 
     /* Taf Data Call with PDP - TAF_DCS_PDP_IPV6 */
     LE_TEST_INFO("Test Taf Data Call with PDP - TAF_DCS_PDP_IPV6");
@@ -772,45 +753,119 @@ COMPONENT_INIT
     std::cout <<"**********************************************" << endl;
     std::cout <<"Test Taf Data Call with PDP - TAF_DCS_PDP_IPV6" << endl;
     std::cout <<"**********************************************" << endl;
+    LE_TEST_INFO("**********************************************");
+    LE_TEST_INFO("Test Taf Data Call with PDP - TAF_DCS_PDP_IPV6");
+    LE_TEST_INFO("**********************************************");
     TC_No = 1;
     ipType = TAF_DCS_PDP_IPV6;
     set_pdp_test(ipType);
     set_apn_test(apnPtr);
     // profile_list_test();
     result=taf_dcs_StartSession(TestProfileRef);
-    LE_TEST_OK(result ==  LE_OK, "taf_dcs_StartSession -  LE_OK");
-    report(LE_OK,result,"taf_dcs_StartSession");
-    ipv4_check(&ipType);
-    ipv6_check(&ipType);
-    result=taf_dcs_StopSession(TestProfileRef);
-    LE_TEST_OK(result == LE_OK, "stop_session_sync_test - LE_OK");
-    report(LE_OK,result,"stop_session_sync_test");
+    LE_TEST_OK(result == LE_OK, "taf_dcs_StartSession -  LE_OK");
+    if (LE_OK == result)
+    {
+        report(LE_OK,result,"taf_dcs_StartSession");
+        ipv4_check(&ipType);
+        ipv6_check(&ipType);
+        std::cout << "Waiting 10s before stopping data session" << endl;
+        LE_TEST_INFO("Waiting 10s before stopping data session");
+        sleep(10); // Sleep for 10s and then stop session.
+        result=taf_dcs_StopSession(TestProfileRef);
+        LE_TEST_OK(result == LE_OK, "stop_session_sync_test - LE_OK");
+        report(LE_OK,result,"stop_session_sync_test");
+        std::cout << "Waiting 10s before next test" << endl;
+        LE_TEST_INFO("Waiting 10s before next test");
+        sleep(10); // Sleep for 10s
+    }
+    else
+    {
+        LE_TEST_INFO("ERR: Skipping IPv6 tests as taf_dcs_StartSession failed.");
+        std::cout << "ERR: Skipping IPv6 tests as taf_dcs_StartSession failed." << endl;
+    }
 
-    /* Taf Data Call with PDP - TAF_DCS_PDP_UNKNOWN */
-    LE_TEST_INFO("Test Taf Data Call with PDP - TAF_DCS_PDP_UNKNOWN");
-    std::cout <<endl;
-    std::cout <<"*************************************************" << endl;
-    std::cout <<"Test Taf Data Call with PDP - TAF_DCS_PDP_UNKNOWN" << endl;
-    std::cout <<"*************************************************" << endl;
+    if (threadRef == NULL)
+    {
+        threadRef = le_thread_Create("taf_datacall_state_thread",taf_data_session_handler, nullptr);
+        le_thread_Start(threadRef);
+    }
+    /* Taf Data Call with PDP - TAF_DCS_PDP_IPV4V6 */
+    LE_TEST_INFO("Test Taf Data Call with PDP - TAF_DCS_PDP_IPV4V6");
+    std::cout << endl;
+    std::cout << "************************************************" << endl;
+    std::cout << "Test Taf Data Call with PDP - TAF_DCS_PDP_IPV4V6" << endl;
+    std::cout << "************************************************" << endl;
+    LE_TEST_INFO("**********************************************");
+    LE_TEST_INFO("Test Taf Data Call with PDP - TAF_DCS_PDP_IPV4V6");
+    LE_TEST_INFO("**********************************************");
     TC_No = 1;
-    ipType = TAF_DCS_PDP_UNKNOWN;
+    ipType = TAF_DCS_PDP_IPV4V6;
     set_pdp_test(ipType);
-
-    // These tests need not be run as TAF_DCS_PDP_UNKNOWN is not a supported PDP value.
-    /*
     set_apn_test(apnPtr);
-    // profile_list_test();
-    result=taf_dcs_StartSession(TestProfileRef);
-    LE_TEST_OK(result == LE_OUT_OF_RANGE, "taf_dcs_StartSession - LE_OUT_OF_RANGE");
-    report(LE_OUT_OF_RANGE,result,"taf_dcs_StartSession");
-    ipv4_check(&ipType);
-    ipv6_check(&ipType);
-    result=taf_dcs_StopSession(TestProfileRef);
-    LE_TEST_OK(result == LE_OUT_OF_RANGE, "stop_session_sync_test - LE_OUT_OF_RANGE");
-    report(LE_OUT_OF_RANGE,result,"stop_session_sync_test");
-    restore_apn_test();
-    get_roaming_status_test();
-    */
+
+    bIPv4Connected.store(false);
+    bIPv6Connected.store(false);
+    // Start and ensure both IPv4 and IPv6 are connected
+    result = taf_dcs_StartSession(TestProfileRef);
+    LE_TEST_OK(LE_OK == result, "taf_dcs_StartSession IPv4v6: %d", result);
+    report(LE_OK, result, "taf_dcs_StartSession IPv4v6");
+
+    if (LE_OK == result)
+    {
+        iCount = 0;
+        do
+        {
+            // Wait for events to be generated for max 60s.
+            if (60 == iCount)
+            {
+                LE_TEST_INFO("ERR: taf_dcs_StartSession IPv4v6 event timeout.");
+                break;
+            }
+            iCount++;
+            sleep(1);
+        } while (!bIPv4Connected.load() || !bIPv6Connected.load());
+        LE_TEST_OK(bIPv4Connected.load(), "taf_dcs_StartSession IPv4v6 -  IPv4");
+        report(true, bIPv4Connected.load(), "taf_dcs_StartSession IPv4v6 -  IPv4");
+        ipv4_check(&ipType);
+
+        LE_TEST_OK(bIPv6Connected.load(), "taf_dcs_StartSession IPv4v6 -  IPv6");
+        report(true, bIPv6Connected.load(), "taf_dcs_StartSession IPv4v6 -  IPv6");
+        ipv6_check(&ipType);
+
+        std::cout << "Waiting 10s before stopping data session" << endl;
+        LE_TEST_INFO("Waiting 10s before stopping data session");
+        sleep(10); // Sleep for 10s and then stop session.
+
+        bIPv4Connected.store(true);
+        bIPv6Connected.store(true);
+        result = taf_dcs_StopSession(TestProfileRef);
+        LE_TEST_OK(result == LE_OK, "stop_session_sync_test - LE_OK");
+        report(LE_OK, result, "stop_session_sync_test");
+        // Wait for disconnected events
+        iCount = 0;
+        do
+        {
+            // Wait for events to be generated for max 60s.
+            if (60 == iCount)
+            {
+                LE_TEST_INFO("ERR: taf_dcs_StopSession IPv4v6 event timeout.");
+                break;
+            }
+            iCount++;
+            sleep(1);
+        } while (bIPv4Connected.load() || bIPv6Connected.load());
+        LE_TEST_OK(!bIPv4Connected.load(), "taf_dcs_StopSession IPv4v6 -  IPv4");
+        LE_TEST_OK(!bIPv6Connected.load(), "taf_dcs_StopSession IPv4v6 -  IPv6");
+
+        std::cout << "Waiting 10s before next test" << endl;
+        LE_TEST_INFO("Waiting 10s before next test");
+        sleep(10); // Sleep for 10s
+    }
+    else
+    {
+        LE_TEST_INFO("ERR: Skipping IPv4v6 tests as taf_dcs_StartSession failed.");
+        std::cout << "ERR: Skipping IPv4v6 tests as taf_dcs_StartSession failed." << endl;
+    }
 
     /* Taf Async Data Call with PDP - TAF_DCS_PDP_IPV4V6 */
     LE_TEST_INFO("Taf Async Data Call with PDP - TAF_DCS_PDP_IPV4V6");
@@ -818,25 +873,90 @@ COMPONENT_INIT
     std::cout <<"*************************************************" << endl;
     std::cout <<"Taf Async Data Call with PDP - TAF_DCS_PDP_IPV4V6" << endl;
     std::cout <<"*************************************************" << endl;
+    LE_TEST_INFO("**********************************************");
+    LE_TEST_INFO("Test Async Taf Data Call with PDP - TAF_DCS_PDP_IPV4V6");
+    LE_TEST_INFO("**********************************************");
     TC_No = 1;
     ipType = TAF_DCS_PDP_IPV4V6;
     set_pdp_test(ipType);
-    if(threadRef == NULL)
-    {
-        threadRef = le_thread_Create("taf_datacall_state_thread",
-                                     taf_data_session_handler, &ipType);
-        le_thread_Start(threadRef);
-    }
+
+    bIPv4Connected.store(false);
+    bIPv6Connected.store(false);
+    asyncResult.store(LE_FAULT);
     le_event_QueueFunctionToThread(threadRef, (le_event_DeferredFunc_t)start_session_async_test,
-                                   NULL, NULL);
-    le_sem_Wait(TestSemRef);
-    le_event_QueueFunctionToThread(threadRef, (le_event_DeferredFunc_t)ipv4_check, &ipType, NULL);
-    le_event_QueueFunctionToThread(threadRef, (le_event_DeferredFunc_t)ipv6_check, &ipType, NULL);
-    le_event_QueueFunctionToThread(threadRef, (le_event_DeferredFunc_t)stop_session_async_test,
-                                   NULL, NULL);
-    le_sem_Wait(TestSemRef);
-    le_event_QueueFunctionToThread(threadRef, (le_event_DeferredFunc_t)remove_handler,
-                                   &TestSessionStateRef, NULL);
+                                                                                        NULL, NULL);
+    result = le_sem_WaitWithTimeOut(TestSemRef, timeout60Sec);
+    LE_TEST_INFO("taf_dcs_StartSessionAsync le_sem_WaitWithTimeOut: %d", result);
+
+    result = asyncResult.load();
+    LE_TEST_OK(LE_OK == result, "taf_dcs_StartSessionAsync IPv4v6 -  LE_OK");
+    report(LE_OK, result, "taf_dcs_StartSessionAsync IPv4v6");
+
+    TC_No += 1;
+
+    if (LE_OK == result)
+    {
+        do
+        {
+            // Wait for events to be generated for max 60s.
+            if (60 == iCount)
+            {
+                LE_TEST_INFO("ERR: taf_dcs_StartSessionAsync IPv4v6 event timeout.");
+                break;
+            }
+            iCount++;
+            sleep(1);
+        } while (!bIPv4Connected.load() || !bIPv6Connected.load());
+        LE_TEST_OK(bIPv4Connected.load(), "taf_dcs_StartSessionAsync IPv4v6 -  IPv4");
+        report(true, bIPv4Connected.load(), "taf_dcs_StartSessionAsync IPv4v6 -  IPv4");
+        le_event_QueueFunctionToThread(threadRef, (le_event_DeferredFunc_t)ipv4_check, &ipType, NULL);
+
+        LE_TEST_OK(bIPv6Connected.load(), "taf_dcs_StartSessionAsync IPv4v6 -  IPv6");
+        report(true, bIPv6Connected.load(), "taf_dcs_StartSessionAsync IPv4v6 -  IPv6");
+        ipv6_check(&ipType);
+        le_event_QueueFunctionToThread(threadRef, (le_event_DeferredFunc_t)ipv6_check, &ipType, NULL);
+
+        std::cout << "Waiting 10s before stopping data session" << endl;
+        LE_TEST_INFO("Waiting 10s before stopping data session");
+        sleep(10); // Sleep for 10s and then stop session.
+
+        bIPv4Connected.store(true);
+        bIPv6Connected.store(true);
+
+        asyncResult.store(LE_FAULT);
+        le_event_QueueFunctionToThread(threadRef, (le_event_DeferredFunc_t)stop_session_async_test,
+                                       NULL, NULL);
+        result = le_sem_WaitWithTimeOut(TestSemRef, timeout60Sec);
+        LE_TEST_INFO("taf_dcs_StopSessionAsync le_sem_WaitWithTimeOut: %d", result);
+
+        result = asyncResult.load();
+        LE_TEST_OK(LE_OK == result, "taf_dcs_StopSessionAsync IPv4v6 -  LE_OK");
+        report(LE_OK, result, "taf_dcs_StopSessionAsync IPv4v6");
+
+        // Wait for disconnected events
+        iCount = 0;
+        do
+        {
+            // Wait for events to be generated for max 60s.
+            if (60 == iCount)
+            {
+                LE_TEST_INFO("ERR: taf_dcs_StopSessionAsync IPv4v6 event timeout.");
+                break;
+            }
+            iCount++;
+            sleep(1);
+        } while (bIPv4Connected.load() || bIPv6Connected.load());
+        LE_TEST_OK(!bIPv4Connected.load(), "taf_dcs_StopSessionAsync IPv4v6 -  IPv4");
+        LE_TEST_OK(!bIPv6Connected.load(), "taf_dcs_StopSessionAsync IPv4v6 -  IPv6");
+    }
+    else
+    {
+        LE_TEST_INFO("ERR: Skipping IPv4v6 tests as taf_dcs_StartSessionAsync failed.");
+        std::cout << "ERR: Skipping IPv4v6 tests as taf_dcs_StartSessionAsync failed." << endl;
+    }
+
+    le_event_QueueFunctionToThread(threadRef, (le_event_DeferredFunc_t)remove_handler,NULL, NULL);
+    le_sem_WaitWithTimeOut(TestSemRef, timeout60Sec);
 
     LE_TEST_EXIT;
 }

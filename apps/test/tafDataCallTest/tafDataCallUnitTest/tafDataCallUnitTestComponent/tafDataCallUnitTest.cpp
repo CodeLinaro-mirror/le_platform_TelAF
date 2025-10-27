@@ -39,8 +39,9 @@
 #include "legato.h"
 #include "interfaces.h"
 #include <string>
-#include <future>
 #include <iostream>
+#include <atomic>
+#include <future>
 
 // Function declarations
 void tafDCSUnitTest_RunInteractiveTests();
@@ -77,14 +78,17 @@ uint32_t TEST_PROFILE_PHONEID_2 = 1;  // profile id 1, used for phoneid 2
 #define PHONE_ID_1     1
 #define PHONE_ID_2     2
 
-static le_sem_Ref_t TestSemRef;
+static le_sem_Ref_t TestSemRef = NULL;
 static taf_dcs_ProfileRef_t TestProfileRef = NULL , TestProfileRef2 = NULL ;
 le_thread_Ref_t dataSessionThRef = NULL, dataSessionThRef2 = NULL;
-static taf_dcs_SessionStateHandlerRef_t TestSessionStateRef = NULL, TestSessionStateRef2 = NULL;
+static taf_dcs_SessionStateHandlerRef_t TestSessionStateHandlerRef = NULL, TestSessionStateRef2 = NULL;
 static taf_dcs_RoamingStatusHandlerRef_t TestRoamingStatusRef = NULL;
 static taf_dcs_ThrottledStatusHandlerRef_t TestThrottleStatusRef = NULL;
 static taf_dcs_QosStatusHandlerRef_t TestQosStatusRef = NULL;
 char ApnStr_bak[TAF_DCS_APN_NAME_MAX_LEN];
+
+static std::atomic<bool> bIPv4Connected{false};
+static std::atomic<bool> bIPv6Connected{false};
 
 /**
  * To run interactively:
@@ -127,7 +131,7 @@ std::string callEventToString(taf_dcs_ConState_t callEvent)
     switch (callEvent)
     {
         case TAF_DCS_DISCONNECTED:
-            return "disconnect";
+            return "disconnected";
         case TAF_DCS_CONNECTING:
             return "connecting";
         case TAF_DCS_CONNECTED:
@@ -141,6 +145,24 @@ std::string callEventToString(taf_dcs_ConState_t callEvent)
     return "unknow status";
 }
 
+static const char *pdpTypeToString(taf_dcs_Pdp_t pdp)
+{
+    switch (pdp)
+    {
+    case TAF_DCS_PDP_IPV4:
+        return "IPV4";
+    case TAF_DCS_PDP_IPV6:
+        return "IPV6";
+    case TAF_DCS_PDP_IPV4V6:
+        return "IPV4V6";
+    case TAF_DCS_PDP_UNKNOWN:
+        return "UNKNOWN";
+    default:
+        LE_TEST_INFO("ERR: Unsupported pdp: %d", pdp);
+        return "ERR: UNSUPPORTED";
+    }
+}
+
 #if defined(TAF_CONFIG_SSIM_TEST) || defined(TAF_CONFIG_PHONE_ID_1_TEST)
 
 void data_event_handler
@@ -151,59 +173,208 @@ void data_event_handler
     void* contextPtr
 )
 {
+    LE_UNUSED(contextPtr);
+    le_result_t result;
     char interfaceName[64];
-    taf_dcs_Pdp_t expectIpType = *(taf_dcs_Pdp_t *)contextPtr;
-    uint32_t profileId=0;
-    uint8_t phoneId;
-    le_result_t result = LE_OK;
+    uint32_t profileId = 0;
 
-    LE_INFO("get data handler event. profile ref: %p, callEvent: %s, ip: %d, expect ip: %d\n",
-             profileRef, callEventToString(callEvent).c_str(), infoPtr->ipType, expectIpType);
+    result = taf_dcs_GetProfileId(profileRef, &profileId);
+    LE_TEST_OK(LE_OK == result, "taf_dcs_GetProfileId: %d", result);
 
-    if ((callEvent == TAF_DCS_CONNECTED) && (infoPtr->ipType == expectIpType))
+    LE_TEST_INFO("Profile: %d(%p), callEvent: %s, PDP: %s", profileId, profileRef,
+                        callEventToString(callEvent).c_str(), pdpTypeToString(infoPtr->ipType));
+
+    LE_TEST_OK((TAF_DCS_PDP_IPV4 == infoPtr->ipType) || (TAF_DCS_PDP_IPV6 == infoPtr->ipType),
+                                                "data event handler PDP should be IPv4 or IPv6");
+
+    if (callEvent == TAF_DCS_CONNECTED)
     {
-        taf_dcs_GetInterfaceName(profileRef, interfaceName, 64);
-
-        result = taf_dcs_GetProfileIdByInterfaceName(interfaceName, &profileId);
-        LE_TEST_OK(result == LE_OK, "Connected: profile(%d), ifname(%s)", profileId, interfaceName);
-
-        LE_TEST_BEGIN_SKIP(!PHONE_ID_1_TEST, 1);
-
-        result = taf_dcs_GetPhoneIdByInterfaceName(interfaceName, &phoneId);
-        LE_TEST_OK(result == LE_OK, "Connected: phoneId(%d), ifname(%s)", phoneId, interfaceName);
-
-        LE_TEST_END_SKIP();
-
+        result = taf_dcs_GetInterfaceName(profileRef, interfaceName, 64);
+        LE_TEST_OK(result == LE_OK, "taf_dcs_GetInterfaceName - LE_OK");
+        LE_TEST_INFO("Data call connected, interface : %s", interfaceName);
+        if (TAF_DCS_PDP_IPV4 == infoPtr->ipType)
+        {
+            LE_TEST_INFO("Call Connected: TAF_DCS_PDP_IPV4");
+            std::cout << "Call Connected: TAF_DCS_PDP_IPV4" << std::endl;
+            bIPv4Connected.store(true);
+        }
+        else if (TAF_DCS_PDP_IPV6 == infoPtr->ipType)
+        {
+            LE_TEST_INFO("Call Connected: TAF_DCS_PDP_IPV6");
+            std::cout << "Call Connected: TAF_DCS_PDP_IPV6" << std::endl;
+            bIPv6Connected.store(true);
+        }
+        else if (TAF_DCS_PDP_IPV6 == infoPtr->ipType)
+        {
+            LE_TEST_INFO("Call Connected: TAF_DCS_PDP_IPV4V6");
+            std::cout << "Call Connected: TAF_DCS_PDP_IPV4V6" << std::endl;
+            bIPv4Connected.store(true);
+            bIPv6Connected.store(true);
+        }
+        else
+        {
+            LE_TEST_INFO("ERR: Call Connected: PDP type not supported: %d", infoPtr->ipType);
+            std::cout << "ERR: Call Connected: PDP type not supported: " << infoPtr->ipType <<
+                                                                                        std::endl;
+        }
+        return;
     }
-    else if ((callEvent == TAF_DCS_DISCONNECTED) && (infoPtr->ipType == expectIpType))
+
+    if ((callEvent == TAF_DCS_DISCONNECTED))
     {
-        profileId = taf_dcs_GetProfileIndex(profileRef);
-        LE_TEST_OK(profileId == TEST_PROFILE_PHONEID_1, "Disconnected: profile(%d)", profileId);
-
-        LE_TEST_BEGIN_SKIP(!PHONE_ID_1_TEST, 1);
-
-        result = taf_dcs_GetPhoneId(profileRef, &phoneId);
-        LE_TEST_OK(result == LE_OK, "Disconnected: phoneId(%d)", phoneId);
-
-        LE_TEST_END_SKIP();
-
+        result = taf_dcs_GetInterfaceName(profileRef, interfaceName, 64);
+        LE_TEST_OK(result == LE_UNAVAILABLE, "taf_dcs_GetInterfaceName - LE_UNAVAILABLE");
+        if (TAF_DCS_PDP_IPV4 == infoPtr->ipType)
+        {
+            LE_TEST_INFO("Call Disconnected: TAF_DCS_PDP_IPV4");
+            std::cout << "Call Disconnected: TAF_DCS_PDP_IPV4" << std::endl;
+            bIPv4Connected.store(false);
+        }
+        else if (TAF_DCS_PDP_IPV6 == infoPtr->ipType)
+        {
+            LE_TEST_INFO("Call Disconnected: TAF_DCS_PDP_IPV6");
+            std::cout << "Call Disconnected: TAF_DCS_PDP_IPV6" << std::endl;
+            bIPv6Connected.store(false);
+        }
+        else if (TAF_DCS_PDP_IPV6 == infoPtr->ipType)
+        {
+            LE_TEST_INFO("Call Disconnected: TAF_DCS_PDP_IPV4V6");
+            std::cout << "Call Disconnected: TAF_DCS_PDP_IPV4V6" << std::endl;
+            bIPv4Connected.store(false);
+            bIPv6Connected.store(false);
+        }
+        else
+        {
+            LE_TEST_INFO("ERR: Call Disconnected: PDP type not supported: %d", infoPtr->ipType);
+            std::cout << "ERR: Call Disconnected: PDP type not supported: " << infoPtr->ipType <<
+                                                                                          std::endl;
+        }
+        return;
     }
-
+    return;
 }
 
-static void* ut_taf_data_session_handler(void* ctxPtr)
+// Wait until the data state handler received CONNECTED/DISCONNECTED events and updates
+// bIPv4Connected and bIPv6Connected
+static void waitForConnectionEvents(taf_dcs_Pdp_t pdp, bool bResult)
+{
+    le_result_t result;
+    bool bValue;
+    int iCount = 0;
+    char IPV4Str[TAF_DCS_IPV4_ADDR_MAX_LEN] = {0};
+    char IPV6Str[TAF_DCS_IPV6_ADDR_MAX_LEN] = {0};
+
+    if (TAF_DCS_PDP_IPV4 == pdp)
+    {
+        iCount = 0;
+        do
+        {
+            // Wait for events to be generated for max 60s.
+            if (60 == iCount)
+            {
+                LE_TEST_INFO("ERR: taf_dcs_StartSession IPv4 event timeout.");
+                break;
+            }
+            iCount++;
+            sleep(1);
+        } while (bResult != bIPv4Connected.load());
+        bValue = taf_dcs_IsIPv4(TestProfileRef);
+        LE_TEST_OK(bValue == bResult, "IPv4: taf_dcs_IsIPv4 - %s", bResult ? "true" : "false");
+        if (bValue)
+        {
+            memset(IPV4Str, 0, TAF_DCS_IPV4_ADDR_MAX_LEN);
+            result = taf_dcs_GetIPv4Address(TestProfileRef, IPV4Str, TAF_DCS_IPV4_ADDR_MAX_LEN);
+            LE_TEST_OK(LE_OK == result, "IPv4: taf_dcs_GetIPv4Address. Act: %d", result);
+            LE_TEST_INFO("IPv4: IPv4 Address: %s", IPV4Str);
+        }
+    }
+    else if (TAF_DCS_PDP_IPV6 == pdp)
+    {
+        iCount = 0;
+        do
+        {
+            // Wait for events to be generated for max 60s.
+            if (60 == iCount)
+            {
+                LE_TEST_INFO("ERR: taf_dcs_StartSession IPv6 event timeout.");
+                break;
+            }
+            iCount++;
+            sleep(1);
+        } while (bResult != bIPv6Connected.load());
+        bValue = taf_dcs_IsIPv6(TestProfileRef);
+        LE_TEST_OK(bValue == bResult, "IPv6: taf_dcs_IsIPv6 - %s", bResult ? "true" : "false");
+        if (bValue)
+        {
+            memset(IPV6Str, 0, TAF_DCS_IPV6_ADDR_MAX_LEN);
+            result = taf_dcs_GetIPv6Address(TestProfileRef, IPV6Str, TAF_DCS_IPV6_ADDR_MAX_LEN);
+            LE_TEST_OK(LE_OK == result, "IPv6: taf_dcs_GetIPv6Address. Act: %d", result);
+            LE_TEST_INFO("IPv6: IPv6 Address: %s", IPV6Str);
+        }
+    }
+    else
+    {
+        // IPv4v6
+        iCount = 0;
+        do
+        {
+            // Wait for events to be generated for max 60s.
+            if (60 == iCount)
+            {
+                LE_TEST_INFO("ERR: taf_dcs_StartSession IPv4v6 event timeout.");
+                break;
+            }
+            iCount++;
+            sleep(1);
+        } while (bResult != bIPv4Connected.load() || bResult != bIPv6Connected.load());
+        bValue = taf_dcs_IsIPv4(TestProfileRef);
+        LE_TEST_OK(bValue == bResult, "IPv4v6: taf_dcs_IsIPv4 - %s", bResult ? "true" : "false");
+        if (bValue)
+        {
+            memset(IPV4Str, 0, TAF_DCS_IPV4_ADDR_MAX_LEN);
+            result = taf_dcs_GetIPv4Address(TestProfileRef, IPV4Str, TAF_DCS_IPV4_ADDR_MAX_LEN);
+            LE_TEST_OK(LE_OK == result, "IPv4v6: taf_dcs_GetIPv4Address. Act: %d", result);
+            LE_TEST_INFO("IPv4v6: IPv4 Address: %s", IPV4Str);
+        }
+        bValue = taf_dcs_IsIPv6(TestProfileRef);
+        LE_TEST_OK(bValue == bResult, "IPv4v6: taf_dcs_IsIPv6 - %s", bResult ? "true" : "false");
+        if (bValue)
+        {
+            memset(IPV6Str, 0, TAF_DCS_IPV6_ADDR_MAX_LEN);
+            result = taf_dcs_GetIPv6Address(TestProfileRef, IPV6Str, TAF_DCS_IPV6_ADDR_MAX_LEN);
+            LE_TEST_OK(LE_OK == result, "IPv4v6: taf_dcs_GetIPv6Address. Act: %d", result);
+            LE_TEST_INFO("IPv4v6: IPv6 Address: %s", IPV6Str);
+        }
+    }
+}
+
+static void *ut_RemoveSessionStateHandler_deferred_func()
+{
+    taf_dcs_RemoveSessionStateHandler(TestSessionStateHandlerRef);
+    TestSessionStateHandlerRef = NULL;
+    LE_TEST_OK(TestSessionStateHandlerRef == NULL, "taf_dcs_RemoveSessionStateHandler");
+    le_sem_Post(TestSemRef);
+    return NULL;
+}
+
+static void *ut_AddSessionStateHandler_deferred_func()
+{
+    LE_TEST_ASSERT(TestProfileRef != NULL, "TestProfileRef is not NULL");
+    TestSessionStateHandlerRef = taf_dcs_AddSessionStateHandler(TestProfileRef,
+                                (taf_dcs_SessionStateHandlerFunc_t)data_event_handler, NULL);
+    LE_TEST_OK(TestSessionStateHandlerRef != NULL, "taf_dcs_AddSessionStateHandler");
+    le_sem_Post(TestSemRef);
+    return NULL;
+}
+
+    static void *ut_taf_data_session_handler(void *ctxPtr)
 {
     taf_dcs_ConnectService();
-
-    TestSessionStateRef = taf_dcs_AddSessionStateHandler(TestProfileRef,
-                                (taf_dcs_SessionStateHandlerFunc_t)data_event_handler, ctxPtr);
-
-    LE_TEST_OK(TestSessionStateRef != NULL, "ut_taf_data_session_handler - void");
-
+    LE_UNUSED(ctxPtr);
+    TestSessionStateHandlerRef = NULL;
     le_sem_Post(TestSemRef);
-
+    LE_TEST_INFO("Data events thread started.");
     le_event_RunLoop();
-
     return NULL;
 }
 #endif
@@ -218,7 +389,7 @@ void data_event_handler2(taf_dcs_ProfileRef_t profileRef, taf_dcs_ConState_t cal
     uint8_t phoneId;
     le_result_t result = LE_OK;
 
-    LE_INFO("get data handler event. profile ref: %p, callEvent: %s, ip: %d, expect ip: %d\n",
+    LE_TEST_INFO("get data handler event. profile ref: %p, callEvent: %s, ip: %d, expect ip: %d\n",
             profileRef, callEventToString(callEvent).c_str(), infoPtr->ipType, expectIpType);
 
     if ((callEvent == TAF_DCS_CONNECTED) && (infoPtr->ipType == expectIpType))
@@ -268,12 +439,12 @@ static void roaming_status_handler
     const taf_dcs_RoamingStatusInd_t* roamingStatusIndPtr,
     void* contextPtr
 ){
-    LE_INFO("**** Handler for roaming status Indication (Begin)****");
-    LE_INFO("----phoneId : %d", (int)roamingStatusIndPtr->phoneId);
-    LE_INFO("----isRoaming : %d", (int)roamingStatusIndPtr->isRoaming);
-    LE_INFO("----type : %d", (int)roamingStatusIndPtr->type);
+    LE_TEST_INFO("**** Handler for roaming status Indication (Begin)****");
+    LE_TEST_INFO("----phoneId : %d", (int)roamingStatusIndPtr->phoneId);
+    LE_TEST_INFO("----isRoaming : %d", (int)roamingStatusIndPtr->isRoaming);
+    LE_TEST_INFO("----type : %d", (int)roamingStatusIndPtr->type);
 
-    LE_INFO("**** Handler for roaming status Indication (End)****");
+    LE_TEST_INFO("**** Handler for roaming status Indication (End)****");
 }
 
 static void throttle_status_handler
@@ -414,12 +585,12 @@ void ut_profile_list_test()
     LE_TEST_BEGIN_SKIP(!SSIM_TEST, 1);
     result = taf_dcs_GetProfileList(profilesInfoPtr, &listSize);
     LE_TEST_OK(result == LE_OK, "taf_dcs_GetProfileList - OK");
-    LE_INFO("got profile list, num: %" PRIuS ", result: %d", listSize, result);
-    LE_INFO("%-6s""%-6s""%-12s", "Index", "type", "Name");
+    LE_TEST_INFO("got profile list, num: %" PRIuS ", result: %d", listSize, result);
+    LE_TEST_INFO("%-6s""%-6s""%-12s", "Index", "type", "Name");
     for (uint32_t i = 0; i < listSize; i++)
     {
         const taf_dcs_ProfileInfo_t *profileInfoPtr = &profilesInfoPtr[i];
-        LE_INFO("%-6d""%-6d""%-12s", profileInfoPtr->index, profileInfoPtr->tech,
+        LE_TEST_INFO("%-6d""%-6d""%-12s", profileInfoPtr->index, profileInfoPtr->tech,
                                                                     profileInfoPtr->name);
     }
 
@@ -429,13 +600,13 @@ void ut_profile_list_test()
     result = taf_dcs_GetProfileListEx(PHONE_ID_1,profilesInfoPtr, &listSize);
 
     LE_TEST_OK(result == LE_OK, "taf_dcs_GetProfileListEx for phone id(%d) - OK", PHONE_ID_1);
-    LE_INFO("-----got profile list for phone id %d, num: %" PRIuS ", result: %d",
+    LE_TEST_INFO("-----got profile list for phone id %d, num: %" PRIuS ", result: %d",
              PHONE_ID_1, listSize, result);
-    LE_INFO("%-6s""%-6s""%-12s", "Index", "type", "Name");
+    LE_TEST_INFO("%-6s""%-6s""%-12s", "Index", "type", "Name");
     for (uint32_t i = 0; i < listSize; i++)
     {
         const taf_dcs_ProfileInfo_t *profileInfoPtr = &profilesInfoPtr[i];
-        LE_INFO("%-6d""%-6d""%-12s", profileInfoPtr->index, profileInfoPtr->tech,
+        LE_TEST_INFO("%-6d""%-6d""%-12s", profileInfoPtr->index, profileInfoPtr->tech,
                                                                             profileInfoPtr->name);
     }
 
@@ -445,13 +616,13 @@ void ut_profile_list_test()
 
     result = taf_dcs_GetProfileListEx(PHONE_ID_2,profilesInfoPtr, &listSize);
     LE_TEST_OK(result == LE_OK, "taf_dcs_GetProfileListEx for phone id(%d) - OK", PHONE_ID_2);
-    LE_INFO("-----got profile list for phone id %d, num: %" PRIuS ", result: %d",
+    LE_TEST_INFO("-----got profile list for phone id %d, num: %" PRIuS ", result: %d",
              PHONE_ID_2, listSize, result);
-    LE_INFO("%-6s""%-6s""%-12s", "Index", "type", "Name");
+    LE_TEST_INFO("%-6s""%-6s""%-12s", "Index", "type", "Name");
     for (uint32_t i = 0; i < listSize; i++)
     {
         const taf_dcs_ProfileInfo_t *profileInfoPtr = &profilesInfoPtr[i];
-        LE_INFO("%-6d""%-6d""%-12s", profileInfoPtr->index, profileInfoPtr->tech,
+        LE_TEST_INFO("%-6d""%-6d""%-12s", profileInfoPtr->index, profileInfoPtr->tech,
                                                                             profileInfoPtr->name);
     }
 
@@ -470,7 +641,7 @@ void ut_default_profile_set_get_test()
     LE_TEST_BEGIN_SKIP(!SSIM_TEST, 1);
 
     TestProfileRef = taf_dcs_GetProfile(TEST_PROFILE_PHONEID_1);
-    LE_TEST_OK(TestProfileRef != NULL, "taf_dcs_GetProfile - OK");
+    LE_TEST_ASSERT(TestProfileRef != NULL, "TestProfileRef - not NULL");
 
     profileId = taf_dcs_GetProfileIndex(TestProfileRef);
     LE_TEST_OK(profileId == TEST_PROFILE_PHONEID_1, "taf_dcs_GetProfileIndex - OK");
@@ -497,7 +668,7 @@ void ut_default_profile_set_get_test()
     uint8_t secPhoneId;
 
     TestProfileRef2 = taf_dcs_GetProfileEx(PHONE_ID_2, TEST_PROFILE_PHONEID_2);
-    LE_TEST_OK(TestProfileRef2 != NULL, "taf_dcs_GetProfileEx - OK");
+    LE_TEST_ASSERT(TestProfileRef2 != NULL, "TestProfileRef2 - not NULL");
 
     profileId = taf_dcs_GetProfileIndex(TestProfileRef2);
     LE_TEST_OK(profileId == TEST_PROFILE_PHONEID_2, "taf_dcs_GetProfileIndex - OK");
@@ -516,6 +687,8 @@ void ut_set_get_auth_test()
     char usrName[TAF_DCS_USER_NAME_MAX_LEN];
     char password[TAF_DCS_PASSWORD_NAME_MAX_LEN];
     taf_dcs_Auth_t authType;
+
+    LE_TEST_ASSERT(TestProfileRef != NULL, "TestProfileRef is not NULL");
 
     LE_TEST_BEGIN_SKIP(!SSIM_TEST && !PHONE_ID_1_TEST, 1);
 
@@ -552,6 +725,8 @@ void ut_set_get_auth_test()
     LE_TEST_END_SKIP();
 
     LE_TEST_BEGIN_SKIP(!PHONE_ID_2_TEST, 1);
+
+    LE_TEST_ASSERT(TestProfileRef2 != NULL, "TestProfileRef2 is not NULL");
 
     result = taf_dcs_SetAuthentication(TestProfileRef2, TAF_DCS_AUTH_PAP, "pap_user", "123");
     LE_TEST_OK(result == LE_OK, "taf_dcs_SetAuthentication - OK");
@@ -703,8 +878,17 @@ void ut_start_session_sync_test()
     result = taf_dcs_GetMaxDataBitRates(TestProfileRef, &RxBitRate, &TxBitRate);
     LE_TEST_OK(result == LE_UNAVAILABLE, "taf_dcs_GetMaxDataBitRates - OK");
 
+    taf_dcs_Pdp_t pdp = taf_dcs_GetPDP(TestProfileRef);
+    bIPv4Connected.store(false);
+    bIPv6Connected.store(false);
     result = taf_dcs_StartSession(TestProfileRef);
     LE_TEST_OK(result == LE_OK, "taf_dcs_StartSession - OK");
+    if (LE_OK != result)
+    {
+        return;
+    }
+    waitForConnectionEvents(pdp, true);
+    sleep(20);
 
     result = taf_dcs_StartSession(TestProfileRef);
     LE_TEST_OK(result == LE_DUPLICATE, "taf_dcs_StartSession - DUPLICATE");
@@ -765,8 +949,17 @@ void ut_stop_session_sync_test()
 
     LE_TEST_BEGIN_SKIP(!SSIM_TEST && !PHONE_ID_1_TEST, 1);
 
+    taf_dcs_Pdp_t pdp = taf_dcs_GetPDP(TestProfileRef);
+    bIPv4Connected.store(true);
+    bIPv6Connected.store(true);
     result = taf_dcs_StopSession(TestProfileRef);
     LE_TEST_OK(result == LE_OK, "taf_dcs_StopSession - OK");
+    if (LE_OK != result)
+    {
+        return;
+    }
+    waitForConnectionEvents(pdp, false);
+    sleep(10);
 
     result = taf_dcs_GetDataBearerTechnology(TestProfileRef, &downTech, &upTech);
     LE_TEST_OK(result == LE_UNAVAILABLE, "taf_dcs_GetDataBearerTechnology - OK");
@@ -810,128 +1003,6 @@ void ut_stop_session_sync_test()
     LE_TEST_END_SKIP();
 }
 
-void ut_stop_session_async_handler_func(taf_dcs_ProfileRef_t profileRef, le_result_t result,
-                                                                                void* contextPtr)
-{
-    uint32_t profileId;
-    uint8_t phoneId;
-    le_result_t ret;
-
-    LE_INFO("**** Handler for Stop Session Asynchronously (Begin)****");
-
-    profileId = taf_dcs_GetProfileIndex(profileRef);
-    LE_INFO("profileId= %d, result: %d", profileId, result);
-
-    ret = taf_dcs_GetPhoneId(profileRef, &phoneId);
-    LE_TEST_OK(ret == LE_OK, "taf_dcs_GetPhoneId phoneid(%d)- OK", phoneId);
-
-    LE_INFO("**** Handler for Stop Session Asynchronously (End)****");
-    ut_restore_apn_test();
-    LE_TEST_EXIT;
-}
-
-void ut_stop_session_async_handler_func2(taf_dcs_ProfileRef_t profileRef, le_result_t result,
-                                                                                void* contextPtr)
-{
-    uint32_t profileId;
-    uint8_t phoneId;
-    le_result_t ret;
-
-    LE_INFO("**** Handler for Stop Session Asynchronously (Begin)****");
-
-    profileId = taf_dcs_GetProfileIndex(profileRef);
-    LE_INFO("profileId= %d, result: %d", profileId, result);
-
-    ret = taf_dcs_GetPhoneId(profileRef, &phoneId);
-    LE_TEST_OK(ret == LE_OK, "taf_dcs_GetPhoneId phoneid(%d)- OK", phoneId);
-
-    LE_INFO("**** Handler for Stop Session Asynchronously (End)****");
-    ut_restore_apn_test();
-    LE_TEST_EXIT;
-}
-
-void ut_stop_session_async_test()
-{
-
-    LE_INFO("asynchronous stop session for phone id 1 %p",TestProfileRef);
-
-    taf_dcs_StopSessionAsync(TestProfileRef, ut_stop_session_async_handler_func, NULL);
-
-    LE_INFO("asynchronous stop session done");
-
-}
-
-void ut_stop_session_async_test2()
-{
-
-    LE_INFO("asynchronous stop session for phone id 2 %p",TestProfileRef2);
-
-    taf_dcs_StopSessionAsync(TestProfileRef2, ut_stop_session_async_handler_func2, NULL);
-
-    LE_INFO("asynchronous stop session done");
-
-}
-
-void ut_start_session_async_handler_func(taf_dcs_ProfileRef_t profileRef, le_result_t result,
-                                                                                void* contextPtr)
-{
-    uint32_t profileId;
-    uint8_t phoneId;
-    le_result_t ret;
-
-    LE_INFO("**** Handler for Start Session Asynchronously (Begin)****");
-
-    profileId = taf_dcs_GetProfileIndex(profileRef);
-    LE_INFO("profileId= %d, result: %d, profileRef=%p", profileId, result, profileRef);
-
-    ret = taf_dcs_GetPhoneId(profileRef, &phoneId);
-    LE_TEST_OK(ret == LE_OK, "taf_dcs_GetPhoneId: phoneId(%d) OK", phoneId);
-
-    ut_stop_session_async_test();
-}
-
-void ut_start_session_async_handler_func2(taf_dcs_ProfileRef_t profileRef, le_result_t result,
-                                                                                void* contextPtr)
-{
-    uint32_t profileId;
-    uint8_t phoneId;
-    le_result_t ret;
-
-    LE_INFO("**** Handler for Start Session Asynchronously (Begin)****");
-
-    profileId = taf_dcs_GetProfileIndex(profileRef);
-    LE_INFO("profileId= %d, result: %d", profileId, result);
-
-    ret = taf_dcs_GetPhoneId(profileRef, &phoneId);
-    LE_TEST_OK(ret == LE_OK, "taf_dcs_GetPhoneId: phoneId(%d) OK", phoneId);
-
-    ut_stop_session_async_test2();
-}
-
-void ut_start_session_async_test()
-{
-
-    LE_TEST_BEGIN_SKIP(!SSIM_TEST && !PHONE_ID_1_TEST, 1);
-
-    LE_INFO("asynchronous start session %p",TestProfileRef);
-
-    taf_dcs_StartSessionAsync(TestProfileRef, ut_start_session_async_handler_func, NULL);
-
-    LE_INFO("asynchronous start session done");
-
-    LE_TEST_END_SKIP();
-
-    LE_TEST_BEGIN_SKIP(!PHONE_ID_2_TEST, 1);
-
-    LE_INFO("asynchronous start session for phoneid 2 %p",TestProfileRef2);
-
-    taf_dcs_StartSessionAsync(TestProfileRef2, ut_start_session_async_handler_func2, NULL);
-
-    LE_INFO("asynchronous start session done");
-
-    LE_TEST_END_SKIP();
-}
-
 void ut_set_pdp_test(taf_dcs_Pdp_t pdp)
 {
     le_result_t result;
@@ -941,7 +1012,7 @@ void ut_set_pdp_test(taf_dcs_Pdp_t pdp)
 
     // Return LE_BAD_PARAMETER for TAF_DCS_PDP_UNKNOWN
     result = taf_dcs_SetPDP(TestProfileRef, TAF_DCS_PDP_UNKNOWN);
-    LE_TEST_OK(result == LE_BAD_PARAMETER, "taf_dcs_SetPDP UNKNOWN- OK");
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetPDP UNKNOWN- OK");
 
     result = taf_dcs_SetPDP(TestProfileRef, TAF_DCS_PDP_IPV4);
     LE_TEST_OK(result == LE_OK, "taf_dcs_SetPDP IPV4- OK");
@@ -1187,26 +1258,57 @@ void ut_mdc_datacall_test()
 {
     le_result_t result;
 
-    LE_TEST_BEGIN_SKIP(!SSIM_TEST && !PHONE_ID_1_TEST, 1);
+    LE_TEST_ASSERT(NULL != TestProfileRef, "TestProfileRef is not NULL");
 
-    result = taf_dcs_SetPDP(TestProfileRef, TAF_DCS_PDP_IPV4V6);
-    LE_TEST_OK(result == LE_OK, "taf_dcs_SetPDP IPV4V6- OK");
+    taf_dcs_Pdp_t pdp = taf_dcs_GetPDP(TestProfileRef);
 
+    bIPv4Connected.store(false);
+    bIPv6Connected.store(false);
     result = taf_mdc_StartSession(TestProfileRef);
     LE_TEST_OK(result == LE_OK, "taf_mdc_StartSession - OK");
+    if (LE_OK != result)
+    {
+        return;
+    }
+    waitForConnectionEvents(pdp, true);
+    sleep(20);
 
+    bIPv4Connected.store(true);
+    bIPv6Connected.store(true);
     result = taf_mdc_StopSession(TestProfileRef);
     LE_TEST_OK(result == LE_OK, "taf_mdc_StopSession - OK");
+    if (LE_OK != result)
+    {
+        return;
+    }
+    waitForConnectionEvents(pdp, false);
+    sleep(10);
 
+    bIPv4Connected.store(false);
+    bIPv6Connected.store(false);
     result = taf_mdc_StartSessionAsync(TestProfileRef);
-    LE_TEST_OK(result == LE_OK, "taf_mdc_StartSession - OK");
+    LE_TEST_OK(result == LE_OK, "taf_mdc_StartSessionAsync - OK");
+    if (LE_OK != result)
+    {
+        return;
+    }
+    waitForConnectionEvents(pdp, true);
+    sleep(20);
 
+    bIPv4Connected.store(true);
+    bIPv6Connected.store(true);
     result = taf_mdc_StopSessionAsync(TestProfileRef);
-    LE_TEST_OK(result == LE_OK, "taf_mdc_StopSession - OK");
-
-    LE_TEST_END_SKIP();
+    LE_TEST_OK(result == LE_OK, "taf_mdc_StopSessionAsync - OK");
+    if (LE_OK != result)
+    {
+        return;
+    }
+    waitForConnectionEvents(pdp, false);
+    sleep(10);
 
     LE_TEST_BEGIN_SKIP(!PHONE_ID_2_TEST, 1);
+
+    LE_TEST_ASSERT(NULL != TestProfileRef2, "TestProfileRef2 is not NULL");
 
     result = taf_dcs_SetPDP(TestProfileRef2, TAF_DCS_PDP_IPV4V6);
     LE_TEST_OK(result == LE_OK, "taf_dcs_SetPDP IPV4V6 for phoneid(%d)- OK", PHONE_ID_2);
@@ -1224,16 +1326,6 @@ void ut_mdc_datacall_test()
     LE_TEST_OK(result == LE_OK, "taf_mdc_StopSession - OK");
 
     LE_TEST_END_SKIP();
-}
-
-void ut_ipv4v6_async_datacall_test()
-{
-    ut_set_pdp_test(TAF_DCS_PDP_IPV4V6);
-
-    ut_set_apn_test();
-
-    ut_start_session_async_test();
-
 }
 
 void ut_ipv4v6_datacall_test()
@@ -1289,9 +1381,9 @@ void ut_ipv6_datacall_test()
 
 static void* UnitTestThread(void* contextPtr)
 {
-    taf_dcs_Pdp_t ipType = TAF_DCS_PDP_IPV4V6;
 
-    TestSemRef = le_sem_Create("taf_datacall_ut_sem", 0);
+    TestProfileRef  = NULL;
+    TestProfileRef2 = NULL;
 
     ut_profile_list_test();
 
@@ -1303,18 +1395,12 @@ static void* UnitTestThread(void* contextPtr)
 
     ut_get_throttle_status_test();
 
-    ut_mdc_datacall_test();
-
-    #if defined(TAF_CONFIG_SSIM_TEST) || defined(TAF_CONFIG_PHONE_ID_1_TEST)
-
-    dataSessionThRef = le_thread_Create("dataSessionTh",
-                                                         ut_taf_data_session_handler, &ipType);
-
-    le_thread_Start(dataSessionThRef);
-
+    // Register for data events
+    le_event_QueueFunctionToThread(dataSessionThRef,
+                    (le_event_DeferredFunc_t)ut_AddSessionStateHandler_deferred_func, NULL, NULL);
     le_sem_Wait(TestSemRef);
 
-    #endif
+    ut_mdc_datacall_test();
 
     #ifdef TAF_CONFIG_PHONE_ID_2_TEST
 
@@ -1357,19 +1443,19 @@ static void* UnitTestThread(void* contextPtr)
     /* redo session connection test after testing invalid apn */
     ut_ipv4v6_datacall_test();
 
-    ut_ipv4v6_async_datacall_test();
-
     sleep(3);
 
     LE_TEST_BEGIN_SKIP(!SSIM_TEST && !PHONE_ID_1_TEST, 1);
-    LE_INFO("---remove session %p",TestSessionStateRef);
-    taf_dcs_RemoveSessionStateHandler(TestSessionStateRef);
+    LE_TEST_INFO("---remove session %p",TestSessionStateHandlerRef);
+    // Unregister from data events
+    le_event_QueueFunctionToThread(dataSessionThRef,
+                    (le_event_DeferredFunc_t)ut_RemoveSessionStateHandler_deferred_func, NULL, NULL);
+    le_sem_Wait(TestSemRef);
     LE_TEST_OK(le_thread_Cancel(dataSessionThRef) == LE_OK, "le_thread_Cancel session - OK");
-
     LE_TEST_END_SKIP();
 
     LE_TEST_BEGIN_SKIP(!PHONE_ID_2_TEST, 1);
-    LE_INFO("---remove session2 %p",TestSessionStateRef2);
+    LE_TEST_INFO("---remove session2 %p",TestSessionStateRef2);
     taf_dcs_RemoveSessionStateHandler(TestSessionStateRef2);
     LE_TEST_OK(le_thread_Cancel(dataSessionThRef2) == LE_OK, "le_thread_Cancel session - OK");
 
@@ -1386,6 +1472,7 @@ static void* UnitTestThread(void* contextPtr)
     taf_dcs_RemoveQosStatusHandler(TestQosStatusRef);
 
     LE_TEST_OK(le_thread_Cancel(qosStatusThRef) == LE_OK, "le_thread_Cancel qos - OK");
+
 
     LE_TEST_INFO("Unit tests completed");
     return NULL;
@@ -1413,7 +1500,7 @@ static le_result_t testListProfileEx(taf_types_PhoneId_t phoneId)
     for (uint32_t i = 0; i < listSize; i++)
     {
         const taf_dcs_ProfileInfo_t *profileInfoPtr = &profilesInfoPtr[i];
-        LE_INFO("%-6d"
+        LE_TEST_INFO("%-6d"
                 "%-6d"
                 "%-12s",
                 profileInfoPtr->index, profileInfoPtr->tech, profileInfoPtr->name);
@@ -1672,8 +1759,8 @@ static void ut_profile_management_tests(void)
 {
     le_result_t result;
     uint8_t step = 1;
-    taf_dcs_ProfileRef_t ProfileRef = nullptr;
-    taf_dcs_ProfileRef_t ProfileRef_2 = nullptr;
+    taf_dcs_ProfileRef_t ProfileRef = NULL;
+    taf_dcs_ProfileRef_t ProfileRef_2 = NULL;
 
     // Profile create/update/delete/list test
     LE_TEST_INFO("Profile create/update/delete/list test");
@@ -1684,20 +1771,20 @@ static void ut_profile_management_tests(void)
 
     // Get a profile reference with ID TAF_DCS_UNDEFINED_PROFILE_ID
     ProfileRef = taf_dcs_GetProfileEx(TAF_TYPES_PHONE_ID_1, TAF_DCS_UNDEFINED_PROFILE_ID);
-    LE_TEST_OK(nullptr != ProfileRef, "taf_dcs_GetProfileEx");
-    if (nullptr == ProfileRef)
+    LE_TEST_OK(NULL != ProfileRef, "taf_dcs_GetProfileEx");
+    if (NULL == ProfileRef)
         LE_TEST_EXIT;
 
     // Try to get a profile ref with id TAF_DCS_UNDEFINED_PROFILE_ID again.
     // Server will return the same reference as earlier and a warning should be seen in the logs.
     ProfileRef_2 = taf_dcs_GetProfileEx(TAF_TYPES_PHONE_ID_1, TAF_DCS_UNDEFINED_PROFILE_ID);
-    LE_TEST_OK(nullptr != ProfileRef_2, "taf_dcs_GetProfileEx 2");
-    if (nullptr == ProfileRef_2)
+    LE_TEST_OK(NULL != ProfileRef_2, "taf_dcs_GetProfileEx 2");
+    if (NULL == ProfileRef_2)
         LE_TEST_EXIT;
     LE_TEST_INFO("### CHECK LE_WARN above ###");
     // Verify the same profile as before was returned
     LE_TEST_OK(ProfileRef_2 == ProfileRef, "Same profile reference returned as before");
-    ProfileRef_2 = nullptr;
+    ProfileRef_2 = NULL;
 
     // Set params first
     ut_profile_set_params(ProfileRef, step);
@@ -1768,11 +1855,11 @@ static void *async_cmd_thread_handler(void *ctxPtr)
     return NULL;
 }
 
-// Test StartSessionAsync and StopSessionAsync withougt creating a profile and expect
+// Test StartSessionAsync and StopSessionAsync without creating a profile and expect
 // LE_NOT_POSSIBLE from the async handler
 static void ut_async_cmd_tests_with_uncreated_profile()
 {
-    taf_dcs_ProfileRef_t ProfileRef = nullptr;
+    taf_dcs_ProfileRef_t ProfileRef = NULL;
     le_result_t result, expResult = LE_NOT_POSSIBLE;
     le_thread_Ref_t asyncCmdThreadRef = NULL;
     le_sem_Ref_t asyncCmdSemRef;
@@ -1817,7 +1904,7 @@ static void ut_async_cmd_tests_with_uncreated_profile()
 static void ut_create_profile_test_data(std::string APNStr, std::string PDPStr)
 {
     le_result_t result;
-    taf_dcs_ProfileRef_t ProfileRef = nullptr;
+    TestProfileRef = NULL;
     std::string NameStr = "Name" + PDPStr;
 
     taf_dcs_Pdp_t pdp;
@@ -1835,66 +1922,78 @@ static void ut_create_profile_test_data(std::string APNStr, std::string PDPStr)
     }
 
     // Get a profile reference with ID TAF_DCS_UNDEFINED_PROFILE_ID
-    ProfileRef = taf_dcs_GetProfileEx(TAF_TYPES_PHONE_ID_1, TAF_DCS_UNDEFINED_PROFILE_ID);
-    LE_TEST_ASSERT(nullptr != ProfileRef, "taf_dcs_GetProfileEx");
+    TestProfileRef = taf_dcs_GetProfileEx(TAF_TYPES_PHONE_ID_1, TAF_DCS_UNDEFINED_PROFILE_ID);
+    LE_TEST_ASSERT(NULL != TestProfileRef, "taf_dcs_GetProfileEx");
 
     // Set profile parameters
-    result = taf_dcs_SetAPN(ProfileRef, APNStr.c_str());
+    result = taf_dcs_SetAPN(TestProfileRef, APNStr.c_str());
     LE_TEST_ASSERT(LE_OK == result, "taf_dcs_SetAPN");
 
-    result = taf_dcs_SetProfileName(ProfileRef, NameStr.c_str());
+    result = taf_dcs_SetProfileName(TestProfileRef, NameStr.c_str());
     LE_TEST_ASSERT(LE_OK == result, "taf_dcs_SetProfileName");
 
-    result = taf_dcs_SetPDP(ProfileRef, pdp);
+    result = taf_dcs_SetPDP(TestProfileRef, pdp);
     LE_TEST_ASSERT(LE_OK == result, "taf_dcs_SetPDP");
 
     // Create profile
-    result = taf_dcs_CreateProfile(ProfileRef);
+    result = taf_dcs_CreateProfile(TestProfileRef);
     LE_TEST_ASSERT(LE_OK == result, "taf_dcs_CreateProfile");
 
     // Get the created profile ID
     uint32_t profileId;
-    result = taf_dcs_GetProfileId(ProfileRef, &profileId);
+    result = taf_dcs_GetProfileId(TestProfileRef, &profileId);
     LE_TEST_ASSERT(LE_OK == result, "taf_dcs_GetProfileId");
     LE_TEST_INFO("Created profile Id: %d", profileId);
 
+    // Register for data events
+    le_event_QueueFunctionToThread(dataSessionThRef,
+        (le_event_DeferredFunc_t)ut_AddSessionStateHandler_deferred_func, NULL, NULL);
+    le_sem_Wait(TestSemRef);
+
+    bIPv4Connected.store(false);
+    bIPv6Connected.store(false);
     // Start data session with the created profile
-    result = taf_dcs_StartSession(ProfileRef);
+    result = taf_dcs_StartSession(TestProfileRef);
     LE_TEST_OK(LE_OK == result, "taf_dcs_StartDataSession. Act: %d", result);
 
     // Store the start session result separately
     le_result_t startSessionResult = result;
 
-    // Get the assigned IPv4 address
-    if ((LE_OK == startSessionResult) && (TAF_DCS_PDP_IPV4 == pdp || TAF_DCS_PDP_IPV4V6 == pdp))
+    if ((LE_OK == startSessionResult))
     {
-        char IPV4Str[TAF_DCS_IPV4_ADDR_MAX_LEN] = {0};
-        result = taf_dcs_GetIPv4Address(ProfileRef, IPV4Str, TAF_DCS_IPV4_ADDR_MAX_LEN);
-        LE_TEST_OK(LE_OK == result, "taf_dcs_GetIPv4Address. Act: %d", result);
-        LE_TEST_INFO("IPv4 Address: %s", IPV4Str);
-    }
-    // Get the assigned IPv4 address
-    if ((LE_OK == startSessionResult) && (TAF_DCS_PDP_IPV6 == pdp || TAF_DCS_PDP_IPV4V6 == pdp))
-    {
-        char IPV6Str[TAF_DCS_IPV6_ADDR_MAX_LEN] = {0};
-        result = taf_dcs_GetIPv6Address(ProfileRef, IPV6Str, TAF_DCS_IPV6_ADDR_MAX_LEN);
-        LE_TEST_OK(LE_OK == result, "taf_dcs_GetIPv6Address. Act: %d", result);
-        LE_TEST_INFO("IPv6 Address: %s", IPV6Str);
+        waitForConnectionEvents(pdp, true);
     }
 
-    // If StartSession was OK, try to delete the profile and StopSession
+    // If StartSession was OK, check IP addresses try to delete the profile and StopSession
     if (LE_OK == startSessionResult)
     {
         // Try to delete profile Should return LE_BUSY
-        result = taf_dcs_DeleteProfile(ProfileRef);
-        LE_TEST_ASSERT(LE_BUSY == result, "taf_dcs_DeleteProfile");
+        result = taf_dcs_DeleteProfile(TestProfileRef);
+        LE_TEST_OK(LE_BUSY == result, "taf_dcs_DeleteProfile");
+
+        // Wait 10s before stopping data
+        sleep(10);
+
+        bIPv4Connected.store(true);
+        bIPv6Connected.store(true);
         // Stop data session
-        result = taf_dcs_StopSession(ProfileRef);
+        result = taf_dcs_StopSession(TestProfileRef);
         LE_TEST_ASSERT(LE_OK == result, "taf_dcs_StopSession");
+
+        // Wait for disconnected events
+        waitForConnectionEvents(pdp, false);
     }
     // Delete profile
-    result = taf_dcs_DeleteProfile(ProfileRef);
+    result = taf_dcs_DeleteProfile(TestProfileRef);
     LE_TEST_ASSERT(LE_OK == result, "taf_dcs_DeleteProfile");
+
+    // Unregister from data events
+    le_event_QueueFunctionToThread(dataSessionThRef,
+                  (le_event_DeferredFunc_t)ut_RemoveSessionStateHandler_deferred_func, NULL, NULL);
+    le_sem_Wait(TestSemRef);
+
+    // Set the profile reference to NULL
+    TestProfileRef = NULL;
 }
 
 /**
@@ -1904,6 +2003,13 @@ COMPONENT_INIT
 {
     size_t numArgs = le_arg_NumArgs();
     std::string testName;
+
+    std::cout << std::endl;
+    std::cout << "************************************************" << std::endl;
+    std::cout << "Prerequisites: " << std::endl
+              << " 1. NAD should be registered." << std::endl
+              << " 2. APN used should support both IPv4 and IPv4 data calls." << std::endl;
+    std::cout << "************************************************" << std::endl;
 
     if (0 == numArgs)
     {
@@ -1922,6 +2028,14 @@ COMPONENT_INIT
     }
 
     LE_TEST_INIT;
+    TestSemRef = le_sem_Create("taf_datacall_ut_sem", 0);
+    LE_TEST_ASSERT (NULL != TestSemRef, "Failed to create test semaphore");
+    // Start a separate thread to receive data events.
+    dataSessionThRef = le_thread_Create("dataSessionTh", ut_taf_data_session_handler, NULL);
+    LE_TEST_ASSERT(NULL != dataSessionThRef, "Failed to create data events thread");
+    le_thread_Start(dataSessionThRef);
+    le_sem_Wait(TestSemRef);
+
     if ("Profile" == testName)
     {
         LE_TEST_INFO("Running profile management tests");

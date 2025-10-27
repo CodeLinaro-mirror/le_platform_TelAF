@@ -28,7 +28,9 @@ datas:
       bit_size: 8
       forbidden_characters:
         - (0x00..0x2F)
+        - 0b00110001
         - (0x3A..0x40)
+        - 0x45
         - (0x5B..0x7F)
 
   Not_numeric_with_forbidden_values:

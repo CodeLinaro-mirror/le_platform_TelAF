@@ -23,7 +23,7 @@
 
 #include "tafSvcIF.hpp"
 
-#define TAF_MRC_SVC_READY_TIMEOUT 60
+#define TAF_MRC_SVC_READY_TIMEOUT 8
 #define TAF_MRC_MSG_RESP_TIMEOUT 180
 
 #define TAF_MRC_METRICS_MAX_NUM 1

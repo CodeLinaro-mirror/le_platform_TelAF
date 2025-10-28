@@ -578,6 +578,9 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
         for (auto locationInfo : locationEngineInfo) {
             taf_locGnss_PositionSample_t* LocationData =
                     (taf_locGnss_PositionSample_t*)le_mem_ForceAlloc(gnss.PositionSamplePoolRef);
+
+            memset(LocationData, 0, sizeof(taf_locGnss_PositionSample_t));
+
             uint8_t i;
             double locData;
             LocationData->clientSessionRefPtr = &clientRequestPtr->sessionRef;
@@ -1456,6 +1459,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LE_DEBUG("valid Leap seconds uncertainty");
             }
             telux::loc::PositioningEngine posEngineBits = locationInfo->getLocOutputEngMask();
+            LE_DEBUG("posEngineBits: %" PRIu32 "", posEngineBits);
             if(posEngineBits & telux::loc::STANDARD_POSITIONING_ENGINE)
             {
                 LocationData->engMask |= TAF_LOCGNSS_STANDARD_POSITIONING_ENGINE;
@@ -1476,6 +1480,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LocationData->engMask |= TAF_LOCGNSS_VP_POSITIONING_ENGINE;
                 LE_DEBUG("eng Mask is VP_POSITIONING_ENGINE");
             }
+            LE_DEBUG("LocationData->engMask: %" PRIu32 "", LocationData->engMask);
             telux::loc::LocationAggregationType locEngineType = locationInfo->getLocOutputEngType();
             if(locEngineType == telux::loc::LOC_OUTPUT_ENGINE_FUSED)
             {
@@ -1567,6 +1572,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
             LocationData->realTime = locationInfo->getElapsedRealTime();
             LocationData->realTimeUnc = locationInfo->getElapsedRealTimeUncertainty();
             telux::loc::LocationTechnology techMask = locationInfo->getTechMask();
+            LE_DEBUG("techMask: %" PRIu32 "", techMask);
             if((techMask & telux::loc::LOC_GNSS))
             {
                 LocationData->techMask |= TAF_LOCGNSS_LOC_GNSS;
@@ -1627,7 +1633,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LocationData->techMask |= TAF_LOCGNSS_LOC_PROPAGATED;
                 LE_DEBUG("location calculated using Propagation logic");
             }
-
+            LE_DEBUG("LocationData->techMask: %" PRIu32 "", LocationData->techMask);
             for(i=0; i<TAF_LOCGNSS_NUMBER_OF_SIGNAL_TYPES_MAX; i++)
             {
                 LocationData->gnssData[i].gnssDataMask = clientRequestPtr->mGnssData[i].gnssDataMask;
@@ -2179,7 +2185,7 @@ void taf_locGnss::ConfigureAcqStartInfo(taf_locGnss_Client_t* clientRequestPtr) 
     clientRequestPtr->mTtffPtr = 0;
     clientRequestPtr->mStartTime = std::chrono::system_clock::now();
     clientRequestPtr->mTtffReportCount = 0;
-    LE_DEBUG("TTFF mStartTime = %ld", (clientRequestPtr->mStartTime).time_since_epoch().count());//Amy
+    LE_DEBUG("TTFF mStartTime = %ld", (clientRequestPtr->mStartTime).time_since_epoch().count());
     clientRequestPtr->mFirstFix = true;
 }
 

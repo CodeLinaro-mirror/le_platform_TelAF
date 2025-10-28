@@ -2123,6 +2123,7 @@ taf_ecall_Type_t taf_ecall::GetType ( taf_ecall_CallRef_t ecallRef)
 le_result_t taf_ecall::UseUSimNumbers()
 {
     EcallConfig eCallConfig;
+    eCallConfig.muteRxAudio = 0;
     eCallConfig.configValidityMask.set(ECALL_CONFIG_NUM_TYPE);
     eCallConfig.numType = ECallNumType::DEFAULT;
     Status status = CallManager->setECallConfig(eCallConfig);

@@ -1,0 +1,22 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+reset_all:
+  0x01 :
+    sub_function_identifier: 0x01
+    mnemonic: HardReset
+    maximum_execution_time: 37
+    access:
+      session: [ default_session, extended_diagnostic_session ]
+      security_type: 0x27
+    functional_specification: "HardReset functional_specification"
+    functional_requirement: "HardReset functional_requirement"
+  0x02 :
+    sub_function_identifier: 0x02
+    mnemonic: KeyOffOnReset
+    maximum_execution_time: 27
+    access:
+      session: [ default_session, extended_diagnostic_session ]
+      security_type: 0x27
+    functional_specification: "KeyOffOnReset functional_specification"
+    functional_requirement: "KeyOffOnReset functional_requirement"

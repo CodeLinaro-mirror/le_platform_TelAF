@@ -1,6 +1,7 @@
 /*
-* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
-*/
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #include <iostream>
 #include <string>
@@ -15,22 +16,29 @@
 #include <v1/com/qualcomm/qti/telephony/SimSvcProxy.hpp>
 #include <v1/com/qualcomm/qti/telephony/InfoSvcProxy.hpp>
 #include <v3/com/qualcomm/qti/telephony/MngdConnSvcProxy.hpp>
+#include <v1/com/qualcomm/qti/telephony/LocationSvcProxy.hpp>
+#include <v1/com/qualcomm/qti/telephony/SensorSvcProxy.hpp>
 
 #define IVSS_TEST_SVC_RADIO_MASK 0x1
 #define IVSS_TEST_SVC_SIM_MASK 0x10
 #define IVSS_TEST_SVC_INFO_MASK 0x100
 #define IVSS_TEST_SVC_MNGDCONN_MASK 0x1000
+#define IVSS_TEST_SVC_LOCATION_MASK 0x10000
+#define IVSS_TEST_SVC_SENSOR_MASK 0x100000
 #define IVSS_TEST_SVC_MASK_ALL 0xFFFFFFFF
 
 namespace RadioSvc = v2::com::qualcomm::qti::telephony;
 namespace SimSvc = v1::com::qualcomm::qti::telephony;
 namespace InfoSvc = v1::com::qualcomm::qti::telephony;
 namespace MngdConnSvc = v3::com::qualcomm::qti::telephony;
+namespace LocationSvc = v1::com::qualcomm::qti::telephony;
+namespace SensorSvc = v1::com::qualcomm::qti::telephony;
 using RadioSvcTypes = RadioSvc::RadioSvcTypes;
 using SimSvcTypes = SimSvc::SimSvcTypes;
 using InfoSvcTypes = InfoSvc::InfoSvcTypes;
 using MngdConnSvcTypes = MngdConnSvc::MngdConnSvcTypes;
-
+using LocationSvcTypes = LocationSvc::LocationSvcTypes;
+using SensorSvcTypes = SensorSvc::SensorSvcTypes;
 //--------------------------------------------------------------------------------------------------
 /**
  * Print Radio Access Technology.
@@ -192,6 +200,112 @@ std::string DataStateToString
     return statesString;
 }
 
+#include <iostream>
+#include <cstdint>
+
+void DisplayCapabilities(uint64_t capabilityMask) {
+    std::cout << "\n************* Capabilities Information *************\n";
+    std::cout << "Loc Capabilities bit mask: 0x" << std::hex << capabilityMask << std::dec << "\n";
+
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_TIME_BASED_TRACKING)
+    {
+        std::cout << "Time based tracking\n";
+    }
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_DISTANCE_BASED_TRACKING)
+    {
+        std::cout << "Distance based tracking\n";
+    }
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_GNSS_MEASUREMENTS)
+    {
+        std::cout << "GNSS Measurement\n";
+    }
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_CONSTELLATION_ENABLEMENT)
+    {
+        std::cout << "Constellation enablement\n";
+    }
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_CARRIER_PHASE)
+    {
+        std::cout << "Carrier phase\n";
+    }
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_QWES_GNSS_SINGLE_FREQUENCY)
+    {
+        std::cout << "QWES GNSS single frequency\n";
+    }
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_QWES_GNSS_MULTI_FREQUENCY)
+    {
+        std::cout << "QWES GNSS multi frequency\n";
+    }
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_QWES_VPE)
+    {
+        std::cout << "QWES VPE\n";
+    }
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_QWES_CV2X_LOCATION_BASIC)
+    {
+        std::cout << "QWES CV2X location basic\n";
+    }
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_QWES_CV2X_LOCATION_PREMIUM)
+    {
+        std::cout << "QWES CV2X location premium\n";
+    }
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_QWES_PPE)
+    {
+        std::cout << "QWES PPE\n";
+    }
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_QWES_QDR2)
+    {
+        std::cout << "QWES QDR2\n";
+    }
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_QWES_QDR3)
+    {
+        std::cout << "QWES QDR3\n";
+    }
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_TIME_BASED_BATCHING)
+    {
+        std::cout << "Time based batching\n";
+    }
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_DISTANCE_BASED_BATCHING)
+    {
+        std::cout << "Distance based batching\n";
+    }
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_GEOFENCE)
+    {
+        std::cout << "Geofence\n";
+    }
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_OUTDOOR_TRIP_BATCHING)
+    {
+        std::cout << "Outdoor trip batching\n";
+    }
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_SV_POLYNOMIAL)
+    {
+        std::cout << "SV polynomial\n";
+    }
+    if (capabilityMask &
+        LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_NLOS_ML20)
+    {
+        std::cout << "NLOS ML20\n";
+    }
+
+    std::cout << "****************************************************\n";
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * main
@@ -234,6 +348,8 @@ int main(int argc, char* argv[])
     std::shared_ptr<SimSvc::SimSvcProxy<>> simProxyKeep;
     std::shared_ptr<InfoSvc::InfoSvcProxy<>> infoProxyKeep;
     std::shared_ptr<MngdConnSvc::MngdConnSvcProxy<>> mngdConnProxyKeep;
+    std::shared_ptr<LocationSvc::LocationSvcProxy<>> locationProxyKeep;
+    std::shared_ptr<SensorSvc::SensorSvcProxy<>> sensorProxyKeep;
 
     if (svcMask & IVSS_TEST_SVC_RADIO_MASK)
     {
@@ -285,6 +401,32 @@ int main(int argc, char* argv[])
         }
         std::cout << "mngdConnProxy Available..." << std::endl;
         mngdConnProxyKeep = mngdConnProxy;
+    }
+
+    if (svcMask & IVSS_TEST_SVC_LOCATION_MASK)
+    {
+        std::shared_ptr<LocationSvc::LocationSvcProxy<>> locationProxy = runtime->buildProxy
+            <LocationSvc::LocationSvcProxy>("local", "telephony.LocationSvc", "clientTest");
+        std::cout << "Checking availability!" << std::endl;
+        while (!locationProxy->isAvailable())
+        {
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
+        }
+        std::cout << "locationProxy Available..." << std::endl;
+        locationProxyKeep = locationProxy;
+    }
+
+    if (svcMask & IVSS_TEST_SVC_SENSOR_MASK)
+    {
+        std::shared_ptr<SensorSvc::SensorSvcProxy<>> sensorProxy = runtime->buildProxy
+            <SensorSvc::SensorSvcProxy>("local", "telephony.SensorSvc", "clientTest");
+        std::cout << "Checking availability!" << std::endl;
+        while (!sensorProxy->isAvailable())
+        {
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
+        }
+        std::cout << "sensorProxy Available..." << std::endl;
+        sensorProxyKeep = sensorProxy;
     }
 
     // api test
@@ -357,7 +499,7 @@ int main(int argc, char* argv[])
             RadioSvcTypes::TelephonyResultT::TELEPHONY_RESULT_T_UNKNOWN;
         RadioSvcTypes::PhoneIdT phoneId = RadioSvcTypes::PhoneIdT::PHONE_ID_T_1;
 
-        std::cout << "======== get GSM signal strength Test ========" << "'\n";
+        std::cout << "======== get GSM signal strength Test ========" << "\n";
         int32_t rssi = 0;
         uint32_t ber = 0;
         radioProxyKeep->GetGsmSignalMetrics(phoneId, callStatus, rssi, ber, radioResult);
@@ -368,7 +510,7 @@ int main(int argc, char* argv[])
         std::cout << "get GSM signal strength: rssi=" << rssi << "(dBm), ber=" << ber
             << "(Bit error rate)" << std::endl << std::endl;
 
-        std::cout << "======== get UMTS signal strength Test ========" << "'\n";
+        std::cout << "======== get UMTS signal strength Test ========" << "\n";
         int32_t ss = 0;
         ber = 0;
         int32_t rscp = 0;
@@ -380,7 +522,7 @@ int main(int argc, char* argv[])
         std::cout << "get UMTS signal strength: ss=" << ss << "(dBm), ber=" << ber
             << "(Bit error rate), rscp" << rscp << "(dBm)" << std::endl << std::endl;
 
-        std::cout << "======== get LTE signal strength Test ========" << "'\n";
+        std::cout << "======== get LTE signal strength Test ========" << "\n";
         ss = 0;
         int32_t rsrq = 0;
         int32_t rsrp = 0;
@@ -393,7 +535,7 @@ int main(int argc, char* argv[])
         std::cout << "get LTE signal strength: ss=" << ss << "(dBm), rsrq=" << rsrq << "(dB), rsrp"
             << rsrp << "(dBm), snr=" << snr << "(0.1 dB)" << std::endl << std::endl;
 
-        std::cout << "======== get NR5G signal strength Test ========" << "'\n";
+        std::cout << "======== get NR5G signal strength Test ========" << "\n";
         rsrq = 0;
         rsrp = 0;
         snr = 0;
@@ -405,7 +547,7 @@ int main(int argc, char* argv[])
         std::cout << "get NR5G signal strength: rsrq=" << rsrq << "(dB), rsrp" << rsrp
             << "(dBm), snr=" << snr << "(0.1 dB)" << std::endl << std::endl;
 
-        std::cout << "======== get Register Mode Test ========" << "'\n";
+        std::cout << "======== get Register Mode Test ========" << "\n";
         bool isManual;
         std::string mcc;
         std::string mnc;
@@ -417,7 +559,7 @@ int main(int argc, char* argv[])
         std::cout << "get Register Mode: isManual=" << isManual << " , mcc=" << mcc << " mnc="
             << mnc << std::endl << std::endl;
 
-        std::cout << "======== set Automatic Register Mode Test ========" << "'\n";
+        std::cout << "======== set Automatic Register Mode Test ========" << "\n";
         radioProxyKeep->SetAutomaticRegisterMode(phoneId, callStatus, radioResult);
         CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
             callStatus)
@@ -425,7 +567,7 @@ int main(int argc, char* argv[])
             "radioResult!", radioResult)
         std::cout << "set Automatic Register Mode success" << std::endl << std::endl;
 
-        std::cout << "======== Get Hardware Config Test ========" << "'\n";
+        std::cout << "======== Get Hardware Config Test ========" << "\n";
         uint8_t totalSimCount = 0;
         uint8_t maxActiveSims = 0;
         uint32_t deviceRatCapMask = 0x0;
@@ -437,13 +579,13 @@ int main(int argc, char* argv[])
         CHECK_RETURN_VALUE(radioResult == RadioSvcTypes::TelephonyResultT::TELEPHONY_RESULT_T_OK,
             "radioResult!", radioResult)
         std::cout << "GetHardwareConfig: totalSimCount "
-            << static_cast<unsigned int>(totalSimCount) << "'\n"
-            << "maxActiveSims " << static_cast<unsigned int>(maxActiveSims) << "'\n"
-            << "deviceRatCapMask " << std::hex << "0x" << deviceRatCapMask << std::dec << "'\n"
-            << "simRatCapMask " << std::hex << "0x" << simRatCapMask << std::dec << "'\n"
+            << static_cast<unsigned int>(totalSimCount) << "\n"
+            << "maxActiveSims " << static_cast<unsigned int>(maxActiveSims) << "\n"
+            << "deviceRatCapMask " << std::hex << "0x" << deviceRatCapMask << std::dec << "\n"
+            << "simRatCapMask " << std::hex << "0x" << simRatCapMask << std::dec << "\n"
             << std::endl << std::endl;
 
-        std::cout << "======== Get Rat Preferences Test ========" << "'\n";
+        std::cout << "======== Get Rat Preferences Test ========" << "\n";
         uint32_t ratMask = 0x0;
         radioProxyKeep->GetRatPreferences(phoneId, callStatus, ratMask, radioResult);
         CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
@@ -453,7 +595,7 @@ int main(int argc, char* argv[])
         std::cout << "GetRatPreferences: ratMask " << std::hex << "0x" << ratMask << std::dec
             << std::endl << std::endl;
 
-        std::cout << "======== Get Current Network Name Test ========" << "'\n";
+        std::cout << "======== Get Current Network Name Test ========" << "\n";
         std::string longName;
         std::string shortName;
         radioProxyKeep->GetCurrentNetworkName(phoneId, callStatus, longName, shortName,
@@ -465,7 +607,7 @@ int main(int argc, char* argv[])
         std::cout << "GetCurrentNetworkName: longName " << longName << " shortName " << shortName
             << std::endl << std::endl;
 
-        std::cout << "======== Get NetRegState Test ========" << "'\n";
+        std::cout << "======== Get NetRegState Test ========" << "\n";
         RadioSvcTypes::RadioRatT getRat = RadioSvcTypes::RadioRatT::RADIO_RAT_T_UNKNOWN;
         uint32_t cellId;
         std::string getMcc;
@@ -482,7 +624,7 @@ int main(int argc, char* argv[])
             << " , getMcc=" << getMcc << " , getMnc=" << getMnc << " , netReg="
             << static_cast<unsigned int>(netReg) << std::endl << std::endl;
 
-        std::cout << "======== Get NrDualConnectivityStatus Test ========" << "'\n";
+        std::cout << "======== Get NrDualConnectivityStatus Test ========" << "\n";
         RadioSvcTypes::RadioNrDcnrRestrictionT statusDcnr =
             RadioSvcTypes::RadioNrDcnrRestrictionT::RADIO_NR_DCNR_RESTRICTION_T_UNKNOWN;
         radioProxyKeep->GetNrDualConnectivityStatus(phoneId, callStatus, statusDcnr, radioResult);
@@ -509,7 +651,7 @@ int main(int argc, char* argv[])
             "radioResult!", radioResult)
         std::cout << "SetSignalStrengthReportingCriteria SUCCESS " << std::endl << std::endl;
 
-        std::cout << "======== Get PacketSwitchedState Test ========" << "'\n";
+        std::cout << "======== Get PacketSwitchedState Test ========" << "\n";
         RadioSvcTypes::RadioNetRegStateT netState =
             RadioSvcTypes::RadioNetRegStateT::RADIO_NET_REG_STATE_T_UNKNOWN;
         radioProxyKeep->GetPacketSwitchedState(phoneId, callStatus, netState, radioResult);
@@ -520,7 +662,7 @@ int main(int argc, char* argv[])
         std::cout << "GetPacketSwitchedState: netState=" << static_cast<unsigned int>(netState)
             << std::endl << std::endl;
 
-        std::cout << "======== Get RadioState Test ========" << "'\n";
+        std::cout << "======== Get RadioState Test ========" << "\n";
         RadioSvcTypes::RadioStateT radioState =
             RadioSvcTypes::RadioStateT::RADIO_STATE_T_UNKNOWN;
         radioProxyKeep->GetRadioState(phoneId, callStatus, radioState, radioResult);
@@ -555,7 +697,7 @@ int main(int argc, char* argv[])
             SimSvcTypes::TelephonyResultT::TELEPHONY_RESULT_T_UNKNOWN;
         SimSvcTypes::PhoneIdT simPhoneId = SimSvcTypes::PhoneIdT::PHONE_ID_T_1;
 
-        std::cout << "======== get Sim Imsi Test ========" << "'\n";
+        std::cout << "======== get Sim Imsi Test ========" << "\n";
         std::string imsi;
         simProxyKeep->GetImsi(simPhoneId, callStatus, imsi, simResult);
         CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
@@ -564,7 +706,7 @@ int main(int argc, char* argv[])
             "simResult!", simResult)
         std::cout << "get Imsi: " << imsi << std::endl << std::endl;
 
-        std::cout << "======== get SimState Test ========" << "'\n";
+        std::cout << "======== get SimState Test ========" << "\n";
         SimSvcTypes::SimStateT simState = SimSvcTypes::SimStateT::SIM_STATE_T_UNKNOWN;
         simProxyKeep->GetState(simPhoneId, callStatus, simState, simResult);
         CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
@@ -574,7 +716,7 @@ int main(int argc, char* argv[])
         std::cout << "get Status: " << StateToString(simState) << std::endl << std::endl;
 
         std::string iccid;
-        std::cout << "======== Sim GetIccid Test ========" << "'\n";
+        std::cout << "======== Sim GetIccid Test ========" << "\n";
         simProxyKeep->GetIccid(simPhoneId, callStatus, iccid, simResult);
         CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
             callStatus)
@@ -590,7 +732,7 @@ int main(int argc, char* argv[])
             InfoSvcTypes::TelephonyResultT::TELEPHONY_RESULT_T_UNKNOWN;
 
         std::string imei;
-        std::cout << "======== get Imei Test ========" << "'\n";
+        std::cout << "======== get Imei Test ========" << "\n";
         infoProxyKeep->GetImei(callStatus, imei, infoResult);
         CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
             callStatus)
@@ -619,7 +761,7 @@ int main(int argc, char* argv[])
         MngdConnSvcTypes::TelephonyResultT mngdConnResult =
             MngdConnSvcTypes::TelephonyResultT::TELEPHONY_RESULT_T_UNKNOWN;
 
-        std::cout << "======== StartData1 Test ========" << "'\n";
+        std::cout << "======== StartData1 Test ========" << "\n";
         std::string name1 = "Data1";
         mngdConnProxyKeep->StartData(name1, callStatus, mngdConnResult);
         CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
@@ -628,7 +770,7 @@ int main(int argc, char* argv[])
             TELEPHONY_RESULT_T_OK, "mngdConnResult!", mngdConnResult)
         std::cout << "StartData SUCCESS: " << name1 << std::endl << std::endl;
 
-        std::cout << "======== StartData2 Test ========" << "'\n";
+        std::cout << "======== StartData2 Test ========" << "\n";
         std::string name2 = "Data2";
         mngdConnProxyKeep->StartData(name2, callStatus, mngdConnResult);
         CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
@@ -637,7 +779,7 @@ int main(int argc, char* argv[])
             TELEPHONY_RESULT_T_OK, "mngdConnResult!", mngdConnResult)
         std::cout << "StartData SUCCESS: " << name2 << std::endl << std::endl;
 
-        std::cout << "======== GetDataList Test ========" << "'\n";
+        std::cout << "======== GetDataList Test ========" << "\n";
         std::this_thread::sleep_for(std::chrono::seconds(1));
         uint8_t dataNum = 0;
         std::vector<std::string> nameList = {};
@@ -647,14 +789,14 @@ int main(int argc, char* argv[])
             callStatus)
         CHECK_RETURN_VALUE(mngdConnResult == MngdConnSvcTypes::TelephonyResultT::
             TELEPHONY_RESULT_T_OK, "mngdConnResult!", mngdConnResult)
-        std::cout << "GetDataList number: " << static_cast<int>(dataNum) << "'\n";
+        std::cout << "GetDataList number: " << static_cast<int>(dataNum) << "\n";
         for (int i = 0; i < dataNum; i++)
         {
             std::cout << "name" << i << "=" << nameList[i] << ", dataState="
-                << DataStateToString(dataState[i]) << "'\n";
+                << DataStateToString(dataState[i]) << "\n";
         }
 
-        std::cout << "======== Get Data1 Ipv4Info Test ========" << "'\n";
+        std::cout << "======== Get Data1 Ipv4Info Test ========" << "\n";
         std::string ifName1;
         MngdConnSvcTypes::MngdConnDataIpInfoT ipv4Info1;
         mngdConnProxyKeep->GetDataIpv4Info(name1, callStatus, ifName1, ipv4Info1, mngdConnResult);
@@ -662,16 +804,16 @@ int main(int argc, char* argv[])
             callStatus)
         CHECK_RETURN_VALUE(mngdConnResult == MngdConnSvcTypes::TelephonyResultT::
             TELEPHONY_RESULT_T_OK, "mngdConnResult!", mngdConnResult)
-        std::cout << "ifName: " << ifName1 << "'\n";
-        std::cout << "Ipv4" << "'\n";
-        std::cout << "IP: " << ipv4Info1.getIpAddr() << "'\n";
-        std::cout << "Gateway: " << ipv4Info1.getGatewayAddr() << "'\n";
-        std::cout << "Dns1: " << ipv4Info1.getDns1Addr() << "'\n";
-        std::cout << "Dns2: " << ipv4Info1.getDns2Addr() << "'\n";
-        std::cout << "Mask: 0x" << std::hex << ipv4Info1.getIpMask() << "'\n";
-        std::cout << "Mtu: " << std::dec << ipv4Info1.getMtu() << "'\n";
+        std::cout << "ifName: " << ifName1 << "\n";
+        std::cout << "Ipv4" << "\n";
+        std::cout << "IP: " << ipv4Info1.getIpAddr() << "\n";
+        std::cout << "Gateway: " << ipv4Info1.getGatewayAddr() << "\n";
+        std::cout << "Dns1: " << ipv4Info1.getDns1Addr() << "\n";
+        std::cout << "Dns2: " << ipv4Info1.getDns2Addr() << "\n";
+        std::cout << "Mask: 0x" << std::hex << ipv4Info1.getIpMask() << "\n";
+        std::cout << "Mtu: " << std::dec << ipv4Info1.getMtu() << "\n";
 
-        std::cout << "======== Get Data2 Ipv4Info Test ========" << "'\n";
+        std::cout << "======== Get Data2 Ipv4Info Test ========" << "\n";
         std::string ifName2;
         MngdConnSvcTypes::MngdConnDataIpInfoT ipv4Info2;
         mngdConnProxyKeep->GetDataIpv4Info(name2, callStatus, ifName2, ipv4Info2, mngdConnResult);
@@ -679,16 +821,16 @@ int main(int argc, char* argv[])
             callStatus)
         CHECK_RETURN_VALUE(mngdConnResult == MngdConnSvcTypes::TelephonyResultT::
             TELEPHONY_RESULT_T_OK, "mngdConnResult!", mngdConnResult)
-        std::cout << "ifName: " << ifName2 << "'\n";
-        std::cout << "Ipv4" << "'\n";
-        std::cout << "IP: " << ipv4Info2.getIpAddr() << "'\n";
-        std::cout << "Gateway: " << ipv4Info2.getGatewayAddr() << "'\n";
-        std::cout << "Dns1: " << ipv4Info2.getDns1Addr() << "'\n";
-        std::cout << "Dns2: " << ipv4Info2.getDns2Addr() << "'\n";
-        std::cout << "Mask: 0x" << std::hex << ipv4Info2.getIpMask() << "'\n";
-        std::cout << "Mtu: " << std::dec << ipv4Info2.getMtu() << "'\n";
+        std::cout << "ifName: " << ifName2 << "\n";
+        std::cout << "Ipv4" << "\n";
+        std::cout << "IP: " << ipv4Info2.getIpAddr() << "\n";
+        std::cout << "Gateway: " << ipv4Info2.getGatewayAddr() << "\n";
+        std::cout << "Dns1: " << ipv4Info2.getDns1Addr() << "\n";
+        std::cout << "Dns2: " << ipv4Info2.getDns2Addr() << "\n";
+        std::cout << "Mask: 0x" << std::hex << ipv4Info2.getIpMask() << "\n";
+        std::cout << "Mtu: " << std::dec << ipv4Info2.getMtu() << "\n";
 
-        std::cout << "======== StopData1 Test ========" << "'\n";
+        std::cout << "======== StopData1 Test ========" << "\n";
         mngdConnProxyKeep->StopData(name1, callStatus, mngdConnResult);
         CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
             callStatus)
@@ -696,13 +838,58 @@ int main(int argc, char* argv[])
             TELEPHONY_RESULT_T_OK, "mngdConnResult!", mngdConnResult)
         std::cout << "StopData SUCCESS: " << name1 << std::endl << std::endl;
 
-        std::cout << "======== StopData2 Test ========" << "'\n";
+        std::cout << "======== StopData2 Test ========" << "\n";
         mngdConnProxyKeep->StopData(name2, callStatus, mngdConnResult);
         CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
             callStatus)
         CHECK_RETURN_VALUE(mngdConnResult == MngdConnSvcTypes::TelephonyResultT::
             TELEPHONY_RESULT_T_OK, "mngdConnResult!", mngdConnResult)
         std::cout << "StopData SUCCESS: " << name2 << std::endl << std::endl;
+    }
+
+    if (svcMask & IVSS_TEST_SVC_LOCATION_MASK)
+    {
+        // Request method
+        LocationSvcTypes::TelephonyResultT locationResult =
+            LocationSvcTypes::TelephonyResultT::TELEPHONY_RESULT_T_UNKNOWN;
+
+        uint64_t capabilitiesMask = 0;
+        std::cout << "======== get Capabilities Test ========" << "\n";
+        locationProxyKeep->GetCapabilities(callStatus, capabilitiesMask, locationResult);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(
+            locationResult == LocationSvcTypes::TelephonyResultT::TELEPHONY_RESULT_T_OK,
+            "locationResult!", locationResult)
+        DisplayCapabilities(capabilitiesMask);
+    }
+
+    if (svcMask & IVSS_TEST_SVC_SENSOR_MASK)
+    {
+        // Request method
+        SensorSvcTypes::TelephonyResultT sensorResult =
+            SensorSvcTypes::TelephonyResultT::TELEPHONY_RESULT_T_UNKNOWN;
+
+        uint32_t sensorNum = 0;
+        std::vector<SensorSvcTypes::SensorInfoT> sensorInfoList = {};
+        std::cout << "======== get SensorList Test ========" << "\n";
+        sensorProxyKeep->GetSensorList(callStatus, sensorNum, sensorInfoList, sensorResult);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
+            callStatus)
+        CHECK_RETURN_VALUE(sensorResult == SensorSvcTypes::TelephonyResultT::TELEPHONY_RESULT_T_OK,
+            "sensorResult!", sensorResult)
+
+        std::cout << "Sensor Total Number: " << sensorNum << "\n";
+        for (uint32_t i = 0; i < sensorNum; i++)
+        {
+            std::cout << "sensorId: " << sensorInfoList[i].getSensorId() << "\n";
+            std::cout << "sensorName: " << sensorInfoList[i].getSensorName() << "\n";
+            std::cout << "sensorVendorName: " << sensorInfoList[i].getSensorVendorName() << "\n";
+            std::cout << "sensorVersion: " << sensorInfoList[i].getSensorVersion() << "\n";
+            std::cout << "sensorType: "
+                << static_cast<unsigned int>(sensorInfoList[i].getSensorType())
+                << std::endl << std::endl;
+        }
     }
 
     while (true) {

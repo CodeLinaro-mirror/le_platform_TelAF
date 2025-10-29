@@ -48,6 +48,8 @@ apps:
     // IVSS services.
     $TELAF_ROOT/apps/ivss/service/tafIvssTelephonySvc/tafIvssTelephonySvc
     $TELAF_ROOT/apps/ivss/service/tafIvssDataSvc/tafIvssDataSvc
+    $TELAF_ROOT/apps/ivss/service/tafIvssLocationSvc/tafIvssLocationSvc
+    $TELAF_ROOT/apps/ivss/service/tafIvssSensorSvc/tafIvssSensorSvc
 
     // RPC proxy
     $TELAF_ROOT/apps/rpc/rpcProxy/tafRpcProxy

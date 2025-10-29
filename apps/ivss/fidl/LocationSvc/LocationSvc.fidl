@@ -1,0 +1,208 @@
+/*
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+package com.qualcomm.qti.telephony
+
+/**
+    @description :
+
+**/
+typeCollection LocationSvcTypes {
+    version { major 1 minor 0 }
+
+    /**
+        @description :
+
+        @experimental: type : uint8
+    **/
+    enumeration TelephonyResultT {
+        /** Unknow result.  **/
+        TELEPHONY_RESULT_T_UNKNOWN = 0
+
+        /** Successful.  **/
+        TELEPHONY_RESULT_T_OK = 1
+
+        /** Referenced item does not exist or could not be found.  **/
+        TELEPHONY_RESULT_T_NOT_FOUND = 2
+
+        /** An index or other value is out of range.  **/
+        TELEPHONY_RESULT_T_OUT_OF_RANGE = 3
+
+        /** Insufficient memory is available.  **/
+        TELEPHONY_RESULT_T_NO_MEMORY = 4
+
+        /** Current user does not have permission to perform requested action.  **/
+        TELEPHONY_RESULT_T_NOT_PERMITTED = 5
+
+        /** Unspecified internal error.  **/
+        TELEPHONY_RESULT_T_FAULT = 6
+
+        /** Communications error.  **/
+        TELEPHONY_RESULT_T_COMM_ERROR = 7
+
+        /** A time-out occurred.  **/
+        TELEPHONY_RESULT_T_TIMEOUT = 8
+
+        /** An overflow occurred or would have occurred.  **/
+        TELEPHONY_RESULT_T_OVERFLOW = 9
+
+        /** An underflow occurred or would have occurred.  **/
+        TELEPHONY_RESULT_T_UNDERFLOW = 10
+
+        /** Would have blocked if non-blocking behaviour was not requested.  **/
+        TELEPHONY_RESULT_T_WOULD_BLOCK = 11
+
+        /** Would have caused a deadlock.  **/
+        TELEPHONY_RESULT_T_DEADLOCK = 12
+
+        /** Format error.  **/
+        TELEPHONY_RESULT_T_FORMAT_ERROR = 13
+
+        /** Duplicate entry found or operation already performed.  **/
+        TELEPHONY_RESULT_T_DUPLICATE = 14
+
+        /** Parameter is invalid.  **/
+        TELEPHONY_RESULT_T_BAD_PARAMETER = 15
+
+        /** The resource is closed.  **/
+        TELEPHONY_RESULT_T_CLOSED = 16
+
+        /** The resource is busy.  **/
+        TELEPHONY_RESULT_T_BUSY = 17
+
+        /** The underlying resource does not support this operation.  **/
+        TELEPHONY_RESULT_T_UNSUPPORTED = 18
+
+        /** An IO operation failed.  **/
+        TELEPHONY_RESULT_T_IO_ERROR = 19
+
+        /** Unimplemented functionality.  **/
+        TELEPHONY_RESULT_T_NOT_IMPLEMENTED = 20
+
+        /** A transient or temporary loss of a service or resource.  **/
+        TELEPHONY_RESULT_T_UNAVAILABLE = 21
+
+        /** The process, operation, data stream, session, etc. has stopped.  **/
+        TELEPHONY_RESULT_T_TERMINATED = 22
+
+        /** The operation is in progress.  **/
+        TELEPHONY_RESULT_T_IN_PROGRESS = 23
+
+        /** The operation is suspended.  **/
+        TELEPHONY_RESULT_T_SUSPENDED = 24
+
+        /** @deprecated It is not possible to perform the requested action.  **/
+        TELEPHONY_RESULT_T_NOT_POSSIBLE = 25
+    }
+
+    /**
+        @description :
+
+        @experimental: type : uint64
+    **/
+    enumeration LocationCapabilityBitMaskT {
+        /** Unknown Capabilities.  **/
+        LOC_CAP_BIT_MASK_T_UNKNOWN = 0
+
+        /** Time based tracking session is supported.  **/
+        LOC_CAP_BIT_MASK_T_TIME_BASED_TRACKING = 1
+
+        /** Distance based tracking session is supported.  **/
+        LOC_CAP_BIT_MASK_T_DISTANCE_BASED_TRACKING = 2
+
+        /** Receiving GNSS measurement data is supported.  **/
+        LOC_CAP_BIT_MASK_T_GNSS_MEASUREMENTS = 4
+
+        /** Support to configure constellations available.  **/
+        LOC_CAP_BIT_MASK_T_CONSTELLATION_ENABLEMENT = 8
+
+        /** Support for carrier phase for Positioning Measurement Engine (PPME) available.  **/
+        LOC_CAP_BIT_MASK_T_CARRIER_PHASE = 16
+
+        /** Supports GNSS Single Frequency feature.  **/
+        LOC_CAP_BIT_MASK_T_QWES_GNSS_SINGLE_FREQUENCY = 32
+
+        /** Supports GNSS Multi Frequency feature. This indicates support for GNSS single frequency
+            is also available.  **/
+        LOC_CAP_BIT_MASK_T_QWES_GNSS_MULTI_FREQUENCY = 64
+
+        /** Indicates VEPP license bundle is enabled. VEPP bundle include Carrier Phase and SV
+            Polynomial.  **/
+        LOC_CAP_BIT_MASK_T_QWES_VPE = 128
+
+        /** Indicates support for CV2X Location basic features. This bundle includes features for
+            GTS Time & Freq, C-TUNC (Constrained Time uncertainty)..  **/
+        LOC_CAP_BIT_MASK_T_QWES_CV2X_LOCATION_BASIC = 256
+
+        /** Indicates support for CV2X Location premium features. This bundle includes features for
+            CV2X Location Basic features, QDR3 feature, and PACE. (Position Assisted Clock 
+            Estimator).  **/
+        LOC_CAP_BIT_MASK_T_QWES_CV2X_LOCATION_PREMIUM = 512
+
+        /** Indicates that PPE (Precise Positioning Engine) library is enabled or Precise
+            Positioning Framework (PPF) is available. Framework (PPF) is available. This includes
+            features for Carrier Phase and SV Ephermeris.  **/
+        LOC_CAP_BIT_MASK_T_QWES_PPE = 1024
+
+        /** Indicates QDR2_C license bundle is enabled..  **/
+        LOC_CAP_BIT_MASK_T_QWES_QDR2 = 2048
+
+        /** Indicates QDR3_C license bundle is enabled.  **/
+        LOC_CAP_BIT_MASK_T_QWES_QDR3 = 4096
+
+        /** Time based batching is supported.  **/
+        LOC_CAP_BIT_MASK_T_TIME_BASED_BATCHING = 8192
+
+        /** Distance based batching is supported.  **/
+        LOC_CAP_BIT_MASK_T_DISTANCE_BASED_BATCHING = 16384
+
+        /** Geofencing is supported.  **/
+        LOC_CAP_BIT_MASK_T_GEOFENCE = 32768
+
+        /** Outdoor trip batching is supported.  **/
+        LOC_CAP_BIT_MASK_T_OUTDOOR_TRIP_BATCHING = 65536
+
+        /** Support for SV polynomial is available.  **/
+        LOC_CAP_BIT_MASK_T_SV_POLYNOMIAL = 131072
+
+        /** Indicates presence of ML Inference capability for Pseudo Range Measurements.  **/
+        LOC_CAP_BIT_MASK_T_NLOS_ML20 = 262144
+    }
+
+}
+
+/**
+    @description :
+
+**/
+interface LocationSvc {
+    version { major 1 minor 0 }
+
+    /**
+        @description :
+            Gets the GNSS capability information per client session.
+
+        @experimental: asil-level  :
+        @experimental: periodicity :
+        @experimental: exclusion-time :
+    **/
+    method GetCapabilities {
+        out {
+            /**
+                @description : The GNSS capability information.
+                - To know capability bit mask @ref LocationCapabilityBitMaskT.
+            **/
+            UInt64 capabilitiesMask
+
+            /**
+                @description : result code defined in Result.
+                - TELEPHONY_RESULT_T_OK            Succeeded.
+                - TELEPHONY_RESULT_T_FAULT         Failed.
+            **/
+            LocationSvcTypes.TelephonyResultT result
+        }
+    }
+
+}

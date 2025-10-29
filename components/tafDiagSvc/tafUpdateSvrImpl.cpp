@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -44,6 +44,7 @@ void taf_UpdateSvr::Init
             DEFAULT_RXHANDLER_REF_CNT);
     RxXferExitHandlerRefMap = le_ref_CreateMap("Server RxXferExitHandlerRefMap",
             DEFAULT_RXHANDLER_REF_CNT);
+    RxNrcStatusRefMap = le_ref_CreateMap("RxNrcStatusRefMap", DEFAULT_RXMSG_REF_CNT);
 
     // Create memory pools.
     SvcPool = le_mem_CreatePool("Server SvcPool", sizeof(taf_UpdateSvc_t));
@@ -51,6 +52,7 @@ void taf_UpdateSvr::Init
     RxXferDataMsgPool = le_mem_CreatePool("Server RxXferDataMsgPool", sizeof(taf_XferDataRxMsg_t));
     RxXferExitMsgPool = le_mem_CreatePool("Server RxXferExitMsgPool", sizeof(taf_XferExitRxMsg_t));
     vlanPool = le_mem_CreatePool("DiagUpdateVlanPool", sizeof(taf_UpdateVlanIdNode_t));
+    NrcStatusMsgPool = le_mem_CreatePool("NrcStatusMsgPool", sizeof(taf_UpdateNrcStatusMsg_t));
 
     RxFileXferHandlerPool = le_mem_CreatePool("Server RxFileXferHandlerPool",
             sizeof(taf_FileXferHandler_t));
@@ -74,6 +76,9 @@ void taf_UpdateSvr::Init
     XferExitEventHandlerRef = le_event_AddHandler("UpdateSvc TransferData Event Handler",
             XferExitEvent, taf_UpdateSvr::RxXferExitEventHandler);
 
+    // Create the event ID for NRC notification.
+    NrcEventId = le_event_CreateIdWithRefCounting("NRC Event");
+
     // Create client session close hander.
     le_msg_AddServiceCloseHandler(taf_diagUpdate_GetServiceRef(),
                                   taf_UpdateSvr::OnClientDisconnection, NULL);
@@ -83,6 +88,7 @@ void taf_UpdateSvr::Init
     backend.RegisterUdsService(reqFileXferSvcId, this);
     backend.RegisterUdsService(fileDataXferSvcId, this);
     backend.RegisterUdsService(fileXferExitSvcId, this);
+    backend.RegisterUdsService(nrcStatusMsgId, this);
 
     LE_INFO("taf_DiagUpdateSvr Service started");
 }
@@ -381,6 +387,7 @@ void taf_UpdateSvr::UDSMsgHandler
     static int moopDirection = 2;
 
     TAF_ERROR_IF_RET_NIL(msgPtr == NULL, "Invalid dataPtr");
+    TAF_ERROR_IF_RET_NIL(addrPtr == NULL, "Invalid adrInfoPtr");
 
     if (sid == reqFileXferSvcId)  // RequestFileTransfer service of UDS
     {
@@ -584,6 +591,20 @@ void taf_UpdateSvr::UDSMsgHandler
         // Report the request message to message handler in service layer.
         le_event_ReportWithRefCounting(XferExitEvent, rxXferExitMsgPtr);
     }
+    else if (sid == nrcStatusMsgId)  // NRC status notification.
+    {
+        if(msgLen < NRC_NOTIFICATION_MIN_LEN)
+        {
+            LE_ERROR("Wrong NRC notification message length");
+            return;
+        }
+
+    #ifdef LE_CONFIG_DIAG_FEATURE_A
+        ReportNrcStatus(addrPtr, msgPtr[1], msgPtr[2]);
+    #endif
+
+        return;
+    }
     else
     {
         LE_DEBUG("Service(0x%x) is invalid for update", sid);
@@ -600,7 +621,7 @@ errOut:
     addrInfo.vlanId = addrPtr->vlanId;
     le_utf8_Copy(addrInfo.ifName, addrPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
 
-    RspNegativeMsg(&addrInfo, sid, nrc);
+    RspNegativeMsg(&addrInfo, sid, nrc, true);
 
     return;
 }
@@ -609,11 +630,18 @@ le_result_t taf_UpdateSvr::RspNegativeMsg
 (
     taf_uds_AddrInfo_t* addrPtr,
     uint8_t sid,
-    uint8_t nrc
+    uint8_t nrc,
+    bool isInternal
 )
 {
     // Negative message: 0x7F SID NRC
     auto& backend = taf_DiagBackend::GetInstance();
+
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    //Send NRC notification except NRC 0x21.
+    if(isInternal && (nrc != TAF_DIAG_BUSY_REPEAT_REQUEST))
+        ReportNrcStatus(addrPtr, sid, nrc);
+#endif
 
     return backend.RespDiagNegative(sid, addrPtr, nrc);
 }
@@ -983,7 +1011,7 @@ errOut:
     addrInfo.vlanId = msgPtr->addrInfo.vlanId;
     le_utf8_Copy(addrInfo.ifName, msgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
 #endif
-    update.RspNegativeMsg(&addrInfo, msgPtr->serviceId, nrc);
+    update.RspNegativeMsg(&addrInfo, msgPtr->serviceId, nrc, true);
 
     le_ref_DeleteRef(update.RxFileXferMsgRefMap, msgPtr->rxMsgRef);
     le_mem_Release(msgPtr);
@@ -1069,7 +1097,7 @@ errOut:
     addrInfo.vlanId = msgPtr->addrInfo.vlanId;
     le_utf8_Copy(addrInfo.ifName, msgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
 #endif
-    update.RspNegativeMsg(&addrInfo, msgPtr->serviceId, nrc);
+    update.RspNegativeMsg(&addrInfo, msgPtr->serviceId, nrc, true);
 
     le_ref_DeleteRef(update.RxXferDataMsgRefMap, msgPtr->rxMsgRef);
     le_mem_Release(msgPtr);
@@ -1152,7 +1180,7 @@ errOut:
     addrInfo.vlanId = msgPtr->addrInfo.vlanId;
     le_utf8_Copy(addrInfo.ifName, msgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
 #endif
-    update.RspNegativeMsg(&addrInfo, msgPtr->serviceId, nrc);
+    update.RspNegativeMsg(&addrInfo, msgPtr->serviceId, nrc, true);
 
     le_ref_DeleteRef(update.RxXferExitMsgRefMap, msgPtr->rxMsgRef);
     le_mem_Release(msgPtr);
@@ -1490,7 +1518,7 @@ le_result_t taf_UpdateSvr::SendFileXferResp
     }
     else
     {
-        ret = RspNegativeMsg(&addrInfo, msgPtr->serviceId, (uint8_t)errCode);
+        ret = RspNegativeMsg(&addrInfo, msgPtr->serviceId, (uint8_t)errCode, false);
         if (ret != LE_OK)
         {
             LE_ERROR("Failed to respond negative message for RequestFileTransfer(%d)", ret);
@@ -1679,7 +1707,7 @@ le_result_t taf_UpdateSvr::SendXferDataResp
     }
     else
     {
-        ret = RspNegativeMsg(&addrInfo, msgPtr->serviceId, (uint8_t)errCode);
+        ret = RspNegativeMsg(&addrInfo, msgPtr->serviceId, (uint8_t)errCode, false);
         if (ret != LE_OK)
         {
             LE_ERROR("Failed to respond negative message for RequestFileTransfer(%d)", ret);
@@ -1845,7 +1873,7 @@ le_result_t taf_UpdateSvr::SendXferExitResp
     }
     else
     {
-        ret = RspNegativeMsg(&addrInfo, msgPtr->serviceId, (uint8_t)errCode);
+        ret = RspNegativeMsg(&addrInfo, msgPtr->serviceId, (uint8_t)errCode, false);
         if (ret != LE_OK)
         {
             LE_ERROR("Failed to respond negative message for RequestFileTransfer(%d)", ret);
@@ -1902,6 +1930,79 @@ le_result_t taf_UpdateSvr::ReleaseRxXferExitMsg
 
     LE_DEBUG("Release reqMsg(%p) resource for TransferData", rxMsgRef);
 
+    return LE_OK;
+}
+
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+//-------------------------------------------------------------------------------------------------
+/**
+ * Report NRC status.
+ */
+//-------------------------------------------------------------------------------------------------
+void taf_UpdateSvr::ReportNrcStatus
+(
+    const taf_uds_AddrInfo_t* addrPtr,
+    uint8_t sid,
+    uint8_t nrc
+)
+{
+    TAF_ERROR_IF_RET_NIL(addrPtr == NULL, "Invalid addrPtr");
+
+    taf_UpdateNrcStatusMsg_t* nrcStatusMsgPtr = NULL;
+
+    nrcStatusMsgPtr = (taf_UpdateNrcStatusMsg_t*)le_mem_ForceAlloc(NrcStatusMsgPool);
+    memset(nrcStatusMsgPtr, 0, sizeof(taf_UpdateNrcStatusMsg_t));
+
+    memcpy(&nrcStatusMsgPtr->addrInfo, addrPtr, sizeof(taf_uds_AddrInfo_t));
+    nrcStatusMsgPtr->sid = sid;
+    nrcStatusMsgPtr->nrc = nrc;
+    nrcStatusMsgPtr->nrcStatusRef = (taf_diagUpdate_NrcStatusRef_t)le_ref_CreateRef(
+            RxNrcStatusRefMap, nrcStatusMsgPtr);
+
+    LE_DEBUG("Report NRC status, vlanId: %d, sid: %d, nrc: %d", (int)addrPtr->vlanId, (int)sid,
+            (int)nrc);
+
+    // Report the request message to message handler in service layer.
+    le_event_ReportWithRefCounting(NrcEventId, nrcStatusMsgPtr);
+
+    return;
+}
+#endif
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * FirstLayerNrcStatusHandler.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_UpdateSvr::FirstLayerNrcStatusHandler
+(
+    void* reportPtr,
+    void* secondLayerHandlerFunc
+)
+{
+    taf_UpdateSvr& update = taf_UpdateSvr::GetInstance();
+
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_UpdateNrcStatusMsg_t* nrcStatusEvent = (taf_UpdateNrcStatusMsg_t *)reportPtr;
+    TAF_ERROR_IF_RET_NIL(secondLayerHandlerFunc == NULL, "Null ptr(secondLayerHandlerFunc)");
+
+    taf_diagUpdate_NrcStatusHandlerFunc_t handlerFunc =
+                                    (taf_diagUpdate_NrcStatusHandlerFunc_t)secondLayerHandlerFunc;
+
+    handlerFunc(nrcStatusEvent->nrcStatusRef, nrcStatusEvent->addrInfo.vlanId, nrcStatusEvent->sid,
+            nrcStatusEvent->nrc, le_event_GetContextPtr());
+
+    le_ref_DeleteRef(update.RxNrcStatusRefMap, nrcStatusEvent->nrcStatusRef);
+    le_mem_Release(reportPtr);
+}
+
+le_result_t taf_UpdateSvr::ReleaseNrcStatusMsg
+(
+    taf_diagUpdate_NrcStatusRef_t statusRef
+)
+{
+    LE_INFO("ReleaseNrcStatusMsg");
     return LE_OK;
 }
 

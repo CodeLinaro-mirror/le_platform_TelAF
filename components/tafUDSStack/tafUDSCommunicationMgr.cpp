@@ -1073,6 +1073,16 @@ le_result_t UdsCommunicationMgr::SendNRC
         LE_DEBUG("RCRRP is sent");
     }
 
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    //Send NRC (excluding 0x21 and 0x78) notification for service 0x36, 0x37, 0x38
+    if( (sid == TRANSFER_DATA_REQUEST_ID || sid == REQUEST_TRANSFER_EXIT_REQUEST_ID || sid ==
+            REQUEST_FILE_TRANSFER_REQUEST_ID) && (errorCode != BUSY_REPEAT_REQ) &&  (errorCode !=
+            REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING))
+    {
+        IndicateNrcStatus(interface, sid, errorCode);
+    }
+#endif
+
     return LE_OK;
 }
 
@@ -3397,7 +3407,8 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
             uint8_t dataFormatIdentifier = recvBuf[RFT_BASE_LEN + filePathAndNameLength];
 
 #ifdef LE_CONFIG_DIAG_FEATURE_A
-            if (dataFormatIdentifier != 0x00 && dataFormatIdentifier != 0x01)
+            if(dataFormatIdentifier != 0x00 && dataFormatIdentifier != 0x01 && dataFormatIdentifier
+                    != 0x10 && dataFormatIdentifier != 0x11)
 #else
             if (dataFormatIdentifier != 0x00)
 #endif
@@ -3470,7 +3481,8 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
             uint8_t dataFormatIdentifier = recvBuf[RFT_BASE_LEN + filePathAndNameLength];
 
 #ifdef LE_CONFIG_DIAG_FEATURE_A
-            if (dataFormatIdentifier != 0x00 && dataFormatIdentifier != 0x01)
+            if (dataFormatIdentifier != 0x00 && dataFormatIdentifier != 0x01 &&
+                    dataFormatIdentifier != 0x10 && dataFormatIdentifier != 0x11)
 #else
             if (dataFormatIdentifier != 0x00)
 #endif
@@ -4063,6 +4075,57 @@ void UdsCommunicationMgr::IndicateTesterStateChange
 
     return;
 }
+
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+/**
+ * Indicate NRC status.
+ */
+void UdsCommunicationMgr::IndicateNrcStatus
+(
+    const char* ifName,
+    uint8_t sid,
+    uint8_t nrc
+)
+{
+    taf_doip_DiagMsg_t indDiagMsg;
+    uint8_t buffer[NRC_STATUS_INDICATION_LEN];
+
+    auto udsCmMgr = UdsCommunicationMgr::GetInstance(ifName);
+
+    if(udsCmMgr == NULL)
+    {
+        LE_ERROR("Can't get instance by ifName %s", ifName);
+        return;
+    }
+
+    if(udsCmMgr->udsIndicationHandler.safeRef == NULL)
+    {
+        LE_ERROR("Not find handler to notify tester present state change");
+        return;
+    }
+
+    taf_UDSIndicationHandler_t* udsHandler =
+            (taf_UDSIndicationHandler_t*)le_ref_Lookup(udsCmMgr->udsHandlerRefMap,
+                    udsCmMgr->udsIndicationHandler.safeRef);
+
+    if(udsHandler == NULL || udsHandler->funcPtr == NULL)
+    {
+        LE_ERROR("Not find handler to notify tester present state change");
+        return;
+    }
+
+    buffer[0] = UPDATE_SERVICE_NRC_STATUS;
+    buffer[1] = sid;
+    buffer[2] = nrc;
+    indDiagMsg.dataPtr = buffer;
+    indDiagMsg.dataLen = NRC_STATUS_INDICATION_LEN;
+
+    LE_DEBUG("Indicate NRC, VLAN ID:%d, SID: 0x%x, NRC: 0x%x", udsCmMgr->addrInfo.vlanId, sid, nrc);
+    udsHandler->funcPtr(&(udsCmMgr->addrInfo), &indDiagMsg, TAF_DOIP_RESULT_OK, udsHandler->ctxPtr);
+
+    return;
+}
+#endif
 
 /**
  * Check NRC and Send indication message to Diag service.

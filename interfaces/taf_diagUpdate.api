@@ -1,35 +1,6 @@
 /*
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 /**
@@ -237,6 +208,44 @@
  * - taf_diagUpdate_GetXferExitParamRec() -- Gets the transfer request parameter record.
  * - taf_diagUpdate_SendXferExitResp() -- Sends a response message for the transfer exit message.
  *
+ * @section c_taf_diag_update_NRC_status_API NRC status notification API
+ *
+ * After getting the service reference, an application can call taf_diagUpdate_AddNrcStatusHandler()
+ * to register a handler for NRC status for diag update service. Once an NRC (excluding 0x21 and
+ * 0x78) is sent, the handler will be called with the status message, VLAN ID, service ID, and NRC
+ * passed as input parameters. Currently the statusRef is not used and kept for future.
+ *
+ * @code
+   // NRC status handler function.
+   void nrcStatusHandler
+   (
+        taf_diagUpdate_NrcStatusRef_t statusRef,
+        uint16_t vlanId,
+        uint8_t sid,
+        uint8_t nrc,
+        void* contextPtr
+   )
+   {
+        // Process after NRC status
+   }
+
+   // Register the NRC status handler.
+   taf_diagUpdate_NrcStatusHandlerRef_t DiagNrcStatusRef =
+            taf_diagUpdate_AddNrcStatusHandler(diagUpdateSvcRef, nrcStatusHandler, NULL);
+
+   LE_ERROR_IF((DiagNrcStatusRef == NULL), "taf_diagUpdate_AddNrcStatusHandler returns NULL!");
+
+   // To remove the handler function when it is not needed.
+   taf_diagUpdate_RemoveNrcStatusHandler(DiagNrcStatusRef);
+
+  @endcode
+ *
+ * The following APIs are provided for NRC notification.
+ *
+ * - taf_diagUpdate_AddNrcStatusHandler() -- Adds a handler function for NRC status.
+ * - taf_diagUpdate_RemoveNrcStatusHandler() -- Removes a handler function for NRC status.
+ * - taf_diagUpdate_ReleaseNrcStatusMsg() -- Releases an NRC status notification message.
+ *
  * The following APIs are provided for service reference.
  *
  * - taf_diagUpdate_GetService() -- Gets the reference to a diag update service.
@@ -384,6 +393,13 @@ REFERENCE RxXferDataMsg;
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE RxXferExitMsg;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Reference to the NRC status.
+ */
+//-------------------------------------------------------------------------------------------------
+REFERENCE NrcStatus;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -801,3 +817,47 @@ FUNCTION le_result_t RemoveSvc
 (
     Service svcRef  IN    ///< Service reference.
 ) = 23;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Handler for an NRC notification.
+ *
+ * @instaging
+ */
+//-------------------------------------------------------------------------------------------------
+HANDLER NrcStatusHandler
+(
+    NrcStatus statusRef  IN,     ///< NRC status reference.
+    uint16 vlanId IN,            ///< VLAN ID.
+    uint8 sid IN,                ///< Service ID.
+    uint8 nrc IN                 ///< NRC.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on NRC.
+ *
+ * @instaging
+ */
+//-------------------------------------------------------------------------------------------------
+EVENT NrcStatus
+(
+    Service svcRef,               ///< Service reference.
+    NrcStatusHandler handler      ///< NRC status handler.
+) = (24,25);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Releases an NRC status notification message.
+ *
+ * @instaging
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid stateRef or invalid service of the statusRef.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ReleaseNrcStatusMsg
+(
+    NrcStatus statusRef  IN    ///< Tester state reference.
+) = 26;

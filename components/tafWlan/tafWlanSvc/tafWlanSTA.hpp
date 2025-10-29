@@ -84,14 +84,15 @@ namespace tafsvc
     //----------------------------------------------------------------------------------------------
     typedef struct
     {
-        char IntfName[TAF_NET_INTERFACE_NAME_MAX_LEN + 1];
-        std::vector<std::string> EventsToMonitor;
-        StaWpaEvt_e resultEvent;     // Result of the event monitoring
-        bool eventCompleted;         // Flag to indicate if event processing is complete
-        bool shouldExit;             // Flag to signal thread to exit
-        std::mutex mutex;
-    } SuppThreadCtx_t;
-
+        struct wpa_ctrl *ctrl;                      // WPA control handle
+        int fd;                                     // Control socket fd
+        le_fdMonitor_Ref_t fdMonitorRef;            // FD monitor reference
+        std::vector<std::string> EventsToMonitor;   // Events to monitor
+        StaWpaEvt_e resultEvent;                    // Result of the event monitoring
+        bool eventCompleted;                        // Flag for event processing completion
+        std::mutex mutex;                           // Mutex for thread safety
+        std::condition_variable eventCv;            // To notify waiter without polling
+    } SuppFdCtx_t;
 
     //----------------------------------------------------------------------------------------------
     /**
@@ -453,6 +454,10 @@ namespace tafsvc
         // Gets the number of handler references for the specified STA ID.
         int GetNumSignalStrengthHandlersRefForSta(const taf_wlan_STAid_t staId) const;
 
+        // WPA ctrl FD monitor handler
+        static void WpaSupplicantFdHandler(int fd, short events);
+
+        bool WaitForSupplicantEvent(SuppFdCtx_t *ctx, int timeoutMs, StaWpaEvt_e &outEvt);
     private:
         /**
         * BSS output parser helper class
@@ -485,10 +490,24 @@ namespace tafsvc
         friend class taf_WlanSTAListener;
         std::string mNetID;
 
+        std::unordered_map<struct wpa_ctrl*, std::unique_ptr<SuppFdCtx_t>> suppFdContextMap;
+
         // Functions
+
+        // Create fd monitor for WPA ctrl in the client-events thread context
+        le_result_t SetupWpaSupplicantMonitoring(StaCtx_t *CtxPtr,
+                            const std::vector<std::string> &eventsToMonitor,
+                            SuppFdCtx_t **fdCtxPtrPtr);
+
+        // Cleanup fd monitor (queued to client-events thread)
+        void CleanupWpaSupplicantMonitoring(SuppFdCtx_t *fdCtxPtr);
+
+        // {{ add: make queue helpers class statics so they can access private members }}
+        static void QueueCreateWpaSupplicantMonitor(void *param1Ptr, void *param2Ptr);
+        static void QueueDeleteWpaSupplicantMonitor(void *param1Ptr, void *param2Ptr);
+
         static void StaCmdHandler(void *StaCmdPtr);
         static void *StaCmdThreadHdlr(void *context);
-        static void *StaWpaSuppMonitorThreadHdlr(void *context);
         static void FirstLayerEventHandler(void *reportPtr, void *secondLayerHandlerFunc);
         void ReportStaState(StaCtx_t *StaCtxPtr, taf_wlanSta_State_t state);
         void PerformScan(StaCtx_t *CtxPtr);
@@ -501,6 +520,7 @@ namespace tafsvc
                                         const taf_wlanSta_APInfo_t* LE_NONNULL ApInfo);
         void registerClientsConnectDisconnectHandlers();
         void unregisterClientsConnectDisconnectHandlers();
+        bool IsConnectedToSSID(StaCtx_t *CtxPtr, const char *targetSsid);
 
         // The handler that is called when a client connects to WLAN STA service.
         le_msg_SessionEventHandlerRef_t wlanStaClientConnectHandlerRef_;

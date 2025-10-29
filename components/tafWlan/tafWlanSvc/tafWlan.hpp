@@ -166,35 +166,7 @@ namespace tafsvc
         public:
 
         // String helper functions
-        static std::string StrTrimEndSpace(const std::string &str);
         static std::vector<std::string> StrSplit(const std::string &str, char delim);
-
-        // BandType conversion
-        static taf_wlan_Band_t BandTypeToTAF (telux::wlan::BandType bandType);
-        static telux::wlan::BandType BandTypeToTelux (taf_wlan_Band_t bandType);
-
-        ///////////////////////////////////////
-        // APType conversion
-        static taf_wlan_APType_t APTypeToTAF (telux::wlan::ApType APType);
-        static telux::wlan::ApType APTypeToTelux(taf_wlan_APType_t APType);
-
-        // SecMode conversion
-        static taf_wlan_SecurityMode_t SecModeToTAF(telux::wlan::SecMode SecMode);
-        static telux::wlan::SecMode SecModeToTelux(taf_wlan_SecurityMode_t SecMode);
-
-        // SecAuth conversion
-        static taf_wlan_SecurityAuthMethod_t SecAuthToTAF(telux::wlan::SecAuth SecAuth);
-        static telux::wlan::SecAuth SecAuthToTelux(taf_wlan_SecurityAuthMethod_t SecAuth);
-
-        // SecEncrypt conversion
-        static taf_wlan_SecurityEncryptionMethod_t
-                        SecEncryptToTAF(telux::wlan::SecEncrypt SecEncrypt);
-        static telux::wlan::SecEncrypt
-        SecEncryptToTelux(taf_wlan_SecurityEncryptionMethod_t SecEncrypt);
-
-        // WLAN AP ID conversion
-        static taf_wlan_APid_t TeluxIdtoTAFAPId(telux::wlan::Id id);
-        static telux::wlan::Id TAFAPidtoTeluxId(taf_wlan_APid_t id);
 
         ////////////////////////////////////////////////
         // Station Mode(Bridge/Router) conversion
@@ -210,7 +182,6 @@ namespace tafsvc
         static taf_wlanSta_State_t StaIntfStatusToTAF(telux::wlan::StaInterfaceStatus State);
 
         // WLAN STA ID conversion
-        static taf_wlan_STAid_t TeluxIdtoTAFSTAId(telux::wlan::Id id);
         static telux::wlan::Id TAFSTAidtoTeluxId(taf_wlan_STAid_t id);
 
         static taf_wlan_BandIntPriority_t ConvertInterferenceBand(telux::data::BandPriority);

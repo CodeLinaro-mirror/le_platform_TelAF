@@ -56,7 +56,6 @@ sources:
     tafWlanAPSvcImpl.cpp
     tafWlanSTASvc.cpp
     tafWlanSTASvcImpl.cpp
-    tafWlanSTAListener.cpp
     tafWlanSTAApSignalStrengthImpl.cpp
     tafWlanStaWpaSupplicantIntfImpl.cpp
     taf_WlanHelper.cpp

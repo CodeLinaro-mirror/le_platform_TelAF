@@ -425,6 +425,8 @@ namespace tafsvc
                                 const taf_wlanSta_APInfo_t* LE_NONNULL ApInfo);
         le_result_t GetAPEstimatedThroughput(taf_wlanSta_WlanSTARef_t staRef,
                         const char* BSSID, uint32_t* estimatedThroughputPtr, int32_t* agePtr);
+        le_result_t RemoveNetwork(taf_wlanSta_WlanSTARef_t staRef,
+                             const taf_wlanSta_APInfo_t* LE_NONNULL ApInfo);
         taf_wlanSta_EventHandlerRef_t AddEventHandler(taf_wlanSta_WlanSTARef_t staRef,
                                                         taf_wlanSta_HandlerFunc_t handlerPtr,
                                                         void *contextPtr);

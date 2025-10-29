@@ -102,6 +102,7 @@ class taf_sms_hlos
 public:
     static taf_sms_hlos& GetInstance();
     taf_sms_Storage_t sysPrefStorage;
+    bool isConnectToKeyStoreSvc = false;
 };
 
 //--------------------------------------------------------------------------------------------------

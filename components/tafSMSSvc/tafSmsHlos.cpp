@@ -265,11 +265,44 @@ uint32_t taf_sms_hlos_recycling()
     return recycledSlot;
 }
 
+static void KsServerDisconnectHandler(void* contextPtr)
+{
+    LE_ERROR("KeyStore server disconnected");
+
+    auto& sms = taf_sms_hlos::GetInstance();
+    sms.isConnectToKeyStoreSvc = false;
+}
+
+static le_result_t KsServerConnect()
+{
+    // Add connection check - this is the required modification
+    le_result_t res = LE_OK;
+    auto& sms = taf_sms_hlos::GetInstance();
+    if(sms.isConnectToKeyStoreSvc == false)
+    {
+        res = taf_ks_TryConnectService();
+        if (res != LE_OK) {
+            LE_ERROR("Failed to connect to key service, res = %d", res);
+            return res;
+        }
+        LE_INFO("Connected to KeyStore service");
+        sms.isConnectToKeyStoreSvc = true;
+        taf_ks_SetNonExitServerDisconnectHandler(KsServerDisconnectHandler, NULL);
+    }
+    return LE_OK;
+}
+
 le_result_t taf_sms_hlos_encryptMsg(uint8_t* data,
     size_t dataSize,
     uint8_t* encryptedData,
     size_t* encryptedDataSize)
 {
+    le_result_t res = KsServerConnect();
+    if (res != LE_OK)
+    {
+        return LE_UNAVAILABLE;
+    }
+
     const char keyId[] = SMS_HLOS_KEY_ID;
 
     taf_ks_KeyRef_t keyRef;
@@ -277,8 +310,6 @@ le_result_t taf_sms_hlos_encryptMsg(uint8_t* data,
 
     size_t totalEncryptedSize = *encryptedDataSize;
     size_t encSize = 0;
-
-    le_result_t res;
 
     res = taf_ks_GetKey(keyId, &keyRef);
 
@@ -337,6 +368,12 @@ le_result_t taf_sms_hlos_decryptMsg(uint8_t* cypherData,
     uint8_t* decryptedData,
     size_t* decryptedDataSize)
 {
+    le_result_t res = KsServerConnect();
+    if (res != LE_OK)
+    {
+        return LE_UNAVAILABLE;
+    }
+
     const char keyId[] = SMS_HLOS_KEY_ID;
 
     taf_ks_KeyRef_t keyRef;
@@ -349,8 +386,6 @@ le_result_t taf_sms_hlos_decryptMsg(uint8_t* cypherData,
     {
         LE_DEBUG("cypherData: 0x%.2X", cypherData[i]);
     }
-
-    le_result_t res;
 
     res = taf_ks_GetKey(keyId, &keyRef);
 

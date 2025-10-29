@@ -1027,6 +1027,7 @@ FUNCTION le_result_t UnlockFromStorage
  * - LE_FAULT -- Failed.
  * - LE_OK -- Succeeded.
  * - LE_NOT_PERMITTED -- Message is not stored in HLOS.
+ * - LE_UNAVAILABLE -- Encryption service is not available.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t EncryptFromStorage

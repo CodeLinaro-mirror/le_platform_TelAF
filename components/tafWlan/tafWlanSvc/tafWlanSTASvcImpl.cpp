@@ -3434,6 +3434,72 @@ le_result_t taf_WlanSTASvcImpl::RemoveNetwork(
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Saves the current network configuration persistently.
+ *
+ * @return
+ * - LE_OK      -- Succeeded.
+ * - LE_FAULT   -- Failed to save configuration.
+ * - Others     -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_WlanSTASvcImpl::SaveNetworkConfig(
+    taf_wlanSta_WlanSTARef_t staRef
+)
+{
+    TAF_ERROR_IF_RET_VAL(!wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
+
+    StaCtx_t *staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
+    TAF_ERROR_IF_RET_VAL(!staCtxPtr, LE_FAULT, "Unable to find context");
+
+    // Ensure STA is active
+    std::vector<telux::wlan::StaStatus> status;
+    telux::common::ErrorCode errCode = wlanSTAMgr->getStatus(status);
+    if (telux::common::ErrorCode::SUCCESS != errCode)
+    {
+        LE_WARN("WLAN STA getStatus failed with error : %d", static_cast<int>(errCode));
+        return LE_FAULT;
+    }
+
+    for (auto &element : status)
+    {
+        LE_DEBUG("------------------------------------------");
+        LE_DEBUG("STA Id: %d", static_cast<int>(element.id));
+        if (taf_WlanHelper::TAFSTAidtoTeluxId(staCtxPtr->id) == element.id)
+        {
+            if (telux::wlan::StaInterfaceStatus::UNKNOWN == element.status)
+            {
+                LE_WARN("STA %d status unknown", staCtxPtr->id);
+                return LE_FAULT;
+            }
+            else
+            {
+                // STA state is good
+                break;
+            }
+        }
+    }
+
+    char rsp_buf[WPA_CTRL_RSP_BUF_LEN] = {0};
+    std::string wpaReqCmd = "SAVE_CONFIG";
+    le_result_t res = runWPACommand(staCtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
+    if (res == LE_FAULT)
+    {
+        LE_ERROR("SAVE_CONFIG command failed");
+        return LE_FAULT;
+    }
+
+    if (strncmp(rsp_buf, "OK", strlen("OK")) != 0)
+    {
+        LE_ERROR("SAVE_CONFIG command returned: %s", rsp_buf);
+        return LE_FAULT;
+    }
+
+    LE_INFO("Network configuration saved successfully");
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * taf_WlanAPSvcImpl Init function
  */
 //--------------------------------------------------------------------------------------------------

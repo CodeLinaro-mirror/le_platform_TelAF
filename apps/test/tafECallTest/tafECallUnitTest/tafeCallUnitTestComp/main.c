@@ -357,6 +357,14 @@ static void Test_ECall_DialRedial() {
     res = taf_ecall_SetInitialDialAttempts(dialAttempts);
     LE_TEST_OK(res == LE_OK, "SetInitialDialAttempts - LE_OK");
 
+    taf_ecall_CallRef_t   eCallRef = 0x00;
+    LE_TEST_OK((eCallRef= taf_ecall_Create()) != NULL, "Test taf_ecall_Create done");
+    res = taf_ecall_GetTerminationRedialReason(eCallRef, NULL);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "GetTerminationRedialReason - LE_OK");
+
+    taf_ecall_TerminationRedialReason_t reason = TAF_ECALL_TERMINATION_REDIAL_REASON_NONE;
+    res = taf_ecall_GetTerminationRedialReason(eCallRef, &reason);
+    LE_TEST_OK(res == LE_FAULT, "GetTerminationRedialReason - LE_OK");
     LE_INFO("Set redial attempts and interval completed");
 }
 
@@ -891,6 +899,13 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             {
                 taf_ecall_TerminationReason_t endReason = taf_ecall_GetTerminationReason(eCallReference);
                 LE_INFO("TAF_ECALL_STATE_ENDED endReason = %d", (int) endReason);
+                taf_ecall_TerminationRedialReason_t reason = TAF_ECALL_TERMINATION_REDIAL_REASON_NONE;
+                le_result_t result = taf_ecall_GetTerminationRedialReason(eCallReference, &reason);
+                if (result == LE_OK) {
+                    LE_INFO("ECall ENDed, terminate redial reason = %d", reason);
+                } else {
+                    LE_ERROR("Failed to get termination redial reason, result = %d", result);
+                }
             }
             le_sem_Post(testSemaphoreRef);
             break;
@@ -917,6 +932,14 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             {
                 taf_ecall_TerminationReason_t endReason = taf_ecall_GetTerminationReason(eCallReference);
                 LE_INFO("TAF_ECALL_STATE_ENDED_OF_REDIAL_PERIOD endReason = %d", (int) endReason);
+
+                taf_ecall_TerminationRedialReason_t reason = TAF_ECALL_TERMINATION_REDIAL_REASON_NONE;
+                le_result_t result = taf_ecall_GetTerminationRedialReason(eCallReference, &reason);
+                if (result == LE_OK) {
+                    LE_INFO("ECall ENDed, terminate redial reason = %d", reason);
+                } else {
+                    LE_ERROR("Failed to get termination redial reason, result = %d", result);
+                }
             }
             le_sem_Post(testSemaphoreRef);
             break;

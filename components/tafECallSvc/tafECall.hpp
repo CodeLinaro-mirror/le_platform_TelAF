@@ -123,6 +123,7 @@ using namespace std;
             taf_DialRedial_t                    dialRedial;
             bool                                waitForALACKPos;
             int8_t                              phoneId;
+            taf_ecall_TerminationRedialReason_t redialReason;
         }
         taf_ECall_t;
 
@@ -369,6 +370,8 @@ using namespace std;
                 void HandleRedial(int phoneId, ECallRedialInfo redialInfo);
                 void HandleMakeCallResp(int phoneId, RxECallMakeCallResponse resp);
                 static void ProcessRxECallEvent(void* msgPtr);
+                taf_ecall_TerminationRedialReason_t MapRedialReason(telux::tel::ReasonType reason);
+                le_result_t GetTerminationRedialReason(taf_ecall_CallRef_t ecallRef, taf_ecall_TerminationRedialReason_t* reason);
                 taf_ecall_StateChangeHandlerRef_t AddStateChangeHandler (taf_ecall_StateChangeHandlerFunc_t handlerPtr,
                                                                                         void* contextPtr);
                 void RemoveStateChangeHandler (taf_ecall_StateChangeHandlerRef_t handlerRef);

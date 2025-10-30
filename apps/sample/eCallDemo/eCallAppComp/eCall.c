@@ -718,6 +718,35 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
                 taf_ecall_TerminationReason_t lcf = taf_ecall_GetTerminationReason(eCallReference);
                 LE_INFO("ECall ENDed, terminate reason  = %d", lcf);
                 printf("\nCall Termination reason: %d\n", lcf);
+                taf_ecall_TerminationRedialReason_t reason = TAF_ECALL_TERMINATION_REDIAL_REASON_NONE;
+                le_result_t result = taf_ecall_GetTerminationRedialReason(eCallReference, &reason);
+                if (result == LE_OK) {
+                    const char* reasonStr = "No redial reason";
+                        switch (reason) {
+                            case TAF_ECALL_TERMINATION_REDIAL_REASON_NONE:
+                                reasonStr = "No redial reason";
+                                break;
+                            case TAF_ECALL_TERMINATION_REDIAL_REASON_CALL_ORIG_FAILURE:
+                                reasonStr = "Call origination failed";
+                                break;
+                            case TAF_ECALL_TERMINATION_REDIAL_REASON_CALL_DROP:
+                                reasonStr = "Call dropped before MSD transmission status";
+                                break;
+                            case TAF_ECALL_TERMINATION_REDIAL_REASON_MAX_REDIAL_ATTEMPTED:
+                                reasonStr = "Max redial attempts reached";
+                                break;
+                            case TAF_ECALL_TERMINATION_REDIAL_REASON_CALL_CONNECTED:
+                                reasonStr = "eCall connected successfully";
+                                break;
+                            default:
+                                break;
+                        }
+                        LE_INFO("ECall ENDed, terminate redial reason = %d", reason);
+                        printf("Call Termination redial reason: %s\n", reasonStr);
+                } else {
+                    LE_ERROR("Failed to get termination redial reason, result = %d", result);
+                    printf("Failed to get termination redial reason, result = %d\n", result);
+                }
             }
             DisconnectAllAudio();
             break;

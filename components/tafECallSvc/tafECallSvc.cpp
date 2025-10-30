@@ -2014,3 +2014,13 @@ le_result_t taf_ecall_SetInitialDialIntervalBetweenDialAttempts
     auto &ecall = taf_ecall::GetInstance();
     return ecall.SetInitialDialIntervalBetweenDialAttempts(interval, intervalLength);
 }
+
+le_result_t taf_ecall_GetTerminationRedialReason
+(
+    taf_ecall_CallRef_t ecallRef,
+    taf_ecall_TerminationRedialReason_t* reason
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.GetTerminationRedialReason(ecallRef, reason);
+}

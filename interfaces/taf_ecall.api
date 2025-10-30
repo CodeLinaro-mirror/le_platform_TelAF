@@ -107,9 +107,11 @@
  * session state changes. The handler can be controlled using taf_ecall_AddStateChangeHandler()
  * and taf_ecall_RemoveStateChangeHandler().
  *
- * An application may call taf_ecall_GetTerminationReason() to get the end reason of the eCall
- * when the eCall state is @ref TAF_ECALL_STATE_ENDED and and
- * taf_ecall_GetPlatformSpecificTerminationCode() to get the platform-related termination code.
+ * An application can use the following functions to get termination-related information when the eCall state
+ * is either TAF_ECALL_STATE_ENDED or TAF_ECALL_STATE_END_OF_REDIAL_PERIOD.
+ * - taf_ecall_GetTerminationReason() to get the eCall end reason after termination.
+ * - taf_ecall_GetTerminationRedialReason() to get the eCall redial reason after termination.
+ * - taf_ecall_GetPlatformSpecificTerminationCode() to get the platform-related termination code after termination.
  *
  * @section taf_ecall_PsapNumber eCall number
  *
@@ -526,6 +528,23 @@ ENUM TerminationReason
    REASON_CDMA_NOT_EMERGENCY = 1008,
    REASON_CDMA_ACCESS_BLOCKED = 1009,
    REASON_ERROR_UNSPECIFIED = 0xffff
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Recently terminated call redial reason (normally ended or failed).
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM TerminationRedialReason
+{
+   TERMINATION_REDIAL_REASON_NONE = 0,                   ///< Redial reason is NONE.
+   TERMINATION_REDIAL_REASON_CALL_ORIG_FAILURE = 1,      ///< Redial will be attempted due to eCall origination failure.
+   TERMINATION_REDIAL_REASON_CALL_DROP = 2,              ///< Redial will be attempted as the eCall is terminated
+                                                         ///< before thereciept of MSD Transmission status.
+   TERMINATION_REDIAL_REASON_MAX_REDIAL_ATTEMPTED = 3,   ///< Redial will not be attempted as the maximum redial count
+                                                         ///< is reached.
+   TERMINATION_REDIAL_REASON_CALL_CONNECTED = 4,         ///< Redial will not be attempted as the eCall was connected
+                                                         ///< successfully.
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -1568,4 +1587,27 @@ FUNCTION le_result_t SetInitialDialAttempts
 FUNCTION le_result_t SetInitialDialIntervalBetweenDialAttempts
 (
     uint16 interval[MAX_DIAL_ATTEMPTS_LENGTH] IN   ///< Interval in unit of seconds.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Retrieves the termination redial reason for an eCall after it has reached a terminal state. This
+ * API provides the reason why the modem will attempt or will not attempt a redial after the call
+ * termination.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Failed.
+ *  - LE_BAD_PARAMETER -- Invalid parameters.
+ *
+ * @b NOTE: Passing a bad or null pointer to this function results in a fatal error and the function
+ *       may not return.
+ *
+ * @b NOTE: This API should be called after receiving a terminal state event in the application.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetTerminationRedialReason
+(
+    Call ecallRef IN,      ///< eCall reference.
+    TerminationRedialReason reason OUT   ///< Termination redial reason.
 );

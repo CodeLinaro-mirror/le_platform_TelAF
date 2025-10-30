@@ -1861,6 +1861,9 @@ static void TestTafGnssPositionHandler
 
     LE_INFO("TestTafGnssPositionHandler->cancel the thread");
     le_thread_Cancel(positionThreadRef);
+
+    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting GNSS fixes");
+    LE_TEST_OK(taf_locGnss_Stop() == LE_OK, "taf_locGnss_Stop-LE_OK");
 }
 
 

@@ -841,6 +841,7 @@ void taf_ecall::HandleMakeCallResp(int phoneId, RxECallMakeCallResponse resp)
 
     SetCallIndex(resp.callIndex);
     SetCallPhoneId(phoneId);
+    ProcessPendingCallEvents(phoneId, resp.callIndex);
 }
 void taf_ecall::ProcessRxECallEvent(void* msgPtr)
 {
@@ -850,37 +851,206 @@ void taf_ecall::ProcessRxECallEvent(void* msgPtr)
     }
 
     taf_ecall& eCall = taf_ecall::GetInstance();
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(eCall.ECallPtrRefMap, eCall.GetECallReference());
+    TAF_ERROR_IF_RET_NIL(eCallPtr == NULL, "cannot get callptr");
+
+    int32_t currentCallIndex = eCallPtr->callIndex;
+    int8_t currentPhoneId = eCallPtr->phoneId;
+    LE_INFO("ProcessRxECallEvent index %d, phoneId  %d", eCallPtr->callIndex, eCallPtr->phoneId);
+    bool makeCallRespReceived = (currentCallIndex >= 0 && currentPhoneId >= 0);
 
     RxECallEvent_t* eventPtr = (RxECallEvent_t*)msgPtr;
+    bool needCache = false;
+    LE_INFO("RxECallEventType: %d", eventPtr->eventType);
     switch (eventPtr->eventType)
     {
-        case ECALL_EVENT_INCOMING_CALL:
-            eCall.HandleIncomingCall(eventPtr->phoneId, eventPtr->param.incomingCall);
-            break;
         case ECALL_EVENT_CALL_INFO_CHANGE:
-            eCall.HandleCallInfoChange(eventPtr->phoneId, eventPtr->param.infoChange);
+        {
+            CallState eventCallState = eventPtr->param.infoChange.callState;
+            int32_t eventCallIndex = eventPtr->param.infoChange.callIndex;
+            int8_t eventPhoneId = eventPtr->phoneId;
+            LE_INFO("Call state = %d", (int)eventCallState);
+            if (!makeCallRespReceived) {
+                std::lock_guard<std::mutex> lock(eCall.pendingECallEventsMtx);
+                if (eventCallState == CallState::CALL_ENDED) {
+                    LE_INFO("CALL_INFO_CHANGE with CALL_ENDED received before makeCallResp, cleaning up directly.");
+                    eCall.HandleCallEnd(eventPhoneId, eventCallIndex);
+                } else {
+                    eCall.pendingECallEvents.push_back({
+                        eventPtr->eventType,
+                        eventPhoneId,
+                        eventCallIndex,
+                        eCall.CloneEventData(eventPtr)
+                    });
+                }
+                needCache = true;
+            }
             break;
-        case ECALL_EVENT_MSD_TRANSMISSION_STATUS:
-            eCall.HandleMsdTransmissionStatus(eventPtr->phoneId, eventPtr->param.msdTransmissionStatus.msdTransmissionStatus);
-            break;
-        case ECALL_EVENT_HLAP_TIMER:
-            eCall.HandleHlapTimerEvent(eventPtr->phoneId, eventPtr->param.hlapTimer.timerEvents);
-            break;
-        case ECALL_EVENT_MSD_UPDATE_REQ:
-            eCall.HandleMsdUpdateRequest(eventPtr->phoneId);
-            break;
+        }
         case ECALL_EVENT_REDIAL:
-            eCall.HandleRedial(eventPtr->phoneId, eventPtr->param.redial.redialInfo);
+        case ECALL_EVENT_MSD_TRANSMISSION_STATUS:
+        case ECALL_EVENT_HLAP_TIMER:
+        case ECALL_EVENT_MSD_UPDATE_REQ:
+        {
+            LE_INFO("eCall session = %d", eCallPtr->eCallSession);
+            if (!makeCallRespReceived && (eCallPtr->eCallSession != ECALL_INIT) && (eCallPtr->eCallSession != ECALL_ENDED)) {
+                std::lock_guard<std::mutex> lock(eCall.pendingECallEventsMtx);
+                eCall.pendingECallEvents.push_back({
+                    eventPtr->eventType,
+                    eventPtr->phoneId,
+                    -1,
+                    eCall.CloneEventData(eventPtr)
+                });
+                needCache = true;
+            }
             break;
-        case ECALL_EVENT_MAKECALL_RESP:
-            eCall.HandleMakeCallResp(eventPtr->phoneId, eventPtr->param.response);
-            break;
+        }
         default:
-            LE_WARN("Unknown RxECallEventType: %d", eventPtr->eventType);
             break;
+    }
+    if (!needCache) {
+        switch (eventPtr->eventType)
+        {
+            case ECALL_EVENT_INCOMING_CALL:
+                eCall.HandleIncomingCall(eventPtr->phoneId, eventPtr->param.incomingCall);
+                break;
+            case ECALL_EVENT_CALL_INFO_CHANGE:
+                eCall.HandleCallInfoChange(eventPtr->phoneId, eventPtr->param.infoChange);
+                break;
+            case ECALL_EVENT_MSD_TRANSMISSION_STATUS:
+                eCall.HandleMsdTransmissionStatus(eventPtr->phoneId, eventPtr->param.msdTransmissionStatus.msdTransmissionStatus);
+                break;
+            case ECALL_EVENT_HLAP_TIMER:
+                eCall.HandleHlapTimerEvent(eventPtr->phoneId, eventPtr->param.hlapTimer.timerEvents);
+                break;
+            case ECALL_EVENT_MSD_UPDATE_REQ:
+                eCall.HandleMsdUpdateRequest(eventPtr->phoneId);
+                break;
+            case ECALL_EVENT_REDIAL:
+                eCall.HandleRedial(eventPtr->phoneId, eventPtr->param.redial.redialInfo);
+                break;
+            case ECALL_EVENT_MAKECALL_RESP:
+                eCall.HandleMakeCallResp(eventPtr->phoneId, eventPtr->param.response);
+                break;
+            default:
+                LE_WARN("Unknown RxECallEventType: %d", eventPtr->eventType);
+                break;
+        }
     }
 
     le_mem_Release(eventPtr);
+}
+
+void* taf_ecall::CloneEventData(const RxECallEvent_t* eventPtr) {
+    switch (eventPtr->eventType) {
+        case ECALL_EVENT_CALL_INFO_CHANGE: {
+            RxECallInfoChangeParam_t* infoChange = new RxECallInfoChangeParam_t(eventPtr->param.infoChange);
+            return infoChange;
+        }
+        case ECALL_EVENT_REDIAL: {
+            ECallRedialInfo* info = new ECallRedialInfo(eventPtr->param.redial.redialInfo);
+            return info;
+        }
+        case ECALL_EVENT_MSD_TRANSMISSION_STATUS: {
+            auto* status = new telux::tel::ECallMsdTransmissionStatus(eventPtr->param.msdTransmissionStatus.msdTransmissionStatus);
+            return status;
+        }
+        case ECALL_EVENT_HLAP_TIMER: {
+            ECallHlapTimerEvents* timer = new ECallHlapTimerEvents(eventPtr->param.hlapTimer.timerEvents);
+            return timer;
+        }
+        case ECALL_EVENT_MSD_UPDATE_REQ: {
+            return nullptr;
+        }
+        default:
+            return nullptr;
+    }
+}
+
+void taf_ecall::FreeEventData(RxECallEventType_t eventType, void* data) {
+    switch (eventType) {
+        case ECALL_EVENT_CALL_INFO_CHANGE:
+            delete (RxECallInfoChangeParam_t*)data;
+            break;
+        case ECALL_EVENT_REDIAL:
+            delete (ECallRedialInfo*)data;
+            break;
+        case ECALL_EVENT_MSD_TRANSMISSION_STATUS:
+            delete (telux::tel::ECallMsdTransmissionStatus*)data;
+            break;
+        case ECALL_EVENT_HLAP_TIMER:
+            delete (ECallHlapTimerEvents*)data;
+            break;
+        case ECALL_EVENT_MSD_UPDATE_REQ:
+            break;
+        default:
+            break;
+    }
+}
+
+void taf_ecall::HandleCallEnd(int phoneId, int callIndex)
+{
+    LE_INFO("CallEnd Event: phoneId=%d, callIndex=%d, clearing cache...", phoneId, callIndex);
+    auto it = pendingECallEvents.begin();
+    while (it != pendingECallEvents.end()) {
+        bool match = false;
+        if (it->eventType == ECALL_EVENT_CALL_INFO_CHANGE) {
+            match = (it->callIndex == callIndex && it->phoneId == phoneId);
+        } else {
+            match = (it->phoneId == phoneId);
+        }
+        if (match) {
+            LE_INFO("Clearing pending event: type=%d, callIndex=%d, phoneId=%d", it->eventType, it->callIndex, it->phoneId);
+            FreeEventData(it->eventType, it->eventData);
+            it = pendingECallEvents.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+void taf_ecall::ProcessPendingCallEvents(int phoneId, int callIndex)
+{
+    std::lock_guard<std::mutex> lock(pendingECallEventsMtx);
+    LE_INFO("ProcessPendingCalls index %d, phoneId  %d", callIndex, phoneId);
+    auto it = pendingECallEvents.begin();
+    while (it != pendingECallEvents.end()) {
+        bool match = false;
+        if (it->eventType == ECALL_EVENT_CALL_INFO_CHANGE) {
+            if (it->callIndex == callIndex && it->phoneId == phoneId) {
+                match = true;
+            }
+        } else {
+            if (it->phoneId == phoneId) {
+                match = true;
+            }
+        }
+        LE_INFO("PendingEvent: type=%d, callIndex=%d, phoneId=%d, match=%d",
+            it->eventType, it->callIndex, it->phoneId, match);
+        if (match) {
+            switch (it->eventType) {
+                case ECALL_EVENT_CALL_INFO_CHANGE:
+                    HandleCallInfoChange(phoneId, *(RxECallInfoChangeParam_t*)(it->eventData));
+                    break;
+                case ECALL_EVENT_REDIAL:
+                    HandleRedial(phoneId, *(ECallRedialInfo*)(it->eventData));
+                    break;
+                case ECALL_EVENT_MSD_TRANSMISSION_STATUS:
+                    HandleMsdTransmissionStatus(phoneId, *(telux::tel::ECallMsdTransmissionStatus*)(it->eventData));
+                    break;
+                case ECALL_EVENT_HLAP_TIMER:
+                    HandleHlapTimerEvent(phoneId, *(ECallHlapTimerEvents*)(it->eventData));
+                    break;
+                case ECALL_EVENT_MSD_UPDATE_REQ:
+                    HandleMsdUpdateRequest(phoneId);
+                    break;
+                default:
+                    break;
+            }
+        }
+        FreeEventData(it->eventType, it->eventData);
+        it = pendingECallEvents.erase(it);
+    }
 }
 
 void taf_ecall::InitializeECallPtr()

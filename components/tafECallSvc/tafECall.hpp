@@ -233,6 +233,13 @@ using namespace std;
             } param;
         } RxECallEvent_t;
 
+        struct PendingECallEvent {
+            RxECallEventType_t eventType;
+            int phoneId;
+            int32_t callIndex;
+            void* eventData;
+        };
+
         class tafCallCommandCallback : public telux::tel::IMakeCallCallback {
             public:
                 void makeCallResponse(telux::common::ErrorCode errorCode,
@@ -372,6 +379,10 @@ using namespace std;
                 static void ProcessRxECallEvent(void* msgPtr);
                 taf_ecall_TerminationRedialReason_t MapRedialReason(telux::tel::ReasonType reason);
                 le_result_t GetTerminationRedialReason(taf_ecall_CallRef_t ecallRef, taf_ecall_TerminationRedialReason_t* reason);
+                void* CloneEventData(const RxECallEvent_t* eventPtr);
+                void FreeEventData(RxECallEventType_t eventType, void* data);
+                void HandleCallEnd(int phoneId, int callIndex);
+                void ProcessPendingCallEvents(int phoneId, int callIndex);
                 taf_ecall_StateChangeHandlerRef_t AddStateChangeHandler (taf_ecall_StateChangeHandlerFunc_t handlerPtr,
                                                                                         void* contextPtr);
                 void RemoveStateChangeHandler (taf_ecall_StateChangeHandlerRef_t handlerRef);
@@ -445,6 +456,8 @@ using namespace std;
                 std::mutex callMtx_;
                 std::unordered_map<uint64_t, std::shared_ptr<telux::tel::ICall>> callStore_;
                 std::atomic<uint64_t> callNextToken_{1};
+                std::vector<PendingECallEvent> pendingECallEvents;
+                std::mutex pendingECallEventsMtx;
                 taf_ECall_t ECallObject;
                 void InitializeECallPtr();
 

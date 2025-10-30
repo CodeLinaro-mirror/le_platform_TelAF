@@ -457,21 +457,14 @@ void taf_ecall::HandleIncomingCall(int phoneId, const RxECallIncomingCallParam_t
                 if (eCallPtr != NULL)
                 {
                     eCallPtr->iCall= spCall;
-                    taf_ecall_State_t state = TAF_ECALL_STATE_UNKNOWN;
                     tafECallSession_t sessionState = ECALL_INIT;
-                    state = TAF_ECALL_STATE_INCOMING;
-                    SetECallState(state);
                     sessionState = ECALL_INCOMING;
                     SetSessionState(sessionState);
                     SetCallIndex(callIndex);
                     SetCallPhoneId(phone_Id);
 
-                    StateChangeEvent_t stateEvent = { 0 };
-                    le_utf8_Copy(stateEvent.dest, incomingCall.remotePartyNumber, MAX_DESTINATION_LEN, nullptr);
-                    stateEvent.eCallRef = GetECallReference();
-                    stateEvent.state = state;
-                    stateEvent.phoneId = phone_Id;
-                    le_event_Report(StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+                    taf_ecall_State_t state = TAF_ECALL_STATE_INCOMING;
+                    SetStateAndReport(state, phoneId, incomingCall.remotePartyNumber);
                 } else {
                     LE_ERROR("eCallPtr is nullPtr");
                 }
@@ -556,17 +549,12 @@ void taf_ecall::HandleCallInfoChange(int phoneId, const RxECallInfoChangeParam_t
             break;
     }
 
-    SetECallState(state);
     SetSessionState(sessionState);
 
     if (isCallStateSet)
     {
         eCallPtr->iCall= spCall;
-        StateChangeEvent_t stateEvent;
-        stateEvent.eCallRef = GetECallReference();
-        stateEvent.state = state;
-        stateEvent.phoneId = CallPhoneId;
-        le_event_Report(StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+        SetStateAndReport(state, phoneId, "");
         if (needReportCallEndOnReboot == true)
         {
             needReportCallEndOnReboot = false;
@@ -590,15 +578,13 @@ void taf_ecall::HandleMsdTransmissionStatus(int phoneId, telux::tel::ECallMsdTra
 
     LE_DEBUG("eCallMsdTransmissionStatusToState status = %d", (int)status);
 
-    taf_ecall_State_t state = TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED;
-    StateChangeEvent_t stateEvent;
-    stateEvent.eCallRef = GetECallReference();
+    taf_ecall_State_t state = TAF_ECALL_STATE_UNKNOWN;
     switch(status) {
         case telux::tel::ECallMsdTransmissionStatus::SUCCESS:
             if (eCallPtr->waitForALACKPos)
             {
-                stateEvent.state = TAF_ECALL_STATE_ALACK_RECEIVED_POSITIVE;
-                le_event_Report(StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+                state = TAF_ECALL_STATE_ALACK_RECEIVED_POSITIVE;
+                SetStateAndReport(state, phoneId, "");
                 eCallPtr->waitForALACKPos = false;
             }
             state = TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS;
@@ -643,8 +629,10 @@ void taf_ecall::HandleMsdTransmissionStatus(int phoneId, telux::tel::ECallMsdTra
             LE_ERROR( "Unknown ECallMsdTransmissionStatus  = %d", (int)status);
     }
 
-    stateEvent.state = state;
-    le_event_Report(StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+    if (state != TAF_ECALL_STATE_UNKNOWN)
+    {
+        SetStateAndReport(state, phoneId, "");
+    }
 }
 
 void taf_ecall::HandleHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEvents)
@@ -652,8 +640,6 @@ void taf_ecall::HandleHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEven
     LE_INFO("HLAP Timer Event: phoneId=%d", phoneId);
 
     taf_ecall_State_t state = TAF_ECALL_STATE_UNKNOWN;
-    StateChangeEvent_t stateEvent;
-    stateEvent.eCallRef = GetECallReference();
 
     if ((timerEvents.t2 != HlapTimerEvent::UNCHANGED)
         && (timerEvents.t2 != HlapTimerEvent::UNKNOWN)) {
@@ -672,8 +658,7 @@ void taf_ecall::HandleHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEven
         }
 
         if (state != TAF_ECALL_STATE_UNKNOWN) {
-            stateEvent.state = state;
-            le_event_Report(StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+            SetStateAndReport(state, phoneId, "");
         }
     }
 
@@ -690,8 +675,7 @@ void taf_ecall::HandleHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEven
         }
 
         if (state != TAF_ECALL_STATE_UNKNOWN) {
-            stateEvent.state = state;
-            le_event_Report(StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+            SetStateAndReport(state, phoneId, "");
         }
     }
 
@@ -708,8 +692,7 @@ void taf_ecall::HandleHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEven
         }
 
         if (state != TAF_ECALL_STATE_UNKNOWN) {
-            stateEvent.state = state;
-            le_event_Report(StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+            SetStateAndReport(state, phoneId, "");
         }
     }
 
@@ -726,8 +709,7 @@ void taf_ecall::HandleHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEven
         }
 
         if (state != TAF_ECALL_STATE_UNKNOWN) {
-            stateEvent.state = state;
-            le_event_Report(StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+            SetStateAndReport(state, phoneId, "");
         }
     }
 
@@ -763,8 +745,7 @@ void taf_ecall::HandleHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEven
         }
 
         if (state != TAF_ECALL_STATE_UNKNOWN) {
-            stateEvent.state = state;
-            le_event_Report(StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+            SetStateAndReport(state, phoneId, "");
 
             ResumeHlapTimerEvent_t resumeEvent;
             resumeEvent.event  = EVENT_SAVE_HLAP_TIMER_ELAPSED;
@@ -806,8 +787,7 @@ void taf_ecall::HandleHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEven
         }
 
         if (state != TAF_ECALL_STATE_UNKNOWN) {
-            stateEvent.state = state;
-            le_event_Report(StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+            SetStateAndReport(state, phoneId, "");
 
             ResumeHlapTimerEvent_t resumeEvent;
             resumeEvent.event  = EVENT_SAVE_HLAP_TIMER_ELAPSED;
@@ -822,15 +802,8 @@ void taf_ecall::HandleMsdUpdateRequest(int phoneId)
 {
     LE_INFO("RequestMsdUpdate: phoneId=%d", phoneId);
 
-    taf_ecall_State_t state = TAF_ECALL_STATE_UNKNOWN;
-
-    state = TAF_ECALL_STATE_MSD_UPDATE_REQ;
-    if (state != TAF_ECALL_STATE_UNKNOWN) {
-        StateChangeEvent_t stateEvent;
-        stateEvent.eCallRef = GetECallReference();
-        stateEvent.state = state;
-        le_event_Report(StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
-    }
+    taf_ecall_State_t state = TAF_ECALL_STATE_MSD_UPDATE_REQ;
+    SetStateAndReport(state, phoneId, "");
 }
 
 void taf_ecall::HandleRedial(int phoneId, ECallRedialInfo redialInfo)
@@ -838,7 +811,6 @@ void taf_ecall::HandleRedial(int phoneId, ECallRedialInfo redialInfo)
     LE_INFO("Redial Event: phoneId=%d, willRedial=%d", phoneId, redialInfo.willECallRedial);
 
     taf_ecall_State_t state = TAF_ECALL_STATE_UNKNOWN;
-    StateChangeEvent_t stateEvent;
 
     if (redialInfo.willECallRedial == true)
     {
@@ -849,10 +821,7 @@ void taf_ecall::HandleRedial(int phoneId, ECallRedialInfo redialInfo)
         SetCallPhoneId(-1);
     }
 
-    SetECallState(state);
-    stateEvent.eCallRef = GetECallReference();
-    stateEvent.state = state;
-    le_event_Report(StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+    SetStateAndReport(state, phoneId, "");
 }
 
 void taf_ecall::HandleMakeCallResp(int phoneId, RxECallMakeCallResponse resp)
@@ -2580,9 +2549,16 @@ int8_t taf_ecall::GetLastCallPhoneId()
     return phoneId;
 }
 
-void taf_ecall::SetECallState(taf_ecall_State_t state)
+void taf_ecall::SetStateAndReport(taf_ecall_State_t state, int phoneId, const std::string &dest)
 {
     ECallObject.state = state;
+
+    StateChangeEvent_t stateEvent = { 0 };
+    le_utf8_Copy(stateEvent.dest, dest.c_str(), MAX_DESTINATION_LEN, NULL);
+    stateEvent.eCallRef = GetECallReference();
+    stateEvent.state = state;
+    stateEvent.phoneId = phoneId;
+    le_event_Report(StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
     if ((state == TAF_ECALL_STATE_ENDED) && (ECallObject.isPrieCallOngoing == true))
     {
         ECallObject.isMsdUpdated = false;
@@ -2613,7 +2589,7 @@ taf_ecall_TerminationReason_t taf_ecall::GetTerminationReason ( taf_ecall_CallRe
 
     TAF_ERROR_IF_RET_VAL(eCallPtr == NULL,
             TAF_ECALL_REASON_ERROR_UNSPECIFIED, "Invalid eCall reference");
-    TAF_ERROR_IF_RET_VAL(TAF_ECALL_STATE_ENDED != taf_ecall::GetState(ecallRef),
+    TAF_ERROR_IF_RET_VAL(ECALL_ENDED != eCallPtr->eCallSession,
             TAF_ECALL_REASON_NORMAL_UNSPECIFIED, "The eCall is not ENDed");
 
     auto &eCall = taf_ecall::GetInstance();
@@ -3530,14 +3506,8 @@ void taf_ecall::OnEventModemUnavailable()
 
     if (!isIdle())
     {
-        auto state = TAF_ECALL_STATE_FAILED;
-        SetECallState(state);
-
-        StateChangeEvent_t stateEvent{};
-        stateEvent.eCallRef = GetECallReference();
-        stateEvent.state    = state;
-
-        le_event_Report(StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+        taf_ecall_State_t state = TAF_ECALL_STATE_FAILED;
+        SetStateAndReport(state, -1, "");
     }
 }
 

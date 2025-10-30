@@ -385,7 +385,7 @@ using namespace std;
                 le_result_t UpdateMsdVehicleInfo();
                 le_result_t UpdateMsdInformation(taf_ecall_CallRef_t ecallRef);
                 void SetSessionState(tafECallSession_t session);
-                void SetECallState(taf_ecall_State_t state);
+                void SetStateAndReport(taf_ecall_State_t state, int phoneId, const std::string &dest);
                 void ClearPduMsd();
                 taf_ecall_CallRef_t GetECallReference();
                 void SetCallIndex(int32_t callIndex);

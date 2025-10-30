@@ -32,9 +32,9 @@ static taf_ecall_CallRef_t ECallRef = NULL;
 static uint8_t PhoneId;
 static int TC_No = 1;
 static bool exitApp = true;
-static uint8_t msdRawData[43] = {2, 41, 68, 6, 128, 227, 10, 81, 67, 158, 41, 85, 212, 56, 0,
-        128, 4, 52, 10, 140, 65, 89, 164, 56, 119, 207, 131, 54, 210, 63, 65, 104, 16, 24, 8,
-        32, 19, 198, 68, 0, 0, 48, 20};
+static uint8_t msdRawData[48] = {2, 46, 92, 6, 128, 227, 10, 81, 67, 158, 41, 85, 212, 56, 0,
+        128, 8, 39, 248, 13, 31, 51, 146, 80, 154, 147, 217, 179, 14, 85, 131, 96, 0, 0, 1,
+        255, 255, 224, 64, 65, 0, 32, 161, 6, 90, 80, 144, 0};
 static size_t msdLength = sizeof(msdRawData);
 
 static taf_locGnss_PositionHandlerRef_t PositionHandlerRef;
@@ -315,15 +315,12 @@ static void* taf_ecall_endCall_test
 
 static void* taf_ecall_getState_test
 (
-    taf_ecall_CallRef_t    ecallRef,
-    taf_ecall_State_t expectedState
+    taf_ecall_CallRef_t    ecallRef
 )
 {
     // Test Case
     taf_ecall_State_t retrievedState = taf_ecall_GetState(ecallRef);
-    LE_TEST_OK(retrievedState == expectedState, "taf_ecall_getState_test - LE_OK");
-    report(LE_OK,retrievedState == expectedState ? LE_OK : LE_FAULT,"taf_ecall_getState_test");
-    std::cout<<"*** eCall state: "<<retrievedState<<endl;
+    std::cout<<"*** eCall current state: "<<retrievedState<<endl;
     LE_TEST_INFO("taf_ecall_getState_test done");
 
     return NULL;
@@ -427,20 +424,16 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         {
             PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_ALERTING"<<endl;
             std::cout <<endl;
-            taf_ecall_getState_test(eCallReference, TAF_ECALL_STATE_ALERTING);
             break;
         }
         case TAF_ECALL_STATE_ACTIVE:
         {
             PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_ACTIVE"<<endl;
             std::cout <<endl;
-            taf_ecall_getState_test(eCallReference, TAF_ECALL_STATE_ACTIVE);
-            std::cout <<endl;
             PRINT_NOTIFICATION << getCurrentTime() <<" Wait! The active call shall be hangup after 4 sec... "<<endl;
             sleep(4);
             PRINT_NOTIFICATION << getCurrentTime() <<" Sending hangup... "<<endl;
             std::cout <<endl;
-            taf_ecall_endCall_test(eCallReference);
             break;
         }
         case TAF_ECALL_STATE_IDLE:
@@ -508,7 +501,6 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         {
             PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_ENDED "<<endl;
             std::cout << endl;
-            taf_ecall_getState_test(eCallReference, TAF_ECALL_STATE_ENDED);
 
             //Reset Nad Deregistration Time
             le_result_t result = taf_ecall_SetNadDeregistrationTime(6*60); // 6 hrs
@@ -590,7 +582,6 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         {
             PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_DIALING"<<endl;
             std::cout <<endl;
-            taf_ecall_getState_test(eCallReference, TAF_ECALL_STATE_DIALING);
             break;
         }
         case TAF_ECALL_STATE_NACK_OUT_OF_ORDER:
@@ -628,6 +619,104 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_MSD_UPDATE_REQ"<<endl;
             std::cout <<endl;
             taf_ecall_SendMsd_test(eCallReference);
+            break;
+        }
+        case TAF_ECALL_STATE_T2_STARTED:
+        {
+            PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_T2_STARTED"<<endl;
+            std::cout <<endl;
+            break;
+        }
+        case TAF_ECALL_STATE_T5_STARTED:
+        {
+            PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_T5_STARTED"<<endl;
+            std::cout <<endl;
+            break;
+        }
+        case TAF_ECALL_STATE_T6_STARTED:
+        {
+            PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_T6_STARTED"<<endl;
+            std::cout <<endl;
+            break;
+        }
+        case TAF_ECALL_STATE_T7_STARTED:
+        {
+            PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_T7_STARTED"<<endl;
+            std::cout <<endl;
+            break;
+        }
+        case TAF_ECALL_STATE_T9_STARTED:
+        {
+            PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_T9_STARTED"<<endl;
+            std::cout <<endl;
+            taf_ecall_getState_test(eCallReference);
+            break;
+        }
+        case TAF_ECALL_STATE_T10_STARTED:
+        {
+            PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_T10_STARTED"<<endl;
+            std::cout <<endl;
+            taf_ecall_getState_test(eCallReference);
+            break;
+        }
+        case TAF_ECALL_STATE_T2_STOPPED:
+        {
+            PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_T2_STOPPED"<<endl;
+            std::cout <<endl;
+            break;
+        }
+        case TAF_ECALL_STATE_T5_STOPPED:
+        {
+            PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_T5_STOPPED"<<endl;
+            std::cout <<endl;
+            break;
+        }
+        case TAF_ECALL_STATE_T6_STOPPED:
+        {
+            PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_T6_STOPPED"<<endl;
+            std::cout <<endl;
+            break;
+        }
+        case TAF_ECALL_STATE_T7_STOPPED:
+        {
+            PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_T7_STOPPED"<<endl;
+            std::cout <<endl;
+            break;
+        }
+        case TAF_ECALL_STATE_T9_STOPPED:
+        {
+            PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_T9_STOPPED"<<endl;
+            std::cout <<endl;
+            break;
+        }
+        case TAF_ECALL_STATE_T10_STOPPED:
+        {
+            PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_T10_STOPPED"<<endl;
+            std::cout <<endl;
+            break;
+        }
+        case TAF_ECALL_STATE_INCOMING:
+        {
+            PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_INCOMING"<<endl;
+            std::cout <<endl;
+            break;
+        }
+        case TAF_ECALL_STATE_LL_NACK_DUE_TO_T7_EXPIRY:
+        {
+            PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_LL_NACK_DUE_TO_T7_EXPIRY"<<endl;
+            std::cout <<endl;
+            break;
+        }
+        case TAF_ECALL_STATE_T9_RESUMED:
+        {
+            PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_T9_RESUMED"<<endl;
+            std::cout <<endl;
+            break;
+        }
+        case TAF_ECALL_STATE_T10_RESUMED:
+        {
+            PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_T10_RESUMED"<<endl;
+            std::cout <<endl;
             break;
         }
         default:

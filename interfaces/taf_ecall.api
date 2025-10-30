@@ -1269,6 +1269,15 @@ FUNCTION le_result_t Answer
  *      - The current state of the given eCall.
  *
  * @b NOTE: The process exits if an invalid eCall reference is passed.
+ *
+ * @b NOTE: This API only returns the current eCall state. It does not provides historical or
+ *       intermediate state transitions.
+ *
+ * @b NOTE: When using polling to call this API, if the state changes more frequently than the
+ *       polling interval, some transient states may not be detected and could be missed.
+ *
+ * @b NOTE: For scenarios requiring a complete record of state transitions, please use the
+ *       StateChangeHandler instead of relying solely on this API.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION State GetState

@@ -247,6 +247,60 @@ char* getCurrentTime() {
    return ctime(&tm);
 }
 
+static const char* ECallStateToString(taf_ecall_State_t state) {
+    switch (state) {
+        case TAF_ECALL_STATE_UNKNOWN: return "TAF_ECALL_STATE_UNKNOWN";
+        case TAF_ECALL_STATE_ALERTING: return "TAF_ECALL_STATE_ALERTING";
+        case TAF_ECALL_STATE_ACTIVE: return "TAF_ECALL_STATE_ACTIVE";
+        case TAF_ECALL_STATE_IDLE: return "TAF_ECALL_STATE_IDLE";
+        case TAF_ECALL_STATE_WAITING_PSAP_START_IND: return "TAF_ECALL_STATE_WAITING_PSAP_START_IND";
+        case TAF_ECALL_STATE_PSAP_START_RECEIVED: return "TAF_ECALL_STATE_PSAP_START_RECEIVED";
+        case TAF_ECALL_STATE_MSD_TRANSMISSION_STARTED: return "TAF_ECALL_STATE_MSD_TRANSMISSION_STARTED";
+        case TAF_ECALL_STATE_LLNACK_RECEIVED: return "TAF_ECALL_STATE_LLNACK_RECEIVED";
+        case TAF_ECALL_STATE_LL_ACK_RECEIVED: return "TAF_ECALL_STATE_LL_ACK_RECEIVED";
+        case TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS: return "TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS";
+        case TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED: return "TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED";
+        case TAF_ECALL_STATE_ALACK_RECEIVED_POSITIVE: return "TAF_ECALL_STATE_ALACK_RECEIVED_POSITIVE";
+        case TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN: return "TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN";
+        case TAF_ECALL_STATE_MSD_UPDATE_REQ: return "TAF_ECALL_STATE_MSD_UPDATE_REQ";
+        case TAF_ECALL_STATE_ENDED: return "TAF_ECALL_STATE_ENDED";
+        case TAF_ECALL_STATE_RESET: return "TAF_ECALL_STATE_RESET";
+        case TAF_ECALL_STATE_COMPLETED: return "TAF_ECALL_STATE_COMPLETED";
+        case TAF_ECALL_STATE_FAILED: return "TAF_ECALL_STATE_FAILED";
+        case TAF_ECALL_STATE_END_OF_REDIAL_PERIOD: return "TAF_ECALL_STATE_END_OF_REDIAL_PERIOD";
+        case TAF_ECALL_STATE_T2_EXPIRED: return "TAF_ECALL_STATE_T2_EXPIRED";
+        case TAF_ECALL_STATE_TIMEOUT_T3: return "TAF_ECALL_STATE_TIMEOUT_T3";
+        case TAF_ECALL_STATE_T5_EXPIRED: return "TAF_ECALL_STATE_T5_EXPIRED";
+        case TAF_ECALL_STATE_T6_EXPIRED: return "TAF_ECALL_STATE_T6_EXPIRED";
+        case TAF_ECALL_STATE_T7_EXPIRED: return "TAF_ECALL_STATE_T7_EXPIRED";
+        case TAF_ECALL_STATE_T9_EXPIRED: return "TAF_ECALL_STATE_T9_EXPIRED";
+        case TAF_ECALL_STATE_T10_EXPIRED: return "TAF_ECALL_STATE_T10_EXPIRED";
+        case TAF_ECALL_STATE_DIALING: return "TAF_ECALL_STATE_DIALING";
+        case TAF_ECALL_STATE_NACK_OUT_OF_ORDER: return "TAF_ECALL_STATE_NACK_OUT_OF_ORDER";
+        case TAF_ECALL_STATE_ACK_OUT_OF_ORDER: return "TAF_ECALL_STATE_ACK_OUT_OF_ORDER";
+        case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_STARTED: return "TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_STARTED";
+        case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS: return "TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS";
+        case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE: return "TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE";
+        case TAF_ECALL_STATE_T2_STARTED: return "TAF_ECALL_STATE_T2_STARTED";
+        case TAF_ECALL_STATE_T5_STARTED: return "TAF_ECALL_STATE_T5_STARTED";
+        case TAF_ECALL_STATE_T6_STARTED: return "TAF_ECALL_STATE_T6_STARTED";
+        case TAF_ECALL_STATE_T7_STARTED: return "TAF_ECALL_STATE_T7_STARTED";
+        case TAF_ECALL_STATE_T9_STARTED: return "TAF_ECALL_STATE_T9_STARTED";
+        case TAF_ECALL_STATE_T10_STARTED: return "TAF_ECALL_STATE_T10_STARTED";
+        case TAF_ECALL_STATE_T2_STOPPED: return "TAF_ECALL_STATE_T2_STOPPED";
+        case TAF_ECALL_STATE_T5_STOPPED: return "TAF_ECALL_STATE_T5_STOPPED";
+        case TAF_ECALL_STATE_T6_STOPPED: return "TAF_ECALL_STATE_T6_STOPPED";
+        case TAF_ECALL_STATE_T7_STOPPED: return "TAF_ECALL_STATE_T7_STOPPED";
+        case TAF_ECALL_STATE_T9_STOPPED: return "TAF_ECALL_STATE_T9_STOPPED";
+        case TAF_ECALL_STATE_T10_STOPPED: return "TAF_ECALL_STATE_T10_STOPPED";
+        case TAF_ECALL_STATE_INCOMING: return "TAF_ECALL_STATE_INCOMING";
+        case TAF_ECALL_STATE_LL_NACK_DUE_TO_T7_EXPIRY: return "TAF_ECALL_STATE_LL_NACK_DUE_TO_T7_EXPIRY";
+        case TAF_ECALL_STATE_T9_RESUMED: return "TAF_ECALL_STATE_T9_RESUMED";
+        case TAF_ECALL_STATE_T10_RESUMED: return "TAF_ECALL_STATE_T10_RESUMED";
+        default: return "Unknown state";
+    }
+}
+
 static void MyMediaEventHandler
 (
     taf_audio_StreamRef_t          streamRef,
@@ -281,6 +335,14 @@ static void MyMediaEventHandler
         LE_INFO("File event is %d", event);
         break;
     }
+}
+
+static void UnmuteAndStopAudio() {
+    taf_audio_Stop(playerRef);
+    int res = taf_audio_SetMute(MdmRxAudioRef, false);
+    LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem RX!");
+    res = taf_audio_SetMute(MdmTxAudioRef, false);
+    LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem TX!");
 }
 
 static void DisconnectAllAudio()
@@ -631,291 +693,40 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         taf_ecall_State_t state, void* cntxtPtr)
 {
 
-    LE_INFO("Ecall state change event, state = %d", state );
-    LE_INFO("Ecall state change event, reference = %p", eCallReference );
+    LE_INFO("Ecall state change event, state = %d (%s)", state, ECallStateToString(state));
+    LE_INFO("Ecall state change event, reference = %p", eCallReference);
     printf("\n=================\033[1;35mNOTIFICATION\033[0m=================\n");
-    printf("Time: %s",  getCurrentTime());
-    printf("Ecall state change event, state = %d\n", state );
+    printf("Time: %s\n", getCurrentTime());
+    printf("Ecall state change event, state = %d\n", state);
+    printf("%s", ECallStateToString(state));
     ECallState = state;
     exitApp = false;
 
-    switch (state)
-    {
-        case TAF_ECALL_STATE_UNKNOWN:
-        {
-            printf("TAF_ECALL_STATE_UNKNOWN");
-            break;
-        }
-        case TAF_ECALL_STATE_ALERTING:
-        {
-            printf("TAF_ECALL_STATE_ALERTING");
-            break;
-        }
-        case TAF_ECALL_STATE_ACTIVE:
-        {
-            printf("TAF_ECALL_STATE_ACTIVE");
-            break;
-        }
+    switch (state) {
         case TAF_ECALL_STATE_IDLE:
-        {
-            printf("TAF_ECALL_STATE_IDLE");
             exitApp = true;
             break;
-        }
-        case TAF_ECALL_STATE_WAITING_PSAP_START_IND:
-        {
-            printf("TAF_ECALL_STATE_WAITING_PSAP_START_IND");
-            break;
-        }
-        case TAF_ECALL_STATE_PSAP_START_RECEIVED:
-        {
-            printf("TAF_ECALL_STATE_PSAP_START_RECEIVED");
-            break;
-        }
-        case TAF_ECALL_STATE_MSD_TRANSMISSION_STARTED:
-        {
-            printf("TAF_ECALL_STATE_MSD_TRANSMISSION_STARTED");
-            break;
-        }
-        case TAF_ECALL_STATE_LLNACK_RECEIVED:
-        {
-            printf("TAF_ECALL_STATE_LLNACK_RECEIVED");
-            break;
-        }
-        case TAF_ECALL_STATE_LL_ACK_RECEIVED:
-        {
-            printf("TAF_ECALL_STATE_LL_ACK_RECEIVED");
-            break;
-        }
         case TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS:
-        {
-            printf("TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS");
-            taf_audio_Stop(playerRef);
-            res = taf_audio_SetMute(MdmRxAudioRef, false);
-            LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem RX!");
-            res = taf_audio_SetMute(MdmTxAudioRef, false);
-            LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem TX!");
-            break;
-        }
         case TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED:
-        {
-            printf("TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED");
-            taf_audio_Stop(playerRef);
-            res = taf_audio_SetMute(MdmRxAudioRef, false);
-            LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem RX!");
-            res = taf_audio_SetMute(MdmTxAudioRef, false);
-            LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem TX!");
+        case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS:
+        case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE:
+            UnmuteAndStopAudio();
             break;
-        }
-        case TAF_ECALL_STATE_ALACK_RECEIVED_POSITIVE:
-        {
-            printf("TAF_ECALL_STATE_ALACK_RECEIVED_POSITIVE");
-            break;
-        }
-        case TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN:
-        {
-            printf("TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN");
-            break;
-        }
-        case TAF_ECALL_STATE_MSD_UPDATE_REQ:
-        {
-            printf("TAF_ECALL_STATE_MSD_UPDATE_REQ");
-            break;
-        }
         case TAF_ECALL_STATE_ENDED:
-        {
-            printf("TAF_ECALL_STATE_ENDED\n");
-            if (eCallReference != NULL)
-            {
+        case TAF_ECALL_STATE_END_OF_REDIAL_PERIOD:
+            if (eCallReference != NULL) {
                 taf_ecall_TerminationReason_t lcf = taf_ecall_GetTerminationReason(eCallReference);
-                LE_INFO("ECall ENDed, terminate reason  = %d", lcf );
-                printf("Call Termination reason: %d", lcf);
+                LE_INFO("ECall ENDed, terminate reason  = %d", lcf);
+                printf("\nCall Termination reason: %d\n", lcf);
             }
             DisconnectAllAudio();
             break;
-        }
-        case TAF_ECALL_STATE_RESET:
-        {
-            printf("TAF_ECALL_STATE_RESET");
-            break;
-        }
-        case TAF_ECALL_STATE_COMPLETED:
-        {
-            printf("TAF_ECALL_STATE_COMPLETED");
-            break;
-        }
-        case TAF_ECALL_STATE_FAILED:
-        {
-            printf("TAF_ECALL_STATE_FAILED");
-            break;
-        }
-        case TAF_ECALL_STATE_END_OF_REDIAL_PERIOD:
-        {
-            printf("TAF_ECALL_STATE_END_OF_REDIAL_PERIOD");
-            break;
-        }
-        case TAF_ECALL_STATE_T2_EXPIRED:
-        {
-            printf("TAF_ECALL_STATE_T2_EXPIRED");
-            break;
-        }
-        case TAF_ECALL_STATE_TIMEOUT_T3:
-        {
-            printf("TAF_ECALL_STATE_TIMEOUT_T3");
-            break;
-        }
-        case TAF_ECALL_STATE_T5_EXPIRED:
-        {
-            printf("TAF_ECALL_STATE_T5_EXPIRED");
-            break;
-        }
-        case TAF_ECALL_STATE_T6_EXPIRED:
-        {
-            printf("TAF_ECALL_STATE_T6_EXPIRED");
-            break;
-        }
-        case TAF_ECALL_STATE_T7_EXPIRED:
-        {
-            printf("TAF_ECALL_STATE_T7_EXPIRED");
-            break;
-        }
-        case TAF_ECALL_STATE_T9_EXPIRED:
-        {
-            printf("TAF_ECALL_STATE_T9_EXPIRED");
-            break;
-        }
-        case TAF_ECALL_STATE_T10_EXPIRED:
-        {
-            printf("TAF_ECALL_STATE_T10_EXPIRED");
-            break;
-        }
-        case TAF_ECALL_STATE_DIALING:
-        {
-            printf("TAF_ECALL_STATE_DIALING");
-            break;
-        }
-        case TAF_ECALL_STATE_NACK_OUT_OF_ORDER:
-        {
-            printf("TAF_ECALL_STATE_NACK_OUT_OF_ORDER");
-            break;
-        }
-        case TAF_ECALL_STATE_ACK_OUT_OF_ORDER:
-        {
-            printf("TAF_ECALL_STATE_ACK_OUT_OF_ORDER");
-            break;
-        }
-        case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_STARTED:
-        {
-            printf("TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_STARTED");
-            break;
-        }
-        case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS:
-        {
-            printf("TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS");
-            taf_audio_Stop(playerRef);
-            res = taf_audio_SetMute(MdmRxAudioRef, false);
-            LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem RX!");
-            res = taf_audio_SetMute(MdmTxAudioRef, false);
-            LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem TX!");
-            break;
-        }
-        case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE:
-        {
-            printf("TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE");
-            taf_audio_Stop(playerRef);
-            res = taf_audio_SetMute(MdmRxAudioRef, false);
-            LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem RX!");
-            res = taf_audio_SetMute(MdmTxAudioRef, false);
-            LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem TX!");
-            break;
-        }
-        case TAF_ECALL_STATE_T2_STARTED:
-        {
-            printf("TAF_ECALL_STATE_T2_STARTED");
-            break;
-        }
-        case TAF_ECALL_STATE_T5_STARTED:
-        {
-            printf("TAF_ECALL_STATE_T5_STARTED");
-            break;
-        }
-        case TAF_ECALL_STATE_T6_STARTED:
-        {
-            printf("TAF_ECALL_STATE_T6_STARTED");
-            break;
-        }
-        case TAF_ECALL_STATE_T7_STARTED:
-        {
-            printf("TAF_ECALL_STATE_T7_STARTED");
-            break;
-        }
-        case TAF_ECALL_STATE_T9_STARTED:
-        {
-            printf("TAF_ECALL_STATE_T9_STARTED");
-            break;
-        }
-        case TAF_ECALL_STATE_T10_STARTED:
-        {
-            printf("TAF_ECALL_STATE_T10_STARTED");
-            break;
-        }
-        case TAF_ECALL_STATE_T2_STOPPED:
-        {
-            printf("TAF_ECALL_STATE_T2_STOPPED");
-            break;
-        }
-        case TAF_ECALL_STATE_T5_STOPPED:
-        {
-            printf("TAF_ECALL_STATE_T5_STOPPED");
-            break;
-        }
-        case TAF_ECALL_STATE_T6_STOPPED:
-        {
-            printf("TAF_ECALL_STATE_T6_STOPPED");
-            break;
-        }
-        case TAF_ECALL_STATE_T7_STOPPED:
-        {
-            printf("TAF_ECALL_STATE_T7_STOPPED");
-            break;
-        }
-        case TAF_ECALL_STATE_T9_STOPPED:
-        {
-            printf("TAF_ECALL_STATE_T9_STOPPED");
-            break;
-        }
-        case TAF_ECALL_STATE_T10_STOPPED:
-        {
-            printf("TAF_ECALL_STATE_T10_STOPPED");
-            break;
-        }
-        case TAF_ECALL_STATE_INCOMING:
-        {
-            printf("TAF_ECALL_STATE_INCOMING");
-            break;
-        }
-        case TAF_ECALL_STATE_LL_NACK_DUE_TO_T7_EXPIRY:
-        {
-            printf("TAF_ECALL_STATE_LL_NACK_DUE_TO_T7_EXPIRY");
-            break;
-        }
-        case TAF_ECALL_STATE_T9_RESUMED:
-        {
-            printf("TAF_ECALL_STATE_T9_RESUMED");
-            break;
-        }
-        case TAF_ECALL_STATE_T10_RESUMED:
-        {
-            printf("TAF_ECALL_STATE_T10_RESUMED");
-            break;
-        }
         default:
-        {
-            printf("Unknown state");
             break;
-        }
     }
+
     printf("\n==============================================\n");
+
     if (exitApp) {
         le_thread_Cancel(ECallCmdThreadRef);
         ECallCmdThreadRef = NULL;
@@ -954,6 +765,7 @@ static void PrintUsage ()
             "tafECallApp -- gpio <PIN>\n"
             "tafECallApp -- getHlapTimerState <hlap timer type>\n"
             "tafECallApp -- isInProgress\n"
+            "tafECallApp -- getState\n"
             "tafECallApp -- setInitialDialAttempts <attempts (1-10)>\n"
             "tafECallApp -- setInitialDialIntervalBetweenDialAttempts <dial interval in seconds in decimal e.g. 5 60 60 ... >\n"
             "\n");
@@ -1615,6 +1427,14 @@ static int getIsInProgress()
     return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
+static int getState()
+{
+    ECallRef = taf_ecall_Create();
+    taf_ecall_State_t currentState = taf_ecall_GetState(ECallRef);
+    printf("Current State: %s\n", ECallStateToString(currentState));
+    return EXIT_SUCCESS;
+}
+
 static int setInitialDialAttempts()
 {
     if (le_arg_NumArgs() < 3)
@@ -1985,6 +1805,10 @@ COMPONENT_INIT
     else if (strcmp(command, "isInProgress") == 0)
     {
         status = getIsInProgress();
+    }
+    else if (strcmp(command, "getState") == 0)
+    {
+        status = getState();
     }
     else if (strcmp(command, "setInitialDialAttempts") == 0)
     {

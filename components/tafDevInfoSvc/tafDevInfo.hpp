@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -16,19 +16,12 @@
 #include "legato.h"
 #include "tafSvcIF.hpp"
 #include "tafHalLib.hpp"
-#include <future>
-#include <telux/platform/PlatformFactory.hpp>
+#include "taf_pa_deviceinfo.hpp"
 
-using namespace telux::common;
+using namespace tafpa::deviceinfo;
+
 using namespace tafsvc;
-using namespace telux::platform;
 namespace tafsvc {
-#ifdef LE_CONFIG_GET_IMEI_SUPPORT
-    class tafdevinfoServiceStatusListener : public telux::platform::IDeviceInfoListener {
-    public:
-        void onServiceStatusChange(telux::common::ServiceStatus serviceStatus) override;
-    };
-#endif
     class taf_devInfo : public ITafSvc {
     public:
         taf_devInfo() = default;
@@ -40,9 +33,6 @@ namespace tafsvc {
         le_result_t GetDeviceModel(char* modelPtr, size_t numElements);
 #ifdef LE_CONFIG_GET_IMEI_SUPPORT
         le_result_t GetIMEI(char* imeiPtr, size_t numElements);
-        std::shared_ptr<telux::platform::IDeviceInfoListener> devinfoServiceStatusListener
-            = nullptr;
-        std::shared_ptr<IDeviceInfoManager> deviceInfoManager = nullptr;
 #endif
     };
 }

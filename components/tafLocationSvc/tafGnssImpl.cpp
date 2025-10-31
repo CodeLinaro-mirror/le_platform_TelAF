@@ -560,7 +560,7 @@ void taf_locGnss::GnssPositionHandler
 
         if (posSampleReqPtr->sessionRef != *currentPosPtr->clientSessionRefPtr) {
             LE_DEBUG("GnssPositionHandler session ref does not match! ReqPtr.sessionRef: %p, Sample.sessionRef: %p", posSampleReqPtr->sessionRef, *currentPosPtr->clientSessionRefPtr);
-            return;
+            continue;
         }
         posSampleReqPtr->positionSampleRef =
            (taf_locGnss_SampleRef_t)le_ref_CreateRef(gnss.PositionSampleMap, posSampleReqPtr);
@@ -647,7 +647,7 @@ void taf_locGnss::GnssPositionExHandler
 
         if (extendPosHandlerPtr->sessionRef != *currentPosPtr->clientSessionRefPtr) {
             LE_ERROR("GnssPositionExHandler session ref does not match! ReqPtr.sessionRef: %p, Sample.sessionRef: %p", extendPosHandlerPtr->sessionRef, *currentPosPtr->clientSessionRefPtr);
-            return;
+            continue;
         }
 
         LE_INFO("epochTime: %" PRIu64 "", extendPosSampleReqPtr->epochTime);
@@ -701,7 +701,7 @@ void taf_locGnss::GnssMeasurementHandler
 
     clientRequestPtr = gnss.DiscoverSessionRef(*currentPosPtr->clientSessionRefPtr);
 
-    TAF_ERROR_IF_RET_NIL(NULL == clientRequestPtr, "GnssPositionHandler did not find sessionRef");
+    TAF_ERROR_IF_RET_NIL(NULL == clientRequestPtr, "GnssMeasurementHandler did not find sessionRef");
 
     if(!gnss.NumOfMeasurementHandlers)
     {
@@ -781,8 +781,8 @@ void taf_locGnss::GnssMeasurementHandler
         measSampleReqPtr->sessionRef = measHandlerPtr->sessionRef;
 
         if (measSampleReqPtr->sessionRef != *currentPosPtr->clientSessionRefPtr) {
-            LE_INFO("GnssPositionHandler session ref does not match! ReqPtr.sessionRef: %p, Sample.sessionRef: %p", measSampleReqPtr->sessionRef, *currentPosPtr->clientSessionRefPtr);
-            return;
+            LE_DEBUG("GnssMeasurementHandler session ref does not match! ReqPtr.sessionRef: %p, Sample.sessionRef: %p", measSampleReqPtr->sessionRef, *currentPosPtr->clientSessionRefPtr);
+            continue;
         }
         measSampleReqPtr->measSampleRef =
            (taf_locGnss_MeasSampleRef_t)le_ref_CreateRef(gnss.MeasurementSampleMap, measSampleReqPtr);
@@ -793,7 +793,6 @@ void taf_locGnss::GnssMeasurementHandler
         measHandlerPtr->handlerFuncPtr(measSampleReqPtr->measSampleRef,
                                       measHandlerPtr->handlerContextPtr);
     }
-
     le_mem_Release(currentPosPtr);
 }
 
@@ -2329,12 +2328,12 @@ void tafLocationListener::onGnssMeasurementsInfo(const telux::loc::
     }
     le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
     if(gnss.NumOfMeasurementHandlers ) {
-        LE_INFO("**** Gnss Measurements Information ****");
+        LE_INFO("**** Gnss Measurements Information****");
 
         taf_locGnss_GnssMeasurements_t* MeasurementData =
                     (taf_locGnss_GnssMeasurements_t*)le_mem_ForceAlloc(gnss.MeasurementSamplePoolRef);
 
-        LE_INFO("measurementInfo.clock.valid:  %" PRIu32 "", measurementInfo.clock.valid);
+        LE_DEBUG("measurementInfo.clock.valid:  %" PRIu32 "", measurementInfo.clock.valid);
 
         telux::loc::GnssMeasurementsClockValidity GnssMeasurementsClockValidityMask = measurementInfo.clock.valid;
         if((GnssMeasurementsClockValidityMask & telux::loc::LEAP_SECOND_BIT))
@@ -8499,7 +8498,7 @@ le_result_t taf_locGnss::GetIsNHz(taf_locGnss_MeasSampleRef_t measSampleRef, boo
         return LE_FAULT;
     }
 
-    LE_INFO("measSampleReqPtr->measSampleNodePtr->isNHz: %d",(int)measSampleReqPtr->measSampleNodePtr->isNHz);
+    LE_DEBUG("measSampleReqPtr->measSampleNodePtr->isNHz: %d",(int)measSampleReqPtr->measSampleNodePtr->isNHz);
 
     *isNHZPtr = measSampleReqPtr->measSampleNodePtr->isNHz;
 
@@ -8518,7 +8517,7 @@ le_result_t taf_locGnss::GetClockValidityMask(taf_locGnss_MeasSampleRef_t measSa
         LE_ERROR("measSampleReqPtr is NULL");
         return LE_FAULT;
     }
-    LE_INFO("measSampleReqPtr->measSampleNodePtr->clock.valid: %d",(int)measSampleReqPtr->measSampleNodePtr->clock.valid);
+    LE_DEBUG("measSampleReqPtr->measSampleNodePtr->clock.valid: %d",(int)measSampleReqPtr->measSampleNodePtr->clock.valid);
 
     *clockValidityMaskPtr = measSampleReqPtr->measSampleNodePtr->clock.valid;
 
@@ -8539,7 +8538,7 @@ le_result_t taf_locGnss::GetClockData(taf_locGnss_MeasSampleRef_t measSampleRef,
         return LE_FAULT;
     }
 
-    LE_INFO("measSampleReqPtr->measSampleNodePtr->clock.elapsedRealTime:  %" PRIu64 "", measSampleReqPtr->measSampleNodePtr->clock.elapsedRealTime);
+    LE_DEBUG("measSampleReqPtr->measSampleNodePtr->clock.elapsedRealTime:  %" PRIu64 "", measSampleReqPtr->measSampleNodePtr->clock.elapsedRealTime);
 
     clockDataPtr->leapSecond = measSampleReqPtr->measSampleNodePtr->clock.leapSecond;
     clockDataPtr->timeNs = measSampleReqPtr->measSampleNodePtr->clock.timeNs;
@@ -8574,7 +8573,7 @@ le_result_t taf_locGnss::GetMeasurementsData(taf_locGnss_MeasSampleRef_t measSam
 
     *measDataSizePtr = measSampleReqPtr->measSampleNodePtr->measCount;
 
-    LE_INFO("*measDataSizePtr: %d",(int)*measDataSizePtr);
+    LE_DEBUG("*measDataSizePtr: %d",(int)*measDataSizePtr);
 
     for (auto i = 0; i < (int) *measDataSizePtr; i++) {
         measDataPtr[i].svId = measSampleReqPtr->measSampleNodePtr->measData[i].svId;

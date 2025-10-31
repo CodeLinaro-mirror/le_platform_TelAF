@@ -688,7 +688,11 @@ static void* WriteThreadMain
     le_event_RunLoop();
 }
 
-
+//-------------------------------------------------------------------------------------------------
+/**
+ * Plugin Callabck notification on DID change.
+ */
+//-------------------------------------------------------------------------------------------------
 void taf_diagDidStore::DidMsgPluginCB
 (
     uint16_t dataID,
@@ -696,24 +700,40 @@ void taf_diagDidStore::DidMsgPluginCB
     size_t len
 )
 {
-    LE_DEBUG("DidMsgPluginCB!");
+    LE_INFO("DidMsgPluginCB, DataId (0x%x) change notification", dataID);
+    if (value == NULL || len == 0){
+        LE_ERROR("Received value is NULL!");
+        return;
+    }
 
     le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(didStorageNotifyList));
     while (linkHandlerPtr)
     {
-        taf_DIDStorgNotifyHandler_t * handlerCtxPtr =
+        taf_DIDStorgNotifyHandler_t* handlerCtxPtr =
                 CONTAINER_OF(linkHandlerPtr, taf_DIDStorgNotifyHandler_t, link);
         linkHandlerPtr = le_dls_PeekPrev(&(didStorageNotifyList), linkHandlerPtr);
-        if (handlerCtxPtr->func && (handlerCtxPtr->did == dataID))
+        if (handlerCtxPtr && handlerCtxPtr->func)
         {
-            LE_INFO("Notifying to clients");
-            handlerCtxPtr->func(dataID, value, len, handlerCtxPtr->ctxPtr);
+            le_dls_Link_t* linkDataIdPtr = le_dls_PeekTail(&(handlerCtxPtr->dataIdList));
+            while (linkDataIdPtr)
+            {
+                taf_DataID_t* dataIdPtr = CONTAINER_OF(linkDataIdPtr, taf_DataID_t, link);
+                linkDataIdPtr = le_dls_PeekPrev(&(handlerCtxPtr->dataIdList), linkDataIdPtr);
+                if (dataIdPtr != NULL && dataIdPtr->dataId == dataID)
+                {
+                    LE_INFO("Notify DataID %x as changed", dataIdPtr->dataId);
+                    handlerCtxPtr->func(dataID, value, len, handlerCtxPtr->ctxPtr);
+                }
+            }
         }
     }
-
 }
 
-
+//-------------------------------------------------------------------------------------------------
+/**
+ * Add a handler for DID change notification.
+ */
+//-------------------------------------------------------------------------------------------------
 taf_diagDidStore_DataIdChangeHandlerRef_t taf_diagDidStore::AddDataIdChangeHandler
 (
     taf_diagDidStore_ServiceRef_t svcRef,
@@ -744,21 +764,143 @@ taf_diagDidStore_DataIdChangeHandlerRef_t taf_diagDidStore::AddDataIdChangeHandl
 
     // Initialize the Handler object.
     handlerObjPtr->svcRef     = svcRef;
-    handlerObjPtr->did = dataId;
     handlerObjPtr->func       = handlerPtr;
     handlerObjPtr->ctxPtr     = contextPtr;
     handlerObjPtr->handlerRef = (taf_diagDidStore_DataIdChangeHandlerRef_t)le_ref_CreateRef(
             MsgDIDStorgHandlerRefMap, handlerObjPtr);
     handlerObjPtr->link = LE_DLS_LINK_INIT;
+
+    // Add DataID to the list
+    taf_DataID_t* dataIdPtr = (taf_DataID_t *)le_mem_ForceAlloc(dataIdPool);
+    memset(dataIdPtr, 0, sizeof(taf_DataID_t));
+
+    dataIdPtr->dataId = dataId;
+    dataIdPtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&handlerObjPtr->dataIdList, &dataIdPtr->link);
+
     // Attach handler to service.
     servicePtr->msgDIDStorgHandlerRef = handlerObjPtr->handlerRef;
-
-    LE_INFO("DID Msg: Registered Handler");
 
     le_dls_Queue(&(didStorageNotifyList),&handlerObjPtr->link);
     return handlerObjPtr->handlerRef;
 }
 
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference of a DID change handler.
+ */
+//-------------------------------------------------------------------------------------------------
+taf_diagDidStore_DIDChangeHandlerRef_t taf_diagDidStore::GetDIDHandlerRef
+(
+    taf_diagDidStore_ServiceRef_t svcRef
+        ///< [IN] Service reference.
+)
+{
+    LE_DEBUG("GetDIDHandlerRef!");
+
+    taf_DidStore_t* servicePtr = (taf_DidStore_t*)le_ref_Lookup(SvcRefMap, svcRef);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, NULL, "Invalid service reference");
+
+    LE_DEBUG("svcRef: %p, GetDIDHandlerRef DIDChangeHandlerRef: %p",
+            svcRef, servicePtr->msgDIDStorgHandlerRef);
+
+    return (taf_diagDidStore_DIDChangeHandlerRef_t)servicePtr->msgDIDStorgHandlerRef;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Adds the DID to handler for change notification.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_diagDidStore::AddDIDToHandler
+(
+    taf_diagDidStore_DIDChangeHandlerRef_t handlerRef,
+        ///< [IN] Handler reference.
+    uint16_t dataId
+        ///< [IN] Data identifier.
+)
+{
+    LE_DEBUG("AddDIDToHandler!");
+    TAF_ERROR_IF_RET_VAL(handlerRef == NULL, LE_BAD_PARAMETER, "Invalid handlerRef");
+
+    taf_DIDStorgNotifyHandler_t* handlerObjPtr = NULL;
+    handlerObjPtr = (taf_DIDStorgNotifyHandler_t*)le_ref_Lookup(MsgDIDStorgHandlerRefMap,
+            (taf_diagDidStore_DataIdChangeHandlerRef_t)handlerRef);
+    TAF_ERROR_IF_RET_VAL(handlerObjPtr == NULL, LE_BAD_PARAMETER, "Invalid handlerObjPtr");
+
+    // Check DataID was already added before or not
+    le_dls_Link_t* linkPtr = NULL;
+    linkPtr = le_dls_Peek(&handlerObjPtr->dataIdList);
+    while (linkPtr)
+    {
+        taf_DataID_t* dataIdPtr = CONTAINER_OF(linkPtr, taf_DataID_t, link);
+        if (dataIdPtr != NULL && dataIdPtr->dataId == dataId)
+        {
+            LE_INFO("DataID (0x%x) is already added for ref%p", dataId, handlerRef);
+            return LE_DUPLICATE;
+        }
+        linkPtr = le_dls_PeekNext(&handlerObjPtr->dataIdList, linkPtr);
+    }
+
+    // Add DataID to the list
+    taf_DataID_t* dataIdPtr = (taf_DataID_t *)le_mem_ForceAlloc(dataIdPool);
+    memset(dataIdPtr, 0, sizeof(taf_DataID_t));
+
+    dataIdPtr->dataId = dataId;
+    dataIdPtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&handlerObjPtr->dataIdList, &dataIdPtr->link);
+    LE_DEBUG("DataID (0x%x) added", dataIdPtr->dataId);
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Removes DID from handler.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_diagDidStore::RemoveDIDFromHandler
+(
+    taf_diagDidStore_DIDChangeHandlerRef_t handlerRef,
+        ///< [IN] Handler reference.
+    uint16_t dataId
+        ///< [IN] Data identifier.
+)
+{
+    LE_DEBUG("RemoveDIDFromHandler!");
+    TAF_ERROR_IF_RET_VAL(handlerRef == NULL, LE_BAD_PARAMETER, "Invalid handlerRef");
+
+    taf_DIDStorgNotifyHandler_t* handlerObjPtr = NULL;
+    handlerObjPtr = (taf_DIDStorgNotifyHandler_t*)le_ref_Lookup(MsgDIDStorgHandlerRefMap,
+            (taf_diagDidStore_DataIdChangeHandlerRef_t)handlerRef);
+    TAF_ERROR_IF_RET_VAL(handlerObjPtr == NULL, LE_BAD_PARAMETER, "Invalid handlerObjPtr");
+
+    // Remove the requested DataID from the list.
+    le_dls_Link_t* linkPtr = NULL;
+    linkPtr = le_dls_Peek(&handlerObjPtr->dataIdList);
+    while (linkPtr)
+    {
+        taf_DataID_t* dataIdPtr = CONTAINER_OF(linkPtr, taf_DataID_t, link);
+        if (dataIdPtr != NULL && dataIdPtr->dataId == dataId)
+        {
+            // Release the dataIdPtr
+            le_dls_Remove(&handlerObjPtr->dataIdList, &dataIdPtr->link);
+            le_mem_Release(dataIdPtr);
+            LE_DEBUG("DataID (0x%x) removed", dataId);
+            return LE_OK;
+        }
+        linkPtr = le_dls_PeekNext(&handlerObjPtr->dataIdList, linkPtr);
+    }
+
+    LE_DEBUG("DataID (0x%x) not found", dataId);
+    return LE_NOT_FOUND;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_diagDataIDStor_MsgNotify'
+ */
+//--------------------------------------------------------------------------------------------------
 void taf_diagDidStore::RemoveDataIdChangeHandler
 (
     taf_diagDidStore_DataIdChangeHandlerRef_t handlerRef
@@ -775,6 +917,20 @@ void taf_diagDidStore::RemoveDataIdChangeHandler
     handlerObjPtr = (taf_DIDStorgNotifyHandler_t*)le_ref_Lookup(MsgDIDStorgHandlerRefMap,
             handlerRef);
     TAF_ERROR_IF_RET_NIL(handlerObjPtr == NULL, "Invalid handlerObjPtr");
+
+    // Release all the dataId list.
+    le_dls_Link_t* linkPtr = NULL;
+    linkPtr = le_dls_Pop(&handlerObjPtr->dataIdList);
+    while (linkPtr)
+    {
+        taf_DataID_t* dataIdPtr = CONTAINER_OF(linkPtr, taf_DataID_t, link);
+        if (dataIdPtr != NULL)
+        {
+            // Release the dataIdPtr
+            le_mem_Release(dataIdPtr);
+        }
+        linkPtr = le_dls_Pop(&handlerObjPtr->dataIdList);
+    }
 
     servicePtr = (taf_DidStore_t*)le_ref_Lookup(SvcRefMap, handlerObjPtr->svcRef);
     if (servicePtr == NULL)
@@ -1263,6 +1419,7 @@ void taf_diagDidStore::Init
         sizeof(taf_DIDStorgNotifyHandler_t));
     MsgDIDStorgHandlerRefMap = le_ref_CreateMap("MsgDIDStorgHandlerRefMap",
         DEFAULT_DID_HANDLER_REF_CNT);
+    dataIdPool = le_mem_CreatePool("DataIDPool", sizeof(taf_DataID_t));
 
     //Read DID Plugin thread
     ReadRequestPool = le_mem_CreatePool("Read plugin Request", sizeof(ReadWriteRequest_t));

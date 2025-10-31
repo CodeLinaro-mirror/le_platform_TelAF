@@ -35,11 +35,13 @@ void PrintUsage(void) {
          "app runProc tafWlanAPIntTest tafWlanAPIntTest -- GetStatus <AP>\n"
          "app runProc tafWlanAPIntTest tafWlanAPIntTest -- SetConfig <AP>\n"
          "app runProc tafWlanAPIntTest tafWlanAPIntTest -- GetConfig <AP>\n"
-         "app runProc tafWlanAPIntTest tafWlanAPIntTest -- SetSecurityConfig <AP>\n"
+         "app runProc tafWlanAPIntTest tafWlanAPIntTest -- SetSecurityConfigOpen <AP>\n"
+         "app runProc tafWlanAPIntTest tafWlanAPIntTest -- SetSecurityConfigWPA2PSK <AP>\n"
          "app runProc tafWlanAPIntTest tafWlanAPIntTest -- GetSecurityConfig <AP>\n"
          "app runProc tafWlanAPIntTest tafWlanAPIntTest -- GetConnectedDevices <AP>\n"
          "app runProc tafWlanAPIntTest tafWlanAPIntTest -- DeviceConnectionEvents <AP>\n"
-         "\n AP: AP interface obtained from taf_wlan_GetIntfInfo\n"
+         "app runProc tafWlanAPIntTest tafWlanAPIntTest -- Sanity <AP>\n"
+         "\n AP: AP interface obtained from taf_wlan_GetIntfInfo (e.g., wlan1)\n"
          "\n");
 }
 
@@ -111,41 +113,68 @@ static void PrintSecEncryptMethod(taf_wlan_SecurityEncryptionMethod_t SecEncrypt
 }
 
 static le_result_t wlanAPTestStart(taf_wlanAp_WlanAPRef_t apRef) {
+    LE_TEST_INFO("[Start] Calling taf_wlanAp_Start");
     le_result_t result = taf_wlanAp_Start(apRef);
     fprintf(stderr, "taf_wlanAp_Start Return:%d\n", result);
+
+    // Verify status
+    taf_wlanAp_WlanAPStatus_t Status = {0, {0}, {0}, {0}};
+    le_result_t st = taf_wlanAp_GetStatus(apRef, &Status);
+    LE_TEST_INFO("[Start] GetStatus ret=%d, bEnabled=%d, Intf=%s IPv4=%s MAC=%s",
+                 st, (int)Status.bEnabled, Status.IntfName, Status.IPv4Address, Status.MACAddress);
     return result;
 }
 
 static le_result_t wlanAPTestStop(taf_wlanAp_WlanAPRef_t apRef) {
+    LE_TEST_INFO("[Stop] Calling taf_wlanAp_Stop");
     le_result_t result = taf_wlanAp_Stop(apRef);
     fprintf(stderr, "taf_wlanAp_Stop Return:%d\n", result);
+
+    // Verify status (may return LE_FAULT when hostapd is disabled; still log what we get)
+    taf_wlanAp_WlanAPStatus_t Status = {0, {0}, {0}, {0}};
+    le_result_t st = taf_wlanAp_GetStatus(apRef, &Status);
+    LE_TEST_INFO("[Stop] GetStatus ret=%d, bEnabled=%d, Intf=%s IPv4=%s MAC=%s",
+                 st, (int)Status.bEnabled, Status.IntfName, Status.IPv4Address, Status.MACAddress);
     return result;
 }
 
 static le_result_t wlanAPTestRestart(taf_wlanAp_WlanAPRef_t apRef) {
+    // Log status before
+    taf_wlanAp_WlanAPStatus_t before = {0, {0}, {0}, {0}};
+    (void)taf_wlanAp_GetStatus(apRef, &before);
+    LE_TEST_INFO("[Restart] Before: bEnabled=%d Intf=%s IPv4=%s MAC=%s",
+                 (int)before.bEnabled, before.IntfName, before.IPv4Address, before.MACAddress);
+
     le_result_t result = taf_wlanAp_Restart(apRef);
     fprintf(stderr, "taf_wlanAp_Restart Return:%d\n", result);
+
+    // Verify status after
+    taf_wlanAp_WlanAPStatus_t after = {0, {0}, {0}, {0}};
+    le_result_t st = taf_wlanAp_GetStatus(apRef, &after);
+    LE_TEST_INFO("[Restart] After: ret=%d bEnabled=%d Intf=%s IPv4=%s MAC=%s",
+                 st, (int)after.bEnabled, after.IntfName, after.IPv4Address, after.MACAddress);
     return result;
 }
 
 static le_result_t wlanAPTestGetStatus(taf_wlanAp_WlanAPRef_t apRef) {
-    taf_wlanAp_WlanAPStatus_t Status = { 0, { 0 }, { 0 }, { 0 }, { 0 } };
+    LE_TEST_INFO("[GetStatus] Calling taf_wlanAp_GetStatus");
+    taf_wlanAp_WlanAPStatus_t Status = {0, {0}, {0}, {0}};
     le_result_t result = taf_wlanAp_GetStatus(apRef, &Status);
     fprintf(stderr, "taf_wlanAp_GetStatus Return:%d\n", result);
     if (LE_OK != result)
         return result;
 
     LE_TEST_INFO("AP Enabled    : %s", ((Status.bEnabled) ? "Yes" : "No"));
-    if (Status.bEnabled) {
-        LE_TEST_INFO("Interface Name: %s", Status.IntfName);
-        LE_TEST_INFO("IPv4 Address  : %s", Status.IPv4Address);
-        LE_TEST_INFO("MAC Address   : %s", Status.MACAddress);
-    }
+    LE_TEST_INFO("Interface Name: %s", Status.IntfName);
+    LE_TEST_INFO("IPv4 Address  : %s", Status.IPv4Address);
+    LE_TEST_INFO("MAC Address   : %s", Status.MACAddress);
     return result;
 }
 
 static le_result_t wlanAPTestGetConfig(taf_wlanAp_WlanAPRef_t apRef) {
+    LE_TEST_INFO("[GetConfig] Calling taf_wlanAp_GetConfig");
     taf_wlanAp_WlanAPConfig_t Config;
+    memset(&Config, 0, sizeof(Config));
     le_result_t result = taf_wlanAp_GetConfig(apRef, &Config);
     fprintf(stderr, "taf_wlanAp_GetConfig Return:%d\n", result);
     if (LE_OK != result)
@@ -158,20 +187,42 @@ static le_result_t wlanAPTestGetConfig(taf_wlanAp_WlanAPRef_t apRef) {
 
 static le_result_t wlanAPTestSetConfig(taf_wlanAp_WlanAPRef_t apRef) {
     taf_wlanAp_WlanAPConfig_t config;
+    memset(&config, 0, sizeof(config));
     config.bSSIDVisible = true;
-    le_utf8_Copy(config.SSID, "testSSID", TAF_WLAN_MAX_SSID_LENGTH + 1, NULL);
+
+    // Unique SSID to ensure we observe change
+    char ssid[64];
+    snprintf(ssid, sizeof(ssid), "tafTestSSID-%ld", (long)time(nullptr));
+    le_utf8_Copy(config.SSID, ssid, TAF_WLAN_MAX_SSID_LENGTH + 1, NULL);
+
+    LE_TEST_INFO("[SetConfig] Setting SSID=%s Visible=%d", config.SSID, (int)config.bSSIDVisible);
     le_result_t result = taf_wlanAp_SetConfig(apRef, &config);
-    if (LE_OK != result) {
+    if (LE_OK != result)
+    {
         fprintf(stderr, "taf_wlanAp_SetConfig failed with %d\n", result);
         return result;
     }
-
     fprintf(stderr, "taf_wlanAp_SetConfig passed\n");
+
+    // Verify via GetConfig
+    taf_wlanAp_WlanAPConfig_t readback;
+    memset(&readback, 0, sizeof(readback));
+    le_result_t rb = taf_wlanAp_GetConfig(apRef, &readback);
+    LE_TEST_INFO("[SetConfig] GetConfig ret=%d, SSID=%s Visible=%d",
+                 rb, readback.SSID, (int)readback.bSSIDVisible);
+    if (rb == LE_OK)
+    {
+        LE_TEST_OK(strncmp(readback.SSID, config.SSID, sizeof(readback.SSID)) == 0,
+                   "SSID readback matches");
+        LE_TEST_OK(readback.bSSIDVisible == config.bSSIDVisible, "Visibility readback matches");
+    }
     return result;
 }
 
 static le_result_t wlanAPTestGetSecurityConfig(taf_wlanAp_WlanAPRef_t apRef) {
+    LE_TEST_INFO("[GetSecurityConfig] Calling taf_wlanAp_GetSecurityConfig");
     taf_wlanAp_WlanAPSecurityConfig_t SecConfig;
+    memset(&SecConfig, 0, sizeof(SecConfig));
     le_result_t result = taf_wlanAp_GetSecurityConfig(apRef, &SecConfig);
     fprintf(stderr, "taf_wlanAp_GetSecurityConfig Return:%d\n", result);
     if (LE_OK != result)
@@ -185,25 +236,74 @@ static le_result_t wlanAPTestGetSecurityConfig(taf_wlanAp_WlanAPRef_t apRef) {
     return result;
 }
 
-static le_result_t wlanAPTestSetSecurityConfig(taf_wlanAp_WlanAPRef_t apRef) {
+static le_result_t wlanAPTestSetSecurityConfigOpen(taf_wlanAp_WlanAPRef_t apRef) {
     taf_wlanAp_WlanAPSecurityConfig_t SecConfig;
+    memset(&SecConfig, 0, sizeof(SecConfig));
     SecConfig.SecMode = TAF_WLAN_SEC_MODE_OPEN;
     SecConfig.SecAuthMethod = TAF_WLAN_SEC_AUTH_METHOD_NONE;
-    SecConfig.SecEncryptMethod = TAF_WLAN_SEC_ENCRYPT_METHOD_AES;
-    le_utf8_Copy(SecConfig.PassPhrase, "testPassPhrase", TAF_WLAN_MAX_PASSPHRASE_LENGTH + 1, NULL);
+    SecConfig.SecEncryptMethod = TAF_WLAN_SEC_ENCRYPT_METHOD_AES; // ignored in Open
 
+    LE_TEST_INFO("[SetSecurityConfigOpen] Setting OPEN security");
     le_result_t result = taf_wlanAp_SetSecurityConfig(apRef, &SecConfig);
-    fprintf(stderr, "taf_wlanAp_SetSecurityConfig Return:%d\n", result);
-    if (LE_OK != result) {
-        fprintf(stderr, "taf_wlanAp_SetSecurityConfig failed\n");
-        return result;
-    }
+    fprintf(stderr, "taf_wlanAp_SetSecurityConfig(OPEN) Return:%d\n", result);
+    if (LE_OK != result) return result;
 
-    fprintf(stderr, "taf_wlanAp_SetSecurityConfig passed\n");
+    // Verify
+    LE_TEST_INFO("[SetSecurityConfigOpen] Verifying via GetSecurityConfig");
+    taf_wlanAp_WlanAPSecurityConfig_t rb;
+    memset(&rb, 0, sizeof(rb));
+    le_result_t st = taf_wlanAp_GetSecurityConfig(apRef, &rb);
+    LE_TEST_INFO("[SetSecurityConfigOpen] Get ret=%d", st);
+    if (st == LE_OK) {
+        PrintSecMode(rb.SecMode);
+        PrintAuthMethod(rb.SecAuthMethod);
+        PrintSecEncryptMethod(rb.SecEncryptMethod);
+        LE_TEST_OK(rb.SecMode == TAF_WLAN_SEC_MODE_OPEN, "SecMode is OPEN");
+    }
+    return result;
+}
+
+// Set WPA2-PSK, AES
+static le_result_t wlanAPTestSetSecurityConfigWPA2PSK(taf_wlanAp_WlanAPRef_t apRef) {
+    taf_wlanAp_WlanAPSecurityConfig_t SecConfig;
+    memset(&SecConfig, 0, sizeof(SecConfig));
+    SecConfig.SecMode = TAF_WLAN_SEC_MODE_WPA2;
+    SecConfig.SecAuthMethod = TAF_WLAN_SEC_AUTH_METHOD_PSK;
+    SecConfig.SecEncryptMethod = TAF_WLAN_SEC_ENCRYPT_METHOD_AES;
+    le_utf8_Copy(SecConfig.PassPhrase, "TestPassphrase123!", TAF_WLAN_MAX_PASSPHRASE_LENGTH + 1,
+        NULL);
+
+    LE_TEST_INFO("[SetSecurityConfigWPA2PSK] Setting WPA2-PSK/AES");
+    le_result_t result = taf_wlanAp_SetSecurityConfig(apRef, &SecConfig);
+    fprintf(stderr, "taf_wlanAp_SetSecurityConfig(WPA2-PSK) Return:%d\n", result);
+    if (LE_OK != result)
+        return result;
+
+    // Verify
+    LE_TEST_INFO("[SetSecurityConfigWPA2PSK] Verifying via GetSecurityConfig");
+    taf_wlanAp_WlanAPSecurityConfig_t rb;
+    memset(&rb, 0, sizeof(rb));
+    le_result_t st = taf_wlanAp_GetSecurityConfig(apRef, &rb);
+    LE_TEST_INFO("[SetSecurityConfigWPA2PSK] Get ret=%d", st);
+    if (st == LE_OK)
+    {
+        PrintSecMode(rb.SecMode);
+        PrintAuthMethod(rb.SecAuthMethod);
+        PrintSecEncryptMethod(rb.SecEncryptMethod);
+        LE_TEST_OK(rb.SecMode == TAF_WLAN_SEC_MODE_WPA2 || rb.SecMode == TAF_WLAN_SEC_MODE_WPA3,
+                   "SecMode is WPA2/WPA3 (SAE may map to WPA3)");
+        LE_TEST_OK(rb.SecAuthMethod == TAF_WLAN_SEC_AUTH_METHOD_PSK ||
+                       rb.SecAuthMethod == TAF_WLAN_SEC_AUTH_METHOD_SAE,
+                   "Auth is PSK or SAE");
+        LE_TEST_OK(rb.SecEncryptMethod == TAF_WLAN_SEC_ENCRYPT_METHOD_AES ||
+                       rb.SecEncryptMethod == TAF_WLAN_SEC_ENCRYPT_METHOD_GCMP,
+                   "Encrypt is AES(CCMP) or GCMP");
+    }
     return result;
 }
 
 static le_result_t wlanAPTestGetConnectedDevices(taf_wlanAp_WlanAPRef_t apRef) {
+    LE_TEST_INFO("[GetConnectedDevices] Calling taf_wlanAp_GetConnectedDevices");
     taf_wlanAp_WlanAPConnectedDeviceInfo_t DevInfo[TAF_WLANAP_MAX_CONNECTED_DEVICES];
     uint16_t numDevices = 0;
     size_t DevInfoSize = TAF_WLANAP_MAX_CONNECTED_DEVICES;
@@ -357,6 +457,35 @@ static taf_wlanAp_WlanAPRef_t getAPRef(const char *apIntfNameStr)
     return apRef;
 }
 
+static le_result_t wlanAPTestSanity(taf_wlanAp_WlanAPRef_t apRef)
+{
+    LE_TEST_INFO("======== Sanity sequence: Start -> SetConfig -> GetConfig -> SetSec(WPA2-PSK) "
+                 "-> GetSec -> GetStatus -> Stop -> Start -> GetStatus ========");
+
+    le_result_t rc;
+    rc = wlanAPTestStart(apRef);
+    LE_TEST_OK(rc == LE_OK, "Start OK");
+    rc = wlanAPTestSetConfig(apRef);
+    LE_TEST_OK(rc == LE_OK, "SetConfig OK");
+    rc = wlanAPTestGetConfig(apRef);
+    LE_TEST_OK(rc == LE_OK, "GetConfig OK");
+    rc = wlanAPTestSetSecurityConfigWPA2PSK(apRef);
+    LE_TEST_OK(rc == LE_OK, "SetSec WPA2-PSK OK");
+    rc = wlanAPTestGetSecurityConfig(apRef);
+    LE_TEST_OK(rc == LE_OK, "GetSec OK");
+    rc = wlanAPTestGetStatus(apRef);
+    LE_TEST_OK(rc == LE_OK, "GetStatus OK");
+    rc = wlanAPTestStop(apRef);
+    LE_TEST_OK(rc == LE_OK, "Stop OK");
+    rc = wlanAPTestStart(apRef);
+    LE_TEST_OK(rc == LE_OK, "Re-Start OK");
+    rc = wlanAPTestGetStatus(apRef);
+    LE_TEST_OK(rc == LE_OK, "GetStatus OK (after restart)");
+
+    LE_TEST_INFO("======== Sanity sequence complete ========");
+    return LE_OK;
+}
+
 COMPONENT_INIT {
     LE_TEST_INIT;
 
@@ -411,21 +540,30 @@ COMPONENT_INIT {
         LE_TEST_INFO("======== WLAN Test: GetSecurityConfig ========");
         status = wlanAPTestGetSecurityConfig(getAPRef(apIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: GetSecurityConfig");
-    } else if (strncasecmp(testType, "SetSecurityConfig", strlen("SetSecurityConfig")) == 0) {
-        LE_TEST_INFO("======== WLAN Test: SetSecurityConfig ========");
-        status = wlanAPTestSetSecurityConfig(getAPRef(apIntfName));
-        LE_TEST_OK(LE_OK == status, "WLAN Test: SetSecurityConfig");
+    } else if (strncasecmp(testType, "SetSecurityConfigOpen",
+        strlen("SetSecurityConfigOpen")) == 0) {
+        LE_TEST_INFO("======== WLAN Test: SetSecurityConfigOpen ========");
+        status = wlanAPTestSetSecurityConfigOpen(getAPRef(apIntfName));
+        LE_TEST_OK(LE_OK == status, "WLAN Test: SetSecurityConfigOpen");
+    } else if (strncasecmp(testType, "SetSecurityConfigWPA2PSK",
+        strlen("SetSecurityConfigWPA2PSK")) == 0) {
+        LE_TEST_INFO("======== WLAN Test: SetSecurityConfigWPA2PSK ========");
+        status = wlanAPTestSetSecurityConfigWPA2PSK(getAPRef(apIntfName));
+        LE_TEST_OK(LE_OK == status, "WLAN Test: SetSecurityConfigWPA2PSK");
     } else if (strncasecmp(testType, "GetConnectedDevices", strlen("GetConnectedDevices")) == 0) {
         LE_TEST_INFO("======== WLAN Test: GetConnectedDevices ========");
         status = wlanAPTestGetConnectedDevices(getAPRef(apIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: GetConnectedDevices");
-    } else if (strncasecmp(testType, "DeviceConnectionEvents",strlen("DeviceConnectionEvents"))==0){
+    } else if (strncasecmp(testType, "DeviceConnectionEvents",
+        strlen("DeviceConnectionEvents")) == 0) {
         LE_TEST_INFO("======== WLAN Test: DeviceConnectionEvents ========");
         status = wlanAPTestDeviceConnectionEvents(getAPRef(apIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: DeviceConnectionEvents");
-    }
-    else
-    {
+    } else if (strncasecmp(testType, "Sanity", strlen("Sanity")) == 0) {
+        LE_TEST_INFO("======== WLAN Test: Sanity ========");
+        status = wlanAPTestSanity(getAPRef(apIntfName));
+        LE_TEST_OK(LE_OK == status, "WLAN Test: Sanity");
+    } else {
         PrintUsage();
         LE_TEST_FATAL("Invalid test type %s", testType);
     }

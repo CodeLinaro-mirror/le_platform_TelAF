@@ -9,11 +9,19 @@ provides:
 
 requires:
 {
+#if ${LE_CONFIG_TARGET_SIMULATION} = y
+component:
+    {
+       $TELAF_PA_DEFAULT/component/taf_pa_dataDef
+       $TELAF_PA/component/taf_pa_data
+    }
+#else
     lib:
     {
         libComponent_taf_pa_data.so
         libComponent_taf_pa_dataDef.so
     }
+#endif
     api:
     {
         taf_pm.api

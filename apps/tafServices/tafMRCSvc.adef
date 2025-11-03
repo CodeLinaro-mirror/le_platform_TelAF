@@ -42,7 +42,8 @@ processes:
         (tafMRCSvc)
     }
 
-    maxFileBytes: 8192K
+    maxCoreDumpFileBytes: 100000K
+    maxFileBytes: 100000K
     faultAction: restart
 }
 

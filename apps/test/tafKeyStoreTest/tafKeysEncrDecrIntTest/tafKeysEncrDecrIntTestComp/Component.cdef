@@ -1,0 +1,17 @@
+sources:
+{
+    tafKeysEncrDecrIntTest.c
+}
+
+requires:
+{
+    api:
+    {
+        $TELAF_ROOT/interfaces/taf_ks.api
+    }
+}
+
+cflags:
+{
+    -I${LEGATO_ROOT}/framework/liblegato
+}

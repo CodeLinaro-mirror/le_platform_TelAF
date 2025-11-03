@@ -1,0 +1,21 @@
+
+start: manual
+sandboxed: false
+
+executables:
+{
+    tafKeysEncrDecrIntTest = ( tafKeysEncrDecrIntTestComp )
+}
+
+processes:
+{
+    run:
+    {
+        (tafKeysEncrDecrIntTest)
+    }
+}
+
+bindings:
+{
+    tafKeysEncrDecrIntTest.tafKeysEncrDecrIntTestComp.taf_ks -> tafKeyStoreSvc.taf_ks
+}

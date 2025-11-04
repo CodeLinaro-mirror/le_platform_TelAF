@@ -46,10 +46,18 @@
 using namespace telux::tel;
 using namespace telux::common;
 using namespace tafsvc;
+using namespace std;
 
 
 COMPONENT_INIT
 {
+    LE_INFO("tafSim Service Init...");
+    pa_result_t result = taf_pa_sim_Init();
+    if (result != 0)
+    {
+        LE_ERROR("Failed to initialize platform adaptor.");
+    }
+
     LE_INFO("tafSimcard Service Init...\n");
     auto &sim = taf_sim::GetInstance();
     sim.Init();

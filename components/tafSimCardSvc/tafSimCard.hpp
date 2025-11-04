@@ -127,6 +127,16 @@ using namespace std;
             TRANSMIT_APDU_CHANNEL = 3, /**<  Transmit of APDU on channel*/
         };
 
+        class Utility{
+            public:
+                class Convert
+                {
+                    public:
+                        static le_result_t Result(int32_t result);
+                        static taf_pa_common_LogLevel_t Level(le_log_Level_t level);
+                };
+        };
+
         class tafCardListener : public telux::tel::ICardListener {
             public:
                 void onCardInfoChanged(int slotId) override;

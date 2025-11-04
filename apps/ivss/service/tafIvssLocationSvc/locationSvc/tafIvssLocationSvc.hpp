@@ -304,6 +304,11 @@ static inline uint64_t CapBitMaskLocToIvss(taf_locGnss_LocCapabilityType_t locCa
         ret |= static_cast<uint64_t>
             (LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_DISTANCE_BASED_BATCHING);
     }
+    if (locCapMask & TAF_LOCGNSS_GEOFENCE)
+    {
+        ret |= static_cast<uint64_t>
+            (LocationSvcTypes::LocationCapabilityBitMaskT::LOC_CAP_BIT_MASK_T_GEOFENCE);
+    }
     if (locCapMask & TAF_LOCGNSS_OUTDOOR_TRIP_BATCHING)
     {
         ret |= static_cast<uint64_t>

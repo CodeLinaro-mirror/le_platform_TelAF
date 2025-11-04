@@ -35,6 +35,36 @@ int stateChangeAck = 1;
 #define VEHICHLE_WAKEUP_REASON_DEFAULT 0
 #define AUTHORIZE_ALL_STAY_AWAKE_REASON 0xFFFFFFFF
 
+// -------- Timeouts --------
+static const le_clk_Time_t REG_WAIT  = { .sec = 1, .usec = 0 };
+static const le_clk_Time_t SNAP_WAIT = { .sec = 5, .usec = 0 };
+
+// --- Shared state ---
+static le_thread_Ref_t nodePwStateLoopThread = NULL;
+static le_sem_Ref_t    nodePwStateRegSem     = NULL;  // signaled after registration
+static le_sem_Ref_t    nodePwStateSnapSem    = NULL;  // signaled on immediate snapshot
+static le_sem_Ref_t    nodePwStatePrepSem    = NULL;  // signaled on prepare notification
+
+// Handler reference for cleanup
+static taf_mngdPm_NodePowerStateChangeHandlerRef_t nodePwStateHandlerRef = NULL;
+
+static volatile uint8_t  pwNodeId    = 0;
+static volatile taf_mngdPm_NodePowerStateChangeBitMask_t nodePwStateMask = 0;
+
+static volatile bool     nodePwStateGotSnapshot = false;
+static volatile uint8_t  nodePwStateSnapNode    = 0;
+static volatile taf_mngdPm_NodePowerState_t nodePwSnapState = 0;
+
+static volatile bool     nodePwStateGotPrepare = false;
+static volatile taf_mngdPm_NodePowerState_t nodePwPrepState = 0;
+
+// -------- Bitmask helpers --------
+static const taf_mngdPm_NodePowerStateChangeBitMask_t MASK_ALL =
+      TAF_MNGDPM_NODE_STATE_BIT_MASK_RESUME
+    | TAF_MNGDPM_NODE_STATE_BIT_MASK_RESTART_PREPARE
+    | TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE
+    | TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE;
+
 static void PrintUsage ()
 {
     puts("\n"
@@ -136,7 +166,236 @@ static void PrintUsage ()
         "------------To Test rejecting deletion of wakeup source if ignored-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShouldNotDeleteWsIfIgnored\n"
         "------------To Test PMVHAL notification on client disconnection-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- NotifyVhalOnClientDisconnectionForReleaseWS\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- NotifyVhalOnClientDisconnectionForReleaseWS\n"
+        "------------To Test immediate current node power state notification to the registered client-----------\n"
+        "-------- Provide ACK type: 1=ACK, -1=NACK, 2=NO_RESP, 3=ACK_AFTER_TIMEOUT when prompted--------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ImmediateNotifyClientOnCurrNodePwStateOnRegister <NODE_ID>\n"
+        "------------To Test GracefulSysShutdown for node pw state change notification-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestGracefulSysShutdownForNodePwStateChange <NODE_ID>\n");
+}
+
+static uint32_t StateToBit(taf_mngdPm_NodePowerState_t st)
+{
+    switch (st)
+    {
+        case TAF_MNGDPM_NODE_STATE_RESUME:           return TAF_MNGDPM_NODE_STATE_BIT_MASK_RESUME;
+        case TAF_MNGDPM_NODE_STATE_RESTART_PREPARE:  return TAF_MNGDPM_NODE_STATE_BIT_MASK_RESTART_PREPARE;
+        case TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE: return TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE;
+        case TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE:  return TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE;
+        default:                                      return 0;
+    }
+}
+
+// Utility: wait-with-timeout wrapper
+static bool WaitSemT(le_sem_Ref_t sem, le_clk_Time_t timeout, const char* what)
+{
+    if (le_sem_WaitWithTimeOut(sem, timeout) == LE_TIMEOUT)
+    {
+        LE_ERROR("Timeout waiting for %s (sec=%d usec=%d)", what, (int)timeout.sec, (int)timeout.usec);
+        return false;
+    }
+    return true;
+}
+
+// Cleanup helper: remove handler, disconnect, delete semaphores
+static void CleanupPwStateClient(void)
+{
+    if (nodePwStateHandlerRef)
+    {
+        taf_mngdPm_RemoveNodePowerStateChangeHandler(nodePwStateHandlerRef);
+        nodePwStateHandlerRef = NULL;
+    }
+    if (nodePwStateRegSem)  { le_sem_Delete(nodePwStateRegSem);  nodePwStateRegSem  = NULL; }
+    if (nodePwStateSnapSem) { le_sem_Delete(nodePwStateSnapSem); nodePwStateSnapSem = NULL; }
+    if (nodePwStatePrepSem) { le_sem_Delete(nodePwStatePrepSem); nodePwStatePrepSem = NULL; }
+}
+
+// Recognize prepare states
+static inline bool IsPrepareState(taf_mngdPm_NodePowerState_t s)
+{
+    return (s == TAF_MNGDPM_NODE_STATE_RESTART_PREPARE)
+        || (s == TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE)
+        || (s == TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE);
+}
+
+// Centralized ACK policy; only READY(1) or NOT_READY(-1) are sent
+static void SendAckPolicy(uint8_t pmNodeId,
+                          taf_mngdPm_nodePowerStateRef_t ref)
+{
+    // 2 -> NO_RESP: do not send an ACK
+    if (stateChangeAck == 2) {
+        LE_INFO("NO_RESP: not sending ACK for node=%u", pmNodeId);
+        return;
+    }
+
+    // 3 -> ACK_AFTER_TIMEOUT: delay then send READY
+    if (stateChangeAck == 3) {
+        le_sem_Ref_t delaySem = le_sem_Create("pmAckDelaySem", 0);
+        (void)le_sem_WaitWithTimeOut(delaySem, AckTimeout);
+        le_sem_Delete(delaySem);
+        (void)taf_mngdPm_SendNodePowerStateChangeAck(pmNodeId, ref, 1 /* READY */);
+        LE_INFO("ACK_AFTER_TIMEOUT: READY sent for node=%u", pmNodeId);
+        return;
+    }
+
+    // -1 -> NOT_READY, otherwise default to READY
+    int ackVal = (stateChangeAck == -1) ? -1 : 1;
+    (void)taf_mngdPm_SendNodePowerStateChangeAck(pmNodeId, ref, ackVal);
+    LE_INFO("ACK sent: %d for node=%u", ackVal, pmNodeId);
+}
+
+// -------- Callback --------
+static void NodePwStateCb(uint8_t pmNodeId,
+                      taf_mngdPm_nodePowerStateRef_t ref,
+                      taf_mngdPm_NodePowerState_t state,
+                      void* ctx)
+{
+    LE_INFO("--- NodePwStateCb ---");
+    (void)ctx;
+
+    uint32_t bit = StateToBit(state);
+    if ((nodePwStateMask & bit) == 0) return;
+
+    if (IsPrepareState(state))
+    {
+        // Prepare path
+        nodePwStateGotPrepare = true;
+        nodePwPrepState = state;
+        if (nodePwStatePrepSem) le_sem_Post(nodePwStatePrepSem);
+        LE_INFO("Prepare node power state observed: node=%u state=%d", pmNodeId, state);
+
+        // Only ACK prepare states
+        SendAckPolicy(pmNodeId, ref);
+        return;
+    }
+
+    if (state == TAF_MNGDPM_NODE_STATE_RESUME)
+    {
+        // Immediate snapshot path (on registration)
+        nodePwStateGotSnapshot = true;
+        nodePwSnapState = state;
+        nodePwStateSnapNode = pmNodeId;
+        if (nodePwStateSnapSem) le_sem_Post(nodePwStateSnapSem);
+        LE_INFO("Immediate snapshot observed: node=%u state=%d", pmNodeId, state);
+
+        // No ACK for snapshot
+        return;
+    }
+
+    LE_INFO("Unhandled state=%d for mask=0x%x (no ACK sent)", state, nodePwStateMask);
+}
+
+// Loop thread: connect, set up timer, register handler, run event loop
+static void* NodePwStateClientThread(void* cbPtr)
+{
+    void (*cb)(uint8_t, taf_mngdPm_nodePowerStateRef_t, taf_mngdPm_NodePowerState_t, void*)
+        = (void(*)(uint8_t, taf_mngdPm_nodePowerStateRef_t, taf_mngdPm_NodePowerState_t, void*))cbPtr;
+
+    taf_mngdPm_ConnectService();
+
+    nodePwStateHandlerRef = taf_mngdPm_AddNodePowerStateChangeHandler(cb, NULL, pwNodeId, nodePwStateMask);
+    if (!nodePwStateHandlerRef)
+    {
+        LE_ERROR("AddNodePowerStateChangeHandler failed (mask=0x%x)", nodePwStateMask);
+    }
+    else
+    {
+        LE_INFO("AddNodePowerStateChangeHandler OK: node=%u mask=0x%x", pwNodeId, nodePwStateMask);
+    }
+    if (nodePwStateRegSem) le_sem_Post(nodePwStateRegSem);
+
+    le_event_RunLoop();
+    return NULL;
+}
+
+// --- Positive test: Expect immediate snapshot when interested ---
+void ImmediateNotifyClientOnCurrNodePwStateOnRegister(uint8_t pmNodeId)
+{
+    LE_INFO("ImmediateNotifyClientOnCurrNodePwStateOnRegister: node=%u", pmNodeId);
+
+    // Prompt for ACK type
+    char ackBuf[32] = {0};
+    printf("Enter ACK type (1=ACK, -1=NACK, 2=NO_RESP, 3=ACK_AFTER_TIMEOUT): ");
+    if (fgets(ackBuf, sizeof(ackBuf), stdin)) {
+        stateChangeAck = atoi(ackBuf);
+        LE_INFO("User-selected stateChangeAck=%d", stateChangeAck);
+    }
+
+    pwNodeId        = pmNodeId;
+    nodePwStateMask = MASK_ALL;
+
+    nodePwStateGotSnapshot = false;
+    nodePwStateGotPrepare  = false;
+    nodePwSnapState        = 0;
+    nodePwPrepState        = 0;
+
+    nodePwStateRegSem   = le_sem_Create("pmRegSem", 0);
+    nodePwStateSnapSem  = le_sem_Create("pmSnapSem", 0);
+    nodePwStatePrepSem  = le_sem_Create("pmPrepSem", 0);
+
+    nodePwStateLoopThread = le_thread_Create("PmClientThread", NodePwStateClientThread,
+        (void*)NodePwStateCb);
+    le_thread_Start(nodePwStateLoopThread);
+
+    if (!WaitSemT(nodePwStateRegSem, REG_WAIT, "handler registration")) {
+        CleanupPwStateClient();
+        exit(EXIT_FAILURE);
+    }
+
+    if (!WaitSemT(nodePwStateSnapSem, SNAP_WAIT, "immediate snapshot"))
+    {
+        LE_ERROR("No immediate node pw state observed(node=%u mask=0x%x)",
+            pmNodeId, nodePwStateMask);
+        CleanupPwStateClient();
+        exit(EXIT_FAILURE);
+    }
+
+    LE_INFO("Immediate node pw state change delivered (node=%u state=%d)", nodePwStateSnapNode, nodePwSnapState);
+    CleanupPwStateClient();
+    exit(EXIT_SUCCESS);
+}
+
+void TestGracefulSysShutdownForNodePwStateChange(uint8_t pmNodeId)
+{
+    LE_INFO("----TestGracefulSysShutdownForNodePwStateChange----");
+
+    pwNodeId = pmNodeId;
+    nodePwStateMask = TAF_MNGDPM_NODE_STATE_BIT_MASK_RESUME |
+                      TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE;
+
+    nodePwStateGotPrepare = false;
+    nodePwPrepState = 0;
+
+    nodePwStateRegSem  = le_sem_Create("pmRegSem", 0);
+    nodePwStatePrepSem = le_sem_Create("pmPrepSem", 0);
+    nodePwStateSnapSem = NULL; // Not used in this test
+
+    nodePwStateLoopThread = le_thread_Create("PmClientThread", NodePwStateClientThread, (void*)NodePwStateCb);
+    le_thread_Start(nodePwStateLoopThread);
+
+    if (!WaitSemT(nodePwStateRegSem, REG_WAIT, "handler registration")) {
+        CleanupPwStateClient();
+        exit(EXIT_FAILURE);
+    }
+
+    LE_INFO("GracefulSysShutdown without wake source");
+    le_result_t res = taf_mngdPm_SetNodeTargetedPowerMode(pmNodeId, TAF_MNGDPM_SHUTDOWN);
+    if (res != LE_OK) {
+        LE_ERROR("GracefulSysShutdown request failed");
+        CleanupPwStateClient();
+        exit(EXIT_FAILURE);
+    }
+    LE_INFO("GracefulSysShutdown requested, waiting for prepare...");
+
+    if (!WaitSemT(nodePwStatePrepSem, SNAP_WAIT, "shutdown prepare")) {
+        LE_ERROR("No shutdown prepare observed (node=%u mask=0x%x)", pmNodeId, nodePwStateMask);
+        CleanupPwStateClient();
+        exit(EXIT_FAILURE);
+    }
+
+    LE_INFO("Observed prepare state (node=%u state=%d)", pmNodeId, nodePwPrepState);
+    CleanupPwStateClient();
+    exit(EXIT_SUCCESS);
 }
 
 void NodePowerStateChangeHandlerCB(
@@ -2839,6 +3098,24 @@ COMPONENT_INIT
         else if(strcmp(testType, "NotifyVhalOnClientDisconnectionForReleaseWS") == 0)
         {
             NotifyVhalOnClientDisconnectionForReleaseWS();
+        }
+        else if(strcmp(testType, "ImmediateNotifyClientOnCurrNodePwStateOnRegister") == 0)
+        {
+            if(testPar)
+                ImmediateNotifyClientOnCurrNodePwStateOnRegister(atoi(testPar));
+            else {
+                printf("Enter NODE_ID");
+                exit(EXIT_FAILURE);
+            }
+        }
+        else if(strcmp(testType, "TestGracefulSysShutdownForNodePwStateChange") == 0)
+        {
+            if(testPar)
+                TestGracefulSysShutdownForNodePwStateChange(atoi(testPar));
+            else {
+                printf("Enter NODE_ID");
+                exit(EXIT_FAILURE);
+            }
         }
         else
         {

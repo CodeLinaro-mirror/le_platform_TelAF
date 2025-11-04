@@ -122,6 +122,31 @@ le_result_t tafMngdPMSvc::ParseJsonConfiguration(std::string configPath)
 }
 
 /**
+ * Map PM (TCU) state to node power state
+ */
+taf_mngdPm_NodePowerState_t tafMngdPMSvc::ToNodePowerStateFromPm(taf_pm_State_t state)
+{
+    switch (state)
+    {
+        case TAF_PM_STATE_RESUME:   return TAF_MNGDPM_NODE_STATE_RESUME;
+        case TAF_PM_STATE_SUSPEND:  return TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE;
+        case TAF_PM_STATE_SHUTDOWN: return TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE;
+        case TAF_PM_STATE_RESTART:  return TAF_MNGDPM_NODE_STATE_RESTART_PREPARE;
+        default:                    return TAF_MNGDPM_NODE_STATE_RESUME;
+    }
+}
+
+/**
+ * Initialize service-wide current node state snapshot based on PMS
+ */
+void tafMngdPMSvc::InitializeCurrentNodePowerState()
+{
+    taf_pm_State_t pmState = taf_pm_GetPowerState();
+    currentNodePowerState = ToNodePowerStateFromPm(pmState);
+    LE_INFO("Initialized currentNodePowerState to %d ", currentNodePowerState);
+}
+
+/**
  * Set shutdown state to NAD
  */
 le_result_t tafMngdPMSvc::ShutdownNAD()
@@ -1723,6 +1748,10 @@ void tafMngdPMSvc::NodePowerStateChanged(void* reportPtr)
     LE_INFO("NodePowerStateChanged");
     TAF_ERROR_IF_RET_NIL(reportPtr == nullptr, "Null ptr(reportPtr)");
     taf_mngdPm_NodePowerStateChange_t* powerStateChange =(taf_mngdPm_NodePowerStateChange_t*)reportPtr;
+
+    // Update the service-wide snapshot when MPMS receives node power state change events.
+    currentNodePowerState = powerStateChange->state;
+
     if(powerStateChange->state == TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE)
     {
         CallNodePowerStateHandlerFunc(powerStateChange->state);
@@ -1997,3 +2026,6 @@ taf_pm_ModemAwakeHandlerRef_t tafMngdPMSvc::pmsRemoteWakeupHandler;
 
 le_event_Id_t tafMngdPMSvc::pmEvtReady;
 void tafMngdPMSvc::PMVhalReadyEvtHandler(void * reportPtr);
+
+// Service-wide snapshot default
+taf_mngdPm_NodePowerState_t tafMngdPMSvc::currentNodePowerState = TAF_MNGDPM_NODE_STATE_RESUME;

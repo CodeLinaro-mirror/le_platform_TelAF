@@ -145,6 +145,14 @@ typedef struct
 
 typedef struct
 {
+    taf_mngdPm_nodePowerStateRef_t nodeStateRef;
+    le_msg_SessionRef_t sessionRef;
+    taf_mngdPm_NodePowerState_t state;
+    bool isAcked;
+}taf_mngdPm_NodePowerStateChangeCtxt_t;
+
+typedef struct
+{
     taf_mngdPm_NodePowerStateChangeHandlerFunc_t handlerPtr;
     uint8_t pmNodeId;
     le_dls_Link_t link;               // Link to handler list
@@ -152,20 +160,15 @@ typedef struct
     taf_mngdPm_NodePowerStateChangeBitMask_t powerStateMask;
     taf_mngdPm_NodePowerStateChangeHandlerRef_t handlerRef;
     void* nodePowerStateHandlerCtxPtr;
+
+    // Per-handler snapshot of the current node power state (used for immediate notify)
+    taf_mngdPm_NodePowerStateChangeCtxt_t initialNodePowerState;
 }taf_mngdPm_NodePowerStateCtxt_t;
 
 typedef struct
 {
     taf_mngdPm_NodePowerState_t state;
 }taf_mngdPm_NodePowerStateChange_t;
-
-typedef struct
-{
-    taf_mngdPm_nodePowerStateRef_t nodeStateRef;
-    le_msg_SessionRef_t sessionRef;
-    taf_mngdPm_NodePowerState_t state;
-    bool isAcked;
-}taf_mngdPm_NodePowerStateChangeCtxt_t;
 
 typedef struct
 {
@@ -384,5 +387,13 @@ class tafMngdPMSvc: public ITafSvc
         static void GetPmVhalReady(void *p1, void *p2);
         static void RetryHandler(le_timer_Ref_t timerRef);
         static void PMVhalReadyEvtHandler(void * reportPtr);
+
+        // Single snapshot used for immediate notification to newly registered handlers.
+        // Initialized at service start via taf_pm_GetPowerState and updated on nodePowerStateChange events.
+        static taf_mngdPm_NodePowerState_t currentNodePowerState;
+
+        // Helpers for snapshot mapping and initialization
+        static taf_mngdPm_NodePowerState_t ToNodePowerStateFromPm(taf_pm_State_t s);
+        static void InitializeCurrentNodePowerState();
 };
 }

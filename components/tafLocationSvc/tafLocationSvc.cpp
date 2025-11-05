@@ -673,6 +673,26 @@ taf_locGnss_MeasurementHandlerRef_t taf_locGnss_AddMeasurementHandler
     return (taf_locGnss_MeasurementHandlerRef_t)gnss.AddMeasurementHandler(handlerPtr, contextPtr);
 }
 
+taf_locGnss_PositionExHandlerRef_t taf_locGnss_AddPositionExHandler
+(
+    taf_locGnss_PositionExHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return (taf_locGnss_PositionExHandlerRef_t)gnss.AddPositionExHandler(handlerPtr, contextPtr);
+}
+
+
+void taf_locGnss_RemovePositionExHandler
+(
+ taf_locGnss_PositionExHandlerRef_t handlerRef
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.RemovePositionExHandler(handlerRef);
+}
+
 /**
 * FUNCTION     : RemoveCapabilityHandler
 * DESCRIPTION  : This function must be called to remove a handler for Capability notifications
@@ -896,7 +916,6 @@ le_result_t taf_locGnss_GetAcquisitionRate
 
 /**
 * FUNCTION     : GetTtff
-* DESCRIPTION  : Get the TTFF in milliseconds
 * DEPENDECY    :
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_BUSY LE_NOT_PERMITTED LE_FAULT on failed with reason
@@ -988,6 +1007,15 @@ void taf_locGnss_ReleaseSampleRef
 {
     auto &gnss = taf_locGnss::GetInstance();
     return gnss.ReleaseSampleRef(positionSampleRef);
+}
+
+void taf_locGnss_ReleaseSampleExRef
+(
+ taf_locGnss_SampleExRef_t    postitionSampleExRef
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.ReleaseSampleExRef(postitionSampleExRef);
 }
 
 /**

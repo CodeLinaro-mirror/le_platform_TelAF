@@ -46,12 +46,16 @@ using namespace tafsvc;
 
 LE_MEM_DEFINE_STATIC_POOL(PositionHandler, GNSS_POSITION_HANDLER_HIGH, sizeof(taf_locGnss_PositionHandler_t));
 LE_MEM_DEFINE_STATIC_POOL(MeasurementHandler, GNSS_POSITION_HANDLER_HIGH, sizeof(taf_locGnss_MeasurementHandler_t));
+LE_MEM_DEFINE_STATIC_POOL(PositionExHandler, GNSS_POSITION_HANDLER_HIGH, sizeof(taf_locGnss_PositionExHandler_t));
 LE_MEM_DEFINE_STATIC_POOL(PositionSample, GNSS_POSITION_SAMPLE_MAX, sizeof(taf_locGnss_PositionSample_t));
 LE_MEM_DEFINE_STATIC_POOL(MeasurementSample, GNSS_POSITION_SAMPLE_MAX, sizeof(taf_locGnss_GnssMeasurements_t));
 LE_MEM_DEFINE_STATIC_POOL(PositionSampleRequest, GNSS_POSITION_SAMPLE_MAX, sizeof(taf_locGnss_PositionSampleRequest_t));
 LE_MEM_DEFINE_STATIC_POOL(MeasurementSampleRequest, GNSS_POSITION_SAMPLE_MAX, sizeof(taf_locGnss_MeasurementSampleRequest_t));
+LE_MEM_DEFINE_STATIC_POOL(PositionSampleEx, GNSS_POSITION_SAMPLE_MAX, sizeof(taf_locGnss_PositionSampleEx_t));
+LE_MEM_DEFINE_STATIC_POOL(PositionExSample, GNSS_POSITION_SAMPLE_MAX, sizeof(taf_locGnss_PositionExSample_t));
 LE_MEM_DEFINE_STATIC_POOL(Client, LE_CONFIG_POSITIONING_ACTIVATION_MAX, sizeof(taf_locGnss_Client_t));
 LE_REF_DEFINE_STATIC_MAP(PositionSampleMap, GNSS_POSITION_SAMPLE_MAX);
+LE_REF_DEFINE_STATIC_MAP(PositionExSampleMap, GNSS_POSITION_SAMPLE_MAX);
 LE_REF_DEFINE_STATIC_MAP(MeasurementSampleMap, GNSS_POSITION_SAMPLE_MAX);
 void bodyToSensorUtility(telux::loc::DREngineConfiguration& drConfig,
         const taf_locGnss_DrParams_t* drParamsPtr,taf_locGnss_Client_t* clientRequestPtr,
@@ -202,7 +206,6 @@ telux::common::Status taf_locGnss::LocationManagerInit(taf_locGnss_Client_t* cli
         }
 #endif
 
-        clientRequestPtr->PositionHandlerRefMap = le_ref_CreateMap("PositionHandlerRefMap", 4);
         LE_DEBUG("LocationManagerInit for sessionRef: %p",  clientRequestPtr->sessionRef);
         clientRequestPtr->posListener = std::make_shared<tafLocationListener>();
         clientRequestPtr->posListener->clientSessionRef = &clientRequestPtr->sessionRef;
@@ -535,13 +538,14 @@ void taf_locGnss::GnssPositionHandler
         return;
     }
 
-    le_ref_IterRef_t iterRef = le_ref_GetIterator(clientRequestPtr->PositionHandlerRefMap);
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(gnss.PositionHandlerRefMap);
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
         posHandlerPtr = (taf_locGnss_PositionHandler_t*)le_ref_GetValue(iterRef);
         if(posHandlerPtr == NULL) {
             return;
         }
+
         posSampleReqPtr = (taf_locGnss_PositionSampleRequest_t*)le_mem_ForceAlloc(gnss.PositionSampleRequestPoolRef);
         memset(posSampleReqPtr, 0, sizeof(taf_locGnss_PositionSampleRequest_t));
 
@@ -561,12 +565,118 @@ void taf_locGnss::GnssPositionHandler
         posSampleReqPtr->positionSampleRef =
            (taf_locGnss_SampleRef_t)le_ref_CreateRef(gnss.PositionSampleMap, posSampleReqPtr);
 
-        LE_DEBUG("Report sampleRef %p to the corresponding handler (handlerPtr %p)",
+        LE_INFO("Report sampleRef %p to the corresponding handler (handlerPtr %p)",
             posSampleReqPtr->positionSampleRef, posHandlerPtr->handlerFuncPtr);
 
         posHandlerPtr->handlerFuncPtr(posSampleReqPtr->positionSampleRef,
                                       posHandlerPtr->handlerContextPtr);
     }
+
+    le_mem_Release(currentPosPtr);
+}
+
+void taf_locGnss::GnssPositionExHandler
+(
+ void* reportPtr
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    taf_locGnss_PositionExHandler_t*  extendPosHandlerPtr;
+    taf_locGnss_PositionSampleEx_t*    extendPosSampleReqPtr=NULL;
+    taf_locGnss_PositionExSample_t* currentPosPtr = (taf_locGnss_PositionExSample_t*)reportPtr;
+
+    TAF_ERROR_IF_RET_NIL( currentPosPtr == NULL, "currentPosPtr is Null");
+
+    LE_INFO("GnssPositionExHandler Function called with position %p", currentPosPtr);
+
+    taf_locGnss_Client_t* clientRequestPtr = NULL;
+
+    clientRequestPtr = gnss.DiscoverSessionRef(*currentPosPtr->clientSessionRefPtr);
+
+    TAF_ERROR_IF_RET_NIL(NULL == clientRequestPtr, "GnssPositionExHandler did not find sessionRef");
+
+    if(!gnss.NumOfPositionExHandlers)
+    {
+        LE_INFO("No positioning handlers, exit Handler Function");
+        le_mem_Release(currentPosPtr);
+        return;
+    }
+
+    le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(gnss.PositionExHandlerRefMap);
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        extendPosHandlerPtr = (taf_locGnss_PositionExHandler_t*)le_ref_GetValue(iterRef);
+        if(extendPosHandlerPtr == NULL) {
+            le_mutex_Unlock(clientRequestPtr->mGnssMutexRef);
+            return;
+        }
+
+        extendPosSampleReqPtr = (taf_locGnss_PositionSampleEx_t*)le_mem_ForceAlloc(gnss.PositionSampleExPoolRef);
+
+        memset(extendPosSampleReqPtr, 0, sizeof(taf_locGnss_PositionSampleEx_t));
+
+        taf_locGnss_SampleExRef_t postitionSampleExRef =
+           (taf_locGnss_SampleExRef_t)le_ref_CreateRef(gnss.PositionExSampleMap, extendPosSampleReqPtr);
+
+        extendPosSampleReqPtr->longitude = currentPosPtr->longitude;
+        extendPosSampleReqPtr->latitude = currentPosPtr->latitude;
+        extendPosSampleReqPtr->hAccuracy = currentPosPtr->hAccuracy;
+        extendPosSampleReqPtr->altitude = currentPosPtr->altitude;
+        extendPosSampleReqPtr->direction = currentPosPtr->direction;
+        extendPosSampleReqPtr->directionAccuracy = currentPosPtr->directionAccuracy;
+        extendPosSampleReqPtr->validityMask = currentPosPtr->validityMask;
+        extendPosSampleReqPtr->techMask = currentPosPtr->techMask;
+        extendPosSampleReqPtr->hSpeed = currentPosPtr->hSpeed;
+        extendPosSampleReqPtr->vAccuracy = currentPosPtr->vAccuracy;
+        extendPosSampleReqPtr->epochTime = currentPosPtr->epochTime;
+        extendPosSampleReqPtr->hSpeedAccuracy = currentPosPtr->hSpeedAccuracy;
+        extendPosSampleReqPtr->realTime = currentPosPtr->realTime;
+        extendPosSampleReqPtr->realTimeUnc = currentPosPtr->realTimeUnc;
+
+        extendPosSampleReqPtr->satsInViewCount = currentPosPtr->satsInViewCount;
+        extendPosSampleReqPtr->satsTrackingCount = currentPosPtr->satsTrackingCount;
+        extendPosSampleReqPtr->satsUsedCount = currentPosPtr->satsUsedCount;
+
+        extendPosSampleReqPtr->hdop = currentPosPtr->hdop;
+        extendPosSampleReqPtr->vdop = currentPosPtr->vdop;
+        extendPosSampleReqPtr->pdop = currentPosPtr->pdop;
+
+        extendPosSampleReqPtr->altMeanSeaLevel = currentPosPtr->altMeanSeaLevel;
+        extendPosSampleReqPtr->magneticDeviation = currentPosPtr->magneticDeviation;
+
+        if (extendPosHandlerPtr->sessionRef != *currentPosPtr->clientSessionRefPtr) {
+            LE_ERROR("GnssPositionExHandler session ref does not match! ReqPtr.sessionRef: %p, Sample.sessionRef: %p", extendPosHandlerPtr->sessionRef, *currentPosPtr->clientSessionRefPtr);
+            return;
+        }
+
+        LE_INFO("epochTime: %" PRIu64 "", extendPosSampleReqPtr->epochTime);
+
+        struct timeval tv;
+
+        struct tm* tm_info;
+
+        gettimeofday(&tv, NULL);
+
+        tm_info = localtime(&tv.tv_sec);
+
+        LE_INFO("Time: %02d:%02d:%02d.%03ld\n",
+
+            tm_info->tm_hour,
+
+            tm_info->tm_min,
+
+            tm_info->tm_sec,
+
+            tv.tv_usec / 1000);  // convert microseconds to milliseconds
+
+        LE_DEBUG("Report SampleRef %p to the corresponding extend handler (handlerPtr %p)",
+                postitionSampleExRef, extendPosHandlerPtr->handlerFuncPtr);
+
+        extendPosHandlerPtr->handlerFuncPtr(postitionSampleExRef, extendPosSampleReqPtr,
+                                      extendPosHandlerPtr->handlerContextPtr);
+    }
+    le_mutex_Unlock(clientRequestPtr->mGnssMutexRef);
 
     le_mem_Release(currentPosPtr);
 }
@@ -687,7 +797,6 @@ void taf_locGnss::GnssMeasurementHandler
     le_mem_Release(currentPosPtr);
 }
 
-
 void tafLocationListener::onDetailedEngineLocationUpdate(
       const std::vector<std::shared_ptr<telux::loc::ILocationInfoEx> > &locationEngineInfo) {
     auto &gnss = taf_locGnss::GetInstance();
@@ -727,12 +836,13 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 locationInfo->getTimeStamp());
     }
     le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
-    if(gnss.NumOfPositionHandlers )
+    if(gnss.NumOfPositionHandlers)
     {
         LE_DEBUG("**** Detailed Engine Location Report ****");
         for (auto locationInfo : locationEngineInfo) {
             taf_locGnss_PositionSample_t* LocationData =
                     (taf_locGnss_PositionSample_t*)le_mem_ForceAlloc(gnss.PositionSamplePoolRef);
+
             uint8_t i;
             double locData;
             LocationData->clientSessionRefPtr = &clientRequestPtr->sessionRef;
@@ -1794,6 +1904,198 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
             LocationData->next = LE_DLS_LINK_INIT;
 
             le_event_ReportWithRefCounting(gnss.positionEventId, LocationData);
+        }
+    }
+    if(gnss.NumOfPositionExHandlers)
+    {
+        LE_DEBUG("Basic Location Report");
+        for (auto locationInfo : locationEngineInfo) {
+            taf_locGnss_PositionExSample_t* BasicLocationData = (taf_locGnss_PositionExSample_t*)le_mem_ForceAlloc(gnss.PositionExSamplePoolRef);
+
+            memset(BasicLocationData, 0, sizeof(taf_locGnss_PositionExSample_t));
+
+            BasicLocationData->clientSessionRefPtr = &clientRequestPtr->sessionRef;
+
+            double locData;
+            locData = 0.0;
+            locData = locationInfo->getLatitude();
+            roundOffLocationData(&locData,6);//round off to 6 decimal places
+            BasicLocationData->latitude = (int32_t)locData;
+            LE_DEBUG("locationInfo->getLatitude():%.10f ",locationInfo->getLatitude());
+            LE_DEBUG("LocationData->latitude:%d ",BasicLocationData->latitude);
+            locData = 0.0;
+            locData = locationInfo->getLongitude();
+            roundOffLocationData(&locData,6);//round off to 6 decimal places
+            BasicLocationData->longitude = (int32_t)locData;
+            LE_DEBUG("locationInfo->getLongitude():%.10f ",locationInfo->getLongitude());
+            LE_DEBUG("LocationData->longitude:%d ",BasicLocationData->longitude);
+            locData = 0.0;
+            locData = locationInfo->getHorizontalUncertainty();
+            roundOffLocationData(&locData,2);//round off to 2 decimal places
+            BasicLocationData->hAccuracy = (int32_t)locData;
+            LE_DEBUG("locationInfo->getHorizontalUncertainty():%lf ",locationInfo->getHorizontalUncertainty());
+            LE_DEBUG("LocationData->hAccuracy:%d ",BasicLocationData->hAccuracy);
+            locData = 0.0;
+            locData = locationInfo->getAltitude();
+            roundOffLocationData(&locData,3);//round off to 3 decimal places
+            BasicLocationData->altitude = (int32_t)locData;
+            LE_DEBUG("locationInfo->getAltitude():%.10f ",locationInfo->getAltitude());
+            LE_DEBUG("LocationData->altitude:%d ",BasicLocationData->altitude);
+            locData = 0.0;
+            locData = locationInfo->getVerticalUncertainty();
+            roundOffLocationData(&locData,1);//round off to 1 decimal place
+            BasicLocationData->vAccuracy = (int32_t)locData;
+            LE_DEBUG("locationInfo->getVerticalUncertainty():%.10f ",locationInfo->getVerticalUncertainty());
+            LE_DEBUG("LocationData->vAccuracy:%d ",BasicLocationData->vAccuracy);
+            BasicLocationData->hSpeed = locationInfo->getSpeed()*100;
+            BasicLocationData->direction = locationInfo->getHeading()*10;
+            BasicLocationData->directionAccuracy = locationInfo->getHeadingUncertainty()*10;
+            BasicLocationData->epochTime = locationInfo->getTimeStamp();
+            BasicLocationData->realTime = locationInfo->getElapsedRealTime();
+            BasicLocationData->realTimeUnc = locationInfo->getElapsedRealTimeUncertainty();
+            BasicLocationData->hSpeedAccuracy = locationInfo->getSpeedUncertainty()*1e+3;
+
+            BasicLocationData->satsInViewCount = clientRequestPtr->mSatParams.satsInViewCount;
+            BasicLocationData->satsTrackingCount = clientRequestPtr->mTotalSVTracked;
+            BasicLocationData->satsUsedCount = locationInfo->getNumSvUsed();
+
+            BasicLocationData->hdop = locationInfo->getHorizontalDop() *1e+3;
+            BasicLocationData->vdop = locationInfo->getVerticalDop() * 1e+3;
+            BasicLocationData->pdop = locationInfo->getPositionDop() * 1e+3;
+
+            BasicLocationData->altMeanSeaLevel = locationInfo->getAltitudeMeanSeaLevel();
+            BasicLocationData->magneticDeviation = locationInfo->getMagneticDeviation()*10;
+
+            telux::loc::LocationTechnology techMask = locationInfo->getTechMask();
+            if((techMask & telux::loc::LOC_GNSS))
+            {
+                BasicLocationData->techMask |= TAF_LOCGNSS_LOC_GNSS;
+                LE_DEBUG("location calculated using GNSS");
+            }
+            if((techMask & telux::loc::LOC_CELL))
+            {
+                BasicLocationData->techMask |= TAF_LOCGNSS_LOC_CELL;
+                LE_DEBUG("location calculated using CELL");
+            }
+            if((techMask & telux::loc::LOC_WIFI))
+            {
+                BasicLocationData->techMask |= TAF_LOCGNSS_LOC_WIFI;
+                LE_DEBUG("location calculated using WIFI");
+            }
+            if((techMask & telux::loc::LOC_SENSORS))
+            {
+                BasicLocationData->techMask |= TAF_LOCGNSS_LOC_SENSORS;
+                LE_DEBUG("location calculated using SENSORS");
+            }
+            if((techMask & telux::loc::LOC_REFERENCE_LOCATION))
+            {
+                BasicLocationData->techMask |= TAF_LOCGNSS_LOC_REFERENCE_LOCATION;
+                LE_DEBUG("location calculated using Reference location");
+            }
+            if((techMask & telux::loc::LOC_INJECTED_COARSE_POSITION))
+            {
+                BasicLocationData->techMask |= TAF_LOCGNSS_LOC_INJECTED_COARSE_POSITION;
+                LE_DEBUG("location calculated using Coarse position injected");
+            }
+            if((techMask & telux::loc::LOC_AFLT))
+            {
+                BasicLocationData->techMask |= TAF_LOCGNSS_LOC_AFLT;
+                LE_DEBUG("location calculated using AFLT");
+            }
+            if((techMask & telux::loc::LOC_HYBRID))
+            {
+                BasicLocationData->techMask |= TAF_LOCGNSS_LOC_HYBRID;
+                LE_DEBUG("location calculated using GNSS and network-provided measurements");
+            }
+            if((techMask & telux::loc::LOC_PPE))
+            {
+                BasicLocationData->techMask |= TAF_LOCGNSS_LOC_PPE;
+                LE_DEBUG("location calculated using Precise position engine");
+            }
+            if((techMask & telux::loc::LOC_VEH))
+            {
+                BasicLocationData->techMask |= TAF_LOCGNSS_LOC_VEH;
+                LE_DEBUG("location calculated using Vehicular data");
+            }
+            if((techMask & telux::loc::LOC_VIS))
+            {
+                BasicLocationData->techMask |= TAF_LOCGNSS_LOC_VIS;
+                LE_DEBUG("location calculated using Visual data");
+            }
+            if((techMask & telux::loc::LOC_PROPAGATED))
+            {
+                BasicLocationData->techMask |= TAF_LOCGNSS_LOC_PROPAGATED;
+                LE_DEBUG("location calculated using Propagation logic");
+            }
+            telux::loc::LocationInfoValidity validityMask = locationInfo->getLocationInfoValidity();
+            LE_DEBUG("LocationInfoExValidity->validityMask: %u ",validityMask);
+            if((validityMask & telux::loc::HAS_LAT_LONG_BIT))
+            {
+                BasicLocationData->validityMask |= TAF_LOCGNSS_HAS_LAT_LONG_BIT;
+                LE_DEBUG("valid latitude longitude");
+            }
+            if((validityMask & telux::loc::HAS_ALTITUDE_BIT))
+            {
+                BasicLocationData->validityMask |= TAF_LOCGNSS_HAS_ALTITUDE_BIT;
+                LE_DEBUG("valid altitude");
+            }
+            if((validityMask & telux::loc::HAS_SPEED_BIT))
+            {
+                BasicLocationData->validityMask |= TAF_LOCGNSS_HAS_SPEED_BIT;
+                LE_DEBUG("valid speed");
+            }
+            if((validityMask & telux::loc::HAS_HEADING_BIT))
+            {
+                BasicLocationData->validityMask |= TAF_LOCGNSS_HAS_HEADING_BIT;
+                LE_DEBUG("valid heading");
+            }
+            if((validityMask & telux::loc::HAS_HORIZONTAL_ACCURACY_BIT))
+            {
+                BasicLocationData->validityMask |= TAF_LOCGNSS_HAS_HORIZONTAL_ACCURACY_BIT;
+                LE_DEBUG("valid horizontal accuracy");
+            }
+            if((validityMask & telux::loc::HAS_VERTICAL_ACCURACY_BIT))
+            {
+                BasicLocationData->validityMask |= TAF_LOCGNSS_HAS_VERTICAL_ACCURACY_BIT;
+                LE_DEBUG("valid vertical accuracy");
+            }
+            if((validityMask & telux::loc::HAS_SPEED_ACCURACY_BIT))
+            {
+                BasicLocationData->validityMask |= TAF_LOCGNSS_HAS_SPEED_ACCURACY_BIT;
+                LE_DEBUG("valid speed accuracy");
+            }
+            if((validityMask & telux::loc::HAS_HEADING_ACCURACY_BIT))
+            {
+                BasicLocationData->validityMask |= TAF_LOCGNSS_HAS_HEADING_ACCURACY_BIT;
+                LE_DEBUG("valid heading accuracy");
+            }
+            if((validityMask & telux::loc::HAS_TIMESTAMP_BIT))
+            {
+                BasicLocationData->validityMask |= TAF_LOCGNSS_HAS_TIMESTAMP_BIT;
+                LE_DEBUG("valid timestamp");
+            }
+            if((validityMask & telux::loc::HAS_ELAPSED_REAL_TIME_BIT))
+            {
+                BasicLocationData->validityMask |= TAF_LOCGNSS_HAS_ELAPSED_REAL_TIME_BIT;
+                LE_DEBUG("valid elapsed real time");
+            }
+            if((validityMask & telux::loc::HAS_ELAPSED_REAL_TIME_UNC_BIT))
+            {
+                BasicLocationData->validityMask |= TAF_LOCGNSS_HAS_ELAPSED_REAL_TIME_UNC_BIT;
+                LE_DEBUG("valid elapsed real time Uncertainty");
+            }
+            if((validityMask & telux::loc::HAS_GPTP_TIME_BIT))
+            {
+                BasicLocationData->validityMask |= TAF_LOCGNSS_HAS_GPTP_TIME_BIT;
+                LE_DEBUG("valid Gptp time");
+            }
+            if((validityMask & telux::loc::HAS_GPTP_TIME_UNC_BIT))
+            {
+                BasicLocationData->validityMask |= TAF_LOCGNSS_HAS_GPTP_TIME_UNC_BIT;
+                LE_DEBUG("valid Gptp time Uncertainty");
+            }
+
+            le_event_ReportWithRefCounting(gnss.PositionExEventId, BasicLocationData);
         }
     }
     le_mutex_Unlock(clientRequestPtr->mGnssMutexRef);
@@ -3252,6 +3554,7 @@ taf_locGnss_PositionHandlerRef_t taf_locGnss::AddPositionHandler
  void* contextPtr
 )
 {
+    auto &gnss = taf_locGnss::GetInstance();
     taf_locGnss_PositionHandler_t*  positionHandlerPtr =
         (taf_locGnss_PositionHandler_t*)le_mem_ForceAlloc(PositionHandlerPoolRef);
     memset(positionHandlerPtr, 0, sizeof(taf_locGnss_PositionHandler_t));
@@ -3267,7 +3570,7 @@ taf_locGnss_PositionHandlerRef_t taf_locGnss::AddPositionHandler
     TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "clientRequestPtr is NULL");
 
     positionHandlerPtr->handlerRef =
-        (taf_locGnss_PositionHandlerRef_t)le_ref_CreateRef(clientRequestPtr->PositionHandlerRefMap, positionHandlerPtr);
+        (taf_locGnss_PositionHandlerRef_t)le_ref_CreateRef(gnss.PositionHandlerRefMap, positionHandlerPtr);
 
     NumOfPositionHandlers++;
 
@@ -3277,6 +3580,39 @@ taf_locGnss_PositionHandlerRef_t taf_locGnss::AddPositionHandler
     return positionHandlerPtr->handlerRef;
 }
 
+taf_locGnss_PositionExHandlerRef_t taf_locGnss::AddPositionExHandler
+(
+ taf_locGnss_PositionExHandlerFunc_t handlerPtr,
+ void* contextPtr
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    taf_locGnss_PositionExHandler_t*  PositionHandlerExPtr =
+        (taf_locGnss_PositionExHandler_t*)le_mem_ForceAlloc(PositionExHandlerPoolRef);
+
+    memset(PositionHandlerExPtr, 0, sizeof(taf_locGnss_PositionExHandler_t));
+
+    PositionHandlerExPtr->next = LE_DLS_LINK_INIT;
+    PositionHandlerExPtr->handlerFuncPtr = handlerPtr;
+    PositionHandlerExPtr->handlerContextPtr = contextPtr;
+    PositionHandlerExPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+
+    LE_INFO("AddPositionExHandler() sessionRef: %p", PositionHandlerExPtr->sessionRef);
+
+    taf_locGnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "clientRequestPtr is NULL");
+
+    PositionHandlerExPtr->handlerRef =
+        (taf_locGnss_PositionExHandlerRef_t)le_ref_CreateRef(gnss.PositionExHandlerRefMap, PositionHandlerExPtr);
+
+    NumOfPositionExHandlers++;
+
+    LE_INFO("Created PositionHandlerExRef(%p) for PositionHandlerExPtr(%p) (totalCnt=0x%x).",
+        PositionHandlerExPtr->handlerRef, PositionHandlerExPtr, NumOfPositionExHandlers);
+
+    return PositionHandlerExPtr->handlerRef;
+}
 
 taf_locGnss_MeasurementHandlerRef_t taf_locGnss::AddMeasurementHandler
 (
@@ -8321,13 +8657,11 @@ void taf_locGnss::RemovePositionHandler
     taf_locGnss_PositionHandlerRef_t handlerRef
 )
 {
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
+    LE_INFO("RemovePositionHandler!!");
 
-    TAF_ERROR_IF_RET_NIL( NULL == clientRequestPtr, "clientRequestPtr is NULL");
-
+    auto &gnss = taf_locGnss::GetInstance();
     taf_locGnss_PositionHandler_t* positionHandlerPtr =
-        (taf_locGnss_PositionHandler_t*)le_ref_Lookup(clientRequestPtr->PositionHandlerRefMap, handlerRef);
+        (taf_locGnss_PositionHandler_t*)le_ref_Lookup(gnss.PositionHandlerRefMap, handlerRef);
 
     if (positionHandlerPtr != NULL)
     {
@@ -8339,7 +8673,36 @@ void taf_locGnss::RemovePositionHandler
         LE_DEBUG("Removed positionHandlerRef(%p) for positionHandlerPtr(%p) (totalCnt=0x%x).",
                  positionHandlerPtr->handlerRef, positionHandlerPtr, NumOfPositionHandlers);
         le_mem_Release(positionHandlerPtr);
-        le_ref_DeleteRef(clientRequestPtr->PositionHandlerRefMap, handlerRef);
+        le_ref_DeleteRef(gnss.PositionHandlerRefMap, handlerRef);
+    }
+    else
+    {
+        LE_ERROR("Invaild handlerRef(%p).", handlerRef);
+    }
+}
+
+void taf_locGnss::RemovePositionExHandler
+(
+    taf_locGnss_PositionExHandlerRef_t handlerRef
+)
+{
+    LE_INFO("RemovePositionExHandler");
+
+    auto &gnss = taf_locGnss::GetInstance();
+    taf_locGnss_PositionExHandler_t* positionExHandlerPtr =
+        (taf_locGnss_PositionExHandler_t*)le_ref_Lookup(gnss.PositionExHandlerRefMap, handlerRef);
+
+    if (positionExHandlerPtr != NULL)
+    {
+        if(positionExHandlerPtr->handlerRef != handlerRef) {
+            return;
+        }
+        NumOfPositionExHandlers--;
+
+        LE_INFO("Removed positionExHandlerRef(%p) for positionExHandlerPtr(%p) (totalCnt=0x%x).",
+                 positionExHandlerPtr->handlerRef, positionExHandlerPtr, NumOfPositionExHandlers);
+        le_mem_Release(positionExHandlerPtr);
+        le_ref_DeleteRef(gnss.PositionExHandlerRefMap, handlerRef);
     }
     else
     {
@@ -8413,6 +8776,27 @@ void taf_locGnss::ReleaseSampleRef
 
     le_ref_DeleteRef(gnss.PositionSampleMap,positionSampleRef);
     le_mem_Release(posSampleReqPtr->positionSampleNodePtr);
+    le_mem_Release(posSampleReqPtr);
+}
+
+
+void taf_locGnss::ReleaseSampleExRef
+(
+ taf_locGnss_SampleExRef_t postitionSampleExRef
+)
+{
+    LE_INFO("Sample Reference deleted!!");
+    auto &gnss = taf_locGnss::GetInstance();
+    taf_locGnss_PositionSampleEx_t* posSampleReqPtr =
+            (taf_locGnss_PositionSampleEx_t*)le_ref_Lookup(gnss.PositionExSampleMap,
+                    postitionSampleExRef);
+
+    if (posSampleReqPtr == NULL)
+    {
+        return;
+    }
+
+    le_ref_DeleteRef(gnss.PositionExSampleMap,postitionSampleExRef);
     le_mem_Release(posSampleReqPtr);
 }
 
@@ -8567,6 +8951,7 @@ void taf_locGnss::Init()
     telux::common::Status status = telux::common::Status::FAILED;
     SessionCtxList = LE_DLS_LIST_INIT;
     NumOfPositionHandlers = 0;
+    NumOfPositionExHandlers = 0;
     NumOfCapabilityHandlers = 0;
     NumOfNmeaHandlers = 0;
     mClientRefCount = 0;
@@ -8588,6 +8973,8 @@ void taf_locGnss::Init()
 
     MeasurementHandlerPoolRef = le_mem_InitStaticPool(MeasurementHandler, GNSS_POSITION_HANDLER_HIGH,
             sizeof(taf_locGnss_MeasurementHandler_t));
+    PositionExHandlerPoolRef = le_mem_InitStaticPool(PositionExHandler, GNSS_POSITION_HANDLER_HIGH,
+            sizeof(taf_locGnss_PositionExHandler_t));
 
     PositionSamplePoolRef = le_mem_InitStaticPool(PositionSample, GNSS_POSITION_SAMPLE_MAX,
             sizeof(taf_locGnss_PositionSample_t));
@@ -8600,11 +8987,17 @@ void taf_locGnss::Init()
 
     MeasurementSampleRequestPoolRef = le_mem_InitStaticPool(MeasurementSampleRequest,
             GNSS_POSITION_SAMPLE_MAX, sizeof(taf_locGnss_MeasurementSampleRequest_t));
+    PositionSampleExPoolRef = le_mem_InitStaticPool(PositionSampleEx,
+            GNSS_POSITION_SAMPLE_MAX, sizeof(taf_locGnss_PositionSampleEx_t));
+
+    PositionExSamplePoolRef = le_mem_InitStaticPool(PositionExSample,
+            GNSS_POSITION_SAMPLE_MAX, sizeof(taf_locGnss_PositionExSample_t));
 
 
     PositionSampleMap = le_ref_InitStaticMap(PositionSampleMap, GNSS_POSITION_SAMPLE_MAX);
 
     MeasurementSampleMap = le_ref_InitStaticMap(MeasurementSampleMap, GNSS_POSITION_SAMPLE_MAX);
+    PositionExSampleMap = le_ref_InitStaticMap(PositionExSampleMap, GNSS_POSITION_SAMPLE_MAX);
 
     ClientRequestRefMap = le_ref_CreateMap("ClientRequestRefMap", TAF_CONFIG_POSITIONING_ACTIVATION_MAX);
 
@@ -8616,11 +9009,16 @@ void taf_locGnss::Init()
     HandlerRef = le_event_AddHandler("LocUpdateEventId", positionEventId, taf_locGnss::GnssPositionHandler);
 
     MeasurementHandlerRef = le_event_AddHandler("MeasurementEventID", measurementEventId, taf_locGnss::GnssMeasurementHandler);
+    PositionExEventId = le_event_CreateIdWithRefCounting("PositionExEventId");
+
+    HandlerExRef = le_event_AddHandler("LocUpdateEventId1", PositionExEventId, taf_locGnss::GnssPositionExHandler);
 
     locCapabilityEventId = le_event_CreateId("LocCapabilityEventId", sizeof(CapabilityChangeEvent_t));
     nmeaEventId = le_event_CreateId("NmeaEventId", sizeof(NmeaInfoEvent_t));
 
+    PositionHandlerRefMap = le_ref_CreateMap("PositionHandlerRefMap", 4);
     MeasurementHandlerRefMap = le_ref_CreateMap("MeasurementHandlerRefMap", 4);
+    PositionExHandlerRefMap = le_ref_CreateMap("PositionExHandlerRefMap", 4);
 
     le_msg_ServiceRef_t msgService = taf_locGnss_GetServiceRef();
     le_msg_AddServiceOpenHandler(msgService, OpenEventHandler, NULL);

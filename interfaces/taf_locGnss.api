@@ -167,6 +167,40 @@
    taf_locGnss_ReleaseSampleRef(positionSampleRef);
    @endverbatim
  *
+ * The handler can be managed using taf_locGnss_AddPositionExHandler()
+ * and taf_locGnss_RemovePositionExHandler().
+ * When a position is computed, the handler is called.
+ *
+ * @verbatim
+   static void PositionExHandlerFunction
+   (
+      taf_locGnss_SampleExRef_t SampleExRef,
+      const taf_locGnss_PositionSampleEx_t* locationData,
+      void* contextPtr
+   )
+   {
+      LE_INFO("Latitude(positive->north) : %.6f\n"
+               "Longitude(positive->east) : %.6f\n"
+               "hAccuracy                 : %.2fm\n",
+                (float)locationData->latitude/1e6,
+                (float)locationData->longitude/1e6,
+                (float)locationData->hAccuracy/1e2);
+
+      taf_locGnss_ReleaseSampleExRef(SampleExRef);
+   }
+   static taf_locGnss_PositionExHandlerRef_t PositionExHandlerRef = NULL;
+   PositionExHandlerRef = taf_locGnss_AddPositionExHandler(PositionExHandlerFunction, NULL);
+   LE_ASSERT(NULL != PositionExHandlerRef);
+   taf_locGnss_RemovePositionExHandler(PositionExHandlerRef);
+   @endverbatim
+ *
+ * The application has to release each position sample object received by the handler,
+ * using the taf_locGnss_ReleaseSampleExRef() triggered inside the PositionExHandlerFunction() function.
+ * @verbatim
+   taf_locGnss_ReleaseSampleExRef(SampleExRef);
+   @endverbatim
+
+ *
  * @subsubsection taf_locGnss_startMode Start location data session in the specified starting mode
  *
  * In HOT mode, no data is cleared and the location session is started with its available data.
@@ -1143,6 +1177,13 @@ REFERENCE MeasSample;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ *  GNSS extend position sample reference type.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE SampleEx;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Defines the maximum length of the satellite vehicle information.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1380,6 +1421,42 @@ ENUM LocEngineType
                             ///< reported back for the tracking sessions.
 };
 
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Specifies the basic location information available.
+ *  40 bytes are reserved for future usage when STRUCT will be extended.
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT PositionSampleEx
+{
+    int64   longitude;             ///< Longitude information round off to 6 decimal places.
+    int64   latitude;              ///< Latitude information round off to 6 decimal places.
+    int32   hAccuracy;             ///< Horizontal uncertainty round off to 2 decimal places.
+    int32   altitude;              ///< Altitude data round off to 3 decimal places.
+    uint32  direction;             ///< Heading data multiplied by 10.
+    uint32  directionAccuracy;     ///< Heading uncertainty multiplied by 10.
+    uint32  validityMask;          ///< LocationInfo validity mask.
+    uint32  techMask;              ///< Technology mask used for location data.
+    uint32  hSpeed;                ///< Speed information multiplied by 100.
+    int32   hSpeedAccuracy;        ///< Speed uncertainty data multiplied by 1000.
+    int32   vAccuracy;             ///< Vertical uncertainty round off to 1 decimal place.
+    uint64  epochTime;             ///< EpochTime data.
+    uint64  realTime;              ///< Elapsed real time.
+    uint64  realTimeUnc;           ///< Elapsed real time uncertainty.
+    uint8   satsInViewCount;       ///< Number of satellites viewed.
+    uint8   satsTrackingCount;     ///< Number of satellites tracked.
+    uint8   satsUsedCount;         ///< Number of satellites used.
+    uint32  hdop;                  ///< Horizontal dilution of precision multiplied by 1000.
+    uint32  vdop;                  ///< Vertical dilution of precision multiplied by 1000.
+    uint32  pdop;                  ///< Position dilution of precision multiplied by 1000.
+    double  altMeanSeaLevel;       ///< Height above mean sea level.
+    int32   magneticDeviation;     ///< Magnetic deviation data multiplied by 10.
+    uint64 reserved0;              ///< Bytes reserved for future usage.
+    uint64 reserved1;              ///< Bytes reserved for future usage.
+    uint64 reserved2;              ///< Bytes reserved for future usage.
+    uint64 reserved3;              ///< Bytes reserved for future usage.
+    uint64 reserved4;              ///< Bytes reserved for future usage.
+};
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1488,6 +1565,19 @@ FUNCTION ReleaseSampleRef
 (
     Sample positionSampleRef IN        ///< Position sample reference.
 ) = 6;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Releases the extend position sample per client session.
+ *
+ * @b NOTE: If the caller passes an invalid position sample reference to this function,
+ *       it is a fatal error and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION ReleaseSampleExRef
+(
+    SampleEx postitionSampleExRef IN        ///< Position sample reference.
+) = 96;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -4212,3 +4302,28 @@ FUNCTION le_result_t  GetMeasDataValidityMask
     MeasSample measSampleRef  IN,                       ///< Measurement sample reference.
     uint32 measDataValidityMask[MEASUREMENT_INFO_MAX] OUT  ///< GetMeasDataValidityMask.
 ) = 97;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for basic position information.
+ *
+ * @param[in] positionSampleExRef Extended position sample reference.
+ * @param[in] contextPtr              Context pointer.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER PositionExHandler
+(
+ SampleEx positionSampleExRef,
+ PositionSampleEx posData  ///< Extend handler sample data.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on basic position.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT PositionEx
+(
+ PositionExHandler handler
+) = (94,95);

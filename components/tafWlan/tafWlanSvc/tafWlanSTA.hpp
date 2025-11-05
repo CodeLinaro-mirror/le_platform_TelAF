@@ -503,9 +503,6 @@ namespace tafsvc
         static void connectedApSignalStrengthEventFirstLayerHandler(void *reportPtr,
                                                                     void *secondLayerHandlerFunc);
 
-        // The WLAN STA Manager
-        std::shared_ptr<telux::wlan::IStaInterfaceManager> wlanSTAMgr;
-
         // Memory pool for STA context(s)
         le_mem_PoolRef_t STACtxPoolRef = NULL;
         // List of STA context(s)

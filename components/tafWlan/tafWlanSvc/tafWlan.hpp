@@ -13,17 +13,13 @@
 
 #pragma once
 
-#include "legato.h"
-#include "interfaces.h"
-#include "tafSvcIF.hpp"
-#include <telux/wlan/WlanDefines.hpp>
-#include <telux/wlan/WlanFactory.hpp>
-#include <telux/wlan/WlanDeviceManager.hpp>
-#include <telux/data/DataFactory.hpp>
-
 #include <future>
 #include <sstream>
 
+#include "legato.h"
+#include "interfaces.h"
+#include "tafSvcIF.hpp"
+#include "taf_pa_wlan.hpp"
 #include "tafWlanAP.hpp"
 #include "tafWlanSTA.hpp"
 
@@ -157,57 +153,6 @@ namespace tafsvc
 
     //----------------------------------------------------------------------------------------------
     /**
-     * The TelAF WLAN helper class. It provides the following:
-     *   - Functions to transform TelAF to TelSDK values and vice-versa
-     */
-    //----------------------------------------------------------------------------------------------
-    class taf_WlanHelper
-    {
-        public:
-
-        // String helper functions
-        static std::vector<std::string> StrSplit(const std::string &str, char delim);
-
-        ////////////////////////////////////////////////
-        // Station Mode(Bridge/Router) conversion
-        static taf_wlanSta_Mode_t
-        StaModeToTAF(telux::wlan::StaBridgeMode Mode);
-        static telux::wlan::StaBridgeMode StaModeToTelux(taf_wlanSta_Mode_t Mode);
-
-        // Station IP Type conversion
-        static taf_wlanSta_IPType_t StaIPTypeToTAF(telux::wlan::StaIpConfig IPMode);
-        static telux::wlan::StaIpConfig StaIPTypeToTelux(taf_wlanSta_IPType_t IPMode);
-
-        // Station state conversion
-        static taf_wlanSta_State_t StaIntfStatusToTAF(telux::wlan::StaInterfaceStatus State);
-
-        // WLAN STA ID conversion
-        static telux::wlan::Id TAFSTAidtoTeluxId(taf_wlan_STAid_t id);
-
-        static taf_wlan_BandIntPriority_t ConvertInterferenceBand(telux::data::BandPriority);
-        static telux::data::BandPriority ConvertInterferenceBand(taf_wlan_BandIntPriority_t);
-    };
-
-    //----------------------------------------------------------------------------------------------
-    /**
-     * The TelAF WLAN listener class for TelSDK notifications.
-     */
-    //----------------------------------------------------------------------------------------------
-    class taf_WlanListener: public telux::wlan::IWlanListener
-    {
-        public:
-            // Subsystem state change handler
-            void onServiceStatusChange (telux::common::ServiceStatus status);
-            // Device enable/disable handler
-            void onEnableChanged (bool enable);
-            bool getEnableStatus();
-            void resetPromise();
-        private:
-            std::promise<bool> promise_;
-    };
-
-    //----------------------------------------------------------------------------------------------
-    /**
      * The TelAF WLAN APIs implementation class.
      */
     //----------------------------------------------------------------------------------------------
@@ -241,9 +186,8 @@ namespace tafsvc
         le_result_t GetBandIntState    (taf_wlan_BandIntState_t *statePtr);
 
         // Set/Get functions for private variables.
-        void
-        SetSubsystemState(telux::common::ServiceStatus status);
-        void SetDeviceState    ( bool enable );
+        void SetSubsystemState(taf::pa::wlan::ServiceState_e serviceStatus);
+        void SetDeviceState(bool enable);
         le_event_Id_t GetStateChangeEventID();
 
     private:
@@ -251,13 +195,6 @@ namespace tafsvc
                                     size_t *APIntfinfoSizePtr,
                                     taf_wlan_STAIntfInfo_t *STAIntfinfoPtr,
                                     size_t *STAIntfinfoSizePtr);
-        // The WLAN Device Manager
-        std::shared_ptr<telux::wlan::IWlanDeviceManager> wlanDevMgr = nullptr;
-        // The WLAN Listener class object
-        std::shared_ptr<tafsvc::taf_WlanListener> wlanListener;
-        // WLAN Subsystem status
-        telux::common::ServiceStatus wlanSubSystemState =
-                                            telux::common::ServiceStatus::SERVICE_FAILED;
 
         le_event_Id_t wlanDevStateChangeEvID; // The WLAN device state change event ID
         le_mem_PoolRef_t DeviceStatusPoolRef = NULL;
@@ -270,9 +207,6 @@ namespace tafsvc
         std::promise<le_result_t> promDataSettingThreadStart;
         le_thread_Ref_t dataSettingsThreadRef = NULL;
         static void *DataSettingsThreadHdlr(void *context);
-
-        // The data settings manager that is needed to set/get band interference settings.
-        std::shared_ptr<telux::data::IDataSettingsManager> dataSettingsManager = nullptr;
 
         // Variable to check if the data settings manager is ready or not.
         bool bDataSettingManagerReady = false;

@@ -1233,7 +1233,7 @@ DEFINE MIN_ELEVATION_MAX_DEGREE = 90;
  * Define the maximum number of measurement usages information.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE MEASUREMENT_INFO_MAX = 176;
+DEFINE MEASUREMENT_INFO_MAX = 40;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -4191,6 +4191,8 @@ STRUCT MeasurementsData {
 /**
  * Handler for measurement information.
  *
+ * @instaging
+ *
  * @param[in] measSampleRef Measurement sample reference.
  * @param[in] contextPtr Context pointer.
  */
@@ -4204,6 +4206,8 @@ HANDLER MeasurementHandler
 /**
  * This event provides information on position.
  *
+ * @instaging
+ *
  */
 //--------------------------------------------------------------------------------------------------
 EVENT Measurement
@@ -4215,6 +4219,8 @@ EVENT Measurement
 /**
  * Gets the frequency for GNSS measurements generated at NHz or not per client session.
  * For NHz, we only support 10-NHz here for the HIGH_RATE_MEASUREMENT and 1HZ for MEASUREMENT in GnssReportType.
+ *
+ * @instaging
  *
  * @return
  *  - LE_FAULT         Failed to get the NHz value.
@@ -4232,6 +4238,8 @@ FUNCTION le_result_t  GetIsNHz
 /**
  * Gets the values of the GnssMeasurements Clock validity mask per client session.
  *
+ * @instaging
+ *
  * @return
  *  - LE_FAULT         Failed to get the validity mask of the measurement clock data.
  *  - LE_OK            Succeeded.
@@ -4247,6 +4255,8 @@ FUNCTION le_result_t  GetClockValidityMask
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the GNSS measurements clock data per client session.
+ *
+ * @instaging
  *
  * @return
  *  - LE_FAULT         Failed to get the clock data.
@@ -4264,6 +4274,8 @@ FUNCTION le_result_t GetClockData
 /**
  * Gets the GNSS measurements data per client session.
  *
+ * @instaging
+ *
  * @return
  *  - LE_FAULT         Failed to get the measurements data.
  *  - LE_OK            Succeeded.
@@ -4280,6 +4292,8 @@ FUNCTION le_result_t GetMeasurementsData
 /**
  * Releases the measurement sample as per client session.
  *
+ * @instaging
+ *
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION ReleaseMeasSampleRef
@@ -4290,6 +4304,8 @@ FUNCTION ReleaseMeasSampleRef
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the values of GnssMeasurements clock validity mask per client session.
+ *
+ * @instaging
  *
  * @return
  *  - LE_FAULT         Failed to get the validity mask of the measurement clock data.
@@ -4307,8 +4323,11 @@ FUNCTION le_result_t  GetMeasDataValidityMask
 /**
  * Handler for basic position information.
  *
- * @param[in] positionSampleExRef Extended position sample reference.
+ * @instaging
+ *
+ * @param[in] positionSampleExRef  Extended position sample reference.
  * @param[in] contextPtr              Context pointer.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER PositionExHandler
@@ -4320,6 +4339,8 @@ HANDLER PositionExHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * This event provides information on basic position.
+ *
+ * @instaging
  *
  */
 //--------------------------------------------------------------------------------------------------

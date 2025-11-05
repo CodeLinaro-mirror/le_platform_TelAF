@@ -1,0 +1,72 @@
+sandboxed: false
+executables:
+{
+    tafReturnTypesUnitTest = ( tafReturnTypesTestComp )
+}
+
+
+processes:
+{
+    run:
+    {
+        (tafReturnTypesUnitTest)
+    }
+    faultAction: stopApp
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+}
+
+start: manual
+
+bindings:
+{
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_locGnss -> tafLocationSvc.taf_locGnss
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_locPos -> tafLocationSvc.taf_locPos
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_locPosCtrl -> tafLocationSvc.taf_locPosCtrl
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_audio -> tafAudioSvc.taf_audio
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_audioVendor -> tafAudioSvc.taf_audioVendor
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_ecall -> tafECallSvc.taf_ecall
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_sim -> tafSimCardSvc.taf_sim
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_ks -> tafKeyStoreSvc.taf_ks
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_sms -> tafSMSSvc.taf_sms
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_gpio -> tafGpioSvc.taf_gpio
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_pm -> tafPMSvc.taf_pm
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_radio -> tafRadioSvc.taf_radio
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_update -> tafUpdateSvc.taf_update
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_voicecall -> tafVoiceCallSvc.taf_voicecall
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_can -> tafCanSvc.taf_can
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_imuSensor -> tafImuSensorSvc.taf_imuSensor
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_fsc -> tafKeyStoreSvc.taf_fsc
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_mrc -> tafMRCSvc.taf_mrc
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_hms -> tafHMSvc.taf_hms
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_therm -> tafThermSvc.taf_therm
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_time -> tafTimeSvc.taf_time
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_wlan -> tafWlanSvc.taf_wlan
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_wlanAp -> tafWlanSvc.taf_wlanAp
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_wlanSta -> tafWlanSvc.taf_wlanSta
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_simRsim -> tafRemoteSimSvc.taf_simRsim
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_simRsp -> tafSimCardSvc.taf_simRsp
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_simSap -> tafRemoteSimSvc.taf_simSap
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_verInfo -> tafVerInfoSvc.taf_verInfo
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_someipSvr -> tafSomeipGWSvc.taf_someipSvr
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_flash -> tafUpdateSvc.taf_flash
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_net -> tafNetSvc.taf_net
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_dcs -> tafDataCallSvc.taf_dcs
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_devInfo -> tafDevInfoSvc.taf_devInfo
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_diag -> tafDiagSvc.taf_diag
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_diagAuth -> tafDiagSvc.taf_diagAuth
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_diagDataID -> tafDiagSvc.taf_diagDataID
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_diagDoIP -> tafDiagSvc.taf_diagDoIP
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_diagDTC -> tafDiagSvc.taf_diagDTC
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_diagEvent -> tafDiagSvc.taf_diagEvent
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_diagIOCtrl -> tafDiagSvc.taf_diagIOCtrl
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_diagReset -> tafDiagSvc.taf_diagReset
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_diagRoutineCtrl -> tafDiagSvc.taf_diagRoutineCtrl
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_diagSecurity -> tafDiagSvc.taf_diagSecurity
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_diagUpdate -> tafDiagSvc.taf_diagUpdate
+    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_mdc -> tafDataCallSvc.taf_mdc
+}

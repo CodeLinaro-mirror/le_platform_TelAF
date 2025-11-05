@@ -1,0 +1,16 @@
+#include "$TELAF_ROOT/modules/TelSdk/sa525m.sdef"
+
+apps:
+{
+    $TELAF_ROOT/apps/test/tafSomeipGWTest/multiRoutingManagersTest/multiRoutMgrsTestAppA.adef
+}
+
+interfaceSearch:
+{
+    $TELAF_ROOT/interfaces/someipGW
+}
+
+buildVars:
+{
+    MULTI_ROUTING_MANAGERS_TEST_DEVICE="DeviceA"
+}

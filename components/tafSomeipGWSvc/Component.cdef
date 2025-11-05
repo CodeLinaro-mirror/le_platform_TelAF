@@ -50,9 +50,13 @@ bundles:
         // and multicast addresses.
     #if ${LE_CONFIG_FLAVOR_LXC} = y
         [rw] tafSomeipGWSvcLXC.json  /tafSomeipGWSvc.json
-    #else
+    #elif ${MULTI_ROUTING_MANAGERS_TEST_DEVICE} = ""
         [rw] tafSomeipGWSvc.json   /
         [rw] tafSomeipGWSvc_1.json   /
+    #else
+        [rw] ${TELAF_ROOT}/apps/test/tafSomeipGWTest/multiRoutingManagersTest/config/${MULTI_ROUTING_MANAGERS_TEST_DEVICE}/tafSomeipGWSvc.json /
+        [rw] ${TELAF_ROOT}/apps/test/tafSomeipGWTest/multiRoutingManagersTest/config/${MULTI_ROUTING_MANAGERS_TEST_DEVICE}/tafSomeipGWSvc_1.json /
+        [rw] ${TELAF_ROOT}/apps/test/tafSomeipGWTest/multiRoutingManagersTest/config/${MULTI_ROUTING_MANAGERS_TEST_DEVICE}/tafSomeipGWSvc_2.json /
     #endif
     }
 }

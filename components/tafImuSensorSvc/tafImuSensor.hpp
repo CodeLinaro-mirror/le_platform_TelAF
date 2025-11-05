@@ -11,6 +11,7 @@
 #include "telux/sensor/SensorDefines.hpp"
 #include "telux/sensor/SensorClient.hpp"
 #include "tafSvcIF.hpp"
+#include "mutex"
 
 #define SENSOR_EVENT_HANDLER_HIGH 11
 #define TAF_SENSOR_MAX_EVENTS_SIZE 100
@@ -93,12 +94,15 @@ class tafSensorListener: public ISensorEventListener
         void onSelfTestFailed();
         le_msg_SessionRef_t* clientSessionRef;
         taf_imuSensor_SensorRef_t sensorRef;
+        bool isCalibrated;
+        std::mutex mtx;
         ~tafSensorListener() {};
 };
 
 typedef struct
 {
     uint64_t timestamp;
+    le_msg_SessionRef_t sessionRef;
     taf_imuSensor_SensorRef_t cSensorRef;
 }
 taf_SensorSelfTest_t;
@@ -107,11 +111,6 @@ typedef struct{
     std::shared_ptr<ISensorClient> sensorClient;
     std::shared_ptr<tafSensorListener> eventListener;
     bool isSensorActivated;
-    bool isCalibrated;
-    le_event_Id_t SensorOnEventId;
-    le_event_Id_t SelfTestEventId;
-    le_mutex_Ref_t mSensorMutexRef;
-    le_event_HandlerRef_t HandlerRef;
     char sensorName[NAME_MAX_SIZE];
 }taf_sensorClientInfo_t;
 
@@ -141,6 +140,9 @@ namespace tafsvc {
             le_ref_MapRef_t tSensorInfoMap;
             le_ref_MapRef_t tSensorEventHandlerMap;
             le_ref_MapRef_t tSensorEventMap;
+            le_event_Id_t SensorOnEventId;
+            le_event_Id_t SelfTestEventId;
+            le_event_HandlerRef_t HandlerRef;
             static taf_Sensor &GetInstance();
             le_result_t SetEulerAngle(double,double,double);
             static le_result_t InitializeSensorList(taf_SensorClient_t* clientRequestPtr);

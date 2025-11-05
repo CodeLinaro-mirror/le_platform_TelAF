@@ -16,12 +16,22 @@ le_thread_Ref_t threadRef1 =NULL;
 taf_imuSensor_SensorListRef_t Head;
 static le_sem_Ref_t semRef1;
 static le_mutex_Ref_t mSensorMutexRef;
+le_event_Id_t ReactivateEventId;
 
 typedef struct{
     taf_imuSensor_SensorRef_t sensorRef;
     double samplingRate;
     uint32_t batchCount;
 } SensorConfig;
+
+typedef struct{
+    //1 . Add HANDLER
+    //2 . Activate
+    //2 . Deactivate
+    //4 . Remove HANDLER
+    //5 . DeleteSensorList
+    int step;
+} taf_ReactivateTestCase_t;
 
 SensorConfig configList[SENSOR_NUMS];
 
@@ -35,6 +45,7 @@ void PrintUsage(void)
          "app runProc tafSensorIntTest tafSensorIntTest -- Activate <SensorName> <SamplingRate> <BatchCount>\n"
          "app runProc tafSensorIntTest tafSensorIntTest -- ActivateAll <SamplingRate1> <BatchCount1> <SamplingRate2> <BatchCount2>\n"
          "app runProc tafSensorIntTest tafSensorIntTest -- SelfTest <sensorName> <Mode>\n"
+         "app runProc tafSensorIntTest tafSensorIntTest -- Reactivate\n"
          "\n");
 }
 
@@ -359,7 +370,7 @@ static le_result_t TestSelfTest(const char* name,const char* mode){
     return LE_OK;
 }
 
-inline void CheckNumArgs(size_t NumArgs, size_t ExpectedNumArgs)
+static void CheckNumArgs(size_t NumArgs, size_t ExpectedNumArgs)
 {
     if (NumArgs!=ExpectedNumArgs)
     {
@@ -374,12 +385,89 @@ static void DeleteSensorList()
     LE_TEST_INFO("Testing TelAF deleting Sensor list with -taf_imuSensor_DeleteSensorList");
     result = taf_imuSensor_DeleteSensorList(Head);
     LE_TEST_OK(result == LE_OK, "taf_imuSensor_DeleteSensorList - LE_OK");
+    LE_TEST_EXIT;
 }
+
+static void ReactivateMainFunc(void* reportPtr)
+{
+    taf_ReactivateTestCase_t* ptr = (taf_ReactivateTestCase_t*) reportPtr;
+    le_result_t result;
+    if(ptr->step==1){
+        eventHandlerRef = taf_imuSensor_AddDataHandler(sensorsList[0],TestSensorOnEventFunc,NULL);
+        LE_TEST_OK(eventHandlerRef != NULL, "Register AddOnEventHandler handler"
+        " is successfull");
+        eventHandlerRef1 = taf_imuSensor_AddDataHandler(sensorsList[1],TestSensorOnEventFunc,NULL);
+        LE_TEST_OK(eventHandlerRef1 != NULL, "Register AddOnEventHandler1 handler"
+        " is successfull");
+    }
+    else if(ptr->step==2)
+    {
+        SensorConfig c1 = {sensorsList[0],104,50};
+        SensorConfig c2 = {sensorsList[1],104,50};
+        configList[0] = c1;
+        configList[1] = c2;
+        result = taf_imuSensor_Activate(sensorsList[0],104.0,50);
+        LE_INFO("SensorHandler Result of activating sensor: %d", (int)result);
+        result = taf_imuSensor_Activate(sensorsList[1],104.0,50);
+        LE_INFO("SensorHandler Result of activating sensor: %d", (int)result);
+    }
+    else if(ptr->step==3)
+    {
+        result = taf_imuSensor_Deactivate(sensorsList[0]);
+        LE_INFO("SensorHandler Result of deactivating sensor: %d", (int)result);
+        result = taf_imuSensor_Deactivate(sensorsList[1]);
+        LE_INFO("SensorHandler Result of deactivating sensor: %d", (int)result);
+    }
+    else if(ptr->step==4){
+        taf_imuSensor_RemoveDataHandler(eventHandlerRef);
+        taf_imuSensor_RemoveDataHandler(eventHandlerRef1);
+    }
+    else if(ptr->step == 5)
+    {
+        DeleteSensorList();
+    }
+}
+
+static void* ReactivateEventHandler(void* contextPtr)
+{
+    taf_ReactivateTestCase_t event;
+    event.step=1;
+    le_event_Report(ReactivateEventId,&event,sizeof(event));
+    le_thread_Sleep(2);
+    event.step=2;
+    le_event_Report(ReactivateEventId,&event,sizeof(event));
+    le_thread_Sleep(30);
+    event.step=3;
+    le_event_Report(ReactivateEventId,&event,sizeof(event));
+    le_thread_Sleep(2);
+    event.step=4;
+    le_event_Report(ReactivateEventId,&event,sizeof(event));
+    le_thread_Sleep(2);
+    event.step=1;
+    le_event_Report(ReactivateEventId,&event,sizeof(event));
+    le_thread_Sleep(2);
+    event.step=2;
+    le_event_Report(ReactivateEventId,&event,sizeof(event));
+    le_thread_Sleep(30);
+    event.step=5;
+    le_event_Report(ReactivateEventId,&event,sizeof(event));
+    return NULL;
+}
+
+static void TestReactivateSensor()
+{
+    threadRef1 = le_thread_Create("Thread1", ReactivateEventHandler,NULL);
+    le_thread_Start(threadRef1);
+}
+
 
 COMPONENT_INIT
 {
     semRef1 = le_sem_Create("SemRef1", 0);
     mSensorMutexRef = le_mutex_CreateRecursive("SensorMutexCl");
+    ReactivateEventId = le_event_CreateId("ReactivateEventId",sizeof(taf_ReactivateTestCase_t));
+    le_event_AddHandler("ReactivateEventHandler",
+        ReactivateEventId,ReactivateMainFunc);
     le_result_t status = LE_FAULT;
     LE_TEST_INIT;
     status = GetSensorList();
@@ -403,6 +491,7 @@ COMPONENT_INIT
         CheckNumArgs(numArgs,1);
         status = TestAvailableSensorName();
         LE_TEST_OK(status ==LE_OK,"Test taf_imuSensor_GetName Succeed");
+        DeleteSensorList();
     }
     else if (strncmp(testType, "SensorInfo", strlen(testType)) == 0){
         LE_TEST_INFO("=======Sensors Info Test========");
@@ -416,6 +505,7 @@ COMPONENT_INIT
             LE_TEST_INFO("Sensor Name not found %s",sensorName);
         }
         LE_TEST_OK(status ==LE_OK,"Test SensorInfo Succeed %d",status);
+        DeleteSensorList();
     }
     else if (strncmp(testType, "SetAngle", strlen(testType)) == 0){
         LE_TEST_INFO("=======Set Euler Angle Test========");
@@ -431,6 +521,7 @@ COMPONENT_INIT
         double yaw = atof(arg3);
         status = TestEulerAngle(pitch,roll,yaw);
         LE_TEST_OK(status ==LE_OK,"Test taf_imuSensor_SetEulerAngle Succeed");
+        DeleteSensorList();
     }
     else if(strncmp(testType, "Activate", strlen(testType)) == 0){
         LE_TEST_INFO("=======Test Sensor Activation========");
@@ -448,6 +539,7 @@ COMPONENT_INIT
             LE_TEST_INFO("Sensor Name not found %s",name);
         }
         LE_TEST_OK(status ==LE_OK,"Test taf_imuSensor_Activate Succeed %d",status);
+        DeleteSensorList();
     }
     else if(strncmp(testType, "ActivateAll", strlen(testType)) == 0){
         LE_TEST_INFO("=======Test Sensor Activation========");
@@ -465,6 +557,7 @@ COMPONENT_INIT
         double BatchCount2 = atof(arg4);
         status = TestActivateAllSensor(sampleRate1,BatchCount1,sampleRate2,BatchCount2);
         LE_TEST_OK(status ==LE_OK,"Test taf_imuSensor_Activate Succeed %d",status);
+        DeleteSensorList();
     }
     else if(strncmp(testType, "SelfTest", strlen(testType)) == 0){
         LE_TEST_INFO("=======Test Sensor SelfTest========");
@@ -479,11 +572,13 @@ COMPONENT_INIT
             LE_TEST_INFO("Sensor Name not found %s",name);
         }
         LE_TEST_OK(status ==LE_OK,"Test taf_imuSensor_SelfTest Succeed %d",status);
+        DeleteSensorList();
+    }
+    else if(strncmp(testType, "Reactivate", strlen(testType)) == 0){
+        TestReactivateSensor();
     }
     else{
         PrintUsage();
         LE_TEST_FATAL("Invalid test type %s", testType);
     }
-    DeleteSensorList();
-    LE_TEST_EXIT;
 }

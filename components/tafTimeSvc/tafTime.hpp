@@ -72,7 +72,7 @@
 
 #define TAF_TIME_RECEIVE_GNSS_TIME_COUNT   5
 #define TAF_TIME_SYNC_TIME_TIMER_INTERVAL (61000)
-
+#define INIT_SYNC_VALIDI_WITH_MSS_COUNTER  30
 //-------------------------------------------------------------------------------------------------
 /**
  * Macro definition for network time.
@@ -230,8 +230,8 @@ typedef struct
     taf_time_TimeSources_t systemSourceId;       ///< System time source ID.
     taf_time_SourceRef_t ref;                    ///< own reference.
     bool sourceValidity;                         ///< The validity for current time source.
-    bool isSyncedWithStorage;                    ///< The flag to indicate the storage has been touched.
-    bool isSyncedWithSetCmd;                     ///< Indicate the 'SetValidity' API has been called ever.
+    bool isSyncedWithStorage;                    ///< Indicate if validity syncs with MSS or not.
+    bool isSyncedWithSetCmd;                     ///< Indicate the validity has been set or not.
     int32_t failedLoops = -1;                    ///< Number of loop failure for time source.
     bool isAvailable;
     int8_t timeZone = 0;                         ///< Offset between UTC and local time in units
@@ -285,6 +285,12 @@ typedef struct
     void* getRTCCtxPtr;
     taf_time_AsyncGetTimeReqHandlerFunc_t getRTCCallbackFunc;
 }taf_time_getRTCCb_t;
+
+typedef void (*taf_time_AsyncSetTimeReqHandlerFunc_t)
+(
+    le_result_t responseState,
+    void* contextPtr
+);
 
 typedef struct
 {
@@ -491,6 +497,10 @@ struct ValidityParams
                  */
                 void Init(void);
 
+                // Delta milliseconds betwen Rtc and boot time. Buffer this delta time to avoid
+                // frequently update the RTC time.
+                int64_t rtcDeltaMsec = 0;
+
                 const char* SourceAttrToStr(taf_Time_SrcAttr_t sourceConf);
                 const char* SourceNameIndexToStr(taf_time_TimeSources_t sourceName);
                 taf_time_TimeSources_t SourceNameStrToIndex(const char* typeNamePtr);
@@ -550,11 +560,14 @@ struct ValidityParams
                     le_msg_SessionRef_t sessionRef, bool handlerFlag);
                 taf_TimeNetTimeInfo_t* SearchNetTimeInfList(taf_time_TimeSources_t sourceId);
 
-                bool IsThresholdSetTimeAllow(taf_time_TimeSpec_t timeVal,
-                                                taf_time_TimeSpec_t systemTime,
-                                                    taf_time_TimeSources_t timeSource);
+                bool IsThresholdSetTimeAllow(taf_time_TimeSpec_t newTimeVal,
+                                    taf_time_TimeSpec_t oldTime, taf_time_TimeSources_t sourceId);
+                le_result_t SetRealTime(taf_time_TimeSpec_t timeVal,
+                                                                 taf_time_TimeSources_t sourceId);
                 le_result_t SetSystemTime(taf_time_TimeSpec_t timeVal,
-                                           taf_time_TimeSources_t sourceName, bool ackTimeSvc);
+                                                                 taf_time_TimeSources_t sourceId);
+                le_result_t UpdateSystemTime(taf_time_TimeSpec_t timeVal,
+                                                                 taf_time_TimeSources_t sourceId);
                 le_result_t SetTimeToRtc(taf_time_TimeSpec_t timeVal);
 
                 le_result_t RegGnssTimeListener(void);
@@ -567,7 +580,6 @@ struct ValidityParams
 
                 static void* SyncTimeTasks(void* contextPtr);
                 static void SyncTimeTimerHandler(le_timer_Ref_t timerRef);
-                static void SystemTimeUpdateTimerHandler(le_timer_Ref_t timerRef);
                 static void SyncGnssTime(void);
                 static void LayerTimeSourceChangeHandler(void* reportPtr,
                                                                         void* layerHandlerFuncPtr);
@@ -587,8 +599,11 @@ struct ValidityParams
                 le_result_t RegNetworkTimeListener(void);
                 void DeregNetworkTimeListener(void);
 
-                le_result_t InitGnssTime(void);
-                le_result_t InitNetworkTime(void);
+                le_result_t InitGnssBaseData(void);
+                le_result_t InitGnssManager(void);
+
+                le_result_t InitNetworkBaseData(void);
+                le_result_t InitNetworkManager(void);
 
                 taf_time_TimeValueChangeHandlerRef_t AddTimeValueChangeHandler(
                              taf_time_TimeSources_t sourceId,
@@ -607,6 +622,7 @@ struct ValidityParams
 
                 le_event_Id_t timeSourceChangeId;
 
+                le_timer_Ref_t syncSecStorageRef = NULL;
                 le_timer_Ref_t syncTimeTimerRef = NULL;
                 le_timer_Ref_t sysTimeUdTimerRef = NULL;
 
@@ -648,12 +664,17 @@ struct ValidityParams
 
                 time_Inf_t* timeInf = nullptr;
                 bool isDrvPresent = false;
-                static taf_time_getRTCCb_t getRTCCB;
-                static taf_time_setRTCCb_t setRTCCB;
-                static void getRTCRespCB(struct TimeSpec timeVal, le_result_t result);
-                static void setRTCRespCB(le_result_t result);
+                static taf_time_getRTCCb_t getRTCCBtoClient;
+                static taf_time_setRTCCb_t setRTCCBtoClient;
+                static void getRtcTimeRespCB(struct TimeSpec timeVal, le_result_t result);
+                static void setRtcTimeRespCB(le_result_t result);
+                static void setRtcTrustTimeRespCB(le_result_t result);
+
+                using SetRtcHalCb = void (*)(le_result_t);
                 le_result_t SetRtcTimeReqAsync(const taf_time_TimeSpec_t* timeValPtr,
-                    taf_time_AsyncSetTimeReqHandlerFunc_t handlerPtr, void* contextPtr);
+                                           taf_time_AsyncSetTimeReqHandlerFunc_t handlerPtr,
+                                                SetRtcHalCb cbFromClient, void* contextPtr);
+
                 le_result_t GetRtcTimeReqAsync(taf_time_AsyncGetTimeReqHandlerFunc_t handlerPtr,
                     void* contextPtr);
                 bool isNewTimeSrcSetTimeAllowed(taf_time_TimeSources_t newTimeSource);
@@ -680,16 +701,21 @@ struct ValidityParams
                     taf_time_TimeSources_t sourceIndex);
                 void UpdateFailedLoops(taf_time_TimeSources_t sourceIndex,
                     taf_TimeFailLoopAction_t action);
-                void InitTimeSource(void);
+
                 void InitializeSystemTimeAttr(void);
                 bool IsSourceValid(taf_time_SourceRef_t sourceRef);
-                le_result_t SetValidity(taf_time_SourceRef_t sourceRef, bool validity);
+
+                void UpdateSystemTimeRefInfo(taf_time_TimeSpec_t timeVal,
+                                                        taf_time_TimeSources_t timeSource);
+                le_result_t SetTrustTime(taf_time_SourceRef_t sourceRef,
+                                           taf_time_TimeSpec_t timeValPtr, bool validity);
                 le_result_t CheckSetValidityPermission(void);
                 void ReportValidityChange(taf_SourceInf_t* sourcePtr);
                 le_result_t WriteValidtyToSecStorage(taf_SourceInf_t* sourcePtr, bool newvalidity);
                 le_result_t ReadValidityFromSecStorage(taf_SourceInf_t* sourcePtr, bool* validity);
                 void ReleasePtpDevice(void);
                 void RegisterPtpDevice(void);
+
                 uint64_t PrevSrcAvailabiltyMap = 0x0;
                 struct SetTimeStatus* SetTimeSt = NULL;
                 NetworkInfoUpdateArgs_t NetworkUpdateInfo1 = {};

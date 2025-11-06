@@ -18,45 +18,6 @@ using namespace tafsvc;
 #define TIMER_SAFECALL 5
 DECLARE_SAFE_CALL();
 
-/*======================================================================
-
- FUNCTION        taf_time_SetSystemTime
-
- DESCRIPTION     Set system REAL time.
-
- DEPENDENCIES    Initialization of Time Service
-
- PARAMETERS      [IN] const taf_time_TimeSpec_t * timeVal: Time in
-                      seconds and nanoseconds.
-                 [IN] bool notifySvc: Flag to indicate if the time is
-                      set externally
-
- RETURN VALUE    le_result_t
-                 LE_BAD_PARAMETER:     Invalid parameters.
-                 LE_FAULT:             Fail.
-                 LE_OK:                Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_time_SetSystemTime
-(
-    const taf_time_TimeSpec_t * timeValPtr,
-    bool ackTimeSvc
-)
-{
-    taf_time_TimeSpec_t time;
-
-    time.sec = timeValPtr->sec;
-    time.nanosec = timeValPtr->nanosec;
-
-    auto &tafTime = taf_Time::GetInstance();
-
-    return tafTime.SetSystemTime(time,
-                                TAF_TIME_SRC_NAME_EX_APP,
-                                ackTimeSvc);
-}
-
 //--------------------------------------------------------------------------------------------------
 /**
  * Add handler for time source status change registration.
@@ -314,64 +275,6 @@ le_result_t taf_time_GetRtcTimeReqAsync(taf_time_AsyncGetTimeReqHandlerFunc_t ha
 {
     auto& time = taf_Time::GetInstance();
     return time.GetRtcTimeReqAsync(handlerPtr, contextPtr);
-}
-
-/*-------------------------------------------------------------------------
-
- FUNCTION        taf_time_SetRtcTimeReqAsync
-
- DESCRIPTION     Update the time to RTC device or VHAL interface in async mode.
-
- DEPENDENCIES    Initialization of Time Service
-
- PARAMETERS      [IN] taf_time_TimeSpec_t * timeVal: Time in
-                      seconds and nanoseconds.
-                 [IN] taf_time_AsyncSetTimeReqHandlerFunc_t: callback
-                      handler function
-
- RETURN VALUE    le_result_t
-                 LE_FAULT:             Fail.
-                 LE_OK:                Success.
-                 LE_UNSUPPORTED:   Not supported.
-
- SIDE EFFECTS
-------------------------------------------------------------------------------*/
-le_result_t taf_time_SetRtcTimeReqAsync(const taf_time_TimeSpec_t* timeValPtr,
-        taf_time_AsyncSetTimeReqHandlerFunc_t handlerPtr, void* contextPtr)
-{
-    auto& time = taf_Time::GetInstance();
-    return time.SetRtcTimeReqAsync(timeValPtr, handlerPtr, contextPtr);
-}
-
-/*-------------------------------------------------------------------------
-
- FUNCTION        taf_time_SetTimeToRtc
-
- DESCRIPTION     Update the time to RTC device or VHAL interface.
-
- DEPENDENCIES    Initialization of Time Service
-
- PARAMETERS      [IN] taf_time_TimeSpec_t * timeVal: Time in
-                      seconds and nanoseconds.
-
- RETURN VALUE    le_result_t
-                 LE_FAULT:             Fail.
-                 LE_OK:                Success.
-
- SIDE EFFECTS
-
-------------------------------------------------------------------------------*/
-le_result_t taf_time_SetTimeToRtc
-(
-    const taf_time_TimeSpec_t* timeVal
-)
-{
-    taf_time_TimeSpec_t time;
-    time.sec = timeVal->sec;
-    time.nanosec = timeVal->nanosec;
-
-    auto& tafTime = taf_Time::GetInstance();
-    return tafTime.SetTimeToRtc(time);
 }
 
 /*======================================================================
@@ -652,13 +555,15 @@ bool taf_time_IsSourceValid
 
 /*======================================================================
 
- FUNCTION        taf_time_SetValidity
+ FUNCTION        taf_time_SetTrustTime
 
- DESCRIPTION     Sets the validity of a source.
+ DESCRIPTION     Sets time and validity for system.
 
  DEPENDENCIES    Initialization of Time Service.
 
  PARAMETERS      [IN] taf_time_SourceRef_t sourceRef: Source ref
+                 [IN] const taf_time_TimeSpec_t * timeVal: Time in
+                      seconds and nanoseconds.
                  [IN] Validity to set given source
 
 
@@ -669,14 +574,19 @@ bool taf_time_IsSourceValid
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_time_SetValidity
+le_result_t taf_time_SetTrustTime
 (
     taf_time_SourceRef_t sourceRef,
+    const taf_time_TimeSpec_t * timeValPtr,
     bool validity
 )
 {
     auto& tafTime = taf_Time::GetInstance();
-    return tafTime.SetValidity(sourceRef, validity);
+    taf_time_TimeSpec_t time;
+    time.sec = timeValPtr->sec;
+    time.nanosec = timeValPtr->nanosec;
+
+    return tafTime.SetTrustTime(sourceRef, time, validity);
 }
 
 /**

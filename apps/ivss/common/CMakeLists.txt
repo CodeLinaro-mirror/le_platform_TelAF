@@ -29,6 +29,22 @@ include_directories(
 # SOME/IP library
 FILE(GLOB_RECURSE PRJ_SOMEIP_LIB_SRCS ${PRJ_SRC_GEN_PATH}/*.cpp)
 
+# Generate the build-id of the .so file.
+execute_process(COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} bash -c "realpath ${CMAKE_BINARY_DIR}/lib${PROJECT_NAME}-someip.so --relative-to=${LEGATO_ROOT} | sha1sum | awk '{print $1}'"
+                OUTPUT_VARIABLE COMMAND_OUTPUT
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
+message("CMAKE_BINARY_DIR = ${CMAKE_BINARY_DIR}")
+
 # Build SOME/IP library
 add_library(${PROJECT_NAME}-someip SHARED ${PRJ_SOMEIP_LIB_SRCS})
 target_link_libraries(${PROJECT_NAME}-someip CommonAPI-SomeIP)
+
+target_compile_options(${PROJECT_NAME}-someip PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:-g;-Wall;-Werror;-fno-omit-frame-pointer;-fmacro-prefix-map=${LEGATO_ROOT}=.;-fmacro-prefix-map=${TELAF_ROOT}=.;-fmacro-prefix-map=${LEGATO_SYSROOT}=.>")
+
+# Set runtime path for shared libraries
+set_target_properties(${PROJECT_NAME}-someip PROPERTIES LINK_FLAGS "-g -Wl,--build-id=0x${COMMAND_OUTPUT}")
+
+# Extract and save debug info.
+add_custom_command(TARGET ${PROJECT_NAME}-someip POST_BUILD
+                   COMMAND ${LEGATO_ROOT}/framework/tools/scripts/splitdebug -d ${TELAF_ROOT}/build/${LEGATO_TARGET}/debug
+                   $<TARGET_FILE:${PROJECT_NAME}-someip>)

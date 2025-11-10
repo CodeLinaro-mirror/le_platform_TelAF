@@ -248,11 +248,11 @@ void taf_Audio::Init(void)
     auto p = std::make_shared<std::promise<ServiceStatus>>();
     mAudioManager = audioFactory.getAudioManager(
             [&p](telux::common::ServiceStatus status) {
-        LE_INFO("Getting status: %d from call manager", (int)status);
+        LE_INFO("Getting status: %d from audio manager", (int)status);
         try
         {
             // If the status is SERVICE_UNAVAILABLE,
-            // the call manager will also update the status through initCB
+            // the audio manager will also update the status through initCB
             if (status != telux::common::ServiceStatus::SERVICE_UNAVAILABLE)
             {
                 p->set_value(status);
@@ -311,6 +311,9 @@ void taf_Audio::Init(void)
         LE_ERROR("can't get IAudioPlayer");
         return;
     }
+
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, taf_Audio::TafSigTermEventHandler);
 
     mVoiceListener = std::make_shared<tafVoiceListener>();
     mPlayListener = std::make_shared<tafPlayListener>();
@@ -371,8 +374,10 @@ void taf_Audio::Init(void)
     HashMapList = LE_DLS_LIST_INIT;
 
     le_sem_Ref_t mEventRegSemRef = le_sem_Create("mEventRegSemRef", 0);
-    le_thread_Start(le_thread_Create("RegisterBufferEventThread", RegisterBufferEvent,
-            mEventRegSemRef));
+    bufferHandlingThreadRef = le_thread_Create("RegisterBufferEventThread", RegisterBufferEvent,
+            mEventRegSemRef);
+    le_thread_SetJoinable(bufferHandlingThreadRef);
+    le_thread_Start(bufferHandlingThreadRef);
     le_sem_Wait(mEventRegSemRef);
     le_sem_Delete(mEventRegSemRef);
 
@@ -4917,4 +4922,69 @@ void taf_Audio::MpmsDisconnectHandler(void* contextPtr)
 
     // Start the retry timer
     audio.StartMpmsRetryTimer();
+}
+
+void taf_Audio::TafSigTermEventHandler(int tafSigNum)
+{
+    LE_INFO("TafSigTermEventHandler signal : %d", tafSigNum);
+    auto &audio = taf_Audio::GetInstance();
+    audio.CleanUpBeforeExit();
+    exit(EXIT_SUCCESS);
+}
+
+void taf_Audio::CleanUpBeforeExit()
+{
+    // Stop active recordings
+    le_ref_IterRef_t iteratorRef;
+    iteratorRef = le_ref_GetIterator(StreamRefMap);
+    while (le_ref_NextNode(iteratorRef) == LE_OK)
+    {
+        taf_audio_Stream_t* audioStreamPtr =
+                (taf_audio_Stream_t*) le_ref_GetValue(iteratorRef);
+        if ( audioStreamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE )
+        {
+            StopAudio(audioStreamPtr);
+            DeleteAudioStream(audioStreamPtr);
+        }
+    }
+
+    if (bufferHandlingThreadRef)
+    {
+        le_thread_Cancel(bufferHandlingThreadRef);
+        le_thread_Join(bufferHandlingThreadRef, NULL);
+    }
+
+    // Stop and delete timers if active
+    if (vhalRetryTimer)
+    {
+        le_timer_Stop(vhalRetryTimer);
+        le_timer_Delete(vhalRetryTimer);
+        vhalRetryTimer = nullptr;
+    }
+    if (mpmsRetryTimer)
+    {
+        le_timer_Stop(mpmsRetryTimer);
+        le_timer_Delete(mpmsRetryTimer);
+        mpmsRetryTimer = nullptr;
+    }
+    if (mpmsDelayTimer)
+    {
+        le_timer_Stop(mpmsDelayTimer);
+        le_timer_Delete(mpmsDelayTimer);
+        mpmsDelayTimer = nullptr;
+    }
+
+    // Close file handles if open
+    if (mFile) {
+        fclose(mFile);
+        mFile = nullptr;
+    }
+    if (mRxFile) {
+        fclose(mRxFile);
+        mRxFile = nullptr;
+    }
+    if (mPlayFile) {
+        fclose(mPlayFile);
+        mPlayFile = nullptr;
+    }
 }

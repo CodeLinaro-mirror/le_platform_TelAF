@@ -372,6 +372,7 @@ class taf_Audio : public ITafSvc
         bool isRxRecMuteSet = false;
         bool mIsLoopbackActive = false;
         le_sem_Ref_t mPlayCompletedSemRef;
+        le_thread_Ref_t bufferHandlingThreadRef;
         le_dls_List_t  EventIdList = LE_DLS_LIST_INIT;
         taf_audio_StreamRef_t mDtmfAudioRef = NULL;
         taf_audio_Stream_t* mTxRecStreamPtr = NULL;
@@ -508,6 +509,7 @@ class taf_Audio : public ITafSvc
         void RecBufferHandler(taf_audio_Stream_t* streamPtr);
         void AdvertiseAndRegisterHandler();
         void StartMpmsRetryTimer();
+        void CleanUpBeforeExit();
 
         static void ClientSessionCloseEventHandler( le_msg_SessionRef_t sessionRef,
                             void* contextPtr);
@@ -531,5 +533,6 @@ class taf_Audio : public ITafSvc
         static void MpmsConnectHandler(le_timer_Ref_t timerRef);
         static void MpmsDelayHandler(le_timer_Ref_t timerRef);
         static void MpmsDisconnectHandler(void* contextPtr);
+        static void TafSigTermEventHandler(int tafSigNum);
 };
 }

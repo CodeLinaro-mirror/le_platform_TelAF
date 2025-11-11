@@ -149,15 +149,30 @@ static void ValueChangeRequest
                 break;
             }
 
-            DIDEntry didEvent;
-            didEvent.did = req->did;
-            memcpy(didEvent.value, req->value, req->len);
+            // Check the DID in whitkist, is it registered for change notification.
+            bool isNotify = false;
+            for (size_t i = 0; i < num_did_entries; ++i)
+            {
+                if (did_entries[i].did == req->did && did_entries[i].changeNotify == true)
+                {
+                    isNotify = true;
+                    break;
+                }
+            }
 
-            didEvent.len = req->len;
-            didEvent.changeNotify = true;
+            if (isNotify)
+            {
+                DIDEntry didEvent;
+                didEvent.did = req->did;
+                memcpy(didEvent.value, req->value, req->len);
 
-            // Fire event for DID change notification
-            le_event_Report(NotifyDidEventId, &didEvent, sizeof(didEvent));
+                didEvent.len = req->len;
+                didEvent.changeNotify = true;
+
+                // Fire event for DID change notification
+                LE_DEBUG("DID %x change notified", req->did);
+                le_event_Report(NotifyDidEventId, &didEvent, sizeof(didEvent));
+            }
 
             break;
         }
@@ -294,7 +309,8 @@ static le_result_t taf_pi_didStorg_AddDidChangeNotify
             return LE_OK;
         }
     }
-	return LE_BAD_PARAMETER;
+
+    return LE_FAULT;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -315,7 +331,8 @@ static le_result_t taf_pi_didStorg_RemoveDidChangeNotify
             return LE_OK;
         }
     }
-    return LE_BAD_PARAMETER;
+
+    return LE_FAULT;
 }
 
 

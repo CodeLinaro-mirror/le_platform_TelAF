@@ -243,6 +243,7 @@ FUNCTION DIDChangeHandler GetDIDHandlerRef
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid handlerRef.
  *     - LE_DUPLICATE -- Data identifier already added.
+ *     - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------

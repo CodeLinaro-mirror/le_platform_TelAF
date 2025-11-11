@@ -705,6 +705,7 @@ void taf_diagDidStore::DidMsgPluginCB
         LE_ERROR("Received value is NULL!");
         return;
     }
+    bool isDIDAvailable = false;
 
     le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(didStorageNotifyList));
     while (linkHandlerPtr)
@@ -722,11 +723,20 @@ void taf_diagDidStore::DidMsgPluginCB
                 if (dataIdPtr != NULL && dataIdPtr->dataId == dataID)
                 {
                     LE_INFO("Notify DataID %x as changed", dataIdPtr->dataId);
+                    isDIDAvailable = true;
                     handlerCtxPtr->func(dataID, value, len, handlerCtxPtr->ctxPtr);
                 }
             }
         }
     }
+
+    if(!isDIDAvailable)
+    {
+        LE_DEBUG("Remove data change notification for DID %x", dataID);
+        auto &didStore = taf_diagDidStore::GetInstance();
+        didStore.didStorInf->diagDIDRemoveDataChangeNotification(dataID);
+    }
+    return;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -755,6 +765,23 @@ taf_diagDidStore_DataIdChangeHandlerRef_t taf_diagDidStore::AddDataIdChangeHandl
     if (servicePtr->msgDIDStorgHandlerRef != NULL)
     {
         LE_ERROR("DID notification handler is already registered");
+        return NULL;
+    }
+
+    // Add the DID to plugin change notification list
+    if(didStorInf)
+    {
+        le_result_t res = didStorInf->diagDIDAddDataChangeNotification(dataId);
+        if (res == LE_FAULT)
+        {
+            LE_ERROR("DID %x not registered to plugin, error with return %d",dataId, res);
+            return NULL;
+        }
+        LE_DEBUG("DID %x registered to plugin to notify on change, return with %d", dataId, res);
+    }
+    else
+    {
+        LE_ERROR("Plugin not initialized");
         return NULL;
     }
 
@@ -840,6 +867,23 @@ le_result_t taf_diagDidStore::AddDIDToHandler
             return LE_DUPLICATE;
         }
         linkPtr = le_dls_PeekNext(&handlerObjPtr->dataIdList, linkPtr);
+    }
+
+    // Add the DID to plugin change notification list
+    if(didStorInf)
+    {
+        le_result_t res = didStorInf->diagDIDAddDataChangeNotification(dataId);
+        if (res == LE_FAULT)
+        {
+            LE_ERROR("DID %x not registered to plugin, error with return %d",dataId, res);
+            return LE_FAULT;
+        }
+        LE_DEBUG("DID %x registered to plugin to notify on change, return with %d", dataId, res);
+    }
+    else
+    {
+        LE_ERROR("Plugin not initialized");
+        return LE_FAULT;
     }
 
     // Add DataID to the list

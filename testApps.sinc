@@ -1,0 +1,90 @@
+apps:
+{
+    $TELAF_ROOT/apps/test/tafSensorTest/tafSensorUnitTest/tafSensorUnitTest
+    $TELAF_ROOT/apps/test/tafSensorTest/tafSensorIntTest/tafSensorIntTest
+    $TELAF_ROOT/apps/test/tafDevInfoTest/tafDevInfoUnitTest
+    $TELAF_ROOT/apps/test/tafDevInfoTest/tafDevInfoIntTest
+    $TELAF_ROOT/apps/test/tafVerInfoTest/tafVerInfoUnitTest
+    $TELAF_ROOT/apps/test/tafVerInfoTest/tafVerInfoIntTest
+    // $TELAF_ROOT/apps/test/tafLxcInitApp/tafLxcInitApp
+    $TELAF_ROOT/apps/test/tafThermTest/tafThermUnitTest
+    $TELAF_ROOT/apps/test/tafThermTest/tafThermIntTest
+    $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallUnitTest/tafDataCallUnitTest
+    $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallIntTest/tafDataCallIntTest
+    $TELAF_ROOT/apps/test/tafVoiceCallTest/tafVoiceCallUnitTest/tafVoiceCallUnitTest
+    $TELAF_ROOT/apps/test/tafRadioTest/tafRadioUnitTest
+    $TELAF_ROOT/apps/test/tafRadioTest/tafRadioIntTest
+    $LEGATO_ROOT/apps/sample/voiceCallApp/voiceCallApp
+    $TELAF_ROOT/apps/test/tafSimTest/tafSimIntegrationTest/tafSimIntTest
+    $TELAF_ROOT/apps/test/tafSimTest/tafSimUnitTest/tafSimUnitTest
+    $TELAF_ROOT/apps/test/tafSmsTest/tafSMSUnitTest
+    $TELAF_ROOT/apps/test/tafSmsTest/tafSmsIntTest
+    $TELAF_ROOT/apps/test/tafRSimTest/tafRSimUnitTest/tafRSimUnitTest
+    $TELAF_ROOT/apps/test/tafRSimTest/tafSAPServerUnitTest/tafSAPServerUnitTest
+    $TELAF_ROOT/apps/test/tafSimTest/tafRSPUnitTest/tafRSPUnitTest
+    $TELAF_ROOT/apps/sample/remoteSim/tafRSimApp
+    $TELAF_ROOT/apps/sample/sapCard/tafSAPProviderApp
+    $TELAF_ROOT/apps/test/tafUpdateTest/tafUpdateUnitTest
+    $TELAF_ROOT/apps/test/tafUpdateTest/tafUpdateIntTest
+    $TELAF_ROOT/apps/test/tafUpdateTest/tafFlashUnitTest
+    $TELAF_ROOT/apps/test/tafUpdateTest/tafFlashIntTest
+    $TELAF_ROOT/apps/sample/rsp/tafRSPApp
+    $TELAF_ROOT/apps/test/tafMRCTest/tafMRCUnitTest
+    $TELAF_ROOT/apps/test/tafMRCTest/tafMRCIntTest
+    $TELAF_ROOT/apps/test/tafECallTest/tafECallUnitTest/tafECallUnitTest
+    $TELAF_ROOT/apps/test/tafNetTest/tafNetUnitTest/tafNetUnitTest
+    $TELAF_ROOT/apps/test/tafNetTest/tafDualNadTest/tafDualNadTest
+    $TELAF_ROOT/apps/test/tafNetTest/tafNetIntTest/tafNetIntTest
+    $TELAF_ROOT/apps/test/tafKeyStoreTest/tafKeyStoreUnitTest/tafKeyStoreUnitTest
+    $TELAF_ROOT/apps/test/tafKeyStoreTest/keySharingTest/keySharingOwnerTest
+    $TELAF_ROOT/apps/test/tafKeyStoreTest/keySharingTest/keySharingClientTest
+    $TELAF_ROOT/apps/test/tafPMTest/tafPMUnitTest/tafPMUnitTest
+    $TELAF_ROOT/apps/test/tafPMTest/tafPMIntgTest/tafPMIntgTest
+    $TELAF_ROOT/apps/test/tafGpioTest/tafGpioUnitTest.adef
+    $TELAF_ROOT/apps/sample/eCallDemo/tafECallApp
+    $TELAF_ROOT/apps/test/tafLocationTest/tafLocationUnitTest/tafLocationUnitTest
+    $TELAF_ROOT/apps/test/tafCanTest/tafCanUnitTest/tafCanUnitTest
+    $TELAF_ROOT/apps/test/tafFSCryptTest/tafFSCryptUnitTest/tafFSCryptUnitTest
+    $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipSvrUnitTest/tafSomeipSvrUnitTest
+    $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipClntUnitTest/tafSomeipClntUnitTest
+    $TELAF_ROOT/apps/test/tafSomeipGWTest/multiVersionsTest/tafSomeipVersionClntTest
+    $TELAF_ROOT/apps/test/tafSomeipGWTest/multiVersionsTest/tafSomeipVersionSvrTest
+    $TELAF_ROOT/apps/test/tafAudioTest/tafAudioUnitTest/tafAudioUnitTest
+    $TELAF_ROOT/apps/test/ConsoleApp/tafAudioApp/tafAudioConsoleApp
+    $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdConnIntTest/tafMngdConnIntTest
+    $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPMIntTest/tafMngdPMIntTest
+    $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPMUnitTest/tafMngdPMUnitTest
+    $TELAF_ROOT/apps/sample/diagApp/tafDiagApp
+    $TELAF_ROOT/apps/sample/diagEventApp/tafDiagEventApp
+    $TELAF_ROOT/apps/sample/diagCancelFileXfer/tafDiagCancelFileXfer
+    $TELAF_ROOT/apps/sample/diagState/tafDiagState.adef
+    $TELAF_ROOT/apps/test/tafDidStoreTest/tafDidStoreUnitTest
+    $TELAF_ROOT/apps/test/tafAdefTest/tafAdefUnitTest
+    $TELAF_ROOT/apps/test/tafTimeTest/tafTimeUnitTest
+    $TELAF_ROOT/apps/test/tafTimeTest/tafTimeIntTest
+    $TELAF_ROOT/apps/test/tafLXCIntTest/tafLXCIntTest.adef
+    $TELAF_ROOT/apps/test/tafHMSTest/tafHMSUnitTest
+    $TELAF_ROOT/apps/test/tafHMSTest/tafHMSIntTest
+    $TELAF_ROOT/apps/test/tafWLAN/tafWlanUnitTest.adef
+    $TELAF_ROOT/apps/test/tafWLAN/tafWlanIntTest.adef
+    $TELAF_ROOT/apps/test/tafWLAN/tafWlanAPIntTest.adef
+    $TELAF_ROOT/apps/test/tafWLAN/tafWlanSTAIntTest.adef
+    $TELAF_ROOT/apps/test/tafRFSTest/tafRFSUnitTest/tafRFSUnitTest
+    $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdStorageUnitTest
+    $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdSecSharedApp
+    $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdStorageUnitTest/tafMngdSec2ndSharedApp
+    $TELAF_ROOT/apps/test/configtreeImportTest/configUnitTest.adef
+    $TELAF_ROOT/apps/sample/configTree/configTreeSample.adef
+    $TELAF_ROOT/framework/test/linkTest/linkDeviceUnitTest.adef
+    $TELAF_ROOT/framework/test/linkTest/linkRequireUnitTest.adef
+    $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmWsFilterTest/tafMngdPmWsFilterTest.adef
+    $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestDaemon/tafMngdPmTestDaemon.adef
+    $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestClient/tafMngdPmTestClient.adef
+}
+
+interfaceSearch:
+{
+    $LEGATO_ROOT/apps/sample/voiceCallApp
+    $TELAF_ROOT/apps/test/tafPMTest/tafPMIntgTest
+    $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestDaemon/tafMngdPmTestDaemonComp/
+}

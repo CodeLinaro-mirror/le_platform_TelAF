@@ -11,16 +11,9 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
-#include <telux/platform/SubsystemFactory.hpp>
-#include <telux/platform/SubsystemManager.hpp>
-#include <telux/common/CommonDefines.hpp>
-
-#include <telux/tel/PhoneManager.hpp>
-
-#include <telux/tel/Phone.hpp>
-#include <telux/tel/PhoneDefines.hpp>
-#include <telux/tel/PhoneFactory.hpp>
-#include <telux/tel/PhoneListener.hpp>
+#include "taf_pa_health.hpp"
+#include <memory>
+#include <future>
 
 using namespace std;
 
@@ -61,12 +54,9 @@ using namespace std;
 #define UNUSED(arg) (arg = arg)
 
 #define TAF_HMS_MAX_EVENT_POOL_SIZE 10
-#define TAF_HMS_MODEM_RESET_TIMER 120000
 #define TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_LOW 1
 #define TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_MEDIUM 2
 #define TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_HIGH 3
-#define TAF_HMS_SUBSYSTEM_MANAGER_TIMEOUT 30
-#define TAF_HMS_PHONE_MANAGER_TIMEOUT     30
 
 // For reset reason
 #define TAF_HMS_BOOT_REASON_PATH "/sys/kernel/reboot_reason/reason"
@@ -76,15 +66,15 @@ using namespace std;
 
 //-------------------------------------------------------------------------------------------------
 /**
-* Important: MODEM_CHECK_STATUS_INTERVAL is used for counting the response of modem status, please
-* also change the response counter in the request function if this interval got change.
-*
-* Note, the modem needs about 11 seconds for reset (send_data 75 37 03 00 00)
-*/
+-* Important: MODEM_CHECK_STATUS_INTERVAL is used for counting the response of modem status, please
+-* also change the response counter in the request function if this interval got change.
+-*
+-* Note, the modem needs about 11 seconds for reset (send_data 75 37 03 00 00)
+-*/
 //-------------------------------------------------------------------------------------------------
 #define MODEM_CHECK_STATUS_INTERVAL 3000   //Time interval for checking the modem status
-#define COUNTER_RESPONSE_TIME_OUT   2 //Report event to client if the counter equal to this macro
-#define COUNTER_EVENT_REPORT_DONE   3 //Stop requesting the status if event reported to the client
+#define COUNTER_RESPONSE_TIME_OUT   2      //Report event to client if counter equal to this macro
+#define COUNTER_EVENT_REPORT_DONE   3      //Stop requesting status if event reported to client
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -208,6 +198,7 @@ typedef struct
 * Structure to hold the Modem Info
 */
 //-------------------------------------------------------------------------------------------------
+
 typedef struct
 {
     taf_hms_ModemEvtHandlerRef_t  handlerRef = NULL;
@@ -216,11 +207,6 @@ typedef struct
     void* contextPtr;
 }taf_hms_modemInfo_t;
 
-//-------------------------------------------------------------------------------------------------
-/**
-* Structure to hold the Modem Info
-*/
-//-------------------------------------------------------------------------------------------------
 typedef struct
 {
     taf_hms_ModemEvtType_t      eventType;
@@ -250,7 +236,7 @@ typedef struct
  */
 //--------------------------------------------------------------------------------------------------
 namespace tafsvc {
-    class tafHmsListener : public telux::platform::ISubsystemListener {
+    class tafHmsListener {
         public:
         tafHmsListener() {};
         ~tafHmsListener() {};
@@ -265,8 +251,6 @@ namespace tafsvc {
             static tafHmsListener instance;
             return instance;
         }
-        void onStateChange(telux::common::SubsystemInfo subsystemInfo,
-            telux::common::OperationalStatus newOperationalStatus) override;
 
         void StartResetTimer(void);
         void DeleteResetTime(void);
@@ -275,8 +259,7 @@ namespace tafsvc {
             static bool ModemAvailability;
     };
 
-    class ModemStatus : public telux::tel::IOperatingModeCallback,
-                        public std::enable_shared_from_this<ModemStatus> {
+    class ModemStatus {
     public:
         ModemStatus() {};
         ~ModemStatus() {};
@@ -285,16 +268,11 @@ namespace tafsvc {
             static ModemStatus instance;
             return instance;
         }
-        bool PhoneInit(void);
         void CheckOperModeStatus(void);
+        void HandleOperatingModeResponse(void);
         void ReqsOperatingMode(void);
-        void operatingModeResponse(telux::tel::OperatingMode operatingMode,
-                                   telux::common::ErrorCode error) override;
         void ReportModemStatus(taf_hms_ModemEvtType_t eventType,
-                                     taf_hms_ModemEvtSeverity_t eventLevel);
-
-    private:
-        std::shared_ptr<telux::tel::IPhoneManager> phoneManager_{nullptr};
+                                    taf_hms_ModemEvtSeverity_t eventLevel);
         std::shared_ptr<std::promise<bool>> responsePromise_{nullptr};
         int pendingCount_{0};  // Counter for consecutive requests without response
     };
@@ -383,8 +361,5 @@ namespace tafsvc {
             le_ref_MapRef_t UbiVolRefMap;
             le_ref_MapRef_t MtdListRefMap;
             le_ref_MapRef_t MtdRefMap;
-
-            std::shared_ptr<telux::platform::ISubsystemManager> subsystemMgr;
-            std::shared_ptr<tafHmsListener> stateListener;
     };
   }

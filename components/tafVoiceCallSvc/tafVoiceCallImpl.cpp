@@ -108,28 +108,8 @@ void Handler::PaEventListener(taf_pa_voicecall_Ref_t reference, taf_pa_voicecall
 
     LE_INFO("PA event phone %d, dest %s, dir %d, event %s", phoneId, destinationPtr, direction, myCall.PaEventToString(event));
 
-    // To fix the corner case, iCall is released later when testing with telsdk app,
-    // callRef is used for the event report.
-    taf_VoiceCtrl_t* callCtxPtr = myCall.GetCallCtx(phoneId, destinationPtr, myCall.DirConvert(direction));
-    if ((callCtxPtr == NULL) && (event != TAF_PA_VOICECALL_EVENT_INCOMING) && (event != TAF_PA_VOICECALL_EVENT_WAITING))
-    {
-        LE_ERROR("Cannot get ctx from phone %d and dest: %s, event: %s", phoneId, destinationPtr, myCall.PaEventToString(event));
-        return;
-    }
-    else
-    {
-        LE_INFO("Incoming or waiting call Id: %d, CtxPtr: %p, event: %s", phoneId, callCtxPtr, myCall.PaEventToString(event));
-    }
-
-    if (callCtxPtr != NULL)
-    {
-        msgCallEvent.callRef = callCtxPtr->callRef;
-    }
-    else
-    {
-        msgCallEvent.callRef = nullptr;
-    }
     le_utf8_Copy(msgCallEvent.dest, destinationPtr, MAX_DESTINATION_LEN, NULL);
+    msgCallEvent.callRef = NULL;
     msgCallEvent.phoneId = phoneId;
     msgCallEvent.event = myCall.EventConvert(event);
     msgCallEvent.direction = myCall.DirConvert(direction);
@@ -393,12 +373,22 @@ void VoiceCallSvc::CallHandler(CallEvent_t *eventVoicePtr)
 {
     TAF_ERROR_IF_RET_NIL(eventVoicePtr == NULL, "eventVoicePtr is NULL");
 
+    // To fix the corner case, iCall is released later when testing with telsdk app,
+    // callRef is used for the event report.
     taf_VoiceCtrl_t* callCtxPtr = GetCallCtx(eventVoicePtr->callRef);
-    TAF_ERROR_IF_RET_NIL((callCtxPtr == NULL) && (eventVoicePtr->event != TAF_VOICECALL_EVENT_INCOMING) && (eventVoicePtr->event != TAF_VOICECALL_EVENT_WAITING),
-        "cannot found callCtx for event: %s", EventToString(eventVoicePtr->event));
+    if (callCtxPtr == NULL)
+    {
+        callCtxPtr = GetCallCtx(eventVoicePtr->phoneId, eventVoicePtr->dest, eventVoicePtr->direction);
+        if ((callCtxPtr == NULL) && (eventVoicePtr->event != TAF_VOICECALL_EVENT_INCOMING) && (eventVoicePtr->event != TAF_VOICECALL_EVENT_WAITING))
+        {
+            LE_ERROR("Cannot get ctx from phone %d and dest: %s, event: %s, skipping..",
+                eventVoicePtr->phoneId, eventVoicePtr->dest, EventToString(eventVoicePtr->event));
+            return;
+        }
+    }
 
-    LE_INFO("Event: %s, callRef: %p, callCtx: %p, dest: %s",
-        EventToString(eventVoicePtr->event), eventVoicePtr->callRef, callCtxPtr, eventVoicePtr->dest);
+    LE_INFO("Call Id: %d, CtxPtr: %p, event: %s",
+        eventVoicePtr->phoneId, callCtxPtr, EventToString(eventVoicePtr->event));
 
     // for incoming call, may need to create callCtx if cannot found
     if ((callCtxPtr == NULL) && 

@@ -11,8 +11,11 @@
 #include <vector>
 #include <iostream>
 #include "tafNatImpl.hpp"
+#include "tafNetworkImpl.hpp"
+#include "tafNetUtility.hpp"
 #include <arpa/inet.h>
 #include "tafSvcIF.hpp"
+#include "taf_pa_nat.hpp"
 
 using namespace tafsvc;
 
@@ -26,10 +29,6 @@ LE_REF_DEFINE_STATIC_MAP(destNatEntryListRefMap, TAF_DCS_PROFILE_LIST_MAX_ENTRY)
 
 LE_REF_DEFINE_STATIC_MAP(destNatEntrySafeRefMap, TAF_NET_MAX_NAT_ENTRY);
 
-
-std::vector<telux::data::net::NatConfig> tafNatCallback::destNatEntryInfo;
-
-le_sem_Ref_t tafNatCallback::semaphore = nullptr;
 
 /*======================================================================
 
@@ -48,10 +47,18 @@ le_sem_Ref_t tafNatCallback::semaphore = nullptr;
 ======================================================================*/
 void taf_Nat::Init(void)
 {
-    bool isReady = false;
+    le_result_t isReady = LE_OK;
 
-    // 1. Initiate the semaphore
-    tafNatCallback::semaphore = le_sem_Create("taf_NatDestNatEntryRespCbSem", 0);
+    isReady =  PA_TO_LE_RESULT(taf_pa_nat_Init());
+
+    if(isReady == LE_OK)
+    {
+        LE_INFO("natManager component is ready...");
+    }
+    else
+    {
+        LE_CRIT("unable to init natManager component!");
+    }
 
     // 2. create the event id
     DestNatChangeEvId = le_event_CreateIdWithRefCounting("DestNatRouteChange");
@@ -72,64 +79,6 @@ void taf_Nat::Init(void)
     destNatEntryListRefMap = le_ref_InitStaticMap(destNatEntryListRefMap, TAF_DCS_PROFILE_LIST_MAX_ENTRY);
 
     destNatEntrySafeRefMap = le_ref_InitStaticMap(destNatEntrySafeRefMap, TAF_NET_MAX_NAT_ENTRY);
-
-    // 5. Get the DataFactory and staticNatManager instances
-    if (staticNatManager == nullptr)
-    {
-        auto &dataFactory = telux::data::DataFactory::getInstance();
-//SA415 using old telsdk,without initCb parameter
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-        auto initCb = std::bind(&taf_Nat::onInitComplete, this, std::placeholders::_1);
-        staticNatManager = dataFactory.getNatManager(telux::data::OperationType::DATA_LOCAL, initCb);
-#else
-        staticNatManager = dataFactory.getNatManager(telux::data::OperationType::DATA_LOCAL);
-#endif
-    }
-
-    if(staticNatManager == nullptr )
-    {
-        LE_INFO("Nat manager initialize error...");
-        return ;
-    }
-
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-    // 6. Check if subsystem status
-    std::unique_lock<std::mutex> lck(mMutex);
-
-    telux::common::ServiceStatus subSystemStatus = staticNatManager->getServiceStatus();
-
-    if (subSystemStatus == telux::common::ServiceStatus::SERVICE_UNAVAILABLE)
-    {
-        LE_INFO("Nat manager initialize...");
-        conVar.wait(lck, [this]{return this->IsSubSystemStatusUpdated;});
-        subSystemStatus = staticNatManager->getServiceStatus();
-    }
-
-    //At this point, initialization should be either AVAILABLE or FAIL
-    if (subSystemStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
-    {
-        LE_ERROR("SNAT Manager initialization failed");
-        staticNatManager = nullptr;
-        return ;
-    }
-#endif
-    isReady = staticNatManager->isSubsystemReady();
-
-    if(isReady == false)
-    {
-        LE_INFO("Nat component is not ready, wait for it unconditionally...");
-        std::future<bool> readyFunc = staticNatManager->onSubsystemReady();
-        isReady = readyFunc.get();
-    }
-
-    if(isReady)
-    {
-        LE_INFO("nat component is ready...");
-    }
-    else
-    {
-        LE_CRIT("unable to init nat component!");
-    }
 
     return;
 }
@@ -183,29 +132,8 @@ void taf_Nat::FirstLayerDestNatChangeHandler(void *reportPtr, void *secondLayerH
 
     le_mem_Release(reportPtr);
 }
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-/*======================================================================
 
- FUNCTION        taf_Nat::onInitComplete
 
- DESCRIPTION     Call back function of getNatManager.
-
- DEPENDENCIES    The initialization of Nat.
-
- PARAMETERS      [IN] telux::common::ServiceStatus status : Nat manager service status.
-
- RETURN VALUE    None
-
- SIDE EFFECTS
-
-======================================================================*/
-void taf_Nat::onInitComplete(telux::common::ServiceStatus status)
-{
-    std::lock_guard<std::mutex> lock(mMutex);
-    IsSubSystemStatusUpdated = true;
-    conVar.notify_all();
-}
-#endif
 /*======================================================================
 
  FUNCTION        taf_Nat::AddDestNatEntry
@@ -232,10 +160,8 @@ le_result_t taf_Nat::AddDestNatEntry(uint32_t profileId, const char *priIpAddrPt
 {
     struct sockaddr_in6 addr6;
     struct sockaddr_in addr;
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-    SlotId slot = SlotId::DEFAULT_SLOT_ID;
-#endif
-    struct telux::data::net::NatConfig snatConfig;
+    uint8_t slotId = DEFAULT_SLOT_ID_1;
+
     taf_net_DestNatChangeInd_t *reportPtr = NULL;
     le_result_t result;
 
@@ -248,37 +174,27 @@ le_result_t taf_Nat::AddDestNatEntry(uint32_t profileId, const char *priIpAddrPt
         return LE_BAD_PARAMETER;
     }
 
-    snatConfig.addr= priIpAddrPtr;
-    snatConfig.port = priPort;
-    snatConfig.globalPort = globalPort;
-    snatConfig.proto = (uint8_t)ipProto;
+    // Prepare PA NAT config
+    taf_pa_net_NatConfig_t natConfig;
+    le_utf8_Copy(natConfig.addr, priIpAddrPtr, sizeof(natConfig.addr), NULL);
+    natConfig.port = priPort;
+    natConfig.globalPort = globalPort;
+    natConfig.proto = (uint8_t)ipProto;
 
-    NatSyncPromise = std::promise<le_result_t>();
+    // Call PA layer function
+    result = PA_TO_LE_RESULT(taf_pa_nat_AddDestNatEntry(profileId, slotId, &natConfig));
 
-    std::shared_ptr<tafNatCallback> addStaticNatEntryCb = std::make_shared<tafNatCallback>();
-
-    auto  addStaticEntryRespCb = std::bind(&tafNatCallback::onResponseCallback, addStaticNatEntryCb, std::placeholders::_1);
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-    Status status = staticNatManager->addStaticNatEntry(profileId, snatConfig, addStaticEntryRespCb,slot);
-#else
-    Status status = staticNatManager->addStaticNatEntry(profileId, snatConfig, addStaticEntryRespCb);
-#endif
-    if (status == Status::SUCCESS)
+    if (result == LE_OK)
     {
-        std::future<le_result_t> futureResult = NatSyncPromise.get_future();
-        result = futureResult.get();
-        if(result == LE_OK)
-        {
-            reportPtr = (taf_net_DestNatChangeInd_t*)le_mem_ForceAlloc(DestNatChangePool);
-            reportPtr->profileId = profileId;
-            reportPtr->action = TAF_NET_ADD;
-            le_event_ReportWithRefCounting(DestNatChangeEvId, (void*)reportPtr);
-            return LE_OK;
-        }
+        reportPtr = (taf_net_DestNatChangeInd_t*)le_mem_ForceAlloc(DestNatChangePool);
+        reportPtr->profileId = profileId;
+        reportPtr->action = TAF_NET_ADD;
+        le_event_ReportWithRefCounting(DestNatChangeEvId, (void*)reportPtr);
+        return LE_OK;
     }
     else
     {
-        LE_ERROR( "ERROR - Failed to send add static entry, Status:%d ", static_cast<int>(status));
+        LE_ERROR("ERROR - Failed to add destination NAT entry, result: %d", static_cast<int>(result));
     }
 
     return LE_FAULT;
@@ -310,10 +226,8 @@ le_result_t taf_Nat::RemoveDestNatEntry(uint32_t profileId, const char *priIpAdd
 {
     struct sockaddr_in6 addr6;
     struct sockaddr_in addr;
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-    SlotId slot = SlotId::DEFAULT_SLOT_ID;
-#endif
-    struct telux::data::net::NatConfig snatConfig;
+    uint8_t slotId = DEFAULT_SLOT_ID_1;
+
     taf_net_DestNatChangeInd_t *reportPtr = NULL;
     le_result_t result;
 
@@ -334,37 +248,27 @@ le_result_t taf_Nat::RemoveDestNatEntry(uint32_t profileId, const char *priIpAdd
     }
 
     //if destination NAT entry exists,remove it
-    snatConfig.addr= priIpAddrPtr;
-    snatConfig.port = priPort;
-    snatConfig.globalPort = globalPort;
-    snatConfig.proto = (uint8_t)ipProto;
+    // Prepare PA NAT config
+    taf_pa_net_NatConfig_t natConfig;
+    le_utf8_Copy(natConfig.addr, priIpAddrPtr, sizeof(natConfig.addr), NULL);
+    natConfig.port = priPort;
+    natConfig.globalPort = globalPort;
+    natConfig.proto = (uint8_t)ipProto;
 
-    NatSyncPromise = std::promise<le_result_t>();
+    // Call PA layer function
+    result = PA_TO_LE_RESULT(taf_pa_nat_RemoveDestNatEntry(profileId, slotId, &natConfig));
 
-    std::shared_ptr<tafNatCallback> addStaticNatEntryCb = std::make_shared<tafNatCallback>();
-
-    auto  addStaticEntryRespCb = std::bind(&tafNatCallback::onResponseCallback, addStaticNatEntryCb, std::placeholders::_1);
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-    Status status = staticNatManager->removeStaticNatEntry(profileId, snatConfig, addStaticEntryRespCb,slot);
-#else
-    Status status = staticNatManager->removeStaticNatEntry(profileId, snatConfig, addStaticEntryRespCb);
-#endif
-    if (status == Status::SUCCESS)
+    if (result == LE_OK)
     {
-        std::future<le_result_t> futureResult = NatSyncPromise.get_future();
-        result = futureResult.get();
-        if(result == LE_OK)
-        {
-            reportPtr = (taf_net_DestNatChangeInd_t*)le_mem_ForceAlloc(DestNatChangePool);
-            reportPtr->profileId = profileId;
-            reportPtr->action = TAF_NET_DELETE;
-            le_event_ReportWithRefCounting(DestNatChangeEvId, (void*)reportPtr);
-            return LE_OK;
-        }
+        reportPtr = (taf_net_DestNatChangeInd_t*)le_mem_ForceAlloc(DestNatChangePool);
+        reportPtr->profileId = profileId;
+        reportPtr->action = TAF_NET_DELETE;
+        le_event_ReportWithRefCounting(DestNatChangeEvId, (void*)reportPtr);
+        return LE_OK;
     }
     else
     {
-        LE_ERROR( "ERROR - Failed to send remove static entry, Status:%d ", static_cast<int>(status));
+        LE_ERROR("ERROR - Failed to remove destination NAT entry, result: %d", static_cast<int>(result));
     }
 
     return LE_FAULT;
@@ -393,36 +297,25 @@ le_result_t taf_Nat::RemoveDestNatEntry(uint32_t profileId, const char *priIpAdd
 ======================================================================*/
 bool taf_Nat::IsDestNatEntryPresent(uint32_t profileId, const char* priIpAddrPtr, uint16_t priPort, uint16_t globalPort, taf_net_IpProto_t ipProto)
 {
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-    SlotId slot = SlotId::DEFAULT_SLOT_ID;
-#endif
-    TAF_ERROR_IF_RET_VAL(staticNatManager == NULL, false, "staticNatManager is null");
+    uint8_t slotId = DEFAULT_SLOT_ID_1;
+    le_result_t result;
 
-    std::chrono::time_point<std::chrono::system_clock> startTime = std::chrono::system_clock::now();
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-    telux::common::Status status = staticNatManager->requestStaticNatEntries( profileId, tafNatCallback::onNatListResponse,slot);
-#else
-    telux::common::Status status = staticNatManager->requestStaticNatEntries( profileId, tafNatCallback::onNatListResponse);
-#endif
-    if (status == telux::common::Status::SUCCESS)
+    std::vector<taf_pa_net_NatConfig_t> natEntryInfo;
+
+    result = PA_TO_LE_RESULT(taf_pa_nat_QueryDestNatEntryList(profileId, slotId, natEntryInfo));
+
+    if (result == LE_OK)
     {
-        le_clk_Time_t timeToWait = {1, 0};
-        le_result_t res = le_sem_WaitWithTimeOut(tafNatCallback::semaphore, timeToWait);
-        TAF_ERROR_IF_RET_VAL(res != LE_OK, false, "Wait semaphore timeout\n");
-        std::chrono::time_point<std::chrono::system_clock> endTime = std::chrono::system_clock::now();
-        std::chrono::duration<double> elapsedTime = endTime - startTime;
-        LE_DEBUG("Elapsed time: %lfs\n", elapsedTime.count());
-
-        if(tafNatCallback::destNatEntryInfo.size() == 0)
+        if(natEntryInfo.size() == 0)
         {
             LE_DEBUG("profileId %d has no destination NAT entry", profileId);
             return false;
         }
 
-        for (auto info : tafNatCallback::destNatEntryInfo)
+        for (auto info : natEntryInfo)
         {
-            if(info.port == priPort && info.globalPort == globalPort && info.proto == ipProto &&
-               strncmp(info.addr.c_str(),priIpAddrPtr,TAF_DCS_USER_NAME_MAX_LEN) == 0)
+            if(info.port == priPort && info.globalPort == globalPort && info.proto == (uint8_t)ipProto &&
+               strncmp(info.addr, priIpAddrPtr, TAF_DCS_USER_NAME_MAX_LEN) == 0)
             {
                 LE_DEBUG("the dest nat entry exists in the system");
                 return true;
@@ -431,7 +324,7 @@ bool taf_Nat::IsDestNatEntryPresent(uint32_t profileId, const char* priIpAddrPtr
     }
     else
     {
-        LE_ERROR("Request static nat entry list failed, status: %d",int(status));
+        LE_ERROR("Request static nat entry list failed, result: %d", int(result));
         return false;
     }
     return false;
@@ -456,32 +349,19 @@ bool taf_Nat::IsDestNatEntryPresent(uint32_t profileId, const char* priIpAddrPtr
 ======================================================================*/
 taf_net_DestNatEntryListRef_t taf_Nat::GetDestNatEntryList(uint32_t profileId)
 {
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-    SlotId slot = SlotId::DEFAULT_SLOT_ID;
-#endif
+    uint8_t slotId = DEFAULT_SLOT_ID_1;
     le_ref_IterRef_t iterRef;
     bool isAdded = false;
     taf_DestNatEntryList_t* existedDestNatEntryList;
+    le_result_t result;
 
-    TAF_ERROR_IF_RET_VAL(staticNatManager == NULL, nullptr, "staticNatManager is null");
+    std::vector<taf_pa_net_NatConfig_t> natEntryInfo;
 
-    std::shared_ptr<tafNatCallback> staticNatEntryListCb = std::make_shared<tafNatCallback>();
+    result = PA_TO_LE_RESULT(taf_pa_nat_QueryDestNatEntryList(profileId, slotId, natEntryInfo));
 
-    std::chrono::time_point<std::chrono::system_clock> startTime = std::chrono::system_clock::now();
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-    telux::common::Status status = staticNatManager->requestStaticNatEntries( profileId, tafNatCallback::onNatListResponse,slot);
-#else
-    telux::common::Status status = staticNatManager->requestStaticNatEntries( profileId, tafNatCallback::onNatListResponse);
-#endif
-    if (status == telux::common::Status::SUCCESS)
+    if (result == LE_OK)
     {
-        le_clk_Time_t timeToWait = {1, 0};
-        le_result_t res = le_sem_WaitWithTimeOut(tafNatCallback::semaphore, timeToWait);
-        TAF_ERROR_IF_RET_VAL(res != LE_OK, nullptr, "Wait semaphore timeout\n");
-        std::chrono::time_point<std::chrono::system_clock> endTime = std::chrono::system_clock::now();
-        std::chrono::duration<double> elapsedTime = endTime - startTime;
-        LE_DEBUG("Elapsed time: %lfs\n", elapsedTime.count());
-        if(tafNatCallback::destNatEntryInfo.size() == 0)
+        if(natEntryInfo.size() == 0)
         {
             LE_DEBUG("profileId %d has no destination NAT entry", profileId);
             return NULL;
@@ -515,13 +395,13 @@ taf_net_DestNatEntryListRef_t taf_Nat::GetDestNatEntryList(uint32_t profileId)
 
         taf_DestNatEntry_t* destNatEntryPtr;
 
-        for (auto info : tafNatCallback::destNatEntryInfo)
+        for (auto info : natEntryInfo)
         {
             destNatEntryPtr = (taf_DestNatEntry_t*)le_mem_ForceAlloc(destNatEntryPool);
             destNatEntryPtr->info.port=info.port;
             destNatEntryPtr->info.globalPort=info.globalPort;
             destNatEntryPtr->info.proto=info.proto;
-            le_utf8_Copy(destNatEntryPtr->info.addr, info.addr.c_str(), TAF_NET_IP_ADDR_MAX_LEN, NULL);
+            le_utf8_Copy(destNatEntryPtr->info.addr, info.addr, TAF_NET_IP_ADDR_MAX_LEN, NULL);
             destNatEntryPtr->link = LE_SLS_LINK_INIT;
             le_sls_Queue(&(destNatEntriesList->destNatEntryList), &(destNatEntryPtr->link));
         }
@@ -531,7 +411,7 @@ taf_net_DestNatEntryListRef_t taf_Nat::GetDestNatEntryList(uint32_t profileId)
     }
     else
     {
-        LE_ERROR("Request static nat entry list failed, status: %d",int(status));
+        LE_ERROR("Request static nat entry list failed, result: %d",int(result));
         return NULL;
     }
 
@@ -810,81 +690,25 @@ bool taf_Nat::IsRmnetBringUp(uint32_t profileId)
 
  FUNCTION        taf_Nat::MapIPProtocol
 
- DESCRIPTION     Map the enum from telux::data::IpProtocol to taf_net_IpProto_t.
+ DESCRIPTION     Map the enum from uint8_t to taf_net_IpProto_t.
 
  DEPENDENCIES    The initialization of Nat.
 
- PARAMETERS      [IN] telux::data::IpProtocol iptype: The IP protocol number.
+ PARAMETERS      [IN] uint8_t iptype: The IP protocol number.
  RETURN VALUE    taf_net_IpProto_t.
 
  SIDE EFFECTS
 
 ======================================================================*/
-taf_net_IpProto_t taf_Nat::MapIPProtocol(telux::data::IpProtocol iptype)
+taf_net_IpProto_t taf_Nat::MapIPProtocol(uint8_t iptype)
 {
-    return taf_net_IpProto_t(iptype);
-}
-
-/*======================================================================
-
- FUNCTION        tafNatCallback::onResponseCallback
-
- DESCRIPTION     Call back function for adding or removing a static nat entry.
-
- DEPENDENCIES    The initialization of Nat.
-
- PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
-
- RETURN VALUE    None.
-
- SIDE EFFECTS
-
-======================================================================*/
-void tafNatCallback::onResponseCallback(telux::common::ErrorCode error)
-{
-    le_result_t result = LE_OK;
-    auto &tafNat = taf_Nat::GetInstance();
-
-    if (error != telux::common::ErrorCode::SUCCESS)
+    if(iptype == 6)
     {
-        LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
-        result = LE_FAULT;
+        return TAF_NET_TCP;
     }
     else
     {
-        LE_DEBUG("Request processed successfully \n");
+        return TAF_NET_UDP;
     }
-
-    tafNat.NatSyncPromise.set_value(result);
 }
 
-/*======================================================================
-
- FUNCTION        tafNatCallback::onNatListResponse
-
- DESCRIPTION     Call back function for request static nat entry list.
-
- DEPENDENCIES    The initialization of Nat.
-
- PARAMETERS      [IN] const std::vector<telux::data::net::NatConfig> &snatEntries:
-                      The destination nat entry list.
-                 [IN] telux::common::ErrorCode error: error code.
- RETURN VALUE    None.
-
- SIDE EFFECTS
-
-======================================================================*/
-void tafNatCallback::onNatListResponse(const std::vector<telux::data::net::NatConfig> &snatEntries,
-                                       telux::common::ErrorCode error)
-{
-    LE_DEBUG("<SDK Callback> tafNatCallback --> onNatListResponse");
-
-    if (error != telux::common::ErrorCode::SUCCESS)
-    {
-        LE_ERROR("Error(%d)", (int)error);
-    }
-
-    destNatEntryInfo.assign(snatEntries.begin(), snatEntries.end());
-
-    le_sem_Post(semaphore);
-}

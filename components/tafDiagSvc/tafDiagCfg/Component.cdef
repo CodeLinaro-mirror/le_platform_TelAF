@@ -1,6 +1,7 @@
 sources:
 {
     configuration.cpp
+    tafDiagCfgSvc.cpp
 }
 
 provides:
@@ -17,4 +18,9 @@ bundles:
     {
         [rw] ${CURDIR}/diag_template.yaml.json /diag_template.yaml.json
     }
+}
+
+ldflags:
+{
+    -lcrypto
 }

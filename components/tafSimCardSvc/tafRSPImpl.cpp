@@ -87,99 +87,6 @@ void tafRspListener::onConfirmationCodeRequired(SlotId slotId, std::string profi
 }
 #endif
 
-void tafRspCallback::onEidResponse(std::string eid, telux::common::ErrorCode errorCode) {
-        auto &rsp = taf_simRsp::GetInstance();
-    if (errorCode == telux::common::ErrorCode::SUCCESS) {
-        LE_INFO("onEidResponse Eid = %s" , eid.c_str());
-    } else {
-        LE_INFO("Request Eid failed ");
-    }
-    rsp.EidSynchronousPromise.set_value(eid);
-}
-
-void tafRspCallback::onResponseCallback(telux::common::ErrorCode error) {
-    le_result_t result = LE_OK;
-    auto &rsp = taf_simRsp::GetInstance();
-    if (error != telux::common::ErrorCode::SUCCESS) {
-        LE_INFO( "Request failed with errorCode: %d " , static_cast<int>(error));
-        result = LE_FAULT;
-    } else {
-        LE_INFO("Request processed successfully \n");
-    }
-    rsp.ProfileSyncPromise.set_value(result);
-}
-
-void tafRspCallback::onProfileListResponse(
-        const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles,
-        telux::common::ErrorCode errorCode) {
-
-    auto &rsp = taf_simRsp::GetInstance();
-
-    taf_simRsp_ProfileListEvent_t profileListEvent;
-    memset(&profileListEvent, 0, sizeof(taf_simRsp_ProfileListEvent_t));
-
-    if (errorCode == telux::common::ErrorCode::SUCCESS) {
-        if (profiles.size() == 0) {
-            LE_INFO("Profile List is empty");
-            return;
-        }
-        int i = 0;
-        for (auto &profile : profiles) {
-            if (profile) {
-                profileListEvent.simProfileInfo[i].profileId = profile->getProfileId();
-                profileListEvent.simProfileInfo[i].profileType =(taf_simRsp_ProfileType_t) profile->getType();
-                le_utf8_Copy(profileListEvent.simProfileInfo[i].iccid, profile->getIccid().c_str(), TAF_SIM_ICCID_BYTES, NULL);
-                profileListEvent.simProfileInfo[i].isActive = profile->isActive();
-                le_utf8_Copy(profileListEvent.simProfileInfo[i].nickName, profile->getNickName().c_str(), TAF_SIMRSP_NAME_BYTES, NULL);
-                le_utf8_Copy(profileListEvent.simProfileInfo[i].name,profile->getName().c_str(), TAF_SIMRSP_NAME_BYTES, NULL);
-                le_utf8_Copy(profileListEvent.simProfileInfo[i].spn, profile->getSPN().c_str(), TAF_SIMRSP_SPN_LEN, NULL);
-                profileListEvent.simProfileInfo[i].iconType = (taf_simRsp_IconType_t)profile->getIconType();
-                profileListEvent.simProfileInfo[i].profileClass = (taf_simRsp_ProfileClass_t)profile->getClass();
-                profileListEvent.simProfileInfo[i].mask = (profile->getPolicyRule()).to_ulong();
-                i++;
-            }
-            profileListEvent.profileCount = i;
-            profileListEvent.result = LE_OK;
-        }
-    } else {
-        LE_INFO( "\n Request profile list failed, ErrorCode:%d  ",static_cast<int>(errorCode));
-        profileListEvent.result = LE_FAULT;
-    }
-    le_event_Report(rsp.ProfileListEventId, (void *)&profileListEvent, sizeof(profileListEvent));
-}
-
-void tafRspCallback::onServerAddressResponse(std::string smdpAddress,
-        std::string smdsAddress, telux::common::ErrorCode errorCode) {
-
-    auto &rsp = taf_simRsp::GetInstance();
-    le_result_t result = LE_OK;
-    if (errorCode != telux::common::ErrorCode::SUCCESS) {
-        LE_INFO( "Request failed with errorCode: %d " , static_cast<int>(errorCode));
-        result = LE_FAULT;
-    } else {
-        LE_INFO("Request processed successfully \n");
-        rsp.SetSmdpAddress(smdpAddress);
-        rsp.SetSmdsAddress(smdsAddress);
-    }
-    rsp.ProfileSyncPromise.set_value(result);
-}
-
-void* taf_simRsp::ProfileAddHandlerThread(void* contextPtr)
-{
-    auto &rsp = taf_simRsp::GetInstance();
-    le_sem_Ref_t semRef = (le_sem_Ref_t)contextPtr;
-
-    rsp.ProfileListEventId = le_event_CreateId("ProfileListEventId", sizeof(taf_simRsp_ProfileListEvent_t));
-    le_event_AddHandler("Profile List EventId", rsp.ProfileListEventId, UpdateProfileHandler);
-
-    le_sem_Post(semRef);
-
-    LE_INFO("Create event loop ");
-    // start event loop
-    le_event_RunLoop();
-    return NULL;
-}
-
 void taf_simRsp::Init(void)
 {
     auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
@@ -233,12 +140,6 @@ void taf_simRsp::Init(void)
     ProfileDownloadEventId = le_event_CreateId("ProfileDownloadEventId", sizeof(taf_simRsp_DownloadEvent_t));
     ProfileUserConsentEventId = le_event_CreateId("ProfileUserConsentEventId", sizeof(taf_simRsp_UserConsentEvent_t));
     ProfileConfirmationCodeEventId = le_event_CreateId("ProfileConfirmationCodeEventId", sizeof(taf_simRsp_ConfirmationCodeEvent_t));
-
-    le_sem_Ref_t semRef = le_sem_Create("ProfileListThreadSem", 0);
-    ProfileListEventThreadRef = le_thread_Create("ProfileThread", ProfileAddHandlerThread, (void*)semRef);
-    le_thread_Start(ProfileListEventThreadRef);
-    le_sem_Wait(semRef);
-    le_sem_Delete(semRef);
     char eidPtr[TAF_SIM_EID_BYTES];
     GetEID((taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_2, eidPtr, TAF_SIM_EID_BYTES);
     LE_INFO(" EID = %s", eidPtr);
@@ -250,179 +151,326 @@ taf_simRsp &taf_simRsp::GetInstance()
     return instance;
 }
 
-le_result_t  taf_simRsp::GetEID(taf_sim_Id_t slotId, char* eidPtr, size_t eidLen) {
-    if(simProfileManager) {
-        EidSynchronousPromise = std::promise<std::string>();
-        SlotId slot = SlotId::DEFAULT_SLOT_ID;
-        if (telux::common::DeviceConfig::isMultiSimSupported()) {
-            slot = (SlotId)slotId;
-        }
-
-        Status status =
-            simProfileManager->requestEid(slot, tafRspCallback::onEidResponse);
-        if (status == telux::common::Status::SUCCESS) {
-            LE_INFO("Request Eid sent successfully");
-            //Wait for Eid value
-            std::future<std::string> eidResult = EidSynchronousPromise.get_future();
-            return le_utf8_Copy(eidPtr, eidResult.get().c_str(), eidLen, NULL);
-        } else {
-            LE_INFO( "Request Eid failed, status: %d",  static_cast<int>(status));
-        }
-    } else {
-        LE_INFO("ERROR - SimProfileManger is null");
+le_result_t taf_simRsp::GetEID(taf_sim_Id_t slotId, char* eidPtr, size_t eidLen) {
+    if (!simProfileManager) {
+        LE_ERROR("GetEID: SimProfileManager is null");
+        return LE_FAULT;
     }
-    return LE_FAULT;
+    auto EidSynchronousPromise = std::make_shared<std::promise<std::string>>();
+    SlotId slot = SlotId::DEFAULT_SLOT_ID;
+    if (telux::common::DeviceConfig::isMultiSimSupported()) {
+        slot = (SlotId)slotId;
+    }
+   auto eidCallback = [EidSynchronousPromise](std::string eid, telux::common::ErrorCode errorCode) {
+    try {
+        if (errorCode == telux::common::ErrorCode::SUCCESS) {
+            LE_INFO("Request for GetEID sent successfully");
+            EidSynchronousPromise->set_value(eid);
+        } else {
+            EidSynchronousPromise->set_value("");  // Set empty string on error
+            LE_INFO("Request for GetEID failed with errorCode: %d", static_cast<int>(errorCode));
+        }
+    }
+    catch (const std::future_error &e) {
+        // Only occurs if promise already satisfied
+        if (e.code() == std::make_error_code(std::future_errc::promise_already_satisfied)) {
+            LE_WARN(" eidcallback: Promise already satisfied  %s", e.what());
+        } else {
+            LE_ERROR("eidcallback: Unexpected future_error: %s", e.what());
+        }
+    }
+    catch (const std::exception& e) {
+        LE_ERROR("Exception in eidCallback: %s", e.what());
+    }
+    catch (...) {
+        LE_ERROR("Unknown error in eidCallback");
+    }
+};
+    Status status = simProfileManager->requestEid(slot, eidCallback);
+    if (status != telux::common::Status::SUCCESS) {
+        LE_ERROR("GetEID: Failed to send request, Status = %d", static_cast<int>(status));
+        return LE_FAULT;
+    }
+    std::future<std::string> eidResult = EidSynchronousPromise->get_future();
+    std::chrono::seconds span(SESSION_TIMEOUT);
+    std::future_status waitStatus = eidResult.wait_for(span);
+    if (waitStatus == std::future_status::timeout) {
+        LE_ERROR("GetEID: Timeout waiting for EID result");
+        return LE_TIMEOUT;
+    }
+    std::string eidValue = eidResult.get();
+    if (eidValue.empty()) {
+        LE_ERROR("GetEID: Failed to retrieve EID");
+        return LE_FAULT;
+    }
+    le_result_t copyResult = le_utf8_Copy(eidPtr, eidValue.c_str(), eidLen, NULL);
+    if (copyResult != LE_OK) {
+        LE_ERROR("GetEID: Failed to copy EID, buffer too small");
+        return LE_OVERFLOW;
+    }
+    LE_INFO("GetEID: Request sent successfully");
+    return LE_OK;
 }
 
 le_result_t taf_simRsp::AddProfile(taf_sim_Id_t slotId, const char* activationCode, const char* confirmationCode,
         bool userConsentSupported) {
 
     SlotId slot = (SlotId) slotId;
-
+    if (!simProfileManager) {
+        LE_ERROR("AddProfile: SimProfileManager is null");
+        return LE_FAULT;
+    }
     if( taf_sim_SelectCard(slotId)!= LE_OK) {
         slot = SlotId::DEFAULT_SLOT_ID;
     }
 
-    TAF_ERROR_IF_RET_VAL(activationCode == NULL, LE_BAD_PARAMETER, "activationCode is NULL");
-
-    if(activationCode[0] == '\0') {
-        LE_INFO("Activation code is null");
+    if (activationCode == nullptr || activationCode[0] == '\0') {
+        LE_ERROR("AddProfile: activationCode is null or empty");
         return LE_BAD_PARAMETER;
     }
-
-    ProfileSyncPromise = std::promise<le_result_t>();
-
-    std::shared_ptr<tafRspCallback> addProfileCb = std::make_shared<tafRspCallback>();
-
-    auto  responseCb = std::bind(&tafRspCallback::onResponseCallback, addProfileCb, std::placeholders::_1);
-
+    auto profilePromisePtr = std::make_shared<std::promise<le_result_t>>();
+    auto responseCb = [profilePromisePtr](telux::common::ErrorCode errorCode) {
+        le_result_t result = (errorCode == telux::common::ErrorCode::SUCCESS) ? LE_OK : LE_FAULT;
+        try{
+            profilePromisePtr->set_value(result);
+        }
+        catch (const std::future_error &e) {
+            if (e.code() == std::make_error_code(std::future_errc::promise_already_satisfied)) {
+                LE_WARN("AddProfile callback: Promise already satisfied  %s", e.what());
+            } else {
+                LE_ERROR("AddProfile callback: Unexpected future_error: %s", e.what());
+            }
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in AddProfile callback");
+        }
+    };
     Status status = simProfileManager->addProfile(slot, activationCode, confirmationCode,
             userConsentSupported, responseCb);
 
-    if (status == Status::SUCCESS) {
-        LE_INFO("Add profile request sent successfully");
-
-        std::future<le_result_t> futureResult = ProfileSyncPromise.get_future();
-        return futureResult.get();
-
-    } else {
-        LE_INFO( "ERROR - Failed to send add profile request, Status:%d ", static_cast<int>(status));
+    if (status != Status::SUCCESS) {
+        LE_ERROR("AddProfile: Failed to send request. Status = %d", static_cast<int>(status));
+        return LE_FAULT;
     }
-
-    return LE_FAULT;
+    std::chrono::seconds span(SESSION_TIMEOUT);
+    std::future<le_result_t> futureResult = profilePromisePtr->get_future();
+    std::future_status waitStatus = futureResult.wait_for(span);
+    if (waitStatus == std::future_status::timeout) {
+        LE_ERROR("AddProfile: Timeout waiting for AddProfile result");
+        return LE_TIMEOUT;
+    }
+    return futureResult.get();
 }
 
 le_result_t taf_simRsp::DeleteProfile( taf_sim_Id_t slotId, uint32_t profileId) {
-
     SlotId slot = (SlotId) slotId;
-    ProfileSyncPromise = std::promise<le_result_t>();
-
+    if (!simProfileManager) {
+        LE_ERROR("DeleteProfile: SimProfileManager is null");
+        return LE_FAULT;
+    }
     if( taf_sim_SelectCard(slotId)!= LE_OK) {
         slot = SlotId::DEFAULT_SLOT_ID;
     }
-
-    std::shared_ptr<tafRspCallback> deleteProfileCb = std::make_shared<tafRspCallback>();
-
-    auto  responseCb = std::bind(&tafRspCallback::onResponseCallback, deleteProfileCb, std::placeholders::_1);
-
+    auto deleteProfilePromisePtr = std::make_shared<std::promise<le_result_t>>();
+    auto responseCb = [deleteProfilePromisePtr](telux::common::ErrorCode errorCode) {
+        le_result_t result = (errorCode == telux::common::ErrorCode::SUCCESS) ? LE_OK : LE_FAULT;
+        try
+        {
+            deleteProfilePromisePtr->set_value(result);
+        }
+        catch (const std::future_error &e) {
+            if (e.code() == std::make_error_code(std::future_errc::promise_already_satisfied)) {
+                LE_WARN("DeleteProfile callback: Promise already satisfied  %s", e.what());
+            } else {
+                LE_ERROR("DeleteProfile callback: Unexpected future_error: %s", e.what());
+            }
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in DeleteProfile callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in DeleteProfile callback");
+        }
+    };
     Status status = simProfileManager->deleteProfile(slot, profileId, responseCb);
-    if (status == Status::SUCCESS) {
-        LE_INFO("Delete profile request sent successfully");
-        std::future<le_result_t> futureResult = ProfileSyncPromise.get_future();
-        return futureResult.get();
-    } else {
-        LE_INFO("ERROR - Failed to send delete profile request, Status:%d", static_cast<int>(status));
+    if (status != Status::SUCCESS) {
+        LE_ERROR("Failed to send delete profile request. Status: %d", static_cast<int>(status));
+        return LE_FAULT;
     }
-    return LE_FAULT;
+    std::chrono::seconds span(SESSION_TIMEOUT);
+    std::future<le_result_t> futureResult = deleteProfilePromisePtr ->get_future();
+    std::future_status waitStatus = futureResult.wait_for(span);
+    if (waitStatus == std::future_status::timeout) {
+        LE_ERROR("DeleteProfile: Timeout waiting for DeleteProfile result");
+        return LE_TIMEOUT;
+    }
+    LE_INFO("Delete profile request sent successfully");
+    return futureResult.get();
 }
 
 le_result_t taf_simRsp::SetProfile( taf_sim_Id_t slotId, uint32_t profileId, bool enable) {
-
     SlotId slot = (SlotId) slotId;
-    ProfileSyncPromise = std::promise<le_result_t>();
-
+    if (!simProfileManager) {
+        LE_ERROR("SetProfile: SimProfileManager is null");
+        return LE_FAULT;
+    }
+    auto setProfilePromisePtr = std::make_shared<std::promise<le_result_t>>();
     if( taf_sim_SelectCard(slotId)!= LE_OK) {
         slot = SlotId::DEFAULT_SLOT_ID;
     }
-    std::shared_ptr<tafRspCallback> setProfileCb = std::make_shared<tafRspCallback>();
-    auto  responseCb = std::bind(&tafRspCallback::onResponseCallback, setProfileCb, std::placeholders::_1);
+    auto responseCb = [setProfilePromisePtr](telux::common::ErrorCode errorCode) {
+        le_result_t result = (errorCode == telux::common::ErrorCode::SUCCESS) ? LE_OK : LE_FAULT;
+        try
+        {
+            setProfilePromisePtr->set_value(result);
+        }
+        catch (const std::future_error &e) {
+            if (e.code() == std::make_error_code(std::future_errc::promise_already_satisfied)) {
+                LE_WARN("SetProfile callback: Promise already satisfied  %s", e.what());
+            } else {
+                LE_ERROR("SetProfile Unexpected future_error: %s", e.what());
+            }
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in SetProfile callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in SetProfile callback");
+        }
+    };
 
-    Status status = simProfileManager->setProfile(slot, profileId, enable,
-            responseCb);
-
-    if (status == Status::SUCCESS) {
-        LE_INFO("Set profile request sent successfully");
-        std::future<le_result_t> futureResult = ProfileSyncPromise.get_future();
-        return futureResult.get();
-    } else {
-        LE_INFO("ERROR - Failed to send set profile request, Status:%d", static_cast<int>(status));
+    Status status = simProfileManager->setProfile(slot, profileId, enable, responseCb);
+    if (status != Status::SUCCESS) {
+        LE_ERROR("Failed to send set profile request. Status: %d", static_cast<int>(status));
+        return LE_FAULT;
     }
-
-    return LE_FAULT;
+    std::future<le_result_t> futureResult =  setProfilePromisePtr->get_future();
+    std::chrono::seconds span(SESSION_TIMEOUT);
+    std::future_status waitStatus = futureResult.wait_for(span);
+    if (waitStatus == std::future_status::timeout) {
+        LE_ERROR("setProfile: Timeout waiting for setProfile result");
+        return LE_TIMEOUT;
+    }
+    LE_INFO("Set profile request sent successfully");
+    return futureResult.get();
 }
 
-le_result_t taf_simRsp::UpdateNickName( taf_sim_Id_t slotId, uint32_t profileId,
-                    const char* nickName) {
-
+le_result_t taf_simRsp::UpdateNickName( taf_sim_Id_t slotId, uint32_t profileId,const char* nickName){
+    if (nickName == nullptr || strlen(nickName) == 0) {
+        LE_ERROR("Nickname is null or empty");
+        return LE_FAULT;
+    }
+    if (!simProfileManager) {
+        LE_ERROR("UpdateNickName: SimProfileManager is null");
+        return LE_FAULT;
+    }
     SlotId slot = (SlotId) slotId;
-    ProfileSyncPromise = std::promise<le_result_t>();
-
     if( taf_sim_SelectCard(slotId)!= LE_OK) {
         slot = SlotId::DEFAULT_SLOT_ID;
     }
-
-    std::shared_ptr<tafRspCallback> updateNickNameCb = std::make_shared<tafRspCallback>();
-
-    auto  responseCb = std::bind(&tafRspCallback::onResponseCallback, updateNickNameCb, std::placeholders::_1);
-
+    auto updateNickNamePromise = std::make_shared<std::promise<le_result_t>>();
+    auto responseCb = [updateNickNamePromise](telux::common::ErrorCode errorCode) {
+        le_result_t result = (errorCode == telux::common::ErrorCode::SUCCESS) ? LE_OK : LE_FAULT;
+        try{
+            updateNickNamePromise->set_value(result);
+        }
+        catch (const std::future_error &e) {
+           if (e.code() == std::make_error_code(std::future_errc::promise_already_satisfied)) {
+                LE_WARN("UpdateNickName callback: Promise already satisfied  %s", e.what());
+            } else {
+                LE_ERROR("UpdateNickName Unexpected future_error: %s", e.what());
+            }
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in UpdateNickName callback");
+        }
+    };
     Status status = simProfileManager->updateNickName(slot, profileId, nickName, responseCb);
-
-    if (status == Status::SUCCESS) {
-        LE_INFO("Update nick name request sent successfully");
-        std::future<le_result_t> futureResult = ProfileSyncPromise.get_future();
-        return futureResult.get();
-    } else {
-        LE_INFO("ERROR - Failed to send update nick name request, Status:%d", static_cast<int>(status));
+    if (status != Status::SUCCESS) {
+        LE_ERROR("Failed to send update nickname request. Status: %d", static_cast<int>(status));
+        return LE_FAULT;
     }
-    return LE_FAULT;
+    std::chrono::seconds span(SESSION_TIMEOUT);
+    std::future<le_result_t> futureResult =  updateNickNamePromise->get_future();
+    std::future_status waitStatus = futureResult.wait_for(span);
+    if (waitStatus == std::future_status::timeout) {
+        LE_ERROR("UpdateNickName: Timeout waiting for UpdateNickName result");
+        return LE_TIMEOUT;
+    }
+    LE_INFO("Update nick name request sent successfully");
+    return futureResult.get();
 }
 
-le_result_t taf_simRsp::RequestProfileList( taf_sim_Id_t slotId, taf_simRsp_ProfileListNodeRef_t* profileListPtr,
-        size_t *profileCount) {
+le_result_t taf_simRsp::RequestProfileList(taf_sim_Id_t slotId, taf_simRsp_ProfileListNodeRef_t* profileListPtr, size_t *profileCount) {
     SlotId slot = (SlotId) slotId;
-    ProfileSyncPromise = std::promise<le_result_t>();
+    auto promise = std::make_shared<std::promise<le_result_t>>();
+    std::future<le_result_t> futureResult = promise->get_future();
     std::chrono::seconds span(SESSION_TIMEOUT);
     le_dls_Link_t* linkPtr = NULL;
     uint8_t count = 0;
 
-
-    if(simProfileManager) {
-
-        if( taf_sim_SelectCard(slotId)!= LE_OK) {
+    if (simProfileManager) {
+        if (taf_sim_SelectCard(slotId) != LE_OK) {
             slot = SlotId::DEFAULT_SLOT_ID;
         }
-
-        std::shared_ptr<tafRspCallback> profileListCb = std::make_shared<tafRspCallback>();
-
-        auto  responseCb = std::bind(&tafRspCallback::onProfileListResponse, profileListCb,
-                std::placeholders::_1,std::placeholders::_2);
-
-        telux::common::Status status = simProfileManager->requestProfileList(slot,
-                responseCb);
-
+        auto responseCb = [promise](const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles,
+                telux::common::ErrorCode errorCode){
+            taf_simRsp_ProfileListEvent_t profileListEvent;
+            if (errorCode == telux::common::ErrorCode::SUCCESS && !profiles.empty()) {
+                int i = 0;
+                for (const auto &profile : profiles) {
+                    if (profile) {
+                        profileListEvent.simProfileInfo[i].profileId = profile->getProfileId();
+                        profileListEvent.simProfileInfo[i].profileType = static_cast<taf_simRsp_ProfileType_t>(profile->getType());
+                        le_utf8_Copy(profileListEvent.simProfileInfo[i].iccid, profile->getIccid().c_str(), TAF_SIM_ICCID_BYTES, NULL);
+                        profileListEvent.simProfileInfo[i].isActive = profile->isActive();
+                        le_utf8_Copy(profileListEvent.simProfileInfo[i].nickName, profile->getNickName().c_str(), TAF_SIMRSP_NAME_BYTES, NULL);
+                        le_utf8_Copy(profileListEvent.simProfileInfo[i].name, profile->getName().c_str(), TAF_SIMRSP_NAME_BYTES, NULL);
+                        le_utf8_Copy(profileListEvent.simProfileInfo[i].spn, profile->getSPN().c_str(), TAF_SIMRSP_SPN_LEN, NULL);
+                        profileListEvent.simProfileInfo[i].iconType = static_cast<taf_simRsp_IconType_t>(profile->getIconType());
+                        profileListEvent.simProfileInfo[i].profileClass = static_cast<taf_simRsp_ProfileClass_t>(profile->getClass());
+                        profileListEvent.simProfileInfo[i].mask = profile->getPolicyRule().to_ulong();
+                        i++;
+                    }
+                }
+                profileListEvent.profileCount = i;
+                profileListEvent.result = LE_OK;
+            } else {
+                profileListEvent.result = LE_FAULT;
+            }
+            auto &rsp = taf_simRsp::GetInstance();
+            rsp.UpdateProfileList(&profileListEvent);
+            try {
+                promise->set_value(profileListEvent.result);
+            } catch (const std::future_error &e) {
+                LE_ERROR("Exception setting promise value: %s", e.what());
+            }
+        };
+        telux::common::Status status = simProfileManager->requestProfileList(slot,responseCb);
         if (status == telux::common::Status::SUCCESS) {
-            LE_DEBUG("Request profile list sent successfully");
-            std::future<le_result_t> futureResult = ProfileSyncPromise.get_future();
             std::future_status waitStatus = futureResult.wait_for(span);
-
-            if (std::future_status::timeout == waitStatus) {
-                LE_INFO("Unable to read profile list");
+            if (waitStatus == std::future_status::timeout) {
+                LE_INFO("Timeout waiting for profile list");
                 return LE_TIMEOUT;
             }
+
             if (futureResult.get() == LE_OK) {
                 linkPtr = le_dls_Peek(&ProfileList);
-                while (linkPtr)
-                {
+                while (linkPtr) {
                     taf_simRsp_ProfileListNode_t* profileNode = CONTAINER_OF(linkPtr, taf_simRsp_ProfileListNode_t, link);
                     memcpy((char *)&profileListPtr[count], (const char *)&profileNode->profileListRef, sizeof(taf_simRsp_ProfileListNodeRef_t));
                     count++;
@@ -430,14 +478,13 @@ le_result_t taf_simRsp::RequestProfileList( taf_sim_Id_t slotId, taf_simRsp_Prof
                 }
 
                 *profileCount = count;
-
                 return LE_OK;
             }
         } else {
-            LE_ERROR("Request profile list failed, status: %d",int(status));
+            LE_ERROR("Request profile list failed, status: %d", int(status));
         }
     } else {
-        LE_ERROR( "ERROR - SimProfileManger is null");
+        LE_ERROR("SimProfileManager is null");
     }
     return LE_FAULT;
 }
@@ -446,30 +493,62 @@ le_result_t taf_simRsp::GetServerAddress( taf_sim_Id_t slotId, char* smdpAddress
         size_t smdsLength) {
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     SlotId slot = (SlotId) slotId;
-    ProfileSyncPromise = std::promise<le_result_t>();
-
+    auto profilePromise = std::make_shared<std::promise<le_result_t>>();
+    std::future<le_result_t> futureResult = profilePromise->get_future();
+    std::chrono::seconds span(SESSION_TIMEOUT);
     if( taf_sim_SelectCard(slotId)!= LE_OK) {
         slot = SlotId::DEFAULT_SLOT_ID;
     }
 #endif
-    std::shared_ptr<tafRspCallback> getServerAddressCb = std::make_shared<tafRspCallback>();
-    auto  responseCb = std::bind(&tafRspCallback::onServerAddressResponse, getServerAddressCb,
-                             std::placeholders::_1, std::placeholders::_2,  std::placeholders::_3);
+    auto  responseCb = [profilePromise](std::string smdpAddress,std::string smdsAddress, telux::common::ErrorCode errorCode)
+    {
+        le_result_t result = (errorCode == telux::common::ErrorCode::SUCCESS) ? LE_OK : LE_FAULT;
+        try{
+            auto &rsp = taf_simRsp::GetInstance();
+            if (result == LE_OK) {
+                LE_INFO("Request processed successfully \n");
+                rsp.SetSmdpAddress(smdpAddress);
+                rsp.SetSmdsAddress(smdsAddress);
+            }
+            profilePromise->set_value(result);
+        }
+        catch (const std::future_error &e) {
+            if (e.code() == std::make_error_code(std::future_errc::promise_already_satisfied)) {
+                LE_WARN("GetServerAddress callback: Promise already satisfied  %s", e.what());
+            } else {
+                LE_ERROR("GetServerAddress Unexpected future_error: %s", e.what());
+            }
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in GetServerAddress callback");
+        }
+    };
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     Status status = simProfileManager->requestServerAddress(slot,responseCb);
-
     if (status == Status::SUCCESS) {
-        LE_INFO("Get  server address request sent successfully");
-        std::future<le_result_t> futureResult = ProfileSyncPromise.get_future();
+        LE_INFO("Get server address request sent successfully");
+        std::future_status waitStatus = futureResult.wait_for(span);
+        if (waitStatus == std::future_status::timeout) {
+            LE_INFO("Timeout waiting for ServerAddress");
+            return LE_TIMEOUT;
+        }
         if(futureResult.get() == LE_OK) {
-            le_utf8_Copy(smdpAddress, SmdpAddress.c_str(), smdpLength, NULL);
-            le_utf8_Copy(smdsAddress, SmdsAddress.c_str(), smdsLength, NULL);
-            return LE_OK;
+                le_utf8_Copy(smdpAddress, SmdpAddress.c_str(), smdpLength, NULL);
+                le_utf8_Copy(smdsAddress, SmdsAddress.c_str(), smdsLength, NULL);
+                return LE_OK;
         }
     } else {
         LE_INFO("ERROR - Failed to get server address request, Status:%d", static_cast<int>(status));
         return LE_FAULT;
     }
+    #else
+        LE_ERROR("GetServerAddress: Not supported on this platform");
+        return LE_UNSUPPORTED;
 #endif
     return LE_FAULT;
 }
@@ -477,25 +556,51 @@ le_result_t taf_simRsp::GetServerAddress( taf_sim_Id_t slotId, char* smdpAddress
 le_result_t taf_simRsp::SetServerAddress( taf_sim_Id_t slotId, const char* smdpAddress) {
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     SlotId slot = (SlotId) slotId;
-    ProfileSyncPromise = std::promise<le_result_t>();
-
+    auto profilePromise = std::make_shared<std::promise<le_result_t>>();
     if( taf_sim_SelectCard(slotId)!= LE_OK) {
         slot = SlotId::DEFAULT_SLOT_ID;
     }
-    std::shared_ptr<tafRspCallback> setServerAddressCb = std::make_shared<tafRspCallback>();
-
-    auto  responseCb = std::bind(&tafRspCallback::onResponseCallback, setServerAddressCb, std::placeholders::_1);
+    auto responseCb = [profilePromise](telux::common::ErrorCode errorCode) {
+        le_result_t result = (errorCode == telux::common::ErrorCode::SUCCESS) ? LE_OK : LE_FAULT;
+        try{
+            profilePromise->set_value(result);
+        }
+        catch(const std::future_error &e)
+        {
+            if (e.code() == std::make_error_code(std::future_errc::promise_already_satisfied)) {
+                LE_WARN("SetServerAddress callback: Promise already satisfied  %s", e.what());
+            } else {
+                LE_ERROR("SetServerAddress Unexpected future_error: %s", e.what());
+            }
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in RSIM callback");
+        }
+    };
     Status status = simProfileManager->setServerAddress(slot, smdpAddress, responseCb);
     if (status == Status::SUCCESS) {
         LE_INFO("Set server address request sent successfully");
-        std::future<le_result_t> futureResult = ProfileSyncPromise.get_future();
-        return futureResult.get();
-    } else {
+        std::chrono::seconds span(SESSION_TIMEOUT);
+        std::future<le_result_t> futureResult = profilePromise->get_future();
+        std::future_status waitStatus = futureResult.wait_for(span);
+        if (waitStatus == std::future_status::timeout) {
+            LE_INFO("Timeout waiting for ServerAddress");
+            return LE_TIMEOUT;
+        }
+        LE_INFO("Request processed successfully \n");
+        return futureResult.get();  // Consider adding timeout if needed
+    }
+    else {
         LE_INFO("ERROR - Failed to set server address , Status:%d", static_cast<int>(status));
         return LE_FAULT;
     }
 #endif
-        return LE_FAULT;
+    return LE_FAULT;
 }
 
 le_result_t taf_simRsp::CreateProfileListNode() {
@@ -510,14 +615,6 @@ le_result_t taf_simRsp::CreateProfileListNode() {
     le_dls_Queue(&ProfileList, &(profileNodePtr->link));
 
     return LE_OK;
-}
-
-void taf_simRsp::UpdateProfileHandler(void *profileEvent)
-{
-    LE_INFO("UpdateProfileHandler");
-    auto &rsp = taf_simRsp::GetInstance();
-    rsp.UpdateProfileList((taf_simRsp_ProfileListEvent_t*)profileEvent);
-    rsp.ProfileSyncPromise.set_value(((taf_simRsp_ProfileListEvent_t*)profileEvent)->result);
 }
 
 void taf_simRsp::UpdateProfileList(taf_simRsp_ProfileListEvent_t *profileListEvent)
@@ -551,8 +648,12 @@ void taf_simRsp::UpdateProfileList(taf_simRsp_ProfileListEvent_t *profileListEve
             }
         }
         if (i >= profileCount) {
-            le_dls_Remove(&ProfileList, &profileNode->link);
-            le_mem_Release(profileNode);
+          le_dls_Link_t* nextLinkPtr = le_dls_PeekNext(&ProfileList, linkPtr);
+          le_ref_DeleteRef(ProfileListNodeRefMap, profileNode->profileListRef);
+          le_dls_Remove(&ProfileList, &profileNode->link);
+          le_mem_Release(profileNode);
+          linkPtr = nextLinkPtr;
+          continue;
         }
         linkPtr = le_dls_PeekNext(&ProfileList, linkPtr);
     }
@@ -629,65 +730,123 @@ void taf_simRsp::FirstLayerProfileDownloadHandler(void* reportPtr,
 le_result_t taf_simRsp::ProvideUserConsent(taf_sim_Id_t slotId, bool userConsent, taf_simRsp_UserConsentReasonType_t reason) {
 
     SlotId slot = (SlotId) slotId;
-
     if( taf_sim_SelectCard(slotId)!= LE_OK) {
         slot = SlotId::DEFAULT_SLOT_ID;
     }
-
-    ProfileSyncPromise = std::promise<le_result_t>();
-
-    std::shared_ptr<tafRspCallback> provideUserConsentCb = std::make_shared<tafRspCallback>();
-    auto  responseCb = std::bind(&tafRspCallback::onResponseCallback, provideUserConsentCb, std::placeholders::_1);
+    auto profilePromise = std::make_shared<std::promise<le_result_t>>();
+    auto  responseCb =[profilePromise](telux::common::ErrorCode errorCode)
+    {
+        le_result_t result = (errorCode == telux::common::ErrorCode::SUCCESS) ? LE_OK : LE_FAULT;
+        try{
+            profilePromise->set_value(result);
+        }
+        catch(const std::future_error &e)
+        {
+            if (e.code() == std::make_error_code(std::future_errc::promise_already_satisfied)) {
+                LE_WARN("ProvideUserConsent callback: Promise already satisfied  %s", e.what());
+            } else {
+                LE_ERROR("ProvideUserConsent Unexpected future_error: %s", e.what());
+            }
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in ProvideUserConsent callback");
+        }
+    };
     Status status = Status::FAILED;
+    if (!simProfileManager) {
+        LE_ERROR("simProfileManager is null");
+        return LE_FAULT;
+    }
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     status = simProfileManager->provideUserConsent(slot, userConsent,
             static_cast<telux::tel::UserConsentReasonType>(reason), responseCb);
 #endif
 #ifdef TARGET_SA415M
-    status = simProfileManager->provideUserConsent(slot, userConsent,
-            responseCb);
+    status = simProfileManager->provideUserConsent(slot, userConsent,responseCb);
 #endif
     if (status == Status::SUCCESS) {
+        std::future<le_result_t> futureResult = profilePromise->get_future();
+        std::chrono::seconds span(SESSION_TIMEOUT);
+        std::future_status waitStatus = futureResult.wait_for(span);
         LE_INFO("ProvideUserConsent request sent successfully");
-
-        std::future<le_result_t> futureResult = ProfileSyncPromise.get_future();
+        if (std::future_status::timeout == waitStatus) {
+            LE_INFO("Unable to read profile list");
+            return LE_TIMEOUT;
+        }
         return futureResult.get();
-
     } else {
-        LE_INFO( "ERROR - Failed to send provide user consent request, Status:%d ", static_cast<int>(status));
+        LE_INFO( "ERROR - Failed to send user consent request, Status:%d ", static_cast<int>(status));
+        return LE_FAULT;
     }
-
-    return LE_FAULT;
 }
 
-le_result_t taf_simRsp::ProvideConfirmationCode( taf_sim_Id_t slotId, const char* code, size_t codeLength) {
+le_result_t taf_simRsp::ProvideConfirmationCode(taf_sim_Id_t slotId, const char* code, size_t codeLength) {
 
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-         SlotId slot = (SlotId) slotId;
+    if (code == nullptr || codeLength == 0 || code[0] == '\0') {
+        LE_ERROR("ProvideConfirmationCode: code is null or empty");
+        return LE_BAD_PARAMETER;
+    }
+    SlotId slot = (SlotId) slotId;
     if( taf_sim_SelectCard(slotId)!= LE_OK) {
         slot = SlotId::DEFAULT_SLOT_ID;
     }
 #endif
-    ProfileSyncPromise = std::promise<le_result_t>();
-
-    std::shared_ptr<tafRspCallback> provideConfirmationCodeCb = std::make_shared<tafRspCallback>();
-    auto  responseCb = std::bind(&tafRspCallback::onResponseCallback, provideConfirmationCodeCb, std::placeholders::_1);
+    if (!simProfileManager) {
+        LE_ERROR("simProfileManager is null");
+        return LE_FAULT;
+    }
+    auto confirmationPromise = std::make_shared<std::promise<le_result_t>>();
+    auto  responseCb = [confirmationPromise](telux::common::ErrorCode errorCode)
+    {
+        try
+        {
+            le_result_t result = (errorCode == telux::common::ErrorCode::SUCCESS) ? LE_OK : LE_FAULT;
+            confirmationPromise->set_value(result);
+        }
+        catch(const std::future_error &e)
+        {
+         if (e.code() == std::make_error_code(std::future_errc::promise_already_satisfied)) {
+                LE_WARN("ProvideConfirmationCode callback: Promise already satisfied  %s", e.what());
+            } else {
+                LE_ERROR("ProvideConfirmationCode Unexpected future_error: %s", e.what());
+            }
+        }
+        catch (const std::exception &e) {
+            LE_ERROR("Exception in ProvideConfirmationCode: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in RSIM callback");
+        }
+    };
 
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     Status status = simProfileManager->provideConfirmationCode(slot, code, responseCb);
-
     if (status == Status::SUCCESS) {
-        LE_INFO("ProvideUserConsent request sent successfully");
-
-        std::future<le_result_t> futureResult = ProfileSyncPromise.get_future();
+        LE_INFO("ProvideConfirmationCode request sent successfully");
+        std::future<le_result_t> futureResult = confirmationPromise->get_future();
+        std::chrono::seconds span(SESSION_TIMEOUT);
+        std::future_status waitStatus = futureResult.wait_for(span);
+        if (std::future_status::timeout == waitStatus) {
+            LE_INFO("Unable to read profile list");
+            return LE_TIMEOUT;
+        }
         return futureResult.get();
 
     } else {
         LE_INFO( "ERROR - Failed to send confirmation code request, Status:%d ", static_cast<int>(status));
+        return LE_FAULT;
     }
+#else
+    LE_ERROR("ProvideConfirmationCode: Not supported on this platform");
+    return LE_UNSUPPORTED;
 #endif
-    return LE_FAULT;
-
 }
 
 taf_simRsp_ProfileUserConsentHandlerRef_t taf_simRsp::AddProfileUserConsentHandler(taf_simRsp_ProfileUserConsentHandlerFunc_t handlerPtr,
@@ -770,38 +929,70 @@ taf_simRsp_ProfileListNodeRef_t taf_simRsp::GetProfileListNodeRef(uint32_t index
     //Traverse and look for id, if present, return the reference type pointer.
     //If not present, add a node with that index, with default information.
     auto slot = taf_sim_GetSelectedCard();
-    ProfileSyncPromise = std::promise<le_result_t>();
+    auto promise = std::make_shared<std::promise<le_result_t>>();
+    std::future<le_result_t> futureResult = promise->get_future();
     std::chrono::seconds span(SESSION_TIMEOUT);
     le_dls_Link_t* linkPtr = NULL;
+    if (simProfileManager) {
 
-    if(simProfileManager) {
-        std::shared_ptr<tafRspCallback> profileListCb = std::make_shared<tafRspCallback>();
-
-        auto  responseCb = std::bind(&tafRspCallback::onProfileListResponse, profileListCb, std::placeholders::_1,std::placeholders::_2);
+         auto responseCb = [promise](const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles,
+            telux::common::ErrorCode errorCode){
+            taf_simRsp_ProfileListEvent_t profileListEvent;
+            memset(&profileListEvent, 0, sizeof(profileListEvent));
+            if (errorCode == telux::common::ErrorCode::SUCCESS && !profiles.empty()) {
+                int i = 0;
+                for (const auto &profile : profiles) {
+                    if (profile) {
+                        profileListEvent.simProfileInfo[i].profileId = profile->getProfileId();
+                        profileListEvent.simProfileInfo[i].profileType = static_cast<taf_simRsp_ProfileType_t>(profile->getType());
+                        le_utf8_Copy(profileListEvent.simProfileInfo[i].iccid, profile->getIccid().c_str(), TAF_SIM_ICCID_BYTES, NULL);
+                        profileListEvent.simProfileInfo[i].isActive = profile->isActive();
+                        le_utf8_Copy(profileListEvent.simProfileInfo[i].nickName, profile->getNickName().c_str(), TAF_SIMRSP_NAME_BYTES, NULL);
+                        le_utf8_Copy(profileListEvent.simProfileInfo[i].name, profile->getName().c_str(), TAF_SIMRSP_NAME_BYTES, NULL);
+                        le_utf8_Copy(profileListEvent.simProfileInfo[i].spn, profile->getSPN().c_str(), TAF_SIMRSP_SPN_LEN, NULL);
+                        profileListEvent.simProfileInfo[i].iconType = static_cast<taf_simRsp_IconType_t>(profile->getIconType());
+                        profileListEvent.simProfileInfo[i].profileClass = static_cast<taf_simRsp_ProfileClass_t>(profile->getClass());
+                        profileListEvent.simProfileInfo[i].mask = profile->getPolicyRule().to_ulong();
+                        i++;
+                    }
+                }
+                profileListEvent.profileCount = i;
+                profileListEvent.result = LE_OK;
+            } else {
+                profileListEvent.result = LE_FAULT;
+            }
+            auto &rsp = taf_simRsp::GetInstance();
+            rsp.UpdateProfileList(&profileListEvent);
+            try {
+                promise->set_value(profileListEvent.result);
+            }
+            catch (const std::future_error &e) {
+                LE_ERROR("Exception setting promise value: %s", e.what());
+            }
+        };
 
         telux::common::Status status = simProfileManager->requestProfileList(SlotId(slot), responseCb);
-
         if (status == telux::common::Status::SUCCESS) {
-            LE_DEBUG("Request profile list sent successfully");
-            std::future<le_result_t> futureResult = ProfileSyncPromise.get_future();
             std::future_status waitStatus = futureResult.wait_for(span);
-
-            if (std::future_status::timeout == waitStatus) {
-                LE_INFO("Unable to read profile list");
+            if (waitStatus == std::future_status::timeout) {
+                LE_INFO("Timeout waiting for profile list");
                 return NULL;
             }
             if (futureResult.get() == LE_OK) {
                 linkPtr = le_dls_Peek(&ProfileList);
-                while (linkPtr)
-                {
+                while (linkPtr) {
                     taf_simRsp_ProfileListNode_t* profileNode = CONTAINER_OF(linkPtr, taf_simRsp_ProfileListNode_t, link);
-                    if(profileNode->profileInfo.profileId == (index)){
-                        return (taf_simRsp_ProfileListNode_t*)(profileNode->profileListRef);
+                    if (profileNode->profileInfo.profileId == index) {
+                        return (taf_simRsp_ProfileListNodeRef_t)(profileNode->profileListRef);
                     }
                     linkPtr = le_dls_PeekNext(&ProfileList, linkPtr);
                 }
             }
+        } else {
+            LE_ERROR("Request profile list failed, status: %d", int(status));
         }
+    } else {
+        LE_ERROR("SimProfileManager is null");
     }
     return NULL;
 }

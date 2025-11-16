@@ -148,7 +148,7 @@ class AnyUds(object):
         return response
 
 def init():
-    DOIP_REMOTE_IP = os.environ.get("DOIP_REMOTE_IP", "192.168.80.2")
+    DOIP_REMOTE_IP = os.environ.get("DOIP_REMOTE_IP", "192.168.225.1")
     DOIP_PHY_ADDR  = os.environ.get("DOIP_PHY_ADDR", 0x0201)
     print("DoIP connecting ...")
     doip_client = doipclient.DoIPClient(DOIP_REMOTE_IP,

@@ -61,35 +61,34 @@ void ConvertSensorType(taf_SensorInfo_t* sensorInfoPtr,SensorInfo info)
 }
 
 le_result_t taf_Sensor::InitializeSensorList(taf_SensorClient_t* clientRequestPtr){
-    LE_INFO("InitializeSensorList");
+    LE_INFO("InitializeSensorsClients for session %p",clientRequestPtr->sessionRef);
     auto& sensorMngr = taf_Sensor::GetInstance();
     for(size_t i=0;i<sensorMngr.sList.size();i++){
         std::shared_ptr<taf_sensorClientInfo_t> clientInfo =
         std::make_shared<taf_sensorClientInfo_t>();
-        clientInfo->isCalibrated = false;
         clientInfo->isSensorActivated = false;
         telux::common::Status status =
-            sensorMngr.mSensorManager->getSensorClient(clientInfo->sensorClient,sensorMngr.sList[i].name);
+            sensorMngr.mSensorManager->getSensorClient(clientInfo->sensorClient,
+                sensorMngr.sList[i].name);
         if(status != telux::common::Status::SUCCESS){
-            LE_ERROR("unable to create Client for %s",sensorMngr.sList[i].name.c_str());
+            LE_ERROR("unable to create Client for %s in session %p",
+                sensorMngr.sList[i].name.c_str(),clientRequestPtr->sessionRef);
+            continue;
         }
         clientInfo->eventListener = std::make_shared<tafSensorListener>();
         clientInfo->eventListener->clientSessionRef = &clientRequestPtr->sessionRef;
-        char mutexName[NAME_MAX_SIZE];
-        snprintf(mutexName,sizeof(mutexName),"%sMutexCl",sensorMngr.sList[i].name.c_str());
-        clientInfo->mSensorMutexRef = le_mutex_CreateRecursive(mutexName);
-        char onEventName[NAME_MAX_SIZE];
-        snprintf(onEventName,sizeof(onEventName),"%sOnEventId",sensorMngr.sList[i].name.c_str());
-        clientInfo->SensorOnEventId = le_event_CreateIdWithRefCounting(onEventName);
-        char selfTestEventName[NAME_MAX_SIZE];
-        snprintf(selfTestEventName,sizeof(selfTestEventName),"%sselfTestEventId",
-            sensorMngr.sList[i].name.c_str());
-        clientInfo->SelfTestEventId =
-            le_event_CreateId(selfTestEventName,sizeof(taf_SensorSelfTest_t));
-        char handlerName[NAME_MAX_SIZE];
-        snprintf(handlerName,sizeof(handlerName),"%sHandlerRef",sensorMngr.sList[i].name.c_str());
-        clientInfo->HandlerRef = le_event_AddHandler(handlerName,
-            clientInfo->SensorOnEventId, taf_Sensor::DataEventHandler);
+        status =
+        clientInfo->sensorClient->registerListener(clientInfo->eventListener);
+        if(status != telux::common::Status::SUCCESS ){
+            LE_ERROR("Listener register failed for %s with status code %d in session %p",
+                sensorMngr.sList[i].name.c_str(),static_cast<int>(status),
+                clientRequestPtr->sessionRef);
+            continue;
+        }
+        else{
+            LE_INFO("Register Listener for %s in session %p",sensorMngr.sList[i].name.c_str(),
+            clientRequestPtr->sessionRef);
+        }
         le_utf8_Copy(clientInfo->sensorName, sensorMngr.sList[i].name.c_str(),NAME_MAX_SIZE , NULL);
         clientRequestPtr->clients.push_back(clientInfo);
     }
@@ -166,14 +165,15 @@ void taf_Sensor::DataEventHandler(void* reportPtr){
     taf_SensorEventHandler_t* evtHandlerPtr;
     taf_SensorEventInfo_t* eventInfo = NULL;
     taf_SensorEventList_t* currentEventList = (taf_SensorEventList_t*)reportPtr;
-    TAF_ERROR_IF_RET_NIL( currentEventList == NULL, "currentPosPtr is Null");
+    TAF_ERROR_IF_RET_NIL( currentEventList == NULL, "currentEventList is Null");
     taf_SensorClient_t* clientRequestPtr = NULL;
     auto& sensorMngr = taf_Sensor::GetInstance();
     clientRequestPtr = sensorMngr.DiscoverSessionRef(currentEventList->sessionRef);
-    TAF_ERROR_IF_RET_NIL(NULL == clientRequestPtr, "EventHandler did not find sessionRef");
+    TAF_ERROR_IF_RET_NIL(NULL == clientRequestPtr, "EventHandler did not find sessionRef %p",currentEventList->sessionRef);
     if(!sensorMngr.numofSensorEventHandlers)
     {
-        LE_DEBUG("No Event handlers, exit Handler Function");
+        LE_DEBUG("No Event handlers, exit Handler Function for sensorRef %p sessionRef %p",
+            currentEventList->sessionRef,currentEventList->sensorRef);
         currentEventList->eventList.clear();
         le_mem_Release(currentEventList);
         currentEventList = NULL;
@@ -189,7 +189,8 @@ void taf_Sensor::DataEventHandler(void* reportPtr){
         }
         if(evtHandlerPtr->sessionRef == currentEventList->sessionRef &&
             evtHandlerPtr->sensorRef == currentEventList->sensorRef){
-            LE_DEBUG("SessionRef and sensorRef Found");
+            LE_DEBUG("SessionRef %p and sensorRef Found %p",
+                currentEventList->sessionRef,currentEventList->sensorRef);
             eventInfo = (taf_SensorEventInfo_t*)le_mem_ForceAlloc(sensorMngr.tSensorEventInfoPool);
             memset(eventInfo, 0, sizeof(taf_SensorEventInfo_t));
             eventInfo->eventPtr = (taf_SensorEventList_t*)le_mem_ForceAlloc(sensorMngr.tSensorEventPool);
@@ -199,10 +200,12 @@ void taf_Sensor::DataEventHandler(void* reportPtr){
             (taf_imuSensor_SampleRef_t)le_ref_CreateRef(sensorMngr.tSensorEventMap,eventInfo);
             evtHandlerPtr->handlerFuncPtr(currentEventList->sensorRef,
             eventInfo->ref,evtHandlerPtr->handlerContextPtr);
-            LE_DEBUG("Data reported with ref %p",eventInfo->ref);
+            LE_DEBUG("Data reported with ref %p for sensor %p with session %p",eventInfo->ref,
+                evtHandlerPtr->sensorRef,evtHandlerPtr->sessionRef);
         }
         else{
-            LE_DEBUG("DataEventHandler sensor ref or session ref didnt match ");
+            LE_DEBUG("DataEventHandler sensor ref %p or sessionref %p didnt match",
+                evtHandlerPtr->sensorRef,evtHandlerPtr->sessionRef);
         }
     }
     currentEventList->eventList.clear();
@@ -221,7 +224,7 @@ le_result_t taf_Sensor::SetEulerAngle(double pitch ,double roll , double yaw)
     eulerAngleConfig.yaw = yaw;
     status =  sensorMngr.mSensorManager->setEulerAngleConfig(eulerAngleConfig);
     if(status != telux::common::Status::SUCCESS){
-        LE_INFO("Not able to set euler angle for client");
+        LE_INFO("Not able to set euler angle");
         return LE_FAULT;
     }
     return LE_OK;
@@ -486,40 +489,33 @@ inline bool isValidInput(taf_SensorInfo_t* sensorPtr,double samplingRate , uint3
 
 le_result_t taf_Sensor::Activate(taf_imuSensor_SensorRef_t sensorRef,double samplingRate ,
     uint32_t batchCount){
-    LE_DEBUG("Activate Sensor");
+    LE_DEBUG("Activate Sensor ref %p" ,sensorRef);
+    auto& sensorMngr = taf_Sensor::GetInstance();
     taf_SensorClient_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr,LE_FAULT, "clientRequestPtr is NULL");
-    LE_INFO("Start: sensorClientPtr %p, sensorClientPtr->sessionRef %p, num of active client %d",
-            clientRequestPtr, clientRequestPtr->sessionRef, mClientRefCount);
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr,LE_NOT_PERMITTED,"clientRequestPtr is NULL, Client count reach max");
+    LE_INFO("Activate: sensorRef %p, sensorClientPtr->sessionRef %p, num of active client %d",
+            sensorRef, clientRequestPtr->sessionRef, mClientRefCount);
     taf_SensorInfo_t* sensorPtr = (taf_SensorInfo_t*)le_ref_Lookup(tSensorInfoMap, sensorRef);
     TAF_ERROR_IF_RET_VAL(sensorPtr == NULL,LE_FAULT,"Invalid reference (%p) provided!",sensorPtr);
     for(std::shared_ptr<taf_sensorClientInfo_t> clientInfoPtr: clientRequestPtr->clients){
         if(strcmp(sensorPtr->name,clientInfoPtr->sensorName)==0){
             if(clientInfoPtr->isSensorActivated){
-                LE_DEBUG("Already Sensor is Active");
-                return LE_UNAVAILABLE;
+                LE_DEBUG("Already Sensor is Active for the session %p",clientRequestPtr->sessionRef);
+                return LE_NOT_PERMITTED;
             }
             if(!isValidInput(sensorPtr,samplingRate,batchCount)){
                 return LE_UNSUPPORTED;
             }
             telux::common::Status status = telux::common::Status::FAILED;
             clientInfoPtr->eventListener->sensorRef = sensorRef;
-            status =
-            clientInfoPtr->sensorClient->registerListener(clientInfoPtr->eventListener);
-            if(status != telux::common::Status::SUCCESS ){
-               LE_DEBUG("Listener register failed for %s with status code %d",
-                    sensorPtr->name,static_cast<int>(status));
-                return LE_FAULT;
-            }
-            LE_INFO("Register Listener for %s",clientInfoPtr->sensorName);
             SensorType type  = clientInfoPtr->sensorClient->getSensorInfo().type;
             if(type == telux::sensor::SensorType::GYROSCOPE_UNCALIBRATED ||
                 type == telux::sensor::SensorType::ACCELEROMETER_UNCALIBRATED){
-                clientInfoPtr->isCalibrated = false;
+                clientInfoPtr->eventListener->isCalibrated = false;
             }
             else{
-                clientInfoPtr->isCalibrated = true;
+                clientInfoPtr->eventListener->isCalibrated = true;
             }
             SensorConfiguration s;
             s.samplingRate = samplingRate;
@@ -530,23 +526,26 @@ le_result_t taf_Sensor::Activate(taf_imuSensor_SensorRef_t sensorRef,double samp
             s.validityMask.set(SensorConfigParams::ROTATE);
             status = clientInfoPtr->sensorClient->configure(s);
             if(status != telux::common::Status::SUCCESS){
-                LE_DEBUG("Sensor Configuration failed for %s with status code %d",
-                sensorPtr->name,static_cast<int>(status));
-                return LE_FAULT;
+                LE_ERROR("Sensor Configuration failed for %s with status code %d for session %p and sensorRef %p",
+                sensorPtr->name,static_cast<int>(status),clientRequestPtr->sessionRef,sensorRef);
+                return sensorMngr.MapStatus(status);
             }
             LE_INFO("Configure sensor for %s",clientInfoPtr->sensorName);
             le_thread_Sleep(1);
             status = clientInfoPtr->sensorClient->activate();
             if(status != telux::common::Status::SUCCESS){
-                LE_DEBUG("Sensor activation failed for %s with status code %d",sensorPtr->name,
-                static_cast<int>(status));
-                return LE_FAULT;
+                LE_ERROR("Sensor activation failed for %s with status code %d for session %p and sensorRef %p",
+                sensorPtr->name,static_cast<int>(status),clientRequestPtr->sessionRef,sensorRef);
+                return sensorMngr.MapStatus(status);
             }
             LE_INFO("Activate sensor for %s",clientInfoPtr->sensorName);
             clientInfoPtr->isSensorActivated = true;
+            return LE_OK;
         }
     }
-    return LE_OK;
+    LE_ERROR("Client not found for SensorRef %p in session %p",
+        sensorRef,clientRequestPtr->sessionRef);
+    return LE_NOT_FOUND;
 }
 
 le_result_t taf_Sensor::MapErrorCode(telux::common::ErrorCode errorCode)
@@ -620,7 +619,7 @@ le_result_t taf_Sensor::SelfTest(taf_imuSensor_SensorRef_t sensorRef,
     auto& sensorMngr = taf_Sensor::GetInstance();
     taf_SensorClient_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr,LE_FAULT, "clientRequestPtr is NULL");
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr,LE_NOT_PERMITTED, "clientRequestPtr is NULL, Client count reach max");
     LE_INFO("Start: sensorClientPtr %p, sensorClientPtr->sessionRef %p, num of active client %d",
             clientRequestPtr, clientRequestPtr->sessionRef, mClientRefCount);
     taf_SensorInfo_t* sensorPtr = (taf_SensorInfo_t*)le_ref_Lookup(tSensorInfoMap, sensorRef);
@@ -663,22 +662,20 @@ le_result_t taf_Sensor::SelfTest(taf_imuSensor_SensorRef_t sensorRef,
                 if(futResult.wait_for(std::chrono::seconds(MAX_TIME_OUT)) ==
                     std::future_status::ready){
                     le_result_t selfResult = futResult.get();
-                    if(selfResult != LE_OK){
-                        LE_ERROR("self test failed");
-                        return selfResult;
-                    }
+                    return selfResult;
                 }else{
                     LE_ERROR("Timeout waiting for result..");
                     return LE_TIMEOUT;
                 }
-
             }
             else{
                 return MapStatus(status);
             }
         }
     }
-    return LE_OK;
+    LE_ERROR("Client not found for SensorRef %p in session %p",
+        sensorRef,clientRequestPtr->sessionRef);
+    return LE_NOT_FOUND;
 }
 
 void taf_Sensor::FirstLayerSelfTestHandler(void* reportPtr,void* secondLayerHandlerFunc){
@@ -686,30 +683,38 @@ void taf_Sensor::FirstLayerSelfTestHandler(void* reportPtr,void* secondLayerHand
     TAF_ERROR_IF_RET_NIL(ptr == NULL,"ptr is NULL");
     taf_imuSensor_SelfTestFailedHandlerFunc_t clientHandlerFunc =
         (taf_imuSensor_SelfTestFailedHandlerFunc_t)secondLayerHandlerFunc;
-    clientHandlerFunc(NULL,ptr->cSensorRef,ptr->timestamp,le_event_GetContextPtr());
+    auto &sensorMngr = taf_Sensor::GetInstance();
+    if(sensorMngr.numOfSelfTestEventHandler){
+        clientHandlerFunc(NULL,ptr->cSensorRef,ptr->timestamp,le_event_GetContextPtr());
+    }
 }
 
 taf_imuSensor_SelfTestFailedHandlerRef_t taf_Sensor::AddSelfTestFailedHandler
     (taf_imuSensor_SensorRef_t sensorRef,taf_imuSensor_SelfTestFailedHandlerFunc_t handlerPtr,
     void* contextPtr){
     LE_DEBUG("AddSelfTestFailedHandler");
-    le_event_HandlerRef_t handlerRef = NULL;
     TAF_KILL_CLIENT_IF_RET_VAL(handlerPtr == NULL, NULL, "Handler pointer is NULL");
     taf_SensorClient_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();
-    TAF_ERROR_IF_RET_VAL(NULL == clientRequestPtr, NULL,"AddSelfTestFailedHandler: clientRequestPtr"
-        " is NULL");
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr,NULL, "clientRequestPtr is NULL, Client count reach max");
+    LE_INFO("Start: sensorClientPtr %p, sensorClientPtr->sessionRef %p, num of active client %d",
+            clientRequestPtr, clientRequestPtr->sessionRef, mClientRefCount);
     taf_SensorInfo_t* sensorPtr = (taf_SensorInfo_t*)le_ref_Lookup(tSensorInfoMap, sensorRef);
     TAF_ERROR_IF_RET_VAL(sensorPtr == NULL,NULL,"Invalid reference (%p) provided!",sensorPtr);
-    for(std::shared_ptr<taf_sensorClientInfo_t> clientPtr: clientRequestPtr->clients){
-        if(strcmp(clientPtr->sensorName,sensorPtr->name)==0){
+    for(std::shared_ptr<taf_sensorClientInfo_t> clientInfoPtr: clientRequestPtr->clients){
+        if(strcmp(sensorPtr->name,clientInfoPtr->sensorName)==0){
+            clientInfoPtr->eventListener->sensorRef = sensorRef;
+            le_event_HandlerRef_t handlerRef;
             handlerRef = le_event_AddLayeredHandler("SelfTestHandler",
-                clientPtr->SelfTestEventId,FirstLayerSelfTestHandler, (void*)handlerPtr);
-                numOfSelfTestEventHandler++;
-                le_event_SetContextPtr(handlerRef,contextPtr);
+                SelfTestEventId,FirstLayerSelfTestHandler, (void*)handlerPtr);
+            numOfSelfTestEventHandler++;
+            le_event_SetContextPtr(handlerRef,contextPtr);
+            return (taf_imuSensor_SelfTestFailedHandlerRef_t)handlerRef;
         }
     }
-    return (taf_imuSensor_SelfTestFailedHandlerRef_t)handlerRef;
+    LE_ERROR("Client not found for SensorRef %p in session %p",
+        sensorRef,clientRequestPtr->sessionRef);
+    return NULL;
 }
 
 void taf_Sensor::RemoveSelfTestFailedHandler(taf_imuSensor_SelfTestFailedHandlerRef_t handlerRef)
@@ -723,83 +728,81 @@ void taf_Sensor::RemoveSelfTestFailedHandler(taf_imuSensor_SelfTestFailedHandler
 void tafSensorListener::onSelfTestFailed(){
     LE_INFO("onSelfTestFailed");
     auto &sensorMngr = taf_Sensor::GetInstance();
-    taf_SensorClient_t* clientRequestPtr = NULL;
-    clientRequestPtr = sensorMngr.DiscoverSessionRef(*clientSessionRef);
-    if (NULL == clientRequestPtr) {
-        LE_DEBUG("onSelfTestFailed did not find sessionRef: %p", *clientSessionRef);
-        return;
-    }
-    taf_SensorInfo_t* sensorPtr =
-        (taf_SensorInfo_t*)le_ref_Lookup(sensorMngr.tSensorInfoMap, sensorRef);
-    if(!sensorPtr){
-        LE_ERROR("SensorPtr is NULL");
-        return;
-    }
-    for(std::shared_ptr<taf_sensorClientInfo_t> clientInfo: clientRequestPtr->clients){
-        if(strcmp(sensorPtr->name,clientInfo->sensorName)==0){
-            le_mutex_Lock(clientInfo->mSensorMutexRef);
-            if(sensorMngr.numOfSelfTestEventHandler){
-                taf_SensorSelfTest_t event;
-                timespec ts;
-                clock_gettime(CLOCK_MONOTONIC, &ts);
-                event.timestamp = (uint64_t)ts.tv_sec * SEC_TO_NANOS + (uint64_t)ts.tv_nsec;
-                event.cSensorRef = sensorRef;
-                le_event_Report(clientInfo->SelfTestEventId,&event,sizeof(event));
-            }
-            else{
-                LE_INFO("Self Test Handler not found");
-            }
-            le_mutex_Unlock(clientInfo->mSensorMutexRef);
-        }
-    }
+    taf_SensorSelfTest_t event;
+    timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    event.timestamp = (uint64_t)ts.tv_sec * SEC_TO_NANOS + (uint64_t)ts.tv_nsec;
+    event.cSensorRef = sensorRef;
+    event.sessionRef = *clientSessionRef;
+    le_event_Report(sensorMngr.SelfTestEventId,&event,sizeof(event));
 }
 
 le_result_t taf_Sensor::Deactivate(taf_imuSensor_SensorRef_t sensorRef){
-    LE_DEBUG("Deactivate Sensor");
+    LE_DEBUG("Deactivate Sensor for sensorRef %p",sensorRef);
+     auto& sensorMngr = taf_Sensor::GetInstance();
     taf_SensorClient_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr,LE_FAULT, "clientRequestPtr is NULL");
-    LE_INFO("Start: sensorClientPtr %p, sensorClientPtr->sessionRef %p, num of active client %d",
-            clientRequestPtr, clientRequestPtr->sessionRef, mClientRefCount);
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr,LE_NOT_PERMITTED, "clientRequestPtr is NULL, Client count reach max");
+    LE_INFO("Deactivate: sensorRef %p, sensorClientPtr->sessionRef %p, num of active client %d",
+            sensorRef, clientRequestPtr->sessionRef, mClientRefCount);
     taf_SensorInfo_t* sensorPtr = (taf_SensorInfo_t*)le_ref_Lookup(tSensorInfoMap, sensorRef);
     TAF_ERROR_IF_RET_VAL(sensorPtr == NULL,LE_FAULT,"Invalid reference (%p) provided!",sensorPtr);
     telux::common::Status status = telux::common::Status::FAILED;
     for(std::shared_ptr<taf_sensorClientInfo_t> clientInfoPtr: clientRequestPtr->clients){
         if(strcmp(sensorPtr->name,clientInfoPtr->sensorName)==0){
+            if(clientInfoPtr->isSensorActivated == false)
+            {
+                LE_ERROR("Already Deactivated %s, session %p,sensorRef %p",sensorPtr->name,
+                    clientRequestPtr->sessionRef,sensorRef);
+                return LE_NOT_PERMITTED;
+            }
             status = clientInfoPtr->sensorClient->deactivate();
             if(status != telux::common::Status::SUCCESS){
-                LE_DEBUG("Deactivation of %s failed",sensorPtr->name);
-                return LE_FAULT;
+                LE_ERROR("Deactivation of %s failed with session %p,sensorRef %p",sensorPtr->name,
+                    clientRequestPtr->sessionRef,sensorRef);
+                return sensorMngr.MapStatus(status);
             }
-            status = clientInfoPtr->sensorClient->
-                deregisterListener(clientInfoPtr->eventListener);
-            if(status != telux::common::Status::SUCCESS){
-                LE_ERROR("Unable to deregister client");
-                return LE_FAULT;
-            }
-            clientInfoPtr->eventListener->sensorRef = NULL;
             clientInfoPtr->isSensorActivated = false;
+            return LE_OK;
         }
     }
-    return LE_OK;
+    LE_ERROR("Client not found for SensorRef %p in session %p",
+        sensorRef,clientRequestPtr->sessionRef);
+    return LE_NOT_FOUND;
 }
 
 taf_imuSensor_DataHandlerRef_t taf_Sensor::AddDataHandler(taf_imuSensor_SensorRef_t sensorRef,
     taf_imuSensor_DataHandlerFunc_t handlerPtr,void* contextPtr){
-    LE_DEBUG("AddDataHandler");
-    taf_SensorEventHandler_t*  eventHandlerPtr =
-        (taf_SensorEventHandler_t*)le_mem_ForceAlloc(tSensorEventHandlerPool);
-    memset(eventHandlerPtr, 0, sizeof(taf_SensorEventHandler_t));
-    eventHandlerPtr->sensorRef = sensorRef;
-    eventHandlerPtr->next = LE_DLS_LINK_INIT;
-    eventHandlerPtr->handlerFuncPtr = handlerPtr;
-    eventHandlerPtr->handlerContextPtr = contextPtr;
-    eventHandlerPtr->sessionRef = taf_imuSensor_GetClientSessionRef();
+    LE_DEBUG("AddDataHandler for sensorRef %p",sensorRef);
     TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "handlerPtr is NULL !");
-    eventHandlerPtr->handlerRef =
-        (taf_imuSensor_DataHandlerRef_t)le_ref_CreateRef(tSensorEventHandlerMap,eventHandlerPtr);
-    numofSensorEventHandlers++;
-    return eventHandlerPtr->handlerRef;
+    taf_SensorClient_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr,NULL, "clientRequestPtr is NULL, Client count reach max");
+    LE_INFO("AddDataHandler: sensorRef %p, sensorClientPtr->sessionRef %p, num of active client %d",
+            sensorRef, clientRequestPtr->sessionRef, mClientRefCount);
+    taf_SensorInfo_t* sensorPtr = (taf_SensorInfo_t*)le_ref_Lookup(tSensorInfoMap, sensorRef);
+    TAF_ERROR_IF_RET_VAL(sensorPtr == NULL,NULL,"Invalid reference (%p) provided!",sensorPtr);
+    for(std::shared_ptr<taf_sensorClientInfo_t> clientInfoPtr: clientRequestPtr->clients){
+        if(strcmp(sensorPtr->name,clientInfoPtr->sensorName)==0){
+            clientInfoPtr->eventListener->sensorRef = sensorRef;
+            taf_SensorEventHandler_t*  eventHandlerPtr =
+            (taf_SensorEventHandler_t*)le_mem_ForceAlloc(tSensorEventHandlerPool);
+            memset(eventHandlerPtr, 0, sizeof(taf_SensorEventHandler_t));
+            eventHandlerPtr->sensorRef = sensorRef;
+            eventHandlerPtr->next = LE_DLS_LINK_INIT;
+            eventHandlerPtr->handlerFuncPtr = handlerPtr;
+            eventHandlerPtr->handlerContextPtr = contextPtr;
+            eventHandlerPtr->sessionRef = taf_imuSensor_GetClientSessionRef();
+            TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "handlerPtr is NULL !");
+            eventHandlerPtr->handlerRef =
+            (taf_imuSensor_DataHandlerRef_t)le_ref_CreateRef(tSensorEventHandlerMap,eventHandlerPtr);
+            numofSensorEventHandlers++;
+            return eventHandlerPtr->handlerRef;
+        }
+    }
+    LE_ERROR("Client not found for SensorRef %p in session %p",
+        sensorRef,clientRequestPtr->sessionRef);
+    return NULL;
 }
 
 void taf_Sensor::RemoveDataHandler(taf_imuSensor_DataHandlerRef_t handlerRef){
@@ -807,8 +810,8 @@ void taf_Sensor::RemoveDataHandler(taf_imuSensor_DataHandlerRef_t handlerRef){
         (taf_SensorEventHandler_t*)le_ref_Lookup(tSensorEventHandlerMap,handlerRef);
     if(evtHandlerPtr != NULL){
         if(evtHandlerPtr->handlerRef != handlerRef){
-            LE_INFO("Handler ref are not same");
-            return ;
+            LE_INFO("Handler ref %p not found in map",handlerRef);
+            return;
         }
         numofSensorEventHandlers--;
         LE_DEBUG("Removed evtHandlerRef(%p) for evtHandlerPtr(%p) (totalCnt=0x%x).",
@@ -822,66 +825,43 @@ void taf_Sensor::RemoveDataHandler(taf_imuSensor_DataHandlerRef_t handlerRef){
 }
 
 void tafSensorListener::onEvent(std::shared_ptr<std::vector<SensorEvent>> events){
-    LE_DEBUG("onEvent for *sessionRef: %p", *clientSessionRef);
+    LE_DEBUG("onEvent for *sessionRef: %p for sensorRef %p", *clientSessionRef,sensorRef);
     auto &sensorMngr = taf_Sensor::GetInstance();
-    taf_SensorClient_t* clientRequestPtr = NULL;
-    clientRequestPtr = sensorMngr.DiscoverSessionRef(*clientSessionRef);
-    if (NULL == clientRequestPtr) {
-        LE_DEBUG("onEvent did not find sessionRef: %p", *clientSessionRef);
-        return;
-    }
-    taf_SensorInfo_t* sensorPtr =
-        (taf_SensorInfo_t*)le_ref_Lookup(sensorMngr.tSensorInfoMap, sensorRef);
-    if(!sensorPtr){
-        LE_ERROR("SensorPtr is NULL");
-        return;
-    }
-    for(std::shared_ptr<taf_sensorClientInfo_t> clientInfo: clientRequestPtr->clients){
-        if(strcmp(sensorPtr->name,clientInfo->sensorName)==0){
-            le_mutex_Lock(clientInfo->mSensorMutexRef);
-            if(sensorMngr.numofSensorEventHandlers){
-                taf_SensorEventList_t* triggeredSensorEvent =
-                    (taf_SensorEventList_t*)le_mem_ForceAlloc(sensorMngr.tSensorEventPool);
-                for (SensorEvent s : *(events.get())){
-                    std::shared_ptr<taf_SensorEvent_t> eventData;
-                    try{
-                        eventData = std::make_shared<taf_SensorEvent_t>();
-                    } catch(const std::exception &e){
-                        LE_FATAL("Not able to intialize eventData with exception %s",e.what());
-                    }
-                    eventData->timestamp = s.timestamp;
-                    if(clientInfo->isCalibrated==false){
-                        eventData->x = s.uncalibrated.data.x;
-                        eventData->y = s.uncalibrated.data.y;
-                        eventData->z= s.uncalibrated.data.z;
-                        eventData->xb= s.uncalibrated.bias.x;
-                        eventData->yb = s.uncalibrated.bias.y;
-                        eventData->zb = s.uncalibrated.bias.z;
-                    } else {
-                        eventData->x = s.calibrated.x;
-                        eventData->y= s.calibrated.y;
-                        eventData->z= s.calibrated.z;
-                        eventData->xb= 0;
-                        eventData->yb= 0;
-                        eventData->zb= 0;
-                    }
-                    triggeredSensorEvent->eventList.push_back(eventData);
-                }
-                triggeredSensorEvent->sensorRef = sensorRef;
-                triggeredSensorEvent->listSize = events->size();
-                triggeredSensorEvent->sessionRef = clientRequestPtr->sessionRef;
-                le_event_ReportWithRefCounting(clientInfo->SensorOnEventId,triggeredSensorEvent);
-                }else{
-                    LE_DEBUG("handler not found");
-                }
-            le_mutex_Unlock(clientInfo->mSensorMutexRef);
+    taf_SensorEventList_t* triggeredSensorEvent =
+        (taf_SensorEventList_t*)le_mem_ForceAlloc(sensorMngr.tSensorEventPool);
+    for (SensorEvent s : *(events.get())){
+        std::shared_ptr<taf_SensorEvent_t> eventData;
+        try{
+            eventData = std::make_shared<taf_SensorEvent_t>();
+        } catch(const std::exception &e){
+            LE_FATAL("Not able to intialize eventData with exception %s",e.what());
         }
+        eventData->timestamp = s.timestamp;
+        if(isCalibrated==false){
+            eventData->x = s.uncalibrated.data.x;
+            eventData->y = s.uncalibrated.data.y;
+            eventData->z= s.uncalibrated.data.z;
+            eventData->xb= s.uncalibrated.bias.x;
+            eventData->yb = s.uncalibrated.bias.y;
+            eventData->zb = s.uncalibrated.bias.z;
+        } else {
+            eventData->x = s.calibrated.x;
+            eventData->y= s.calibrated.y;
+            eventData->z= s.calibrated.z;
+            eventData->xb= 0;
+            eventData->yb= 0;
+            eventData->zb= 0;
+        }
+        triggeredSensorEvent->eventList.push_back(eventData);
     }
-
+    triggeredSensorEvent->sensorRef = sensorRef;
+    triggeredSensorEvent->listSize = events->size();
+    triggeredSensorEvent->sessionRef = *clientSessionRef;
+    le_event_ReportWithRefCounting(sensorMngr.SensorOnEventId,triggeredSensorEvent);
 }
 
 void tafSensorListener::onConfigurationUpdate(SensorConfiguration configuration){
-    LE_INFO("onConfiguration for *sessionRef: %p", *clientSessionRef);
+    LE_INFO("onConfiguration for sensorRef %p with sessionRef: %p ",sensorRef, *clientSessionRef);
 }
 
 le_result_t taf_Sensor::GetData( taf_imuSensor_SampleRef_t eventList,taf_imuSensor_DataValue_t*
@@ -942,7 +922,7 @@ taf_SensorClient_t* taf_Sensor::DiscoverSessionRef(le_msg_SessionRef_t sessionRe
             return NULL;
         }
 
-        LE_DEBUG("clientPtr %p, clientPtr->sessionRef %p, sessionRef %p",
+        LE_DEBUG("clientPtr %p, clientPtr->sessionRef %p, current sessionRef %p",
                  clientPtr, clientPtr->sessionRef, sessionRef);
 
         if (sessionRef == clientPtr->sessionRef)
@@ -990,14 +970,16 @@ void taf_Sensor::CleanUp(taf_SensorClient_t* clientPtr){
         if(clientPtr->clients[i]->isSensorActivated == true){
             status = clientPtr->clients[i]->sensorClient->deactivate();
             if(status != telux::common::Status::SUCCESS){
-                LE_ERROR("Unable to deactivate sensor");
-            }
-            status = clientPtr->clients[i]->sensorClient->deregisterListener(
-                clientPtr->clients[i]->eventListener);
-            if(status != telux::common::Status::SUCCESS){
-                LE_ERROR("Unable to deregister sensor");
+                LE_ERROR("Unable to deactivate sensor with status code %d",
+                    static_cast<int>(status));
             }
             clientPtr->clients[i]->isSensorActivated = false;
+        }
+        status = clientPtr->clients[i]->sensorClient->deregisterListener(
+            clientPtr->clients[i]->eventListener);
+        if(status != telux::common::Status::SUCCESS){
+            LE_ERROR("Unable to deregister sensor with status code %d",
+                static_cast<int>(status));
         }
         clientPtr->clients[i]->eventListener = NULL;
         clientPtr->clients[i]->sensorClient = NULL;
@@ -1078,15 +1060,6 @@ void taf_Sensor::CloseEventHandler(le_msg_SessionRef_t sessionRef, void* context
 void taf_Sensor::OpenEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr)
 {
     LE_INFO("OnClientConnection sessionRef: %p", sessionRef);
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    if(sensorMngr.mClientRefCount>=TAF_SENSOR_CLIENT_ACTIVATION_MAX) {
-        LE_ERROR("Client count has reached to max limit.");
-        return;
-    }
-    taf_SensorClient_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
-    TAF_ERROR_IF_RET_NIL(NULL==clientRequestPtr, "OnClientConnection clientRequestPtr is NULL");
-    return;
 }
 
 taf_Sensor::~taf_Sensor()
@@ -1125,6 +1098,10 @@ void taf_Sensor::Init()
         SENSOR_EVENT_HANDLER_HIGH , sizeof(taf_SensorEventHandler_t));
     tSensorEventMap = le_ref_CreateMap("tSensorEventMap",TAF_SENSOR_MAX_EVENTS_SIZE);
     tSensorEventHandlerMap = le_ref_CreateMap("EventHandlerRefMap",SENSOR_EVENT_HANDLER_HIGH);
+    sensorMngr.SensorOnEventId = le_event_CreateIdWithRefCounting("sensorOnEventId");
+    sensorMngr.SelfTestEventId = le_event_CreateId("SelfTestEventId",sizeof(taf_SensorSelfTest_t));
+    sensorMngr.HandlerRef = le_event_AddHandler("OnEventHandler",
+        sensorMngr.SensorOnEventId, taf_Sensor::DataEventHandler);
     le_msg_ServiceRef_t msgService = taf_imuSensor_GetServiceRef();
     le_msg_AddServiceOpenHandler(msgService, OpenEventHandler, NULL);
     le_msg_AddServiceCloseHandler(msgService, CloseEventHandler, NULL);

@@ -503,49 +503,96 @@ void tafMngdPMSvc::NodeEventCB
 )
 {
     LE_INFO("NodeEventCB for node %d with node info %s", pm_node_id, pm_node_event_info);
-    le_result_t res = LE_FAULT;
+
+    taf_mngdPm_NodeEventData_t eventData;
+    eventData.type = (taf_mngdPm_InternalEventType_t)0;
+
     if(strncmp(pm_node_event_info, RELAX, strlen(RELAX)) == 0)
     {
-        if(tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE) != LE_OK)
-        {
-            return;
-        }
-
-        res = tafMngdPMSvc::ReleaseWakeLock();
-        if(res == LE_OK)
-        {
-            LE_INFO(" ReleaseWakeLock successfull");
-            tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
-        }
+        eventData.type = EVT_NODE_EVENT_RELAX;
     }
     else if(strncmp(pm_node_event_info, STAYAWAKE, strlen(STAYAWAKE)) == 0)
     {
-        if(tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_WAKING_UP) != LE_OK)
-        {
-            return;
-        }
-
-        res = tafMngdPMSvc::AcquireWakeLock();
-        if(res == LE_OK)
-        {
-            LE_INFO(" AcquireWakeLock successfull");
-            tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_WAKING_UP);
-        }
+        eventData.type = EVT_NODE_EVENT_STAYAWAKE;
     }
     else if(strncmp(pm_node_event_info, SHUTDOWN, strlen(SHUTDOWN)) == 0)
     {
-        LE_INFO("SHUTDOWN from VHAL");
-
-        if(tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN) != LE_OK)
-        {
-            return;
-        }
+        eventData.type = EVT_NODE_EVENT_SHUTDOWN;
     }
     else
     {
-        LE_ERROR("Received unsupported mode from VHAL");
+        LE_ERROR("Received unsupported mode from VHAL: %s", pm_node_event_info);
+        return;
+    }
+
+    // Report the event to be handled on the main Legato event loop thread
+    le_event_Report(tafMngdPMSvc::nodeInternalEvent, &eventData, sizeof(eventData));
+    LE_DEBUG("NodeEventCB transferred event type %d to main thread.", eventData.type);
+}
+
+/**
+ * Handler for internal Node events transferred from VHAL driver threads.
+ * This function executes on the main Legato event loop thread.
+ * It safely performs operations that modify tafMngdPMSvc's state or use
+ * non-thread-safe Legato APIs.
+ */
+void tafMngdPMSvc::NodeInternalEventHandler(void *reportPtr)
+{
+    LE_INFO("--- NodeInternalEventHandler ---");
+    TAF_ERROR_IF_RET_NIL(reportPtr == nullptr, "Null ptr(reportPtr)");
+
+    taf_mngdPm_NodeEventData_t* eventData = (taf_mngdPm_NodeEventData_t*)reportPtr;
+    le_result_t res = LE_FAULT;
+
+    switch (eventData->type)
+    {
+        case EVT_NODE_EVENT_RELAX:
+            if(tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE) != LE_OK)
+            {
+                LE_WARN("RequestStateChange for RELEASING_WAKE_SOURCE not permitted for VHAL node event.");
+                return;
+            }
+            res = tafMngdPMSvc::ReleaseWakeLock();
+            if(res == LE_OK)
+            {
+                LE_INFO("ReleaseWakeLock successful initiated by VHAL node event.");
+                tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
+            } else {
+                LE_ERROR("ReleaseWakeLock failed initiated by VHAL node event: %s", LE_RESULT_TXT(res));
+            }
+            break;
+
+        case EVT_NODE_EVENT_STAYAWAKE:
+            if(tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_WAKING_UP) != LE_OK)
+            {
+                LE_WARN("RequestStateChange for WAKING_UP not permitted for VHAL node event.");
+                return;
+            }
+            res = tafMngdPMSvc::AcquireWakeLock();
+            if(res == LE_OK)
+            {
+                LE_INFO("AcquireWakeLock successful initiated by VHAL node event.");
+                tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_WAKING_UP);
+            } else {
+                LE_ERROR("AcquireWakeLock failed initiated by VHAL node event: %s", LE_RESULT_TXT(res));
+            }
+            break;
+
+        case EVT_NODE_EVENT_SHUTDOWN:
+            LE_INFO("SHUTDOWN initiated by VHAL node event (processed on main thread).");
+            if(tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN) != LE_OK)
+            {
+                LE_WARN("RequestStateChange for SHUTTING_DOWN not permitted for VHAL node event.");
+                return;
+            }
+            break;
+
+        default:
+            LE_ERROR("Unknown internal node event type received from VHAL: %d", eventData->type);
+            break;
     }
 }
+
 
 /**
  * Client connection callback function
@@ -2029,3 +2076,5 @@ void tafMngdPMSvc::PMVhalReadyEvtHandler(void * reportPtr);
 
 // Service-wide snapshot default
 taf_mngdPm_NodePowerState_t tafMngdPMSvc::currentNodePowerState = TAF_MNGDPM_NODE_STATE_RESUME;
+// Internal event ID for node events, to be processed on the main thread
+le_event_Id_t tafMngdPMSvc::nodeInternalEvent;

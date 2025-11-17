@@ -145,6 +145,17 @@ void taf_Audio::RetryHandler(le_timer_Ref_t timerRef)
     audioVhal.AdvertiseVendorService();
 }
 
+void tafServiceListener::onServiceStatusChange(telux::common::ServiceStatus status) {
+    if (status == telux::common::ServiceStatus::SERVICE_UNAVAILABLE) {
+        LE_ERROR("Audio Service UNAVAILABLE");
+        // Exit process with EXIT_UNAVAILABLE as audio subsystem is unavailable.
+        exit(EXIT_UNAVAILABLE);
+    }
+    if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+        LE_INFO("Audio Service AVAILABLE");
+    }
+}
+
 void taf_Audio::Init(void)
 {
     LE_INFO("taf_Audio: Init");
@@ -207,6 +218,12 @@ void taf_Audio::Init(void)
     } else {
         LE_FATAL(" *** ERROR - Unable to initialize audio subsystem");
         return;
+    }
+
+    serviceStatusChangeListener = std::make_shared<tafServiceListener>();
+    auto status = mAudioManager->registerListener(serviceStatusChangeListener);
+    if (status != telux::common::Status::SUCCESS) {
+        LE_ERROR("Failed to register with audio service status change listener");
     }
 
     telux::common::ErrorCode ec;

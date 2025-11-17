@@ -339,6 +339,10 @@ namespace tafsvc {
         std::string commandName_;
     };
 
+    class tafServiceListener : public telux::audio::IAudioListener {
+        public:
+            void onServiceStatusChange(telux::common::ServiceStatus status) override;
+    };
 
 class taf_Audio : public ITafSvc
 {
@@ -432,6 +436,7 @@ class taf_Audio : public ITafSvc
         std::shared_ptr<tafPromptsStatusListener> repeatedTxPlayerStatusListener;
         std::queue<std::shared_ptr<telux::audio::IStreamBuffer>> mPbFreeBuffers,
                 mRecFreeBuffers, mRxRecFreeBuffers;
+        std::shared_ptr<tafServiceListener> serviceStatusChangeListener;
 
         bool isVhalAvailable = false;
         bool isEcnrEnabled = false;

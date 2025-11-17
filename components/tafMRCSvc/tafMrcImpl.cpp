@@ -218,9 +218,16 @@ void taf_Mrc::Init(void)
     LE_INFO("Obtained filesystem manager.");
 
     // 4. Wait until initialization is complete.
-    promisePtr->get_future().get();
-    TAF_ERROR_IF_RET_NIL(fsManager->getServiceStatus() != telux::common::ServiceStatus::SERVICE_AVAILABLE,
-        "Filesystem service not available.");
+    std::future<telux::common::ServiceStatus> initFuture = promisePtr->get_future();
+    std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
+        TAF_MRC_SVC_READY_TIMEOUT));
+    if (std::future_status::timeout == waitStatus)
+        LE_FATAL("Timeout waiting for filysystem.");
+
+    telux::common::ServiceStatus serviceStatus = initFuture.get();
+    if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        LE_FATAL("Fail to initiate Filesystem.");
+
     LE_INFO("Filesystem service is now available.");
 
     // 5. Create the listener object and register as a listener.

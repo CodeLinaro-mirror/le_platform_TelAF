@@ -236,10 +236,15 @@ taf_doip_Result_t VehicleManager::SetEid
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    le_hex_StringToBinary(eidOut, TAF_DOIP_EID_SIZE*2, (uint8_t *)vehicleMgr.doipConfigPtr->eid,
-            TAF_DOIP_EID_SIZE);
+    if(vehicleMgr.doipConfigPtr != NULL)
+    {
+        le_hex_StringToBinary(eidOut, TAF_DOIP_EID_SIZE*2, (uint8_t *)vehicleMgr.doipConfigPtr->eid,
+                TAF_DOIP_EID_SIZE);
 
-    return TAF_DOIP_RESULT_OK;
+        return TAF_DOIP_RESULT_OK;
+    }
+
+    return TAF_DOIP_RESULT_ERROR;
 }
 
 taf_doip_Result_t VehicleManager::GetEid
@@ -257,13 +262,18 @@ taf_doip_Result_t VehicleManager::GetEid
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    memcpy(eidPtr, vehicleMgr.doipConfigPtr->eid, TAF_DOIP_EID_SIZE);
-    for (int i = 0; i<TAF_DOIP_EID_SIZE; i++)
+    if(vehicleMgr.doipConfigPtr != NULL)
     {
-        LE_DEBUG("Get Eid: %02x", eidPtr[i]);
+        memcpy(eidPtr, vehicleMgr.doipConfigPtr->eid, TAF_DOIP_EID_SIZE);
+        for (int i = 0; i<TAF_DOIP_EID_SIZE; i++)
+        {
+            LE_DEBUG("Get Eid: %02x", eidPtr[i]);
+        }
+
+        return TAF_DOIP_RESULT_OK;
     }
 
-    return TAF_DOIP_RESULT_OK;
+    return TAF_DOIP_RESULT_ERROR;
 }
 
 taf_doip_Result_t VehicleManager::GetMaxConcurrentSockNum
@@ -281,7 +291,7 @@ taf_doip_Result_t VehicleManager::GetMaxConcurrentSockNum
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    if ( vehicleMgr.doipConfigPtr->parseStatus == true )
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
     {
         *maxCTSPtr = vehicleMgr.doipConfigPtr->maxSockNum;
         return TAF_DOIP_RESULT_OK;
@@ -308,7 +318,7 @@ taf_doip_Result_t VehicleManager::GetMaxDataSize
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    if ( vehicleMgr.doipConfigPtr->parseStatus == true )
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
     {
         *maxDataSizePtr = vehicleMgr.doipConfigPtr->maxDataSize;
         return TAF_DOIP_RESULT_OK;
@@ -335,7 +345,7 @@ taf_doip_Result_t VehicleManager::GetMaxAnnounceCount
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    if ( vehicleMgr.doipConfigPtr->parseStatus == true )
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
     {
         *announceCountPtr = vehicleMgr.doipConfigPtr->maxAnnounceCount;
         return TAF_DOIP_RESULT_OK;
@@ -362,7 +372,7 @@ taf_doip_Result_t VehicleManager::GetAnnounceIntervalTime
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    if ( vehicleMgr.doipConfigPtr->parseStatus == true )
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
     {
         *announceIntTimePtr = vehicleMgr.doipConfigPtr->announceItrvalTime;
         return TAF_DOIP_RESULT_OK;
@@ -389,7 +399,7 @@ taf_doip_Result_t VehicleManager::GetGenInactivityTime
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    if ( vehicleMgr.doipConfigPtr->parseStatus == true )
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
     {
         *genInactiveTimePtr = vehicleMgr.doipConfigPtr->genInactiveTime;
         return TAF_DOIP_RESULT_OK;
@@ -416,7 +426,7 @@ taf_doip_Result_t VehicleManager::GetInitialInactivityTime
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    if ( vehicleMgr.doipConfigPtr->parseStatus == true )
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
     {
         *initInactiveTimePtr = vehicleMgr.doipConfigPtr->initInactiveTime;
         return TAF_DOIP_RESULT_OK;
@@ -443,7 +453,7 @@ taf_doip_Result_t VehicleManager::GetAliveCheckTime
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    if ( vehicleMgr.doipConfigPtr->parseStatus == true )
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
     {
         *aliveCheckTimePtr = vehicleMgr.doipConfigPtr->aliveCheckTime;
         return TAF_DOIP_RESULT_OK;
@@ -464,8 +474,13 @@ taf_doip_Result_t VehicleManager::SetEntityLogicalAddr
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    vehicleMgr.doipConfigPtr->entityLA = entityLA;
-    return TAF_DOIP_RESULT_OK;
+    if(vehicleMgr.doipConfigPtr != NULL)
+    {
+        vehicleMgr.doipConfigPtr->entityLA = entityLA;
+        return TAF_DOIP_RESULT_OK;
+    }
+
+    return TAF_DOIP_RESULT_ERROR;
 }
 
 taf_doip_Result_t VehicleManager::GetEntityLogicalAddr
@@ -483,7 +498,7 @@ taf_doip_Result_t VehicleManager::GetEntityLogicalAddr
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    if ( vehicleMgr.doipConfigPtr->parseStatus == true )
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
     {
         *entityLAPtr = vehicleMgr.doipConfigPtr->entityLA;
         return TAF_DOIP_RESULT_OK;
@@ -503,7 +518,12 @@ bool VehicleManager::GetAuthEnableStatus
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    return vehicleMgr.doipConfigPtr->authEnableStatus;
+    if(vehicleMgr.doipConfigPtr != NULL)
+    {
+        return vehicleMgr.doipConfigPtr->authEnableStatus;
+    }
+
+    return false;
 }
 
 taf_doip_Result_t VehicleManager::GetAuthInfo
@@ -521,7 +541,7 @@ taf_doip_Result_t VehicleManager::GetAuthInfo
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    if ( vehicleMgr.doipConfigPtr->parseStatus == true )
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
     {
         *authInfoPtr = vehicleMgr.doipConfigPtr->authInfo;
         return TAF_DOIP_RESULT_OK;
@@ -548,10 +568,11 @@ taf_doip_Result_t VehicleManager::GetNetType
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    if ( vehicleMgr.doipConfigPtr->parseStatus == true )
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
     {
         le_utf8_Copy(netTypePtr, vehicleMgr.doipConfigPtr->netType,
                 TAF_DOIP_IPTYPE_MAX_LEN, NULL);
+        return TAF_DOIP_RESULT_OK;
     }
     else
     {
@@ -559,7 +580,6 @@ taf_doip_Result_t VehicleManager::GetNetType
         return TAF_DOIP_RESULT_ERROR;
     }
 
-    return TAF_DOIP_RESULT_OK;
 }
 
 taf_doip_Result_t VehicleManager::GetTcpPort
@@ -577,7 +597,7 @@ taf_doip_Result_t VehicleManager::GetTcpPort
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    if ( vehicleMgr.doipConfigPtr->parseStatus == true )
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
     {
         *tcpPortPtr = vehicleMgr.doipConfigPtr->tcpPort;
         return TAF_DOIP_RESULT_OK;
@@ -604,7 +624,7 @@ taf_doip_Result_t VehicleManager::GetUdpPort
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    if ( vehicleMgr.doipConfigPtr->parseStatus == true )
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
     {
         *udpPortPtr = vehicleMgr.doipConfigPtr->udpPort;
         return TAF_DOIP_RESULT_OK;
@@ -631,7 +651,7 @@ taf_doip_Result_t VehicleManager::GetUdpSrcPort
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    if ( vehicleMgr.doipConfigPtr->parseStatus == true )
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
     {
         *udpSrcPortPtr = vehicleMgr.doipConfigPtr->udpSrc;
         return TAF_DOIP_RESULT_OK;
@@ -769,15 +789,20 @@ taf_doip_Result_t VehicleManager::GetVin
     }
     else
     {
-        if(vehicleMgr.doipConfigPtr->vin[0] == '\0')
+        if ( vehicleMgr.doipConfigPtr != NULL )
         {
-            LE_ERROR("vin is not set and parsed!");
-            return TAF_DOIP_RESULT_UNSET;
-        }
-        le_utf8_Copy(vinPtr, vehicleMgr.doipConfigPtr->vin, TAF_DOIP_VIN_SIZE + 1, NULL);
-        LE_INFO("Get VIN:%s from Json!", vinPtr);
+            if(vehicleMgr.doipConfigPtr->vin[0] == '\0')
+            {
+                LE_ERROR("vin is not set and parsed!");
+                return TAF_DOIP_RESULT_UNSET;
+            }
+            le_utf8_Copy(vinPtr, vehicleMgr.doipConfigPtr->vin, TAF_DOIP_VIN_SIZE + 1, NULL);
+            LE_INFO("Get VIN:%s from Json!", vinPtr);
 
-        return TAF_DOIP_RESULT_OK;
+            return TAF_DOIP_RESULT_OK;
+        }
+
+        return TAF_DOIP_RESULT_ERROR;
     }
 
 }
@@ -844,12 +869,17 @@ taf_doip_Result_t VehicleManager::SetGid
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    le_hex_StringToBinary(gidPtr, strlen(gidPtr), (uint8_t *)vehicleMgr.doipConfigPtr->gid,
-            TAF_DOIP_GID_SIZE);
+    if(vehicleMgr.doipConfigPtr != NULL)
+    {
+        le_hex_StringToBinary(gidPtr, strlen(gidPtr), (uint8_t *)vehicleMgr.doipConfigPtr->gid,
+                TAF_DOIP_GID_SIZE);
 
-    LE_DEBUG("Set Gid pointer: %s", gidPtr);
+        LE_DEBUG("Set Gid pointer: %s", gidPtr);
 
-    return TAF_DOIP_RESULT_OK;
+        return TAF_DOIP_RESULT_OK;
+    }
+
+    return TAF_DOIP_RESULT_ERROR;
 }
 
 taf_doip_Result_t VehicleManager::GetGid
@@ -867,13 +897,18 @@ taf_doip_Result_t VehicleManager::GetGid
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
-    memcpy(gidPtr, vehicleMgr.doipConfigPtr->gid, TAF_DOIP_GID_SIZE);
-    for (int i = 0; i<TAF_DOIP_GID_SIZE; i++)
+    if(vehicleMgr.doipConfigPtr != NULL)
     {
-        LE_DEBUG("Get Gid: %02x", gidPtr[i]);
+        memcpy(gidPtr, vehicleMgr.doipConfigPtr->gid, TAF_DOIP_GID_SIZE);
+        for (int i = 0; i<TAF_DOIP_GID_SIZE; i++)
+        {
+            LE_DEBUG("Get Gid: %02x", gidPtr[i]);
+        }
+
+        return TAF_DOIP_RESULT_OK;
     }
 
-    return TAF_DOIP_RESULT_OK;
+    return TAF_DOIP_RESULT_ERROR;
 }
 
 bool VehicleManager::IsFunctionalAddress

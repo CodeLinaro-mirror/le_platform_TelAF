@@ -253,6 +253,29 @@ le_result_t taf_diag_Resume
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Shutdowns diag service.
+ *
+ * @instaging
+ *
+ * @result
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diag_Shutdown
+(
+    taf_diag_ServiceRef_t svcRef
+        ///< [IN] Service reference.
+)
+{
+    auto &diag = taf_DiagSvr::GetInstance();
+    return diag.Shutdown(svcRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Removes the server service.
  *
  * @return

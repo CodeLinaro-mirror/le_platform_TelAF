@@ -960,6 +960,75 @@ le_result_t UdsCommunicationMgr::UdsStart
     return LE_OK;
 }
 
+le_result_t UdsCommunicationMgr::UdsStop
+(
+)
+{
+    le_result_t  ret;
+
+
+    if (ConfirmRef == NULL)
+    {
+        LE_ERROR("Failed to remove confirm handler");
+        return LE_FAULT;
+    }
+
+    taf_doip_RemoveDiagConfirmHandler(ConfirmRef);
+    ConfirmRef = NULL;
+
+    if (PmQueryRef == NULL)
+    {
+        LE_ERROR("Failed to remove power mode handler");
+        return LE_FAULT;
+    }
+
+    taf_doip_RemovePowerModeQueryHandler(PmQueryRef);
+    PmQueryRef = NULL;
+
+    if (IndicationRef == NULL)
+    {
+        LE_ERROR("Failed to remove indication handler");
+        return LE_FAULT;
+    }
+
+    taf_doip_RemoveDiagIndicationHandler(IndicationRef);
+    IndicationRef = NULL;
+
+    for (const auto &pair : instances)
+    {
+        memset(pair.second->recvBuf, 0, UDS_MAX_DATA_SIZE);
+        pair.second->recvDataLen = 0;
+        pair.second->sendDataLen = 0;
+        pair.second->UdsTimerEventReport(TAF_UDS_S3_TIMER_STOP, 0, pair.second->interface);
+        pair.second->UdsTimerEventReport(TAF_UDS_TESTER_STATE_TIMER_STOP, 0,
+                pair.second->interface);
+        pair.second->UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_STOP, 0, pair.second->interface);
+        pair.second->UdsTimerEventReport(TAF_UDS_AUTH_TIMER_STOP, 0, pair.second->interface);
+    }
+
+    if (DoipEntityRef == NULL)
+    {
+        LE_ERROR("DoipEntityRef is NULL");
+        return LE_FAULT;
+    }
+
+    ret = taf_doip_Stop(DoipEntityRef);
+    if(ret != LE_OK)
+    {
+        LE_ERROR("Failed to stop doip");
+        return ret;
+    }
+
+    ret = taf_doip_Delete(DoipEntityRef);
+    if(ret != LE_OK)
+    {
+        LE_ERROR("Failed to delete doip");
+        return ret;
+    }
+
+    return LE_OK;
+}
+
 /**
  * Get file transfer active state list.
  */

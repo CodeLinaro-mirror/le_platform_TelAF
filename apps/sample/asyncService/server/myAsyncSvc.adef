@@ -1,0 +1,18 @@
+sandboxed: false
+executables:
+{
+    asyncSvc = (asyncSvcComp)
+}
+
+processes:
+{
+    run:
+    {
+        (asyncSvc)
+    }
+}
+
+extern:
+{
+    asyncSvcDemo = asyncSvc.asyncSvcComp.asyncSvcDemo
+}

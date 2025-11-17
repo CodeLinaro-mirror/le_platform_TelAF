@@ -1,0 +1,22 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+FUNCTION le_result_t MyCmd
+(
+    uint8 secs  IN         // Requested delay in seconds
+) = 0;
+
+HANDLER MyHdlr
+(
+    string evtMsg[100] IN  // Event message
+);
+
+EVENT MyEvt
+(
+    MyHdlr hdlr            // Registered handler
+) = (1,2);
+

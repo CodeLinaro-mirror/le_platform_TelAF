@@ -1,0 +1,13 @@
+#include "$TELAF_ROOT/modules/TelSdk/sa525m.sdef"
+
+apps:
+{
+    $TELAF_ROOT/apps/sample/asyncService/server/myAsyncSvc.adef
+    $TELAF_ROOT/apps/sample/asyncService/server/mySyncSvc.adef
+    $TELAF_ROOT/apps/sample/asyncService/client/myClient.adef
+}
+
+interfaceSearch:
+{
+    $TELAF_ROOT/apps/sample/asyncService
+}

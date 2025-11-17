@@ -1,0 +1,18 @@
+sandboxed: false
+executables:
+{
+    syncSvc = (syncSvcComp)
+}
+
+processes:
+{
+    run:
+    {
+        (syncSvc)
+    }
+}
+
+extern:
+{
+    syncSvcDemo = syncSvc.syncSvcComp.syncSvcDemo
+}

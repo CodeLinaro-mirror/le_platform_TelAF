@@ -1,0 +1,13 @@
+sources:
+{
+    syncSvc.c
+}
+
+provides:
+{
+    api:
+    {
+        syncSvcDemo = mySvcDemo.api
+    }
+}
+

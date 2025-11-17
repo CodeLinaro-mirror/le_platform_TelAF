@@ -1,0 +1,13 @@
+sources:
+{
+    client.c
+}
+
+requires:
+{
+    api:
+    {
+        syncSvcDemo = mySvcDemo.api
+        asyncSvcDemo = mySvcDemo.api
+    }
+}

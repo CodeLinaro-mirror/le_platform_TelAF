@@ -276,6 +276,7 @@ namespace tafsvc {
     typedef struct
     {
         taf_locGnss_LocCapabilityType_t locCapability;
+        le_msg_SessionRef_t*          clientSessionRefPtr;
     }
     CapabilityChangeEvent_t;
 
@@ -283,6 +284,7 @@ namespace tafsvc {
     {
         uint64_t timestamp;
         char nmeaMask[TAF_LOCGNSS_NMEA_STRING_MAX];
+        le_msg_SessionRef_t*          clientSessionRefPtr;
     }
     NmeaInfoEvent_t;
 
@@ -367,6 +369,26 @@ namespace tafsvc {
     }
     taf_locGnss_Client_t;
 
+    typedef struct taf_locGnss_NmeaHandler
+    {
+        taf_locGnss_NmeaHandlerRef_t handlerRef;
+        taf_locGnss_NmeaHandlerFunc_t handlerFuncPtr;
+        void*                         handlerContextPtr;
+        le_msg_SessionRef_t           sessionRef;
+        le_dls_Link_t                 next;
+    }
+    taf_locGnss_NmeaHandler_t;
+
+    typedef struct taf_locGnss_CapHandler
+    {
+        taf_locGnss_CapabilityChangeHandlerRef_t handlerRef;
+        taf_locGnss_CapabilityChangeHandlerFunc_t handlerFuncPtr;
+        void*                         handlerContextPtr;
+        le_msg_SessionRef_t           sessionRef;
+        le_dls_Link_t                 next;
+    }
+    taf_locGnss_CapHandler_t;
+
     class taf_locGnss: public ITafSvc
     {
         public:
@@ -392,11 +414,11 @@ namespace tafsvc {
 
             taf_locGnss_CapabilityChangeHandlerRef_t AddCapabilityHandler(
                     taf_locGnss_CapabilityChangeHandlerFunc_t handlerPtr, void* contextPtr);
-            static void FirstLayerCapabilityHandler(void* reportPtr, void* secondLayerHandlerFunc);
+            static void GnssCapabilityHandler(void* reportPtr);
             void RemoveCapabilityHandler(taf_locGnss_CapabilityChangeHandlerRef_t handlerRef);
             taf_locGnss_NmeaHandlerRef_t AddNmeaHandler(taf_locGnss_NmeaHandlerFunc_t handlerPtr, void* contextPtr);
             void RemoveNmeaHandler(taf_locGnss_NmeaHandlerRef_t handlerRef);
-            static void FirstLayerNmeaHandler(void* reportPtr, void* secondLayerHandlerFunc);
+            static void GnssNmeaHandler(void* reportPtr);
 
             taf_locGnss_SampleRef_t GetLastSampleRef(void);
             void ReleaseClientRef( void* RefPtr);
@@ -524,6 +546,13 @@ namespace tafsvc {
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_mem_PoolRef_t   PositionSamplePoolRef;
+
+            le_mem_PoolRef_t   NmeaHandlerPoolRef;
+            le_mem_PoolRef_t   NmeaSamplePoolRef;
+
+            le_mem_PoolRef_t   CapabilityHandlerPoolRef;
+            le_mem_PoolRef_t   CapSamplePoolRef;
+
             int32_t NumOfPositionHandlers;
             int32_t NumOfCapabilityHandlers;
             int32_t mClientRefCount;
@@ -541,11 +570,15 @@ namespace tafsvc {
             le_event_Id_t nmeaEventId;
             le_event_Id_t locCapabilityEventId;
             le_event_HandlerRef_t HandlerRef;
+            le_event_HandlerRef_t NmeaHandlerRef;
+            le_event_HandlerRef_t CapHandlerRef;
 
             taf_locGnss_ConstellationBitMask_t mConstellationMask;
             taf_locGnss_NmeaBitMask_t mNmeaMask = 0;
             uint8_t mMinSvEle;
             std::mutex mtx;
+            le_ref_MapRef_t NmeaHandlerRefMap;
+            le_ref_MapRef_t CapHandlerRefMap;
 
         private:
             std::shared_ptr<ILocationConfigurator> mLocationConfigurator = nullptr;

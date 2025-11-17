@@ -2109,6 +2109,7 @@ void taf_FwUpdate::SyncPartition
                 else
                     srcPartition[strlen(srcPartition) - 2] = '\0';
 
+                LE_INFO("Sync MTD from %s to %s with %d bytes.", srcPartition, partition, pages * TAF_FWUPDATE_FLASH_PAGE_SIZE);
                 ret = taf_pa_flash_CopyMtd(srcPartition, partition,
                     pages * TAF_FWUPDATE_FLASH_PAGE_SIZE);
             }
@@ -2309,11 +2310,21 @@ void taf_FwUpdate::StartSync
             }
             else
             {
+                char partition[TAF_FLASH_PARTITION_NAME_MAX_BYTES];
+                le_utf8_Copy(partition, tafFwUpdate.partitions[i].name,
+                    TAF_FLASH_PARTITION_NAME_MAX_BYTES, NULL);
+                if (tafFwUpdate.partitions[i].bank == TAF_UPDATE_BANK_A)
+                {
+                    le_utf8_Append(partition, "_b", TAF_FLASH_PARTITION_NAME_MAX_BYTES, NULL);
+                }
+                else
+                    partition[strlen(tafFwUpdate.partitions[i].name) - 2] = '\0';
+
                 taf_pa_flash_MtdRef_t mtdRef = nullptr;
-                ret = taf_pa_flash_OpenMtd(tafFwUpdate.partitions[i].name, &mtdRef);
+                ret = taf_pa_flash_OpenMtd(partition, &mtdRef);
                 if (ret)
                 {
-                    LE_ERROR("Fail to open mtd %s.", tafFwUpdate.partitions[i].name);
+                    LE_ERROR("Fail to open mtd %s.", partition);
                     continue;
                 }
 
@@ -2321,14 +2332,31 @@ void taf_FwUpdate::StartSync
                 ret = taf_pa_flash_GetMtdInfo(mtdRef, &info);
                 if (ret)
                 {
-                    LE_ERROR("Fail to get info of mtd %s.", tafFwUpdate.partitions[i].name);
+                    LE_ERROR("Fail to get info of mtd %s.", partition);
                     taf_pa_flash_CloseMtd(mtdRef);
                     continue;
                 }
 
-                taf_pa_flash_CloseMtd(mtdRef);
+                uint8_t buffer[TAF_FWUPDATE_FLASH_PAGE_SIZE];
+                uint32_t blocks = info.size / info.erasesize;
+                uint32_t pagesPerBlock = info.erasesize / info.writesize;
+                for (uint32_t i = 0; i < blocks; i++)
+                {
+                    ret = taf_pa_flash_IsGoodBlock(mtdRef, i);
+                    if (ret == 0)
+                        continue;
+                    else
+                    {
+                        ret = taf_pa_flash_ReadMtdPage(mtdRef, buffer, i * pagesPerBlock,
+                            TAF_FWUPDATE_FLASH_PAGE_SIZE);
+                        if (ret == TAF_FWUPDATE_FLASH_PAGE_ERASED)
+                            break;
 
-                partitionSize = info.size;
+                        partitionSize += info.erasesize;
+                    }
+                }
+
+                taf_pa_flash_CloseMtd(mtdRef);
             }
 
             partitionPage =  partitionSize / TAF_FWUPDATE_FLASH_PAGE_SIZE;
@@ -3068,9 +3096,27 @@ le_result_t taf_FwUpdate::PerformBankSync
                 TAF_ERROR_IF_RET_VAL(ret, LE_FAULT, "Can not open MTD %s, ret = %d.", tafFwUpdate.partitions[i].name, ret);
 
                 mtd_info_t info;
+                uint8_t buffer[TAF_FWUPDATE_FLASH_PAGE_SIZE];
                 ret = taf_pa_flash_GetMtdInfo(mtdRef, &info);
                 TAF_ERROR_IF_RET_VAL(ret, LE_FAULT, "Can not get MTD %s info, ret = %d.", tafFwUpdate.partitions[i].name, ret);
-                imageSize = info.size;
+                imageSize = 0;
+                uint32_t blocks = info.size / info.erasesize;
+                uint32_t pagesPerBlock = info.erasesize / info.writesize;
+                for (uint32_t i = 0; i < blocks; i++)
+                {
+                    ret = taf_pa_flash_IsGoodBlock(mtdRef, i);
+                    if (ret == 0)
+                        continue;
+                    else
+                    {
+                        ret = taf_pa_flash_ReadMtdPage(mtdRef, buffer, i * pagesPerBlock,
+                            TAF_FWUPDATE_FLASH_PAGE_SIZE);
+                        if (ret == TAF_FWUPDATE_FLASH_PAGE_ERASED)
+                            break;
+
+                        imageSize += info.erasesize;
+                    }
+                }
 
                 taf_pa_flash_CloseMtd(mtdRef);
 
@@ -3083,7 +3129,7 @@ le_result_t taf_FwUpdate::PerformBankSync
                     partition[strlen(partition) - 2] = '\0';
                 }
 
-                LE_INFO("Sync MTD from %s to %s.", tafFwUpdate.partitions[i].name, partition);
+                LE_INFO("Sync MTD from %s to %s with %d bytes.", tafFwUpdate.partitions[i].name, partition, imageSize);
                 ret = taf_pa_flash_CopyMtd(tafFwUpdate.partitions[i].name, partition, imageSize);
             }
             TAF_ERROR_IF_RET_VAL(ret && ret != TAF_FWUPDATE_FLASH_PAGE_ERASED, LE_FAULT,

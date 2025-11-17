@@ -178,9 +178,9 @@
     // Event handler for receiving notification from hms service
     void ModemStatusHandler
     (
-        taf_hms_ModemEvtType_t eventType,
-        taf_hms_ModemEvtSeverity_t eventLevel,
-        taf_hms_ModemEventRef_t eventRef,
+        taf_hms_ModemEvtType_t        eventType,
+        taf_hms_ModemEvtSeverity_t    eventLevel,
+        taf_hms_ModemEventRef_t       eventRef,
         void* contextPtr
     )
     {
@@ -313,16 +313,31 @@ REFERENCE ModemEvent;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Types of modem events tracked by the health monitor service.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK ModemEvtBitmask
+{
+    MODEM_EVENT_BIT_CONTINUE_REBOOT,  ///< Indicates if modem reboots occur.
+    MODEM_EVENT_BIT_CONNECTION_LOST,  ///< Indicates loss of communication between modem and
+                                      ///  application processor (AP).
+};
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Type of modem event maintained by health monitor service.
  *
  */
 //--------------------------------------------------------------------------------------------------
 ENUM ModemEvtType
 {
-    MODEM_EVENT_TYPE_CONTINUE_REBOOT = 0,
-    MODEM_EVENT_TYPE_CONNECTION_LOST = 1
+    MODEM_EVENT_TYPE_CONTINUE_REBOOT, ///< Indicates that the modem has rebooted at least once.
+    MODEM_EVENT_TYPE_CONNECTION_LOST, ///< Indicates loss of connection between the modem and AP.
+    MODEM_EVENT_TYPE_CONNECTION_AVAIL ///< Indicates that the modem-AP connection has been restored
+                                      ///  from CONNECTION_LOST state.
 };
-
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -775,9 +790,9 @@ FUNCTION le_result_t GetMtdDevBlkCnt
 //--------------------------------------------------------------------------------------------------
 HANDLER ModemEvtHandler
 (
-    ModemEvtType eventType   IN,             ///< Modem event
-    ModemEvtSeverity eventSeverity IN,       ///< Modem event level
-    ModemEvent eventRef                  ///< Modem status change event reference
+    ModemEvtType eventType         IN,       ///< Modem event type.
+    ModemEvtSeverity eventSeverity IN,       ///< Modem event level.
+    ModemEvent eventRef            IN        ///< Modem status change event reference.
 );
 
 
@@ -790,7 +805,8 @@ HANDLER ModemEvtHandler
 //--------------------------------------------------------------------------------------------------
 EVENT ModemEvt
 (
-    ModemEvtHandler handler    ///< Modem status handler.
+    ModemEvtBitmask reqEventBits  IN,     ///< Modem event.
+    ModemEvtHandler handler               ///< Modem status handler.
 );
 
 

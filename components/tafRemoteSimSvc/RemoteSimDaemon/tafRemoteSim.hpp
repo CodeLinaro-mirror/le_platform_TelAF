@@ -40,6 +40,8 @@
 #include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
 
+#define TAF_RSIM_SUBSYSTEM_TIMEOUT 30
+
 /**
  * Message id to establish SAP connection
  */
@@ -259,7 +261,7 @@ using namespace telux::common;
                 void NotifyConnectionAvailable();
                 void NotifyConnectionUnavailable();
             private:
-                std::shared_ptr<telux::tel::IRemoteSimManager> remoteSimMgr;
+                std::shared_ptr<telux::tel::IRemoteSimManager> remoteSimMgr = nullptr;
                 std::shared_ptr<telux::tel::IRemoteSimListener> listener;
 
                 le_thread_Ref_t MainThread;

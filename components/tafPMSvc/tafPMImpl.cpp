@@ -37,7 +37,7 @@ std::vector<taf_pm_PowerStateRef_t>regClientrecrd;
 std::vector<taf_pm_PowerStateRef_t>ackClientrecrd;
 
 LE_REF_DEFINE_STATIC_MAP(tafPMVmListRef, TAF_PM_VM_LIST_POOL_SIZE);
-std::promise<le_result_t> stateChangePromise;
+
 static bool isNack = false;
 #endif
 
@@ -385,21 +385,69 @@ void taf_PM::PaInit(void *p1, void *p2)
     );
 }
 
+/**
+ * callback function to receive the ServiceStatus promises
+*/
+void taf_PM::commandCallback(
+    std::weak_ptr<std::promise<telux::common::ServiceStatus>> weakPromise,
+    telux::common::ServiceStatus serviceStatus,
+    const char* debugContext)
+{
+    LE_INFO("---- CommandCallback for %s ----", debugContext);
+    if (auto lockedPromise = weakPromise.lock())
+    {
+        try
+        {
+            if(serviceStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+            {
+                LE_INFO(" Service status for %s is AVAILABLE (callback)", debugContext);
+                lockedPromise->set_value(serviceStatus);
+            }
+            else
+            {
+                LE_ERROR(" Service status for %s is UNAVAILABLE (callback)! Status: %d",
+                    debugContext, static_cast<int>(serviceStatus));
+                lockedPromise->set_value(serviceStatus);
+            }
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in %s callback while setting promise: %s", debugContext, e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Standard exception in %s callback while setting promise: %s", debugContext, e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown exception in %s callback while setting promise.", debugContext);
+        }
+    }
+    else
+    {
+        LE_INFO("Promise expired for %s, ignoring late callback for serviceStatus: %d",
+            debugContext, static_cast<int>(serviceStatus));
+    }
+}
+
 void taf_PM::Init(void)
 {
     // Get power factory instance
     auto &powerFactory = PowerFactory::getInstance();
     // Get TCU-activity manager object
-    std::promise<telux::common::ServiceStatus> prom = std::promise<telux::common::ServiceStatus>();
-    std::promise<telux::common::ServiceStatus> slaveProm
-                        = std::promise<telux::common::ServiceStatus>();
+    auto prom = std::make_shared<std::promise<telux::common::ServiceStatus>>();
+    auto slaveProm = std::make_shared<std::promise<telux::common::ServiceStatus>>();
     // Get Wakeup-activity manager object
-    std::promise<telux::common::ServiceStatus> p{};
+    auto p = std::make_shared<std::promise<telux::common::ServiceStatus>>();
+
+    std::weak_ptr<std::promise<telux::common::ServiceStatus>> weakProm = prom;
+    std::weak_ptr<std::promise<telux::common::ServiceStatus>> weakSlaveProm = slaveProm;
+    std::weak_ptr<std::promise<telux::common::ServiceStatus>> weakP = p;
 
 #ifndef LE_CONFIG_ENABLE_MULTI_VM_SUPPORT
     tcuActivityMgr = powerFactory.getTcuActivityManager(ClientType::MASTER, ProcType::LOCAL_PROC,
-                        [&](telux::common::ServiceStatus status) {
-                             prom.set_value(status);
+                        [weakProm](telux::common::ServiceStatus status) {
+                            taf_PM::commandCallback(weakProm, status, "Init Prom");
                         });
 #endif
 
@@ -409,31 +457,31 @@ void taf_PM::Init(void)
     config.clientName = "tafPMSvc";
     config.machineName =  ALL_MACHINES;
     tcuActivityMgr = powerFactory.getTcuActivityManager(config,
-                        [&](telux::common::ServiceStatus status) {
-                             prom.set_value(status);
+                        [weakProm](telux::common::ServiceStatus status) {
+                            taf_PM::commandCallback(weakProm, status, "Init Prom");
                         });
     ClientInstanceConfig slaveconfig;
     slaveconfig.clientType = ClientType::SLAVE;
     slaveconfig.clientName = "tafPMSvc";
     slaveconfig.machineName =  ALL_MACHINES;
     tcuSlaveActivityMgr = powerFactory.getTcuActivityManager(slaveconfig,
-                        [&](telux::common::ServiceStatus status) {
-                             slaveProm.set_value(status);
+                        [weakSlaveProm](telux::common::ServiceStatus status) {
+                            taf_PM::commandCallback(weakSlaveProm, status, "Init Slave Prom");
                         });
 
     tcuWakeupMgr = powerFactory.getWakeupManager(
-            [&p](telux::common::ServiceStatus srvStatus) {
-            p.set_value(srvStatus);
+            [weakP](telux::common::ServiceStatus srvStatus) {
+            taf_PM::commandCallback(weakP, srvStatus, "Init Wakeup Prom");
         });
 
     LE_DEBUG("Try to get getWakeupManager");
 
     LE_FATAL_IF(
         tcuWakeupMgr == nullptr,
-        "No memery for the WakeupManager"
+        "No memory for the WakeupManager"
     );
 
-    bool isPMReady = (p.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
+    bool isPMReady = (p->get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
 
     if(isPMReady)
     {
@@ -469,13 +517,13 @@ void taf_PM::Init(void)
     {
         LE_ERROR("tafPowerMgr is null Init for slave...\n");
     }
-    bool isReady = (prom.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-            && (slaveProm.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
+    bool isReady = (prom->get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+            && (slaveProm->get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
     if(isReady){
 #endif
 #ifndef LE_CONFIG_ENABLE_MULTI_VM_SUPPORT
     // wait unconditionally till the service is avilable
-    bool isReady = (prom.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
+    bool isReady = (prom->get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
     if(isReady){
 #endif
         LE_INFO("TCU Activity manager is available");
@@ -613,23 +661,6 @@ void taf_PM::Init(void)
 }
 
 /**
- * callback function to receive the error code of set TCU state
- */
-void taf_Handler::commandCallback(ErrorCode errorCode) {
-    if(errorCode == telux::common::ErrorCode::SUCCESS) {
-        LE_INFO(" set TCU state command initiated successfully ");
-#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
-        stateChangePromise.set_value(LE_OK);
-#endif
-    } else {
-        LE_ERROR( " set TCU state command failed !!!");
-#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
-        stateChangePromise.set_value(LE_FAULT);
-#endif
-    }
-}
-
-/**
  * Create a new wakeup source which can be used to acquire/release
  */
 taf_pm_WakeupSourceRef_t taf_PM::NewWakeupSource( uint32_t options, const char *tag)
@@ -731,25 +762,61 @@ le_result_t taf_PM::StayAwake(taf_pm_WakeupSourceRef_t wsRef)
     // send resume state for local and remote proc if its not in resume state
     if( RemoteTcuActivityMgr != nullptr
             && RemoteTcuActivityMgr->getActivityState() != TcuActivityState::RESUME) {
-        telux::common::Status RemoteStatus =
-                RemoteTcuActivityMgr->setActivityState(TcuActivityState::RESUME,
-                &taf_Handler::commandCallback);
-        if( RemoteStatus == telux::common::Status::SUCCESS) {
-            LE_INFO("cmd send successfully to remote process");
-        } else {
-            LE_ERROR("sending cmd to remote process failed");
+
+        auto remotePromise = std::make_shared<std::promise<le_result_t>>();
+        std::weak_ptr<std::promise<le_result_t>> weakremotePromise = remotePromise;
+
+        auto remoteCb = [weakremotePromise](ErrorCode errorCode) {
+            taf_PM::PromisePowerStateCallback(weakremotePromise, errorCode);
+        };
+
+        auto remoteFuture = remotePromise->get_future();
+        telux::common::Status remoteStatus =
+            RemoteTcuActivityMgr->setActivityState(TcuActivityState::RESUME, remoteCb);
+
+        if( remoteStatus == telux::common::Status::SUCCESS)
+        {
+            LE_INFO("cmd send initiated successfully to remote process");
+            if (remoteFuture.get() != LE_OK)
+            {
+                LE_ERROR("Remote process command failed asynchronously.");
+                return LE_FAULT;
+            }
+        }
+        else
+        {
+            LE_ERROR("sending cmd to remote process failed immediately");
+            return LE_FAULT;
         }
     }
 
     if(pmInstance.curTcuState != TAF_PM_STATE_RESUME) {
 #ifndef LE_CONFIG_ENABLE_MULTI_VM_SUPPORT
-        telux::common::Status status = tcuActivityMgr->setActivityState(
-                TcuActivityState::RESUME, &taf_Handler::commandCallback);
-        if( status == telux::common::Status::SUCCESS) {
-            LE_INFO("cmd send successfully");
-        } else {
-            LE_ERROR("sending cmd failed");
-        }
+
+            auto localPromise = std::make_shared<std::promise<le_result_t>>();
+            std::weak_ptr<std::promise<le_result_t>> weaklocalPromise = localPromise;
+
+            auto localCb = [weaklocalPromise](ErrorCode errorCode) {
+                taf_PM::PromisePowerStateCallback(weaklocalPromise, errorCode);
+            };
+
+            auto localFuture = localPromise->get_future();
+            telux::common::Status status = tcuActivityMgr->setActivityState(
+                    TcuActivityState::RESUME, localCb);
+            if( status == telux::common::Status::SUCCESS)
+            {
+                LE_INFO("cmd send initiated successfully to local process");
+                if (localFuture.get() != LE_OK)
+                {
+                    LE_ERROR("Local process command failed asynchronously.");
+                    return LE_FAULT;
+                }
+            }
+            else
+            {
+                LE_ERROR("sending cmd to local process failed immediately");
+                return LE_FAULT;
+            }
 #endif
 #if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
     LE_INFO("PMSvc StayAwake: SetPowerState to TAF_PM_STATE_RESUME");
@@ -824,21 +891,56 @@ le_result_t taf_PM::Relax( taf_pm_WakeupSourceRef_t wsRef)
 #endif
         if( RemoteTcuActivityMgr != nullptr)
         {
-            telux::common::Status RemoteStatus = RemoteTcuActivityMgr->setActivityState(
-                    TcuActivityState::SUSPEND, &taf_Handler::commandCallback);
-            if( RemoteStatus == telux::common::Status::SUCCESS) {
-                LE_INFO("cmd send successfully for remote proc");
-            } else {
-                LE_ERROR("sending cmd failed for remote proc");
+            auto remotePromise = std::make_shared<std::promise<le_result_t>>();
+            std::weak_ptr<std::promise<le_result_t>> weakremotePromise = remotePromise;
+
+            auto remoteCb = [weakremotePromise](ErrorCode errorCode) {
+                taf_PM::PromisePowerStateCallback(weakremotePromise, errorCode);
+            };
+
+            auto remoteFuture = remotePromise->get_future();
+            telux::common::Status remoteStatus = RemoteTcuActivityMgr->setActivityState(
+                    TcuActivityState::SUSPEND, remoteCb);
+            if( remoteStatus == telux::common::Status::SUCCESS)
+            {
+                LE_INFO("cmd send initaited successfully for remote proc");
+                if (remoteFuture.get() != LE_OK)
+                {
+                    LE_ERROR("Remote process command failed asynchronously.");
+                    return LE_FAULT;
+                }
+            }
+            else
+            {
+                LE_ERROR("sending cmd to remote process failed immediately");
+                return LE_FAULT;
             }
         }
 #ifndef LE_CONFIG_ENABLE_MULTI_VM_SUPPORT
+
+        auto localPromise = std::make_shared<std::promise<le_result_t>>();
+        std::weak_ptr<std::promise<le_result_t>> weaklocalPromise = localPromise;
+
+        auto localCb = [weaklocalPromise](ErrorCode errorCode) {
+            taf_PM::PromisePowerStateCallback(weaklocalPromise, errorCode);
+        };
+
+        auto localFuture = localPromise->get_future();
         telux::common::Status status = tcuActivityMgr->setActivityState(
-                TcuActivityState::SUSPEND, &taf_Handler::commandCallback);
-        if( status == telux::common::Status::SUCCESS) {
-            LE_INFO("cmd send successfully");
-        } else {
-            LE_ERROR("sending cmd failed");
+                TcuActivityState::SUSPEND, localCb);
+        if( status == telux::common::Status::SUCCESS)
+        {
+            LE_INFO("cmd send initiated successfully to local proc");
+            if (localFuture.get() != LE_OK)
+            {
+                LE_ERROR("Local process command failed asynchronously.");
+                return LE_FAULT;
+            }
+        }
+        else
+        {
+            LE_ERROR("sending cmd to local process failed immediately");
+            return LE_FAULT;
         }
 #endif
     }
@@ -1010,6 +1112,45 @@ void taf_PM::PmsClntsAckTimerHandler(le_timer_Ref_t timerRef)
     le_event_Report(tafPwrMgr.stateChangeExEvent, &evt, sizeof(evt));
 }
 
+void taf_PM::PromisePowerStateCallback(
+    std::weak_ptr<std::promise<le_result_t>> weakPromise,
+    telux::common::ErrorCode errorCode)
+{
+    LE_INFO(" ---- PromisePowerStateCallback ----");
+    if (auto lockedPromise = weakPromise.lock())
+    {
+        try
+        {
+            if(errorCode == telux::common::ErrorCode::SUCCESS)
+            {
+                LE_INFO(" set TCU state command initiated successfully (static callback)");
+                lockedPromise->set_value(LE_OK);
+            }
+            else
+            {
+                LE_ERROR( " set TCU state command failed !!! (static callback). Error: %d", static_cast<int>(errorCode));
+                lockedPromise->set_value(LE_FAULT);
+            }
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in static callback while setting promise: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Standard exception in static callback while setting promise: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown exception in static callback while setting promise.");
+        }
+    }
+    else
+    {
+        LE_INFO("Invalid promise, Error: %d", static_cast<int>(errorCode));
+    }
+}
+
 /**
  * Sets the power state to VM
  */
@@ -1043,31 +1184,50 @@ le_result_t taf_PM::SetPowerState(taf_pm_State_t state, const char* machineName)
         le_timer_Start(pmClientsAckTimerRef);
         return LE_OK;
     }
+
     telux::common::Status status = telux::common::Status::FAILED;
-    stateChangePromise = std::promise<le_result_t>();
+    auto stateChangePromise = std::make_shared<std::promise<le_result_t>>();
+    std::weak_ptr<std::promise<le_result_t>> weakPromise = stateChangePromise;
+
+    auto commandCb = [weakPromise](ErrorCode errorCode) {
+        taf_PM::PromisePowerStateCallback(weakPromise, errorCode);
+    };
+
+    auto futureResult = stateChangePromise->get_future();
     status = tcuActivityMgr->setActivityState(
-            tcuState, machineName, &taf_Handler::commandCallback);
-    if( status == telux::common::Status::SUCCESS) {
+            tcuState, machineName, commandCb);
+    if( status == telux::common::Status::SUCCESS)
+    {
         LE_INFO("cmd send successfully");
         curTcuState = state;
-        // blocking here to get result from callback
-        std::future<le_result_t> futResult = stateChangePromise.get_future();
-        std::future_status waitStatus = futResult.wait_for(std::chrono::seconds(SET_STATE_TIMEOUT));
-        if (std::future_status::timeout == waitStatus)
+
+        std::future_status waitStatus = futureResult.wait_for(std::chrono::seconds(SET_STATE_TIMEOUT));
+        if (waitStatus == std::future_status::timeout)
         {
             LE_ERROR("waiting promise timeout for %d seconds", SET_STATE_TIMEOUT);
             return LE_FAULT;
         }
         else
         {
-            le_result_t res = futResult.get();
-            LE_INFO("result is %s", res== LE_FAULT ? "FAULT" : "OK");
-            return res;
+            if (futureResult.valid())
+            {
+                LE_INFO("futureResult is valid");
+                le_result_t res = futureResult.get();
+                LE_INFO("result is %s", res== LE_FAULT ? "FAULT" : "OK");
+                return res;
+            }
+            else
+            {
+                LE_ERROR("Future is invalid after wait_for in SetPowerState.");
+                return LE_FAULT;
+            }
         }
-    } else {
-        LE_ERROR("sending cmd failed");
     }
-    return LE_FAULT;
+    else
+    {
+        LE_ERROR("sending cmd failed");
+        return LE_FAULT;
+    }
 }
 
 taf_pm_VMListRef_t taf_PM::GetMachineList()
@@ -1482,14 +1642,32 @@ void tafTcuStateListener :: onTcuActivityStateUpdate(TcuActivityState state)
     // Send Resume request if WL is acquired, else send acknowledgement
     if(pm_recrd.wsAcquired > 0 && (state == TcuActivityState::SUSPEND
             || state == TcuActivityState::SHUTDOWN)) {
-        telux::common::Status status = telux::common::Status::FAILED;
-        status = tafPwrMgr.tcuActivityMgr->setActivityState(TcuActivityState::RESUME,
-                &taf_Handler::commandCallback);
-        if( status == telux::common::Status::SUCCESS) {
-            LE_INFO("Resume cmd sent successfully");
-            isResumed = true;
-        } else {
-            LE_ERROR("sending resume cmd failed");
+        auto resumePromise = std::make_shared<std::promise<le_result_t>>();
+        std::weak_ptr<std::promise<le_result_t>> weakResumePromise = resumePromise;
+
+        // The callback for setActivityState.
+        auto resumeCb = [weakResumePromise](ErrorCode errorCode) {
+            taf_PM::PromisePowerStateCallback(weakResumePromise, errorCode);
+        };
+
+        auto futureResult = resumePromise->get_future();
+        telux::common::Status status = tafPwrMgr.tcuActivityMgr->setActivityState(
+                TcuActivityState::RESUME, resumeCb);
+        if( status == telux::common::Status::SUCCESS)
+        {
+            LE_INFO("Resume command initaited to TCU successfully, waiting for async result.");
+            if (futureResult.get() == LE_OK) {
+                isResumed = true;
+                LE_DEBUG("Asynchronous Resume command completed with success.");
+            } else {
+                isResumed = false;
+                LE_ERROR("Asynchronous Resume command failed: %s", LE_RESULT_TXT(futureResult.get()));
+            }
+        }
+        else
+        {
+            LE_ERROR("sending resume cmd from callback failed");
+            isResumed = false;
         }
         le_event_Report(tafPwrMgr.AckEvent, &state, sizeof(state));
     } else {
@@ -1523,14 +1701,22 @@ void taf_PM::TafSigTermEventHandler(int tafSigNum)
 #if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
     // Resume in SA525M before service termination as master app is terminating
     if(tafPwrMgr.tcuActivityMgr->getActivityState() != TcuActivityState::RESUME) {
-        stateChangePromise = std::promise<le_result_t>();
+
+        auto sigTermCommandCb = [](ErrorCode errorCode) {
+            if (errorCode == ErrorCode::SUCCESS) {
+                LE_DEBUG("Resume command callback: SUCCESS");
+            } else {
+                LE_ERROR("Resume command callback: FAILED, errorCode=%d", static_cast<int>(errorCode));
+            }
+        };
+
         status = tafPwrMgr.tcuActivityMgr->setActivityState(
-                TcuActivityState::RESUME, ALL_MACHINES, &taf_Handler::commandCallback);
+                TcuActivityState::RESUME, ALL_MACHINES, sigTermCommandCb);
         if( status == telux::common::Status::SUCCESS) {
             LE_DEBUG("Resume cmd sent successfully on service termination");
             tafPwrMgr.curTcuState = TAF_PM_STATE_RESUME;
         } else {
-            LE_ERROR("sending cmd failed");
+            LE_ERROR("sending resume cmd failed in signal handler");
         }
     }
 #endif
@@ -1673,12 +1859,19 @@ void tafRemoteTcuStateListener :: onTcuActivityStateUpdate(TcuActivityState stat
     // Send Resume request if WL is acquired, else send acknowledgement
     if(pm_recrd.wsAcquired > 0 && (state == TcuActivityState::SUSPEND
             || state == TcuActivityState::SHUTDOWN)) {
+
+        auto resumeCb = [](ErrorCode errorCode) {
+            if (errorCode == ErrorCode::SUCCESS) {
+                LE_DEBUG("Resume command callback: SUCCESS");
+            } else {
+                LE_ERROR("Resume command callback: FAILED, errorCode=%d", static_cast<int>(errorCode));
+            }
+        };
+
         telux::common::Status status = tafPwrMgr.RemoteTcuActivityMgr->setActivityState(
-                TcuActivityState::RESUME, &taf_Handler::commandCallback);
-        if( status == telux::common::Status::SUCCESS) {
-            LE_INFO("Resume cmd sent successfully to remote proc");
-        } else {
-            LE_ERROR("sending resume cmd failed to remote proc");
+                TcuActivityState::RESUME, resumeCb);
+        if( status != telux::common::Status::SUCCESS) {
+            LE_ERROR("sending resume cmd failed to remote proc from callback");
         }
     } else {
         Status ackStatus;

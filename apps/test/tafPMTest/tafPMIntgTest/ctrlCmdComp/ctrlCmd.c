@@ -81,6 +81,9 @@ static void PrintHelp
         "\n"
         "    pmTest setPowerMode <powerMode>\n"
         "       sets PowerMode to device.\n"
+        "\n"
+        "    pmTest futurePromiseTest\n"
+        "       future/promise test.\n"
 
 #endif
         );
@@ -168,7 +171,11 @@ static void CommandHandler
         }
         if(res != LE_OK)
             LE_ERROR("Failed to set power mode to the system");
-    } else
+    } else if (strcmp(argPtr, "futurePromiseTest") == 0 && le_arg_NumArgs() == 1)
+    {
+        ctrlCmd_futurePromiseTest();
+    }
+    else
     {
         fprintf(stderr, "Unknown command.\n");
         fprintf(stderr, "Try '%s --help'.\n", ProgramName);

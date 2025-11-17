@@ -272,6 +272,11 @@ namespace tafsvc {
         std::shared_ptr<telux::power::IWakeupManager> tcuWakeupMgr;
         std::shared_ptr<telux::power::IWakeupListener> tcuWakeupReasonListener;
 
+        static void PromisePowerStateCallback(std::weak_ptr<std::promise<le_result_t>> weakPromise,
+            telux::common::ErrorCode errorCode);
+        static void commandCallback(std::weak_ptr<std::promise<telux::common::ServiceStatus>> weakPromise,
+            telux::common::ServiceStatus serviceStatus, const char* debugContext);
+
         le_event_Id_t StateChangeEvent;
         le_event_Id_t AckEvent;
         static taf_PM &GetInstance();
@@ -384,9 +389,6 @@ namespace tafsvc {
             //taf service handlers
             static void OnClientConnection(le_msg_SessionRef_t sessionRef, void *contextPtr);
             static void OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *contextPtr);
-
-            //callback for TCU cmd status
-            static void commandCallback(telux::common::ErrorCode errorCode);
     };
 }
 

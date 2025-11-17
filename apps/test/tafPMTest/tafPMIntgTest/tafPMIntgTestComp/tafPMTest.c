@@ -347,6 +347,30 @@ le_result_t ctrlCmd_SetPowerMode(ctrlCmd_PowerMode_t powerMode)
     return res;
 }
 
+le_result_t ctrlCmd_futurePromiseTest()
+{
+    le_result_t res = LE_OK;
+    for(int i= 0; i<=10000;i++){
+        if (i % 2 == 0){
+            LE_INFO("Send resume request");
+            res = taf_pm_SetAllVMPowerState(TAF_PM_STATE_RESUME);
+
+            if(res != LE_OK)
+            LE_ERROR("Failed to resume");
+        }
+        else{
+            LE_INFO("Send suspend request");
+            res = taf_pm_SetAllVMPowerState(TAF_PM_STATE_SUSPEND);
+
+            if(res != LE_OK)
+            LE_ERROR("Failed to suspend");
+
+        }
+
+    }
+    return res;
+}
+
 COMPONENT_INIT
 {
     LE_INFO("tafPMUnitTest started");

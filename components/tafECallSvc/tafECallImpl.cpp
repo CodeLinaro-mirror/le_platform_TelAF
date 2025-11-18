@@ -1365,132 +1365,140 @@ void taf_ecall::Delete(taf_ecall_CallRef_t ecallRef)
 }
 
 le_result_t taf_ecall::SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t eCallMode) {
-    if (Phones.size() >= phoneId) {
-        auto phone = Phones[phoneId - 1];
-        if(phone) {
-            if(eCallMode == TAF_ECALL_MODE_NORMAL  || eCallMode == TAF_ECALL_MODE_ECALL) {
-                auto promisePtr = std::make_shared<std::promise<le_result_t>>();
-                auto cb = [promisePtr](telux::common::ErrorCode error)
-                {
-                    try
-                    {
-                        if (error == telux::common::ErrorCode::SUCCESS)
-                        {
-                            LE_INFO("Set eCall operating mode successfully done");
-                            promisePtr->set_value(LE_OK);
-                        }
-                        else
-                        {
-                            LE_INFO("Set eCall operating mode failed, errorCode: %d", static_cast<int>(error));
-                            promisePtr->set_value(LE_FAULT);
-                        }
-                    }
-                    catch (const std::future_error& e)
-                    {
-                        LE_ERROR("Future error in callback: %s", e.what());
-                    }
-                    catch (const std::exception& e)
-                    {
-                        LE_ERROR("Exception in callback: %s", e.what());
-                    }
-                    catch (...)
-                    {
-                        LE_ERROR("Unknown error in callback.");
-                    }
-                };
-
-                telux::common::Status status = phone->setECallOperatingMode(
-                        static_cast<telux::tel::ECallMode>(eCallMode), cb);
-
-                if(status == telux::common::Status::SUCCESS) {
-                    LE_INFO("Set eCall operating mode %d request sent successfully in phoneId: %d\n",
-                            (int) eCallMode, phoneId);
-
-                    std::future<le_result_t> futResult = promisePtr->get_future();
-                    le_result_t res = futResult.get();
-                    if (res == LE_OK)
-                    {
-                        LE_INFO("Set eCall operating mode successfully done");
-                        return LE_OK;
-                    }
-                } else {
-                    LE_ERROR("Set eCall operating mode %d failed in phoneId: %d\n", (int) eCallMode, phoneId);
-                }
-            } else {
-                LE_ERROR("Invalid input op mode: %d phoneId: %d\n", (int) eCallMode, phoneId);
-            }
-        }
-    } else {
-        LE_ERROR("No phone found corresponding to phoneId: %d\n", phoneId);
+    if (phoneId ==0 || phoneId > Phones.size()) {
+        LE_ERROR("Invalid phoneId: %d. Valid range is 1 to %zu\n", phoneId, Phones.size());
         return LE_BAD_PARAMETER;
     }
+
+    auto phone = Phones[phoneId - 1];
+    if (!phone) {
+        LE_ERROR("No phone object found for phoneId: %d\n", phoneId);
+        return LE_BAD_PARAMETER;
+    }
+
+    if(eCallMode == TAF_ECALL_MODE_NORMAL  || eCallMode == TAF_ECALL_MODE_ECALL) {
+        auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+        auto cb = [promisePtr](telux::common::ErrorCode error)
+        {
+            try
+            {
+                if (error == telux::common::ErrorCode::SUCCESS)
+                {
+                    LE_INFO("Set eCall operating mode successfully done");
+                    promisePtr->set_value(LE_OK);
+                }
+                else
+                {
+                    LE_INFO("Set eCall operating mode failed, errorCode: %d", static_cast<int>(error));
+                    promisePtr->set_value(LE_FAULT);
+                }
+             }
+             catch (const std::future_error& e)
+             {
+                 LE_ERROR("Future error in callback: %s", e.what());
+             }
+             catch (const std::exception& e)
+             {
+                 LE_ERROR("Exception in callback: %s", e.what());
+             }
+             catch (...)
+             {
+                 LE_ERROR("Unknown error in callback.");
+             }
+        };
+
+        telux::common::Status status = phone->setECallOperatingMode(
+            static_cast<telux::tel::ECallMode>(eCallMode), cb);
+
+        if(status == telux::common::Status::SUCCESS) {
+            LE_INFO("Set eCall operating mode %d request sent successfully in phoneId: %d\n",
+                    (int) eCallMode, phoneId);
+
+            std::future<le_result_t> futResult = promisePtr->get_future();
+            le_result_t res = futResult.get();
+            if (res == LE_OK)
+            {
+                LE_INFO("Set eCall operating mode successfully done");
+                return LE_OK;
+            }
+        } else {
+            LE_ERROR("Set eCall operating mode %d failed in phoneId: %d\n", (int) eCallMode, phoneId);
+        }
+    } else {
+        LE_ERROR("Invalid input op mode: %d phoneId: %d\n", (int) eCallMode, phoneId);
+    }
+
     return LE_FAULT;
 }
 
 le_result_t taf_ecall::GetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t *opMode) {
     TAF_ERROR_IF_RET_VAL(opMode == NULL, LE_BAD_PARAMETER, "OpMode is NULL");
 
-    if (Phones.size() >= phoneId) {
-        auto phone = Phones[phoneId - 1];
-        if(phone) {
-            telux::tel::ECallMode eCallOpMode;
-            auto promisePtr = std::make_shared<std::promise<le_result_t>>();
-            auto cb = [promisePtr,  &eCallOpMode](telux::tel::ECallMode eCallMode, telux::common::ErrorCode error)
-            {
-                try
-                {
-                    if(error == telux::common::ErrorCode::SUCCESS)
-                    {
-                        eCallOpMode = eCallMode;
-                        promisePtr->set_value(LE_OK);
-                    }
-                    else
-                    {
-                        LE_ERROR("requestECallHlapTimerStatus failed errorCode: %d ", int(error));
-                        promisePtr->set_value(LE_FAULT);
-                    }
-                }
-                catch (const std::future_error& e)
-                {
-                    LE_ERROR("Future error in callback: %s", e.what());
-                }
-                catch (const std::exception& e)
-                {
-                    LE_ERROR("Exception in callback: %s", e.what());
-                }
-                catch (...)
-                {
-                    LE_ERROR("Unknown error in callback.");
-                }
-            };
+    if (phoneId ==0 || phoneId > Phones.size()) {
+        LE_ERROR("Invalid phoneId: %d. Valid range is 1 to %zu\n", phoneId, Phones.size());
+        return LE_BAD_PARAMETER;
+    }
 
-            telux::common::Status status = phone->requestECallOperatingMode(cb);
-            if(status == telux::common::Status::SUCCESS) {
-                LE_INFO("Get eCall op mode request sent successfully in phoneId: %d\n", phoneId);
-                std::future<le_result_t> futResult = promisePtr->get_future();
-                le_result_t res = futResult.get();
-                if (res == LE_OK)
-                {
-                    LE_INFO("Get eCall op mode successfully done");
-                    if (telux::tel::ECallMode::NORMAL == eCallOpMode)
-                    {
-                        *opMode = TAF_ECALL_MODE_NORMAL;
-                        return LE_OK;
-                    } else if (telux::tel::ECallMode::ECALL_ONLY == eCallOpMode) {
-                        *opMode = TAF_ECALL_MODE_ECALL;
-                        return LE_OK;
-                    } else {
-                        LE_ERROR("Invalid mode");
-                    }
-                }
+    auto phone = Phones[phoneId - 1];
+    if (!phone) {
+        LE_ERROR("No phone object found for phoneId: %d\n", phoneId);
+        return LE_BAD_PARAMETER;
+    }
+
+    telux::tel::ECallMode eCallOpMode;
+    auto promisePtr = std::make_shared<std::promise<le_result_t>>();
+    auto cb = [promisePtr,  &eCallOpMode](telux::tel::ECallMode eCallMode, telux::common::ErrorCode error)
+    {
+        try
+        {
+            if (error == telux::common::ErrorCode::SUCCESS)
+            {
+                eCallOpMode = eCallMode;
+                promisePtr->set_value(LE_OK);
+            }
+            else
+            {
+                LE_ERROR("requestECallHlapTimerStatus failed errorCode: %d ", int(error));
+                promisePtr->set_value(LE_FAULT);
+            }
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in callback.");
+        }
+    };
+
+    telux::common::Status status = phone->requestECallOperatingMode(cb);
+    if (status == telux::common::Status::SUCCESS) {
+        LE_INFO("Get eCall op mode request sent successfully in phoneId: %d\n", phoneId);
+        std::future<le_result_t> futResult = promisePtr->get_future();
+        le_result_t res = futResult.get();
+        if (res == LE_OK)
+        {
+            LE_INFO("Get eCall op mode successfully done");
+            if (telux::tel::ECallMode::NORMAL == eCallOpMode)
+            {
+                *opMode = TAF_ECALL_MODE_NORMAL;
+                return LE_OK;
+            } else if (telux::tel::ECallMode::ECALL_ONLY == eCallOpMode) {
+                *opMode = TAF_ECALL_MODE_ECALL;
+                return LE_OK;
             } else {
-                LE_ERROR("Get eCall Operating mode request failed in phoneId: %d\n", phoneId);
+                LE_ERROR("Invalid mode");
             }
         }
     } else {
-        LE_ERROR("No phone found corresponding to phoneId:  %d\n", phoneId);
-        return LE_BAD_PARAMETER;
+        LE_ERROR("Get eCall Operating mode request failed in phoneId: %d\n", phoneId);
     }
+
     return LE_FAULT;
 }
 

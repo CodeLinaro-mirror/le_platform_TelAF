@@ -617,12 +617,15 @@ FUNCTION Delete
  * @return
  *      - LE_OK -- Succeeded.
  *      - LE_FAULT -- Failed.
+ *      - LE_BAD_PARAMETER -- Invalid phoneId.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ForceOnlyMode
 (
-     uint8              phoneId  IN     ///< Phone ID.
+     uint8              phoneId  IN     ///< Unique identifier for the phone, typically based on
+                                        ///< SIM card slot (e.g., 1 for SIM1, 2 for SIM2) on a dual
+                                        ///< SIM device.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -632,13 +635,16 @@ FUNCTION le_result_t ForceOnlyMode
  * @return
  *      - LE_OK -- Succeeded.
  *      - LE_FAULT -- Failed.
+ *      - LE_BAD_PARAMETER -- Invalid phoneId.
  *
  * @deprecated This function is deprecated. taf_ecall_ForceOnlyMode should be used instead.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ForcePersistentOnlyMode
 (
-     uint8              phoneId  IN     ///< Phone ID.
+     uint8              phoneId  IN     ///< Unique identifier for the phone, typically based on
+                                        ///< SIM card slot (e.g., 1 for SIM1, 2 for SIM2) on a dual
+                                        ///< SIM device.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -648,12 +654,15 @@ FUNCTION le_result_t ForcePersistentOnlyMode
  * @return
  *      - LE_OK -- Succeeded.
  *      - LE_FAULT -- Failed.
+ *      - LE_BAD_PARAMETER -- Invalid phoneId.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ExitOnlyMode
 (
-     uint8              phoneId  IN     ///< Phone ID.
+     uint8              phoneId  IN     ///< Unique identifier for the phone, typically based on
+                                        ///< SIM card slot (e.g., 1 for SIM1, 2 for SIM2) on a dual
+                                        ///< SIM device.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -663,12 +672,15 @@ FUNCTION le_result_t ExitOnlyMode
  * @return
  *      - LE_OK -- Succeeded.
  *      - LE_FAULT -- Failed.
+ *      - LE_BAD_PARAMETER -- Invalid phoneId.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetConfiguredOperationMode
 (
-    uint8             phoneId  IN,     ///< Phone ID.
+    uint8             phoneId  IN,     ///< Unique identifier for the phone, typically based on
+                                        ///< SIM card slot (e.g., 1 for SIM1, 2 for SIM2) on a dual
+                                        ///< SIM device.
     OpMode             opMode  OUT     ///< Operating mode.
 );
 

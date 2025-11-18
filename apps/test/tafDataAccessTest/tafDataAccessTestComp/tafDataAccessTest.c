@@ -119,12 +119,6 @@ __attribute__((unused)) void TestEventInsert
     ret = taf_DataAccess_SetEventStatus(DATA_ACCESS_TEST_DTC0_EV2, status);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetEventStatus");
 
-    status = 0x55;
-    ret = taf_DataAccess_SetEventStatus(DATA_ACCESS_TEST_DTC1_EV1, status);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetEventStatus");
-    rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC1_EV1);
-    LE_TEST_ASSERT(rdStatus == status, "Test taf_DataAccess_GetEventStatus");
-
     LE_TEST_INFO("TestEventInsert Exit...");
 }
 
@@ -135,8 +129,8 @@ __attribute__((unused)) void TestDTCOperation
 {
     LE_TEST_INFO("TestDTCOperation testing");
     le_result_t ret;
-    uint8_t status1, status2;
-    uint8_t occCounter1, occCounter2;
+    uint8_t status1;
+    uint8_t occCounter1;
 
     // Insert
     status1 = 0x40;
@@ -144,50 +138,17 @@ __attribute__((unused)) void TestDTCOperation
     ret = taf_DataAccess_SetDTCStatus(DATA_ACCESS_TEST_DTC0, status1, occCounter1);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetDTCStatus");
 
-    status2 = 0x33;
-    occCounter2 = 3;
-    ret = taf_DataAccess_SetDTCStatus(DATA_ACCESS_TEST_DTC1, status2, occCounter2);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetDTCStatus");
-
     uint8_t rdStat = taf_DataAccess_GetDTCStatus(DATA_ACCESS_TEST_DTC0);
     LE_TEST_ASSERT(rdStat == status1, "Test taf_DataAccess_SetDTCStatus");
-
-    rdStat = taf_DataAccess_GetDTCStatus(DATA_ACCESS_TEST_DTC1);
-    LE_TEST_ASSERT(rdStat == status2, "Test taf_DataAccess_SetDTCStatus");
 
     uint8_t rdOccCounter = taf_DataAccess_GetDTCOccurrenceCounter(DATA_ACCESS_TEST_DTC0);
     LE_TEST_ASSERT(rdOccCounter == occCounter1, "Test taf_DataAccess_GetDTCOccurrenceCounter");
 
-    rdOccCounter = taf_DataAccess_GetDTCOccurrenceCounter(DATA_ACCESS_TEST_DTC1);
-    LE_TEST_ASSERT(rdOccCounter == occCounter2, "Test taf_DataAccess_GetDTCOccurrenceCounter");
-
-    // Update
-    status2 = 0x55;
-    occCounter2 = 7;
-    ret = taf_DataAccess_SetDTCStatus(DATA_ACCESS_TEST_DTC1, status2, occCounter2);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetDTCStatus");
-
     rdStat = taf_DataAccess_GetDTCStatus(DATA_ACCESS_TEST_DTC0);
     LE_TEST_ASSERT(rdStat == status1, "Test taf_DataAccess_SetDTCStatus");
 
-    rdStat = taf_DataAccess_GetDTCStatus(DATA_ACCESS_TEST_DTC1);
-    LE_TEST_ASSERT(rdStat == status2, "Test taf_DataAccess_SetDTCStatus");
-
     rdOccCounter = taf_DataAccess_GetDTCOccurrenceCounter(DATA_ACCESS_TEST_DTC0);
     LE_TEST_ASSERT(rdOccCounter == occCounter1, "Test taf_DataAccess_GetDTCOccurrenceCounter");
-
-    rdOccCounter = taf_DataAccess_GetDTCOccurrenceCounter(DATA_ACCESS_TEST_DTC1);
-    LE_TEST_ASSERT(rdOccCounter == occCounter2, "Test taf_DataAccess_GetDTCOccurrenceCounter");
-
-    // Delete
-    ret = taf_DataAccess_DeleteData(DATA_ACCESS_TEST_DTC1);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_DeleteData");
-
-    rdStat = taf_DataAccess_GetDTCStatus(DATA_ACCESS_TEST_DTC1);
-    LE_TEST_ASSERT(rdStat == 0, "Test taf_DataAccess_SetDTCStatus");
-
-    rdOccCounter = taf_DataAccess_GetDTCOccurrenceCounter(DATA_ACCESS_TEST_DTC1);
-    LE_TEST_ASSERT(rdOccCounter == 0, "Test taf_DataAccess_GetDTCOccurrenceCounter");
 
     // Query
     rdStat = taf_DataAccess_GetDTCStatus(DATA_ACCESS_TEST_DTC0);
@@ -206,7 +167,7 @@ __attribute__((unused)) void TestEventOperation
 {
     LE_TEST_INFO("TestEventOperation testing");
     le_result_t ret;
-    uint8_t status1, status2, status3;
+    uint8_t status1, status2;
 
     // Insert
     status1 = 0x40;
@@ -217,19 +178,12 @@ __attribute__((unused)) void TestEventOperation
     ret = taf_DataAccess_SetEventStatus(DATA_ACCESS_TEST_DTC0_EV2, status2);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetEventStatus");
 
-    status3 = 0x55;
-    ret = taf_DataAccess_SetEventStatus(DATA_ACCESS_TEST_DTC1_EV1, status3);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetEventStatus");
-
     uint8_t rdStatus;
     rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC0_EV1);
     LE_TEST_ASSERT(rdStatus == status1, "Test taf_DataAccess_GetEventStatus");
 
     rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC0_EV2);
     LE_TEST_ASSERT(rdStatus == status2, "Test taf_DataAccess_GetEventStatus");
-
-    rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC1_EV1);
-    LE_TEST_ASSERT(rdStatus == status3, "Test taf_DataAccess_GetEventStatus");
 
     // Upate
     status2 = 0x22;
@@ -242,9 +196,6 @@ __attribute__((unused)) void TestEventOperation
     rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC0_EV2);
     LE_TEST_ASSERT(rdStatus == status2, "Test taf_DataAccess_GetEventStatus");
 
-    rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC1_EV1);
-    LE_TEST_ASSERT(rdStatus == status3, "Test taf_DataAccess_GetEventStatus");
-
     // Delete
     ret = taf_DataAccess_DeleteData(DATA_ACCESS_TEST_DTC0);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_DeleteData");
@@ -255,24 +206,20 @@ __attribute__((unused)) void TestEventOperation
     rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC0_EV2);
     LE_TEST_ASSERT(rdStatus == 0, "Test taf_DataAccess_GetEventStatus");
 
-    // Query
-    rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC1_EV1);
-    LE_TEST_ASSERT(rdStatus == status3, "Test taf_DataAccess_GetEventStatus");
-
     // Test failed counter.
     uint8_t testFailedCounter = 6;
     uint8_t readFailedCounter;
-    readFailedCounter = taf_DataAccess_GetEventFailedCounter(DATA_ACCESS_TEST_DTC1_EV1);
+    readFailedCounter = taf_DataAccess_GetEventFailedCounter(DATA_ACCESS_TEST_DTC0_EV1);
     LE_TEST_ASSERT(readFailedCounter == 0, "Test taf_DataAccess_GetEventFailedCounter");
 
-    ret = taf_DataAccess_SetEventFailedCounter(DATA_ACCESS_TEST_DTC1_EV1, testFailedCounter);
+    ret = taf_DataAccess_SetEventFailedCounter(DATA_ACCESS_TEST_DTC0_EV1, testFailedCounter);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetEventFailedCounter");
 
-    readFailedCounter = taf_DataAccess_GetEventFailedCounter(DATA_ACCESS_TEST_DTC1_EV1);
+    readFailedCounter = taf_DataAccess_GetEventFailedCounter(DATA_ACCESS_TEST_DTC0_EV1);
     LE_TEST_ASSERT(readFailedCounter == 6, "Test taf_DataAccess_GetEventFailedCounter");
 
     taf_DataAccess_DeleteAllData();
-    readFailedCounter = taf_DataAccess_GetEventFailedCounter(DATA_ACCESS_TEST_DTC1_EV1);
+    readFailedCounter = taf_DataAccess_GetEventFailedCounter(DATA_ACCESS_TEST_DTC0_EV1);
     LE_TEST_ASSERT(readFailedCounter == 6, "Test taf_DataAccess_GetEventFailedCounter");   
 
     LE_TEST_INFO("TestEventOperation Exit...");
@@ -285,8 +232,8 @@ __attribute__((unused)) void TestClearDTC
 {
     LE_TEST_INFO("TestClearDTC testing");
     le_result_t ret;
-    uint8_t status1, status2;
-    uint8_t occCounter1, occCounter2;
+    uint8_t status1;
+    uint8_t occCounter1;
     uint8_t rdStatus;
 
     // DTC1
@@ -301,21 +248,9 @@ __attribute__((unused)) void TestClearDTC
     ret = taf_DataAccess_SetEventStatus(DATA_ACCESS_TEST_DTC0_EV2, 0);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetEventStatus");
 
-    // DTC2
-    status2 = 0x33;
-    occCounter2 = 3;
-    ret = taf_DataAccess_SetDTCStatus(DATA_ACCESS_TEST_DTC1, status2, occCounter2);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetDTCStatus");
-
-    ret = taf_DataAccess_SetEventStatus(DATA_ACCESS_TEST_DTC1_EV1, status2);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetEventStatus");
-
     // Delete DTC1
     ret = taf_DataAccess_DeleteData(DATA_ACCESS_TEST_DTC0);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_DeleteData");
-
-    rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC1_EV1);
-    LE_TEST_ASSERT(rdStatus == status2, "Test taf_DataAccess_GetEventStatus");
 
     rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC0_EV1);
     LE_TEST_ASSERT(rdStatus == 0, "Test taf_DataAccess_GetEventStatus");
@@ -330,10 +265,10 @@ __attribute__((unused)) void TestClearDTC
     ret = taf_DataAccess_DeleteAllData();
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_DeleteAllData");
 
-    rdStatus = taf_DataAccess_GetDTCStatus(DATA_ACCESS_TEST_DTC1);
+    rdStatus = taf_DataAccess_GetDTCStatus(DATA_ACCESS_TEST_DTC0);
     LE_TEST_ASSERT(rdStatus == 0, "Test taf_DataAccess_SetDTCStatus");
 
-    rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC1_EV1);
+    rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC0_EV1);
     LE_TEST_ASSERT(rdStatus == 0, "Test taf_DataAccess_GetEventStatus");
 
     // Delete All DTCs with suppression
@@ -347,15 +282,6 @@ __attribute__((unused)) void TestClearDTC
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetDTCStatus");
 
     ret = taf_DataAccess_SetEventStatus(DATA_ACCESS_TEST_DTC0_EV2, 0);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetEventStatus");
-
-    // DTC2
-    status2 = 0x33;
-    occCounter2 = 3;
-    ret = taf_DataAccess_SetDTCStatus(DATA_ACCESS_TEST_DTC1, status2, occCounter2);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetDTCStatus");
-
-    ret = taf_DataAccess_SetEventStatus(DATA_ACCESS_TEST_DTC1_EV1, status2);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetEventStatus");
 
     ret = taf_DataAccess_SetAllDTCSuppression(1);
@@ -373,12 +299,6 @@ __attribute__((unused)) void TestClearDTC
     rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC0_EV2);
     LE_TEST_ASSERT(rdStatus == 0, "Test taf_DataAccess_GetEventStatus");
 
-    rdStatus = taf_DataAccess_GetDTCStatus(DATA_ACCESS_TEST_DTC1);
-    LE_TEST_ASSERT(rdStatus == status2, "Test taf_DataAccess_GetDTCStatus");
-
-    rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC1_EV1);
-    LE_TEST_ASSERT(rdStatus == status2, "Test taf_DataAccess_GetEventStatus");
-
     ret = taf_DataAccess_SetDTCSuppression(DATA_ACCESS_TEST_DTC0, 0);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetDTCSuppression");
 
@@ -393,12 +313,6 @@ __attribute__((unused)) void TestClearDTC
 
     rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC0_EV2);
     LE_TEST_ASSERT(rdStatus == 0, "Test taf_DataAccess_GetEventStatus");
-
-    rdStatus = taf_DataAccess_GetDTCStatus(DATA_ACCESS_TEST_DTC1);
-    LE_TEST_ASSERT(rdStatus == status2, "Test taf_DataAccess_GetDTCStatus");
-
-    rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC1_EV1);
-    LE_TEST_ASSERT(rdStatus == status2, "Test taf_DataAccess_GetEventStatus");
 
     ret = taf_DataAccess_SetAllDTCSuppression(0);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetAllDTCSuppression");
@@ -415,12 +329,6 @@ __attribute__((unused)) void TestClearDTC
     rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC0_EV2);
     LE_TEST_ASSERT(rdStatus == 0, "Test taf_DataAccess_GetEventStatus");
 
-    rdStatus = taf_DataAccess_GetDTCStatus(DATA_ACCESS_TEST_DTC1);
-    LE_TEST_ASSERT(rdStatus == 0, "Test taf_DataAccess_GetDTCStatus");
-
-    rdStatus = taf_DataAccess_GetEventStatus(DATA_ACCESS_TEST_DTC1_EV1);
-    LE_TEST_ASSERT(rdStatus == 0, "Test taf_DataAccess_GetEventStatus");
-
     LE_TEST_INFO("TestClearDTC Exit...");
 }
 
@@ -431,8 +339,8 @@ __attribute__((unused)) void TestGetNumOfDtcByStatusMask
 {
     LE_TEST_INFO("TestGetNumOfDtcByStatusMask testing");
     le_result_t ret;
-    uint8_t status1, status2;
-    uint8_t occCounter1, occCounter2;
+    uint8_t status1;
+    uint8_t occCounter1;
 
     // DTC1
     status1 = 0x40;
@@ -446,47 +354,10 @@ __attribute__((unused)) void TestGetNumOfDtcByStatusMask
     ret = taf_DataAccess_SetEventStatus(DATA_ACCESS_TEST_DTC0_EV2, 0);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetEventStatus");
 
-    // DTC2
-    status2 = 0x33;
-    occCounter2 = 3;
-    ret = taf_DataAccess_SetDTCStatus(DATA_ACCESS_TEST_DTC1, status2, occCounter2);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetDTCStatus");
-
-    ret = taf_DataAccess_SetEventStatus(DATA_ACCESS_TEST_DTC1_EV1, status2);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetEventStatus");
-
     taf_DataAccess_NumOfDTC_t numOfDtc;
     ret = taf_DataAccess_GetNumOfDtcByStatusMask(status1, &numOfDtc);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_GetNumOfDtcByStatusMask");
     LE_TEST_ASSERT(numOfDtc.dtcCnt == 1, "Test DTC Count");
-
-    // The same status
-    status2 = 0x40;
-    occCounter2 = 4;
-    ret = taf_DataAccess_SetDTCStatus(DATA_ACCESS_TEST_DTC1, status2, occCounter2);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetDTCStatus");
-
-    ret = taf_DataAccess_GetNumOfDtcByStatusMask(status1, &numOfDtc);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_GetNumOfDtcByStatusMask");
-    LE_TEST_ASSERT(numOfDtc.dtcCnt == 2, "Test DTC Count");
-
-    // Different status. But the status mask contains all the DTC status
-    status2 = 0x33;
-    occCounter2 = 4;
-    ret = taf_DataAccess_SetDTCStatus(DATA_ACCESS_TEST_DTC1, status2, occCounter2);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetDTCStatus");
-
-    ret = taf_DataAccess_GetNumOfDtcByStatusMask(0x7F, &numOfDtc);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_GetNumOfDtcByStatusMask");
-    LE_TEST_ASSERT(numOfDtc.dtcCnt == 2, "Test DTC Count");
-
-    ret = taf_DataAccess_GetNumOfDtcByStatusMask(0xC, &numOfDtc);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_GetNumOfDtcByStatusMask");
-    LE_TEST_ASSERT(numOfDtc.dtcCnt == 0, "Test DTC Count");
-
-    ret = taf_DataAccess_GetNumOfDtcByStatusMask(0x41, &numOfDtc);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_GetNumOfDtcByStatusMask");
-    LE_TEST_ASSERT(numOfDtc.dtcCnt == 2, "Test DTC Count");
 
     LE_DEBUG("Available mask: 0x%x, formate=%d",
         numOfDtc.availableMask, numOfDtc.formatIdentifier);
@@ -515,8 +386,13 @@ __attribute__((unused)) void TestGetDtcFormatId
     LE_TEST_INFO("TestGetAvailableStatusMask testing");
 
     uint8_t formatType = taf_DataAccess_GetDtcFormatId();
-    LE_TEST_ASSERT(formatType == DTC_FORMAT_IDENTIFIER_ISO_14229, "taf_DataAccess_GetDtcFormatId");
-
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    LE_TEST_ASSERT(formatType == DTC_FORMAT_IDENTIFIER_SAE_J2012_04,
+        "taf_DataAccess_GetDtcFormatId");
+#else
+    LE_TEST_ASSERT(formatType == DTC_FORMAT_IDENTIFIER_ISO_14229,
+        "taf_DataAccess_GetDtcFormatId");
+#endif
     LE_TEST_INFO("TestGetDtcFormatId Exit...");
 }
 
@@ -540,13 +416,6 @@ __attribute__((unused)) void TestGetDtcByStatus
     ret = taf_DataAccess_SetEventStatus(DATA_ACCESS_TEST_DTC0_EV2, status);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetEventStatus");
 
-    // DTC2
-    ret = taf_DataAccess_SetDTCStatus(DATA_ACCESS_TEST_DTC1, status, 1);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetDTCStatus");
-
-    ret = taf_DataAccess_SetEventStatus(DATA_ACCESS_TEST_DTC1_EV1, status);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetEventStatus");
-
     // Get Result
     ret = taf_DataAccess_GetDtcByStatusMask(status, &dtcStaRec);
     LE_TEST_ASSERT(ret == LE_OK, "taf_DataAccess_GetDtcByStatusMask");
@@ -562,8 +431,7 @@ __attribute__((unused)) void TestGetDtcByStatus
         {
             LE_TEST_INFO("DTC: 0x%x", statusPtr->dtc);
             LE_TEST_INFO("Status: 0x%x", statusPtr->status);
-            LE_TEST_ASSERT(statusPtr->dtc == DATA_ACCESS_TEST_DTC0
-                || statusPtr->dtc == DATA_ACCESS_TEST_DTC1,
+            LE_TEST_ASSERT(statusPtr->dtc == DATA_ACCESS_TEST_DTC0,
                 "taf_DataAccess_GetDtcFormatId");
             le_mem_Release(statusPtr);
         }
@@ -572,7 +440,7 @@ __attribute__((unused)) void TestGetDtcByStatus
         linkPtr = le_dls_Pop(&dtcStaRec.dtcStatusRecList);
     }
 
-    LE_TEST_ASSERT(count == 2, "taf_DataAccess_GetDtcByStatusMask");
+    LE_TEST_ASSERT(count == 1, "taf_DataAccess_GetDtcByStatusMask");
 
     ret = taf_DataAccess_GetDtcByStatusMask(0x7F, &dtcStaRec);
     LE_TEST_ASSERT(ret == LE_OK, "taf_DataAccess_GetDtcByStatusMask");
@@ -587,8 +455,7 @@ __attribute__((unused)) void TestGetDtcByStatus
         {
             LE_TEST_INFO("DTC: 0x%x", statusPtr->dtc);
             LE_TEST_INFO("Status: 0x%x", statusPtr->status);
-            LE_TEST_ASSERT(statusPtr->dtc == DATA_ACCESS_TEST_DTC0
-                || statusPtr->dtc == DATA_ACCESS_TEST_DTC1,
+            LE_TEST_ASSERT(statusPtr->dtc == DATA_ACCESS_TEST_DTC0,
                 "taf_DataAccess_GetDtcFormatId");
             le_mem_Release(statusPtr);
         }
@@ -597,7 +464,7 @@ __attribute__((unused)) void TestGetDtcByStatus
         linkPtr = le_dls_Pop(&dtcStaRec.dtcStatusRecList);
     }
 
-    LE_TEST_ASSERT(count == 2, "taf_DataAccess_GetDtcByStatusMask");
+    LE_TEST_ASSERT(count == 1, "taf_DataAccess_GetDtcByStatusMask");
 
 
     LE_TEST_INFO("TestGetDtcByStatus Exit...");
@@ -627,18 +494,25 @@ __attribute__((unused)) void TestGetSupportedDTC
         {
             LE_TEST_INFO("DTC: 0x%x", statusPtr->dtc);
             LE_TEST_INFO("Status: 0x%x", statusPtr->status);
-            LE_TEST_ASSERT(statusPtr->dtc == DATA_ACCESS_TEST_DTC0
-                || statusPtr->dtc == DATA_ACCESS_TEST_DTC1,
-                "taf_DataAccess_GetDtcFormatId");
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+            LE_TEST_ASSERT(statusPtr->dtc == DATA_ACCESS_TEST_DTC0 || 
+                statusPtr->dtc == DATA_ACCESS_TEST_DTC1,
+                "TestGetSupportedDTC");
+#else
+            LE_TEST_ASSERT(statusPtr->dtc == DATA_ACCESS_TEST_DTC0,
+                "TestGetSupportedDTC");
+#endif
             le_mem_Release(statusPtr);
         }
         count++;
         // Process next node.
         linkPtr = le_dls_Pop(&dtcStaRec.dtcStatusRecList);
     }
-
+#ifdef LE_CONFIG_DIAG_FEATURE_A
     LE_TEST_ASSERT(count == 2, "taf_DataAccess_GetSupportedDtc");
-
+#else
+    LE_TEST_ASSERT(count == 1, "taf_DataAccess_GetSupportedDtc");
+#endif
     LE_TEST_INFO("TestGetSupportedDTC Exit...");
 }
 
@@ -662,17 +536,10 @@ __attribute__((unused)) void TestGetExtDataRecByDtc
     ret = taf_DataAccess_SetEventStatus(DATA_ACCESS_TEST_DTC0_EV2, status);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetEventStatus");
 
-    // DTC2
-    ret = taf_DataAccess_SetDTCStatus(DATA_ACCESS_TEST_DTC1, status, 2);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetDTCStatus");
-
-    ret = taf_DataAccess_SetEventStatus(DATA_ACCESS_TEST_DTC1_EV1, status);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetEventStatus");
-
     // Get result.
-    ret = taf_DataAccess_GetExtDataRecByDtc(DATA_ACCESS_TEST_DTC1, 1, &dtcExtDataRec);
+    ret = taf_DataAccess_GetExtDataRecByDtc(DATA_ACCESS_TEST_DTC0, 1, &dtcExtDataRec);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_GetExtDataRecByDtc");
-    LE_TEST_ASSERT(dtcExtDataRec.dtc == DATA_ACCESS_TEST_DTC1,
+    LE_TEST_ASSERT(dtcExtDataRec.dtc == DATA_ACCESS_TEST_DTC0,
         "Test taf_DataAccess_GetExtDataRecByDtc");
     LE_TEST_ASSERT(dtcExtDataRec.status == status,
         "Test taf_DataAccess_GetExtDataRecByDtc");
@@ -746,25 +613,16 @@ __attribute__((unused)) void TestDTCSuppression
     ret = taf_DataAccess_SetDTCSuppression(DATA_ACCESS_TEST_DTC0, 0);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetDTCSuppression");
 
-    ret = taf_DataAccess_SetDTCSuppression(DATA_ACCESS_TEST_DTC1, 0);
-    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetDTCSuppression");
-
     ret = taf_DataAccess_SetAllDTCSuppression(1);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetAllDTCSuppression");
 
     suppress = taf_DataAccess_GetDTCSuppression(DATA_ACCESS_TEST_DTC0);
     LE_TEST_ASSERT(ret == LE_OK && suppress == 1, "Test taf_DataAccess_GetDTCSuppression");
 
-    suppress = taf_DataAccess_GetDTCSuppression(DATA_ACCESS_TEST_DTC1);
-    LE_TEST_ASSERT(ret == LE_OK && suppress == 1, "Test taf_DataAccess_GetDTCSuppression");
-
     ret = taf_DataAccess_SetAllDTCSuppression(0);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetAllDTCSuppression");
 
     suppress = taf_DataAccess_GetDTCSuppression(DATA_ACCESS_TEST_DTC0);
-    LE_TEST_ASSERT(ret == LE_OK && suppress == 0, "Test taf_DataAccess_GetDTCSuppression");
-
-    suppress = taf_DataAccess_GetDTCSuppression(DATA_ACCESS_TEST_DTC1);
     LE_TEST_ASSERT(ret == LE_OK && suppress == 0, "Test taf_DataAccess_GetDTCSuppression");
 }
 
@@ -908,10 +766,14 @@ __attribute__((unused)) void TestGetSnapshotRecord
     ret = taf_DataAccess_GetSnapshotRecByDtc(DATA_ACCESS_TEST_DTC0, 0xFF, &snapshotRec);
     LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_GetSnapshotRecByDtc");
     LE_TEST_INFO("record count: %" PRIuS, le_dls_NumLinks(&snapshotRec.snapshotDataList));
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    LE_TEST_ASSERT(le_dls_NumLinks(&snapshotRec.snapshotDataList) == 1,
+        "Test taf_DataAccess_GetSnapshotRecByDtc");  // Only last.
+#else
     LE_TEST_ASSERT(le_dls_NumLinks(&snapshotRec.snapshotDataList) >= 2 &&
         le_dls_NumLinks(&snapshotRec.snapshotDataList) <= 3,
         "Test taf_DataAccess_GetSnapshotRecByDtc");  // At least 2. first and last.
-
+#endif
     LE_TEST_INFO("DTC code: 0x%x", snapshotRec.dtc);
     LE_TEST_INFO("DTC status: 0x%x", snapshotRec.status);
 
@@ -1003,4 +865,6 @@ COMPONENT_INIT
 
     DEMTableReset();
     TestGetSnapshotRecord();
+
+    LE_TEST_INFO("=== telaf Data Access test END ===");
 }

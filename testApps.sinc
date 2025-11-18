@@ -14,7 +14,9 @@ apps:
     $TELAF_ROOT/apps/test/tafVoiceCallTest/tafVoiceCallUnitTest/tafVoiceCallUnitTest
     $TELAF_ROOT/apps/test/tafRadioTest/tafRadioUnitTest
     $TELAF_ROOT/apps/test/tafRadioTest/tafRadioIntTest
+#if ${TELUX_AUDIO_SUPPORTED} = y
     $LEGATO_ROOT/apps/sample/voiceCallApp/voiceCallApp
+#endif
     $TELAF_ROOT/apps/test/tafSimTest/tafSimIntegrationTest/tafSimIntTest
     $TELAF_ROOT/apps/test/tafSimTest/tafSimUnitTest/tafSimUnitTest
     $TELAF_ROOT/apps/test/tafSmsTest/tafSMSUnitTest
@@ -41,16 +43,20 @@ apps:
     $TELAF_ROOT/apps/test/tafPMTest/tafPMUnitTest/tafPMUnitTest
     $TELAF_ROOT/apps/test/tafPMTest/tafPMIntgTest/tafPMIntgTest
     $TELAF_ROOT/apps/test/tafGpioTest/tafGpioUnitTest.adef
+#if ${TELUX_LOCATION_SUPPORTED} = y
     $TELAF_ROOT/apps/sample/eCallDemo/tafECallApp
     $TELAF_ROOT/apps/test/tafLocationTest/tafLocationUnitTest/tafLocationUnitTest
+#endif
     $TELAF_ROOT/apps/test/tafCanTest/tafCanUnitTest/tafCanUnitTest
     $TELAF_ROOT/apps/test/tafFSCryptTest/tafFSCryptUnitTest/tafFSCryptUnitTest
     $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipSvrUnitTest/tafSomeipSvrUnitTest
     $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipClntUnitTest/tafSomeipClntUnitTest
     $TELAF_ROOT/apps/test/tafSomeipGWTest/multiVersionsTest/tafSomeipVersionClntTest
     $TELAF_ROOT/apps/test/tafSomeipGWTest/multiVersionsTest/tafSomeipVersionSvrTest
+#if ${TELUX_AUDIO_SUPPORTED} = y
     $TELAF_ROOT/apps/test/tafAudioTest/tafAudioUnitTest/tafAudioUnitTest
     $TELAF_ROOT/apps/test/ConsoleApp/tafAudioApp/tafAudioConsoleApp
+#endif
     $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdConnIntTest/tafMngdConnIntTest
     $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPMIntTest/tafMngdPMIntTest
     $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPMUnitTest/tafMngdPMUnitTest

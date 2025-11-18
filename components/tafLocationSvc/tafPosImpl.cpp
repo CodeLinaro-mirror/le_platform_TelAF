@@ -43,12 +43,9 @@
 #include <string>
 #include <memory>
 #include <unistd.h>
-#include <telux/loc/LocationFactory.hpp>
 #include "tafPos.hpp"
 #include "tafGnss.hpp"
 
-using namespace telux::loc;
-using namespace telux::common;
 using namespace tafsvc;
 using namespace std;
 

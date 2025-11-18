@@ -43,15 +43,8 @@
 #include <memory>
 #include <vector>
 #include <iostream>
-#include <telux/loc/LocationDefines.hpp>
-#include <telux/loc/LocationManager.hpp>
-#include <telux/loc/LocationConfigurator.hpp>
-#include <telux/loc/LocationListener.hpp>
-#include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
 
-using namespace telux::loc;
-using namespace telux::common;
 
 #define TAF_LOCPOS_MAX_OBJ 1
 #define POSITIONING_SAMPLE_MAX       1

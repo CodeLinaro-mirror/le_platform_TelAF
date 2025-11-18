@@ -10,11 +10,15 @@ static le_mem_PoolRef_t LevArmFramePool = NULL;
 
 static le_sem_Ref_t PositionHandlerSem;
 static le_thread_Ref_t positionThreadRef = NULL;
+static le_thread_Ref_t positionExThreadRef = NULL;
 static le_thread_Ref_t samplePositionThreadRef = NULL;
+static le_thread_Ref_t measThreadRef = NULL;
 static taf_locGnss_PositionHandlerRef_t PositionHandlerRef = NULL;
+static taf_locGnss_PositionExHandlerRef_t PositionExHandlerRef = NULL;
 static taf_locPos_MovementHandlerRef_t  SamplePositionHandlerRef = NULL;
 static taf_locGnss_NmeaHandlerRef_t NmeaHandlerRef = NULL;
 static taf_locGnss_CapabilityChangeHandlerRef_t CapabilityChangeHandlerRef = NULL;
+static taf_locGnss_MeasurementHandlerRef_t MeasHandlerRef = NULL;
 
 int report_count = 0;
 int MaxReportNum = 25;
@@ -96,7 +100,7 @@ static void* StopSession()
 {
     LE_TEST_INFO("Calling StopSession for PositionHandlerRef:%p", PositionHandlerRef);
 
-    LE_TEST_OK(taf_locGnss_Stop() == LE_OK, "taf_gnss_Stop-LE_OK");
+    if (taf_locGnss_Stop() == LE_OK) LE_TEST_INFO("taf_gnss_Stop-LE_OK"); else return NULL;
 
     LE_TEST_INFO("Calling taf_locGnss_RemovePositionHandler!!");
     taf_locGnss_RemovePositionHandler(PositionHandlerRef);
@@ -1863,6 +1867,9 @@ static void TestTafGnssPositionHandler
 
     LE_INFO("TestTafGnssPositionHandler->cancel the thread");
     le_thread_Cancel(positionThreadRef);
+
+    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting GNSS fixes");
+    LE_TEST_OK(taf_locGnss_Stop() == LE_OK, "taf_locGnss_Stop-LE_OK");
 }
 
 
@@ -4610,8 +4617,382 @@ static void TestTafGnssRestart
     {
         LE_TEST_INFO("taf_locGnss_GetLeapSeconds is failed");
     }
+}
+
+static void MeasurementHandlerFunction
+(
+    taf_locGnss_MeasSampleRef_t positionSampleRef,
+    void* contextPtr
+)
+{
+    LE_INFO("MeasurementHandlerFunction!!");
+
+    bool val;
+    uint32_t clockValidityMask;
+    size_t gnssMeasLen = TAF_LOCGNSS_MEASUREMENT_INFO_MAX;
+
+    taf_locGnss_ClockData_t *clockData;
+    le_mem_PoolRef_t clockDataPool = NULL;
+    clockDataPool = le_mem_CreatePool("clockDataPool", sizeof(taf_locGnss_ClockData_t));
+    clockData = (taf_locGnss_ClockData_t*) le_mem_ForceAlloc(clockDataPool);
+
+    taf_locGnss_MeasurementsData_t measData[TAF_LOCGNSS_MEASUREMENT_INFO_MAX];
+    uint32_t measDataMask[TAF_LOCGNSS_MEASUREMENT_INFO_MAX];
+
+    le_result_t result;
+
+    result = taf_locGnss_GetIsNHz(positionSampleRef, &val);
+
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("isNHz: %d",(int)val);
+    }
+
+    result = taf_locGnss_GetClockValidityMask(positionSampleRef, &clockValidityMask);
+
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("clockValidityMask: %d",(int)clockValidityMask);
+    }
+
+    result = taf_locGnss_GetClockData(positionSampleRef, clockData);
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("clockData->leapSecond:  %" PRIi16 "", clockData->leapSecond);
+        LE_TEST_INFO("clockData->timeNs:  %" PRIi64 "", clockData->timeNs);
+        LE_TEST_INFO("clockData->timeUncertaintyNs:  %f", clockData->timeUncertaintyNs);
+        LE_TEST_INFO("clockData->fullBiasNs:  %" PRIi64 "", clockData->fullBiasNs);
+        LE_TEST_INFO("clockData->biasNs:  %f", clockData->biasNs);
+        LE_TEST_INFO("clockData->biasUncertaintyNs:  %f", clockData->biasUncertaintyNs);
+        LE_TEST_INFO("clockData->driftNsps:  %f", clockData->driftNsps);
+        LE_TEST_INFO("clockData->driftUncertaintyNsps:  %f", clockData->driftUncertaintyNsps);
+        LE_TEST_INFO("clockData->hwClockDiscontinuityCount:  %" PRIu32 "", clockData->hwClockDiscontinuityCount);
+        LE_TEST_INFO("clockData->elapsedRealTime:  %" PRIu64 "", clockData->elapsedRealTime);
+        LE_TEST_INFO("clockData->elapsedRealTimeUnc:  %" PRIu64 "", clockData->elapsedRealTimeUnc);
+        LE_TEST_INFO("clockData->elapsedgPTPTime:  %" PRIu64 "", clockData->elapsedgPTPTime);
+        LE_TEST_INFO("clockData->elapsedgPTPTimeUnc:  %" PRIu64 "", clockData->elapsedgPTPTimeUnc);
+    }
+
+    result = taf_locGnss_GetMeasurementsData(positionSampleRef, measData, &gnssMeasLen);
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("gnssMeasLen: %d",(int)gnssMeasLen);
+        for(size_t i=0;i<gnssMeasLen;i++){
+            LE_TEST_INFO("svId: %" PRIi16 "",measData[i].svId);
+            LE_TEST_INFO("svType: %" PRIu32 "", measData[i].svType);
+            LE_TEST_INFO("timeOffsetNs: %f", measData[i].timeOffsetNs);
+            LE_TEST_INFO("stateMask: %" PRIu32 "", measData[i].stateMask);
+            LE_TEST_INFO("receivedSvTimeNs: %" PRIi64 "", measData[i].receivedSvTimeNs);
+            LE_TEST_INFO("receivedSvTimeSubNs: %f", measData[i].receivedSvTimeSubNs);
+            LE_TEST_INFO("receivedSvTimeUncertaintyNs: %" PRIi64 "", measData[i].receivedSvTimeUncertaintyNs);
+            LE_TEST_INFO("carrierToNoiseDbHz: %f", measData[i].carrierToNoiseDbHz);
+            LE_TEST_INFO("pseudorangeRateMps: %f", measData[i].pseudorangeRateMps);
+            LE_TEST_INFO("pseudorangeRateUncertaintyMps: %f", measData[i].pseudorangeRateUncertaintyMps);
+            LE_TEST_INFO("adrStateMask: %" PRIu32 "", measData[i].adrStateMask);
+            LE_TEST_INFO("adrMeters: %f", measData[i].adrMeters);
+            LE_TEST_INFO("adrUncertaintyMeters: %f", measData[i].adrUncertaintyMeters);
+            LE_TEST_INFO("carrierFrequencyHz: %f", measData[i].carrierFrequencyHz);
+            LE_TEST_INFO("carrierCycles: %" PRIi64 "", measData[i].carrierCycles);
+            LE_TEST_INFO("carrierPhase: %f", measData[i].carrierPhase);
+            LE_TEST_INFO("carrierPhaseUncertainty: %f", measData[i].carrierPhaseUncertainty);
+            LE_TEST_INFO("multipathIndicator: %d", (int)measData[i].multipathIndicator);
+            LE_TEST_INFO("signalToNoiseRatioDb: %f", measData[i].signalToNoiseRatioDb);
+            LE_TEST_INFO("agcLevelDb: %f", measData[i].agcLevelDb);
+            LE_TEST_INFO("gnssSignalType: %" PRIu32 "", measData[i].gnssSignalType);
+            LE_TEST_INFO("basebandCarrierToNoise: %f", measData[i].basebandCarrierToNoise);
+            LE_TEST_INFO("fullInterSignalBias: %f", measData[i].fullInterSignalBias);
+            LE_TEST_INFO("fullInterSignalBiasUncertainty: %f", measData[i].fullInterSignalBiasUncertainty);
+        }
+    }
+
+    result = taf_locGnss_GetMeasDataValidityMask(positionSampleRef, measDataMask, &gnssMeasLen);
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("gnssMeasLen: %d",(int)gnssMeasLen);
+        for(size_t i=0;i<gnssMeasLen;i++){
+            LE_TEST_INFO("measDataMask: %d",(int)measDataMask[i]);
+        }
+    }
+
+}
+
+static void* MeasurementThread
+(
+    void* context
+)
+{
+    LE_TEST_INFO("======== Measurement Handler thread  ========");
+    taf_locGnss_ConnectService();
+
+    le_result_t result = taf_locGnss_Start();
+
+    LE_INFO("Result of gnss start: %d", (int)result);
+
+    MeasHandlerRef = taf_locGnss_AddMeasurementHandler(MeasurementHandlerFunction, NULL);
+
+    if(MeasHandlerRef != NULL){
+        LE_INFO("Handler added sucessfully");
+    }
+
+    LE_TEST_INFO("======== Measurement Handler thread before le_event_RunLoop ========");
+    le_event_RunLoop();
+    LE_TEST_INFO("======== Measurement Handler thread After le_event_RunLoop ========");
+    return NULL;
+}
+
+static void TestTafGnssMeasHandler
+(
+    void
+)
+{
+
+    LE_INFO("TestTafGnssMeasHandler");
+
+    //136. taf_locGnss_Start() This will trigger startDetailedEngineReports() TelSDK API
+    LE_TEST_OK(((taf_locGnss_Start()) == LE_OK), "taf_locGnss_Start-LE_OK");
+    LE_TEST_INFO("Wait for 5 seconds");
+    le_thread_Sleep(5);
+
+    // Add Position Handler Test
+    measThreadRef = le_thread_Create("MeasThreadTest",MeasurementThread,NULL);
+    LE_INFO("TestTafGnssMeasHandler positionThreadRef :%p",measThreadRef);
+    le_thread_Start(measThreadRef);
+
+    LE_TEST_INFO("Wait for 2 seconds to trigger MeasurementHandler Function");
+    le_thread_Sleep(2);
+
+    taf_locGnss_RemoveMeasurementHandler(MeasHandlerRef);
+
+    LE_INFO("TestTafGnssMeasHandler->cancel the thread");
+    le_thread_Cancel(measThreadRef);
+
+    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting GNSS fixes");
+    LE_TEST_OK(taf_locGnss_Stop() == LE_OK, "taf_locGnss_Stop-LE_OK");
+}
+
+static void PositionExHandlerFunction
+(
+    taf_locGnss_SampleExRef_t SampleExRef,
+    const taf_locGnss_PositionSampleEx_t* locationData,
+    void* contextPtr
+)
+{
+    LE_INFO("*****Basic Location information***********");
+
+    LE_INFO("Epoch Time                : %" PRIu64 "\n", locationData->epochTime);
+
+    struct timeval tv;
+
+    struct tm* tm_info;
+
+    gettimeofday(&tv, NULL);
+
+    tm_info = localtime(&tv.tv_sec);
+
+    LE_INFO("Time: %02d:%02d:%02d.%03ld\n",
+
+           tm_info->tm_hour,
+
+           tm_info->tm_min,
+
+           tm_info->tm_sec,
+
+           tv.tv_usec / 1000);  // convert microseconds to milliseconds
 
 
+    LE_INFO("Latitude(positive->north) : %.6f\n"
+               "Longitude(positive->east) : %.6f\n"
+               "hAccuracy                 : %.2fm\n",
+                (float)locationData->latitude/1e6,
+                (float)locationData->longitude/1e6,
+                (float)locationData->hAccuracy/1e2);
+
+    LE_INFO("Direction(0 degree is True North) : %.1f degrees\n"
+               "Direction Accuracy                : %.1f degrees\n",
+               (float)locationData->direction/10.0,
+               (float)locationData->directionAccuracy/10.0);
+
+
+    LE_INFO("Altitude                  : %.3fm\n"
+               "vAccuracy                 : %.1fm\n",
+               (float)locationData->altitude/1e3,
+               (float)locationData->vAccuracy/10.0);
+
+    LE_INFO("hSpeed        : %.2fm/s\n"
+               "Accuracy      : %.1fcm/s\n",
+                locationData->hSpeed/100.0,
+                locationData->hSpeedAccuracy/10.0);
+
+    LE_INFO("Elapsed real time              : %"PRIu64" ns\n",locationData->realTime);
+    LE_INFO("Elapsed real time uncertainity : %"PRIu64" ns\n",locationData->realTimeUnc);
+
+    LE_INFO("SatsInView: %d, SatsTracking: %d and SatsUsed: %d\n",
+               (locationData->satsInViewCount == UINT8_MAX) ? 0: locationData->satsInViewCount,
+               (locationData->satsTrackingCount == UINT8_MAX) ? 0: locationData->satsTrackingCount,
+               (locationData->satsUsedCount == UINT8_MAX) ? 0: locationData->satsUsedCount);
+
+    LE_INFO("%.1f degrees\n", (float)(locationData->magneticDeviation/10.0));
+    LE_INFO("Altitude with respect to mean sea level: %lfm\n",(float)locationData->altMeanSeaLevel);
+
+    LE_INFO("\nTechnology used to compute fix: The ");
+    if(locationData->techMask & TAF_LOCGNSS_LOC_GNSS)
+    {
+        LE_INFO("location calculated using GNSS\n");
+    }
+    if(locationData->techMask & TAF_LOCGNSS_LOC_CELL)
+    {
+        LE_INFO("location calculated using CELL\n");
+    }
+    if(locationData->techMask & TAF_LOCGNSS_LOC_WIFI)
+    {
+        LE_INFO("location calculated using WIFI\n");
+    }
+    if(locationData->techMask & TAF_LOCGNSS_LOC_SENSORS)
+    {
+        LE_INFO("location calculated using SENSORS\n");
+    }
+    if(locationData->techMask & TAF_LOCGNSS_LOC_REFERENCE_LOCATION)
+    {
+        LE_INFO("location calculated using reference location\n");
+    }
+    if(locationData->techMask & TAF_LOCGNSS_LOC_INJECTED_COARSE_POSITION)
+    {
+        LE_INFO("location calculated using Coarse position injected\n");
+    }
+    if(locationData->techMask & TAF_LOCGNSS_LOC_AFLT)
+    {
+        LE_INFO("location calculated using AFLT\n");
+    }
+    if(locationData->techMask & TAF_LOCGNSS_LOC_HYBRID)
+    {
+        LE_INFO("location calculated using GNSS and network-provided measurements\n");
+    }
+    if(locationData->techMask & TAF_LOCGNSS_LOC_PPE)
+    {
+        LE_INFO("location calculated using Precise position engine\n");
+    }
+    if(locationData->techMask & TAF_LOCGNSS_LOC_VEH)
+    {
+        LE_INFO("location calculated using Vehicular data\n");
+    }
+    if(locationData->techMask & TAF_LOCGNSS_LOC_VIS)
+    {
+        LE_INFO("location calculated using Visual data\n");
+    }
+    if(locationData->techMask & TAF_LOCGNSS_LOC_PROPAGATED)
+    {
+        LE_INFO("location calculated using propagation logic\n");
+    }
+
+    LE_INFO("\n** Location Info Validity Information ***\n");
+    if(locationData->validityMask & TAF_LOCGNSS_HAS_LAT_LONG_BIT)
+    {
+        LE_INFO("valid latitude longitude\n");
+    }
+    if(locationData->validityMask & TAF_LOCGNSS_HAS_ALTITUDE_BIT)
+    {
+        LE_INFO("valid altitude\n");
+    }
+    if(locationData->validityMask & TAF_LOCGNSS_HAS_SPEED_BIT)
+    {
+        LE_INFO("valid speed\n");
+    }
+    if(locationData->validityMask & TAF_LOCGNSS_HAS_HEADING_BIT)
+    {
+        LE_INFO("valid heading\n");
+    }
+    if(locationData->validityMask & TAF_LOCGNSS_HAS_HORIZONTAL_ACCURACY_BIT)
+    {
+        LE_INFO("valid horizontal accuracy\n");
+    }
+    if(locationData->validityMask & TAF_LOCGNSS_HAS_VERTICAL_ACCURACY_BIT)
+    {
+        LE_INFO("valid vertical accuracy\n");
+    }
+    if(locationData->validityMask & TAF_LOCGNSS_HAS_SPEED_ACCURACY_BIT)
+    {
+        LE_INFO("valid speed accuracy \n");
+    }
+    if(locationData->validityMask & TAF_LOCGNSS_HAS_HEADING_ACCURACY_BIT)
+    {
+        LE_INFO("valid heading accuracy\n");
+    }
+    if(locationData->validityMask & TAF_LOCGNSS_HAS_TIMESTAMP_BIT)
+    {
+        LE_INFO("valid timestamp\n");
+    }
+    if(locationData->validityMask & TAF_LOCGNSS_HAS_ELAPSED_REAL_TIME_BIT)
+    {
+        LE_INFO("valid elapsed real time\n");
+    }
+    if(locationData->validityMask & TAF_LOCGNSS_HAS_ELAPSED_REAL_TIME_UNC_BIT)
+    {
+        LE_INFO("valid elapsed real time Uncertainity\n");
+    }
+    if(locationData->validityMask & TAF_LOCGNSS_HAS_GPTP_TIME_BIT)
+    {
+        LE_INFO("valid gptp time\n");
+    }
+    if(locationData->validityMask & TAF_LOCGNSS_HAS_GPTP_TIME_UNC_BIT)
+    {
+        LE_INFO("valid gptp time Uncertainity\n");
+    }
+
+    taf_locGnss_ReleaseSampleExRef(SampleExRef);
+}
+
+static void* ExtendPositionThread
+(
+    void* context
+)
+{
+    LE_TEST_INFO("======== ExtendPosition Handler thread  ========");
+    taf_locGnss_ConnectService();
+
+    le_result_t result = taf_locGnss_Start();
+
+    LE_INFO("Result of gnss start: %d", (int)result);
+
+    PositionExHandlerRef = taf_locGnss_AddPositionExHandler(PositionExHandlerFunction, NULL);
+
+    if(PositionExHandlerRef != NULL){
+        LE_INFO("Handler added sucessfully");
+    }
+
+    LE_TEST_INFO("======== ExtendPosition Handler thread before le_event_RunLoop ========");
+    le_event_RunLoop();
+    LE_TEST_INFO("======== ExtendPosition Handler thread After le_event_RunLoop ========");
+    return NULL;
+}
+
+static void TestTafGnssPositionExHandler
+(
+    void
+)
+{
+
+    LE_INFO("TestTafGnssPositionExHandler");
+
+    //136. taf_locGnss_Start() This will trigger startDetailedEngineReports() TelSDK API
+    LE_TEST_OK(((taf_locGnss_Start()) == LE_OK), "taf_locGnss_Start-LE_OK");
+    LE_TEST_INFO("Wait for 5 seconds");
+    le_thread_Sleep(5);
+
+    // Add Position Handler Test
+    positionExThreadRef = le_thread_Create("ExtendPosThreadTest",ExtendPositionThread,NULL);
+    LE_INFO("TestTafGnssMeasHandler positionThreadRef :%p",positionExThreadRef);
+    le_thread_Start(positionExThreadRef);
+
+    LE_TEST_INFO("Wait for 10 seconds to trigger PositionHandlerfunction");
+    le_thread_Sleep(10);
+
+    taf_locGnss_RemovePositionExHandler(PositionExHandlerRef);
+
+    LE_INFO("TestTafGnssPositionExHandler->cancel the thread");
+    le_thread_Cancel(positionExThreadRef);
+
+    LE_TEST_INFO("taf_locGnss_Stop() API is called to stop reporting GNSS fixes");
+    LE_TEST_OK(taf_locGnss_Stop() == LE_OK, "taf_locGnss_Stop-LE_OK");
 }
 
 COMPONENT_INIT
@@ -4669,6 +5050,9 @@ COMPONENT_INIT
    LE_TEST_INFO("======== GNSS Location information APIs Test  ========");
    TestTafGnssPositionHandler();
 
+   LE_TEST_INFO("====TestMeasHandler====");
+   TestTafGnssMeasHandler();
+
    LE_TEST_INFO("======== GNSS NMEA handler Test  ========");
    TestTafGnssNmeaHandler();
 
@@ -4689,6 +5073,9 @@ COMPONENT_INIT
 
    LE_TEST_INFO("======== TestTafGnssRestart ======");
    TestTafGnssRestart();
+
+   LE_TEST_INFO("====TestTafGnssPositionExHandler====");
+   TestTafGnssPositionExHandler();
 
    LE_TEST_INFO("======== LE_TEST_EXIT  ========");
    LE_TEST_EXIT;

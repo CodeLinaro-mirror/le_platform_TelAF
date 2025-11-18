@@ -44,18 +44,14 @@
 #include <memory>
 #include <vector>
 #include <iostream>
-#include <telux/loc/LocationConfigurator.hpp>
-#include <telux/loc/LocationDefines.hpp>
-#include <telux/loc/DgnssManager.hpp>
-#include "telux/common/CommonDefines.hpp"
-#include <telux/loc/LocationManager.hpp>
-#include <telux/loc/LocationListener.hpp>
+#include <mutex>
+#include <chrono>
+#include <bitset>
 #include "tafSvcIF.hpp"
+#include "taf_pa_location.hpp"
 
-using namespace telux::loc;
 using GnssReportTypeMask = uint32_t;
 using LocReqEngine = uint16_t;
-using ResponseCB = telux::common::ResponseCallback;
 
 const int DEFAULT_UNKNOWN = 0;
 
@@ -84,33 +80,6 @@ enum AidingDataType
     TAF_LOCGNSS_AIDING_DATA_EPHEMERIS = (1<<0),
     TAF_LOCGNSS_AIDING_DATA_DR_SENSOR_CALIBRATION = (1<<1)
 };
-
-
-inline std::pair<ResponseCB, std::shared_future<le_result_t>>
-GetCallbackWithPromise()
-{
-    auto pr = std::make_shared<std::promise<le_result_t>>();
-    std::shared_future<le_result_t> fut = pr->get_future().share();
-    auto cb = [pr](telux::common::ErrorCode error)
-    {
-        try
-        {
-            if (error == telux::common::ErrorCode::SUCCESS)
-            {
-                pr->set_value(LE_OK);
-            }
-            else
-            {
-                pr->set_value(LE_FAULT);
-            }
-        }
-        catch (...)
-        {
-            LE_ERROR("Error while setting promise value");
-        }
-    };
-    return {cb, fut};
-}
 
 namespace tafsvc {
 
@@ -295,35 +264,120 @@ namespace tafsvc {
     }
     taf_locGnss_PositionSampleRequest_t;
 
-    class tafLocationListener : public telux::loc::ILocationListener,
-    public telux::loc::ILocationConfigListener,public telux::loc::ILocationSystemInfoListener {
-        public:
+    typedef struct taf_locGnss_GnssMeasurementsClock
+    {
+        taf_locGnss_GnssMeasurementsClockValidityType_t valid;
+        int16_t leapSecond;
+        int64_t timeNs;
+        double timeUncertaintyNs;
+        int64_t fullBiasNs;
+        double biasNs;
+        double biasUncertaintyNs;
+        double driftNsps;
+        double driftUncertaintyNsps;
+        uint32_t hwClockDiscontinuityCount;
+        uint64_t elapsedRealTime;
+        uint64_t elapsedRealTimeUnc;
+        uint64_t elapsedgPTPTime;
+        uint64_t elapsedgPTPTimeUnc;
+    }taf_locGnss_GnssMeasurementsClock_t;
 
-            void onGnssSVInfo(const std::shared_ptr<telux::loc::IGnssSVInfo> &gnssSVInfo) override;
+    typedef struct taf_locGnss_GnssMeasurementsData
+    {
+        taf_locGnss_GnssMeasurementsDataValidityType_t valid;
+        int16_t svId;
+        taf_locGnss_SBConstellation_t svType;
+        double timeOffsetNs;
+        taf_locGnss_GnssMeasurementsStateValidityType_t stateMask;
+        int64_t receivedSvTimeNs;
+        double receivedSvTimeSubNs;
+        int64_t receivedSvTimeUncertaintyNs;
+        double carrierToNoiseDbHz;
+        double pseudorangeRateMps;
+        double pseudorangeRateUncertaintyMps;
+        taf_locGnss_GnssMeasurementsAdrStateValidityType_t adrStateMask;
+        double adrMeters;
+        double adrUncertaintyMeters;
+        double carrierFrequencyHz;
+        int64_t carrierCycles;
+        double carrierPhase;
+        double carrierPhaseUncertainty;
+        taf_locGnss_GnssMeasurementsMultipathIndicator_t multipathIndicator;
+        double signalToNoiseRatioDb;
+        double agcLevelDb;
+        taf_locGnss_GnssSignalType_t gnssSignalType;
+        double basebandCarrierToNoise;
+        double fullInterSignalBias;
+        double fullInterSignalBiasUncertainty;
+    }taf_locGnss_GnssMeasurementsData_t;
 
-            void onGnssSignalInfo(const std::shared_ptr<telux::loc::IGnssSignalInfo> &gnssDatainfo) override;
+    typedef struct
+    {
+        taf_locGnss_GnssMeasurementsClock_t clock;
+        taf_locGnss_GnssMeasurementsData_t measData[TAF_LOCGNSS_MEASUREMENT_INFO_MAX];
+        uint32_t   measCount;
+        bool isNHz;
+        taf_locGnss_AgcStatus_t     agcStatusL1;
+        taf_locGnss_AgcStatus_t     agcStatusL2;
+        taf_locGnss_AgcStatus_t     agcStatusL5;
+        le_msg_SessionRef_t*          clientSessionRefPtr;
+     }taf_locGnss_GnssMeasurements_t;
 
-            void onGnssNmeaInfo(uint64_t timestamp, const std::string &nmea) override;
+     typedef struct taf_locGnss_MeasurementHandler
+    {
+        taf_locGnss_MeasurementHandlerRef_t handlerRef;
+        taf_locGnss_MeasurementHandlerFunc_t handlerFuncPtr;
+        void*                         handlerContextPtr;
+        le_msg_SessionRef_t           sessionRef;
+        le_dls_Link_t                 next;
+    }
+    taf_locGnss_MeasurementHandler_t;
 
-            void onDetailedEngineLocationUpdate(const std::vector<std::shared_ptr<telux::loc::ILocationInfoEx>>
-                    &locationEngineInfo) override;
+    typedef struct
+    {
+        taf_locGnss_MeasSampleRef_t             measSampleRef;
+        taf_locGnss_GnssMeasurements_t*       measSampleNodePtr;
+        le_msg_SessionRef_t             sessionRef;
+        le_dls_Link_t                   next;
+    }
+    taf_locGnss_MeasurementSampleRequest_t;
 
-            void onGnssMeasurementsInfo(const telux::loc::GnssMeasurements &measurementInfo) override;
+    typedef struct
+    {
+        int32_t   longitude;
+        int32_t   latitude;
+        int32_t   hAccuracy;
+        int32_t   altitude;
+        uint32_t  direction;
+        uint32_t  directionAccuracy;
+        uint32_t  validityMask;
+        uint32_t  techMask;
+        uint32_t  hSpeed;
+        int32_t   vAccuracy;
+        uint64_t  epochTime;
+        int32_t   hSpeedAccuracy;
+        uint64_t  realTime;
+        uint64_t  realTimeUnc;
+        uint8_t   satsInViewCount;
+        uint8_t   satsTrackingCount;
+        uint8_t   satsUsedCount;
+        uint32_t  hdop;
+        uint32_t  vdop;
+        uint32_t  pdop;
+        double  altMeanSeaLevel;
+        int32_t   magneticDeviation;
+        le_msg_SessionRef_t*         clientSessionRefPtr;
+    }
+    taf_locGnss_PositionExSample_t;
 
-            void onLocationSystemInfo(const telux::loc::LocationSystemInfo &locationSystemInfo) override;
-
-            void onCapabilitiesInfo(const telux::loc::LocCapability capabilityInfo) override;
-            void onXtraStatusUpdate(const telux::loc::XtraStatus xtraStatus) override;
-
-            le_msg_SessionRef_t*         clientSessionRef;
-
-            ~tafLocationListener() {};
-    };
-
-    class GnssListener : public IDgnssStatusListener {
-        public:
-            void onDgnssStatusUpdate(DgnssStatus status) override;
-    };
+    typedef struct
+    {
+        taf_locGnss_PositionExHandlerRef_t handlerRef;
+        taf_locGnss_PositionExHandlerFunc_t handlerFuncPtr;
+        void*                         handlerContextPtr;
+        le_msg_SessionRef_t           sessionRef;
+        le_dls_Link_t                 next;
+    }taf_locGnss_PositionExHandler_t;
 
     typedef struct
     {
@@ -338,15 +392,12 @@ namespace tafsvc {
         LocReqEngine mEngineType;
         bool mFirstFix;
         std::chrono::time_point<std::chrono::system_clock> mStartTime;
-        std::shared_ptr<ILocationManager> locationManager;
         bool mStarted;
-        std::shared_ptr<tafLocationListener> posListener;
+        tafpa::location::taf_pa_location_LocationId locationClient;
+        tafpa::location::taf_pa_location_EventListener eventListener;
 
         taf_locGnss_PositionSample_t   LastPositionSample;
-        le_ref_MapRef_t PositionHandlerRefMap;
         taf_locGnss_PositionSample_t mSatParams;
-        std::vector<float> mVerticalSpeed;
-        std::vector<float> mVerticalSpeedAccuracy;
         uint8_t mTtffReportCount;
         uint32_t mTtffPtr;
         uint8_t mTotalSVTracked;
@@ -382,6 +433,8 @@ namespace tafsvc {
             static taf_locGnss_Client_t* DiscoverSessionRef( le_msg_SessionRef_t sessionRef);
             static taf_locGnss_Client_t* AcquireSessionRef(void);
             static void GnssPositionHandler(void* reportPtr);
+            static void GnssMeasurementHandler(void* reportPtr);
+            static void GnssPositionExHandler(void* reportPtr);
             static void CopyPositionData(taf_locGnss_PositionSample_t* posSampleDataPtr,
                     taf_locGnss_PositionSample_t* posDataPtr );
             static void ConfigureAcqStartInfo(taf_locGnss_Client_t* clientRequestPtr);
@@ -389,6 +442,14 @@ namespace tafsvc {
             taf_locGnss_PositionHandlerRef_t AddPositionHandler(
                     taf_locGnss_PositionHandlerFunc_t handlerPtr, void* contextPtr);
             void RemovePositionHandler(taf_locGnss_PositionHandlerRef_t handlerRef);
+
+            taf_locGnss_PositionExHandlerRef_t AddPositionExHandler(
+                    taf_locGnss_PositionExHandlerFunc_t handlerPtr, void* contextPtr);
+            void RemovePositionExHandler(taf_locGnss_PositionExHandlerRef_t handlerRef);
+
+            taf_locGnss_MeasurementHandlerRef_t AddMeasurementHandler(
+                    taf_locGnss_MeasurementHandlerFunc_t handlerPtr, void* contextPtr);
+            void RemoveMeasurementHandler(taf_locGnss_MeasurementHandlerRef_t handlerRef);
 
             taf_locGnss_CapabilityChangeHandlerRef_t AddCapabilityHandler(
                     taf_locGnss_CapabilityChangeHandlerFunc_t handlerPtr, void* contextPtr);
@@ -405,6 +466,7 @@ namespace tafsvc {
             le_result_t GetPositionState( taf_locGnss_SampleRef_t positionSampleRef,
                     taf_locGnss_FixState_t* statePtr);
             void ReleaseSampleRef(taf_locGnss_SampleRef_t positionSampleRef);
+            void ReleaseSampleExRef(taf_locGnss_SampleExRef_t postitionSampleExRef);
             le_result_t GetDate( taf_locGnss_SampleRef_t positionSampleRef, uint16_t* yearPtr,
                     uint16_t* monthPtr, uint16_t* dayPtr);
             le_result_t GetTime( taf_locGnss_SampleRef_t positionSampleRef, uint16_t* hoursPtr,
@@ -521,13 +583,34 @@ namespace tafsvc {
             le_result_t SetNmeaConfig(const taf_locGnss_NmeaBitMask_t nmea);
             taf_locGnss_NmeaBitMask_t GetNmeaConfig();
             void CleanUp(taf_locGnss_Client_t*);
+
+            le_result_t GetIsNHz(taf_locGnss_MeasSampleRef_t measSampleRef, bool* isNHZPtr);
+            le_result_t GetClockValidityMask(taf_locGnss_MeasSampleRef_t measSampleRef, uint32_t* clockValidityMaskPtr);
+            le_result_t GetClockData(taf_locGnss_MeasSampleRef_t measSampleRef, taf_locGnss_ClockData_t * clockDataPtr);
+            le_result_t GetMeasurementsData(taf_locGnss_MeasSampleRef_t measSampleRef, taf_locGnss_MeasurementsData_t * measDataPtr, size_t* measDataSizePtr);
+            void ReleaseMeasSampleRef(taf_locGnss_MeasSampleRef_t    measSampleRef);
+            le_result_t GetMeasDataValidityMask(taf_locGnss_MeasSampleRef_t measSampleRef,
+                uint32_t* measDataValidityMaskPtr, size_t* measDataValidityMaskSizePtr);
+
             le_mem_PoolRef_t   PositionHandlerPoolRef;
+            le_mem_PoolRef_t   PositionExHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_mem_PoolRef_t   PositionSamplePoolRef;
+            le_mem_PoolRef_t   PositionSampleExPoolRef;
+            le_mem_PoolRef_t   PositionExSamplePoolRef;
+            le_mem_PoolRef_t   MeasurementHandlerPoolRef;
+            le_mem_PoolRef_t   MeasurementSampleRequestPoolRef;
+            le_mem_PoolRef_t   MeasurementSamplePoolRef;
+            le_mem_PoolRef_t   MeasurementDataSamplePoolRef;
+            le_ref_MapRef_t PositionHandlerRefMap;
+            le_ref_MapRef_t MeasurementHandlerRefMap;
+            le_ref_MapRef_t PositionExHandlerRefMap;
             int32_t NumOfPositionHandlers;
+            int32_t NumOfPositionExHandlers;
             int32_t NumOfCapabilityHandlers;
             int32_t mClientRefCount;
             int32_t NumOfNmeaHandlers;
+            int32_t NumOfMeasurementHandlers;
             uint8_t mEnable;
             uint8_t mEnabled911;
             uint8_t mMajorVersion;
@@ -538,9 +621,13 @@ namespace tafsvc {
             uint32_t mXtraValidForHours;
             uint32_t mXtraDataStatus;
             le_event_Id_t positionEventId;
+            le_event_Id_t PositionExEventId;
+            le_event_Id_t measurementEventId;
             le_event_Id_t nmeaEventId;
             le_event_Id_t locCapabilityEventId;
             le_event_HandlerRef_t HandlerRef;
+            le_event_HandlerRef_t MeasurementHandlerRef;
+            le_event_HandlerRef_t HandlerExRef;
 
             taf_locGnss_ConstellationBitMask_t mConstellationMask;
             taf_locGnss_NmeaBitMask_t mNmeaMask = 0;
@@ -548,14 +635,33 @@ namespace tafsvc {
             std::mutex mtx;
 
         private:
-            std::shared_ptr<ILocationConfigurator> mLocationConfigurator = nullptr;
-            std::shared_ptr<IDgnssManager> mDgnssManager = nullptr;
-            telux::common::Status LocationConfiguratorInit();
-            telux::common::Status LocationManagerInit(taf_locGnss_Client_t* clientRequestPtr);
-            telux::common::Status DgnssManagerInit();
             le_mem_PoolRef_t   ClientPoolRef;
             le_ref_MapRef_t PositionSampleMap;
+            le_ref_MapRef_t MeasurementSampleMap;
+            le_ref_MapRef_t PositionExSampleMap;
             le_ref_MapRef_t ClientRequestRefMap;
             le_dls_List_t    SessionCtxList;
     };
-    }
+    class Handler : public ITafSvc{
+        public:
+
+            void Init() {
+                return;
+            }
+            static void onGnssSVInfo(tafpa::location::taf_pa_location_LocationId clientId, const std::vector<std::shared_ptr<tafpa::location::taf_pa_location_GnssSVInfo_t>>& GnssSVInfo, std::any context);
+
+            static void onGnssSignalInfo(tafpa::location::taf_pa_location_LocationId clientId, const std::shared_ptr<tafpa::location::taf_pa_location_GnssData_t>& gnssDatainfo, std::any context);
+
+            static void onGnssNmeaInfo(tafpa::location::taf_pa_location_LocationId clientId, const std::shared_ptr<tafpa::location::taf_pa_location_NmeaInfoEvent_t>& nmeaEventInfo, std::any context);
+
+            static void onDetailedEngineLocationUpdate(tafpa::location::taf_pa_location_LocationId clientId, const std::vector<std::shared_ptr<tafpa::location::taf_pa_location_LocEngineInfo_t>>& locationEngineInfo, std::any context);
+
+            static void onGnssMeasurementsInfo(tafpa::location::taf_pa_location_LocationId clientId, const std::shared_ptr<tafpa::location::taf_pa_location_GnssMeasurements_t>& measurementInfo, std::any context);
+
+            static void onLocationSystemInfo(tafpa::location::taf_pa_location_LocationId clientId, const std::shared_ptr<tafpa::location::taf_pa_location_LocationSystemInfo_t>& LocSysInfo, std::any context);
+
+            static void onCapabilitiesInfo(tafpa::location::taf_pa_location_LocationId clientId, const std::shared_ptr<tafpa::location::taf_pa_location_CapabilityChangeEvent_t>& capEventInfo, std::any context);
+            static void onXtraStatusUpdate(tafpa::location::taf_pa_location_LocationId clientId, const std::shared_ptr<tafpa::location::taf_pa_location_XtraStatus_t>& xtraStatus, std::any context);
+
+    };
+}

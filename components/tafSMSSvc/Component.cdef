@@ -11,7 +11,7 @@ requires:
     api:
     {
         le_cfg.api
-        taf_ks.api
+        taf_ks.api [optional]
     }
 
     component:

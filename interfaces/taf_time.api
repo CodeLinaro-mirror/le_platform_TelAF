@@ -117,7 +117,8 @@
  *
  * @section c_taf_time_Set Set the system time
  *
- * - taf_time_SetSystemTime() -- Sets system time in the format of seconds and nanosconds.
+ * - taf_time_SetTrustTime() -- Sets system time in the format of seconds and nanosconds.
+ *   This parameter 'validity' is used to indicate it is a trust time or not.
  *
  * @code
  *
@@ -129,10 +130,16 @@
    newTime->sec = 1667788990;
    newTime->nanosec = 10000;
 
-   if(taf_time_SetSystemTime((const taf_time_TimeSpec_t*)newTime, true)== LE_OK)
-   {
-        // Process received time.
-   }
+   bool validity = true; // or false.
+   uint8_t sourceId = TAF_TIME_SRC_NAME_EX_APP;
+   taf_time_SourceRef_t srcRef;
+
+   srcRef = taf_time_GetSourceRef(sourceId);
+   if(taf_time_SetTrustTime(srcRef, newTime, validity) == LE_OK)
+ {
+    // Process your code.
+ }
+
  *
  * @section taf_time_GetRtcTimeReqAsync Get the RTC time asynchronously
  *
@@ -328,65 +335,6 @@
     {
         LE_INFO("Time source is NOT valid!");
     }
- *
- * @endcode
- *
- * @section taf_time_SetValidity Set the validity of a source
- *
- * When trying to set the validity of a source, the application shall first get
- * the source reference by calling taf_time_GetSourceRef(), then call taf_time_SetValidity()
- * to set the validity.
- *
- * @b NOTE: Client can set validity for RTC and external application only.
- *
- * The following example illustrates how to set the validity of a time source.
- *
- * @code
- *
-    uint8_t sourceId = TAF_TIME_SRC_NAME_RTC;
-    taf_time_SourceRef_t srcRef;
-    uint8_t validity = 0;
-    srcRef = taf_time_GetSourceRef(sourceId);
-    LE_ASSERT(srcRef != NULL);
-    status = taf_time_SetValidity(srcRef, validity);
-    LE_ASSERT(res == LE_OK);
- *
- * @endcode
- *
- * @section taf_time_SetRtcTimeReqAsync Set the RTC time asynchronously
- *
- * With the callback function SetRTCTimeAsync() the application can set the RTC time
- * asynchronously. The operation result will be notified to the client through the registered
- * callback function.
- *.
- * The following example illustrates how to register a callback function and set the
- * time from RTC device asynchronously.
- *
- * @code
-
-void setRTCTimeAsync(le_result_t responseState, void* contextPtr)
-{
-    LE_TEST_ASSERT(responseState == LE_OK, "Test: setRTCTimeAsync response mode is LE_OK");
-}
-
- //Register the async callback function
-void* TestSetRTCAsync(void* cxtPtr)
-{
-   static le_mem_PoolRef_t NewTimePool = NULL;
-   taf_time_TimeSpec_t* newTimePtr;
-   NewTimePool = le_mem_CreatePool("TimePool", sizeof(taf_time_TimeSpec_t));
-   newTimePtr = (taf_time_TimeSpec_t*)le_mem_ForceAlloc(NewTimePool);
-   newTimePtr->sec = 1712345678;
-   newTimePtr->nanosec = 12345678;
-   le_result_t res = taf_time_SetRtcTimeReqAsync(newTimePtr, setRTCTimeAsync, (void*)cxtPtr);
-
-   if (res == LE_UNSUPPORTED)
-   {
-       LE_INFO("RTC Async set time API (work with VHAL) received: Unsupported");
-   }
-   return NULL;
-}
-
  *
  * @endcode
  *
@@ -592,23 +540,6 @@ STRUCT TimeSpec
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the system time.
- *
- * @instaging
- * @return
- * - LE_OK            Succeeded.
- * - Appropriate error is returned on failure.
- *
- */
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t SetSystemTime
-(
-    TimeSpec timeVal IN, ///< Time in seconds/nanoseconds
-    bool ackTimeSvc  IN  ///< True acknowledge time service, otherwise not
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Handler for source change event for the time source that system time is sycned to.
  *
  * @instaging
@@ -786,50 +717,6 @@ FUNCTION le_result_t GetRtcTimeReqAsync
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the time to RTC device.
- *
- * @instaging
- * @return
- * - LE_OK            Succeeded.
- * - Appropriate error is returned on failure.
- *
- */
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t SetTimeToRtc
-(
-    TimeSpec timeVal IN ///< Time in seconds/nanoseconds
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Handler for asynchronous setting time request.
- *
- * @instaging
- */
-HANDLER AsyncSetTimeReqHandler
-(
-    le_result_t responseState     IN    ///< Status response.
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Sets RTC time asynchronously.
- *
- * @instaging
- * @return
- *  - LE_OK -- Succeeded.
- *  - LE_UNAVAILABLE -- The rtc time is not available.
- *  - LE_FAULT -- Internal error.
- */
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t SetRtcTimeReqAsync
-(
-    TimeSpec timeVal                      IN,        ///< Time in seconds/nanoseconds
-    AsyncSetTimeReqHandler handlerRef     IN         ///< Handler
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Gets the reference object for a source.
  *
  * @instaging
@@ -980,18 +867,23 @@ FUNCTION bool IsSourceValid
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the validity of a source.
+ * Sets the time and validity for the system.
  *
  * @instaging
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_FAULT -- Something went wrong.
  *
- * @note - This function can be called to set validity for RTC and external application only.
+ * @b NOTE: This function sets the system time and RTC time, updates their validity flags, and
+ * supports only the time source TAF_TIME_SRC_NAME_EX_APP. The APPs that needs to use this API
+ * must add itsapplication name to the 'ValidClientList' item in the 'tafTimeSvc.json'
+ * configuration file.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t SetValidity
+FUNCTION le_result_t SetTrustTime
 (
     Source sourceRef     IN,   ///< Source reference.
+    TimeSpec timeVal     IN,   ///< Time in seconds/nanoseconds.
     bool   validity      IN    ///< Validity to set.
 );
+

@@ -34,6 +34,10 @@ namespace doip{
     #define TAF_DOIP_MDS_DEFAULT            4096
     #define TAF_DOIP_SA_DEFAULT             0x201
 
+    #define TAF_DOIP_MAX_GET_IP_WAIT_TIME   5*1000 // 5000 miliseconds
+    #define MAX_CUSTOMIZED_ANNOUNCE_WAIT_TIME 10 // 10 miliseconds
+    #define TIME_CONSUMED_BY_CODE_EXECUTION  2 // Time consumed by code execution
+
     #define VLAN_PROC_PATH  "/proc/net/vlan/config"
 
     //-------------------------------------------------------------------------------------------------
@@ -219,6 +223,8 @@ namespace doip{
             taf_doip_Result_t GetLocalIPv4Addr(std::string& ifname, char *ip, socklen_t size);
             taf_doip_Result_t GetLocalIPv6Addr(std::string& ifname, char *ip, socklen_t size);
             taf_doip_Result_t GetLocalIPAddr(int af, std::string& ifname, char *ip, socklen_t size);
+            taf_doip_Result_t GetIpAddrWithAnnounceWaitMech(int af, std::string& ifname, char *ip,
+                    socklen_t size);
 
             taf_doip_Result_t RecvUdpData(le_socket_Ref_t sockRef);
             taf_doip_Result_t CheckDoipHeaderOverUdp(taf_doipHeader_t& header, char* ipPtr,

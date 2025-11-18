@@ -182,7 +182,7 @@ taf_doip_Result_t CommunicationMgr::GetLocalIPAddr
 
     if (tmpPtr == NULL)
     {
-        LE_ERROR("Can't find interface %s\n", ifname.c_str());
+        LE_DEBUG("Can't find interface %s\n", ifname.c_str());
         return TAF_DOIP_RESULT_ERROR;
     }
 
@@ -204,6 +204,15 @@ taf_doip_Result_t CommunicationMgr::GetLocalIPv6Addr
     socklen_t       size
 )
 {
+    auto&   vehicleMgr = VehicleManager::GetInstance();
+
+    //If announceWait is configured, run announcement mechanisam to get IP address.
+    if ( vehicleMgr.GetAnnounceWait() )
+    {
+        LE_DEBUG("Run Announcement wait mechanisam to get IP address");
+        return GetIpAddrWithAnnounceWaitMech(AF_INET6, ifname, ip, size);
+    }
+
     return GetLocalIPAddr(AF_INET6, ifname, ip, size);
 }
 
@@ -222,7 +231,62 @@ taf_doip_Result_t CommunicationMgr::GetLocalIPv4Addr
     socklen_t       size
 )
 {
+    auto&   vehicleMgr = VehicleManager::GetInstance();
+
+    //If announceWait is configured, run announcement mechanisam to get IP address.
+    if ( vehicleMgr.GetAnnounceWait() )
+    {
+        LE_DEBUG("Run Announcement wait mechanisam to get IP address");
+        return GetIpAddrWithAnnounceWaitMech(AF_INET, ifname, ip, size);
+    }
+
     return GetLocalIPAddr(AF_INET, ifname, ip, size);
+}
+
+/*=================================================================================================
+ FUNCTION        CommunicationMgr::GetIpAddrWithAnnounceWaitMech
+ DESCRIPTION     Run announcement mechanisam to get IP address.
+ PARAMETERS      [IN] af: IP address family
+                 [IN] ifname: interface name reference
+                 [OUT] ip: IPv4 address buffer.
+                 [IN] size: IP address buffer length
+ RETURN VALUE    taf_doip_Result_t: Result of geting local IP address
+=================================================================================================*/
+taf_doip_Result_t CommunicationMgr::GetIpAddrWithAnnounceWaitMech
+(
+    int             af,
+    std::string&    ifname,
+    char            *ip,
+    socklen_t       size
+)
+{
+    if (ip == NULL || (af != AF_INET && af != AF_INET6))
+    {
+        LE_ERROR("Parameter error!\n");
+        return TAF_DOIP_RESULT_PARAM_ERROR;
+    }
+
+    uint16_t getIpWaitTime = 0;
+    while(getIpWaitTime <= TAF_DOIP_MAX_GET_IP_WAIT_TIME)
+    {
+        if(GetLocalIPAddr(af, ifname, ip, size) == TAF_DOIP_RESULT_OK)
+        {
+            LE_INFO("Get IP address for interface %s successfully", ifname.c_str());
+            return TAF_DOIP_RESULT_OK;
+        }
+
+        // Get a random time less than 10 miliseconds.
+        uint8_t waitTime = le_rand_GetNumBetween(0, MAX_CUSTOMIZED_ANNOUNCE_WAIT_TIME);
+        usleep(waitTime * 1000);
+
+        // Increase getIpWaitTime with sleep time and the time consumed by code execution
+        getIpWaitTime = getIpWaitTime + waitTime + TIME_CONSUMED_BY_CODE_EXECUTION;
+    }
+
+    LE_FATAL("Could not get ip address for interface %s", ifname.c_str());
+
+    return TAF_DOIP_RESULT_ERROR;
+
 }
 
 /*=================================================================================================
@@ -382,7 +446,7 @@ taf_doip_Result_t CommunicationMgr::SessionStart
 (
 )
 {
-    LE_INFO("Enter CommunicationMgr::SessionStart-state%d.\n", state);
+    LE_DEBUG("Enter CommunicationMgr::SessionStart-state%d.\n", state);
 
     if (state == TAF_DOIP_STATE_START
         || state == TAF_DOIP_STATE_RUNNING)
@@ -441,7 +505,7 @@ taf_doip_Result_t CommunicationMgr::SessionStart
     }
 
     state = TAF_DOIP_STATE_RUNNING;
-    LE_INFO("DoIP session start success.!");
+    LE_DEBUG("DoIP session start success.!");
 
     return TAF_DOIP_RESULT_OK;
 }

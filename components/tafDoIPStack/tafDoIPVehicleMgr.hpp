@@ -29,6 +29,7 @@ typedef struct
     uint32_t maxSockNum;
     uint32_t maxDataSize;
     uint32_t maxAnnounceCount;
+    bool announceWait;
     uint32_t announceItrvalTime;
     uint32_t genInactiveTime;
     uint32_t initInactiveTime;
@@ -57,7 +58,7 @@ namespace doip{
 
             taf_doip_Result_t DeInit();
 
-            void ParseJsonConfig(const char* configPathPtr);
+            void ParseJsonConfig(const char* configPathPtr, bool isVinStored);
 
             uint8_t GetProtocolVersion();
 
@@ -70,6 +71,8 @@ namespace doip{
             taf_doip_Result_t GetMaxDataSize(uint32_t *maxDataSizePtr);
 
             taf_doip_Result_t GetMaxAnnounceCount(uint32_t *announceCountPtr);
+
+            bool GetAnnounceWait();
 
             taf_doip_Result_t GetAnnounceIntervalTime(uint32_t *announceIntTimePtr);
 

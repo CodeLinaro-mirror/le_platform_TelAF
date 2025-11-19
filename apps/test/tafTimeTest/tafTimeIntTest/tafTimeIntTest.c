@@ -30,28 +30,23 @@ void TimePrintHelpMenu
         "\n"
         "SYNOPSIS:\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- help\n"
-        "    app runProc tafTimeIntTest tafTimeIntTest -- set rtcTime 1688998899 1000\n"
-        "    app runProc tafTimeIntTest tafTimeIntTest -- asyncSet rtcTime 1688998899 1000\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- asyncGet rtcTime\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- get GetTime 1\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- handler 10\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- timeChaHandler 65 3\n"
-        "    app runProc tafTimeIntTest tafTimeIntTest -- set time 1688998899 1000\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- set time 1688998899 1000 [1]\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- set timeLoop 1688998899 1000 33\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- set trusttime 1777668866 1000 1\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- timeSourceStatusHandler 1 0 40\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- get GetSourceDetails 1\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- get GetSystemTimeSourceID\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- get DayAdj 3\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- get TimeZone 3\n"
-        "    app runProc tafTimeIntTest tafTimeIntTest -- set Validity 3 0\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- GptpComponent\n"
         "\n"
         "DESCRIPTION:\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- help\n"
         "       Display this help and exit.\n"
-        "\n"
-        "    app runProc tafTimeIntTest tafTimeIntTest -- set rtcTime\n"
-        "       Update rtc time with 'seconds' + 'nanose' as input.\n"
         "\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- get systemTime\n"
         "       Get system time.\n"
@@ -66,6 +61,9 @@ void TimePrintHelpMenu
         "\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- set time 'seconds' 'nanoseconds'\n"
         "       Set system time with 'seconds' + 'nanose' as input.\n"
+        "\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- set trusttime 'ExAPP ID' 'seconds' 'true/false'\n"
+        "       Set trust system time with 'sourceId' + 'seconds' + 'validity' as input.\n"
         "\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- set timeLoop 'sec' 'nanos' 'WiatSec'\n"
         "       Set system time with 'seconds' + 'nanosec' + 'interval' as in put, this"
@@ -88,15 +86,51 @@ void TimePrintHelpMenu
         "    app runProc tafTimeIntTest tafTimeIntTest -- get TimeZone sourceId\n"
         "       Get TimeZone for the given source Id.\n"
         "\n"
-        "    app runProc tafTimeIntTest tafTimeIntTest -- set Validity sourceId validity\n"
-        "       Sets the validity of given source Id.\n"
-        "\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- GptpComponent\n"
         "       Get the ptp time.\n"
         "\n"
     );
 
     exit(EXIT_SUCCESS);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Covert time source index name to string.
+ */
+//--------------------------------------------------------------------------------------------------
+const char* SourceNameIndexToStr
+(
+    taf_time_TimeSources_t sourceName
+)
+{
+    switch (sourceName)
+    {
+        case TAF_TIME_SRC_NAME_RTC:
+            return "RTC";
+
+        case TAF_TIME_SRC_NAME_GNSS:
+            return "GNSS";
+
+        case TAF_TIME_SRC_NAME_EX_APP:
+            return "ExAPP";
+
+        case TAF_TIME_SRC_NAME_NETWORK:
+            return "NETWORK";
+
+        case TAF_TIME_SRC_NAME_NETWORK2:
+            return "NETWORK2";
+
+        // Add new time source here
+
+        case TAF_TIME_SRC_NAME_UNKNOWN:
+            return "UNKNOWN";
+
+        case TAF_TIME_SRC_NAME_SYSTEM:
+            return "SYSTEM";
+
+    }
+    return "unknown";
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -202,30 +236,22 @@ void TestSetSystemTime
     newTimePtr->sec = 1667788990;
     newTimePtr->nanosec = 10000;
 
-    result = taf_time_SetSystemTime((const taf_time_TimeSpec_t*)newTimePtr, true);
-    LE_TEST_ASSERT(result == LE_OK, "Test: taf_time_SetSystemTime() APIs - true");
+    taf_time_TimeSources_t sourceId = TAF_TIME_SRC_NAME_EX_APP;
+    taf_time_SourceRef_t srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
 
+    result = taf_time_SetTrustTime(srcRef, (const taf_time_TimeSpec_t*)newTimePtr, false);
+    LE_TEST_ASSERT(result == LE_OK, "Test: taf_time_SetTrustTime() APIs - true");
+    LE_INFO("Set the time to %"PRIu64".%"PRIu64 ", validity: true",
+                                                   newTimePtr->sec, newTimePtr->nanosec);
+
+    le_thread_Sleep(1);
     newTimePtr->sec += 20000000;
-    result = taf_time_SetSystemTime((const taf_time_TimeSpec_t*)newTimePtr, false);
-    LE_TEST_ASSERT(result == LE_OK, "Test: taf_time_SetSystemTime() APIs - false");
 
-    LE_INFO("Set the time to %"PRIu64".%"PRIu64, newTimePtr->sec, newTimePtr->nanosec);
-}
-
-void TestSetTimeToRtc(taf_time_TimeSpec_t* newTime)
-{
-    le_result_t result;
-    result = taf_time_SetTimeToRtc(newTime);
-    LE_TEST_ASSERT((result == LE_OK || result == LE_UNSUPPORTED),
-        "Test: taf_time_SetTimeToRtc() APIs.");
-    if (result == LE_OK)
-    {
-        LE_INFO("Set time %"PRIu64".%"PRIu64" to RTC\n", newTime->sec, newTime->nanosec);
-    }
-    else
-    {
-        LE_INFO("Setting time to read-only RTC is not supported\n");
-    }
+    result = taf_time_SetTrustTime(srcRef, (const taf_time_TimeSpec_t*)newTimePtr, true);
+    LE_TEST_ASSERT(result == LE_OK, "Test: taf_time_SetTrustTime() APIs - false");
+    LE_INFO("Set the time to %"PRIu64".%"PRIu64 ", validity: false",
+                                                    newTimePtr->sec, newTimePtr->nanosec);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -258,10 +284,12 @@ void TestGetTimeRef
         "taf_time_GetTime() API.");
     if (result == LE_OK)
     {
-        LE_INFO("Reference %d time is %"PRIu64".%"PRIu64, sourceId, time.sec, time.nanosec);
+        LE_INFO("Reference %s time is %"PRIu64".%"PRIu64,
+            SourceNameIndexToStr(sourceId), time.sec, time.nanosec);
         ConvertSecToDateTime(time);
     }
-    LE_INFO("timeSrcRef %p, sourceId (0x%x), status %d.", timeSrcRef, sourceId, result);
+    LE_INFO("timeSrcRef %p, sourceId (0x%x), name %s, result %d.",
+                        timeSrcRef, sourceId, SourceNameIndexToStr(sourceId), result);
 
     // Get reference system time through reference object.
     result = taf_time_GetRefSystemTime(timeSrcRef, &time);
@@ -516,66 +544,17 @@ void TestGetSourceDetails
 
     le_result_t res = taf_time_GetFailedLoops(srcRef, &failedLoops, &loopIntervalSec);
     LE_ASSERT(res == LE_OK);
+
     LE_INFO("The number of failed loops are %d. Loop interval is  %" PRId64 "",
     failedLoops, loopIntervalSec);
+
     isAvailable = taf_time_IsAvailable(srcRef);
-    if (isAvailable)
-    {
-        LE_INFO("Time source is Available!");
-    }
-    else
-    {
-        LE_INFO("Time source is NOT Available!");
-    }
+    LE_INFO("Time source: %s is %s",
+          SourceNameIndexToStr(sourceId), isAvailable ? "Available" : "NOT Available");
 
     validity = taf_time_IsSourceValid(srcRef);
-    if (validity)
-    {
-        LE_INFO("Time source is valid!");
-    }
-    else
-    {
-        LE_INFO("Time source is NOT valid!");
-    }
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Covert time source index name to string.
- */
-//--------------------------------------------------------------------------------------------------
-const char* SourceNameIndexToStr
-(
-    taf_time_TimeSources_t sourceName
-)
-{
-    switch (sourceName)
-    {
-        case TAF_TIME_SRC_NAME_RTC:
-            return "RTC";
-
-        case TAF_TIME_SRC_NAME_GNSS:
-            return "GNSS";
-
-        case TAF_TIME_SRC_NAME_EX_APP:
-            return "ExAPP";
-
-        case TAF_TIME_SRC_NAME_NETWORK:
-            return "NETWORK";
-
-        case TAF_TIME_SRC_NAME_NETWORK2:
-            return "NETWORK2";
-
-        /* Add new time source here */
-
-        case TAF_TIME_SRC_NAME_UNKNOWN:
-            return "UNKNOWN";
-
-        case TAF_TIME_SRC_NAME_SYSTEM:
-            return "SYSTEM";
-
-    }
-    return "unknown";
+    LE_INFO("Time source: %s is %s",
+          SourceNameIndexToStr(sourceId), validity ? "valid" : "NOT valid");
 }
 
 void TestGetSystemTimeSourceID()
@@ -630,40 +609,46 @@ void TestGetDayAdj
     LE_INFO("Day Light Saving is: %d", dayltSavAdj);
 }
 
-void TestSetValidity
-(
-    void
-)
+//---------------------------------------------------------------
+void TestSetTrustTime(const char* arg2, const char* arg3, const char* arg4)
 {
-    const char* arg2 = le_arg_GetArg(2);
-    const char* arg3 = le_arg_GetArg(3);
+    taf_time_TimeSpec_t newTime = {0};
+
+    bool validityFlag = false;
+    uint8_t validity = 0;
+
     if (arg2 == NULL || arg3 == NULL)
     {
-        LE_ERROR("Invalid arguments.");
+        LE_ERROR("Parameter is not correct");
         return;
     }
+    newTime.sec = strtol(arg2, NULL, 10);
+    newTime.nanosec = strtol(arg3, NULL, 10);
 
-    uint8_t sourceId = strtol(arg2, NULL, 10);
-    uint8_t validity = strtol(arg3, NULL, 10);
-    bool validityFlag = (validity == 0) ? false : true;
-    taf_time_SourceRef_t srcRef;
+    if (arg4 != NULL )
+    {
+        validity = strtol(arg4, NULL, 10);
+    }
 
-    srcRef = taf_time_GetSourceRef(sourceId);
+    validityFlag = (validity == 0) ? false : true;
+
+    LE_INFO("======== Test set trust time ========");
+
+
+    taf_time_TimeSources_t sourceId = TAF_TIME_SRC_NAME_EX_APP;
+    taf_time_SourceRef_t srcRef = taf_time_GetSourceRef(sourceId);
     LE_ASSERT(srcRef != NULL);
-    le_result_t res = taf_time_SetValidity(srcRef, validityFlag);
-    LE_ASSERT(res == LE_OK);
-    LE_INFO("taf_time_SetValidity - LE_OK");
-    validityFlag = taf_time_IsSourceValid(srcRef);
-    if (validityFlag)
-    {
-        LE_INFO("Validity of time source is set to true");
-    }
-    else
-    {
-        LE_INFO("Validity of time source is set to false");
-    }
-}
 
+    le_result_t result = taf_time_SetTrustTime(srcRef, &newTime, validityFlag);
+    LE_TEST_ASSERT(result == LE_OK, "Test: taf_time_SetTrustTime() APIs.");
+
+    LE_INFO("Set trust time %"PRIu64".%"PRIu64 ", validity: %d",
+        newTime.sec, newTime.nanosec, validityFlag);
+
+    validityFlag = taf_time_IsSourceValid(srcRef);
+    LE_INFO("Validity of %s is set to %s",
+    SourceNameIndexToStr(sourceId), validityFlag ? "true" : "false");
+}
 
 void TimeGetCmdTest(void)
 {
@@ -705,7 +690,6 @@ void TimeSetCmdTest(void)
 {
     static le_mem_PoolRef_t NewTimePool = NULL;
     taf_time_TimeSpec_t* newTimePtr;
-    le_result_t result;
 
     TimeCheckArgs(2);
     const char* cmd = le_arg_GetArg(1);
@@ -718,37 +702,10 @@ void TimeSetCmdTest(void)
     if (strncmp(cmd, "time", strlen(cmd)) == 0)
     {
         TimeCheckArgs(4);
-        NewTimePool = le_mem_CreatePool("NewTimePool", sizeof(taf_time_TimeSpec_t));
-        newTimePtr = (taf_time_TimeSpec_t*)le_mem_ForceAlloc(NewTimePool);
         const char* arg2 = le_arg_GetArg(2);
         const char* arg3 = le_arg_GetArg(3);
-        if (arg2 != NULL && arg3 != NULL)
-        {
-            newTimePtr->sec = strtol(arg2, NULL, 10);
-            newTimePtr->nanosec = strtol(arg3, NULL, 10);
-        }
-        LE_INFO("======== Test set system time ========\n");
-
-        result = taf_time_SetSystemTime(newTimePtr, true);
-        LE_TEST_ASSERT(result == LE_OK,
-            "Test: taf_time_SetSystemTime() APIs.");
-        LE_INFO("Set the time to %"PRIu64".%"PRIu64, newTimePtr->sec, newTimePtr->nanosec);
-    }
-    else if (strncmp(cmd, "rtcTime", strlen(cmd)) == 0)
-    {
-        TimeCheckArgs(4);
-        NewTimePool = le_mem_CreatePool("NewTimePool", sizeof(taf_time_TimeSpec_t));
-        newTimePtr = (taf_time_TimeSpec_t*)le_mem_ForceAlloc(NewTimePool);
-        const char* arg2 = le_arg_GetArg(2);
-        const char* arg3 = le_arg_GetArg(3);
-        if (arg2 != NULL && arg3 != NULL)
-        {
-            newTimePtr->sec = strtol(arg2, NULL, 10);
-            newTimePtr->nanosec = strtol(arg3, NULL, 10);
-        }
-        LE_INFO("======== Test set time to RTC ========\n");
-
-        TestSetTimeToRtc(newTimePtr);
+        const char* arg4 = le_arg_GetArg(4);
+        TestSetTrustTime(arg2, arg3, arg4);
     }
     else if (strncmp(cmd, "timeLoop", strlen(cmd)) == 0)
     {
@@ -769,19 +726,26 @@ void TimeSetCmdTest(void)
         // Register handler to receive notification if any
         CreateTimeHandlerTestThread();
 
-        result = taf_time_SetSystemTime(newTimePtr, true);
+        taf_time_TimeSources_t sourceId = TAF_TIME_SRC_NAME_EX_APP;
+        taf_time_SourceRef_t srcRef = taf_time_GetSourceRef(sourceId);
+        LE_ASSERT(srcRef != NULL);
+
+        result = taf_time_SetTrustTime(srcRef, newTimePtr, false);
         while (LE_OK == result)
         {
             LE_INFO("======== Loop test continue ========\n");
-            result = taf_time_SetSystemTime(newTimePtr, true);
+            result = taf_time_SetTrustTime(srcRef, newTimePtr, true);
             le_thread_Sleep(time);
         }
         LE_INFO("======== Loop test exit: %d ========\n", result);
     }
-    else if (strncmp(cmd, "Validity", strlen(cmd)) == 0)
+    else if (strncmp(cmd, "trusttime", strlen(cmd)) == 0)
     {
-        TimeCheckArgs(4);
-        TestSetValidity();
+        TimeCheckArgs(5);
+        const char* arg2 = le_arg_GetArg(2);
+        const char* arg3 = le_arg_GetArg(3);
+        const char* arg4 = le_arg_GetArg(4);
+        TestSetTrustTime(arg2, arg3, arg4);
     }
     else
     {
@@ -824,71 +788,6 @@ void TimeValueChangeHandlerTest(void)
     }
 }
 
-void setRTCTimeAsync(le_result_t responseState, void* contextPtr)
-{
-    LE_TEST_ASSERT(responseState == LE_OK, "Test: setRTCTimeAsync response mode is LE_OK");
-    le_sem_Post((le_sem_Ref_t)contextPtr);
-}
-
-void* TestSetRTCAsync(void* cxtPtr)
-{
-        taf_time_ConnectService();
-        static le_mem_PoolRef_t NewTimePool = NULL;
-        taf_time_TimeSpec_t* newTimePtr;
-        NewTimePool = le_mem_CreatePool("TimePool", sizeof(taf_time_TimeSpec_t));
-        newTimePtr = (taf_time_TimeSpec_t*)le_mem_ForceAlloc(NewTimePool);
-        const char* arg2 = le_arg_GetArg(2);
-        const char* arg3 = le_arg_GetArg(3);
-        if (arg2 != NULL && arg3 != NULL)
-        {
-            newTimePtr->sec = strtol(arg2, NULL, 10);
-            newTimePtr->nanosec = strtol(arg3, NULL, 10);
-        }
-        le_result_t res = taf_time_SetRtcTimeReqAsync(newTimePtr, setRTCTimeAsync, (void*)cxtPtr);
-        LE_TEST_ASSERT(res == LE_OK || res == LE_UNSUPPORTED,
-            "Test: taf_time_SetRtcTimeReqAsync() APIs - ok");
-
-        if (res == LE_UNSUPPORTED)
-        {
-            // If RTC VHAL was not installed, for RTC async API it will report LE_UNSUPPORTED
-            // and without callback, so need to release the semphone here.
-            LE_INFO("RTC Async set time API (work with VHAL) received: Unsupported");
-            le_sem_Post((le_sem_Ref_t)cxtPtr);
-        }
-
-        le_event_RunLoop();
-        return NULL;
-}
-
-void CreateSetRtcVhalTestThread
-(
-    void
-)
-{
-    le_sem_Ref_t semASetRtcVhal = le_sem_Create("AsynSetRtcVhal", 0);
-    le_thread_Ref_t threadRef = le_thread_Create("TestSetRTCAsyncThread",
-        TestSetRTCAsync, (void*)semASetRtcVhal);
-    le_thread_Start(threadRef);
-
-    le_sem_Wait(semASetRtcVhal);
-    le_sem_Delete(semASetRtcVhal);
-}
-
-void AsyncSetCmdTest(void)
-{
-    TimeCheckArgs(2);
-    const char* cmd = le_arg_GetArg(1);
-    if (cmd != NULL && strncmp(cmd, "rtcTime", strlen(cmd)) == 0)
-    {
-        CreateSetRtcVhalTestThread();
-
-    }
-    else
-    {
-        TimePrintHelpMenu();
-    }
-}
-
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for time source change that used by system.
@@ -905,25 +804,12 @@ void TimeSourceStatusHandler
     LE_ASSERT(sourceRef != NULL);
     if(eventType == TAF_TIME_STATUS_EVENT_AVAILABILITY)
     {
-        if (status)
-        {
-            LE_INFO("Time source is Available!");
-        }
-        else
-        {
-            LE_INFO("Time source is NOT Available!");
-        }
+
+        LE_INFO("Time source is %s", status ? "Available" : "NOT Available");
     }
     if(eventType == TAF_TIME_STATUS_EVENT_VALIDITY)
     {
-        if (status)
-        {
-            LE_INFO("Time source is valid!");
-        }
-        else
-        {
-            LE_INFO("Time source is NOT valid!");
-        }
+        LE_INFO("Time source is %s", status ? "valid" : "NOT valid");
     }
 }
 
@@ -1082,10 +968,6 @@ COMPONENT_INIT
     else if (strncmp(cmd, "asyncGet", strlen(cmd)) == 0)
     {
         AsyncGetCmdTest();
-    }
-    else if (strncmp(cmd, "asyncSet", strlen(cmd)) == 0)
-    {
-        AsyncSetCmdTest();
     }
     else if (strncmp(cmd, "timeSourceStatusHandler", strlen(cmd)) == 0)
     {

@@ -139,7 +139,7 @@ static le_result_t tal_hal_GetRtcTime(struct TimeSpec* timeVal)
     memset(&rtc_tm, 0, sizeof(struct tm));
 
 #ifdef TAF_HAL_RTC_IS_READ_ONLY
-    LE_INFO("TestDrv: %s", __FUNCTION__);
+
     struct timespec presentBootTime = {0,0}, deltaBootTime = {0,0};
     le_result_t result = GetBootTime(&presentBootTime);
     if (result)
@@ -291,7 +291,6 @@ static void* taf_hal_GetModInf(void)
 
 static void GetRTCRespHandler (void* context)
 {
-    LE_DEBUG("TestDrv: %s", __FUNCTION__);
     struct TimeSpec timeVal = ((GetRTCRequest_t*)context)->timeVal;
     le_result_t responseState = ((GetRTCRequest_t*)context)->responseState;
     if (getRTCAsyncCallbackFunc)
@@ -308,7 +307,6 @@ static void GetRTCRespHandler (void* context)
 
 static void ProcessGetRTCRequest(void* param1,void* param2)
 {
-    LE_DEBUG("TestDrv: %s", __FUNCTION__);
     GetRTCRequest_t* req = (GetRTCRequest_t*)(param1);
 
     req->responseState = LE_UNAVAILABLE;
@@ -357,7 +355,6 @@ static void ProcessGetRTCRequest(void* param1,void* param2)
 
 static le_result_t taf_hal_getRtcTimeReqAsync(TAF_HAL_GETRTCASYNCCALLBACK callback)
 {
-    LE_DEBUG("TestDrv: %s", __FUNCTION__);
     getRTCAsyncCallbackFunc = callback;
     GetRTCRequest_t* req = (GetRTCRequest_t*)le_mem_ForceAlloc(GetRTCRequestPoolRef);
     le_event_QueueFunction(ProcessGetRTCRequest, (void*)(req), NULL);
@@ -366,7 +363,6 @@ static le_result_t taf_hal_getRtcTimeReqAsync(TAF_HAL_GETRTCASYNCCALLBACK callba
 
 static void SetRTCRespHandler(void* context)
 {
-    LE_DEBUG("TestDrv: %s", __FUNCTION__);
     le_result_t responseState = ((SetRTCRequest_t*)context)->responseState;
     if (setRTCAsyncCallbackFunc)
     {
@@ -381,7 +377,6 @@ static void SetRTCRespHandler(void* context)
 
 static void ProcessSetRTCRequest(void* param1, void* param2)
 {
-    LE_DEBUG("TestDrv: %s", __FUNCTION__);
     SetRTCRequest_t* req = (SetRTCRequest_t*)(param1);
     //Set the return value of response
     req->responseState = LE_OK;
@@ -393,10 +388,10 @@ static void ProcessSetRTCRequest(void* param1, void* param2)
 static le_result_t taf_hal_setRtcTimeReqAsync(const struct TimeSpec* timeVal,
     TAF_HAL_SETRTCASYNCCALLBACK callback)
 {
-    LE_DEBUG("TestDrv: %s", __FUNCTION__);
     setRTCAsyncCallbackFunc = callback;
 
-    LE_INFO("VHAL received new time:  %"PRIu64".%"PRIu64" trying to update to RTC\n", timeVal->sec, timeVal->nanosec);
+    LE_DEBUG("VHAL received new time:  %"PRIu64".%"PRIu64" trying to update to RTC",
+        timeVal->sec, timeVal->nanosec);
 #ifdef TAF_HAL_RTC_IS_READ_ONLY
     int ret = 0;
     le_result_t result = GetBootTime(&bootTimeOnSetRTCTime);

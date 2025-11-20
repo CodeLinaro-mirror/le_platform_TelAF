@@ -80,8 +80,12 @@ void DtcEntityDao::Init
     columnList.push_back("Fault_Occurence_Counter");
     columnList.push_back("Aging_Counter");
     columnList.push_back("Aged_Counter");
-    columnList.push_back("Activation");     // Added in version=1
-    columnList.push_back("Suppression");    // Added in version=1
+
+    if (expectedVer >= 1)
+    {
+        columnList.push_back("Activation");     // Added in version=1
+        columnList.push_back("Suppression");    // Added in version=1
+    }
     columnList.push_back("Creation_Time");
     columnList.push_back("Update_Time");
     columnList.push_back("Test_Failed_Time");
@@ -198,7 +202,7 @@ le_result_t DtcEntityDao::UpdateTable
             le_result_t ret = handler->ExecRaw(upgrade[i]);
             if (ret != LE_OK)
             {
-                LE_ERROR("Update table(%s) failed.", DTC_TABLE_NAME);
+                LE_FATAL("Update table(%s) failed.", DTC_TABLE_NAME);
                 return ret;
             }
         }

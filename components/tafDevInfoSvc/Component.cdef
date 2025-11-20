@@ -6,6 +6,11 @@ provides:
     }
 }
 
+ldflags:
+{
+    -L$TELAF_DEFAULT_PA_LIB_DIR/lib
+}
+
 requires:
 {
     api:
@@ -19,8 +24,8 @@ requires:
 
     lib:
     {
-        lib/libtelux_tel.so
-        lib/libtelux_platform.so
+        libComponent_taf_pa_deviceinfo.so
+        libComponent_taf_pa_deviceinfoDef.so
     }
 
 }
@@ -30,7 +35,8 @@ cxxflags:
     -I$LEGATO_ROOT/components/watchdogChain
     -I$LEGATO_ROOT/components/cfgEntries
     -I$TELAF_ROOT/include
-    -ltelux_tel
+    -I$TELAF_PA_DEFAULT/include
+    -DTAFPA_ENABLE_LEGACY_MACROS=1
 }
 
 cflags:

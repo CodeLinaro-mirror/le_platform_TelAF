@@ -5,8 +5,7 @@
 
 #include "tafECall.hpp"
 
-using namespace telux::tel;
-using namespace telux::common;
+using namespace tafpa::ecall;
 using namespace tafsvc;
 using namespace std;
 
@@ -1296,8 +1295,8 @@ le_result_t taf_ecall_StartTest
 )
 {
     auto &ecall = taf_ecall::GetInstance();
-    return ecall.StartECall(ECallCategory::VOICE_EMER_CAT_MANUAL,
-                         ECallVariant::ECALL_TEST, ecallRef);
+    return ecall.StartECall(taf_pa_ecall_category_t::MANUAL,
+                        taf_pa_ecall_type_t::TEST, ecallRef);
 }
 
 /*======================================================================
@@ -1325,8 +1324,8 @@ le_result_t taf_ecall_StartManual
 )
 {
     auto &ecall = taf_ecall::GetInstance();
-    return ecall.StartECall(ECallCategory::VOICE_EMER_CAT_MANUAL,
-                             ECallVariant::ECALL_EMERGENCY, ecallRef);
+    return ecall.StartECall(taf_pa_ecall_category_t::MANUAL,
+                            taf_pa_ecall_type_t::EMERGENCY, ecallRef);
 }
 
 /*======================================================================
@@ -1354,8 +1353,8 @@ le_result_t taf_ecall_StartAutomatic
 )
 {
     auto &ecall = taf_ecall::GetInstance();
-    return ecall.StartECall(ECallCategory::VOICE_EMER_CAT_AUTO_ECALL,
-                            ECallVariant::ECALL_EMERGENCY, ecallRef);
+    return ecall.StartECall(taf_pa_ecall_category_t::AUTO,
+                            taf_pa_ecall_type_t::EMERGENCY, ecallRef);
 }
 
 /*======================================================================

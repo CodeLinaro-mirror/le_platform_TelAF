@@ -11,9 +11,7 @@ help usage:
 	@echo "    update-all          : Update all git repos"
 	@echo "    patch-all           : Patch all git repos"
 	@echo "    build-docker-2204   : Build ubuntu 22.04 docker image"
-	@echo "    build-docker-1804   : Build ubuntu 18.04 docker image"
-	@echo "    to-2204             : Change current distro pointer to u22.04"
-	@echo "    to-1804             : Change current distro pointer to u18.04"
+	@echo "    to-2204             : Change current distro pointer to ubunutu 22.04"
 	@echo "    setup-sdk           : Setup the basic dev-env for SDK in container"
 	@echo "    build-sdk           : Build SDK project in container"
 	@echo "    clean-sdk           : Clean SDK project output"
@@ -117,15 +115,10 @@ build-docker-2204: precheck-docker telaf/simulation/docker/for_ubuntu_2204/docke
 	@make simula-distro-2204 -C telaf --no-print-directory
 	make simula-buildall from=$(DOCKER_HUB)ubuntu:22.04 docker_build_opts="--no-cache" -C telaf
 
-build-docker-1804: precheck-docker telaf/simulation/docker/for_ubuntu_1804/docker-compose.yml
-	@make simula-distro-1804 -C telaf --no-print-directory
-	make simula-buildall from=$(DOCKER_HUB)ubuntu:18.04 docker_build_opts="--no-cache" -C telaf
 
 to-2204: telaf/.git
 	@make simula-distro-2204 -C telaf --no-print-directory
 
-to-1804: telaf/.git
-	@make simula-distro-1804 -C telaf --no-print-directory
 
 # --- SDK ---
 

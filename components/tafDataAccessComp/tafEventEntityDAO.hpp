@@ -31,7 +31,8 @@ namespace dataAccess{
 
             static EventEntityDao &GetInstance();
             using BaseDao<EventEntity, int32_t>::Init;
-            void Init(const char *dbName);
+            void Init(const char *dbName,   int expectedVer);
+            le_result_t Load();
 
             void BindValues(DataStatement &statement, EventEntity &entity) override;
             void BindKeyValue(DataStatement &statement, EventEntity &entity) override;
@@ -54,8 +55,11 @@ namespace dataAccess{
             le_result_t ReadEventInfoByEventId(int32_t eventId,
                     taf_DataAccess_EventInfo_t *eventInfoPtr);
             int32_t ReadFailedCounterByEventId(int32_t eventId);
+            int32_t ReadEventStatusByName(const char *eventName);
 
             le_result_t WriteStatusAndDtcByEventId(int32_t eventId, int32_t status, int32_t dtc);
+            le_result_t WriteStatusAndDtcByEventName(const char * eventName,
+                    int32_t status, int32_t dtc);
             le_result_t WriteFailedCounterByEventId(int32_t eventId, int32_t counter);
 
             le_result_t ClearEventRecord();
@@ -66,6 +70,11 @@ namespace dataAccess{
                     bool ifNotExists);
             le_result_t DropTable(std::shared_ptr<IOHandler<EventEntity, int32_t>> handler,
                     bool ifExists);
+            le_result_t UpdateTable(
+                std::shared_ptr<IOHandler<EventEntity, int32_t>> handler,
+                int currentVer,
+                int expectedVer);
+            le_result_t InitTableWithConfig();
 
             std::vector<std::string> columnList;
             std::vector<std::string> pkList;

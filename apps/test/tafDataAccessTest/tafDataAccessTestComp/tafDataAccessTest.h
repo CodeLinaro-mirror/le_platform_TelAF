@@ -52,6 +52,8 @@ extern "C" {
 #define DATA_ACCESS_TEST_DTC0_EV1 0x0001
 #endif
 
+#define TEST_EVENT_NAME     "TestEvent"
+
 #define DATA_ACCESS_DID     0xF0D0
 
 void ConfigModuleInit();

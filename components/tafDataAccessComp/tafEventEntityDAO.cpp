@@ -12,7 +12,9 @@
 #include "tafBaseDAO.hpp"
 #include "tafIOHandler.hpp"
 #include "tafEventEntityDAO.hpp"
+#include "configuration.hpp"
 
+using namespace tafsvc;
 using namespace taf::dataAccess;
 
 EventEntityDao::EventEntityDao
@@ -42,7 +44,8 @@ EventEntityDao &EventEntityDao::GetInstance
 
 void EventEntityDao::Init
 (
-    const char *dbName
+    const char *dbName,
+    int expectedVer
 )
 {
     auto &factory = IOFactory::GetInstance();
@@ -54,16 +57,50 @@ void EventEntityDao::Init
     Init(EVENT_TABLE_NAME, handler);
     handler->AttachDao(this);
 
-    CreateTable(handler, true);
+    if (handler->CheckTableExist())
+    {
+        LE_DEBUG("Table exist. check if need upgrade");
+        int currentVer = 0;
+
+        handler->GetVersion(currentVer);
+        UpdateTable(handler, currentVer, expectedVer);
+    }
+    else
+    {
+        LE_DEBUG("Event table does not exist. creat!");
+        CreateTable(handler, true);
+    }
 
     // Store the column name information.
     pkList.push_back("Event_ID");
     columnList.push_back("Event_ID");
+    if (expectedVer >= 2)
+    {
+        columnList.push_back("Event_Name");  // Added in version2
+    }
     columnList.push_back("DTC");
     columnList.push_back("Status");
     columnList.push_back("Test_Failed_Counter");
     columnList.push_back("Creation_Time");
     columnList.push_back("Update_Time");
+}
+
+le_result_t EventEntityDao::Load
+(
+)
+{
+    // Load all events into the table.
+    if (mHandler->CheckTableEmpty())
+    {
+        LE_DEBUG("Event table is empty. loading all event name into it");
+        return InitTableWithConfig();
+    }
+    else
+    {
+        LE_DEBUG("Event table is not empty.");
+    }
+
+    return LE_OK;
 }
 
 le_result_t EventEntityDao::CreateTable
@@ -75,11 +112,12 @@ le_result_t EventEntityDao::CreateTable
     std::string constraint = ifNotExists ? "IF NOT EXISTS " : "";
     std::string sql = "CREATE TABLE " + constraint + EVENT_TABLE_NAME + " (" +
         "Event_ID INTEGER PRIMARY KEY," +       // Row-0: Event ID.
-        "DTC INTEGER," +                        // Row-1: DTC.
-        "Status INTEGER," +                     // Row-2: Event status.
-        "Test_Failed_Counter INTEGER," +        // Row-3: Test failed counter.
-        "Creation_Time TEXT," +                 // Row-4: Creation Time.
-        "Update_Time TEXT)";                    // Row-5: Update Time.
+        "Event_Name TEXT," +                    // Row-1: Event name.
+        "DTC INTEGER," +                        // Row-2: DTC.
+        "Status INTEGER," +                     // Row-3: Event status.
+        "Test_Failed_Counter INTEGER," +        // Row-4: Test failed counter.
+        "Creation_Time TEXT," +                 // Row-5: Creation Time.
+        "Update_Time TEXT)";                    // Row-6: Update Time.
 
     le_result_t ret = handler->ExecRaw(sql);
     if (ret != LE_OK)
@@ -103,6 +141,150 @@ le_result_t EventEntityDao::DropTable
     return handler->ExecRaw(sql);
 }
 
+le_result_t EventEntityDao::UpdateTable
+(
+    std::shared_ptr<IOHandler<EventEntity, int32_t>> handler,
+    int currentVer,
+    int expectedVer
+)
+{
+    std::string createSql = std::string("CREATE TABLE ") + EVENT_TABLE_NAME + " (" +
+        "Event_ID INTEGER PRIMARY KEY AUTOINCREMENT," + // Row-0: Event ID.
+        "Event_Name TEXT," +                            // Row-1: Event name.
+        "DTC INTEGER," +                                // Row-2: DTC.
+        "Status INTEGER," +                             // Row-3: Event status.
+        "Test_Failed_Counter INTEGER," +                // Row-4: Test failed counter.
+        "Creation_Time TEXT," +                         // Row-5: Creation Time.
+        "Update_Time TEXT);";                           // Row-6: Update Time.
+
+    char buf[EVENT_TIME_BUF_SIZE] = {0};
+    std::time_t now = std::time(nullptr);
+    std::tm *tmPtr = std::localtime(&now);
+    std::strftime(buf, EVENT_TIME_BUF_SIZE, "%Y-%m-%d %H:%M:%S", tmPtr);
+    LE_INFO("Time: %s", buf);
+
+    std::string backupForVer2Sql = std::string("INSERT INTO ") + EVENT_TABLE_NAME + 
+        "(Event_Name, DTC, Status, Test_Failed_Counter, Creation_Time, Update_Time) VALUES ";
+
+    try
+    {
+        std::vector<std::pair<uint16_t, std::string>> idNamePairs = cfg::get_event_idNames();
+        for (size_t i = 0; i < idNamePairs.size(); ++i)
+        {
+            backupForVer2Sql += "('" + idNamePairs[i].second + "'," +
+                "COALESCE((SELECT DTC FROM _temp_" + EVENT_TABLE_NAME + " WHERE Event_ID=" +
+                    std::to_string(idNamePairs[i].first) + "), 0)," +
+                "COALESCE((SELECT Status FROM _temp_" + EVENT_TABLE_NAME + " WHERE Event_ID=" +
+                    std::to_string(idNamePairs[i].first) + "), 0)," +
+                "COALESCE((SELECT Test_Failed_Counter FROM _temp_" + EVENT_TABLE_NAME +
+                    " WHERE Event_ID=" + std::to_string(idNamePairs[i].first) + "), 0)," +
+                "COALESCE((SELECT Creation_Time FROM _temp_" + EVENT_TABLE_NAME +
+                    " WHERE Event_ID=" + std::to_string(idNamePairs[i].first) + "), '" +
+                    std::string(buf) + "')," +
+                "COALESCE((SELECT Update_Time FROM _temp_" + EVENT_TABLE_NAME + " WHERE Event_ID=" +
+                    std::to_string(idNamePairs[i].first) + "), '" + std::string(buf) + "'))";
+            if (i < (idNamePairs.size() - 1))
+            {
+                backupForVer2Sql += ",";
+            }
+        }
+        backupForVer2Sql += ";";
+    }
+    catch (const std::exception& e)
+    {
+        // Not events
+        LE_WARN("Exception: %s", e.what() );
+        return LE_FAULT;
+    }
+
+    std::string upgrade[] = {
+        // Version0
+        "",
+
+        // Version1
+        "",
+
+        // Version2
+        std::string("BEGIN TRANSACTION;") +
+        "ALTER TABLE " + EVENT_TABLE_NAME + " RENAME TO _temp_" + EVENT_TABLE_NAME + ";" +
+        createSql +
+        backupForVer2Sql +
+        "DROP TABLE _temp_" + EVENT_TABLE_NAME + ";" +
+        "END TRANSACTION;"
+    };
+
+    if (currentVer < expectedVer)
+    {
+        // Upgrade
+        int num = sizeof(upgrade) / sizeof(upgrade[0]);
+
+        for (int i = currentVer + 1; i <= expectedVer && i < num; i++)
+        {
+            if (upgrade[i].empty())
+            {
+                continue;
+            }
+
+            LE_DEBUG("Upgrade: %s", upgrade[i].c_str());
+            le_result_t ret = handler->ExecRaw(upgrade[i]);
+            if (ret != LE_OK)
+            {
+                LE_FATAL("Update event table(%s) failed.", EVENT_TABLE_NAME);
+                return ret;
+            }
+        }
+        return LE_OK;
+    }
+    else if (expectedVer < currentVer)
+    {
+        // Downgrade
+        return LE_UNSUPPORTED;
+    }
+    else
+    {
+        return LE_OK;
+    }
+}
+
+le_result_t EventEntityDao::InitTableWithConfig
+(
+)
+{
+    le_result_t ret;
+
+    try
+    {
+        std::vector<std::pair<uint16_t, std::string>> idNamePairs = cfg::get_event_idNames();
+        for (const auto & idNamePair: idNamePairs)
+        {
+            // Insert data into the table.
+            EventEntity entity;
+            entity.SetEventName(idNamePair.second.c_str());
+            entity.SetEventDtc(0);
+            entity.SetEventStatus(0);
+            entity.SetTestFailedCounter(0);
+            std::time_t now = std::time(nullptr);
+            entity.SetCreateTime(now);
+            entity.SetUpdateTime(now);
+            ret = Add(entity);
+            if (ret != LE_OK)
+            {
+                LE_ERROR("Failed to insert event name(%s). ret=%d",
+                    idNamePair.second.c_str(), (int32_t)ret);
+                return ret;
+            }
+        }
+    }
+    catch (const std::exception& e)
+    {
+        // No event name
+        LE_WARN("Exception: %s", e.what() );
+        return LE_FAULT;
+    }
+
+    return LE_OK;
+}
+
 void EventEntityDao::BindValues
 (
     DataStatement &statement,
@@ -121,22 +303,28 @@ void EventEntityDao::BindValues
         statement.BindValue(1, id);
     }
 
+    const char *name = entity.GetEventName();
+    if (name != nullptr)
+    {
+        statement.BindValue(2, name);
+    }
+
     int32_t dtc = entity.GetEventDtc();
     if (dtc != -1)
     {
-        statement.BindValue(2, dtc);
+        statement.BindValue(3, dtc);
     }
 
     int32_t status = entity.GetEventStatus();
     if (status != -1)
     {
-        statement.BindValue(3, status);
+        statement.BindValue(4, status);
     }
 
     int32_t counter = entity.GetTestFailedCounter();
     if (counter != -1)
     {
-        statement.BindValue(4, counter);
+        statement.BindValue(5, counter);
     }
 
     std::time_t create = entity.GetCreateTime();
@@ -145,7 +333,7 @@ void EventEntityDao::BindValues
         tmPtr = std::localtime(&create);
         std::strftime(buf, EVENT_TIME_BUF_SIZE, "%Y-%m-%d %H:%M:%S", tmPtr);
 
-        statement.BindValue(5, static_cast<const char *>(buf));
+        statement.BindValue(6, static_cast<const char *>(buf));
     }
 
     std::time_t update = entity.GetUpdateTime();
@@ -155,7 +343,7 @@ void EventEntityDao::BindValues
         tmPtr = std::localtime(&update);
         std::strftime(buf, EVENT_TIME_BUF_SIZE, "%Y-%m-%d %H:%M:%S", tmPtr);
 
-        statement.BindValue(6, static_cast<const char *>(buf));
+        statement.BindValue(7, static_cast<const char *>(buf));
     }
 }
 
@@ -192,11 +380,12 @@ void EventEntityDao::ReadEntity
 )
 {
     entity.SetEventId(statement.GetColumnInt(0));
-    entity.SetEventDtc(statement.GetColumnInt(1));
-    entity.SetEventStatus(statement.GetColumnInt(2));
-    entity.SetTestFailedCounter(statement.GetColumnInt(3));
+    entity.SetEventName(statement.GetColumnText(1));
+    entity.SetEventDtc(statement.GetColumnInt(2));
+    entity.SetEventStatus(statement.GetColumnInt(3));
+    entity.SetTestFailedCounter(statement.GetColumnInt(4));
 
-    auto createTimePtr = reinterpret_cast<const char*>(statement.GetColumnText(4, nullptr));
+    auto createTimePtr = reinterpret_cast<const char*>(statement.GetColumnText(5, nullptr));
     if (createTimePtr == nullptr)
     {
         entity.SetCreateTime(0);
@@ -206,7 +395,7 @@ void EventEntityDao::ReadEntity
         entity.SetCreateTime(String2Time(createTimePtr));
     }
 
-    auto updateTimePtr = reinterpret_cast<const char*>(statement.GetColumnText(5, nullptr));
+    auto updateTimePtr = reinterpret_cast<const char*>(statement.GetColumnText(6, nullptr));
     if (updateTimePtr == nullptr)
     {
         entity.SetUpdateTime(0);
@@ -364,6 +553,44 @@ le_result_t EventEntityDao::ReadEventInfoByEventId
     return LE_OK;
 }
 
+int32_t EventEntityDao::ReadEventStatusByName
+(
+    const char *eventName
+)
+{
+    std::stringstream ss;
+    EventEntity entity;
+    uint32_t status = 0;
+
+    if (eventName == nullptr)
+    {
+        LE_DEBUG("Parameter error: event name is null");
+        return 0;
+    }
+
+    ss << "WHERE " << mFileName << "." << "Event_Name = '" << eventName << "'";
+
+    std::string where = ss.str();
+    LE_DEBUG("ReadEventStatusByName: where is %s", where.c_str());
+
+    DataStatement statement(Query(where));
+    while (statement.ExecuteRowStep())
+    {
+        LE_DEBUG("Execute step get a result");
+
+        LE_DEBUG("event id is 0x%x, event name is %s, status is 0x%x",
+            statement.GetColumnInt(0),
+            statement.GetColumnText(1),
+            statement.GetColumnInt(3));
+        status |= static_cast<uint32_t>(statement.GetColumnInt(3));
+    }
+
+    LE_DEBUG("ReadEventStatusByName: Get status(0x%x) for event name(%s)",
+        status, eventName);
+
+    return static_cast<int32_t>(status);
+}
+
 int32_t EventEntityDao::ReadFailedCounterByEventId
 (
     int32_t eventId
@@ -410,6 +637,7 @@ le_result_t EventEntityDao::WriteStatusAndDtcByEventId
     {
         // Insert.
         entity.SetEventId(eventId);
+        entity.SetEventName("");
         entity.SetEventDtc(dtc);
         entity.SetEventStatus(status);
         entity.SetTestFailedCounter(0);
@@ -458,6 +686,76 @@ le_result_t EventEntityDao::WriteStatusAndDtcByEventId
     return LE_OK;
 }
 
+le_result_t EventEntityDao::WriteStatusAndDtcByEventName
+(
+    const char * eventName,
+    int32_t status,
+    int32_t dtc
+)
+{
+    le_result_t ret;
+    std::stringstream ss;
+    EventEntity entity;
+
+    if (eventName == nullptr)
+    {
+        LE_DEBUG("Parameter error: event name is null");
+        return LE_FAULT;
+    }
+
+    ss << "WHERE " << mFileName << "." << "Event_Name = '" << eventName << "'";
+
+    std::string where = ss.str();
+    LE_DEBUG("WriteStatusAndDtcByEventName: where is %s", where.c_str());
+
+    DataStatement statement(Query(where));
+    if (!statement.ExecuteRowStep())
+    {
+        // Insert data into the table.
+        entity.SetEventName(eventName);
+        entity.SetEventDtc(dtc);
+        entity.SetEventStatus(status);
+        entity.SetTestFailedCounter(0);
+        std::time_t now = std::time(nullptr);
+        entity.SetCreateTime(now);
+        entity.SetUpdateTime(now);
+        ret = Add(entity);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to insert event name(%s). ret=%d",
+                eventName, (int32_t)ret);
+            return ret;
+        }
+    }
+    else
+    {
+        // Update data.
+        ReadEntity(statement, entity);
+        entity.SetEventStatus(status);
+        entity.SetEventDtc(dtc);
+        std::time_t now = std::time(nullptr);
+        entity.SetUpdateTime(now);
+
+        ret = Update(entity);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to update event name(%s). ret=%d",
+                eventName, (int32_t)ret);
+            return ret;
+        }
+
+        while (statement.ExecuteRowStep())
+        {
+            // Get the repetitive line in the db, shall update too.
+            LE_DEBUG("Get a repetitive result. event name(%s).",
+                eventName);
+            Update(entity);
+        }
+    }
+
+    return LE_OK;
+}
+
 le_result_t EventEntityDao::WriteFailedCounterByEventId
 (
     int32_t eventId,
@@ -473,6 +771,7 @@ le_result_t EventEntityDao::WriteFailedCounterByEventId
     {
         // Insert.
         entity.SetEventId(eventId);
+        entity.SetEventName("");
         entity.SetTestFailedCounter(counter);
 
         std::time_t now = std::time(nullptr);

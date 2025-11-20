@@ -183,6 +183,9 @@ const char* ModemEventTypeToStr
         case TAF_HMS_MODEM_EVENT_TYPE_CONNECTION_LOST:
             return "CONNECTION_LOST";
 
+        case TAF_HMS_MODEM_EVENT_TYPE_CONNECTION_AVAIL:
+            return "CONNECTION_AVAIL";
+
         case TAF_HMS_MODEM_EVENT_TYPE_CONTINUE_REBOOT:
             return "CONTINUE_REBOOT";
     }
@@ -210,9 +213,9 @@ const char* ModemEventLevelToStr
 
 void ModemStatusHandler
 (
-    taf_hms_ModemEvtType_t eventType,
+    taf_hms_ModemEvtType_t     eventType,
     taf_hms_ModemEvtSeverity_t eventLevel,
-    taf_hms_ModemEventRef_t eventRef,
+    taf_hms_ModemEventRef_t    eventRef,
     void* contextPtr
 )
 {
@@ -224,8 +227,12 @@ void ModemStatusHandler
 
 void TestModemEventHandlerRegistration()
 {
+    taf_hms_ModemEvtBitmask_t reqEventBits =
+        TAF_HMS_MODEM_EVENT_BIT_CONTINUE_REBOOT
+        |TAF_HMS_MODEM_EVENT_BIT_CONNECTION_LOST;
+
     taf_hms_ModemEvtHandlerRef_t modemStatusHandlerRef = taf_hms_AddModemEvtHandler(
-        (taf_hms_ModemEvtHandlerFunc_t)ModemStatusHandler, NULL);
+        reqEventBits, (taf_hms_ModemEvtHandlerFunc_t)ModemStatusHandler, NULL);
 
     LE_TEST_OK(modemStatusHandlerRef != NULL, "taf_Hms_AddModemEvtHandler - OK for !NULL Ref");
 

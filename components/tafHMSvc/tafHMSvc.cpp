@@ -498,12 +498,13 @@ le_result_t taf_hms_GetMtdDevBlkCnt
 //--------------------------------------------------------------------------------------------------
 taf_hms_ModemEvtHandlerRef_t taf_hms_AddModemEvtHandler
 (
+    taf_hms_ModemEvtBitmask_t     reqEventBits,
     taf_hms_ModemEvtHandlerFunc_t handlerPtr,
     void* contextPtr
 )
 {
     auto &hms = taf_Hms::GetInstance();
-    return hms.AddModemEvtHandler(handlerPtr, contextPtr);
+    return hms.AddModemEvtHandler(reqEventBits, handlerPtr, contextPtr);
 }
 //--------------------------------------------------------------------------------------------------
 /**

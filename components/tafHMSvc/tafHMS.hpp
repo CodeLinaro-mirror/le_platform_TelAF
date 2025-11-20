@@ -210,10 +210,9 @@ typedef struct
 //-------------------------------------------------------------------------------------------------
 typedef struct
 {
-    taf_hms_ModemEvtHandlerRef_t handlerRef = NULL;
+    taf_hms_ModemEvtHandlerRef_t  handlerRef = NULL;
     taf_hms_ModemEvtHandlerFunc_t handlerFunc = NULL;
-    uint8_t ModemCrashCounter = 0;
-    le_timer_Ref_t resetTimer = NULL;
+    taf_hms_ModemEvtBitmask_t     reqEventBits;  // Client only needs the registered event type.
     void* contextPtr;
 }taf_hms_modemInfo_t;
 
@@ -224,11 +223,26 @@ typedef struct
 //-------------------------------------------------------------------------------------------------
 typedef struct
 {
-    taf_hms_ModemEvtType_t eventType;
-    taf_hms_ModemEvtSeverity_t eventLevel;
-    taf_hms_ModemEventRef_t  ref;
-    taf_hms_modemInfo_t* modemInfo;
+    taf_hms_ModemEvtType_t      eventType;
+    taf_hms_ModemEvtSeverity_t  eventLevel;
+    taf_hms_ModemEventRef_t     ref;
+    taf_hms_modemInfo_t*        modemInfo;
 }taf_hms_modemEventInfo_t;
+
+
+typedef enum
+{
+    MODEM_ON_CHANGE_STATUS_UNKNOWN,
+    MODEM_ON_CHANGE_STATUS_UNAVAILABLE,
+    MODEM_ON_CHANGE_STATUS_OPERATIONAL
+}
+taf_hms_operationStatus_t;
+
+typedef struct
+{
+    taf_hms_operationStatus_t   status;
+    uint8_t      ModemCrashCounter = 0;
+}taf_hms_modemOperaInfo_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -241,6 +255,11 @@ namespace tafsvc {
         tafHmsListener() {};
         ~tafHmsListener() {};
         int counter {0};
+        uint64_t AllModemEventMap = 0x0;
+        uint8_t ModemCrashCounter = 0;
+
+        le_timer_Ref_t ModemResetTimer = NULL;
+
         static tafHmsListener& GetInstance()
         {
             static tafHmsListener instance;
@@ -249,8 +268,8 @@ namespace tafsvc {
         void onStateChange(telux::common::SubsystemInfo subsystemInfo,
             telux::common::OperationalStatus newOperationalStatus) override;
 
-        void StartResetTimer(taf_hms_modemInfo_t* modemEventInfoPtr);
-        void DeleteResetTime(taf_hms_modemInfo_t* modemEventInfoPtr);
+        void StartResetTimer(void);
+        void DeleteResetTime(void);
 
         private:
             static bool ModemAvailability;
@@ -330,11 +349,15 @@ namespace tafsvc {
             le_result_t GetMtdDevId(taf_hms_MtdDevInfoRef_t mtdDevInfoRef,
                 uint32_t* mtdDevIdPtr);
             taf_hms_ModemEvtHandlerRef_t AddModemEvtHandler(
-                taf_hms_ModemEvtHandlerFunc_t handlerPtr, void* contextPtr);
+                                       taf_hms_ModemEvtBitmask_t reqEventbits,
+                                       taf_hms_ModemEvtHandlerFunc_t handlerPtr, void* contextPtr);
             static void ModemStatusChangeNotify(void* reportPtr);
             void RemoveModemEvtHandler(taf_hms_ModemEvtHandlerRef_t handlerRef);
+            bool IsModemEventMapEmpty(void);
             le_result_t ReleaseModemEvt(taf_hms_ModemEventRef_t  eventRef);
+
             le_event_Id_t ModemStatusChangeId;
+            le_event_Id_t MdStatusOnChangeCBId;
             le_ref_MapRef_t ModemInfoRefMap;
             le_ref_MapRef_t ModemEventInfoRefMap;
             le_mem_PoolRef_t ModemEventInfoPool;

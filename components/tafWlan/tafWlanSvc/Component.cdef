@@ -54,7 +54,6 @@ sources:
     tafWlanListener.cpp
     tafWlanAPSvc.cpp
     tafWlanAPSvcImpl.cpp
-    tafWlanAPListener.cpp
     tafWlanSTASvc.cpp
     tafWlanSTASvcImpl.cpp
     tafWlanSTAListener.cpp

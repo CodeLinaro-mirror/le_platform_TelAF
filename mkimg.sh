@@ -387,8 +387,6 @@ verify_pa_strong_vs_weak
 info "API check passed"
 
 replace_libs_in_stage "PA"     "$PA_BUILD_DIR"     "$STAGE_DIR_COMBINED"
-replace_libs_in_stage "PROP"   "$PROP_BUILD_DIR"   "$STAGE_DIR_COMBINED"
-replace_libs_in_stage "NOSHIP" "$NOSHIP_BUILD_DIR" "$STAGE_DIR_COMBINED"
 # replace_libs_in_stage "PA_RW" "$TARGET_PA_BUILD_DIR" "$STAGE_DIR_COMBINED" # usually RW libs are new, not replace
 
 install_libs_to_runtime "PROP"   "$PROP_BUILD_DIR"    "$STAGE_DIR_COMBINED/systems/current/lib"
@@ -398,6 +396,10 @@ install_libs_to_runtime "VENDOR" "$VENDOR"            "$STAGE_DIR_COMBINED/syste
 # This ensures that when TARGET PA exists, it won't be overwritten by DEFAULT PA.
 install_libs_to_runtime "TARGET_PA"  "$TARGET_PA_BUILD_DIR"   "$STAGE_DIR_COMBINED/systems/current/lib"
 install_libs_to_runtime "DEFAULT_PA"  "$DEFAULT_PA_BUILD_DIR"   "$STAGE_DIR_COMBINED/systems/current/lib"
+
+replace_libs_in_stage "PROP"   "$PROP_BUILD_DIR"   "$STAGE_DIR_COMBINED"
+replace_libs_in_stage "NOSHIP" "$NOSHIP_BUILD_DIR" "$STAGE_DIR_COMBINED"
+
 info "install/replace done"
 
 build_image "$STAGE_DIR_COMBINED"

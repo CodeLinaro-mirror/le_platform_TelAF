@@ -25,15 +25,11 @@
  *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -64,6 +60,15 @@
 
 #include "tafSvcIF.hpp"
 #include "taf_pa_radio.hpp"
+
+#define INSTANCE_MAX_COUNT 2
+#define DISABLE_INDICATION 0
+#define ENABLE_INDICATION 1
+#define PCI_SCAN_LIST_MAX_COUNT 2
+#define PCI_CELL_MAX_COUNT (PCI_SCAN_LIST_MAX_COUNT * TAF_PA_RADIO_PCI_SCAN_CELL_MAX_COUNT)
+#define PLMN_ID_MAX_COUNT (PCI_CELL_MAX_COUNT * TAF_PA_RADIO_PCI_SCAN_PLMN_ID_MAX_COUNT)
+#define BITMASK_RAT_LTE 0x1
+#define BITMASK_RAT_5G_NSA 0x2
 
 #define TAF_RADIO_PHONE_NUM 2
 
@@ -98,6 +103,79 @@ typedef enum
     TAF_RADIO_CMD_TYPE_ASYNC_NETWORK_SCAN,
     TAF_RADIO_CMD_TYPE_ASYNC_PCI_NETWORK_SCAN
 } taf_RadioCmdType_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  PCI network scan information list safe reference structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    void* safeRef;
+    le_sls_Link_t link;
+} PciInfoListSafeRef_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  PCI network scan cell information safe reference structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    void* safeRef;
+    le_sls_Link_t link;
+} PciCellInfoSafeRef_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  PLMN ID safe reference structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    void* safeRef;
+    le_sls_Link_t link;
+} PlmnIdSafeRef_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  PCI network scan information list structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_sls_List_t pciCellInfoList;
+    le_sls_List_t safeRefList;
+    le_sls_Link_t* currPtr;
+} PciInfoList_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  PCI network scan cell information structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint16_t cellId;
+    uint32_t globalCellId;
+    le_sls_List_t plmnIdList;
+    le_sls_List_t safeRefList;
+    le_sls_Link_t* currPtr;
+    le_sls_Link_t link;
+} PciCellInfo_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  PLMN ID structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint16_t mcc;
+    uint16_t mnc;
+    uint8_t mncIncludesPcsDigit;
+    le_sls_Link_t link;
+} PlmnId_t;
 
 /*
  * @brief The struct of safe reference for prefered operators in network.
@@ -503,6 +581,65 @@ typedef struct
     taf_radio_ConnStatusRef_t statusRef;
 } taf_RadioConnStatusInd_t;
 
+class Utility
+{
+    public:
+        class Convert
+        {
+            public:
+                static le_result_t Result
+                (
+                    pa_result_t result
+                );
+
+                static taf_pa_common_LogLevel_t Level
+                (
+                    le_log_Level_t level
+                );
+
+                static uint32_t PhoneToInstance
+                (
+                    uint8_t phone
+                );
+
+                static uint8_t InstanceToPhone
+                (
+                    uint32_t instance
+                );
+
+                static taf_pa_radio_RatBitMask_t Rat
+                (
+                    taf_radio_RatBitMask_t bitmask
+                );
+
+                static taf_radio_RatSvcStatus_t RatServiceStatus
+                (
+                    taf_pa_radio_RatServiceStatus_t status
+                );
+
+                static taf_radio_NREndcAvailability_t EndcStatus
+                (
+                    taf_pa_radio_DataAvailSysStatus_t* statusPtr
+                );
+
+                static void LteCphyCaInfo
+                (
+                    taf_pa_radio_LteCphyCaInfo_t* paInfoPtr,
+                    taf_RadioCAInfo_t* infoPtr
+                );
+        };
+
+        class Common
+        {
+            public:
+                static taf_radio_PciScanInformationListRef_t PciScan
+                (
+                    uint8_t phone,
+                    taf_radio_RatBitMask_t bitmask
+                );
+        };
+};
+
 namespace tafsvc {
     /*
      * @brief The network listener is registered for the network selection mode updates.
@@ -561,7 +698,6 @@ namespace tafsvc {
             uint8_t phone = DEFAULT_PHONE_ID;
             taf_radio_NetRegState_t currState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
             bool inService = false;
-            bool isRoaming = false;
 
             taf_RadioDataServSysListener(SlotId slotId);
             void onNrIconTypeChanged(telux::data::NrIconType type) override;
@@ -877,10 +1013,6 @@ namespace tafsvc {
 
         taf_radio_Rat_t taf_radio_CovertRat(telux::tel::RadioTechnology rat);
         taf_radio_NrIconType_t taf_radio_ConvertNrIconType(telux::data::NrIconType type);
-        taf_radio_NREndcAvailability_t taf_radio_ConvertEndcStatus
-        (
-            taf_pa_radio_EndcStatus_t status
-        );
         static void taf_radio_LayerImsRegStateHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerOpModeHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerNetRegStateHandler(void* reportPtr, void* layerHandlerFunc);
@@ -972,6 +1104,16 @@ namespace tafsvc {
         le_event_Id_t connStatusEvId;
         static le_event_Id_t radioCmdEvId;
 
+        le_mem_PoolRef_t pciInfoListPool;
+        le_mem_PoolRef_t pciCellInfoPool;
+        le_mem_PoolRef_t pciCellInfoSafeRefPool;
+        le_mem_PoolRef_t plmnIdPool;
+        le_mem_PoolRef_t plmnIdSafeRefPool;
+
+        le_ref_MapRef_t pciInfoListRefMap;
+        le_ref_MapRef_t pciCellInfoSafeRefMap;
+        le_ref_MapRef_t plmnIdSafeRefMap;
+
         int32_t netRejectCause = TAF_RADIO_NET_REJ_CAUSE_UNDEFINED;
         taf_RadioDataCallbackInfo_t dataInfoCb;
         taf_RadioNrIconCallbackInfo_t nrIconCb;
@@ -997,6 +1139,8 @@ namespace tafsvc {
         taf_radio_NetStatusRef_t netStatusRefs[TAF_RADIO_PHONE_NUM];
         taf_radio_CAInfoRef_t lteCAInfoRefs[TAF_RADIO_PHONE_NUM];
         taf_radio_ConnStatusRef_t endcStatusRefs[TAF_RADIO_PHONE_NUM];
+        taf_pa_radio_RatServiceStatus_t ratSvcState[INSTANCE_MAX_COUNT] =
+            {TAF_PA_RADIO_RAT_SERVICE_STATUS_UNKNOWN, TAF_PA_RADIO_RAT_SERVICE_STATUS_UNKNOWN};
         std::shared_ptr<taf_RadioPhoneListener> phoneListener;
         uint16_t hysteresisTimer[TAF_RADIO_PHONE_NUM] = {0,0};
         std::vector<taf_RadioHysteresisConfig_t> hysteresisConfigs;

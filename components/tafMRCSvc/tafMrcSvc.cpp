@@ -69,24 +69,25 @@ le_result_t taf_mrc_SendSyncStatusMsg
         return LE_FAULT;
     }
 
-    taf_pa_mrc_ABSyncStatus_t paStatus;
+    taf_pa_mrc_Status_t paStatus;
     switch (status)
     {
         case TAF_MRC_SYNC_STATUS_INIT:
-            paStatus = TAF_PA_MRC_ABSYNC_STARTED;
+            paStatus = TAF_PA_MRC_STATUS_INITIATED;
             break;
         case TAF_MRC_SYNC_STATUS_SUCCESS:
-            paStatus = TAF_PA_MRC_ABSYNC_WITH_SUCCESS;
+            paStatus = TAF_PA_MRC_STATUS_SUCCEEDED;
             break;
         case TAF_MRC_SYNC_STATUS_FAILURE:
-            paStatus = TAF_PA_MRC_ABSYNC_WITH_FAILURE;
+            paStatus = TAF_PA_MRC_STATUS_FAILED;
             break;
         default:
             LE_ERROR("Invalid status %d.", status);
             return LE_FAULT;
     }
 
-    le_result_t result = taf_pa_mrc_NotifyABSyncStatus(paStatus);
+    pa_result_t paResult = taf_pa_mrc_SetProcessStatus(TAF_PA_MRC_PROCESS_ABSYNC, paStatus);
+    le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
         LE_ERROR("Fail to notify AB sycn status.");
@@ -123,100 +124,67 @@ le_result_t taf_mrc_MeasureEfsMetrics
         return LE_BAD_PARAMETER;
     }
 
-    uint32_t eraseCount = 0;
-    uint32_t efsBadBlocks = 0;
-    uint32_t nadBadBlocks = 0;
-    le_result_t result = taf_prop_hms_GetBlockEraseStatus(&eraseCount, &efsBadBlocks, &nadBadBlocks);
+    taf_pa_mrc_EfsPeStatus_t status;
+    pa_result_t paResult = taf_pa_mrc_GetEfsPeStatus(&status);
+    le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Fail to get block erase status.");
-        return result;
-    }
-
-    taf_prop_hms_BlockPeStatusRef_t statusRef = nullptr;
-    result = taf_prop_hms_GetBlockPeStatus(&statusRef);
-    if (result != LE_OK)
-    {
-        LE_ERROR("Fail to get blcok PE count metrics.");
-        return result;
-    }
-
-    uint32_t elements = 0;
-    result = taf_prop_hms_GetBlockPeCountElements(statusRef, &elements);
-    if (result != LE_OK)
-    {
-        LE_ERROR("Fail to get blcok PE count elements.");
-        return result;
-    }
-
-    if (elements == 0)
-    {
-        LE_ERROR("No PE count elements.");
+        LE_ERROR("Fail to get EFS PE status.");
         return LE_FAULT;
     }
 
-    uint32_t* array = (uint32_t*)malloc(elements * sizeof(uint32_t));
+    if (status.peCountLen == 0 && status.peCountLen > TAF_PA_MRC_EFS_PARTITION_BLOCKS)
+    {
+        LE_ERROR("Invalid block count %d for EFS.", status.peCountLen);
+        return LE_FAULT;
+    }
+
+    taf_pa_mrc_EfsBlockStatus_t blockStatus;
+    paResult = taf_pa_mrc_GetEfsBlockStatus(&blockStatus);
+    result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Fail to get EFS block status.");
+        return LE_FAULT;
+    }
+
     uint32_t sum = 0;
     uint32_t avg = 0;
     uint32_t sd = 0;
     uint32_t max = 0;
     uint32_t min = 0xFFFFFFFF;
-    for (uint32_t i = 0; i < elements; i++)
+    for (uint32_t i = 0; i < status.peCountLen; i++)
     {
-        uint32_t count = 0;
-        result = taf_prop_hms_GetBlockPeCount(statusRef, i, &count);
-        if (result != LE_OK)
-        {
-            LE_ERROR("Fail to get blcok PE count at %d.", i);
-            free(array);
-            result = taf_prop_hms_DeleteBlockPeStatus(statusRef);
-            if (result != LE_OK)
-                LE_ERROR("Fail to delete blcok PE count metrics.");
+        sum += status.peCount[i];
 
-            return result;
-        }
+        if (status.peCount[i] > max)
+            max = status.peCount[i];
 
-        array[i] = count;
-        sum += count;
-
-        if (count > max)
-            max = count;
-
-        if (count < min)
-            min = count;
+        if (status.peCount[i] < min)
+            min = status.peCount[i];
     }
 
-    avg = sum / elements;
-
-    result = taf_prop_hms_DeleteBlockPeStatus(statusRef);
-    if (result != LE_OK)
-    {
-        LE_ERROR("Fail to delete blcok PE count metrics.");
-        free(array);
-        return result;
-    }
+    avg = sum / status.peCountLen;
 
     uint32_t ssd = 0;
-    for (uint32_t i = 0; i < elements; i++)
+    for (uint32_t i = 0; i < status.peCountLen; i++)
     {
-        if (array[i] >= avg)
-            ssd += pow(array[i] - avg, 2);
+        if (status.peCount[i] >= avg)
+            ssd += pow(status.peCount[i] - avg, 2);
         else
-            ssd += pow(avg - array[i], 2);
+            ssd += pow(avg - status.peCount[i], 2);
     }
 
-    free(array);
+    sd = (uint32_t)ceil(sqrt(ssd / status.peCountLen));
 
-    sd = (uint32_t)ceil(sqrt(ssd / elements));
-
-    auto &tafMrc = taf_Mrc::GetInstance();
-    taf_MrcEfsMetrics_t* metricsPtr = (taf_MrcEfsMetrics_t*)le_mem_ForceAlloc(tafMrc.metricsPool);
+    auto& mrc = taf_Mrc::GetInstance();
+    taf_MrcEfsMetrics_t* metricsPtr = (taf_MrcEfsMetrics_t*)le_mem_ForceAlloc(mrc.metricsPool);
     metricsPtr->maxCount = max;
     metricsPtr->minCount = min;
     metricsPtr->avgCount = avg;
     metricsPtr->sdValue = sd;
-    metricsPtr->badBlockCount = efsBadBlocks;
-    *referencePtr = (taf_mrc_MetricsRef_t)le_ref_CreateRef(tafMrc.metricsRefMap, (void*)metricsPtr);
+    metricsPtr->badBlockCount = blockStatus.totalBadBlocks;
+    *referencePtr = (taf_mrc_MetricsRef_t)le_ref_CreateRef(mrc.metricsRefMap, (void*)metricsPtr);
 
     return LE_OK;
 }
@@ -471,5 +439,6 @@ le_result_t taf_mrc_SetEfsBackupPeriod
     uint32_t period ///< Period in second.
 )
 {
-    return taf_pa_mrc_ConfigTimer(TAF_PA_MRC_TIMER_TYPE_EFS_BACKUP, period);
+    pa_result_t result = taf_pa_mrc_SetTimerPeriod(TAF_PA_MRC_TIMER_EFS_BACKUP, period);
+    return Utility::Convert::Result(result);
 }

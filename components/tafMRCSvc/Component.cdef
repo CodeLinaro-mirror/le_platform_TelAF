@@ -11,13 +11,13 @@ requires:
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
-        $TELAF_ROOT/components/stub/taf_pa_mrc
-        $TELAF_ROOT/components/stub/taf_prop_hms
     }
 
     lib:
     {
         lib/libtelux_platform.so
+        libComponent_taf_pa_mrc.so
+        libComponent_taf_pa_mrcDef.so
     }
 }
 
@@ -25,9 +25,15 @@ cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
-    -I$TELAF_ROOT/components/stub/taf_pa_mrc
-    -I$TELAF_ROOT/components/stub/taf_prop_hms
     -ltelux_platform
+    -I$TELAF_PA_DEFAULT/include
+    -std=c++17
+    -DTAFPA_ENABLE_LEGACY_MACROS=1
+}
+
+ldflags:
+{
+    -L$TELAF_DEFAULT_PA_LIB_DIR/lib
 }
 
 sources:

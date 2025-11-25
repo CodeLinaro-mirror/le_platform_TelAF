@@ -1535,6 +1535,7 @@ le_result_t taf_DataConnection::AddSessionToCallCtx
 )
 {
     le_dls_Link_t* linkPtr = NULL;
+    size_t numSessionRefs = 0;
 
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_BAD_PARAMETER, "this call context is NULL");
 
@@ -1549,6 +1550,9 @@ le_result_t taf_DataConnection::AddSessionToCallCtx
         {
             LE_DEBUG("Session(%p) has been added to callctx slotId(%d) profileId(%d)",
                      sessionRef, callCtxPtr->slotId, callCtxPtr->profileId);
+            numSessionRefs = le_dls_NumLinks(&callCtxPtr->sessionRefList);
+            LE_INFO("Slot Id: %d. Profile Id: %d, numSessionRefs=%" PRIuS, callCtxPtr->slotId,
+                                                            callCtxPtr->profileId, numSessionRefs);
             pthread_mutex_unlock(&callCtxPtr->sessionListMutex);
             return LE_DUPLICATE;
         }
@@ -1561,6 +1565,9 @@ le_result_t taf_DataConnection::AddSessionToCallCtx
     le_dls_Queue(&callCtxPtr->sessionRefList, &(newSessionRefPtr->link));
     le_mem_AddRef(callCtxPtr);
 
+    numSessionRefs = le_dls_NumLinks(&callCtxPtr->sessionRefList);
+    LE_INFO("Slot Id: %d. Profile Id: %d, numSessionRefs=%" PRIuS, callCtxPtr->slotId,
+                                                        callCtxPtr->profileId, numSessionRefs);
     pthread_mutex_unlock(&callCtxPtr->sessionListMutex);
     return LE_OK;
 }
@@ -1572,6 +1579,7 @@ le_result_t taf_DataConnection::RemoveSessionFromCallCtx
 )
 {
     le_dls_Link_t* linkPtr = NULL;
+    size_t numSessionRefs = 0;
 
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_BAD_PARAMETER, "this call context is NULL");
 
@@ -1586,13 +1594,19 @@ le_result_t taf_DataConnection::RemoveSessionFromCallCtx
         {
             le_dls_Remove(&(callCtxPtr->sessionRefList), &(sessionRefPtr->link));
             le_mem_Release(sessionRefPtr);
+            numSessionRefs = le_dls_NumLinks(&callCtxPtr->sessionRefList);
+            LE_INFO("Slot Id: %d. Profile Id: %d, numSessionRefs=%" PRIuS, callCtxPtr->slotId,
+                                                            callCtxPtr->profileId, numSessionRefs);
             pthread_mutex_unlock(&callCtxPtr->sessionListMutex);
             return LE_OK;
         }
     }
 
-    LE_ERROR("Cannot found session context with ref(%p) from slotId(%d) profileId(%d)",
+    LE_ERROR("Cannot find session context with ref(%p) from slotId(%d) profileId(%d)",
              sessionRef, callCtxPtr->slotId, callCtxPtr->profileId);
+    numSessionRefs = le_dls_NumLinks(&callCtxPtr->sessionRefList);
+    LE_INFO("Slot Id: %d. Profile Id: %d, numSessionRefs=%" PRIuS, callCtxPtr->slotId,
+                                                            callCtxPtr->profileId, numSessionRefs);
     pthread_mutex_unlock(&callCtxPtr->sessionListMutex);
     return LE_NOT_FOUND;
 }
@@ -4171,7 +4185,7 @@ void taf_DataConnection::ClearHandlerMappingList(void)
 
 void taf_DataConnection::ClearDataCallCtxList(void)
 {
-
+    LE_INFO("Clear data call contexts list");
     le_dls_Link_t *linkPtr = NULL;
     linkPtr = le_dls_Peek(&DataCallCtxList);
 

@@ -16,9 +16,7 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafVoiceCallSvc
     $TELAF_ROOT/apps/tafServices/tafSimCardSvc
     $TELAF_ROOT/apps/tafServices/tafRadioSvc
-#if ${TELUX_AUDIO_SUPPORTED} = y
     $TELAF_ROOT/apps/tafServices/tafAudioSvc
-#endif
     $TELAF_ROOT/apps/tafServices/tafLocationSvc
     $TELAF_ROOT/apps/tafServices/tafSMSSvc
     $TELAF_ROOT/apps/tafServices/tafDataCallSvc

@@ -35,6 +35,10 @@ typedef struct DiagUpdateAppHandler_s
 
 static le_mem_PoolRef_t DiagUpdateAppHandlerPool = NULL;
 static le_hashmap_Ref_t UpdateAppObjectTable = NULL;
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+static taf_diagUpdate_ServiceRef_t DiagUpdateSvcRef;
+static le_sem_Ref_t semRef;
+#endif
 
 #ifndef LE_CONFIG_DIAG_VSTACK
 
@@ -923,6 +927,66 @@ static void* diagUpdateMsgThread(void* ctxPtr)
     return NULL;
 }
 
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+// Callback function for NRC status
+static void nrcStatusHandler
+(
+        taf_diagUpdate_NrcStatusRef_t statusRef,
+        uint16_t vlanId,
+        uint8_t sid,
+        uint8_t nrc,
+        void* contextPtr
+)
+{
+    LE_INFO("NRC notification -- vlanId: %d, sid: 0x%x, nrc: 0x%x", vlanId, sid, nrc);
+}
+
+static void* diagUpdateNrcStatusThread(void* ctxPtr)
+{
+    taf_diagUpdate_ConnectService();
+
+    //get diag update reference
+    DiagUpdateSvcRef = taf_diagUpdate_GetService();
+    if(DiagUpdateSvcRef == NULL)
+    {
+        LE_ERROR("Get diagUpdate service");
+        le_sem_Post(semRef);
+        return NULL;
+    }
+
+    le_result_t result = LE_OK;
+    result = taf_diagUpdate_SetVlanId(DiagUpdateSvcRef, TEST_VLAN_ID_0);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Get diagUpdate service");
+        le_sem_Post(semRef);
+        return NULL;
+    }
+
+    result = taf_diagUpdate_SetVlanId(DiagUpdateSvcRef, TEST_VLAN_ID_1);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Get diagUpdate service");
+        le_sem_Post(semRef);
+        return NULL;
+    }
+
+    taf_diagUpdate_NrcStatusHandlerRef_t DiagNrcStatusRef = taf_diagUpdate_AddNrcStatusHandler(
+                            DiagUpdateSvcRef,
+                            nrcStatusHandler, NULL);
+
+    if (DiagNrcStatusRef == NULL)
+    {
+        LE_ERROR("Fail to register nrc status handler for diagUpdateSvc !");
+        le_sem_Post(semRef);
+        return NULL;
+    }
+
+    le_sem_Post(semRef);
+    le_event_RunLoop();
+    return NULL;
+}
+#endif
 #endif
 
 
@@ -930,6 +994,10 @@ le_result_t diagVlanRequestFileTransfer_Init(void)
 {
 
 #ifndef LE_CONFIG_DIAG_VSTACK
+
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    semRef = le_sem_Create("SemRef", 0);
+#endif
 
     DiagUpdateAppHandlerPool = le_mem_CreatePool("D-Update-App-Hdlr", sizeof(DiagUpdateAppHandler_t));
 
@@ -971,6 +1039,14 @@ le_result_t diagVlanRequestFileTransfer_Init(void)
         le_thread_Create("D-Update-Th-ext", diagUpdateMsgThread, (void*) UpdateAppObj_ext);
     le_thread_Start(UpdateAppObj_ext->diagUpdateThreadRef);
     le_sem_Wait(UpdateAppObj_ext->semRef);
+
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    le_thread_Ref_t diagUpdateNrcThreadRef = le_thread_Create("diagUpdateNrcTd",
+            diagUpdateNrcStatusThread, NULL);
+
+    le_thread_Start(diagUpdateNrcThreadRef);
+    le_sem_Wait(semRef);
+#endif
 
 #endif
     return LE_OK;

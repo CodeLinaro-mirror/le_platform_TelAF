@@ -43,6 +43,8 @@ namespace uds{
     #define TESTER_STATE_CHANGE_TIMER 5000 // Tester state timer
     #define CANCEL_FILE_TRANSFER_IND_LEN 2
     #define MAX_FILE_TRANSFER_STATE_MTX_NAME_LEN 30
+    #define NRC_STATUS_INDICATION_LEN 3
+    #define MAX_DID_NUM_IN_RDBI 10
 
     // UDS minimal len
     #define UDS_REQ_MIN_LEN 1
@@ -319,6 +321,7 @@ namespace uds{
     // UDS notification message ID
     typedef enum
     {
+        UPDATE_SERVICE_NRC_STATUS = 0xFB,
         CANCEL_FILE_TRANSFER_RESULT = 0xFC,
         TESTER_STATE_MSG_ID = 0xFD,
         AUTHENTICATION_EXPIRATION_MSG_ID = 0xFE,
@@ -484,6 +487,10 @@ namespace uds{
                     bool* isInternalHandle);    // ReadDTCInfo service (0x19)
             le_result_t IndicateROEReq(taf_doip_AddrInfo_t*  addrInfoPtr,
                     bool* isInternalHandle);    // ResponseOnEvent service(0x86)
+
+        #ifdef LE_CONFIG_DIAG_FEATURE_A
+            void IndicateNrcStatus(const char* ifName, uint8_t sid, uint8_t nrc);
+        #endif
 
             // Internally check and Respond UDS message to uds client (through DoIP stack).
             le_result_t TesterPresentResp(taf_doip_AddrInfo_t*  addrInfoPtr);    // (0x3E)

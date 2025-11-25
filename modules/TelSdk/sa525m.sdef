@@ -48,6 +48,8 @@ apps:
     // IVSS services.
     $TELAF_ROOT/apps/ivss/service/tafIvssTelephonySvc/tafIvssTelephonySvc
     $TELAF_ROOT/apps/ivss/service/tafIvssDataSvc/tafIvssDataSvc
+    $TELAF_ROOT/apps/ivss/service/tafIvssLocationSvc/tafIvssLocationSvc
+    $TELAF_ROOT/apps/ivss/service/tafIvssSensorSvc/tafIvssSensorSvc
 
     // RPC proxy
     $TELAF_ROOT/apps/rpc/rpcProxy/tafRpcProxy
@@ -92,6 +94,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafMRCTest/tafMRCUnitTest
     // $TELAF_ROOT/apps/test/tafMRCTest/tafMRCIntTest
     // $TELAF_ROOT/apps/test/tafECallTest/tafECallUnitTest/tafECallUnitTest
+    // $TELAF_ROOT/apps/test/tafECallTest/tafECallIntTest/tafECallIntTest
     // $TELAF_ROOT/apps/test/tafNetTest/tafNetUnitTest/tafNetUnitTest
     // $TELAF_ROOT/apps/test/tafNetTest/tafDualNadTest/tafDualNadTest
     // $TELAF_ROOT/apps/test/tafNetTest/tafNetIntTest/tafNetIntTest
@@ -143,6 +146,11 @@ apps:
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmWsFilterTest/tafMngdPmWsFilterTest.adef
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestDaemon/tafMngdPmTestDaemon.adef
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestClient/tafMngdPmTestClient.adef
+    // $TELAF_ROOT/apps/test/tafKeyStoreTest/tafKeysEncrDecrIntTest/tafKeysEncrDecrIntTest
+    // $TELAF_ROOT/apps/test/ConfigTreeAccessKPITest/ConfigTreeAccessKPIAppDefaultTest
+    // $TELAF_ROOT/apps/test/ConfigTreeAccessKPITest/ConfigTreeAccessKPIRootTest
+    // $TELAF_ROOT/apps/test/ConfigTreeAccessKPITest/ConfigTreeAccessKPITelafTest
+    // $TELAF_ROOT/apps/test/tafReturnTypesTest/tafReturnTypesUnitTest
 }
 
 commands:

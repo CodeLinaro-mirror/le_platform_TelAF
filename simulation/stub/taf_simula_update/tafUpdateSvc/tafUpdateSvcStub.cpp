@@ -460,10 +460,192 @@ le_result_t taf_update_Sync
 {
     return LE_NOT_IMPLEMENTED;
 }
+//--------------------------------------------------------------------------------------------------
+/**
+ * Resumes activation.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_ResumeActivation
+(
+    taf_update_SessionRef_t session
+        ///< [IN] Installation session reference.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Pause installation.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_PauseInstall
+(
+    taf_update_SessionRef_t session
+        ///< [IN] Installation session reference.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Resume installation.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_ResumeInstall
+(
+    taf_update_SessionRef_t session
+        ///< [IN] Installation session reference.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cancel installation.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_CancelInstall
+(
+    taf_update_SessionRef_t session
+        ///< [IN] Installation session reference.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Erases a bank.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ * - LE_UNSUPPORTED -- Unsupported.
+ *
+ * @b NOTE: The SBL partition will not be erased.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_EraseBank
+(
+    taf_update_SessionRef_t session,
+        ///< [IN] Installation session reference.
+    taf_update_Bank_t bank
+        ///< [IN] The bank to be erased.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Pauses activation.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_PauseActivation
+(
+    taf_update_SessionRef_t session
+        ///< [IN] Installation session reference.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Starts AB sync.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_StartSync
+(
+    taf_update_SessionRef_t session
+        ///< [IN] Sync session reference.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Pauses AB sync.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_PauseSync
+(
+    taf_update_SessionRef_t session
+        ///< [IN] Sync session reference.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Resumes AB sync.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_ResumeSync
+(
+    taf_update_SessionRef_t session
+        ///< [IN] Sync session reference.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cancels AB sync.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_CancelSync
+(
+    taf_update_SessionRef_t session
+        ///< [IN] Sync session reference.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
 
 COMPONENT_INIT
 {
     self.stateEvId = le_event_CreateId("stateEvId", sizeof(taf_update_StateInd_t));
     self.stateLayberHandler = StateLayeredHandler;
-    LE_INFO("%s --> DONE", __FUNCTION__);
+    LE_INFO(" [simulation] %s --> DONE", __FUNCTION__);
 }

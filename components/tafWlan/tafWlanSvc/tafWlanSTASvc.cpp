@@ -454,3 +454,81 @@ void taf_wlanSta_RemoveConnectedApSignalStrengthHandler
     auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
     myWlanSta.SvcRemoveConnectedApSignalStrengthHandler(handlerRef, taf_wlanSta_GetClientSessionRef());
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the estimated throughput of an access point.
+ *
+ * @return
+ * - LE_OK           -- Succeeded.
+ * - LE_NOT_FOUND    -- The specified AP was not found in scan results.
+ * - LE_UNAVAILABLE  -- Throughput information is not available for the AP.
+ * - Others          -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_wlanSta_GetAPEstimatedThroughput
+(
+    taf_wlanSta_WlanSTARef_t wlanSTARef,
+    const char* BSSID,
+    uint32_t* estimatedThroughputPtr,
+    int32_t* agePtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(nullptr == wlanSTARef, LE_BAD_PARAMETER, "wlanSTARef is NULL!");
+    TAF_ERROR_IF_RET_VAL(nullptr == BSSID, LE_BAD_PARAMETER, "BSSID is NULL!");
+    TAF_ERROR_IF_RET_VAL(nullptr == estimatedThroughputPtr, LE_BAD_PARAMETER,
+        "estimatedThroughputPtr is NULL!");
+    TAF_ERROR_IF_RET_VAL(nullptr == agePtr, LE_BAD_PARAMETER, "agePtr is NULL!");
+
+    auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
+    return myWlanSta.GetAPEstimatedThroughput(wlanSTARef, BSSID, estimatedThroughputPtr, agePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes a network configuration from the station.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - LE_NOT_FOUND -- Network not found.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_wlanSta_RemoveNetwork
+(
+    taf_wlanSta_WlanSTARef_t wlanSTARef,
+        ///< [IN] The WLAN STA reference.
+    const taf_wlanSta_APInfo_t* LE_NONNULL ApInfoPtr
+        ///< [IN] AP information.
+)
+{
+    TAF_ERROR_IF_RET_VAL(wlanSTARef == nullptr, LE_BAD_PARAMETER, "wlanSTARef is NULL!");
+    TAF_ERROR_IF_RET_VAL(ApInfoPtr == nullptr, LE_BAD_PARAMETER, "ApInfoPtr is NULL!");
+    TAF_ERROR_IF_RET_VAL(std::string(ApInfoPtr->SSID).empty(),
+        LE_BAD_PARAMETER, "Empty SSID passed");
+
+    auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
+    return myWlanSta.RemoveNetwork(wlanSTARef, ApInfoPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Saves the current network configuration persistently.
+ *
+ * @return
+ * - LE_OK      -- Succeeded.
+ * - LE_FAULT   -- Failed to save configuration.
+ * - Others     -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_wlanSta_SaveNetworkConfig
+(
+    taf_wlanSta_WlanSTARef_t wlanSTARef
+        ///< [IN] The WLAN STA reference.
+)
+{
+    TAF_ERROR_IF_RET_VAL(wlanSTARef == nullptr, LE_BAD_PARAMETER, "wlanSTARef is NULL!");
+
+    auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
+    return myWlanSta.SaveNetworkConfig(wlanSTARef);
+}

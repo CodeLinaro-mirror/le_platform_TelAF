@@ -47,6 +47,7 @@ do
     fi
 done
 
+if [ -d "${PROP_BUILD_DIR}" ]; then
 echo "*** searching path: ${PROP_BUILD_DIR} ***"
 for full_name_prop in `find ${PROP_BUILD_DIR} -maxdepth 1 -type f -name "*.so"`
 do
@@ -64,7 +65,9 @@ do
         cp ${full_name_prop} ${TARGET_STAGE_DIR}systems/current/lib/
     fi
 done
+fi
 
+if [ -d "${NOSHIP_BUILD_DIR}" ]; then
 echo "*** searching path: ${NOSHIP_BUILD_DIR} ***"
 for full_name_noship in `find ${NOSHIP_BUILD_DIR} -maxdepth 1 -type f -name "*.so"`
 do
@@ -91,6 +94,7 @@ do
         cp ${full_name_noship} ${TARGET_STAGE_DIR}systems/current/lib/
     fi
 done
+fi
 
 if [ -n "${VENDOR_ROOT}" ] && [ -d "${VENDOR_ROOT}" ]; then
     echo "*** searching path: ${VENDOR_ROOT} ***"

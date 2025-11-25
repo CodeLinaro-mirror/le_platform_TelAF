@@ -3480,6 +3480,132 @@ static void TermSigHandler(int sigNum)
     _exit(0);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference of Carrier Aggregation(CA) information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetCAInformation
+(
+    uint8_t phoneId,
+        ///< [IN] Phone ID.
+    taf_radio_Rat_t rat,
+        ///< [IN] RAT.
+    taf_radio_CAInfoRef_t* infoRefPtr
+        ///< [OUT] CA information reference.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes the reference of Carrier Aggregation(CA) information.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_DeleteCAInformation
+(
+    taf_radio_CAInfoRef_t infoRef
+        ///< [IN] CA information reference.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the Carrier Aggregation(CA) status and active CC count of LTE.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCAStatus
+(
+    taf_radio_CAInfoRef_t infoRef,
+        ///< [IN] CA information reference.
+    taf_radio_CAStatus_t* statusPtr,
+        ///< [OUT] CA status
+    uint32_t* activeCCNumPtr
+        ///< [OUT] Numbers of active component carriers
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference of connection status.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetConnStatus
+(
+    uint8_t phoneId,
+        ///< [IN] Phone ID.
+    taf_radio_ConnStatusRef_t* statusRefPtr
+        ///< [OUT] Connection status reference.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes the reference of connection status.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_DeleteConnStatus
+(
+    taf_radio_ConnStatusRef_t statusRef
+        ///< [IN] Connection status reference.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the E-UTRA New Radio Dual Connectivity(ENDC) connection status.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetEndcConnectionStatus
+(
+    taf_radio_ConnStatusRef_t statusRef,
+        ///< [IN] Reference
+    taf_radio_NREndcAvailability_t* statusPtr
+        ///< [OUT] ENDC connection status
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+
 COMPONENT_INIT
 {
     mode_t oldMask = umask(0);

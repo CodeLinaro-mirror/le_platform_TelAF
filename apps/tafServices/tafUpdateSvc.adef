@@ -56,6 +56,7 @@ processes:
         (tafUpdateSvc)
     }
 
+    maxCoreDumpFileBytes: 100000K
     maxFileBytes: 1048576K
     faultAction: restart
 }

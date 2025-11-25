@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -104,9 +104,9 @@ void ConsolidatedAckInfoHandler
     else
     {
         taf_pm_ClientInfo_t nackClients[TAF_PM_MAX_CLIENT_NUMBER] = {};
-        size_t nackClientCount = 0;
+        size_t nackClientCount = sizeof(nackClients)/sizeof(taf_pm_ClientInfo_t);
         taf_pm_ClientInfo_t unresClients[TAF_PM_MAX_CLIENT_NUMBER] = {};
-        size_t unresClientCount = 0;
+        size_t unresClientCount = sizeof(unresClients)/sizeof(taf_pm_ClientInfo_t);
 
         result = taf_pm_GetUnrespClientInfo(infoRef, unresClients, &unresClientCount);
         if(result != LE_OK)
@@ -118,7 +118,7 @@ void ConsolidatedAckInfoHandler
         {
             printf("Fetched more unresponded clients than expected with %d.\n",
                 (int)unresClientCount);
-            return;
+            //return;
         }
         if(unresClientCount > 0)
         {
@@ -140,7 +140,7 @@ void ConsolidatedAckInfoHandler
         if(nackClientCount >= TAF_PM_MAX_CLIENT_NUMBER)
         {
             printf("Fetched more nack clients than expected with %d.\n", (int)nackClientCount);
-            return;
+            //return;
         }
         if(nackClientCount > 0)
         {

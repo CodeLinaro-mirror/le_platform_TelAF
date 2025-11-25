@@ -11,6 +11,8 @@
 #include <iostream>
 #include <string>
 #include <future>
+#include <vector>
+#include <map>
 #include "interfaces.h"
 #include "legato.h"
 
@@ -20,6 +22,7 @@
 static le_sem_Ref_t wlanSemRef = nullptr;
 static std::promise<taf_wlanSta_State_t> connectPromise;
 static std::promise<taf_wlanSta_State_t> disconnectPromise;
+static std::promise<taf_wlanSta_State_t> removeNetworkPromise;
 
 void PrintUsage() {
     printf("\n"
@@ -37,8 +40,11 @@ void PrintUsage() {
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- SetWpa2Psk <STA> <SSID> <psk>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- Connect <STA> <SSID>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- Disconnect <STA> <SSID>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- RemoveNetwork <STA> <SSID>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- SaveNetworkConfig <STA>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- GetApSignalStrength <STA>\n"
            "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- ApSigStrengthEvents <STA>\n"
+           "app runProc tafWlanSTAIntTest tafWlanSTAIntTest -- GetAPEstimatedThroughput <STA>\n"
            "\n STA: STA interface obtained from taf_wlan_GetIntfInfo\n"
            "\n");
 }
@@ -89,6 +95,10 @@ static void PrintStaState(taf_wlanSta_State_t State) {
 
         case TAF_WLANSTA_STATE_DISCONNECTED:
             LE_TEST_INFO("State: TAF_WLANSTA_STATE_DISCONNECTED(%d)", State);
+            break;
+
+        case TAF_WLANSTA_STATE_NETWORK_REMOVED:
+            LE_TEST_INFO("State: TAF_WLANSTA_STATE_NETWORK_REMOVED(%d)", State);
             break;
 
         case TAF_WLANSTA_STATE_ASSOCIATION_FAILED:
@@ -753,6 +763,16 @@ static void StationEventHandler(taf_wlanSta_WlanSTARef_t wlanSTARef,
             // ignore
         }
     }
+    else if (staState == TAF_WLANSTA_STATE_NETWORK_REMOVED)
+    {
+        LE_TEST_INFO("Network was removed");
+        try {
+            removeNetworkPromise.set_value(TAF_WLANSTA_STATE_NETWORK_REMOVED);
+        }
+        catch (std::future_error&) {
+            // ignore
+        }
+    }
 }
 
 static void *wlanThreadHdlr(void *contextPtr)
@@ -819,6 +839,249 @@ static taf_wlanSta_WlanSTARef_t getSTARef(const char *staIntfNameStr)
     return staRef;
 }
 
+static le_result_t wlanSTATestGetAPEstimatedThroughput(taf_wlanSta_WlanSTARef_t staRef)
+{
+    if (!staRef) {
+        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
+        return LE_FAULT;
+    }
+
+    // First, we need to scan for APs to get their BSSIDs
+    le_result_t result = taf_wlanSta_DoAPScan(staRef);
+    if (result != LE_OK) {
+        fprintf(stderr, "taf_wlanSta_DoAPScan failed: %d\n", result);
+        return result;
+    }
+
+    // Wait for scan to complete with timeout
+    le_clk_Time_t timeout = {20, 0};  // 20 seconds timeout
+    if (le_sem_WaitWithTimeOut(wlanSemRef, timeout) != LE_OK) {
+        LE_TEST_FATAL("Timeout waiting for scan to complete");
+    }
+
+    // Get scan results
+    uint16_t numScanedAPs = 0;
+    size_t APInfoSize = TAF_WLANSTA_MAX_APSCAN_RESULT_NUM;
+    taf_wlanSta_APInfo_t ApInfo[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM] = { 0 };
+    result = taf_wlanSta_GetAPScanResults(staRef, &numScanedAPs, ApInfo, &APInfoSize);
+    if (result != LE_OK) {
+        fprintf(stderr, "taf_wlanSta_GetAPScanResults failed: %d\n", result);
+        return result;
+    }
+
+    if (numScanedAPs == 0) {
+        fprintf(stderr, "No APs found in scan results\n");
+        return LE_NOT_FOUND;
+    }
+
+    printf("\nTesting estimated throughput for %d APs:\n", numScanedAPs);
+
+    int availableCount = 0;
+    int unavailableCount = 0;
+    int errorCount = 0;
+    std::map<uint32_t, int> throughputDistribution;
+    std::map<uint32_t, std::vector<std::string>> throughputToSSIDs;
+
+    // Try to get estimated throughput for each AP
+    for (size_t i = 0; i < numScanedAPs; i++) {
+        uint32_t estimatedThroughput = 0;
+        int32_t age = -1;
+        result = taf_wlanSta_GetAPEstimatedThroughput(staRef, ApInfo[i].BSSID,
+            &estimatedThroughput, &age);
+
+        printf("AP %zu: SSID=%s, BSSID=%s\n", i+1, ApInfo[i].SSID, ApInfo[i].BSSID);
+        printf("  Signal Level: %d dBm, Frequency: %u MHz\n",
+               ApInfo[i].SignalLevel, ApInfo[i].Frequency);
+        printf("  Security: %s, Auth: %s\n",
+               getSecurityMode(ApInfo[i].secMode),
+               getSecurityAuthMethod(ApInfo[i].secAuthMethod));
+
+        if (result == LE_OK) {
+            printf("  Estimated Throughput: %u Kbps", estimatedThroughput);
+            if (age >= 0) {
+                printf(", Age: %d seconds\n", age);
+            } else {
+                printf(", Age: not available\n");
+            }
+            availableCount++;
+            throughputDistribution[estimatedThroughput]++;
+            throughputToSSIDs[estimatedThroughput].push_back(std::string(ApInfo[i].SSID));
+        } else if (result == LE_UNAVAILABLE) {
+            printf("  Estimated Throughput: Not available\n");
+            unavailableCount++;
+        } else if (result == LE_NOT_FOUND) {
+            printf("  BSSID not found in scan results\n");
+            errorCount++;
+        } else {
+            printf("  Error getting estimated throughput: %d\n", result);
+            errorCount++;
+        }
+        printf("  ---------------- \n");
+    }
+
+    printf("\nSummary:\n");
+    printf("  Total APs: %d\n", numScanedAPs);
+    printf("  APs with throughput info: %d\n", availableCount);
+    printf("  APs without throughput info: %d\n", unavailableCount);
+    printf("  Errors: %d\n", errorCount);
+
+    if (!throughputDistribution.empty()) {
+        printf("\nThroughput distribution:\n");
+        for (const auto& pair : throughputDistribution) {
+            printf("  %u Kbps: %d APs\n", pair.first, pair.second);
+
+            printf("    SSIDs: ");
+            const auto& ssids = throughputToSSIDs[pair.first];
+            for (size_t i = 0; i < ssids.size(); i++) {
+                printf("%s", ssids[i].c_str());
+                if (i < ssids.size() - 1) {
+                    printf(", ");
+                }
+            }
+            printf("\n");
+        }
+    }
+
+    return LE_OK;
+}
+
+static le_result_t wlanSTATestRemoveNetwork(taf_wlanSta_WlanSTARef_t staRef)
+{
+    if (!staRef)
+    {
+        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
+        return LE_FAULT;
+    }
+
+    const char* ssidStr = le_arg_GetArg(2);
+    if (ssidStr == nullptr)
+    {
+        PrintUsage();
+        LE_TEST_FATAL("ssid value is NULL");
+    }
+
+    std::string ssid(ssidStr);
+
+    // Build APInfoToRemove: prefer a scanned AP entry, fallback to SSID-only
+    uint16_t numScanedAPs = 0;
+    size_t APInfoSize = TAF_WLANSTA_MAX_APSCAN_RESULT_NUM;
+    taf_wlanSta_APInfo_t ApInfo[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM] = { 0 };
+    taf_wlanSta_APInfo_t APInfoToRemove;
+    le_result_t scanRes = taf_wlanSta_GetAPScanResults(staRef, &numScanedAPs, ApInfo, &APInfoSize);
+    if (scanRes != LE_OK)
+    {
+        LE_WARN("No scan results available, using SSID only");
+        memset(&APInfoToRemove, 0, sizeof(taf_wlanSta_APInfo_t));
+        le_utf8_Copy(APInfoToRemove.SSID, ssid.c_str(), TAF_WLAN_MAX_SSID_LENGTH + 1, nullptr);
+    }
+    else
+    {
+        bool isApFound = false;
+        for (size_t i = 0; i < APInfoSize; ++i)
+        {
+            if (std::string(ApInfo[i].SSID) == ssid)
+            {
+                LE_TEST_INFO("Found %s in the scanned APs list", ApInfo[i].SSID);
+                APInfoToRemove = ApInfo[i];
+                isApFound = true;
+                break;
+            }
+        }
+        if (!isApFound)
+        {
+            LE_WARN("%s not found in scan results, using SSID only", ssid.c_str());
+            memset(&APInfoToRemove, 0, sizeof(taf_wlanSta_APInfo_t));
+            le_utf8_Copy(APInfoToRemove.SSID, ssid.c_str(), TAF_WLAN_MAX_SSID_LENGTH + 1, nullptr);
+        }
+    }
+
+    // Prepare to wait for the NETWORK_REMOVED event
+    removeNetworkPromise = std::promise<taf_wlanSta_State_t>();
+
+    printf("Attempting to remove network: %s\n", ssid.c_str());
+    LE_TEST_INFO("Attempting to remove network: %s", ssid.c_str());
+    le_result_t result = taf_wlanSta_RemoveNetwork(staRef, &APInfoToRemove);
+    fprintf(stderr, "taf_wlanSta_RemoveNetwork Return: %d\n", result);
+    LE_TEST_INFO("taf_wlanSta_RemoveNetwork Return: %d", result);
+
+    if (result == LE_OK)
+    {
+        // Wait up to 10 seconds for NETWORK_REMOVED event from the service
+        auto fut = removeNetworkPromise.get_future();
+        auto status = fut.wait_for(std::chrono::seconds(10));
+        if (status == std::future_status::ready &&
+            fut.get() == TAF_WLANSTA_STATE_NETWORK_REMOVED)
+        {
+            printf("Network %s removed successfully (event received)\n", ssid.c_str());
+            LE_TEST_INFO("Network %s removed successfully (event received)", ssid.c_str());
+        }
+        else
+        {
+            printf("Network %s removed successfully (no event observed within timeout)\n",
+                   ssid.c_str());
+            LE_TEST_INFO("Network %s removed successfully (no event within timeout)",
+                ssid.c_str());
+        }
+    }
+    else if (result == LE_NOT_FOUND)
+    {
+        printf("Network %s was not found in configured networks\n", ssid.c_str());
+        printf("This means the network was never added/configured\n");
+        LE_TEST_INFO("Network %s was not found in configured networks", ssid.c_str());
+    }
+    else if (result == LE_BAD_PARAMETER)
+    {
+        printf("Bad parameter error - check SSID: '%s'\n", ssid.c_str());
+        LE_TEST_INFO("Bad parameter error - check SSID: '%s'", ssid.c_str());
+    }
+    else if (result == LE_FAULT)
+    {
+        printf("System fault occurred while removing network %s\n", ssid.c_str());
+        LE_TEST_INFO("System fault occurred while removing network %s", ssid.c_str());
+    }
+    else
+    {
+        printf("Unexpected error (%d) while removing network %s\n", result, ssid.c_str());
+        LE_TEST_INFO("Unexpected error (%d) while removing network %s", result, ssid.c_str());
+    }
+
+    return result;
+}
+
+static le_result_t wlanSTATestSaveNetworkConfig(taf_wlanSta_WlanSTARef_t staRef)
+{
+    if (!staRef)
+    {
+        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
+        return LE_FAULT;
+    }
+
+    printf("Attempting to save network configuration...\n");
+    LE_TEST_INFO("Attempting to save network configuration");
+
+    le_result_t result = taf_wlanSta_SaveNetworkConfig(staRef);
+    fprintf(stderr, "taf_wlanSta_SaveNetworkConfig Return: %d\n", result);
+    LE_TEST_INFO("taf_wlanSta_SaveNetworkConfig Return: %d", result);
+
+    if (result == LE_OK)
+    {
+        printf("Network configuration saved successfully\n");
+        LE_TEST_INFO("Network configuration saved successfully");
+    }
+    else if (result == LE_FAULT)
+    {
+        printf("Failed to save network configuration\n");
+        LE_TEST_INFO("Failed to save network configuration");
+    }
+    else
+    {
+        printf("Unexpected error (%d) while saving configuration\n", result);
+        LE_TEST_INFO("Unexpected error (%d) while saving configuration", result);
+    }
+
+    return result;
+}
+
 COMPONENT_INIT {
     le_result_t status = LE_FAULT;
 
@@ -844,8 +1107,8 @@ COMPONENT_INIT {
     }
     LE_TEST_INFO("STA Interface to use: %s", staIntfName);
 
-    char testType[20]="";   // NULL appended string
-    le_utf8_Copy(testType,testTypeStr,20,NULL);
+    char testType[30]="";   // NULL appended string
+    le_utf8_Copy(testType, testTypeStr, 30, NULL);
 
     LE_TEST_INIT;
     // Register for events
@@ -922,6 +1185,16 @@ COMPONENT_INIT {
         CheckNumArgs(numArgs, 3);
         status = wlanSTATestDisconnect(getSTARef(staIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: Disconnect");
+    } else if (strncasecmp(testType, "RemoveNetwork", strlen("RemoveNetwork")) == 0) {
+        LE_TEST_INFO("======== WLAN Test: RemoveNetwork ========");
+        CheckNumArgs(numArgs, 3);
+        status = wlanSTATestRemoveNetwork(getSTARef(staIntfName));
+        LE_TEST_OK(LE_OK == status || LE_NOT_FOUND == status, "WLAN Test: RemoveNetwork");
+    } else if (strncasecmp(testType, "SaveNetworkConfig", strlen("SaveNetworkConfig")) == 0) {
+        LE_TEST_INFO("======== WLAN Test: SaveNetworkConfig ========");
+        CheckNumArgs(numArgs, 2);
+        status = wlanSTATestSaveNetworkConfig(getSTARef(staIntfName));
+        LE_TEST_OK(LE_OK == status, "WLAN Test: SaveNetworkConfig");
     } else if (strncasecmp(testType, "GetApSignalStrength", strlen("GetApSignalStrength")) == 0) {
         LE_TEST_INFO("======== WLAN Test: GetApSignalStrength ========");
         CheckNumArgs(numArgs, 2);
@@ -932,6 +1205,14 @@ COMPONENT_INIT {
         CheckNumArgs(numArgs, 2);
         status = wlanSTATestAddConnectedApSignalStrengthHandler(getSTARef(staIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: ApSigStrengthEvents");
+    }
+    else if (strncasecmp(testType, "GetAPEstimatedThroughput",
+            strlen("GetAPEstimatedThroughput")) == 0)
+    {
+        LE_TEST_INFO("======== WLAN Test: GetAPEstimatedThroughput ========");
+        CheckNumArgs(numArgs, 2);
+        status = wlanSTATestGetAPEstimatedThroughput(getSTARef(staIntfName));
+        LE_TEST_OK(LE_OK == status, "WLAN Test: GetAPEstimatedThroughput");
     } else {
         PrintUsage();
         LE_TEST_FATAL("Invalid test type %s", testType);

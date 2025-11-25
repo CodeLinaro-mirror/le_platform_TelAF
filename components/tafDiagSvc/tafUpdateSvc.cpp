@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -547,6 +547,73 @@ le_result_t taf_diagUpdate_GetVlanIdFromMsg
     auto& tafUpdateSvr = taf_UpdateSvr::GetInstance();
 
     return tafUpdateSvr.GetVlanIdFromMsg(rxMsgRef, vlanIdPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_diagUpdate_NrcStatus'
+ *
+ * This event provides information on NRC.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+taf_diagUpdate_NrcStatusHandlerRef_t taf_diagUpdate_AddNrcStatusHandler
+(
+    taf_diagUpdate_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    taf_diagUpdate_NrcStatusHandlerFunc_t handlerPtr,
+        ///< [IN] Nrc status handler.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    auto &tafUpdateSvr = taf_UpdateSvr::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, NULL, "Null ptr(svcRef)");
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "Null ptr(handlerPtr)");
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("NRCStatusHandler",
+        tafUpdateSvr.NrcEventId, tafUpdateSvr.FirstLayerNrcStatusHandler, (void*)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_diagUpdate_NrcStatusHandlerRef_t)(handlerRef);
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_diagUpdate_NrcStatus'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_diagUpdate_RemoveNrcStatusHandler
+(
+    taf_diagUpdate_NrcStatusHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Releases a NRC status notification message.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid statusRef or invalid service of the statusRef.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagUpdate_ReleaseNrcStatusMsg
+(
+    taf_diagUpdate_NrcStatusRef_t statusRef
+        ///< [IN] Tester state reference.
+)
+{
+    auto &tafUpdateSvr = taf_UpdateSvr::GetInstance();
+    return tafUpdateSvr.ReleaseNrcStatusMsg(statusRef);
 }
 
 //--------------------------------------------------------------------------------------------------

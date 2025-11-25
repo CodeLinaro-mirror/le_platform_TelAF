@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 domain_name: domain_name()
@@ -28,15 +28,6 @@ extended_data_records: map(include('extended_data_records_item'), key=str())
 diagnostic_session: map(include('diagnostic_session_item'), key=str())
 connected_indicator_behavior: map(include('connected_indicator_behavior_item'), key=str())
 indicator: map(include('indicator_item'), key=str())
-diagnostic_session_security_level:
-  short_name: camelcase()
-  request_seed_id: hexa()
-  key_size: int()
-  num_failed_security_access: int()
-  security_delay_time: int()
-  seed_size: int()
-  execution_authorization_pattern: ExecutionAuthorizationPattern()
-
 
 diagnostic_session_security_level: map(include("diagnostic_session_security_level_item"), key=str())
 
@@ -49,7 +40,7 @@ diagnostic_session_security_level_item:
   security_delay_time: int()
   seed_size: int()
   static_seed: bool()
-  execution_authorization_pattern: ExecutionAuthorizationPattern()
+  execution_authorization_pattern: ExecutionAuthorizationPattern(required=False)
 
 security_binding: map(include("security_binding_item"), key=str())
 

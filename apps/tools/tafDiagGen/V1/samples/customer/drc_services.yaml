@@ -1,0 +1,206 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+services_all:
+  0x10:
+    supported: true
+    sub_functions:
+      0x01:
+        supported: true
+      0x02:
+        supported: true
+      0x03:
+        supported: true
+      0x40:
+        supported: true
+      0x42:
+        supported: true
+        access:
+          session: [ extended_diagnostic_session ]
+      0x52:
+        supported: true
+        access:
+          session: [ extended_diagnostic_session ]
+      0x60:
+        supported: true
+        access:
+          session: [ programming_session, extended_diagnostic_session ]
+          security_type: 0x27
+  0x11:
+    supported: true
+    access:
+      session: [ default_session, extended_diagnostic_session ]
+      security_type: 0x27
+    sub_functions:
+      0x01:
+        supported: true
+        access:
+          session: [ default_session, extended_diagnostic_session]
+          security_type: 0x27
+      0x02:
+        supported: true
+        access:
+          session: [ default_session, extended_diagnostic_session]
+          security_type: 0x27
+      0x03:
+        supported: false
+      0x04:
+        supported: false
+      0x05:
+        supported: false
+
+  0x14:
+    supported: true
+    access:
+      session: [ programming_session, extended_diagnostic_session ]
+      security_type: 0x27
+  0x19:
+    supported: true
+    access:
+      session: [ programming_session, extended_diagnostic_session ]
+      security_type: 0x27
+    sub_functions:
+      0x01:
+        supported: true
+        access:
+          session: [ programming_session, extended_diagnostic_session ]
+          security_type: 0x27
+      0x02:
+        supported: true
+        access:
+          session: [ programming_session, extended_diagnostic_session ]
+          security_type: 0x27
+      0x03:
+        supported: true
+        access:
+          session: [ programming_session, extended_diagnostic_session ]
+          security_type: 0x27
+      0x04:
+        supported: true
+        access:
+          session: [ programming_session, extended_diagnostic_session ]
+          security_type: 0x27
+      0x05:
+        supported: false
+      0x06:
+        supported: true
+        access:
+          session: [ programming_session, extended_diagnostic_session ]
+          security_type: 0x27
+      0x07:
+        supported: false
+      0x08:
+        supported: false
+      0x09:
+        supported: false
+      0x0A:
+        supported: true
+        access:
+          session: [ programming_session, extended_diagnostic_session ]
+          security_type: 0x27
+      0x0B:
+        supported: false
+      0x0C:
+        supported: false
+      0x0D:
+        supported: false
+      0x0E:
+        supported: false
+      0x14:
+        supported: true
+        access:
+          session: [ programming_session, extended_diagnostic_session ]
+          security_type: 0x27
+      0x15:
+        supported: false
+      0x16:
+        supported: false
+      0x17:
+        supported: false
+      0x18:
+        supported: false
+      0x19:
+        supported: false
+      0x1A:
+        supported: false
+      0x42:
+        supported: false
+      0x55:
+        supported: false
+      0x56:
+        supported: false
+  0x22:
+    supported: true
+  0x27:
+    supported: true
+    access: # default session is unavailable
+      session: [ programming_session, extended_diagnostic_session, vehicle_manufacturer_specific_session, fota_session, system_supplier_specific_session ]
+    sub_functions:
+      0x01:
+        supported: true
+        access:
+          session: [ programming_session, extended_diagnostic_session, vehicle_manufacturer_specific_session, fota_session, system_supplier_specific_session ]
+      0x02:
+        supported: true
+        access:
+          session: [ programming_session, extended_diagnostic_session, vehicle_manufacturer_specific_session, fota_session, system_supplier_specific_session ]
+  0x29:
+    supported: true
+    sub_functions:
+      0x00:
+        supported: true
+      0x01:
+        supported: true
+      0x03:
+        supported: true
+      0x04:
+        supported: true
+      0x08:
+        supported: true
+  0x2E:
+    supported: true
+  0x2F:
+    supported: true
+    access: # default session is unavailable
+      session: [ programming_session, extended_diagnostic_session, vehicle_manufacturer_specific_session, fota_session, system_supplier_specific_session ]
+  0x31:
+    supported: true
+    authentication: true
+    access:
+      session: [ programming_session, extended_diagnostic_session, vehicle_manufacturer_specific_session, fota_session ]
+      security_type: 0x27
+    sub_functions:
+      0x01:
+        supported: true
+        authentication: true
+      0x02:
+        supported: true
+        authentication: true
+      0x03:
+        supported: true
+        authentication: true
+  0x36:
+    supported: true
+    access:
+      session: [ programming_session, fota_session ]
+      security_type: 0x27
+  0x37:
+    supported: true
+    access:
+      session: [ programming_session, fota_session ]
+      security_type: 0x27
+  0x38:
+    supported: true
+    access:
+      session: [ programming_session, fota_session ]
+      security_type: 0x27
+  0x3E:
+    supported: true
+    sub_functions:
+      0x00:
+        supported: true
+  0x86:
+    supported: true
+    sub_functions:
+      0x00:
+        supported: true

@@ -1,0 +1,230 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+common_props:
+  max_number_of_event_entries: 20
+  memory_entry_storage_trigger: TEST-FAILED
+  aging_requires_tested_cycle: FALSE
+  clear_dtc_limitation: ALL-SUPPORTED-DTCS
+  default_endianness: MOST-SIGNIFICANT-BYTE-FIRST
+  environment_data_capture: CAPTURE-SYNCHRONOUSLY-TO-REPORTING
+  event_displacement_strategy: FULL
+  max_number_of_request_correctly_received_response_pending: 0x78
+  occurrence_counter_processing: TEST-FAILED-BIT
+  response_on_all_requests_ids: FALSE
+  response_on_second_declined_request: TRUE
+  status_bit_handling_test_failed_since_last_clear: STATUS-BIT-NORMAL
+  reset_confirmed_bit_on_overflow: FALSE
+  status_bit_storage_test_failed: TRUE
+  type_of_dtc_supported: ISO-15031_6
+  security_delay_time_on_boot: 0
+  s3_server_max: 5.0
+  ignore_request_for_hardreset: TRUE
+  dtc_status_availability_mask: 0x7F
+extended_data_records:
+  OccurrenceCounter:
+    short_name: OccurrenceCounter
+    record_element_bit_off_set: 0
+    base_type: uint8
+    record_number: 0x01
+    data_provider: DEM_OCCCTR
+    trigger: DEM_TRIGGER_ON_TEST_FAILED
+    update: TRUE
+
+diagnostic_session:
+  default_session:
+    short_name: default_session
+    id: 0x01
+    jump_to_bootloader: noBoot
+    p2_server_max: 0.05
+    p2_star_server_max: 5
+  programming_session:
+    short_name: programming_session
+    id: 0x02
+    jump_to_bootloader: systemSupplierBoot
+    p2_server_max: 0.05
+    p2_star_server_max: 5
+  extended_diagnostic_session:
+    short_name: extended_diagnostic_session
+    id: 0x03
+    jump_to_bootloader: noBoot
+    p2_server_max: 0.05
+    p2_star_server_max: 5
+  vehicle_manufacturer_specific_session:
+    short_name: vehicle_manufacturer_specific_session
+    id: 0x40
+    jump_to_bootloader: noBoot
+    p2_server_max: 0.05
+    p2_star_server_max: 5
+  fota_session:
+    short_name: fota_session
+    id: 0x42
+    jump_to_bootloader: systemSupplierBoot
+    p2_server_max: 0.05
+    p2_star_server_max: 5
+  system_supplier_specific_session:
+    short_name: system_supplier_specific_session
+    id: 0x60
+    jump_to_bootloader: noBoot
+    p2_server_max: 0.05
+    p2_star_server_max: 5
+
+operation_cycle:
+  IGNITION:
+    short_name: IGNITION
+    type: IGNITION
+    target_swc_service_dependency: TBD
+    context_sw_component: swcCycles
+    cycle_auto_start: TBD
+  DC:
+    short_name: DC
+    type: OBD-DRIVING-CYCLE
+    target_swc_service_dependency: TBD
+    context_sw_component: swcCycles
+    cycle_auto_start: TBD
+  POWER:
+    short_name: POWER
+    type: POWER
+    target_swc_service_dependency: TBD
+    context_sw_component: swcCycles
+    cycle_auto_start: TBD
+  WUC:
+    short_name: WUC
+    type: WARMUP
+    target_swc_service_dependency: TBD
+    context_sw_component: swcCycles
+    cycle_auto_start: TBD
+  Custom1:
+    short_name: Custom1
+    type: OTHER
+    target_swc_service_dependency: TBD
+    context_sw_component: Subf/swcCycles
+    cycle_auto_start: TBD
+
+enable_condition:
+  enable_condition_1:
+    short_name: Enable_1
+    target_swc_service_dependency: True
+    context_sw_component: swcConditions1
+  enable_condition_2:
+    short_name: Enable_2
+    target_swc_service_dependency: True
+    context_sw_component: swcConditions2
+
+debounce_algorithm_type: [Counter, Timer, Custom]
+
+debounce_algorithm:
+  debounce_counter_based_algorithm:
+    short_name: Counter_1
+    base: Counter
+    debounce_counter_storage: false
+    debounce_behavior: reset
+    counter_decrement_step_size: 1
+    counter_passed_threshold: -10
+    counter_increment_step_size: 1
+    counter_failed_threshold: 10
+    counter_jump_down_value: 0
+    counter_jump_up_value: 0
+    counter_jump_up: true
+    counter_jump_down: false
+    counter_fdc_threshold: 5
+  debounce_time_based_algorithm:
+    short_name: Time_1
+    base: Timer
+    debounce_behavior: reset
+    time_failed_threshold: 10.0
+    time_passed_threshold: 5.0
+    time_fdc_threshold: 3.0
+  debounce_monitor_internal_algorithm:
+    short_name: Custom
+    base: Custom
+    monitor_internal: True
+
+
+diagnostic_session_security_level:
+  SecAcc_Level_AA:
+    level_id : 0x01
+    short_name: SecAcc_Level_AA
+    request_seed_id: 0x01
+    key_size: 16
+    num_failed_security_access: 10
+    security_delay_time: 15
+    seed_size: 16
+    static_seed: false
+
+  SecAcc_Level_BB:
+    level_id: 0x03
+    short_name: SecAcc_Level_BB
+    request_seed_id: 0x01
+    key_size: 16
+    num_failed_security_access: 12
+    security_delay_time: 20
+    seed_size: 16
+    static_seed: false
+
+  SecAcc_Level_CC:
+    level_id: 0x05
+    short_name: SecAcc_Level_CC
+    request_seed_id: 0x01
+    key_size: 2
+    num_failed_security_access: 20
+    security_delay_time: 30
+    seed_size: 16
+    static_seed: false
+
+  SecAcc_Level_DD:
+    level_id: 0x07
+    short_name: SecAcc_Level_DD
+    request_seed_id: 0x01
+    key_size: 4
+    num_failed_security_access: 6
+    security_delay_time: 120
+    seed_size: 64
+    static_seed: false
+
+security_binding:
+  programming_session:
+    session_id: 0x02
+    security_level: [SecAcc_Level_AA, SecAcc_Level_BB]
+  extended_session:
+    session_id: 0x03
+    security_level: [SecAcc_Level_AA, SecAcc_Level_BB]
+  vehicle_manufacturer_specific_session:
+    session_id: 0x40
+    security_level: [SecAcc_Level_AA, SecAcc_Level_CC]
+  fota_session:
+    session_id: 0x42
+    security_level: [SecAcc_Level_AA, SecAcc_Level_DD]
+  supplier_session:
+    session_id: 0x60
+    security_level: [SecAcc_Level_AA, SecAcc_Level_CC, SecAcc_Level_DD]
+
+authentication_antibruteforce:
+  authentication_antibruteforce_default:
+    AntiBruteForceCounterMaxValue: 10
+    DelayTimerInvokingValueInit: 60
+    DelayTimerInvokingValueMax: 960
+    AuthenticationTimeout: 20
+
+authentication_timeout_extended:
+  b0:
+    name: b0
+    value: 1
+  b1:
+    name: b1
+    value: 2
+  b2:
+    name: b2
+    value: 4
+  b3:
+    name: b3
+    value: 8
+  b4:
+    name: b4
+    value: 16
+  b5:
+    name: b5
+    value: 32
+  b6:
+    name: b6
+    value: 64

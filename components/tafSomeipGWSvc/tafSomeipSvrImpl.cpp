@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -62,18 +62,11 @@ void taf_SomeipSvr::VSOMEIPHandler
     uint8_t* srcPtr = msg->get_payload()->get_data();
     memcpy(destPtr, srcPtr, rxMsgPtr->payloadSize);
 
-    // Create a reference to this message.
-    rxMsgPtr->ref = (taf_someipSvr_RxMsgRef_t)le_ref_CreateRef(RxMsgRefMap, rxMsgPtr);
-
-    // Report to our rx Handler.
-    LE_DEBUG("VSOMEIP rxMsgRef(%p) of service(%u:0x%x/0x%x) is created.", rxMsgPtr->ref,
-             rxMsgPtr->routingId, rxMsgPtr->serviceId, rxMsgPtr->instanceId);
-
     // Create a generic response message object.
     VsMsg_t vsMsg;
 
-    vsMsg.type = VS_RX_MSG_REF;
-    vsMsg.ref = (void*)rxMsgPtr->ref;
+    vsMsg.type = VS_RX_MSG_PTR;
+    vsMsg.ptr = (void*)rxMsgPtr;
 
     // Report to the common VSOMEIP msg handler in service layer.
     le_event_Report(VsomeipEvent, &vsMsg, sizeof(VsMsg_t));
@@ -95,10 +88,7 @@ bool taf_SomeipSvr::VSOMEIPSubsHandler
     bool isSubscribed
 )
 {
-    SomeipSvr_SubscriptionHandler_t* handlerPtr =
-        (SomeipSvr_SubscriptionHandler_t*)le_ref_Lookup(SubsHandlerRefMap, subsHandlerRef);
-
-    if (handlerPtr != NULL)
+    if (subsHandlerRef != NULL)
     {
         // Create a generic response message object.
         VsMsg_t vsMsg;
@@ -500,6 +490,60 @@ void taf_SomeipSvr::ProcessRxMsgRef
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Process the Rx message.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_SomeipSvr::ProcessRxMsgPtr
+(
+    void* msgPtr
+)
+{
+    if(msgPtr != NULL)
+    {
+        SomeipSvr_RxMsg_t* rxMsgPtr = (SomeipSvr_RxMsg_t*)msgPtr;
+
+        // Get the service object.
+        SomeipSvr_Service_t* servicePtr =
+            SearchServiceInList(rxMsgPtr->routingId, rxMsgPtr->serviceId, rxMsgPtr->instanceId);
+
+        // Simply free the message if no service and/or handler is found to handle it.
+        if ((servicePtr == NULL) || (servicePtr->handlerRef == NULL))
+        {
+            LE_WARN("No service/handler found for rxMsgPtr(%p), free it.", rxMsgPtr);
+            le_mem_Release(rxMsgPtr);
+            return;
+        }
+
+        // Create a reference to this message.
+        rxMsgPtr->ref = (taf_someipSvr_RxMsgRef_t)le_ref_CreateRef(RxMsgRefMap, rxMsgPtr);
+
+        LE_DEBUG("VSOMEIP rxMsgRef(%p) of service(%u:0x%x/0x%x) is created.", rxMsgPtr->ref,
+             rxMsgPtr->routingId, rxMsgPtr->serviceId, rxMsgPtr->instanceId);
+
+        // Get the service handler and do sanity check.
+        SomeipSvr_Handler_t* handlerPtr =
+            (SomeipSvr_Handler_t*)le_ref_Lookup(RxHandlerRefMap, servicePtr->handlerRef);
+        LE_ASSERT(handlerPtr != NULL);
+        LE_ASSERT(handlerPtr->func != NULL);
+
+        // Add the message to service handler's message list.
+        rxMsgPtr->link = LE_DLS_LINK_INIT;
+        le_dls_Queue(&servicePtr->rxMsgList, &rxMsgPtr->link);
+
+        // Call the service handler.
+        handlerPtr->func(rxMsgPtr->ref, handlerPtr->context);
+
+        // Note: The rxMsgPtr is now owned by the service's message list and will be freed
+        // when the message is processed via ReleaseRxMsg or SendResponse
+    }
+    else
+    {
+        LE_WARN("msgPtr is NULL.");
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Process the subscription handler message.
  */
 //--------------------------------------------------------------------------------------------------
@@ -562,6 +606,10 @@ void taf_SomeipSvr::RxEventHandler
 
         switch(msgType)
         {
+            case VS_RX_MSG_PTR:
+                mySomeipSvr.ProcessRxMsgPtr(vsMsgPtr->ptr);
+                break;
+
             case VS_RX_MSG_REF:
                 mySomeipSvr.ProcessRxMsgRef(vsMsgPtr->ref);
                 break;

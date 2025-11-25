@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -32,6 +32,7 @@
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
+    VS_RX_MSG_PTR,
     VS_RX_MSG_REF,
     VS_SUBS_HANDLE,
 }VsMsgType_t;
@@ -50,6 +51,7 @@ typedef struct
     VsMsgType_t type;
     union
     {
+        void* ptr;
         void* ref;
         VsSubsHandle_t handle;
     };
@@ -189,6 +191,7 @@ typedef struct
                                               bool isSubscribed);
 
                 void ProcessRxMsgRef(void* msgRef);
+                void ProcessRxMsgPtr(void* msgPtr);
                 void ProcessSubsHandle(VsSubsHandle_t handle);
 
                 taf_someipSvr_ServiceRef_t GetServiceRef(uint8_t routingId, uint16_t serviceId,

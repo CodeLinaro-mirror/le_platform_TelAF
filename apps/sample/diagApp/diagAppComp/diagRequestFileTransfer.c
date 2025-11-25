@@ -79,6 +79,9 @@ static taf_diagUpdate_ServiceRef_t DiagUpdateSvcRef = NULL;
 static taf_diagUpdate_RxFileXferMsgHandlerRef_t DiagFileXferMsgRef = NULL;
 static taf_diagUpdate_RxXferDataMsgHandlerRef_t DiagXferDataMsgRef = NULL;
 static taf_diagUpdate_RxXferExitMsgHandlerRef_t DiagXferExitMsgRef = NULL;
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+static taf_diagUpdate_NrcStatusHandlerRef_t DiagNrcStatusRef = NULL;
+#endif
 
 /*
  * Determines whether a given path is a directory.
@@ -864,6 +867,21 @@ static void xferExitMsgHandler
     DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_NO_ERROR);
 }
 
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+// Callback function for NRC status
+static void nrcStatusHandler
+(
+        taf_diagUpdate_NrcStatusRef_t statusRef,
+        uint16_t vlanId,
+        uint8_t sid,
+        uint8_t nrc,
+        void* contextPtr
+)
+{
+    LE_INFO("NRC notification -- vlanId: %d, sid: 0x%x, nrc: 0x%x", vlanId, sid, nrc);
+}
+#endif
+
 static void* diagUpdateMsgThread(void* ctxPtr)
 {
     taf_diagUpdate_ConnectService();
@@ -894,6 +912,37 @@ static void* diagUpdateMsgThread(void* ctxPtr)
     return NULL;
 }
 
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+static void* diagUpdateNrcStatusThread(void* ctxPtr)
+{
+    taf_diagUpdate_ConnectService();
+
+    //get diag update reference
+    taf_diagUpdate_ServiceRef_t updateSvcRef = taf_diagUpdate_GetService();
+    if(updateSvcRef == NULL)
+    {
+        LE_ERROR("Get diagUpdate service");
+        le_sem_Post(semRef);
+        return NULL;
+    }
+
+    DiagNrcStatusRef = taf_diagUpdate_AddNrcStatusHandler(
+                            updateSvcRef,
+                            nrcStatusHandler, NULL);
+
+    if (DiagNrcStatusRef == NULL)
+    {
+        LE_ERROR("Fail to register nrc status handler for diagUpdateSvc !");
+        le_sem_Post(semRef);
+        return NULL;
+    }
+
+    le_sem_Post(semRef);
+    le_event_RunLoop();
+    return NULL;
+}
+#endif
+
 le_result_t diagRequestFileTransfer_Init(void)
 {
     semRef = le_sem_Create("SemRef", 0);
@@ -913,5 +962,14 @@ le_result_t diagRequestFileTransfer_Init(void)
 
     le_thread_Start(diagUpdateThreadRef);
     le_sem_Wait(semRef);
+
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+    le_thread_Ref_t diagUpdateNrcThreadRef = le_thread_Create("diagUpdateNrcTd",
+            diagUpdateNrcStatusThread, NULL);
+
+    le_thread_Start(diagUpdateNrcThreadRef);
+    le_sem_Wait(semRef);
+#endif
+
     return LE_OK;
 }

@@ -1883,6 +1883,9 @@ static void *callback_thread_handler(void *ctxPtr)
 
         taf_dcs_ProfileRef_t profileRef = nullptr;
         const taf_dcs_ProfileInfo_t *profileInfoPtr = &profilesInfoPtr[i];
+        LE_TEST_ASSERT(TAF_DCS_UNDEFINED_PROFILE_ID != profileInfoPtr->index,
+                                                            "Uncreated profile index returned.");
+
         profileRef = taf_dcs_GetProfileEx(phoneId, profileInfoPtr->index);
         LE_TEST_ASSERT(nullptr != profileRef, "taf_dcs_GetProfileEx: phone id(%d), \
                                                 profile id: %d",

@@ -338,3 +338,60 @@ taf_dcs_QosFlowBitMask_t TafDcsUtils::ConvertQoSFlowBitMask(taf::pa::data::QosFl
     // They are both 32 bit.
     return static_cast<taf_dcs_QosFlowBitMask_t>(static_cast<std::bitset<32>>(mask).to_ulong());
 }
+
+/***************************************************************************************************
+ * To string functions
+ **************************************************************************************************/
+const char *TafDcsUtils::ToString(taf::pa::data::TechPref_e techPref)
+{
+    switch (techPref)
+    {
+    case taf::pa::data::TechPref_e::TP_3GPP:
+        return "3GPP";
+    case taf::pa::data::TechPref_e::TP_3GPP2:
+        return "3GPP2";
+    case taf::pa::data::TechPref_e::TP_ANY:
+        return "TP_ANY";
+    case taf::pa::data::TechPref_e::TP_UNKNOWN:
+    default:
+        {
+            LE_WARN("Unknown techPref:  %d", TO_INT(techPref));
+            return "UNKNOWN";
+        }
+    };
+}
+
+const char *TafDcsUtils::ToString(taf::pa::data::Subsystem_e subsystem)
+{
+    using namespace taf::pa::data;
+    switch (subsystem)
+    {
+    case Subsystem_e::PHONE_MANAGER:
+        return "PHONE_MANAGER";
+    case Subsystem_e::PROFILE_MANAGER:
+        return "PROFILE_MANAGER";
+    case Subsystem_e::DATACALL_MANAGER:
+        return "DATACALL_MANAGER";
+    case Subsystem_e::SERVING_SYSTEM_MANAGER:
+        return "SERVING_SYSTEM_MANAGER";
+    default:
+        LE_WARN("Unknown subsystem:  %d", TO_INT(subsystem));
+        return "UNKNOWN";
+    };
+}
+const char *TafDcsUtils::ToString(taf::pa::data::SubsystemState_e state)
+{
+    using namespace taf::pa::data;
+    switch (state)
+    {
+    case SubsystemState_e::AVAILABLE:
+        return "AVAILABLE";
+    case SubsystemState_e::UNAVAILABLE:
+        return "UNAVAILABLE";
+    case SubsystemState_e::FAILED:
+        return "FAILED";
+    default:
+        LE_WARN("Unknown subsystem state:  %d", TO_INT(state));
+        return "FAILED";
+    };
+}

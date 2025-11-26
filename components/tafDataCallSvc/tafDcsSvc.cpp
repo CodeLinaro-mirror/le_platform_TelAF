@@ -43,7 +43,7 @@ le_result_t  taf_dcs_GetProfilesList
                                                                 "profilesListSizePtr value is 0");
 
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -74,7 +74,7 @@ taf_dcs_ProfileRef_t taf_dcs_GetProfileRef
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             nullptr, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -102,7 +102,7 @@ le_result_t taf_dcs_GetProfileId
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -129,7 +129,7 @@ le_result_t taf_dcs_GetPhoneId
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -154,7 +154,7 @@ taf_dcs_Pdp_t taf_dcs_GetPDP
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                 TAF_DCS_PDP_UNKNOWN, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -189,7 +189,7 @@ le_result_t taf_dcs_GetAPN
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -218,7 +218,7 @@ le_result_t taf_dcs_StartSession
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -241,11 +241,7 @@ void taf_dcs_StartSessionAsync
         ///< [IN]
 )
 {
-    auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    if (taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState())
-    {
-        LE_ERROR("Service not initialized.");
-    }
+    // To avoid memory leak, the callback handler should be called. So validate before executing.
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     tafDcsProfileManager.SvcStartSessionASync(profileRef, handlerPtr, contextPtr,
                                                                     taf_dcs_GetClientSessionRef());
@@ -273,7 +269,7 @@ le_result_t taf_dcs_StopSession
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -297,11 +293,7 @@ void taf_dcs_StopSessionAsync
         ///< [IN]
 )
 {
-    auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    if (taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState())
-    {
-        LE_ERROR("Service not initialized.");
-    }
+    // To avoid memory leak, the callback handler should be called. So validate before executing.
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     tafDcsProfileManager.SvcStopSessionASync(profileRef, handlerPtr, contextPtr,
                                                                     taf_dcs_GetClientSessionRef());
@@ -327,7 +319,7 @@ le_result_t taf_dcs_GetSessionState
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -358,7 +350,7 @@ taf_dcs_ProfileRef_t taf_dcs_GetProfileEx
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             nullptr, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -389,7 +381,7 @@ taf_dcs_ProfileRef_t taf_dcs_GetProfile
     LE_INFO("Get reference with phone ID 1.");
 
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             nullptr, "Service not initialized.");
 
     // Get the default phone ID
@@ -415,7 +407,7 @@ le_result_t taf_dcs_GetRoamingStatus
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -431,7 +423,7 @@ le_result_t taf_dcs_GetDefaultPhoneIdAndProfileId
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetDefaultPhoneIdAndProfileId(phoneIdPtr, profileIdPtr);
@@ -444,7 +436,7 @@ le_result_t taf_dcs_CreateProfile
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcCreateProfile(profileRef);
@@ -457,7 +449,7 @@ le_result_t taf_dcs_DeleteProfile
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcDeleteProfile(profileRef);
@@ -472,7 +464,7 @@ le_result_t taf_dcs_SetAPN
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcSetAPN(profileRef, apnStr);
@@ -487,7 +479,7 @@ le_result_t taf_dcs_SetApnTypes
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcSetApnTypes(profileRef, apnType);
@@ -502,7 +494,7 @@ le_result_t taf_dcs_SetProfileName
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcSetProfileName(profileRef, nameStr);
@@ -514,7 +506,7 @@ uint32_t taf_dcs_GetDefaultProfileIndex
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             0, "Service not initialized.");
 
     uint8_t phoneId = 0;
@@ -537,7 +529,7 @@ le_result_t taf_dcs_GetDefaultProfileIndexEx
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetDefaultProfileIndexEx(phoneId, profileIdPtr);
@@ -552,7 +544,7 @@ le_result_t taf_dcs_GetApnTypes
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetApnTypes(profileRef, apnTypePtr);
@@ -567,7 +559,7 @@ le_result_t taf_dcs_SetPDP
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcSetPDP(profileRef, pdp);
@@ -597,7 +589,7 @@ le_result_t taf_dcs_GetProfileName
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetProfileName(profileRef, name, nameSize);
@@ -612,7 +604,7 @@ le_result_t taf_dcs_SetTechPreference
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcSetTechPreference(profileRef, techPref);
@@ -627,7 +619,7 @@ le_result_t taf_dcs_GetPhoneIdByInterfaceName
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetPhoneIdByInterfaceName(ifName, phoneIdPtr);
@@ -642,7 +634,7 @@ le_result_t taf_dcs_GetProfileIdByInterfaceName
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetProfileIdByInterfaceName(ifName, profileIdPtr);
@@ -659,7 +651,7 @@ le_result_t taf_dcs_GetInterfaceName
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetInterfaceName(profileRef, ifName, ifNameSize);
@@ -674,7 +666,7 @@ le_result_t taf_dcs_GetMtu
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetMtu(profileRef, mtuPtr);
@@ -691,7 +683,7 @@ le_result_t taf_dcs_GetIPv4GatewayAddress
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetIPv4GatewayAddress(profileRef, gatewayAddr,gatewayAddrSize);
@@ -708,7 +700,7 @@ le_result_t taf_dcs_GetIPv6GatewayAddress
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetIPv6GatewayAddress(profileRef, gatewayAddr, gatewayAddrSize);
@@ -723,7 +715,7 @@ le_result_t taf_dcs_GetIPv4SubnetMask
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetIPv4SubnetMask(profileRef, maskPtr);
@@ -738,7 +730,7 @@ le_result_t taf_dcs_GetIPv6SubnetMask
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                          LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetIPv6SubnetMask(profileRef, maskPtr);
@@ -757,7 +749,7 @@ le_result_t taf_dcs_GetProfileListEx
     TAF_ERROR_IF_RET_VAL(nullptr == profileListPtr, LE_BAD_PARAMETER, "profileListPtr is NULL");
 
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -773,7 +765,7 @@ le_result_t taf_dcs_GetProfileList
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
 
     // Call taf_dcs_GetProfileListEx with phone ID 1.
@@ -790,7 +782,7 @@ le_result_t taf_dcs_GetTechPreference
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                          LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetTechPreference(profileRef, techPrefPtr);
@@ -813,7 +805,7 @@ le_result_t taf_dcs_GetAuthentication
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetAuthentication(profileRef, authPtr, userName, userNameSize,
@@ -841,7 +833,7 @@ le_result_t taf_dcs_GetIPv4Address
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
 
 
@@ -870,7 +862,7 @@ le_result_t taf_dcs_GetIPv6Address
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -892,7 +884,7 @@ le_result_t taf_dcs_GetIPv4DNSAddresses
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                          LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetIPv4DNSAddresses(profileRef, dns1AddrStr, dns1AddrStrSize,
@@ -914,7 +906,7 @@ le_result_t taf_dcs_GetIPv6DNSAddresses
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                          LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetIPv6DNSAddresses(profileRef, dns1AddrStr, dns1AddrStrSize,
@@ -934,7 +926,7 @@ le_result_t taf_dcs_SetAuthentication
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                          LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcSetAuthentication(profileRef, auth, userName, password);
@@ -957,7 +949,7 @@ le_result_t taf_dcs_GetAPNThrottledPLMN
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                          LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetAPNThrottledPLMN(profileRef, areAllPLMNsThrottledPtr, mcc,
@@ -974,7 +966,7 @@ le_result_t taf_dcs_SetDefaultProfileIndexEx
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                          LE_FAULT, "Service not initialized.");
     // Check what the current default phone ID and profile ID are
     uint8_t  localDefPhoneId   = 0;
@@ -1000,7 +992,7 @@ le_result_t taf_dcs_SetDefaultProfileIndex
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
 
     uint8_t defPhoneId = 0;
@@ -1023,7 +1015,7 @@ bool taf_dcs_IsIPv4
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                                 false, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcIsIPv4(profileRef);
@@ -1036,7 +1028,7 @@ bool taf_dcs_IsIPv6
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                          false, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcIsIPv6(profileRef);
@@ -1053,7 +1045,7 @@ le_result_t taf_dcs_GetMaxDataBitRates
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetMaxDataBitRates(profileRef, maxRxBitRatePtr, maxTxBitRatePtr);
@@ -1072,7 +1064,7 @@ le_result_t taf_dcs_GetAPNThrottledStatus
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetAPNThrottledStatus(profileRef, isThrottledPtr,
@@ -1090,7 +1082,7 @@ le_result_t taf_dcs_GetDataBearerTechnology
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                          LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetDataBearerTechnology(profileRef, dlDataBearerTechPtrPtr,
@@ -1110,7 +1102,7 @@ le_result_t taf_dcs_GetCallEndReason
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                          LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcGetCallEndReason(profileRef, pdpType,
@@ -1124,12 +1116,13 @@ le_result_t taf_mdc_StartSession
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                          LE_FAULT, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     // Start session with 0 as session reference so that the service will maintain the connection
     // even if the calling client disconnects.
+    LE_INFO("Start session with clientref 0");
     return tafDcsProfileManager.SvcStartSessionSync(profileRef, 0);
 }
 
@@ -1139,6 +1132,7 @@ le_result_t taf_mdc_StartSessionAsync
         ///< [IN] The taf_dcs profile reference.
 )
 {
+    LE_INFO("MDC start session.");
     return taf_mdc_StartSession(profileRef);
 }
 
@@ -1149,10 +1143,11 @@ le_result_t taf_mdc_StopSession
 )
 {
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     // Stop session with 0 as session reference which was used when starting the session.
+    LE_INFO("Stop session with clientref 0");
     return tafDcsProfileManager.SvcStopSessionSync(profileRef, 0);
 }
 
@@ -1162,6 +1157,7 @@ le_result_t taf_mdc_StopSessionAsync
         ///< [IN] The taf_dcs profile reference.
 )
 {
+    LE_INFO("MDC stop session.");
     return taf_mdc_StopSession(profileRef);
 }
 
@@ -1177,7 +1173,7 @@ le_result_t taf_dcs_GetQosProfile
     LE_UNUSED(qosFlowRef);
     LE_UNUSED(profileRefPtr);
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                          LE_FAULT, "Service not initialized.");
     return LE_UNSUPPORTED;
 }
@@ -1193,7 +1189,7 @@ le_result_t taf_dcs_GetQosId
     LE_UNUSED(qosFlowRef);
     LE_UNUSED(qosFlowIdPtr);
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
     return LE_UNSUPPORTED;
 }
@@ -1209,7 +1205,7 @@ le_result_t taf_dcs_GetQosParameterMask
     LE_UNUSED(qosFlowRef);
     LE_UNUSED(qosFlowMaskPtr);
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                          LE_FAULT, "Service not initialized.");
     return LE_UNSUPPORTED;
 }
@@ -1228,7 +1224,7 @@ taf_dcs_RoamingStatusHandlerRef_t taf_dcs_AddRoamingStatusHandler
     TAF_ERROR_IF_RET_VAL(nullptr == handlerPtr, nullptr, "handlerPtr is NULL");
 
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             nullptr, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -1271,7 +1267,7 @@ taf_dcs_SessionStateHandlerRef_t taf_dcs_AddSessionStateHandler
     TAF_ERROR_IF_RET_VAL(nullptr == profileRef, nullptr, "profileRef is NULL");
 
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             nullptr, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -1309,7 +1305,7 @@ taf_dcs_QosStatusHandlerRef_t taf_dcs_AddQosStatusHandler
     TAF_ERROR_IF_RET_VAL(nullptr == profileRef, nullptr, "profileRef is NULL");
 
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             nullptr, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -1342,7 +1338,7 @@ taf_dcs_HwAccelerationStateHandlerRef_t taf_dcs_AddHwAccelerationStateHandler
     TAF_ERROR_IF_RET_VAL(nullptr == profileRef, nullptr, "profileRef is NULL");
 
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             nullptr, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -1375,7 +1371,7 @@ taf_dcs_ThrottledStatusHandlerRef_t taf_dcs_AddThrottledStatusHandler
     TAF_ERROR_IF_RET_VAL(nullptr == profileRef, nullptr, "profileRef is NULL");
 
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
-    TAF_ERROR_IF_RET_VAL(taf::pa::data::InitState_e::INIT_DONE!= tafDcsSvc.GetInitState(),
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE!= tafDcsSvc.GetInitState(),
                                                             nullptr, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();

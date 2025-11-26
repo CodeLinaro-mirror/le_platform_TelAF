@@ -1179,37 +1179,6 @@ EVENT ThrottledStatus
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for QOS status.
- *
- * @instaging
- *
- * @param[in] qosFlowRef The QOS flow reference.
- * @param[in] qosState   The QOS state.
- * @param[in] contextPtr Context pointer.
- *
- */
-//--------------------------------------------------------------------------------------------------
-HANDLER QosStatusHandler
-(
-    QosFlow qosFlowRef IN,     ///< The QOS flow reference.
-    QosFlowState qosState IN   ///< QOS state.
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * The QOS flow change event.
- *
- * @instaging
- */
-//--------------------------------------------------------------------------------------------------
-EVENT QosStatus
-(
-    Profile profileRef,      ///< The profile reference.
-    QosStatusHandler handler ///< Handler for QOS flow status.
-) = (66,67);
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Handler for hardware acceleration state change events.
  *
  * @instaging
@@ -2118,3 +2087,34 @@ FUNCTION le_result_t GetQosProfile
     QosFlow qosFlowRef IN,                     ///< The QOS flow reference.
     Profile profileRef OUT
 ) = 65;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for QOS status.
+ *
+ * @instaging
+ *
+ * @param[in] qosFlowRef The QOS flow reference.
+ * @param[in] qosState   The QOS state.
+ * @param[in] contextPtr Context pointer.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER QosStatusHandler
+(
+    QosFlow qosFlowRef IN,     ///< The QOS flow reference.
+    QosFlowState qosState IN   ///< QOS state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The QOS flow change event.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT QosStatus
+(
+    Profile profileRef,      ///< The profile reference.
+    QosStatusHandler handler ///< Handler for QOS flow status.
+) = (66,67);

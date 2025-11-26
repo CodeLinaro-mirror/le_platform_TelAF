@@ -54,7 +54,7 @@ COMPONENT_INIT
     // Check if the PA service is initialized.
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
     tafDcsSvc.Init();
-    if (taf::pa::data::InitState_e::INIT_DONE != tafDcsSvc.GetInitState())
+    if (taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState())
     {
         // Kill the service as the PA is not ready
         LE_FATAL("PA service is not initialized");

@@ -60,23 +60,23 @@ public:
     static TafDcsSvc &GetInstance();
     void Init();
     void Deinit();
-    taf::pa::data::InitState_e GetInitState() const;
+    inline taf::pa::data::SubsystemState_e GetInitState() const {return paInitState_;}
 
     // Internal threads
-    le_thread_Ref_t GetEventsThreadRef() const;
+    inline le_thread_Ref_t GetEventsThreadRef() const { return tafDcsEventsThreadRef_; };
 
     // Internal events
-    le_event_Id_t GetUpdateProfileEvtId() const;
-    le_event_Id_t GetClientsDisconnectedEvtId() const;
-    le_event_Id_t GetSessionStartEvtId() const;
-    le_event_Id_t GetSessionStopEvtId() const;
-    le_event_Id_t GetStartSessionAsyncRspEvtId() const;
-    le_event_Id_t GetStopSessionAsyncRspEvtId() const;
-    le_event_Id_t GetPaSessionStateChangeEvtId() const;
-    le_event_Id_t GetPaRoamingStatusChangeEvtId() const;
-    le_event_Id_t GetPaThrottledAPNsEvtId() const;
-    le_event_Id_t GetPaHwAccelerationEvtId() const;
-    le_event_Id_t GetPaQosTftEvtId() const;
+    inline le_event_Id_t GetUpdateProfileEvtId() const {return updateProfileEvtId_;}
+    inline le_event_Id_t GetClientsDisconnectedEvtId() const { return clientDisconnectedEvtId_; }
+    inline le_event_Id_t GetSessionStartEvtId() const { return sessionStartEvtId_; }
+    inline le_event_Id_t GetSessionStopEvtId() const { return sessionStopEvtId_; }
+    inline le_event_Id_t GetStartSessionAsyncRspEvtId() const { return startSessionAsyncRspEvtId_; }
+    inline le_event_Id_t GetStopSessionAsyncRspEvtId() const { return stopSessionAsyncRspEvtId_; }
+    inline le_event_Id_t GetPaSessionStateChangeEvtId() const { return paSessionStateChangeEvtId_; }
+    inline le_event_Id_t GetPaRoamingStatusChangeEvtId() const { return paRoamingChangeEvtId_; }
+    inline le_event_Id_t GetPaThrottledAPNsEvtId() const { return paThrottledAPNsEvtId_; }
+    inline le_event_Id_t GetPaHwAccelerationEvtId() const { return paHwAccelerationChangeEvtId_; }
+    inline le_event_Id_t GetPaQosTftEvtId() const { return paQosTftEvtId_; }
 
 private:
 
@@ -96,7 +96,7 @@ private:
     static void onDCSClientDisconnect(le_msg_SessionRef_t sessionRef, void *ctxPtr);
 
     // Private variables
-    taf::pa::data::InitState_e paInitState_ = taf::pa::data::InitState_e::INIT_FAILED;
+    taf::pa::data::SubsystemState_e paInitState_ = taf::pa::data::SubsystemState_e::FAILED;
     taf::pa::data::SlotCount_e slotCount_ = taf::pa::data::SlotCount_e::ONE; // 1
 
     // Internal events
@@ -119,6 +119,16 @@ private:
 
     // Powerstate change handler
     taf_pm_StateChangeHandlerRef_t powerStateChangeHandlerRef_ = nullptr;
+
+    // The ID of the callback registered for subsystem state change events events
+    uint16_t subsystemStateChangeCallbackId_ = 0;
+    static void tafPaSubsystemStateChangeCallback
+    (
+        taf::pa::data::PhoneId_e        phoneId,
+        taf::pa::data::Subsystem_e      subsystem,
+        taf::pa::data::SubsystemState_e subsystemState,
+        std::shared_ptr<void>           context
+    );
 
     // Instance
     TafDcsSvc() {};

@@ -1759,10 +1759,9 @@ void taf_FwUpdate::UpdateImage
                 size_t j = 0;
                 while (j < NUM_ARRAY_MEMBERS(partitonTableInfo))
                 {
-                    if (strncmp(partition, partitonTableInfo[j].partition, strlen(partition)) == 0)
-                    {
+                    if (strcmp(partition, partitonTableInfo[j].partition) == 0)
                         break;
-                    }
+
                     j++;
                 }
 

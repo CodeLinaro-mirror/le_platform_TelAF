@@ -824,6 +824,7 @@ le_result_t taf_WlanAPSvcImpl::Start
             return LE_OK;
         }
 
+        LE_ERROR("Failed to enable AP %s", ctxPtr->interfaceName);
         return LE_FAULT;
     }
 }
@@ -887,6 +888,7 @@ le_result_t taf_WlanAPSvcImpl::Stop
             return LE_OK;
         }
 
+        LE_ERROR("Failed to disable AP %s", ctxPtr->interfaceName);
         return LE_FAULT;
     }
 }
@@ -960,7 +962,7 @@ le_result_t taf_WlanAPSvcImpl::Restart
         LE_WARN("ENABLE failed on %s", ctxPtr->interfaceName);
     }
 
-    LE_WARN("Restart failed on %s", ctxPtr->interfaceName);
+    LE_ERROR("Failed to restart AP %s", ctxPtr->interfaceName);
     return LE_FAULT;
 }
 
@@ -1052,7 +1054,8 @@ le_result_t taf_WlanAPSvcImpl::SetConfig
 
     // Apply changes
     HostapdCommand(ctxPtr->interfaceName, "RELOAD", nullptr);
-    LE_INFO("Config updated via runtime SET");
+    LE_INFO("Config updated for AP %s: SSID=%s, visible=%d",
+            ctxPtr->interfaceName, wlanAPConfigPtr->SSID, wlanAPConfigPtr->bSSIDVisible);
     return LE_OK;
 }
 
@@ -1090,6 +1093,8 @@ le_result_t taf_WlanAPSvcImpl::GetConfig
     le_utf8_Copy(wlanAPConfigPtr->SSID, ssid.c_str(), TAF_WLAN_MAX_SSID_LENGTH + 1, nullptr);
     wlanAPConfigPtr->bSSIDVisible = visible;
 
+    LE_INFO("Retrieved config for AP %s: SSID=%s, visible=%d",
+            ctxPtr->interfaceName, wlanAPConfigPtr->SSID, wlanAPConfigPtr->bSSIDVisible);
     return LE_OK;
 }
 
@@ -1169,16 +1174,25 @@ le_result_t taf_WlanAPSvcImpl::SetSecurityConfig
     {
     case TAF_WLAN_SEC_MODE_OPEN:
         if (!sendSet("SET wpa 0"))
+        {
+            LE_ERROR("Failed to set open security mode for AP %s", ctxPtr->interfaceName);
             return LE_FAULT;
+        }
         break;
     case TAF_WLAN_SEC_MODE_WPA:
         if (!sendSet("SET wpa 1"))
+        {
+            LE_ERROR("Failed to set WPA security mode for AP %s", ctxPtr->interfaceName);
             return LE_FAULT;
+        }
         break;
     case TAF_WLAN_SEC_MODE_WPA2:
     case TAF_WLAN_SEC_MODE_WPA3:
         if (!sendSet("SET wpa 2"))
+        {
+            LE_ERROR("Failed to set WPA2/WPA3 security mode for AP %s", ctxPtr->interfaceName);
             return LE_FAULT;
+        }
         break;
     default:
         LE_ERROR("Invalid security mode: %d", wlanAPSecCfgPtr->SecMode);
@@ -1189,18 +1203,27 @@ le_result_t taf_WlanAPSvcImpl::SetSecurityConfig
     if (wlanAPSecCfgPtr->SecAuthMethod == TAF_WLAN_SEC_AUTH_METHOD_SAE)
     {
         if (!sendSet("SET wpa_key_mgmt SAE"))
+        {
+            LE_ERROR("Failed to set SAE auth method for AP %s", ctxPtr->interfaceName);
             return LE_FAULT;
+        }
 
         if (wlanAPSecCfgPtr->PassPhrase[0])
         {
             std::string saePwd = "SET sae_password " + std::string(wlanAPSecCfgPtr->PassPhrase);
             if (!sendSet(saePwd))
+            {
+                LE_ERROR("Failed to set SAE password for AP %s", ctxPtr->interfaceName);
                 return LE_FAULT;
+            }
         }
 
         // WPA3/SAE typically requires PMF/MFP
         if (!sendSet("SET ieee80211w 2"))
+        {
+            LE_ERROR("Failed to set PMF for AP %s", ctxPtr->interfaceName);
             return LE_FAULT;
+        }
 
         // Try enabling SAE MFP requirement (optional: do not fail hard if unsupported)
         std::string optResp;
@@ -1220,19 +1243,28 @@ le_result_t taf_WlanAPSvcImpl::SetSecurityConfig
     else if (wlanAPSecCfgPtr->SecAuthMethod == TAF_WLAN_SEC_AUTH_METHOD_PSK)
     {
         if (!sendSet("SET wpa_key_mgmt WPA-PSK"))
+        {
+            LE_ERROR("Failed to set PSK auth method for AP %s", ctxPtr->interfaceName);
             return LE_FAULT;
+        }
 
         if (wlanAPSecCfgPtr->PassPhrase[0])
         {
             std::string wpaPwd = "SET wpa_passphrase " + std::string(wlanAPSecCfgPtr->PassPhrase);
             if (!sendSet(wpaPwd))
+            {
+                LE_ERROR("Failed to set WPA passphrase for AP %s", ctxPtr->interfaceName);
                 return LE_FAULT;
+            }
         }
     }
     else if (wlanAPSecCfgPtr->SecAuthMethod == TAF_WLAN_SEC_AUTH_METHOD_EAP_TLS)
     {
         if (!sendSet("SET wpa_key_mgmt WPA-EAP"))
+        {
+            LE_ERROR("Failed to set EAP-TLS auth method for AP %s", ctxPtr->interfaceName);
             return LE_FAULT;
+        }
         // Certificates and EAP specifics are expected to be configured out-of-band
     }
     else if (wlanAPSecCfgPtr->SecMode != TAF_WLAN_SEC_MODE_OPEN)
@@ -1245,17 +1277,26 @@ le_result_t taf_WlanAPSvcImpl::SetSecurityConfig
     if (wlanAPSecCfgPtr->SecEncryptMethod == TAF_WLAN_SEC_ENCRYPT_METHOD_AES)
     {
         if (!sendSet("SET rsn_pairwise CCMP"))
+        {
+            LE_ERROR("Failed to set AES encryption for AP %s", ctxPtr->interfaceName);
             return LE_FAULT;
+        }
     }
     else if (wlanAPSecCfgPtr->SecEncryptMethod == TAF_WLAN_SEC_ENCRYPT_METHOD_GCMP)
     {
         if (!sendSet("SET rsn_pairwise GCMP"))
+        {
+            LE_ERROR("Failed to set GCMP encryption for AP %s", ctxPtr->interfaceName);
             return LE_FAULT;
+        }
     }
     else if (wlanAPSecCfgPtr->SecEncryptMethod == TAF_WLAN_SEC_ENCRYPT_METHOD_TKIP)
     {
         if (!sendSet("SET wpa_pairwise TKIP"))
+        {
+            LE_ERROR("Failed to set TKIP encryption for AP %s", ctxPtr->interfaceName);
             return LE_FAULT;
+        }
     }
     else if (wlanAPSecCfgPtr->SecMode != TAF_WLAN_SEC_MODE_OPEN)
     {
@@ -1273,7 +1314,9 @@ le_result_t taf_WlanAPSvcImpl::SetSecurityConfig
     ctxPtr->hasLastSecCfg = true;
     le_mutex_Unlock(APCtxMutex);
 
-    LE_INFO("Security config updated");
+    LE_INFO("Security config updated for AP %s: mode=%d, auth=%d, encrypt=%d",
+            ctxPtr->interfaceName, wlanAPSecCfgPtr->SecMode,
+            wlanAPSecCfgPtr->SecAuthMethod, wlanAPSecCfgPtr->SecEncryptMethod);
     return LE_OK;
 }
 
@@ -1326,11 +1369,12 @@ le_result_t taf_WlanAPSvcImpl::GetSecurityConfig
         {
             *wlanAPSecCfgPtr = ctxPtr->lastSecCfg;
             le_mutex_Unlock(APCtxMutex);
-            LE_INFO("Using cached security config");
+            LE_INFO("Using cached security config for AP %s", ctxPtr->interfaceName);
             return LE_OK;
         }
         le_mutex_Unlock(APCtxMutex);
 
+        LE_ERROR("Failed to get security config for AP %s", ctxPtr->interfaceName);
         return LE_FAULT;
     }
 
@@ -1357,6 +1401,9 @@ le_result_t taf_WlanAPSvcImpl::GetSecurityConfig
     }
     le_mutex_Unlock(APCtxMutex);
 
+    LE_INFO("Retrieved security config for AP %s: mode=%d, auth=%d, encrypt=%d",
+            ctxPtr->interfaceName, wlanAPSecCfgPtr->SecMode,
+            wlanAPSecCfgPtr->SecAuthMethod, wlanAPSecCfgPtr->SecEncryptMethod);
     return LE_OK;
 }
 
@@ -1408,6 +1455,10 @@ le_result_t taf_WlanAPSvcImpl::GetStatus
     std::string mac = GetInterfaceMac(ctxPtr->interfaceName);
     le_utf8_Copy(wlanAPStatusPtr->MACAddress, mac.c_str(), TAF_NET_MAC_ADDR_MAX_LEN + 1, nullptr);
 
+    LE_INFO("AP %s status: enabled=%d, IPv4=%s, IPv6=%s, MAC=%s",
+            ctxPtr->interfaceName, wlanAPStatusPtr->bEnabled,
+            wlanAPStatusPtr->IPv4Address, wlanAPStatusPtr->IPv6Address,
+            wlanAPStatusPtr->MACAddress);
     return LE_OK;
 }
 

@@ -28,7 +28,9 @@ static std::atomic<bool> bWaitingForIntGetPromise = {false};
  * Return Device state change event ID
  */
 //--------------------------------------------------------------------------------------------------
-le_event_Id_t taf_WlanSvcImpl::GetStateChangeEventID(void){
+le_event_Id_t taf_WlanSvcImpl::GetStateChangeEventID(void)
+{
+    LE_INFO("returning eventId=%p", wlanDevStateChangeEvID);
     return wlanDevStateChangeEvID;
 }
 
@@ -39,36 +41,22 @@ le_event_Id_t taf_WlanSvcImpl::GetStateChangeEventID(void){
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_WlanSvcImpl::SetON(void)
 {
-    if (nullptr == wlanDevMgr)
+    // If device is already ON, return success with a clear log.
+    taf_wlan_DeviceState_t curState = TAF_WLAN_UNAVAILABLE;
+    le_result_t st = GetState(&curState);
+    if (st == LE_OK && curState == TAF_WLAN_ON)
     {
-        LE_WARN ("WLAN Device not initialized");
-        return LE_NOT_PERMITTED;
-    }
-
-    // Check if device is already enabled
-    telux::common::ErrorCode errCode = telux::common::ErrorCode::SUCCESS;
-    bool enabled = false;
-    std::vector<telux::wlan::InterfaceStatus> ifStatus;
-
-    errCode = wlanDevMgr->getStatus(enabled, ifStatus);
-    if(telux::common::ErrorCode::SUCCESS != errCode)
-    {
-        LE_WARN ("WLAN Get Status failed: %d", (int) errCode);
-        return LE_FAULT;
-    }
-    if (enabled){
-        LE_INFO ("WLAN Device already enabled");
+        LE_INFO("WLAN device already ON; no effect");
         return LE_OK;
     }
 
-    // Enable WLAN Device
-    wlanListener->resetPromise();
-    errCode = wlanDevMgr->enable(true);
-    if((telux::common::ErrorCode::SUCCESS != errCode) ||
-            (false == wlanListener->getEnableStatus())) {
-            LE_WARN ("WLAN Enable failed. Error Code: %d", (int) errCode);
-            return LE_FAULT;
+    pa_result_t res = taf::pa::wlan::EnableDevice(true);
+    if (res != PA_OK)
+    {
+        LE_ERROR("EnableDevice(true) failed, rc=%d; returning LE_FAULT", (int)res);
+        return LE_FAULT;
     }
+    LE_INFO("EnableDevice(true) succeeded; returning LE_OK");
     return LE_OK;
 }
 
@@ -79,36 +67,22 @@ le_result_t taf_WlanSvcImpl::SetON(void)
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_WlanSvcImpl::SetOFF(void)
 {
-    if (nullptr == wlanDevMgr)
+    // If device is already OFF, return success with a clear log.
+    taf_wlan_DeviceState_t curState = TAF_WLAN_UNAVAILABLE;
+    le_result_t st = GetState(&curState);
+    if (st == LE_OK && curState == TAF_WLAN_OFF)
     {
-        LE_WARN ("WLAN Device not initialized");
-        return LE_NOT_PERMITTED;
-    }
-
-    // Check if device is already disabled
-    telux::common::ErrorCode errCode = telux::common::ErrorCode::SUCCESS;
-    bool enabled = false;
-    std::vector<telux::wlan::InterfaceStatus> ifStatus;
-
-    errCode = wlanDevMgr->getStatus(enabled, ifStatus);
-    if(telux::common::ErrorCode::SUCCESS != errCode)
-    {
-        LE_WARN ("WLAN Get Status failed: %d", (int) errCode);
-        return LE_FAULT;
-    }
-    if (!enabled){
-        LE_INFO ("WLAN Device already disabled");
+        LE_INFO("WLAN device already OFF; no effect");
         return LE_OK;
     }
 
-    // Disable WLAN Device
-    wlanListener->resetPromise();
-    errCode = wlanDevMgr->enable(false);
-    if((telux::common::ErrorCode::SUCCESS != errCode) ||
-            (true == wlanListener->getEnableStatus())) {
-            LE_WARN ("WLAN Disable failed. Error Code: %d", (int) errCode);
-            return LE_FAULT;
+    pa_result_t res = taf::pa::wlan::EnableDevice(false);
+    if (res != PA_OK)
+    {
+        LE_ERROR("EnableDevice(false) failed, rc=%d; returning LE_FAULT", (int)res);
+        return LE_FAULT;
     }
+    LE_INFO("EnableDevice(false) succeeded; returning LE_OK");
     return LE_OK;
 }
 
@@ -129,29 +103,15 @@ le_result_t taf_WlanSvcImpl::GetState
 )
 {
     TAF_ERROR_IF_RET_VAL(statePtr == NULL,  LE_BAD_PARAMETER, "statePtr is NULL!");
-    if (nullptr == wlanDevMgr)
+    bool enabled = false;
+    pa_result_t res = taf::pa::wlan::GetStatus(enabled);
+    if (res != PA_OK)
     {
-        LE_WARN ("WLAN Device not initialized");
-        return LE_NOT_PERMITTED;
-    }
-
-    telux::common::ErrorCode errCode = telux::common::ErrorCode::SUCCESS;
-    bool enableStat = false;
-    std::vector<telux::wlan::InterfaceStatus> ifStatus;
-
-    errCode = wlanDevMgr->getStatus(enableStat, ifStatus);
-    if(telux::common::ErrorCode::SUCCESS != errCode)
-    {
-        LE_WARN ("WLAN Get Status failed: %d", (int) errCode);
+        LE_ERROR("PA GetStatus failed rc=%d; returning LE_FAULT", (int)res);
         return LE_FAULT;
     }
-
-    // Update state pointer
-    if (enableStat) {
-        *statePtr = TAF_WLAN_ON;
-    } else {
-        *statePtr = TAF_WLAN_OFF;
-    }
+    *statePtr = enabled ? TAF_WLAN_ON : TAF_WLAN_OFF;
+    LE_INFO("enabled=%d -> state=%d; returning LE_OK", (int)enabled, (int)(*statePtr));
     return LE_OK;
 }
 
@@ -168,56 +128,30 @@ le_result_t taf_WlanSvcImpl::GetState
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_WlanSvcImpl::SetMode
 (
-    taf_wlan_DeviceMode_t wlanMode ///< [IN] The WLAN device mode.
+    taf_wlan_DeviceMode_t wlanMode
 )
 {
-    if (nullptr == wlanDevMgr)
-    {
-        LE_WARN ("WLAN Device not initialized");
-        return LE_NOT_PERMITTED;
-    }
-
-    int numAP  = 0;
-    int numSTA = 0;
-
-    // Transform taf_wlan_DeviceMode_t to number of APs and STAs.
+    int numAP = 0, numSTA = 0;
     switch (wlanMode)
     {
-    case TAF_WLAN_MODE_AP:
-        numAP  = 1;
-        numSTA = 0;
-        break;
-    case TAF_WLAN_MODE_STA:
-        numAP  = 0;
-        numSTA = 1;
-        break;
-    case TAF_WLAN_MODE_STA_AP:
-        numAP  = 1;
-        numSTA = 1;
-        break;
-    case TAF_WLAN_MODE_AP_AP:
-        numAP = 2;
-        numSTA = 0;
-        break;
-    case TAF_WLAN_MODE_AP_AP_STA:
-        numAP = 2;
-        numSTA = 1;
-        break;
-    // Unsupported modes
-    case TAF_WLAN_MODE_UNKNOWN:
-    default:
-        LE_WARN ("Invalid Device Mode: %d", wlanMode);
-        return LE_BAD_PARAMETER;
-    };
-
-    telux::common::ErrorCode errCode = telux::common::ErrorCode::SUCCESS;
-    errCode = wlanDevMgr->setMode(numAP,numSTA);
-    if(telux::common::ErrorCode::SUCCESS != errCode)
-    {
-        LE_WARN ("WLAN Set Mode failed: %d", (int)errCode);
-        return LE_FAULT;
+        case TAF_WLAN_MODE_AP:         numAP=1; numSTA=0; break;
+        case TAF_WLAN_MODE_STA:        numAP=0; numSTA=1; break;
+        case TAF_WLAN_MODE_STA_AP:     numAP=1; numSTA=1; break;
+        case TAF_WLAN_MODE_AP_AP:      numAP=2; numSTA=0; break;
+        case TAF_WLAN_MODE_AP_AP_STA:  numAP=2; numSTA=1; break;
+        default:
+            LE_WARN("Invalid wlanMode=%d; returning LE_BAD_PARAMETER", (int)wlanMode);
+            return LE_BAD_PARAMETER;
     }
-    return LE_OK;
+    pa_result_t paRes = taf::pa::wlan::SetDeviceMode(numAP, numSTA);
+    if (paRes == PA_OK)
+    {
+        LE_INFO("wlanMode=%d -> (AP=%d, STA=%d) succeeded; returning LE_OK",
+                (int)wlanMode, numAP, numSTA);
+        return LE_OK;
+    }
+    LE_ERROR("(AP=%d, STA=%d) failed rc=%d; returning LE_FAULT", numAP, numSTA, (int)paRes);
+    return LE_FAULT;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -236,58 +170,28 @@ le_result_t taf_WlanSvcImpl::GetMode
         ///< [OUT] The WLAN device mode.
 )
 {
-    TAF_ERROR_IF_RET_VAL(wlanModePtr == NULL,  LE_BAD_PARAMETER, "wlanModePtr is NULL!");
-
-    if (nullptr == wlanDevMgr)
+    TAF_ERROR_IF_RET_VAL(!wlanModePtr, LE_BAD_PARAMETER, "wlanModePtr is NULL!");
+    int numAPOut = 0, numSTAOut = 0;
+    if (taf::pa::wlan::GetDeviceMode(numAPOut, numSTAOut) != PA_OK)
     {
-        LE_WARN ("WLAN Device not initialized");
-        return LE_NOT_PERMITTED;
-    }
-
-    telux::common::ErrorCode errCode = telux::common::ErrorCode::SUCCESS;
-    int numOfAP=0, numOfSTA=0;
-    errCode = wlanDevMgr->getConfig(numOfAP,numOfSTA);
-    if(telux::common::ErrorCode::SUCCESS != errCode)
-    {
-        LE_WARN ("WLAN Get Mode failed: %d", (int)errCode);
         return LE_FAULT;
     }
-    LE_INFO ("WLAN Mode - AP: %d, STA: %d", numOfAP, numOfSTA);
-
-    // Transform to taf_wlan_DeviceMode_t
-    if (1==numOfAP && 0 == numOfSTA)
-    {
-        // AP only
+    if (numAPOut == 1 && numSTAOut == 0)
         *wlanModePtr = TAF_WLAN_MODE_AP;
-    }
-    else if (0==numOfAP && 1 == numOfSTA)
-    {
-        // STA only
+    else if (numAPOut == 0 && numSTAOut == 1)
         *wlanModePtr = TAF_WLAN_MODE_STA;
-    }
-    else if (1==numOfAP && 1 == numOfSTA)
-    {
-        // STA + AP
+    else if (numAPOut == 1 && numSTAOut == 1)
         *wlanModePtr = TAF_WLAN_MODE_STA_AP;
-    }
-    else if (2 == numOfAP && 0 == numOfSTA)
-    {
-        // AP + AP
+    else if (numAPOut == 2 && numSTAOut == 0)
         *wlanModePtr = TAF_WLAN_MODE_AP_AP;
-    }
-    else if (2 == numOfAP && 1 == numOfSTA)
-    {
-        // AP + AP
+    else if (numAPOut == 2 && numSTAOut == 1)
         *wlanModePtr = TAF_WLAN_MODE_AP_AP_STA;
-    }
-    else
-    {
-        // Unsupported mode
-        LE_WARN ("Unsupported mode");
+    else {
         *wlanModePtr = TAF_WLAN_MODE_UNKNOWN;
+        LE_WARN("Unsupported WLAN mode configuration: AP=%d, STA=%d", numAPOut, numSTAOut);
         return LE_UNSUPPORTED;
     }
-
+    LE_INFO("Current WLAN mode: (AP=%d, STA=%d)", numAPOut, numSTAOut);
     return LE_OK;
 }
 
@@ -437,6 +341,9 @@ le_result_t taf_WlanSvcImpl::FillIntfInfo(
         return LE_FAULT;
         break;
     }
+
+    LE_INFO("Filled interface info: AP interfaces=%zu, STA interfaces=%zu",
+            *APIntfinfoSizePtr, *STAIntfinfoSizePtr);
     return LE_OK;
 }
 
@@ -463,14 +370,19 @@ le_result_t taf_WlanSvcImpl::GetIntfInfo
         ///< [INOUT]
 )
 {
-    if (nullptr == wlanDevMgr)
-    {
-        LE_WARN("WLAN Device not initialized");
-        return LE_NOT_PERMITTED;
-    }
     // Fill in the interface names in TelAF as TelSDK will not provide the interface names in all
     // scenarios.
-    return FillIntfInfo(APIntfinfoPtr, APIntfinfoSizePtr, STAIntfinfoPtr, STAIntfinfoSizePtr);
+    le_result_t result = FillIntfInfo(APIntfinfoPtr, APIntfinfoSizePtr, STAIntfinfoPtr, STAIntfinfoSizePtr);
+    if (result == LE_OK)
+    {
+        LE_INFO("Retrieved interface info: AP interfaces=%zu, STA interfaces=%zu",
+                *APIntfinfoSizePtr, *STAIntfinfoSizePtr);
+    }
+    else
+    {
+        LE_ERROR("Failed to get interface information");
+    }
+    return result;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -494,67 +406,38 @@ void taf_WlanSvcImpl::ResetBandIntCfg(WlanBandIntCfg_t &config)
 le_result_t taf_WlanSvcImpl::GetBandIntState(taf_wlan_BandIntState_t *statePtr)
 {
     TAF_ERROR_IF_RET_VAL(nullptr == statePtr, LE_BAD_PARAMETER, "statePtr is null");
-    TAF_ERROR_IF_RET_VAL(nullptr == dataSettingsManager || !bDataSettingManagerReady,
-                                        LE_NOT_POSSIBLE, "Data settings manager is not ready!");
-    le_result_t result = LE_OK;
 
-    // Populate the GET command
-    WlanDataSettingsCmd_t cmd;
-    cmd.cmdType = WLAN_DSCMD_BAND_INT_CFG_GET;
-    cmd.bandIntGetCmd.contextPtr = NULL;
-
-    // Set the get band config promise and get a future to get the response
-    promGetBandIntConfig = std::promise<WlanGetBandIntCmdRsp_t>();
-    std::future<WlanGetBandIntCmdRsp_t> futGetBandIntConfig = promGetBandIntConfig.get_future();
-
-    // Send the command to the data settings thread handler
-    le_event_Report(dataSettingsCmd, &cmd, sizeof(WlanDataSettingsCmd_t));
-
-    LE_DEBUG("Waiting for response");
-    std::chrono::seconds span(TAF_WLAN_CMD_TIMEOUT);
-
-    // Set command is waiting for promise
-    bWaitingForIntGetPromise.store(true);
-
-    std::future_status waitStatus = futGetBandIntConfig.wait_for(span);
-    if (std::future_status::timeout == waitStatus)
+    bool enabledOut = false;
+    taf::pa::wlan::BandInterferenceConfig_t paCfgOut = {};
+    if (taf::pa::wlan::GetBandInterferenceConfig(enabledOut, paCfgOut) != PA_OK)
     {
-        LE_ERROR("Response timeout");
-        result = LE_TIMEOUT;
+        LE_ERROR("Failed to get band interference configuration");
+        return LE_FAULT;
     }
-    else
+
+    *statePtr = enabledOut ? TAF_WLAN_BAND_INT_ENABLED : TAF_WLAN_BAND_INT_DISABLED;
+
+    // Update caches similar to legacy behavior
+    bandIntCfgCurrent.state = *statePtr;
+    if (bandIntCfgCurrent.state == TAF_WLAN_BAND_INT_ENABLED)
     {
-        LE_INFO("Waiting for response.");
-        WlanGetBandIntCmdRsp_t rsp = futGetBandIntConfig.get();
-        if (LE_OK == rsp.result)
+        if (paCfgOut.prioBand == taf::pa::wlan::BandIntPriority_e::N79)
         {
-            *statePtr = rsp.config.state;
-            // Update the current cached value if command is successful
-            bandIntCfgCurrent.state               = rsp.config.state;
-            // Update the cached values if state is enabled. Else everything will be 0.
-            if (TAF_WLAN_BAND_INT_ENABLED == bandIntCfgCurrent.state)
-            {
-                // Current setting
-                bandIntCfgCurrent.prioBand            = rsp.config.prioBand;
-                bandIntCfgCurrent.wlanUnavailableTime = rsp.config.wlanUnavailableTime;
-                bandIntCfgCurrent.n79UnavailableTime  = rsp.config.n79UnavailableTime;
-
-                // To set settings
-                bandIntCfgToSet.prioBand            = rsp.config.prioBand;
-                bandIntCfgToSet.wlanUnavailableTime = rsp.config.wlanUnavailableTime;
-                bandIntCfgToSet.n79UnavailableTime  = rsp.config.n79UnavailableTime;
-            }
-            LE_INFO("Band int: State         : %d", bandIntCfgCurrent.state);
-            LE_INFO("Band int: Priority      : %d", bandIntCfgCurrent.prioBand);
-            LE_INFO("Band int: N79 wait time : %d", bandIntCfgCurrent.n79UnavailableTime);
-            LE_INFO("Band int: WLAN wait time: %d", bandIntCfgCurrent.wlanUnavailableTime);
+            bandIntCfgCurrent.prioBand = TAF_WLAN_PRIO_BAND_N79;
         }
-        result = rsp.result;
-    }
-    // Reset command is waiting for promise
-    bWaitingForIntGetPromise.store(false);
+        else
+        {
+            bandIntCfgCurrent.prioBand = TAF_WLAN_PRIO_BAND_WLAN_5_GHZ;
+        }
+        bandIntCfgCurrent.wlanUnavailableTime = paCfgOut.wlanWaitTimeInSec;
+        bandIntCfgCurrent.n79UnavailableTime = paCfgOut.n79WaitTimeInSec;
 
-    return result;
+        bandIntCfgToSet = bandIntCfgCurrent;
+    }
+
+    LE_INFO("Band interference state: %s",
+            (*statePtr == TAF_WLAN_BAND_INT_ENABLED) ? "ENABLED" : "DISABLED");
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -564,61 +447,44 @@ le_result_t taf_WlanSvcImpl::GetBandIntState(taf_wlan_BandIntState_t *statePtr)
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_WlanSvcImpl::SetBandIntState(taf_wlan_BandIntState_t state)
 {
-    TAF_ERROR_IF_RET_VAL(TAF_WLAN_BAND_INT_DISABLED != state && TAF_WLAN_BAND_INT_ENABLED != state,
+    TAF_ERROR_IF_RET_VAL(state != TAF_WLAN_BAND_INT_DISABLED &&
+                         state != TAF_WLAN_BAND_INT_ENABLED,
                          LE_BAD_PARAMETER, "Invalid state");
-    // Check if the data settings manager is ready or not
-    TAF_ERROR_IF_RET_VAL(nullptr == dataSettingsManager || !bDataSettingManagerReady,
-                                        LE_NOT_POSSIBLE, "Data settings manager is not ready!");
 
-    le_result_t result = LE_OK;
-    // Populate the SET command
-    WlanDataSettingsCmd_t cmd;
-    cmd.cmdType = WLAN_DSCMD_BAND_INT_CFG_SET;
-    cmd.bandIntSetCmd.config.state               = state;
-    cmd.bandIntSetCmd.config.prioBand            = bandIntCfgToSet.prioBand;
-    cmd.bandIntSetCmd.config.wlanUnavailableTime = bandIntCfgToSet.wlanUnavailableTime;
-    cmd.bandIntSetCmd.config.n79UnavailableTime  = bandIntCfgToSet.n79UnavailableTime;
-    cmd.bandIntSetCmd.contextPtr = NULL;
-
-    // Set the set band config promise and get a future to get the response
-    promSetBandIntConfig = std::promise<le_result_t>();
-    // Set waiting for promise
-    bWaitingForIntSetPromise.store(true);
-    std::future<le_result_t> futSetBandIntConfig = promSetBandIntConfig.get_future();
-
-    // Send the command to the data settings thread handler
-    le_event_Report(dataSettingsCmd, &cmd, sizeof(WlanDataSettingsCmd_t));
-
-    LE_DEBUG("Waiting for response");
-    std::chrono::seconds span(TAF_WLAN_CMD_TIMEOUT);
-    std::future_status waitStatus = futSetBandIntConfig.wait_for(span);
-    if (std::future_status::timeout == waitStatus)
+    bool enable = (state == TAF_WLAN_BAND_INT_ENABLED);
+    taf::pa::wlan::BandInterferenceConfig_t cfg = {};
+    if (enable)
     {
-        LE_ERROR("Response timeout");
-        result = LE_TIMEOUT;
+        if(bandIntCfgToSet.prioBand == TAF_WLAN_PRIO_BAND_N79)
+        {
+            cfg.prioBand =
+                taf::pa::wlan::BandIntPriority_e::N79;
+        }
+        else if(bandIntCfgToSet.prioBand == TAF_WLAN_PRIO_BAND_WLAN_5_GHZ)
+        {
+            cfg.prioBand =
+                taf::pa::wlan::BandIntPriority_e::WLAN_5_GHZ;
+        }
+        cfg.wlanWaitTimeInSec  = bandIntCfgToSet.wlanUnavailableTime;
+        cfg.n79WaitTimeInSec   = bandIntCfgToSet.n79UnavailableTime;
     }
-    else
-    {
-        result = futSetBandIntConfig.get();
-    }
-    // Reset waiting for promise
-    bWaitingForIntSetPromise.store(false);
 
-    // Update the current cached value if command is successful
-    if (LE_OK == result)
+    pa_result_t paRes = taf::pa::wlan::SetBandInterferenceConfig(enable, cfg);
+    if (paRes != PA_OK)
     {
-        // Update the current band config if set is successful.
-        LE_INFO("Update the current int config");
-        bandIntCfgCurrent.state               = state;
-        bandIntCfgCurrent.prioBand            = bandIntCfgToSet.prioBand;
-        bandIntCfgCurrent.wlanUnavailableTime = bandIntCfgToSet.wlanUnavailableTime;
-        bandIntCfgCurrent.n79UnavailableTime  = bandIntCfgToSet.n79UnavailableTime;
+        LE_ERROR("SetBandInterferenceConfig failed, errorcode: %d", (int)paRes);
+        return LE_FAULT;
     }
-    else
-    {
-        LE_WARN("Skip current int config update");
-    }
-    return result;
+
+    // Update current cached value on success
+    bandIntCfgCurrent.state               = state;
+    bandIntCfgCurrent.prioBand            = bandIntCfgToSet.prioBand;
+    bandIntCfgCurrent.wlanUnavailableTime = bandIntCfgToSet.wlanUnavailableTime;
+    bandIntCfgCurrent.n79UnavailableTime  = bandIntCfgToSet.n79UnavailableTime;
+
+    LE_INFO("Band interference state set to %s",
+            (state == TAF_WLAN_BAND_INT_ENABLED) ? "ENABLED" : "DISABLED");
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -628,20 +494,20 @@ le_result_t taf_WlanSvcImpl::SetBandIntState(taf_wlan_BandIntState_t state)
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_WlanSvcImpl::SetBandIntWaitTime(taf_wlan_BandIntPriority_t band, uint32_t waitTime)
 {
-    TAF_ERROR_IF_RET_VAL( TAF_WLAN_PRIO_BAND_N79 != band && TAF_WLAN_PRIO_BAND_WLAN_5_GHZ  != band,
-                                                            LE_BAD_PARAMETER, "band is invalid");
+    TAF_ERROR_IF_RET_VAL(band != TAF_WLAN_PRIO_BAND_N79 && band != TAF_WLAN_PRIO_BAND_WLAN_5_GHZ,
+                         LE_BAD_PARAMETER, "band is invalid");
     TAF_ERROR_IF_RET_VAL(waitTime > SECONDS_IN_A_DAY, LE_BAD_PARAMETER,
-                                                    "waitTime of %ds is too long", waitTime);
-    TAF_ERROR_IF_RET_VAL(nullptr == dataSettingsManager || !bDataSettingManagerReady,
-                         LE_NOT_POSSIBLE, "Data settings manager is not ready!");
+                         "waitTime of %ds is too long", waitTime);
 
-    if (TAF_WLAN_PRIO_BAND_N79 == band)
+    if (band == TAF_WLAN_PRIO_BAND_N79)
     {
         bandIntCfgToSet.n79UnavailableTime = waitTime;
+        LE_INFO("N79 band wait time set to %u seconds", waitTime);
     }
     else
     {
         bandIntCfgToSet.wlanUnavailableTime = waitTime;
+        LE_INFO("WLAN 5GHz band wait time set to %u seconds", waitTime);
     }
     return LE_OK;
 }
@@ -654,29 +520,26 @@ le_result_t taf_WlanSvcImpl::SetBandIntWaitTime(taf_wlan_BandIntPriority_t band,
 le_result_t taf_WlanSvcImpl::GetBandIntWaitTime
 (
     taf_wlan_BandIntPriority_t band,
-    uint32_t *waitTimePtr)
+    uint32_t *waitTimePtr
+)
 {
-    TAF_ERROR_IF_RET_VAL( TAF_WLAN_PRIO_BAND_N79 != band && TAF_WLAN_PRIO_BAND_WLAN_5_GHZ  != band,
-                                                            LE_BAD_PARAMETER, "band is invalid");
-    TAF_ERROR_IF_RET_VAL(nullptr == waitTimePtr, LE_BAD_PARAMETER,"waitTimePtr is null");
-    TAF_ERROR_IF_RET_VAL(nullptr == dataSettingsManager || !bDataSettingManagerReady,
-                                        LE_NOT_POSSIBLE, "Data settings manager is not ready!");
+    TAF_ERROR_IF_RET_VAL(band != TAF_WLAN_PRIO_BAND_N79 && band != TAF_WLAN_PRIO_BAND_WLAN_5_GHZ,
+                         LE_BAD_PARAMETER, "band is invalid");
+    TAF_ERROR_IF_RET_VAL(nullptr == waitTimePtr, LE_BAD_PARAMETER, "waitTimePtr is null");
 
-    if (TAF_WLAN_PRIO_BAND_N79 == band)
+    if (band == TAF_WLAN_PRIO_BAND_N79)
     {
-        // If enabled, return the current config, else return the ToSet config.
-        if (TAF_WLAN_BAND_INT_ENABLED == bandIntCfgCurrent.state)
-            *waitTimePtr = bandIntCfgCurrent.n79UnavailableTime;
-        else
-            *waitTimePtr = bandIntCfgToSet.n79UnavailableTime;
+        *waitTimePtr = (bandIntCfgCurrent.state == TAF_WLAN_BAND_INT_ENABLED)
+                           ? bandIntCfgCurrent.n79UnavailableTime
+                           : bandIntCfgToSet.n79UnavailableTime;
+        LE_INFO("N79 band wait time: %u seconds", *waitTimePtr);
     }
     else
     {
-        // If enabled, return the current config, else return the ToSet config.
-        if (TAF_WLAN_BAND_INT_ENABLED == bandIntCfgCurrent.state)
-            *waitTimePtr = bandIntCfgCurrent.wlanUnavailableTime;
-        else
-            *waitTimePtr = bandIntCfgToSet.wlanUnavailableTime;
+        *waitTimePtr = (bandIntCfgCurrent.state == TAF_WLAN_BAND_INT_ENABLED)
+                           ? bandIntCfgCurrent.wlanUnavailableTime
+                           : bandIntCfgToSet.wlanUnavailableTime;
+        LE_INFO("WLAN 5GHz band wait time: %u seconds", *waitTimePtr);
     }
     return LE_OK;
 }
@@ -688,13 +551,12 @@ le_result_t taf_WlanSvcImpl::GetBandIntWaitTime
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_WlanSvcImpl::SetBandIntPriority(taf_wlan_BandIntPriority_t bandPriority)
 {
-    TAF_ERROR_IF_RET_VAL( TAF_WLAN_PRIO_BAND_N79 != bandPriority &&
-                          TAF_WLAN_PRIO_BAND_WLAN_5_GHZ  != bandPriority,
-                          LE_BAD_PARAMETER, "band is invalid");
-    TAF_ERROR_IF_RET_VAL(nullptr == dataSettingsManager || !bDataSettingManagerReady,
-                                        LE_NOT_POSSIBLE, "Data settings manager is not ready!");
-
+    TAF_ERROR_IF_RET_VAL(bandPriority != TAF_WLAN_PRIO_BAND_N79 &&
+                         bandPriority != TAF_WLAN_PRIO_BAND_WLAN_5_GHZ,
+                         LE_BAD_PARAMETER, "band is invalid");
     bandIntCfgToSet.prioBand = bandPriority;
+    LE_INFO("Band interference priority set to %s",
+            (bandPriority == TAF_WLAN_PRIO_BAND_N79) ? "N79" : "WLAN_5_GHZ");
     return LE_OK;
 }
 
@@ -705,16 +567,13 @@ le_result_t taf_WlanSvcImpl::SetBandIntPriority(taf_wlan_BandIntPriority_t bandP
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_WlanSvcImpl::GetBandIntPriority(taf_wlan_BandIntPriority_t *bandPriorityPtr)
 {
-    TAF_ERROR_IF_RET_VAL(nullptr == bandPriorityPtr, LE_BAD_PARAMETER,"bandPriorityPtr is null");
-    TAF_ERROR_IF_RET_VAL(nullptr == dataSettingsManager || !bDataSettingManagerReady,
-                                        LE_NOT_POSSIBLE, "Data settings manager is not ready!");
+    TAF_ERROR_IF_RET_VAL(nullptr == bandPriorityPtr, LE_BAD_PARAMETER, "bandPriorityPtr is null");
 
-    LE_DEBUG("Current prio band: %d", bandIntCfgCurrent.prioBand);
-    // If enabled, return the current config, else return the ToSet config.
-    if (TAF_WLAN_BAND_INT_ENABLED == bandIntCfgCurrent.state)
-        *bandPriorityPtr = bandIntCfgCurrent.prioBand;
-    else
-        *bandPriorityPtr = bandIntCfgToSet.prioBand;
+    *bandPriorityPtr = (bandIntCfgCurrent.state == TAF_WLAN_BAND_INT_ENABLED)
+        ? bandIntCfgCurrent.prioBand
+        : bandIntCfgToSet.prioBand;
+    LE_INFO("Band interference priority: %s",
+            (*bandPriorityPtr == TAF_WLAN_PRIO_BAND_N79) ? "N79" : "WLAN_5_GHZ");
     return LE_OK;
 }
 
@@ -725,90 +584,36 @@ le_result_t taf_WlanSvcImpl::GetBandIntPriority(taf_wlan_BandIntPriority_t *band
 //--------------------------------------------------------------------------------------------------
 void taf_WlanSvcImpl::HandleBandIntGet(WlanGetBandIntCmd_t bandIntGet)
 {
-    // Future-Promise for synchronization
-    std::promise<le_result_t> pObj;
-    std::future<le_result_t> fObj = pObj.get_future();
-    WlanBandIntCfg_t intConfig    = {TAF_WLAN_BAND_INT_DISABLED,
-                                     TAF_WLAN_PRIO_BAND_UNKNOWN,
-                                     0, 0};
     WlanGetBandIntCmdRsp_t cmdRsp;
+    cmdRsp.result     = LE_FAULT;
+    cmdRsp.contextPtr = bandIntGet.contextPtr;
 
-    // The get request callback lambda function
-    auto respCb = [&pObj, &intConfig](bool isEnabled,
-                                      std::shared_ptr<telux::data::BandInterferenceConfig> config,
-                                      telux::common::ErrorCode error)
-    {
-        le_result_t res = LE_OK;
-        if (telux::common::ErrorCode::SUCCESS != error)
-        {
-            LE_WARN("requestBandInterferenceConfig cbk failed: %d", static_cast<int>(error));
-            res = LE_FAULT;
-        }
-        else
-        {
-            LE_INFO("requestBandInterferenceConfig cbk succeeded");
-            // Check of band interference config is enabled and update values.
-            if (isEnabled)
-            {
-                intConfig.state    = TAF_WLAN_BAND_INT_ENABLED;
-                intConfig.prioBand = taf_WlanHelper::ConvertInterferenceBand(config->priority);
-                intConfig.wlanUnavailableTime = config->wlanWaitTimeInSec;
-                intConfig.n79UnavailableTime  = config->n79WaitTimeInSec;
-            }
-        }
-        // Callback is complete
-        pObj.set_value(res);
-    };
+    bool enabledOut = false;
+    taf::pa::wlan::BandInterferenceConfig_t paCfgOut = {};
 
-    // Request the band interference config from the data settings manager.
-    auto &myWlan = taf_WlanSvcImpl::GetInstance();
-    // Check if the data settings manager is ready or not.
-    if (nullptr == myWlan.dataSettingsManager || !myWlan.bDataSettingManagerReady)
+    if (taf::pa::wlan::GetBandInterferenceConfig(enabledOut, paCfgOut) == PA_OK)
     {
-        LE_WARN("Data settings manager is not ready");
-        cmdRsp.result = LE_NOT_POSSIBLE;
-        // Complete promGetBandIntConfig so that the main thread can get the response, only if the
-        // main thread is expecting it.
-        if (bWaitingForIntGetPromise.load())
+        cmdRsp.result = LE_OK;
+        cmdRsp.config.state = enabledOut ? TAF_WLAN_BAND_INT_ENABLED : TAF_WLAN_BAND_INT_DISABLED;
+        cmdRsp.config.prioBand = static_cast<taf_wlan_BandIntPriority_t>(paCfgOut.prioBand);
+        cmdRsp.config.wlanUnavailableTime = paCfgOut.wlanWaitTimeInSec;
+        cmdRsp.config.n79UnavailableTime = paCfgOut.n79WaitTimeInSec;
+
+        bandIntCfgCurrent.state = cmdRsp.config.state;
+        if (bandIntCfgCurrent.state == TAF_WLAN_BAND_INT_ENABLED)
         {
-            myWlan.promGetBandIntConfig.set_value(cmdRsp);
+            bandIntCfgCurrent.prioBand = cmdRsp.config.prioBand;
+            bandIntCfgCurrent.wlanUnavailableTime = cmdRsp.config.wlanUnavailableTime;
+            bandIntCfgCurrent.n79UnavailableTime = cmdRsp.config.n79UnavailableTime;
+
+            bandIntCfgToSet = bandIntCfgCurrent;
         }
-        return;
     }
 
-    // Data settings manager is ready. Proceed with the get request.
-    telux::common::Status ret = myWlan.dataSettingsManager->requestBandInterferenceConfig(respCb);
-    if (telux::common::Status::SUCCESS != ret)
-    {
-        // Command failed. Return error to the app's callback handler.
-        LE_WARN("requestBandInterferenceConfig failed: %d", static_cast<int>(ret));
-        cmdRsp.result = LE_FAULT;
-    }
-    else
-    {
-        // Command is running. Wait for callback to finish and return.
-        LE_DEBUG("Wait for callback");
-        le_result_t result = fObj.get();
-        if (LE_OK == result)
-        {
-            cmdRsp.result = LE_OK;
-            cmdRsp.config.state    = intConfig.state;
-            cmdRsp.config.prioBand = intConfig.prioBand;
-            cmdRsp.config.wlanUnavailableTime = intConfig.wlanUnavailableTime;
-            cmdRsp.config.n79UnavailableTime  = intConfig.n79UnavailableTime;
-        }
-        else
-        {
-            cmdRsp.result = result;
-        }
-    }
-    // Complete promGetBandIntConfig so that the main thread can get the response, only if the main
-    // thread is expecting it.
     if (bWaitingForIntGetPromise.load())
     {
-        myWlan.promGetBandIntConfig.set_value(cmdRsp);
+        promGetBandIntConfig.set_value(cmdRsp);
     }
-    return;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -818,83 +623,30 @@ void taf_WlanSvcImpl::HandleBandIntGet(WlanGetBandIntCmd_t bandIntGet)
 //--------------------------------------------------------------------------------------------------
 void taf_WlanSvcImpl::HandleBandIntSet(WlanSetBandIntCmd_t bandIntSet)
 {
-    bool bEnable = false;
-    le_result_t result = LE_OK;
-    std::shared_ptr<telux::data::BandInterferenceConfig> config = nullptr;
-    if (TAF_WLAN_BAND_INT_ENABLED == bandIntSet.config.state)
+    bool enable = (bandIntSet.config.state == TAF_WLAN_BAND_INT_ENABLED);
+    taf::pa::wlan::BandInterferenceConfig_t cfg = {};
+    if (enable)
     {
-        LE_DEBUG("Enable band int");
-        bEnable = true;
-    }
-    if (bEnable)
-    {
-        config = std::make_shared<telux::data::BandInterferenceConfig>();
-        config->priority = taf_WlanHelper::ConvertInterferenceBand(bandIntSet.config.prioBand);
-        config->wlanWaitTimeInSec = bandIntSet.config.wlanUnavailableTime;
-        config->n79WaitTimeInSec = bandIntSet.config.n79UnavailableTime;
-        LE_DEBUG("priority: %d", static_cast<int>(config->priority));
-        LE_DEBUG("wlanWaitTimeInSec: %d", static_cast<int>(config->wlanWaitTimeInSec));
-        LE_DEBUG("n79WaitTimeInSec: %d", static_cast<int>(config->n79WaitTimeInSec));
-    }
-
-    // Future-Promise for synchronization
-    std::promise<le_result_t> pObj;
-    std::future<le_result_t> fObj = pObj.get_future();
-
-    auto respCb = [&pObj](telux::common::ErrorCode error)
-    {
-        le_result_t result = LE_OK;
-        if (telux::common::ErrorCode::SUCCESS == error)
+        if(bandIntSet.config.prioBand == TAF_WLAN_PRIO_BAND_N79)
         {
-            LE_INFO("setBandInterferenceConfig cbk succeeded");
+            cfg.prioBand =
+                taf::pa::wlan::BandIntPriority_e::N79;
         }
         else
         {
-            LE_WARN("setBandInterferenceConfig cbk failed: %d", static_cast<int>(error));
-            result = LE_FAULT;
+            cfg.prioBand =
+                taf::pa::wlan::BandIntPriority_e::WLAN_5_GHZ;
         }
-        pObj.set_value(result); // Callback is complete
-    };
-
-    auto &myWlan = taf_WlanSvcImpl::GetInstance();
-    // Check if the data settings manager is ready or not.
-    if (nullptr == myWlan.dataSettingsManager || !myWlan.bDataSettingManagerReady)
-    {
-        LE_WARN("Data settings manager is not ready");
-        // Complete promGetBandIntConfig so that the main thread can get the response, only if the
-        // main thread is expecting it.
-        if (bWaitingForIntGetPromise.load())
-        {
-            myWlan.promSetBandIntConfig.set_value(LE_NOT_POSSIBLE);
-        }
-        return;
+        cfg.wlanWaitTimeInSec  = bandIntSet.config.wlanUnavailableTime;
+        cfg.n79WaitTimeInSec   = bandIntSet.config.n79UnavailableTime;
     }
 
-    // Data settings manager is ready, proceed with the set operation.
-    telux::common::Status ret = myWlan.dataSettingsManager->setBandInterferenceConfig(bEnable,
-                                                                                    config, respCb);
-    if (telux::common::Status::SUCCESS != ret)
-    {
-        // Command failed. Return error to the app's callback handler.
-        LE_WARN("setBandInterferenceConfig failed: %d", static_cast<int>(ret));
+    pa_result_t paRes = taf::pa::wlan::SetBandInterferenceConfig(enable, cfg);
+    le_result_t result = (paRes == PA_OK) ? LE_OK : LE_FAULT;
 
-        // Complete promSetBandIntConfig so that the main thread can get the response
-        result = LE_FAULT;
+    if (bWaitingForIntSetPromise.load()) {
+        promSetBandIntConfig.set_value(result);
     }
-    else
-    {
-        // Command is running. Wait for callback to finish and return.
-        LE_DEBUG("Wait for callback");
-        result = fObj.get();
-    }
-
-    // Complete promSetBandIntConfig so that the main thread can get the response, only if the main
-    // thread is expecting it.
-    if (bWaitingForIntSetPromise.load())
-    {
-        myWlan.promSetBandIntConfig.set_value(result);
-    }
-    return;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -911,18 +663,15 @@ void taf_WlanSvcImpl::DataSettingsCmdHandler(void *PayloadPtrPtr)
 
     switch (WlanCmdPtr->cmdType)
     {
-    case WLAN_DSCMD_BAND_INT_CFG_GET:
-        LE_INFO("WLAN_DSCMD_BAND_INT_CFG_GET");
-        myWlan.HandleBandIntGet(WlanCmdPtr->bandIntGetCmd);
-        break;
-    case WLAN_DSCMD_BAND_INT_CFG_SET:
-        LE_INFO("WLAN_DSCMD_BAND_INT_CFG_SET");
-        myWlan.HandleBandIntSet(WlanCmdPtr->bandIntSetCmd);
-        break;
-
-    default:
-        LE_WARN("Unknown command type: %d", WlanCmdPtr->cmdType);
-        break;
+        case WLAN_DSCMD_BAND_INT_CFG_GET:
+            myWlan.HandleBandIntGet(WlanCmdPtr->bandIntGetCmd);
+            break;
+        case WLAN_DSCMD_BAND_INT_CFG_SET:
+            myWlan.HandleBandIntSet(WlanCmdPtr->bandIntSetCmd);
+            break;
+        default:
+            LE_WARN("Unknown command type: %d", WlanCmdPtr->cmdType);
+            break;
     }
 }
 
@@ -936,84 +685,23 @@ void *taf_WlanSvcImpl::DataSettingsThreadHdlr(void *context)
 {
     auto &myWlan = taf_WlanSvcImpl::GetInstance();
 
-    // Get the data settings manager
-    if (nullptr == myWlan.dataSettingsManager)
-    {
-        auto &dataFactory = telux::data::DataFactory::getInstance();
-        // Use getDataSettingsManager without callback to get ServiceStatus
-        myWlan.dataSettingsManager = dataFactory.getDataSettingsManager(
-                                                        telux::data::OperationType::DATA_LOCAL);
-        if (nullptr == myWlan.dataSettingsManager)
-        {
-            LE_ERROR("Failed to get Data Settings manager instance");
-            myWlan.promDataSettingThreadStart.set_value(LE_FAULT);
-            return nullptr;
-        }
-        else
-        {
-            telux::common::ServiceStatus status = myWlan.dataSettingsManager->getServiceStatus();
-            if (status != telux::common::ServiceStatus::SERVICE_AVAILABLE)
-            {
-                LE_INFO("Data settings manager is ready");
-                myWlan.bDataSettingManagerReady = true;
-            }
-            else
-            {
-                LE_WARN("Data Settings manager service status is not available (%d)",
-                                                                        static_cast<int>(status));
-                // Use getDataSettingsManager with callback as ServiceStatus was not AVAILABLE
-                std::promise<telux::common::ServiceStatus> promStatus;
-                myWlan.dataSettingsManager = dataFactory.getDataSettingsManager(
-                    telux::data::OperationType::DATA_LOCAL,
-                    [&](telux::common::ServiceStatus svcStatus)
-                    {
-                        if (svcStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-                        {
-                            LE_INFO("getDataSettingsManager promStatus.set_value AVAILABLE...");
-                            promStatus.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
-                        }
-                        else
-                        {
-                            LE_INFO("getDataSettingsManager promStatus.set_value FAILED...");
-                            promStatus.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
-                        }
-                    });
-                LE_INFO("Waiting for data settings subsystem to be ready...");
-                std::future<telux::common::ServiceStatus> futStatus = promStatus.get_future();
-                std::future_status waitStatus = futStatus.wait_for(std::chrono::seconds(
-                                                    TAF_WLAN_GET_DATA_SETTINGS_TIMEOUT));
-                if (std::future_status::timeout == waitStatus)
-                {
-                    LE_ERROR("Timeout waiting for Data setting subsystem");
-                    myWlan.promDataSettingThreadStart.set_value(LE_FAULT);
-                    return nullptr;
-                }
-                else
-                {
-                    status = futStatus.get();
-                }
-                if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-                {
-                    myWlan.bDataSettingManagerReady = true;
-                    LE_INFO("Data settings manager is ready");
-                }
-                else
-                {
-                    LE_ERROR("Failed to init data setting manager subsystem");
-                    myWlan.promDataSettingThreadStart.set_value(LE_FAULT);
-                    return nullptr;
-                }
-            }
-        }
-    }
-    // Create the event ID for the BandIntCfg command
+    // This thread only creates the internal event and runs the loop.
+    // PA owns any Telux interactions.
+
+    // Create the event ID for the BandInterference config commands
     myWlan.dataSettingsCmd = le_event_CreateId("dataSettingsCmd", sizeof(WlanDataSettingsCmd_t));
-    // Add the handler for the BandIntCfg command
+
+    // Register the command handler
     le_event_AddHandler("dataSettingsCmd handler", myWlan.dataSettingsCmd, DataSettingsCmdHandler);
-    // Start the event loop to receive the BandIntCfg commands
-    LE_INFO("DataSettingsThread started");
+
+    // Signal the main thread that the internal event loop is ready
     myWlan.promDataSettingThreadStart.set_value(LE_OK);
+
+    // Start the event loop to receive internal band interference commands
+    LE_INFO("DataSettingsThread started");
     le_event_RunLoop();
+
+    return nullptr;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1040,79 +728,42 @@ void taf_WlanSvcImpl::GetFirstBandIntConfigTimerHdlr(le_timer_Ref_t timerRef)
 //--------------------------------------------------------------------------------------------------
 void taf_WlanSvcImpl::Init(void)
 {
-    // Initialize relevant variables
-    wlanDevMgr = nullptr;
-    // WLAN 5G and N79 5G band interference configuration current settings
+    // Initialize cached configs
     ResetBandIntCfg(bandIntCfgCurrent);
-    // WLAN 5G and N79 5G band interference configuration current settings
     ResetBandIntCfg(bandIntCfgToSet);
 
-    std::promise<telux::common::ServiceStatus> initPromise;
-    telux::common::ServiceStatus subSystemStatus = telux::common::ServiceStatus::SERVICE_FAILED;
-
-    // [1] Instantiate subsystem initialization callback
-    auto initCb = [&](telux::common::ServiceStatus status) {
-         initPromise.set_value(status);
-    };
-    // [2] Get the WlanFactory and Device Manager instance
-    auto &wlanFactory = telux::wlan::WlanFactory::getInstance();
-
-    do {
-        wlanDevMgr  = wlanFactory.getWlanDeviceManager(initCb);
-        if (wlanDevMgr) {
-            // [3] Check if Device manager is ready
-            LE_INFO ("Initializing Wlan subsystem Please wait ...");
-            subSystemStatus = initPromise.get_future().get();
-            LE_INFO ("Subsystem Status = %d", (int)subSystemStatus);
-        }
-        if (subSystemStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-            LE_INFO (" *** Wlan SubSystem is Ready *** ");
-        }
-        else {
-            wlanDevMgr = nullptr;
-            // Unable to initialize the WLAN subsystem. Stop the service.
-            LE_FATAL (" *** Unable to initialize Wlan subsystem *** ");
-        }
-    }while(0);
-
-    wlanListener = std::make_shared<taf_WlanListener>();
-    // Register the Listener class
-    telux::common::ErrorCode retCode = wlanDevMgr->registerListener(wlanListener);
-    if (telux::common::ErrorCode::SUCCESS != retCode)
-    {
-        LE_WARN("WLAN registerListener failed: %d", (int)retCode);
-    }
-
-    // Create WLAN state event ID
+    // Create events/mutex/mem pools
     wlanDevStateChangeEvID = le_event_CreateIdWithRefCounting("DeviceStateChangeEvent");
-
-    // Create wlan mutex
     wlanMutexRef =  le_mutex_CreateRecursive("WlanMutex");
-    // Create mem pool for state change event reporting.
     DeviceStatusPoolRef = le_mem_InitStaticPool(DeviceStatusPool, TAF_WLAN_MAX_SESSION_REF,
                                                 sizeof(taf_wlan_DeviceState_t));
 
-    // Create the band interference config thread
-    dataSettingsThreadRef = le_thread_Create("DataSettingsThread", DataSettingsThreadHdlr, NULL);
-    // Start the thread and wait for it to finish initializing.
-    promDataSettingThreadStart = std::promise<le_result_t>();
-    std::future<le_result_t> futDataSettingThreadStart = promDataSettingThreadStart.get_future();
-    le_thread_Start(dataSettingsThreadRef);
-    le_result_t result = futDataSettingThreadStart.get();
-    if (LE_OK == result)
-    {
-        bDataSettingManagerReady = true;
-        // Start a timer to get the current config after a small delay. This is a one shot timer.
-        getFirstBandIntConfigTimerRef = le_timer_Create("GetFirstBandIntConfigTimer");
-        le_timer_SetWakeup(getFirstBandIntConfigTimerRef, false);
-        le_timer_SetHandler(getFirstBandIntConfigTimerRef, GetFirstBandIntConfigTimerHdlr);
-        le_timer_SetMsInterval(getFirstBandIntConfigTimerRef, GetFirstBandIntConfigInterval);
-        le_timer_Start(getFirstBandIntConfigTimerRef);
+    // Initialize PA (OSS or default)
+    pa_result_t paRes = taf::pa::wlan::Init();
+    if (paRes != PA_OK) {
+        LE_FATAL("*** Unable to initialize WLAN PA, ret=%d", (int)paRes);
     }
-    else
-    {
-        bDataSettingManagerReady = false;
-    }
+
+    // Register PA device listener
+    taf::pa::wlan::RegisterDeviceListener(
+        [](bool enabled, taf::pa::wlan::ServiceState_e serviceStatus, std::any){
+            auto &svc = taf_WlanSvcImpl::GetInstance();
+            svc.SetDeviceState(enabled);
+            svc.SetSubsystemState(serviceStatus);
+        },
+        nullptr
+    );
+
+    // Create the event ID for the BandIntCfg command and add handler
+    dataSettingsCmd = le_event_CreateId("dataSettingsCmd", sizeof(WlanDataSettingsCmd_t));
+    le_event_AddHandler("dataSettingsCmd handler", dataSettingsCmd, DataSettingsCmdHandler);
+
+    // Optionally kick off a single GET to populate caches (or via timer if you prefer)
+    WlanDataSettingsCmd_t cmd;
+    cmd.cmdType = WLAN_DSCMD_BAND_INT_CFG_GET;
+    cmd.bandIntGetCmd.contextPtr = nullptr;
+    le_event_Report(dataSettingsCmd, &cmd, sizeof(cmd));
+
     LE_INFO("Init done");
 }
 
@@ -1123,19 +774,10 @@ void taf_WlanSvcImpl::Init(void)
 //--------------------------------------------------------------------------------------------------
 void taf_WlanSvcImpl::SetDeviceState (bool enable)
 {
-    taf_wlan_DeviceState_t *devStatePtr = NULL;
-    // Send event to applications.
     le_mutex_Lock(wlanMutexRef);
 
-    devStatePtr = (taf_wlan_DeviceState_t *)le_mem_ForceAlloc(DeviceStatusPoolRef);
-    if (enable) {
-        LE_INFO( "Send TAF_WLAN_ON Event" );
-        *devStatePtr = TAF_WLAN_ON;
-    } else {
-        LE_INFO( "Send TAF_WLAN_OFF Event" );
-        *devStatePtr = TAF_WLAN_OFF;
-    }
-
+    auto *devStatePtr = (taf_wlan_DeviceState_t *)le_mem_ForceAlloc(DeviceStatusPoolRef);
+    *devStatePtr = enable ? TAF_WLAN_ON : TAF_WLAN_OFF;
     le_event_ReportWithRefCounting(wlanDevStateChangeEvID, (void *)devStatePtr);
 
     le_mutex_Unlock(wlanMutexRef);
@@ -1146,23 +788,24 @@ void taf_WlanSvcImpl::SetDeviceState (bool enable)
  * Set the service status and send a notificaion in case of failure.
  */
 //--------------------------------------------------------------------------------------------------
-void taf_WlanSvcImpl::SetSubsystemState (telux::common::ServiceStatus status)
+void taf_WlanSvcImpl::SetSubsystemState(taf::pa::wlan::ServiceState_e serviceStatus)
 {
-    taf_wlan_DeviceState_t *devStatePtr = NULL;
+    // Only signal UNAVAILABLE on explicit failure/unavailability.
+    bool unavailable = (serviceStatus == taf::pa::wlan::ServiceState_e::SERVICE_UNAVAILABLE) ||
+                       (serviceStatus == taf::pa::wlan::ServiceState_e::SERVICE_FAILED);
 
-    wlanSubSystemState = status;
-
-    if ( telux::common::ServiceStatus::SERVICE_UNAVAILABLE == status||
-         telux::common::ServiceStatus::SERVICE_FAILED == status)
+    if (!unavailable)
     {
-        // Send TAF_WLAN_UNAVAILABLE event to applications.
-        le_mutex_Lock(wlanMutexRef);
-        LE_INFO( "Send TAF_WLAN_UNAVAILABLE Event" );
-        devStatePtr = (taf_wlan_DeviceState_t *)le_mem_ForceAlloc(DeviceStatusPoolRef);
-        *devStatePtr = TAF_WLAN_UNAVAILABLE;
-        le_event_ReportWithRefCounting(wlanDevStateChangeEvID, (void *)devStatePtr);
-        le_mutex_Unlock(wlanMutexRef);
+        return; // available or ready
     }
+
+    // Send TAF_WLAN_UNAVAILABLE event to applications.
+    le_mutex_Lock(wlanMutexRef);
+    LE_INFO("Send TAF_WLAN_UNAVAILABLE Event");
+    auto *devStatePtr = (taf_wlan_DeviceState_t *)le_mem_ForceAlloc(DeviceStatusPoolRef);
+    *devStatePtr = TAF_WLAN_UNAVAILABLE;
+    le_event_ReportWithRefCounting(wlanDevStateChangeEvID, (void *)devStatePtr);
+    le_mutex_Unlock(wlanMutexRef);
 }
 
 //--------------------------------------------------------------------------------------------------

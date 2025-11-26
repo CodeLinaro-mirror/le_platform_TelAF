@@ -8,14 +8,19 @@ provides:
     }
 }
 
+ldflags:
+{
+    -L$TELAF_DEFAULT_PA_LIB_DIR/lib
+}
+
 requires:
 {
     lib:
     {
-        lib/libtelux_wlan.so
-        lib/libtelux_data.so
-        lib/libtelux_common.so
+        libtaf_pa_wlan.so
+        libtaf_pa_wlanDef.so
     }
+
     api:
     {
         le_appInfo.api
@@ -25,18 +30,13 @@ requires:
 cxxflags:
 {
     -I$TELAF_ROOT/include
-    -ltelux_wlan
-    -ltelux_common
     -D CONFIG_CTRL_IFACE
     -D CONFIG_CTRL_IFACE_UNIX
     -I$TELAF_ROOT/../external/wpa_supplicant_8/src/common
     -I$TELAF_ROOT/../external/wpa_supplicant_8/src/utils
     -I$LEGATO_ROOT/framework/liblegato
     -std=c++17
-}
-
-ldflags:
-{
+    -I$TELAF_PA_DEFAULT/include
 }
 
 cflags:
@@ -51,14 +51,12 @@ sources:
 {
     tafWlanSvc.cpp
     tafWlanSvcImpl.cpp
-    tafWlanListener.cpp
     tafWlanAPSvc.cpp
     tafWlanAPSvcImpl.cpp
     tafWlanSTASvc.cpp
     tafWlanSTASvcImpl.cpp
     tafWlanSTAApSignalStrengthImpl.cpp
     tafWlanStaWpaSupplicantIntfImpl.cpp
-    taf_WlanHelper.cpp
     $TELAF_ROOT/../external/wpa_supplicant_8/src/common/wpa_ctrl.c
     $TELAF_ROOT/../external/wpa_supplicant_8/src/utils/os_unix.c
 }

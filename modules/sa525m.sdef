@@ -4,7 +4,7 @@
 
 #include "$LEGATO_ROOT/legatoTargetConfig.sinc"
 #if ${LE_CONFIG_ENABLE_TEST_APPS} = y
-    #include "$TELAF_ROOT/testApps.sinc"
+    #include "$TELAF_ROOT/modules/testApps.sinc"
 #endif
 
 apps:

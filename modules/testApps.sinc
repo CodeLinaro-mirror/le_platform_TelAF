@@ -58,6 +58,7 @@ apps:
     $TELAF_ROOT/apps/test/ConsoleApp/tafAudioApp/tafAudioConsoleApp
 #endif
     $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdConnIntTest/tafMngdConnIntTest
+    $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdConnUnitTest/tafMngdConnUnitTest
     $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPMIntTest/tafMngdPMIntTest
     $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPMUnitTest/tafMngdPMUnitTest
     $TELAF_ROOT/apps/sample/diagApp/tafDiagApp

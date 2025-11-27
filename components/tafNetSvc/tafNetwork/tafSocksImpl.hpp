@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -10,12 +10,9 @@
 #include <memory>
 #include <vector>
 #include <iostream>
-#include <telux/data/DataFactory.hpp>
-#include <telux/data/net/SocksManager.hpp>
 #include "tafSvcIF.hpp"
+#include "taf_pa_common.h"
 
-using namespace telux::data;
-using namespace telux::common;
 
 /**
 * @brief The emum of async socks command type.
@@ -46,7 +43,7 @@ typedef enum
 typedef struct
 {
     taf_SocksEvtType_t                      event;
-    telux::common::ErrorCode                errorCode;
+    le_result_t                errorCode;
 } taf_SocksEventType_t;
 
 typedef struct
@@ -67,10 +64,8 @@ namespace tafsvc {
     class tafSocksCallback
     {
         public:
-            static void enableSocksResponse(telux::common::ErrorCode error);
-            static void disableSocksResponse(telux::common::ErrorCode error);
-            static void enableSocksAsyncResponse(telux::common::ErrorCode error);
-            static void disableSocksAsyncResponse(telux::common::ErrorCode error);
+            static void enableSocksAsyncResponse(pa_result_t error,void *contextPtr);
+            static void disableSocksAsyncResponse(pa_result_t error,void *contextPtr);
             tafSocksCallback(){};
             ~tafSocksCallback(){};
     };
@@ -94,8 +89,6 @@ namespace tafsvc {
             static void* SocksEvtThread(void* contextPtr);
             static void SocksEvtHandler(void* cmdReqPtr);
 
-            void onInitComplete(telux::common::ServiceStatus status);
-
             le_result_t EnableSocks(taf_SocksCmdType_t type);
 
             le_result_t EnableSocksCmdSync();
@@ -104,9 +97,6 @@ namespace tafsvc {
                                              void* contextPtr, le_msg_SessionRef_t sessionRef);
             void DisableSocksCmdAsync(taf_net_AsyncSocksHandlerFunc_t handlerPtr,
                                               void* contextPtr, le_msg_SessionRef_t sessionRef);
-
-            std::promise<le_result_t> EnableSocksSyncPromise;
-            std::promise<le_result_t> DisableSocksSyncPromise;
 
             static le_event_Id_t socksCmdId;
             static le_event_Id_t socksEvId;
@@ -124,13 +114,6 @@ namespace tafsvc {
             int GetHandlerNumberInMappingList( taf_SocksCmdType_t type);
 
             static void CloseEventHandler(le_msg_SessionRef_t sessionRef,void* contextPtr);
-        private:
-            std::shared_ptr<telux::data::net::ISocksManager> socksManager = nullptr;
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-            bool IsSubSystemStatusUpdated=false;
-            std::mutex mMutex;
-            std::condition_variable conVar;
-#endif
     };
 
 }

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -14,6 +14,8 @@
 #include <memory>
 #include "tafSvcIF.hpp"
 #include "tafNetworkImpl.hpp"
+#include "tafNetUtility.hpp"
+#include "taf_pa_net.hpp"
 #include <arpa/inet.h>
 #include <time.h>
 
@@ -22,21 +24,19 @@ using namespace tafsvc;
 void taf_Net::Init(void)
 {
     LE_INFO("data net component init...");
-    auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
-    PhoneMgr = phoneFactory.getPhoneManager();
-    //  Check if telephony subsystem is ready
-    bool PhSubSystemStatus = PhoneMgr->isSubsystemReady();
 
-    if (!PhSubSystemStatus) {
-        LE_INFO("Wait telephony subsystem  to be ready...");
-        std::future<bool> f = PhoneMgr->onSubsystemReady();
-        //  Wait until the subsystem is ready.
-        PhSubSystemStatus = f.get();
+    pa_result_t isReady;
+
+    isReady =  PA_TO_LE_RESULT(taf_pa_net_Init());
+
+    if(isReady == LE_OK)
+    {
+        LE_INFO("netManager component is ready...");
     }
-
-    LE_INFO("-------waiting result is OK");
-    if(!PhSubSystemStatus)
-        LE_ERROR("Failed to init telephony subsystem");
+    else
+    {
+        LE_CRIT("unable to init netManager component!");
+    }
 
     RouteChangeEvId = le_event_CreateIdWithRefCounting("RouteChange");
 
@@ -476,30 +476,11 @@ taf_net_DfltGwConfDb_t* taf_Net::GetDefaultGwConfDbBySessionRef(le_msg_SessionRe
 
 le_result_t taf_Net::getPhoneIdFromSlotId(uint8_t slotId, uint8_t *phoneIdPtr)
 {
-    int retPhoneId;
-    le_result_t result = LE_OK;
+    le_result_t result;
 
     TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(phoneIdPtr)");
 
-    if(PhoneMgr)
-    {
-        retPhoneId = PhoneMgr->getPhoneIdFromSlotId(slotId);
-        if(retPhoneId < 0)
-        {
-            LE_ERROR("Invalid phone id");
-            result = LE_FAULT;
-        }
-        else
-        {
-            *phoneIdPtr = (uint8_t)retPhoneId;
-            result = LE_OK;
-        }
-    }
-    else
-    {
-        LE_ERROR("Phone manager is NULL");
-        result = LE_FAULT;
-    }
+    result = PA_TO_LE_RESULT(taf_pa_net_GetPhoneIdFromSlotId(slotId, phoneIdPtr));
 
     LE_DEBUG("result =%d, slotId = %d, phoneId = %d", result, slotId, *phoneIdPtr);
 
@@ -508,30 +489,11 @@ le_result_t taf_Net::getPhoneIdFromSlotId(uint8_t slotId, uint8_t *phoneIdPtr)
 
 le_result_t taf_Net::getSlotIdFromPhoneId(uint8_t phoneId, uint8_t *slotIdPtr)
 {
-    int retSlotId;
-    le_result_t result = LE_OK;
+    le_result_t result;
 
     TAF_ERROR_IF_RET_VAL(slotIdPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(slotIdPtr)");
 
-    if(PhoneMgr)
-    {
-        retSlotId = PhoneMgr->getSlotIdFromPhoneId(phoneId);
-        if(retSlotId < 0)
-        {
-            LE_ERROR("Invalid slot id");
-            result = LE_FAULT;
-        }
-        else
-        {
-            *slotIdPtr = (uint8_t)retSlotId;
-            result = LE_OK;
-        }
-    }
-    else
-    {
-        LE_ERROR("Phone manager is NULL");
-        result = LE_FAULT;
-    }
+    result = PA_TO_LE_RESULT(taf_pa_net_GetSlotIdFromPhoneId(phoneId, slotIdPtr));
 
     LE_DEBUG("result =%d, slotId = %d, phoneId = %d",result, *slotIdPtr, phoneId);
 

@@ -17,14 +17,13 @@ requires:
 
     lib:
     {
-        lib/libtelux_tel.so
-        lib/libtelux_data.so
+        libComponent_taf_pa_net.so
+        libComponent_taf_pa_netDef.so
     }
 
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
-        $TELAF_ROOT/components/stub/taf_pa_net
     }
 
 }
@@ -33,12 +32,19 @@ cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
-    -I$TELAF_ROOT/components/stub/taf_pa_net
+    -I$TELAF_PA_DEFAULT/include
+    -I$TELAF_PA_DEFAULT/include/taf_pa_net
+    -std=c++17
 }
 
 cflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
+}
+
+ldflags:
+{
+    -L$TELAF_DEFAULT_PA_LIB_DIR/lib
 }
 
 sources:

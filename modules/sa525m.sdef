@@ -61,9 +61,7 @@ apps:
 commands:
 {
     cm = tools:/scripts/cm
-#if ${TELUX_LOCATION_SUPPORTED} = y
     gnss = tools:/bin/gnss
-#endif
     fwupdate = tools:/bin/fwupdate
     pm = tafTools:/bin/pm
     tafmodule = tafTools:/bin/tafmodule

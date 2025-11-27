@@ -35,6 +35,8 @@
 #define DID_LEN  2
 
 #define TAF_REQ_OUT_OF_RANGE 0x31
+#define TAF_CONDITION_NOT_CORRECT 0x22
+#define TAF_GENERAL_PROGRAMMING_FAILURE 0x72
 
 // Semaphore wait time
 #define SEM_TIME_TO_WAIT 5

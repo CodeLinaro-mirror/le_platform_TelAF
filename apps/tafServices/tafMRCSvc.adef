@@ -6,24 +6,24 @@ startGroup: 23
 
 capability:
 {
-        CAP_WAKE_ALARM
-        CAP_SYS_BOOT
-        CAP_SYS_RESOURCE
-        CAP_BLOCK_SUSPEND
+    CAP_WAKE_ALARM
+    CAP_SYS_BOOT
+    CAP_SYS_RESOURCE
+    CAP_BLOCK_SUSPEND
 
 #if ${LE_CONFIG_TEST_COVERAGE} = y
-        CAP_DAC_READ_SEARCH
-        CAP_DAC_OVERRIDE
+    CAP_DAC_READ_SEARCH
+    CAP_DAC_OVERRIDE
 #endif
 }
 
 groups:
 {
-        system
-        diag
-        radio
-        inet
-        locclient
+    system
+    diag
+    radio
+    inet
+    locclient
 }
 
 sandboxed: false
@@ -45,10 +45,6 @@ processes:
     maxCoreDumpFileBytes: 100000K
     maxFileBytes: 100000K
     faultAction: restart
-}
-
-bindings:
-{
 }
 
 extern:

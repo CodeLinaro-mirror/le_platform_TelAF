@@ -6,101 +6,135 @@
 #include <stdint.h>
 #include <math.h>
 
-#include "tafMrc.hpp"
+#include "tafMRC.hpp"
 
-using namespace tafsvc;
-
-COMPONENT_INIT
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends a message to the MRC Daemon to indicate that OTA has been started.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mrc_SendOtaStartMsg
+(
+    void
+)
 {
-    LE_INFO("tafMrc Service Init...\n");
-    auto &tafMrc = taf_Mrc::GetInstance();
-    tafMrc.Init();
-    LE_INFO("tafMrc Service Ready...\n");
-}
+    pa_result_t paResult = taf_pa_mrc_SetProcessStatus(TAF_PA_MRC_PROCESS_OTA,
+        TAF_PA_MRC_STATUS_INITIATED);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+        LE_ERROR("Failed to set OTA initiated status.");
 
-le_result_t taf_mrc_SendOtaStartMsg()
-{
-    auto &tafMrc = taf_Mrc::GetInstance();
-    return tafMrc.SendOtaMsg(TAF_MRC_OTA_MSG_TYPE_START);
-}
-
-le_result_t taf_mrc_SendOtaResumeMsg()
-{
-    auto &tafMrc = taf_Mrc::GetInstance();
-    return tafMrc.SendOtaMsg(TAF_MRC_OTA_MSG_TYPE_RESUME);
-}
-
-le_result_t taf_mrc_SendOtaEndMsg(taf_mrc_OtaOperationStatus_t otaStatus)
-{
-    auto &tafMrc = taf_Mrc::GetInstance();
-    if (otaStatus == TAF_MRC_OTA_OP_STATUS_SUCCESS) {
-        return tafMrc.SendOtaMsg(TAF_MRC_OTA_MSG_TYPE_END_SUCCESS);
-    } else if (otaStatus == TAF_MRC_OTA_OP_STATUS_FAILURE) {
-        return tafMrc.SendOtaMsg(TAF_MRC_OTA_MSG_TYPE_END_FAILURE);
-    }
-
-    return LE_BAD_PARAMETER;
-}
-
-le_result_t taf_mrc_SendOtaAbsyncMsg()
-{
-    auto &tafMrc = taf_Mrc::GetInstance();
-    return tafMrc.SendOtaMsg(TAF_MRC_OTA_MSG_TYPE_ABSYNC);
+    return result;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sends sync staus to MRCD.
+ * Sends a message to the MRC Daemon to indicate that OTA has been resumed.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mrc_SendOtaResumeMsg
+(
+    void
+)
+{
+    pa_result_t paResult = taf_pa_mrc_SetProcessStatus(TAF_PA_MRC_PROCESS_OTA,
+        TAF_PA_MRC_STATUS_RESUMED);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+        LE_ERROR("Failed to set OTA resumed status.");
+
+    return result;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends a message to the MRC Daemon to indicate that OTA has been ended.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mrc_SendOtaEndMsg
+(
+    taf_mrc_OtaOperationStatus_t status ///< [IN] The status of OTA.
+)
+{
+    taf_pa_mrc_Status_t paStatus = Utility::Convert::Status(status);
+    pa_result_t paResult = taf_pa_mrc_SetProcessStatus(TAF_PA_MRC_PROCESS_OTA, paStatus);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+        LE_ERROR("Failed to set OTA ended status.");
+
+    return result;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends a message to the MRC Daemon to perform AB sync.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mrc_SendOtaAbsyncMsg
+(
+    void
+)
+{
+    pa_result_t paResult = taf_pa_mrc_PerformABSync();
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+        LE_ERROR("Failed to perform AB sync.");
+
+    return result;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends a message to the MRC Daemon to indicate AB sync status.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_mrc_SendSyncStatusMsg
 (
-    taf_mrc_SyncStatus_t status ///< Sync status.
+    taf_mrc_SyncStatus_t status ///< [IN] The status of AB sync.
 )
 {
-    auto &tafMrc = taf_Mrc::GetInstance();
-    if (!tafMrc.paReady)
-    {
-        LE_ERROR("MRC platform adaptor is not available.");
-        return LE_FAULT;
-    }
-
-    taf_pa_mrc_Status_t paStatus;
-    switch (status)
-    {
-        case TAF_MRC_SYNC_STATUS_INIT:
-            paStatus = TAF_PA_MRC_STATUS_INITIATED;
-            break;
-        case TAF_MRC_SYNC_STATUS_SUCCESS:
-            paStatus = TAF_PA_MRC_STATUS_SUCCEEDED;
-            break;
-        case TAF_MRC_SYNC_STATUS_FAILURE:
-            paStatus = TAF_PA_MRC_STATUS_FAILED;
-            break;
-        default:
-            LE_ERROR("Invalid status %d.", status);
-            return LE_FAULT;
-    }
-
+    taf_pa_mrc_Status_t paStatus = Utility::Convert::Status(status);
     pa_result_t paResult = taf_pa_mrc_SetProcessStatus(TAF_PA_MRC_PROCESS_ABSYNC, paStatus);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Fail to notify AB sycn status.");
-        return LE_FAULT;
+        LE_ERROR("Failed to set AB sync status.");
+        return result;
     }
 
-    le_clk_Time_t time = { .sec = TAF_MRC_MSG_RESP_TIMEOUT };
-    result = le_sem_WaitWithTimeOut(tafMrc.syncSem, time);
+    le_clk_Time_t time = { .sec = RESP_TIMEOUT };
+    auto& mrcFactory = MRCFactory::GetInstance();
+    result = le_sem_WaitWithTimeOut(mrcFactory.semaphores.abSync, time);
     if (result != LE_OK)
-    {
         LE_ERROR("Timeout for MRC to handle AB sync status.");
-        return LE_FAULT;
-    }
 
     return LE_OK;
 }
@@ -111,6 +145,9 @@ le_result_t taf_mrc_SendSyncStatusMsg
  *
  * @return
  *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_mrc_MeasureEfsMetrics
@@ -129,11 +166,11 @@ le_result_t taf_mrc_MeasureEfsMetrics
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Fail to get EFS PE status.");
-        return LE_FAULT;
+        LE_ERROR("Failed to get EFS PE status.");
+        return result;
     }
 
-    if (status.peCountLen == 0 && status.peCountLen > TAF_PA_MRC_EFS_PARTITION_BLOCKS)
+    if (status.peCountLen == 0 || status.peCountLen > TAF_PA_MRC_EFS_PARTITION_BLOCKS)
     {
         LE_ERROR("Invalid block count %d for EFS.", status.peCountLen);
         return LE_FAULT;
@@ -144,8 +181,8 @@ le_result_t taf_mrc_MeasureEfsMetrics
     result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Fail to get EFS block status.");
-        return LE_FAULT;
+        LE_ERROR("Failed to get EFS block status.");
+        return result;
     }
 
     uint32_t sum = 0;
@@ -177,14 +214,15 @@ le_result_t taf_mrc_MeasureEfsMetrics
 
     sd = (uint32_t)ceil(sqrt(ssd / status.peCountLen));
 
-    auto& mrc = taf_Mrc::GetInstance();
-    taf_MrcEfsMetrics_t* metricsPtr = (taf_MrcEfsMetrics_t*)le_mem_ForceAlloc(mrc.metricsPool);
+    auto& mrcFactory = MRCFactory::GetInstance();
+    Metrics_t* metricsPtr = (Metrics_t*)le_mem_ForceAlloc(mrcFactory.pools.metrics);
     metricsPtr->maxCount = max;
     metricsPtr->minCount = min;
     metricsPtr->avgCount = avg;
     metricsPtr->sdValue = sd;
     metricsPtr->badBlockCount = blockStatus.totalBadBlocks;
-    *referencePtr = (taf_mrc_MetricsRef_t)le_ref_CreateRef(mrc.metricsRefMap, (void*)metricsPtr);
+    *referencePtr = (taf_mrc_MetricsRef_t)le_ref_CreateRef(mrcFactory.maps.metrics,
+        (void*)metricsPtr);
 
     return LE_OK;
 }
@@ -194,7 +232,9 @@ le_result_t taf_mrc_MeasureEfsMetrics
  *  Deletes the EFS metrics.
  *
  * @return
- *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_mrc_DeleteEfsMetrics
@@ -208,16 +248,15 @@ le_result_t taf_mrc_DeleteEfsMetrics
         return LE_BAD_PARAMETER;
     }
 
-    auto &tafMrc = taf_Mrc::GetInstance();
-    taf_MrcEfsMetrics_t* metricsPtr =
-        (taf_MrcEfsMetrics_t*)le_ref_Lookup(tafMrc.metricsRefMap, reference);
+    auto& mrcFactory = MRCFactory::GetInstance();
+    Metrics_t* metricsPtr = (Metrics_t*)le_ref_Lookup(mrcFactory.maps.metrics, reference);
     if (metricsPtr == nullptr)
     {
         LE_ERROR("Invalid para(null reference ptr)");
         return LE_NOT_FOUND;
     }
 
-    le_ref_DeleteRef(tafMrc.metricsRefMap, reference);
+    le_ref_DeleteRef(mrcFactory.maps.metrics, reference);
     le_mem_Release(metricsPtr);
 
     return LE_OK;
@@ -228,7 +267,9 @@ le_result_t taf_mrc_DeleteEfsMetrics
  *  Gets the maximum program and erase count in EFS.
  *
  * @return
- *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_mrc_GetEfsMaxPECount
@@ -249,9 +290,8 @@ le_result_t taf_mrc_GetEfsMaxPECount
         return LE_BAD_PARAMETER;
     }
 
-    auto &tafMrc = taf_Mrc::GetInstance();
-    taf_MrcEfsMetrics_t* metricsPtr =
-        (taf_MrcEfsMetrics_t*)le_ref_Lookup(tafMrc.metricsRefMap, reference);
+    auto& mrcFactory = MRCFactory::GetInstance();
+    Metrics_t* metricsPtr = (Metrics_t*)le_ref_Lookup(mrcFactory.maps.metrics, reference);
     if (metricsPtr == nullptr)
     {
         LE_ERROR("Invalid para(null reference ptr)");
@@ -268,7 +308,9 @@ le_result_t taf_mrc_GetEfsMaxPECount
  *  Gets the minimum program and erase count in EFS.
  *
  * @return
- *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_mrc_GetEfsMinPECount
@@ -289,9 +331,8 @@ le_result_t taf_mrc_GetEfsMinPECount
         return LE_BAD_PARAMETER;
     }
 
-    auto &tafMrc = taf_Mrc::GetInstance();
-    taf_MrcEfsMetrics_t* metricsPtr =
-        (taf_MrcEfsMetrics_t*)le_ref_Lookup(tafMrc.metricsRefMap, reference);
+    auto& mrcFactory = MRCFactory::GetInstance();
+    Metrics_t* metricsPtr = (Metrics_t*)le_ref_Lookup(mrcFactory.maps.metrics, reference);
     if (metricsPtr == nullptr)
     {
         LE_ERROR("Invalid para(null reference ptr)");
@@ -308,7 +349,9 @@ le_result_t taf_mrc_GetEfsMinPECount
  *  Gets the average program and erase count in EFS.
  *
  * @return
- *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_mrc_GetEfsAvgPECount
@@ -329,9 +372,8 @@ le_result_t taf_mrc_GetEfsAvgPECount
         return LE_BAD_PARAMETER;
     }
 
-    auto &tafMrc = taf_Mrc::GetInstance();
-    taf_MrcEfsMetrics_t* metricsPtr =
-        (taf_MrcEfsMetrics_t*)le_ref_Lookup(tafMrc.metricsRefMap, reference);
+    auto& mrcFactory = MRCFactory::GetInstance();
+    Metrics_t* metricsPtr = (Metrics_t*)le_ref_Lookup(mrcFactory.maps.metrics, reference);
     if (metricsPtr == nullptr)
     {
         LE_ERROR("Invalid para(null reference ptr)");
@@ -348,7 +390,9 @@ le_result_t taf_mrc_GetEfsAvgPECount
  *  Gets the standard deviation of program and erase count in EFS.
  *
  * @return
- *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_mrc_GetEfsPEStandardDeviation
@@ -369,9 +413,8 @@ le_result_t taf_mrc_GetEfsPEStandardDeviation
         return LE_BAD_PARAMETER;
     }
 
-    auto &tafMrc = taf_Mrc::GetInstance();
-    taf_MrcEfsMetrics_t* metricsPtr =
-        (taf_MrcEfsMetrics_t*)le_ref_Lookup(tafMrc.metricsRefMap, reference);
+    auto& mrcFactory = MRCFactory::GetInstance();
+    Metrics_t* metricsPtr = (Metrics_t*)le_ref_Lookup(mrcFactory.maps.metrics, reference);
     if (metricsPtr == nullptr)
     {
         LE_ERROR("Invalid para(null reference ptr)");
@@ -388,7 +431,9 @@ le_result_t taf_mrc_GetEfsPEStandardDeviation
  *  Gets the bad block count in EFS.
  *
  * @return
- *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_mrc_GetEfsBadBlocks
@@ -409,9 +454,8 @@ le_result_t taf_mrc_GetEfsBadBlocks
         return LE_BAD_PARAMETER;
     }
 
-    auto &tafMrc = taf_Mrc::GetInstance();
-    taf_MrcEfsMetrics_t* metricsPtr =
-        (taf_MrcEfsMetrics_t*)le_ref_Lookup(tafMrc.metricsRefMap, reference);
+    auto& mrcFactory = MRCFactory::GetInstance();
+    Metrics_t* metricsPtr = (Metrics_t*)le_ref_Lookup(mrcFactory.maps.metrics, reference);
     if (metricsPtr == nullptr)
     {
         LE_ERROR("Invalid para(null reference ptr)");
@@ -428,8 +472,7 @@ le_result_t taf_mrc_GetEfsBadBlocks
  * Set the period of EFS backup.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_TIMEOUT -- Response time out.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
  */

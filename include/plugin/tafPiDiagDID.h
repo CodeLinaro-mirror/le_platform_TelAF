@@ -31,7 +31,10 @@ typedef void (*INIT)(void);
  * @param    dataID      DID
  * @param    value       Value of the DID
  * @param    len         Length of the DID value
- * @param    result      Returned error code of getting DID value
+ * @param    result      Returned error code of getting DID value as following
+ *                       0x00 : No Error
+ *                       0x22 : Condition not correct
+ *                       0x31 : Request out of range
  * @param    ctxPtr      context pointer
  *
  * @return void
@@ -73,7 +76,11 @@ typedef le_result_t (*TAF_PI_DIAGDID_GETASYNC)
  *
  * @instaging
  * @param    dataID     DID
- * @param    result     Returned error code of setting DID value
+ * @param    result     Returned error code of setting DID value as following
+ *                      0x00 : No Error
+ *                      0x22 : Condition not correct
+ *                      0x31 : Request out of range
+ *                      0x72 : General programming failure
  * @param    ctxPtr     Context pointer
  *
  * @return void

@@ -1558,15 +1558,12 @@ void rpcProxyConfig_ShowConfiguration
 )
 {
     int i, j;
-
-    LE_INFO("=========================================================");
-    LE_INFO("====================RPC configuration====================");
-    LE_INFO("=========================================================");
-    LE_INFO(" ");
+    char* systemLogPtr = NULL;
+    char systemLogBuf[128] = "";
+    size_t logSize = 0;
 
     // Dump basic configurations.
-    LE_INFO("--------------------Basic configurations-----------------");
-
+    LE_INFO("--------------------Basic configurations------------------");
     if (RoutingDevPtr != NULL)
     {
         LE_INFO("Using on-demand vsomeip routing manager '%s'", RoutingDevPtr);
@@ -1575,74 +1572,80 @@ void rpcProxyConfig_ShowConfiguration
     {
         LE_INFO("Using by-default vsomeip routing manager.");
     }
-    LE_INFO("base_service_id: 0x%x", BaseServiceId);
-    LE_INFO("base_port_number: %d", BasePortNumber);
-    LE_INFO("response_timeout: %d", ResponseTimeoutSecs);
-    LE_INFO(" ");
+    LE_INFO("base_service_id(0x%x), base_port_number(%d), response_timeout(%d).",
+            BaseServiceId, BasePortNumber, ResponseTimeoutSecs);
 
     // Dump my system info.
-    LE_INFO("--------------------My system information----------------");
-    LE_INFO("My system index: %d", MyConfiguration.mySystem.index);
-    LE_INFO("My system ID: 0x%x", MyConfiguration.mySystem.id);
-    LE_INFO("My system name: '%s'", MyConfiguration.mySystem.name);
-    LE_INFO(" ");
+    LE_INFO("--------------------Local system info---------------------");
+    LE_INFO("sysIndex(%d), sysId(0x%x), sysName('%s').",
+            MyConfiguration.mySystem.index,
+            MyConfiguration.mySystem.id,
+            MyConfiguration.mySystem.name);
 
-    LE_INFO("--------------------Remote system list-------------------");
+    LE_INFO("--------------------Remote system list--------------------");
     for (i = 0; i < MyConfiguration.remoteSystemCnt; i++)
     {
-        LE_INFO("Remote system entry:");
-        LE_INFO("    System index: %d", MyConfiguration.remoteSystems[i].index);
-        LE_INFO("    System ID: 0x%x", MyConfiguration.remoteSystems[i].id);
-        LE_INFO("    System name: '%s'", MyConfiguration.remoteSystems[i].name);
-        LE_INFO(" ");
+        LE_INFO("sysIndex(%d), sysId(0x%x), sysName('%s').",
+                MyConfiguration.remoteSystems[i].index,
+                MyConfiguration.remoteSystems[i].id,
+                MyConfiguration.remoteSystems[i].name);
     }
-    LE_INFO("---------------------------------------------------------");
-    LE_INFO(" ");
 
     // Dump offer service list.
-    LE_INFO("--------------------Offer service list-------------------");
+    LE_INFO("--------------------Offer service list--------------------");
     for (i = 0; i < MyConfiguration.offerServiceCnt; i++)
     {
-        LE_INFO("Offer service entry:");
-        LE_INFO("    Service ID: 0x%x", MyConfiguration.offerServices[i].service.id);
-        LE_INFO("    Service name: '%s'", MyConfiguration.offerServices[i].service.name);
-        LE_INFO("    Service user: '%s'", MyConfiguration.offerServices[i].service.user);
-        LE_INFO("    Service version: '%s'", MyConfiguration.offerServices[i].service.protocolId);
-        LE_INFO("    Network config: '%s' port %d",
-            MyConfiguration.offerServices[i].port.isReliable ? "TCP" : "UDP",
-            MyConfiguration.offerServices[i].port.number);
-        LE_INFO("    Client system list:");
+        LE_INFO("svcId(0x%x), svcName('%s'), svcUser('%s'), svcVer('%s'), netCfg('%s'), port(%d).",
+                MyConfiguration.offerServices[i].service.id,
+                MyConfiguration.offerServices[i].service.name,
+                MyConfiguration.offerServices[i].service.user,
+                MyConfiguration.offerServices[i].service.protocolId,
+                MyConfiguration.offerServices[i].port.isReliable ? "TCP" : "UDP",
+                MyConfiguration.offerServices[i].port.number);
+
+        // Reset the offset of log pointer.
+        logSize = 0;
+        systemLogPtr = systemLogBuf;
+        memset(systemLogBuf, 0, sizeof(systemLogBuf));
+        le_utf8_Copy(systemLogPtr, "Remote client system list: ", sizeof(systemLogBuf), NULL);
+
+        // Dump client system list for current offer service entry.
         for (j = 0; j < MyConfiguration.offerServices[i].systemCnt; j++)
         {
-            LE_INFO("        System ID: 0x%x", MyConfiguration.offerServices[i].clientSystems[j]);
+            logSize = strlen(systemLogPtr);
+            snprintf(systemLogPtr+logSize, sizeof(systemLogBuf)-logSize, "0x%x ",
+                     MyConfiguration.offerServices[i].clientSystems[j]);
         }
-        LE_INFO(" ");
+        LE_INFO("%s.", systemLogPtr);
     }
-    LE_INFO("---------------------------------------------------------");
-    LE_INFO(" ");
 
     // Dump request service list.
-    LE_INFO("--------------------request service list-----------------");
+    LE_INFO("--------------------Request service list-----------------");
     for (i = 0; i < MyConfiguration.requestServiceCnt; i++)
     {
-        LE_INFO("request service entry:");
-        LE_INFO("    Service ID: 0x%x", MyConfiguration.requestServices[i].service.id);
-        LE_INFO("    Service name: '%s'", MyConfiguration.requestServices[i].service.name);
-        LE_INFO("    Service user: '%s'", MyConfiguration.requestServices[i].service.user);
-        LE_INFO("    Service version: '%s'", MyConfiguration.requestServices[i].service.protocolId);
-        LE_INFO("    Service responseTimeout: '%d'",
-            MyConfiguration.requestServices[i].responseTimeout);
-        LE_INFO("    Network config: '%s'",
-            MyConfiguration.requestServices[i].isReliable ? "TCP" : "UDP");
-        LE_INFO("    Server system list:");
+        LE_INFO("svcId(0x%x), svcName('%s'), svcUser('%s'), svcVer('%s'), tiot(%d), netCfg('%s').",
+                MyConfiguration.requestServices[i].service.id,
+                MyConfiguration.requestServices[i].service.name,
+                MyConfiguration.requestServices[i].service.user,
+                MyConfiguration.requestServices[i].service.protocolId,
+                MyConfiguration.requestServices[i].responseTimeout,
+                MyConfiguration.requestServices[i].isReliable ? "TCP" : "UDP");
+
+        // Reset the offset of log pointer.
+        logSize = 0;
+        systemLogPtr = systemLogBuf;
+        memset(systemLogBuf, 0, sizeof(systemLogBuf));
+        le_utf8_Copy(systemLogPtr, "Remote server system list: ", sizeof(systemLogBuf), NULL);
+
+        // Dump server system list for current request service entry.
         for (j = 0; j < MyConfiguration.requestServices[i].systemCnt; j++)
         {
-            LE_INFO("        System ID: 0x%x", MyConfiguration.requestServices[i].serverSystems[j]);
+            logSize = strlen(systemLogPtr);
+            snprintf(systemLogPtr+logSize, sizeof(systemLogBuf)-logSize, "0x%x ",
+                     MyConfiguration.requestServices[i].serverSystems[j]);
         }
-        LE_INFO(" ");
+        LE_INFO("%s.", systemLogPtr);
     }
-    LE_INFO("--------------------------------------------------------");
-    LE_INFO(" ");
 }
 
 //--------------------------------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -169,6 +169,8 @@ void tafPMTest_deregisterStateChangeListener()
     printf("\n====== StateChangeListener removed successfully ======\n");
 }
 
+static taf_pm_WakeupSourceRef_t LocalSuspendwsRef;
+
 le_result_t ctrlCmd_test3()
 {
     LE_TEST_INFO("====== Suspend test case when WL is acquired ======");
@@ -178,8 +180,8 @@ le_result_t ctrlCmd_test3()
             test_stateChangeHandler, NULL);
     le_thread_Start(threadRef);
     WaitForSem_Timeout(semRef, 5);
-    taf_pm_WakeupSourceRef_t ref = tafPMTest_create("local_suspend");
-    tafPMTest_acquire(ref);
+    LocalSuspendwsRef = tafPMTest_create("local_suspend");
+    tafPMTest_acquire(LocalSuspendwsRef);
     printf("\nACTION : Trigger suspend from telux_power_test_app and observe device will not suspend\n");
     return LE_OK;
 }
@@ -232,6 +234,11 @@ le_result_t ctrlCmd_test7()
     for(int i = 0; i < 5; i++) {
         tafPMTest_release(ref);
     }
+
+    tafPMTest_release(LocalSuspendwsRef);
+
+    sleep(3);
+
     LE_TEST_OK(taf_pm_GetPowerState() == TAF_PM_STATE_SUSPEND, "Suspend test case successfull"
             " with multiple times acquire and release of wake source with reference");
     printf("\nACTION : Disconnect USB to SUSPEND the device\n");

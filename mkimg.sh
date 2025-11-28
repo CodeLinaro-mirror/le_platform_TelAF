@@ -249,20 +249,33 @@ extract_pa_api_sets() {
 
   : > "$tmp_dm"
   while IFS= read -r sym; do
-    local dm sig base
+    local dm sig
     if [[ -x /usr/bin/c++filt ]]; then
       dm="$(/usr/bin/c++filt "$sym" 2>/dev/null || echo "$sym")"
     else
       dm="$sym"
     fi
-    sig="${dm%%(*}"
-    base="${sig##*::}"
+
+    sig="$(awk '
+      {
+        s=$0
+        while (match(s,/<[^<>]*>/)) {
+          s = substr(s,1,RSTART-1) "" substr(s,RSTART+RLENGTH)
+        }
+        print s
+      }
+    ' <<< "$dm")"
+
+    local func_name="${sig%%(*}"
+    func_name="${func_name##*::}"
 
     if [[ -n "${PA_API_PREFIX_REGEX:-}" ]]; then
-      [[ "$base" =~ $PA_API_PREFIX_REGEX ]] || continue
+      [[ "$func_name" =~ $PA_API_PREFIX_REGEX ]] || continue
+    else
+      [[ "$func_name" =~ ^taf_pa_ ]] || continue
     fi
 
-    printf '%s\n' "$dm" >> "$tmp_dm"
+    printf '%s\n' "$sig" >> "$tmp_dm"
   done < "$tmp_syms"
 
   LC_ALL=C sort -u "$tmp_dm" > "$out_set"
@@ -270,7 +283,6 @@ extract_pa_api_sets() {
 
   rm -f "$tmp_syms" "$tmp_dm"
 }
-
 
 verify_one_pair() {
   local strong="$1" weak="$2" base strong_set weak_set strong_dm weak_dm

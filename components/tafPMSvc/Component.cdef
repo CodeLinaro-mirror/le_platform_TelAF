@@ -5,36 +5,34 @@ provides:
         taf_pm.api
     }
 }
+
 requires:
 {
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
-        $TELAF_ROOT/components/stub/taf_noship_pms
     }
 
     lib:
     {
-        lib/libtelux_power.so
+        libComponent_taf_pa_pms.so
+        libComponent_taf_pa_pmsDef.so
     }
-
 }
 
 cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
-    -ltelux_power
-    -ltelux_common
+    -I$TELAF_PA_DEFAULT/include
 }
 
-cflags:
+ldflags:
 {
-    -I$LEGATO_ROOT/components/watchdogChain
+    -L$TELAF_DEFAULT_PA_LIB_DIR/lib
 }
 
 sources:
 {
-    tafPMImpl.cpp
     tafPMSvc.cpp
 }

@@ -144,6 +144,13 @@ namespace doip{
         char                ifName[TAF_DOIP_INTERFACE_NAME_MAX_LEN];
     }taf_doip_Status_t;
 
+    typedef struct
+    {
+        in_addr_t  ipv4_s_addr;
+        in_addr_t  ipv4_mask_s_addr;
+        char       localIp[TAF_DOIP_IP_ADDR_MAX_LEN];;
+    }taf_doip_IPInfo_t;
+
     class CommunicationMgr {
         public:
             static CommunicationMgr &GetInstance();
@@ -220,11 +227,14 @@ namespace doip{
             // If not set vlan, this function will return 0.
             uint16_t GetVlanId(const char *ifacePtr);
         private:
-            taf_doip_Result_t GetLocalIPv4Addr(std::string& ifname, char *ip, socklen_t size);
-            taf_doip_Result_t GetLocalIPv6Addr(std::string& ifname, char *ip, socklen_t size);
-            taf_doip_Result_t GetLocalIPAddr(int af, std::string& ifname, char *ip, socklen_t size);
-            taf_doip_Result_t GetIpAddrWithAnnounceWaitMech(int af, std::string& ifname, char *ip,
+            taf_doip_Result_t GetLocalIPv4Addr(std::string& ifname, taf_doip_IPInfo_t* ipInfo,
                     socklen_t size);
+            taf_doip_Result_t GetLocalIPv6Addr(std::string& ifname, taf_doip_IPInfo_t* ipInfo,
+                    socklen_t size);
+            taf_doip_Result_t GetLocalIPAddr(int af, std::string& ifname, taf_doip_IPInfo_t* ipInfo,
+                    socklen_t size);
+            taf_doip_Result_t GetIpAddrWithAnnounceWaitMech(int af, std::string& ifname,
+                    taf_doip_IPInfo_t* ipInfo, socklen_t size);
 
             taf_doip_Result_t RecvUdpData(le_socket_Ref_t sockRef);
             taf_doip_Result_t CheckDoipHeaderOverUdp(taf_doipHeader_t& header, char* ipPtr,
@@ -268,7 +278,7 @@ namespace doip{
             //uint16_t sa;     // Source logical address.
             //uint32_t authenInfo;
             //char multiAddr[TAF_DOIP_IP_ADDR_MAX_LEN];
-            char localIp[MAX_INF_NUM][TAF_DOIP_IP_ADDR_MAX_LEN];
+            taf_doip_IPInfo_t localIpInfo[MAX_INF_NUM];
 
             taf_doipState_t state = TAF_DOIP_STATE_FINAL;
 

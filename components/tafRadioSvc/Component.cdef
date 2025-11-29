@@ -15,8 +15,6 @@ requires:
 
     lib:
     {
-        lib/libtelux_tel.so
-        lib/libtelux_data.so
         libComponent_taf_pa_radio.so
         libComponent_taf_pa_radioDef.so
     }
@@ -31,8 +29,6 @@ cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
-    -ltelux_tel
-    -ltelux_data
     -I$TELAF_PA_DEFAULT/include
     -std=c++17
     -DTAFPA_ENABLE_LEGACY_MACROS=1

@@ -33,299 +33,176 @@
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
-/*
- * @file       tafRadioSvc.cpp
- * @brief      This file provides the radio service as interfaces described
- *             in tafRadioSvc.api. The radio service will initialized
- *             automatically. The following services are provided:
- *                 Radio Power Management
- *                 Radio Configuration Preferences
- *                 Report Network Registration Reject Indication
- *                 Radio Access Technology
- *                 Network Registration
- *                 Packet Services State
- *                 Signal Quality
- *                 Serving Cell's Location Information
- *                 Current Network Information
- *                 Network Scan
- *             Services are also integrated in cm tools.
- */
-
-#include <chrono>
-
 #include "tafRadio.hpp"
 
-using namespace tafsvc;
 using namespace std;
 
-
-static void SetLogLevel
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the radio power status.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetRadioPower
 (
-    le_timer_Ref_t timer
+    le_onoff_t power, ///< [IN] Power status.
+    uint8_t phone     ///< [IN] Phone.
 )
 {
-    le_log_Level_t level = le_log_GetFilterLevel();
-    LE_INFO("Current log level: %d", level);
+    taf_pa_radio_OperatingMode_t mode = TAF_PA_RADIO_OPERATING_MODE_UNKNOWN;
 
-    taf_pa_common_LogSetlevel(Utility::Convert::Level(level));
-}
-
-
-/*======================================================================
-
- FUNCTION        COMPONENT_INIT
-
- DESCRIPTION     The initialization of Radio Sevice Component.
-
- DEPENDENCIES    None
-
- PARAMETERS      None
-
- RETURN VALUE    None
-
- SIDE EFFECTS
-
-======================================================================*/
-COMPONENT_INIT
-{
-    LE_INFO("tafRadio Service Init...");
-    pa_result_t result = taf_pa_radio_Init();
-    if (result != 0)
+    switch (power)
     {
-        LE_ERROR("Failed to initialize platform adaptor.");
-        return;
+        case LE_OFF:
+            mode = TAF_PA_RADIO_OPERATING_MODE_LOW_POWER;
+            break;
+        case LE_ON:
+            mode = TAF_PA_RADIO_OPERATING_MODE_ONLINE;
+            break;
+        default:
+            LE_ERROR("Invalid power status %d.", power);
+            return LE_BAD_PARAMETER;
     }
 
-    le_timer_Ref_t timer = le_timer_Create("SetLogLevelTimer");
-    le_clk_Time_t interval = {10, 0};
-    le_timer_SetInterval(timer, interval); // Check log level after 10s.
-    le_timer_SetRepeat(timer, 1);
-    le_timer_SetHandler(timer, SetLogLevel);
-    le_timer_Start(timer);
+    pa_result_t result = taf_pa_radio_SetOperatingMode(0, mode);
 
-    auto &tafRadio = taf_Radio::GetInstance();
-    tafRadio.Init();
-    LE_INFO("tafRadio Service Ready...");
+    return Utility::Convert::Result(result);
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_SetRadioPower
-
- DESCRIPTION     Switch of the radio power.
-
- DEPENDENCIES    Initialization of Radio Service
-
- PARAMETERS      [IN] le_onoff_t power: Power on/off the radio
-                 [IN] uint8_t phoneId:  The phone id.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_FAULT:         Fail.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_radio_SetRadioPower(le_onoff_t power, uint8_t phoneId)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the radio power status.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetRadioPower
+(
+    le_onoff_t* powerPtr, ///< [OUT] Power status.
+    uint8_t phone         ///< [IN] Phone.
+)
 {
-    TAF_ERROR_IF_RET_VAL(power > LE_ON, LE_BAD_PARAMETER,
-        "Invalid para(power = %d)", power);
-
-    auto &tafRadio = taf_Radio::GetInstance();
-
-    telux::tel::OperatingMode mode =
-        power == LE_ON ? telux::tel::OperatingMode::ONLINE : telux::tel::OperatingMode::AIRPLANE;
-
-    auto respenseCb = std::bind(&taf_RadioSetOperatingModeCallback::setOperatingModeResponse,
-        tafRadio.setOperatingModeCb, std::placeholders::_1);
-
-    auto ret = tafRadio.phoneManager->setOperatingMode(mode, respenseCb);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {5, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.setOperatingModeCb->semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout.");
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.setOperatingModeCb->result != LE_OK,
-        tafRadio.setOperatingModeCb->result, "Fail to set radio power.");
-
-    return LE_OK;
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_GetRadioPower
-
- DESCRIPTION     Get the power status of radio.
-
- DEPENDENCIES    Initialization of Radio Service
-
- PARAMETERS      [OUT] le_onoff_t* powerPtr:
-                          LE_ON if the radio is power on.
-                          LE_OFF if the radio is power off.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_FAULT:         Fail.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_radio_GetRadioPower(le_onoff_t* powerPtr, uint8_t phoneId)
-{
-    TAF_ERROR_IF_RET_VAL(powerPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(powerPtr)");
+    if (powerPtr == nullptr)
+    {
+        LE_ERROR("powerPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
     taf_pa_radio_OperatingMode_t mode = TAF_PA_RADIO_OPERATING_MODE_UNKNOWN;
-    pa_result_t result = taf_pa_radio_GetOperatingMode(0, &mode);
+    pa_result_t paResult = taf_pa_radio_GetOperatingMode(0, &mode);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get operating mode.");
+        return result;
+    }
+
     if (mode == TAF_PA_RADIO_OPERATING_MODE_ONLINE)
         *powerPtr = LE_ON;
     else
         *powerPtr = LE_OFF;
 
-    return Utility::Convert::Result(result);
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_SetAutomaticRegisterMode
-
- DESCRIPTION     Set radio registers to network automatically.
-
- DEPENDENCIES    Initialization of Radio Service
-
- PARAMETERS      [IN] uint8_t phoneId: The phone id.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_FAULT:         Fail.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_radio_SetAutomaticRegisterMode(uint8_t phoneId)
-{
-    auto &tafRadio = taf_Radio::GetInstance();
-
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.networkManagers.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    auto networkManager = tafRadio.networkManagers[phoneId - 1];
-    TAF_ERROR_IF_RET_VAL(networkManager == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(networkManager->setNetworkSelectionMode(
-        telux::tel::NetworkSelectionMode::AUTOMATIC, "0", "0",
-        &taf_RadioNetworkResponseCallback::setNetworkSelectionModeResponseCb) !=
-        telux::common::Status::SUCCESS, LE_FAULT, "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioNetworkResponseCallback::selModeSem, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioNetworkResponseCallback::selModeRes != LE_OK,
-        taf_RadioNetworkResponseCallback::selModeRes, "Fail to set automatic register mode.");
-
     return LE_OK;
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_SetManualRegisterMode
-
- DESCRIPTION     Set radio registers to network manually.
-
- DEPENDENCIES    Initialization of Radio Service
-
- PARAMETERS      [IN] const char* mccPtr: The mobile country code.
-                 [IN] const char* mncPtr: The mobile network code.
-                 [IN] uint8_t phoneId:    The phone id.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
-                     LE_OK:                Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_radio_SetManualRegisterMode(const char* mccPtr, const char* mncPtr, uint8_t phoneId)
-{
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.networkManagers.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    auto networkManager = tafRadio.networkManagers[phoneId - 1];
-    TAF_ERROR_IF_RET_VAL(networkManager == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    std::string mcc(mccPtr);
-    std::string mnc(mncPtr);
-
-    TAF_ERROR_IF_RET_VAL(networkManager->setNetworkSelectionMode(
-        telux::tel::NetworkSelectionMode::MANUAL, mcc, mnc,
-        &taf_RadioNetworkResponseCallback::setNetworkSelectionModeResponseCb) !=
-        telux::common::Status::SUCCESS, LE_FAULT, "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioNetworkResponseCallback::selModeSem, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioNetworkResponseCallback::selModeRes != LE_OK,
-        taf_RadioNetworkResponseCallback::selModeRes, "Fail to set manual register mode.");
-
-    return LE_OK;
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_SetManualRegisterModeAsync
-
- DESCRIPTION     Set radio manual register mode asynchronously.
-
- DEPENDENCIES    Initialization of Radio Service
-
- PARAMETERS      [IN] const char* mccPtr: The mobile country code.
-                 [IN] const char* mncPtr: The mobile network code.
-                 [IN] taf_radio_ManualSelectionHandlerFunc_t handlerPtr:
-                          Handler for manual selection.
-                 [IN] void* contextPtr:   Context pointer.
-                 [IN] uint8_t phoneId:    The phone id.
-
- RETURN VALUE    None
-
- SIDE EFFECTS
-
-======================================================================*/
-void taf_radio_SetManualRegisterModeAsync
-(
-    const char* mccPtr,
-    const char* mncPtr,
-    taf_radio_ManualSelectionHandlerFunc_t handlerPtr,
-    void* contextPtr,
-    uint8_t phoneId
-)
-{
-    taf_RadioCmdReq_t cmdReq;
-    memset(&cmdReq, 0, sizeof(taf_RadioCmdReq_t));
-    cmdReq.cmdType = TAF_RADIO_CMD_TYPE_ASYNC_REG_MANUAL;
-    cmdReq.handlerFuncPtr = (void*)handlerPtr;
-    cmdReq.contextPtr = contextPtr;
-    cmdReq.phoneId = phoneId;
-    le_utf8_Copy(cmdReq.mccPtr, mccPtr, TAF_RADIO_MCC_BYTES, NULL);
-    le_utf8_Copy(cmdReq.mncPtr, mncPtr, TAF_RADIO_MNC_BYTES, NULL);
-
-    le_event_Report(taf_Radio::radioCmdEvId, &cmdReq, sizeof(taf_RadioCmdReq_t));
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the network registeration mode.
+ * Sets automatic network selection preference.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetAutomaticRegisterMode
+(
+    uint8_t phone ///< [IN] Phone.
+)
+{
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+
+    taf_pa_radio_NetworkSelectionPreference_t preference;
+    preference.mode = TAF_PA_RADIO_NETWORK_SELECTION_MODE_AUTOMATIC;
+    preference.mcc = 0;
+    preference.mnc = 0;
+    pa_result_t result = taf_pa_radio_SetNetworkSelectionPreference(instance, &preference);
+
+    return Utility::Convert::Result(result);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets manual network selection preference.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_OUT_OF_RANGE -- Out of range.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetManualRegisterMode
+(
+    const char* mccPtr, ///< [IN] Mobile Country Code.
+    const char* mncPtr, ///< [IN] Mobile Network Code.
+    uint8_t phone       ///< [IN] Phone.
+)
+{
+    return Utility::Common::ManualNetworkSelection(phone, mccPtr, mncPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets manual network selection preference asynchronously.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_radio_SetManualRegisterModeAsync
+(
+    const char* mccPtr,                                    ///< [IN] Mobile Country Code.
+    const char* mncPtr,                                    ///< [IN] Mobile Network Code.
+    taf_radio_ManualSelectionHandlerFunc_t handlerFuncPtr, ///< [IN] Handler function.
+    void* contextPtr,                                      ///< [IN] Handler context.
+    uint8_t phone                                          ///< [IN] Phone.
+)
+{
+    Request_t request;
+    memset(&request, 0, sizeof(Request_t));
+
+    request.command = COMMAND_SET_NETWORK_SELECTION_PREFERENCE;
+    request.handlerFuncPtr = (void*)handlerFuncPtr;
+    request.contextPtr = contextPtr;
+    request.phone = phone;
+    le_utf8_Copy(request.preference.mcc, mccPtr, TAF_RADIO_MCC_BYTES, nullptr);
+    le_utf8_Copy(request.preference.mnc, mncPtr, TAF_RADIO_MNC_BYTES, nullptr);
+
+    le_event_Report(Factory::staticEvents.request, &request, sizeof(Request_t));
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the network selection preference.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_OUT_OF_RANGE -- Out of range.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
@@ -334,75 +211,89 @@ void taf_radio_SetManualRegisterModeAsync
 le_result_t taf_radio_GetRegisterMode
 (
     bool* isManualPtr, ///< [OUT] Ture if registered manually
-    char* mccPtr,      ///< [OUT] Mobile country code.
-    size_t mccPtrSize, ///< [IN] Mobile country code length.
-    char* mncPtr,      ///< [OUT] Mobile network code.
-    size_t mncPtrSize, ///< [IN] Mobile network code length.
-    uint8_t phoneId    ///< [IN] Phone ID.
+    char* mccPtr,      ///< [OUT] Mobile Country Code.
+    size_t mccPtrSize, ///< [IN] Mobile Country Code length.
+    char* mncPtr,      ///< [OUT] Mobile Network Code.
+    size_t mncPtrSize, ///< [IN] Mobile Network Code length.
+    uint8_t phone      ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(isManualPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(isManualPtr)");
-
-    TAF_ERROR_IF_RET_VAL(mccPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(mccPtr)");
-
-    TAF_ERROR_IF_RET_VAL(mncPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(mncPtr)");
-
-    TAF_ERROR_IF_RET_VAL(mccPtrSize < TAF_RADIO_MCC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mccPtrSize: %" PRIuS " < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
-
-    TAF_ERROR_IF_RET_VAL(mncPtrSize < TAF_RADIO_MNC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mncPtrSize: %" PRIuS " < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.networkManagers.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    auto networkManager = tafRadio.networkManagers[phoneId - 1];
-    TAF_ERROR_IF_RET_VAL(networkManager == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(networkManager->requestNetworkSelectionMode(
-        &taf_RadioSelectionModeResponseCallback::selectionModeResponse) !=
-        telux::common::Status::SUCCESS, LE_FAULT, "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioSelectionModeResponseCallback::semaphore,
-        timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioSelectionModeResponseCallback::result != LE_OK,
-        taf_RadioSelectionModeResponseCallback::result, "Fail to get register mode.");
-
-    if (taf_RadioSelectionModeResponseCallback::selectModeInfo.mode ==
-        telux::tel::NetworkSelectionMode::AUTOMATIC)
+    if (isManualPtr == nullptr)
     {
-        *isManualPtr = false;
-        return LE_OK;
-    }
-    else if (taf_RadioSelectionModeResponseCallback::selectModeInfo.mode ==
-        telux::tel::NetworkSelectionMode::MANUAL)
-    {
-        *isManualPtr = true;
-        le_utf8_Copy(mccPtr, taf_RadioSelectionModeResponseCallback::selectModeInfo.mcc.c_str(),
-            TAF_RADIO_MCC_BYTES, NULL);
-        le_utf8_Copy(mncPtr, taf_RadioSelectionModeResponseCallback::selectModeInfo.mnc.c_str(),
-            TAF_RADIO_MNC_BYTES, NULL);
-        return LE_OK;
+        LE_ERROR("isManualPtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    LE_ERROR("Unknown register mode.");
-    return LE_FAULT;
+    if (mccPtr == nullptr)
+    {
+        LE_ERROR("mccPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (mncPtr == nullptr)
+    {
+        LE_ERROR("mncPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (mccPtrSize < TAF_RADIO_MCC_BYTES)
+    {
+        LE_ERROR("Invalid mccPtrSize %" PRIuS " < %d.", mccPtrSize, TAF_RADIO_MCC_BYTES);
+        return LE_OUT_OF_RANGE;
+    }
+
+    if (mncPtrSize < TAF_RADIO_MNC_BYTES)
+    {
+        LE_ERROR("Invalid mncPtrSize %" PRIuS " < %d.", mncPtrSize, TAF_RADIO_MNC_BYTES);
+        return LE_OUT_OF_RANGE;
+    }
+
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_NetworkSelectionPreference_t preference;
+    pa_result_t paResult = taf_pa_radio_GetNetworkSelectionPreference(instance, &preference);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get network selection preference.");
+        return result;
+    }
+
+    switch (preference.mode)
+    {
+        case TAF_PA_RADIO_NETWORK_SELECTION_MODE_AUTOMATIC:
+            *isManualPtr = false;
+            break;
+        case TAF_PA_RADIO_NETWORK_SELECTION_MODE_MANUAL:
+            *isManualPtr = true;
+            break;
+        default:
+            LE_ERROR("Unknown mode %d.", preference.mode);
+            return LE_BAD_PARAMETER;
+    }
+
+    result = Utility::Convert::U16ToString(preference.mcc, mccPtr, TAF_RADIO_MCC_BYTES, false);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to convert MCC %d.", preference.mcc);
+        return result;
+    }
+
+    result = Utility::Convert::U16ToString(preference.mnc, mncPtr, TAF_RADIO_MNC_BYTES, true);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to convert MNC %d.", preference.mnc);
+        return result;
+    }
+
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the error code of network registeration.
+ *  Gets the error code of network selection.
  *
  * @return
- *  - int32_t value is correspond to the taf_radio_NetRejCause_t
+ *  - int32_t value is correspond to taf_radio_NetRejCause_t
  */
 //--------------------------------------------------------------------------------------------------
 int32_t taf_radio_GetPlatformSpecificRegistrationErrorCode
@@ -410,477 +301,437 @@ int32_t taf_radio_GetPlatformSpecificRegistrationErrorCode
     void
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    return tafRadio.netRejectCause;
+    auto& factory = Factory::GetInstance();
+
+    return factory.cache.netRejectCause;
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_AddPreferredOperator
-
- DESCRIPTION     Add an operator of network preference.
-
- DEPENDENCIES    Initialization of Radio Service
-
- PARAMETERS      [IN] const char* mccPtr: The mobile country code.
-                 [IN] const char* mncPtr: The mobile network code.
-                 [IN] taf_radio_RatBitMask_t ratMask:
-                          Rat bit mask. only support GSM/UMTS/LTE/NR5G
-                 [IN] uint8_t phoneId:    The phone id.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_FAULT:         Fail.
-                     LE_DUPLICATE:     Operator already exists.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ * Adds a preferred operator.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_AddPreferredOperator
 (
-    const char* mccPtr,
-    const char* mncPtr,
-    taf_radio_RatBitMask_t ratMask,
-    uint8_t phoneId
+    const char* mccPtr,             ///< [IN] Mobile Country Code.
+    const char* mncPtr,             ///< [IN] Mobile Network Code.
+    taf_radio_RatBitMask_t bitmask, ///< [IN] RAT bitmask.
+    uint8_t phone                   ///< [IN] Phone.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.networkManagers.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    auto networkManager = tafRadio.networkManagers[phoneId - 1];
-    TAF_ERROR_IF_RET_VAL(networkManager == nullptr, LE_FAULT,
-        "Invalid para(null network manager ptr, phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(networkManager->requestPreferredNetworks(
-        taf_RadioPreferredNetworksResponseCallback::preferredNetworksResponse) != telux::common::Status::SUCCESS,
-        LE_FAULT, "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioPreferredNetworksResponseCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioPreferredNetworksResponseCallback::result != LE_OK,
-        taf_RadioPreferredNetworksResponseCallback::result, "Fail to get preferred operator.");
-
-    telux::tel::PreferredNetworkInfo preferedOp;
-    preferedOp.mcc = (uint16_t)atoi(mccPtr);
-    preferedOp.mnc = (uint16_t)atoi(mncPtr);
-    if (ratMask == TAF_RADIO_RAT_BIT_MASK_ALL)
+    if (mccPtr == nullptr)
     {
-        preferedOp.ratMask.set(telux::tel::RatType::GSM);
-        preferedOp.ratMask.set(telux::tel::RatType::NR5G);
-        preferedOp.ratMask.set(telux::tel::RatType::LTE);
-        preferedOp.ratMask.set(telux::tel::RatType::UMTS);
+        LE_ERROR("mccPtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
-    else
+
+    if (mncPtr == nullptr)
     {
-        if (ratMask & TAF_RADIO_RAT_BIT_MASK_GSM)
-        {
-            preferedOp.ratMask.set(telux::tel::RatType::GSM);
-        }
-        if (ratMask & TAF_RADIO_RAT_BIT_MASK_UMTS)
-        {
-            preferedOp.ratMask.set(telux::tel::RatType::UMTS);
-        }
-        if (ratMask & TAF_RADIO_RAT_BIT_MASK_LTE)
-        {
-            preferedOp.ratMask.set(telux::tel::RatType::LTE);
-        }
-        if (ratMask & TAF_RADIO_RAT_BIT_MASK_NR5G)
-        {
-            preferedOp.ratMask.set(telux::tel::RatType::NR5G);
-        }
+        LE_ERROR("mncPtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    std::vector<telux::tel::PreferredNetworkInfo> preferedInfo;
-    for (auto op : taf_RadioPreferredNetworksResponseCallback::preferredNetworksInfo) {
-        TAF_ERROR_IF_RET_VAL(op.mcc == preferedOp.mcc && op.mnc == preferedOp.mnc && op.ratMask == preferedOp.ratMask,
-            LE_DUPLICATE, "Operator(mcc:%d mnc:%d ratMask:%lx) already exist", op.mnc, op.mnc, op.ratMask.to_ulong());
-            preferedInfo.push_back(op);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_PreferredNetworkConfig_t config;
+    config.clearPrevious = 0;
+    config.networkCount = 1;
+    le_result_t result = Utility::Convert::StringToU16(mccPtr, &config.networks[0].mcc);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to convert MCC %s.", mccPtr);
+        return result;
     }
 
-    preferedInfo.push_back(preferedOp);
+    result = Utility::Convert::StringToU16(mncPtr, &config.networks[0].mnc);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to convert MNC %s.", mncPtr);
+        return result;
+    }
 
-    TAF_ERROR_IF_RET_VAL(networkManager->setPreferredNetworks(preferedInfo, true,
-    taf_RadioNetworkResponseCallback::setPreferredNetworksResponseCb) != telux::common::Status::SUCCESS,
-        LE_FAULT, "Call sdk function failed");
+    config.networks[0].bitmask = Utility::Convert::Rat(bitmask);
+    pa_result_t paResult = taf_pa_radio_SetPreferredNetwork(instance, &config);
 
-    res = le_sem_WaitWithTimeOut(taf_RadioNetworkResponseCallback::prefNetSem, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioNetworkResponseCallback::prefNetRes != LE_OK,
-        taf_RadioNetworkResponseCallback::prefNetRes, "Fail to add preferred operator.");
-
-    return LE_OK;
+    return Utility::Convert::Result(paResult);
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_RemovePreferredOperator
-
- DESCRIPTION     Remove an operator of network preference.
-
- DEPENDENCIES    Initialization of Radio Service
-
- PARAMETERS      [IN] const char* mccPtr: The mobile country code.
-                 [IN] const char* mncPtr: The mobile network code.
-                 [IN] uint8_t phoneId:    The phone id.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_FAULT:         Fail.
-                     LE_NOT_FOUND:     Operator not found.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes a preferred operator.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_RemovePreferredOperator
 (
-    const char* mccPtr,
-    const char* mncPtr,
-    uint8_t phoneId
+    const char* mccPtr, ///< [IN] Mobile Country Code.
+    const char* mncPtr, ///< [IN] Mobile Network Code.
+    uint8_t phone       ///< [IN] Phone. 
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.networkManagers.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    auto networkManager = tafRadio.networkManagers[phoneId - 1];
-    TAF_ERROR_IF_RET_VAL(networkManager == nullptr, LE_FAULT,
-        "Invalid para(null network manager ptr, phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(networkManager->requestPreferredNetworks(
-    taf_RadioPreferredNetworksResponseCallback::preferredNetworksResponse) != telux::common::Status::SUCCESS,
-        LE_FAULT, "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioPreferredNetworksResponseCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioPreferredNetworksResponseCallback::result != LE_OK,
-        taf_RadioPreferredNetworksResponseCallback::result, "Fail to get preferred operator.");
-
-    telux::tel::PreferredNetworkInfo preferedOp;
-    preferedOp.mcc = (uint16_t)atoi(mccPtr);
-    preferedOp.mnc = (uint16_t)atoi(mncPtr);
-
-    std::vector<telux::tel::PreferredNetworkInfo> preferedInfo;
-    uint32_t count = 0;
-
-    for (auto op : taf_RadioPreferredNetworksResponseCallback::preferredNetworksInfo) {
-        if (op.mcc != preferedOp.mcc) {
-            preferedInfo.push_back(op);
-            continue;
-        }
-
-        if (op.mnc != preferedOp.mnc) {
-            preferedInfo.push_back(op);
-            continue;
-        }
-
-        count++;
+    if (mccPtr == nullptr)
+    {
+        LE_ERROR("mccPtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    TAF_ERROR_IF_RET_VAL(count == 0, LE_NOT_FOUND, "Operator not found");
-    LE_DEBUG("%d Operators have been found", count);
+    if (mncPtr == nullptr)
+    {
+        LE_ERROR("mncPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(networkManager->setPreferredNetworks(preferedInfo, true,
-    taf_RadioNetworkResponseCallback::setPreferredNetworksResponseCb) != telux::common::Status::SUCCESS,
-        LE_FAULT, "Call sdk function failed");
+    uint16_t mcc = 0, mnc = 0;
+    le_result_t result = Utility::Convert::StringToU16(mccPtr, &mcc);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to convert MCC %s.", mccPtr);
+        return result;
+    }
+    result = Utility::Convert::StringToU16(mncPtr, &mnc);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to convert MNC %s.", mncPtr);
+        return result;
+    }
 
-    res = le_sem_WaitWithTimeOut(taf_RadioNetworkResponseCallback::prefNetSem, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_PreferredNetworks_t networks;
+    pa_result_t paResult = taf_pa_radio_GetPreferredNetwork(instance, &networks);
+    result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get preferred network.");
+        return result;
+    }
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioNetworkResponseCallback::prefNetRes != LE_OK,
-        taf_RadioNetworkResponseCallback::prefNetRes, "Fail to remove preferred operator.");
+    if (networks.nonStaticNetworksValid == 0)
+    {
+        LE_ERROR("No preferred networks.");
+        return LE_NOT_FOUND;
+    }
 
-    return LE_OK;
+    taf_pa_radio_PreferredNetworkConfig_t config;
+    uint32_t i = 0, j = 0;
+    for (; i < networks.nonStaticNetworkCount &&
+        i < TAF_PA_RADIO_PREFERRED_NETWORK_MAX_COUNT; i++)
+    {
+        if (networks.nonStaticNetworks[i].mcc == mcc && networks.nonStaticNetworks[i].mnc == mnc)
+            continue;
+
+        config.networks[j].mcc = networks.nonStaticNetworks[i].mcc;
+        config.networks[j].mnc = networks.nonStaticNetworks[i].mnc;
+        config.networks[j].bitmask = networks.nonStaticNetworks[i].bitmask;
+
+        j++;
+    }
+
+    if (j == i)
+    {
+        LE_ERROR("Failed to find MCC %s, MNC %s in prefered networks.", mccPtr, mncPtr);
+        return LE_NOT_FOUND;
+    }
+
+    config.clearPrevious = 1;
+    config.networkCount = j;
+    paResult = taf_pa_radio_SetPreferredNetwork(instance, &config);
+
+    return Utility::Convert::Result(paResult);
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_DeletePreferredOperatorsList
-
- DESCRIPTION     Delete a reference of an operator list.
-
- DEPENDENCIES    Initialization of an operator list
-
- PARAMETERS      [IN] taf_radio_PreferredOperatorListRef_t preferredOperatorListRef: The operator list reference.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_NOT_FOUND:     Fail.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_radio_DeletePreferredOperatorsList(taf_radio_PreferredOperatorListRef_t preferredOperatorListRef)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes the preferred network list.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_DeletePreferredOperatorsList
+(
+    taf_radio_PreferredOperatorListRef_t listRef ///< [IN] The preferred network list reference.
+)
 {
-    TAF_ERROR_IF_RET_VAL(preferredOperatorListRef == nullptr, LE_BAD_PARAMETER,
-        "Null reference(preferredOperatorListRef)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioPrefOpList_t* listPtr = (taf_RadioPrefOpList_t*)le_ref_Lookup(tafRadio.prefOpListRefMap,
-        preferredOperatorListRef);
-    TAF_ERROR_IF_RET_VAL(listPtr == nullptr, LE_NOT_FOUND, "Invalid para(null reference ptr)");
-
-    taf_RadioPrefOp_t* prefOpPtr;
-    le_sls_Link_t *linkPtr;
-    while ((linkPtr = le_sls_Pop(&(listPtr->prefOpList))) != NULL) {
-        prefOpPtr = CONTAINER_OF(linkPtr, taf_RadioPrefOp_t, link);
-        le_mem_Release(prefOpPtr);
+    if (listRef == nullptr)
+    {
+        LE_ERROR("listRef is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    taf_RadioPrefOpSafeRef_t* safeRefPtr;
-    while ((linkPtr = le_sls_Pop(&(listPtr->safeRefList))) != NULL) {
-        safeRefPtr = CONTAINER_OF(linkPtr, taf_RadioPrefOpSafeRef_t, link);
-        le_ref_DeleteRef(tafRadio.prefOpSafeRefMap, safeRefPtr->safeRef);
+    auto& factory = Factory::GetInstance();
+    CommonList_t* listPtr = (CommonList_t*)le_ref_Lookup(factory.maps.commonList, listRef);
+    if (listPtr == nullptr)
+    {
+        LE_ERROR("listPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    PrefNet_t* netPtr = nullptr;
+    le_sls_Link_t* linkPtr = nullptr;
+    while ((linkPtr = le_sls_Pop(&(listPtr->commonList))) != nullptr)
+    {
+        netPtr = CONTAINER_OF(linkPtr, PrefNet_t, link);
+        le_mem_Release(netPtr);
+    }
+
+    SafeRef_t* safeRefPtr = nullptr;
+    while ((linkPtr = le_sls_Pop(&(listPtr->safeRefList))) != nullptr)
+    {
+        safeRefPtr = CONTAINER_OF(linkPtr, SafeRef_t, link);
+        le_ref_DeleteRef(factory.maps.safeRef, safeRefPtr->safeRef);
         le_mem_Release(safeRefPtr);
     }
 
-    le_ref_DeleteRef(tafRadio.prefOpListRefMap, preferredOperatorListRef);
+    le_ref_DeleteRef(factory.maps.commonList, listRef);
 
     le_mem_Release(listPtr);
 
     return LE_OK;
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_GetPreferredOperatorsList
-
- DESCRIPTION     Get a reference of an operator list.
-
- DEPENDENCIES    Initialization of Radio Service
-
- PARAMETERS      [IN] uint8_t phoneId: The phone id.
-
- RETURN VALUE    taf_radio_PreferredOperatorListRef_t
-                     nullptr:     Fail
-                     non-nullptr: Success
- SIDE EFFECTS
-
-======================================================================*/
-taf_radio_PreferredOperatorListRef_t taf_radio_GetPreferredOperatorsList(uint8_t phoneId)
-{
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.networkManagers.size(), NULL,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    auto networkManager = tafRadio.networkManagers[phoneId - 1];
-    TAF_ERROR_IF_RET_VAL(networkManager == nullptr, nullptr,
-        "Invalid para(null network manager ptr, phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(networkManager->requestPreferredNetworks(
-        taf_RadioPreferredNetworksResponseCallback::preferredNetworksResponse) != telux::common::Status::SUCCESS,
-        nullptr, "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioPreferredNetworksResponseCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, nullptr,
-        "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioPreferredNetworksResponseCallback::result != LE_OK,
-        NULL, "Fail to get preferred operator.");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioPreferredNetworksResponseCallback::preferredNetworksInfo.size() == 0, nullptr,
-        "Phone%d has no prefered operators", phoneId);
-
-    taf_RadioPrefOpList_t* prefOpsList = (taf_RadioPrefOpList_t*)le_mem_ForceAlloc(tafRadio.prefOpsListPool);
-    prefOpsList->prefOpList = LE_SLS_LIST_INIT;
-    prefOpsList->safeRefList = LE_SLS_LIST_INIT;
-    prefOpsList->currPtr = NULL;
-
-    taf_RadioPrefOp_t* prefOpPtr;
-    for (auto info : taf_RadioPreferredNetworksResponseCallback::preferredNetworksInfo) {
-        prefOpPtr = (taf_RadioPrefOp_t*)le_mem_ForceAlloc(tafRadio.prefOpPool);
-        prefOpPtr->info = info;
-        prefOpPtr->link = LE_SLS_LINK_INIT;
-        le_sls_Queue(&(prefOpsList->prefOpList), &(prefOpPtr->link));
-    }
-
-    return (taf_radio_PreferredOperatorListRef_t)le_ref_CreateRef(tafRadio.prefOpListRefMap, (void*)prefOpsList);
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_GetFirstPreferredOperator
-
- DESCRIPTION     Get the reference of the first operator from a list.
-
- DEPENDENCIES    Initialization of an operator list
-
- PARAMETERS      [IN] taf_radio_PreferredOperatorListRef_t preferredOperatorListRef: The operator list reference.
-
- RETURN VALUE    taf_radio_PreferredOperatorRef_t
-                     nullptr:     Fail
-                     non-nullptr: Success
- SIDE EFFECTS
-
-======================================================================*/
-taf_radio_PreferredOperatorRef_t taf_radio_GetFirstPreferredOperator
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the preferred network list.
+ *
+ * @return
+ *  - taf_radio_PreferredOperatorListRef_t reference for the preferred network list.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_PreferredOperatorListRef_t taf_radio_GetPreferredOperatorsList
 (
-    taf_radio_PreferredOperatorListRef_t preferredOperatorListRef
+    uint8_t phone ///< [IN] Phone.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioPrefOpList_t* listPtr = (taf_RadioPrefOpList_t*)le_ref_Lookup(tafRadio.prefOpListRefMap,
-        preferredOperatorListRef);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_PreferredNetworks_t networks;
+    pa_result_t paResult = taf_pa_radio_GetPreferredNetwork(instance, &networks);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get preferred network.");
+        return nullptr;
+    }
 
-    TAF_ERROR_IF_RET_VAL(listPtr == nullptr, nullptr,
-        "Failed to look up the reference:%p", preferredOperatorListRef);
+    if (networks.nonStaticNetworksValid == 0 || networks.nonStaticNetworkCount == 0)
+    {
+        LE_ERROR("No preferred networks.");
+        return nullptr;
+    }
 
-    le_sls_Link_t* linkPtr = le_sls_Peek(&(listPtr->prefOpList));
-    TAF_ERROR_IF_RET_VAL(linkPtr == nullptr, nullptr, "Empty list");
+    auto& factory = Factory::GetInstance();
+    CommonList_t* listPtr = (CommonList_t*)le_mem_ForceAlloc(factory.pools.commonList);
+    listPtr->commonList = LE_SLS_LIST_INIT;
+    listPtr->safeRefList = LE_SLS_LIST_INIT;
+    listPtr->currPtr = nullptr;
 
-    taf_RadioPrefOp_t* prefOpPtr = CONTAINER_OF(linkPtr, taf_RadioPrefOp_t , link);
+    PrefNet_t* netPtr = nullptr;
+    for (uint32_t i = 0; i < networks.nonStaticNetworkCount &&
+        i < TAF_PA_RADIO_PREFERRED_NETWORK_MAX_COUNT; i++)
+    {
+        netPtr = (PrefNet_t*)le_mem_ForceAlloc(factory.pools.prefNet);
+        netPtr->prefNet = networks.nonStaticNetworks[i];
+        netPtr->link = LE_SLS_LINK_INIT;
+        le_sls_Queue(&(listPtr->commonList), &(netPtr->link));
+    }
+
+    return (taf_radio_PreferredOperatorListRef_t)le_ref_CreateRef(factory.maps.commonList,
+        (void*)listPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the first preferred network.
+ *
+ * @return
+ *  - taf_radio_PreferredOperatorRef_t reference for the first preferred network.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_PreferredOperatorRef_t taf_radio_GetFirstPreferredOperator
+(
+    taf_radio_PreferredOperatorListRef_t listRef ///< [IN] The preferred network list reference.
+)
+{
+    if (listRef == nullptr)
+    {
+        LE_ERROR("listRef is nullptr.");
+        return nullptr;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CommonList_t* listPtr = (CommonList_t*)le_ref_Lookup(factory.maps.commonList, listRef);
+    if (listPtr == nullptr)
+    {
+        LE_ERROR("listPtr is nullptr.");
+        return nullptr;
+    }
+
+    le_sls_Link_t* linkPtr = le_sls_Peek(&(listPtr->commonList));
+    if (linkPtr == nullptr)
+    {
+        LE_ERROR("linkPtr is nullptr.");
+        return nullptr;
+    }
+
+    PrefNet_t* nodePtr = CONTAINER_OF(linkPtr, PrefNet_t, link);
     listPtr->currPtr = linkPtr;
 
-    taf_RadioPrefOpSafeRef_t* safeRefPtr = (taf_RadioPrefOpSafeRef_t*)le_mem_ForceAlloc(tafRadio.prefOpSafeRefPool);
-    safeRefPtr->safeRef = le_ref_CreateRef(tafRadio.prefOpSafeRefMap, (void*)prefOpPtr);
+    SafeRef_t* safeRefPtr = (SafeRef_t*)le_mem_ForceAlloc(factory.pools.safeRef);
+    safeRefPtr->safeRef = le_ref_CreateRef(factory.maps.safeRef, (void*)nodePtr);
     safeRefPtr->link = LE_SLS_LINK_INIT;
     le_sls_Queue(&(listPtr->safeRefList), &(safeRefPtr->link));
 
     return (taf_radio_PreferredOperatorRef_t)safeRefPtr->safeRef;
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_GetNextPreferredOperator
-
- DESCRIPTION     Get the reference of the next operator from a list.
-
- DEPENDENCIES    Initialization of an operator list
-
- PARAMETERS      [IN] taf_radio_PreferredOperatorListRef_t preferredOperatorListRef: The operator list reference.
-
- RETURN VALUE    taf_radio_PreferredOperatorRef_t
-                     nullptr:     Fail
-                     non-nullptr: Success
- SIDE EFFECTS
-
-======================================================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the next preferred network.
+ *
+ * @return
+ *  - taf_radio_PreferredOperatorRef_t reference for the next preferred network.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_PreferredOperatorRef_t taf_radio_GetNextPreferredOperator
 (
-    taf_radio_PreferredOperatorListRef_t  preferredOperatorListRef
+    taf_radio_PreferredOperatorListRef_t listRef ///< [IN] The preferred network list reference.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioPrefOpList_t* listPtr = (taf_RadioPrefOpList_t*)le_ref_Lookup(tafRadio.prefOpListRefMap,
-        preferredOperatorListRef);
+    if (listRef == nullptr)
+    {
+        LE_ERROR("listRef is nullptr.");
+        return nullptr;
+    }
 
-    TAF_ERROR_IF_RET_VAL(listPtr == nullptr, nullptr,
-        "Failed to look up the reference:%p", preferredOperatorListRef);
+    auto& factory = Factory::GetInstance();
+    CommonList_t* listPtr = (CommonList_t*)le_ref_Lookup(factory.maps.commonList, listRef);
+    if (listPtr == nullptr)
+    {
+        LE_ERROR("listPtr is nullptr.");
+        return nullptr;
+    }
 
-    le_sls_Link_t* linkPtr = le_sls_PeekNext(&(listPtr->prefOpList), listPtr->currPtr);
-    TAF_ERROR_IF_RET_VAL(linkPtr == nullptr, nullptr, "Reach to the end of list");
+    le_sls_Link_t* linkPtr = le_sls_PeekNext(&(listPtr->commonList), listPtr->currPtr);
+    if (linkPtr == nullptr)
+        return nullptr;
 
-    taf_RadioPrefOp_t* prefOpPtr = CONTAINER_OF(linkPtr, taf_RadioPrefOp_t, link);
+    PrefNet_t* netPtr = CONTAINER_OF(linkPtr, PrefNet_t, link);
     listPtr->currPtr = linkPtr;
 
-    taf_RadioPrefOpSafeRef_t* safeRefPtr = (taf_RadioPrefOpSafeRef_t*)le_mem_ForceAlloc(tafRadio.prefOpSafeRefPool);
-    safeRefPtr->safeRef = le_ref_CreateRef(tafRadio.prefOpSafeRefMap, (void*)prefOpPtr);
+    SafeRef_t* safeRefPtr = (SafeRef_t*)le_mem_ForceAlloc(factory.pools.safeRef);
+    safeRefPtr->safeRef = le_ref_CreateRef(factory.maps.safeRef, (void*)netPtr);
     safeRefPtr->link = LE_SLS_LINK_INIT;
     le_sls_Queue(&(listPtr->safeRefList) ,&(safeRefPtr->link));
 
     return (taf_radio_PreferredOperatorRef_t)safeRefPtr->safeRef;
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_GetPreferredOperatorDetails
-
- DESCRIPTION     Get the infomation of an operator from a list.
-
- DEPENDENCIES    Initialization of an operator list and get a safe reference of an operator.
-
- PARAMETERS      [IN] taf_radio_PreferredOperatorRef_t preferredOperatorRef:
-                          The operator reference.
-                 [OUT] char* mccPtr:                       The mobile country code.
-                 [IN] size_t mccPtrSize:                   Mobile country code length.
-                 [OUT] char* mncPtr:                       The mobile network code.
-                 [IN] size_t mncPtrSize:                   Mobile network code length.
-                 [OUT] taf_radio_RatBitMask_t* ratMaskPtr: RAT bit mask.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_NOT_FOUND:     Fail.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the details of the preferred network.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OUT_OF_RANGE -- Out of range.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetPreferredOperatorDetails
 (
-    taf_radio_PreferredOperatorRef_t preferredOperatorRef,
-    char* mccPtr,
-    size_t mccPtrSize,
-    char* mncPtr,
-    size_t mncPtrSize,
-    taf_radio_RatBitMask_t* ratMaskPtr
+    taf_radio_PreferredOperatorRef_t networkRef, ///< [IN] The preferred network reference.
+    char* mccPtr,                                ///< [OUT] Mobile Country Code.
+    size_t mccPtrSize,                           ///< [IN] Mobile Country Code length.
+    char* mncPtr,                                ///< [OUT] Mobile Network Code.
+    size_t mncPtrSize,                           ///< [IN] Mobile Network Code length.
+    taf_radio_RatBitMask_t* bitmaskPtr           ///< [OUT] RAT bitmask.
 )
 {
-    TAF_ERROR_IF_RET_VAL(preferredOperatorRef == nullptr, LE_BAD_PARAMETER,
-        "Null reference(preferredOperatorRef)");
-
-    TAF_ERROR_IF_RET_VAL(mccPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(mccPtr)");
-
-    TAF_ERROR_IF_RET_VAL(mccPtrSize < TAF_RADIO_MCC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mccPtrSize: %" PRIuS " < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
-
-    TAF_ERROR_IF_RET_VAL(mncPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(mncPtr)");
-
-    TAF_ERROR_IF_RET_VAL(mncPtrSize < TAF_RADIO_MNC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mncPtrSize: %" PRIuS " < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
-
-    TAF_ERROR_IF_RET_VAL(ratMaskPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(ratMaskPtr)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioPrefOp_t* prefOpPtr = (taf_RadioPrefOp_t*)le_ref_Lookup(tafRadio.prefOpSafeRefMap, preferredOperatorRef);
-    TAF_ERROR_IF_RET_VAL(prefOpPtr == nullptr, LE_NOT_FOUND, "Invalid para(null reference ptr)");
-
-    std::string mcc = std::to_string(prefOpPtr->info.mcc);
-    std::string mnc = std::to_string(prefOpPtr->info.mnc);
-
-    le_utf8_Copy(mccPtr, mcc.c_str(), TAF_RADIO_MCC_BYTES, NULL);
-    le_utf8_Copy(mncPtr, mnc.c_str(), TAF_RADIO_MNC_BYTES, NULL);
-
-    taf_radio_RatBitMask_t ratMask = 0x0;
-    if (prefOpPtr->info.ratMask[telux::tel::RatType::GSM])
+    if (networkRef == nullptr)
     {
-        ratMask |= TAF_RADIO_RAT_BIT_MASK_GSM;
-    }
-    if (prefOpPtr->info.ratMask[telux::tel::RatType::UMTS])
-    {
-        ratMask |= TAF_RADIO_RAT_BIT_MASK_UMTS;
-    }
-    if (prefOpPtr->info.ratMask[telux::tel::RatType::LTE])
-    {
-        ratMask |= TAF_RADIO_RAT_BIT_MASK_LTE;
-    }
-    if (prefOpPtr->info.ratMask[telux::tel::RatType::NR5G])
-    {
-        ratMask |= TAF_RADIO_RAT_BIT_MASK_NR5G;
+        LE_ERROR("networkRef is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    *ratMaskPtr = ratMask;
+    if (mccPtr == nullptr)
+    {
+        LE_ERROR("mccPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (mncPtr == nullptr)
+    {
+        LE_ERROR("mncPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (bitmaskPtr == nullptr)
+    {
+        LE_ERROR("bitmaskPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (mccPtrSize < TAF_RADIO_MCC_BYTES)
+    {
+        LE_ERROR("Invalid mccPtrSize %" PRIuS " < %d.", mccPtrSize, TAF_RADIO_MCC_BYTES);
+        return LE_OUT_OF_RANGE;
+    }
+
+    if (mncPtrSize < TAF_RADIO_MNC_BYTES)
+    {
+        LE_ERROR("Invalid mncPtrSize %" PRIuS " < %d.", mncPtrSize, TAF_RADIO_MNC_BYTES);
+        return LE_OUT_OF_RANGE;
+    }
+
+    auto& factory = Factory::GetInstance();
+    PrefNet_t* netPtr = (PrefNet_t*)le_ref_Lookup(factory.maps.safeRef, networkRef);
+    if (netPtr == nullptr)
+    {
+        LE_ERROR("netPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    le_result_t result = Utility::Convert::U16ToString(netPtr->prefNet.mcc, mccPtr,
+        TAF_RADIO_MCC_BYTES, false);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to convert MCC %d.", netPtr->prefNet.mcc);
+        return result;
+    }
+
+    result = Utility::Convert::U16ToString(netPtr->prefNet.mnc, mncPtr, TAF_RADIO_MNC_BYTES,
+        false);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to convert MNC %d.", netPtr->prefNet.mnc);
+        return result;
+    }
+
+    *bitmaskPtr = Utility::Convert::Rat(netPtr->prefNet.bitmask);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add handler for network registration rejection.
+ * Adds handler for network rejection.
  *
  * @return
- *  - taf_radio_NetRegRejectHandlerRef_t Handler reference.
+ *  - taf_radio_NetRegRejectHandlerRef_t handler reference for network rejection.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_NetRegRejectHandlerRef_t taf_radio_AddNetRegRejectHandler
@@ -889,10 +740,11 @@ taf_radio_NetRegRejectHandlerRef_t taf_radio_AddNetRegRejectHandler
     void* contextPtr                                    ///< [IN] Handler context.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    auto& factory = Factory::GetInstance();
 
-    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("NetRejectHandler",
-        tafRadio.netRegRejEvId, taf_Radio::taf_radio_LayerNetRejectHandler, (void*)handlerFuncPtr);
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("NetworkRejection",
+        factory.events.networkRejection, Utility::LayeredFunction::NetworkRejection,
+        (void*)handlerFuncPtr);
 
     le_event_SetContextPtr(handlerRef, contextPtr);
 
@@ -901,7 +753,8 @@ taf_radio_NetRegRejectHandlerRef_t taf_radio_AddNetRegRejectHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remove handler for network rejection.
+ * Removes handler for network rejection.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 void taf_radio_RemoveNetRegRejectHandler
@@ -914,10 +767,10 @@ void taf_radio_RemoveNetRegRejectHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add handler for RAT changes.
+ * Adds handler for RAT changes.
  *
  * @return
- *  - taf_radio_RatChangeHandlerRef_t Handler reference.
+ *  - taf_radio_RatChangeHandlerRef_t handler reference for RAT changes.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_RatChangeHandlerRef_t taf_radio_AddRatChangeHandler
@@ -926,10 +779,10 @@ taf_radio_RatChangeHandlerRef_t taf_radio_AddRatChangeHandler
     void* contextPtr                                 ///< [IN] Handler context.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    auto& factory = Factory::GetInstance();
 
-    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("RatChangeHandler",
-        tafRadio.ratChangeEvId, taf_Radio::taf_radio_LayerRatChangeHandler, (void*)handlerFuncPtr);
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("RatChange",
+        factory.events.ratChange, Utility::LayeredFunction::RatChange, (void*)handlerFuncPtr);
 
     le_event_SetContextPtr(handlerRef, contextPtr);
 
@@ -938,7 +791,8 @@ taf_radio_RatChangeHandlerRef_t taf_radio_AddRatChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remove handler for RAT changes.
+ * Removes handler for RAT changes.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 void taf_radio_RemoveRatChangeHandler
@@ -951,310 +805,164 @@ void taf_radio_RemoveRatChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the radio access technology in use.
+ *  Gets the Radio Access Technology in use.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_TIMEOUT -- Response time out.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetRadioAccessTechInUse
 (
-    taf_radio_Rat_t* ratPtr, ///< [OUT] Radio access technology.
-    uint8_t phoneId          ///< [IN] Phone ID.
+    taf_radio_Rat_t* ratPtr, ///< [OUT] The Radio Access Technology in use.
+    uint8_t phone            ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(ratPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(statePtr)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    telux::tel::ServingSystemInfo sysInfo;
-    auto status = tafRadio.servingSystemManagers[phoneId - 1]->getSystemInfo(sysInfo);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    *ratPtr = tafRadio.taf_radio_CovertRat(sysInfo.rat);
-
-    return LE_OK;
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_SetRatPreferences
-
- DESCRIPTION     Configure rat preferences.
-
- DEPENDENCIES    Initialization of the radio service.
-
- PARAMETERS      [IN] taf_radio_RatBitMask_t ratMask: Rat preference bit mask.
-                 [IN] uint8_t phoneId:                 The phone id.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_FAULT:         Fail.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_radio_SetRatPreferences(taf_radio_RatBitMask_t ratMask, uint8_t phoneId)
-{
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    telux::tel::RatPreference ratPref;
-    if (ratMask == TAF_RADIO_RAT_BIT_MASK_ALL)
+    if (ratPtr == nullptr)
     {
-        ratPref.set(telux::tel::PREF_CDMA_1X);
-        ratPref.set(telux::tel::PREF_CDMA_EVDO);
-        ratPref.set(telux::tel::PREF_GSM);
-        ratPref.set(telux::tel::PREF_WCDMA);
-        ratPref.set(telux::tel::PREF_LTE);
-        ratPref.set(telux::tel::PREF_TDSCDMA);
-        ratPref.set(telux::tel::PREF_NR5G);
-    }
-    else
-    {
-        if (ratMask & TAF_RADIO_RAT_BIT_MASK_GSM)
-        {
-            ratPref = ratPref.set(telux::tel::PREF_GSM);
-        }
-        if (ratMask & TAF_RADIO_RAT_BIT_MASK_UMTS)
-        {
-            ratPref = ratPref.set(telux::tel::PREF_WCDMA);
-        }
-        if (ratMask & TAF_RADIO_RAT_BIT_MASK_CDMA)
-        {
-            ratPref.set(telux::tel::PREF_CDMA_1X);
-            ratPref.set(telux::tel::PREF_CDMA_EVDO);
-        }
-        if (ratMask & TAF_RADIO_RAT_BIT_MASK_TDSCDMA)
-        {
-            ratPref.set(telux::tel::PREF_TDSCDMA);
-        }
-        if (ratMask & TAF_RADIO_RAT_BIT_MASK_LTE)
-        {
-            ratPref.set(telux::tel::PREF_LTE);
-        }
-        if (ratMask & TAF_RADIO_RAT_BIT_MASK_NR5G)
-        {
-            ratPref.set(telux::tel::PREF_NR5G);
-        }
+        LE_ERROR("ratPtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    auto ret = tafRadio.servingSystemManagers[phoneId - 1]->setRatPreference(ratPref,
-        taf_RadioServingSystemResponseCallback::servingSystemResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioServingSystemResponseCallback::semaphore,
-        timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioServingSystemResponseCallback::result != LE_OK,
-        taf_RadioServingSystemResponseCallback::result, "Fail to set rat preference.");
-
-    return LE_OK;
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_GetRatPreferences
-
- DESCRIPTION     Get the rat preferences.
-
- DEPENDENCIES    Initialization of the radio service.
-
- PARAMETERS      [OUT] taf_radio_RatBitMask_t* ratMaskPtr: Rat preference bit mask.
-                 [IN] uint8_t phoneId:                      The phone id.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_FAULT:         Fail.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_radio_GetRatPreferences(taf_radio_RatBitMask_t* ratMaskPtr, uint8_t phoneId)
-{
-    TAF_ERROR_IF_RET_VAL(ratMaskPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(statePtr)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto ret = tafRadio.servingSystemManagers[phoneId - 1]->requestRatPreference(
-        taf_RadioRatPreferenceResponseCallback::ratPreferenceResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioRatPreferenceResponseCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioRatPreferenceResponseCallback::result != LE_OK,
-        taf_RadioRatPreferenceResponseCallback::result, "Fail to get rat preference.");
-
-    taf_radio_RatBitMask_t ratMask = 0x0;
-    telux::tel::RatPreference pref = taf_RadioRatPreferenceResponseCallback::ratPref;
-
-    if (pref[telux::tel::PREF_GSM])
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_Rat_t rat = TAF_PA_RADIO_RAT_UNKNOWN;
+    pa_result_t paResult = taf_pa_radio_GetServingRat(instance, &rat);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
     {
-        ratMask |= TAF_RADIO_RAT_BIT_MASK_GSM;
+        LE_ERROR("Failed to get serving RAT.");
+        return result;
     }
 
-    if (pref[telux::tel::PREF_CDMA_1X] || pref[telux::tel::PREF_CDMA_EVDO])
-    {
-        ratMask |= TAF_RADIO_RAT_BIT_MASK_CDMA;
-    }
-
-    if (pref[telux::tel::PREF_WCDMA])
-    {
-        ratMask |= TAF_RADIO_RAT_BIT_MASK_UMTS;
-    }
-
-    if (pref[telux::tel::PREF_TDSCDMA])
-    {
-        ratMask |= TAF_RADIO_RAT_BIT_MASK_TDSCDMA;
-    }
-
-    if (pref[telux::tel::PREF_LTE])
-    {
-        ratMask |= TAF_RADIO_RAT_BIT_MASK_LTE;
-    }
-
-    if (pref[telux::tel::PREF_NR5G])
-    {
-        ratMask |= TAF_RADIO_RAT_BIT_MASK_NR5G;
-    }
-
-    if (ratMask == (TAF_RADIO_RAT_BIT_MASK_GSM | TAF_RADIO_RAT_BIT_MASK_CDMA |
-        TAF_RADIO_RAT_BIT_MASK_UMTS | TAF_RADIO_RAT_BIT_MASK_TDSCDMA |
-        TAF_RADIO_RAT_BIT_MASK_LTE | TAF_RADIO_RAT_BIT_MASK_NR5G))
-    {
-        *ratMaskPtr = TAF_RADIO_RAT_BIT_MASK_ALL;
-    }
-    else
-    {
-        *ratMaskPtr = ratMask;
-    }
+    *ratPtr = Utility::Convert::Rat(rat);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Get network registration state.
+ * Sets the Radio Access Technology preferences.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
- *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetRatPreferences
+(
+    taf_radio_RatBitMask_t bitmask, ///< [IN] The Radio Access Technology bitmask.
+    uint8_t phone                   ///< [IN] Phone.
+)
+{
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_RatBitMask_t rat = Utility::Convert::Rat(bitmask);
+    pa_result_t result = taf_pa_radio_SetPreferredRat(instance, rat);
+
+    return Utility::Convert::Result(result);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the Radio Access Technology preferences.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetRatPreferences
+(
+    taf_radio_RatBitMask_t* bitmaskPtr, ///< [OUT] The Radio Access Technology bitmask.
+    uint8_t phone                       ///< [IN] Phone.
+)
+{
+    if (bitmaskPtr == nullptr)
+    {
+        LE_ERROR("bitmaskPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_RatBitMask_t bitmask = 0x0;
+    pa_result_t paResult = taf_pa_radio_GetPreferredRat(instance, &bitmask);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get preferred RAT.");
+        return result;
+    }
+
+    *bitmaskPtr =  Utility::Convert::Rat(bitmask);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the network registration state.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetNetRegState
 (
-    taf_radio_NetRegState_t* statePtr, ///< [OUT] Network registration state.
-    uint8_t phoneId                    ///< [IN] Phone ID.
+    taf_radio_NetRegState_t* statePtr, ///< [OUT] The network registration state.
+    uint8_t phone                      ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(statePtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(statePtr)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto ret = tafRadio.phones[phoneId - 1]->requestVoiceServiceState(tafRadio.voiceSrvStateCb);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.voiceSrvStateCb->semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.voiceSrvStateCb->result != LE_OK,
-        tafRadio.voiceSrvStateCb->result, "Fail to get voice service state.");
-
-    switch (tafRadio.voiceSrvStateCb->voiceSvcState)
+    if (statePtr == nullptr)
     {
-        case telux::tel::VoiceServiceState::NOT_REG_AND_NOT_SEARCHING:
-            *statePtr = TAF_RADIO_NET_REG_STATE_NONE;
-            break;
-        case telux::tel::VoiceServiceState::REG_HOME:
-            *statePtr = TAF_RADIO_NET_REG_STATE_HOME;
-            break;
-        case telux::tel::VoiceServiceState::NOT_REG_AND_SEARCHING:
-            *statePtr = TAF_RADIO_NET_REG_STATE_SEARCHING;
-            break;
-        case telux::tel::VoiceServiceState::REG_DENIED:
-            *statePtr = TAF_RADIO_NET_REG_STATE_DENIED;
-            break;
-        case telux::tel::VoiceServiceState::UNKNOWN:
-            *statePtr = TAF_RADIO_NET_REG_STATE_UNKNOWN;
-            break;
-        case telux::tel::VoiceServiceState::REG_ROAMING:
-            *statePtr = TAF_RADIO_NET_REG_STATE_ROAMING;
-            break;
-        case telux::tel::VoiceServiceState::NOT_REG_AND_EMERGENCY_AVAILABLE_AND_NOT_SEARCHING:
-            *statePtr = TAF_RADIO_NET_REG_STATE_NONE_AND_EMERGENCY_AVAILABLE;
-            break;
-        case telux::tel::VoiceServiceState::NOT_REG_AND_EMERGENCY_AVAILABLE_AND_SEARCHING:
-            *statePtr = TAF_RADIO_NET_REG_STATE_SEARCHING_AND_EMERGENCY_AVAILABLE;
-            break;
-        case telux::tel::VoiceServiceState::REG_DENIED_AND_EMERGENCY_AVAILABLE:
-            *statePtr = TAF_RADIO_NET_REG_STATE_DENIED_AND_EMERGENCY_AVAILABLE;
-            break;
-        case telux::tel::VoiceServiceState::UNKNOWN_AND_EMERGENCY_AVAILABLE:
-            *statePtr = TAF_RADIO_NET_REG_STATE_UNKNOWN_AND_EMERGENCY_AVAILABLE;
-            break;
-        default:
-            LE_ERROR("Invalid state.");
-            return LE_FAULT;
+        LE_ERROR("statePtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
+
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_VoiceServiceInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetVoiceServiceInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get voice service information.");
+        return result;
+    }
+
+    *statePtr =  Utility::Convert::NetRegState(&info);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add handler for network registration state.
+ * Adds handler for network registration state.
+ *
+ * @return
+ *  - taf_radio_NetRegStateEventHandlerRef_t handler reference for network registration state.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_NetRegStateEventHandlerRef_t taf_radio_AddNetRegStateEventHandler
 (
-    taf_radio_NetRegStateHandlerFunc_t handlerFuncPtr,
-        ///< [IN] Handler function for network registration state.
-    void* contextPtr
-        ///< [IN] Context.
+    taf_radio_NetRegStateHandlerFunc_t handlerFuncPtr, ///< [IN] Handler function.
+    void* contextPtr                                   ///< [IN] Handler context.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    auto& factory = Factory::GetInstance();
 
-    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("NetRegStateHandler",
-        tafRadio.netRegStateEvId, taf_Radio::taf_radio_LayerNetRegStateHandler,
-        (void*)handlerFuncPtr);
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("NetRegState",
+        factory.events.netRegState, Utility::LayeredFunction::NetRegState, (void*)handlerFuncPtr);
 
     le_event_SetContextPtr(handlerRef, contextPtr);
 
@@ -1263,7 +971,8 @@ taf_radio_NetRegStateEventHandlerRef_t taf_radio_AddNetRegStateEventHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remove handler for network registration state.
+ * Removes handler for network registration state.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 void taf_radio_RemoveNetRegStateEventHandler
@@ -1276,128 +985,71 @@ void taf_radio_RemoveNetRegStateEventHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Get packet swicthed state.
+ *  Gets the packet switched state.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
- *  - LE_TIMEOUT -- Time out.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetPacketSwitchedState
 (
-    taf_radio_NetRegState_t* statePtr, ///< [OUT] Packet swicthed state.
-    uint8_t phoneId                    ///< [IN] Phone ID.
+    taf_radio_NetRegState_t* statePtr, ///< [OUT] The packet swicthed state.
+    uint8_t phone                      ///< [IN] Phone.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    SlotId slotId = (SlotId)tafRadio.phoneManager->getSlotIdFromPhoneId(phoneId);
-    TAF_ERROR_IF_RET_VAL(tafRadio.dataServSysManagers[slotId] == nullptr, LE_FAULT,
-        "Invalid Data Serving manager(slotId:%d)", slotId);
-
-    TAF_ERROR_IF_RET_VAL(statePtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(statePtr)");
-
-    auto srvStatusCb = [&tafRadio](telux::data::ServiceStatus serviceStatus,
-        telux::common::ErrorCode error)
+    if (statePtr == nullptr)
     {
-        LE_DEBUG("<SDK Callback> lamda --> requestServiceStatus");
-        if (error == telux::common::ErrorCode::SUCCESS)
-        {
-            if (serviceStatus.serviceState == telux::data::DataServiceState::OUT_OF_SERVICE)
-            {
-                tafRadio.dataInfoCb.psState = TAF_RADIO_NET_REG_STATE_NONE;
-            }
-            else
-            {
-                tafRadio.dataInfoCb.psState = TAF_RADIO_NET_REG_STATE_HOME;
-            }
-            tafRadio.dataInfoCb.result = LE_OK;
-        }
-        else
-        {
-            LE_ERROR("Error(%d)", (int)error);
-            tafRadio.dataInfoCb.result = LE_FAULT;
-        }
-
-        le_sem_Post(tafRadio.dataInfoCb.semaphore);
-    };
-
-    auto roamingStatusCb = [&tafRadio](telux::data::RoamingStatus roamingStatus,
-        telux::common::ErrorCode error)
-    {
-        LE_DEBUG("<SDK Callback> lamda --> requestServiceStatus");
-        if (error == telux::common::ErrorCode::SUCCESS)
-        {
-            if (roamingStatus.isRoaming)
-            {
-                tafRadio.dataInfoCb.psState = TAF_RADIO_NET_REG_STATE_ROAMING;
-            }
-
-            tafRadio.dataInfoCb.result = LE_OK;
-        }
-        else
-        {
-            LE_ERROR("Error(%d)", (int)error);
-            tafRadio.dataInfoCb.result = LE_FAULT;
-        }
-
-        le_sem_Post(tafRadio.dataInfoCb.semaphore);
-    };
-
-    auto ret = tafRadio.dataServSysManagers[slotId]->requestServiceStatus(srvStatusCb);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.dataInfoCb.semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.dataInfoCb.result != LE_OK,
-        tafRadio.dataInfoCb.result, "Fail to get data service state.");
-
-    if (tafRadio.dataInfoCb.psState == TAF_RADIO_NET_REG_STATE_NONE)
-    {
-        *statePtr = TAF_RADIO_NET_REG_STATE_NONE;
-        return LE_OK;
+        LE_ERROR("statePtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    ret = tafRadio.dataServSysManagers[slotId]->requestRoamingStatus(roamingStatusCb);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_DataServiceState_t state = TAF_PA_RADIO_DATA_SERVICE_STATE_UNKNOWN;
+    pa_result_t paResult = taf_pa_radio_GetDataServieState(instance, &state);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get data service state.");
+        return result;
+    }
 
-    res = le_sem_WaitWithTimeOut(tafRadio.dataInfoCb.semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+    taf_pa_radio_DataRoamingStatus_t status = TAF_PA_RADIO_DATA_ROAMING_STATUS_UNKNOWN;
+    paResult = taf_pa_radio_GetDataCurrRoamingStatus(instance, &status);
+    result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get data current roaming status.");
+        return result;
+    }
 
-    TAF_ERROR_IF_RET_VAL(tafRadio.dataInfoCb.result != LE_OK,
-        tafRadio.dataInfoCb.result, "Fail to get roaming state.");
+    *statePtr =  Utility::Convert::NetRegState(state, status);
 
-    *statePtr = tafRadio.dataInfoCb.psState;
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add handler for packet swicthed state.
+ * Adds handler for packet swicthed state.
+ *
+ * @return
+ *  - taf_radio_PacketSwitchedChangeHandlerRef_t handler reference for packet swicthed state.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_PacketSwitchedChangeHandlerRef_t taf_radio_AddPacketSwitchedChangeHandler
 (
-    taf_radio_PacketSwitchedChangeHandlerFunc_t handlerFuncPtr,
-        ///< [IN] Handler function for packet swicthed state.
-    void* contextPtr
-        ///< [IN] Context.
+    taf_radio_PacketSwitchedChangeHandlerFunc_t handlerFuncPtr, ///< [IN] Handler function.
+    void* contextPtr                                            ///< [IN] Handler context.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    auto& factory = Factory::GetInstance();
 
-    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("PackSwStateHandler",
-        tafRadio.packSwStateEvId, taf_Radio::taf_radio_LayerNetRegStateHandler,
-        (void*)handlerFuncPtr);
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("PacketSwitchedState",
+        factory.events.packetSwitchedState, Utility::LayeredFunction::NetRegState,
+       (void*)handlerFuncPtr);
 
     le_event_SetContextPtr(handlerRef, contextPtr);
 
@@ -1406,7 +1058,8 @@ taf_radio_PacketSwitchedChangeHandlerRef_t taf_radio_AddPacketSwitchedChangeHand
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remove handler for packet swicthed state.
+ * Removes handler for packet swicthed state.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 void taf_radio_RemovePacketSwitchedChangeHandler
@@ -1419,9 +1072,11 @@ void taf_radio_RemovePacketSwitchedChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Get service domain.
+ *  Gets the service domain.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
@@ -1429,671 +1084,648 @@ void taf_radio_RemovePacketSwitchedChangeHandler
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServiceDomain
 (
-    taf_radio_ServiceDomainState_t* domainPtr, ///< [OUT] Service domain.
-    uint8_t phoneId                            ///< [IN] Phone ID.
+    taf_radio_ServiceDomainState_t* domainPtr, ///< [OUT] The service domain.
+    uint8_t phone                              ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(domainPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(domainPtr)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    telux::tel::ServingSystemInfo sysInfo;
-    auto status = tafRadio.servingSystemManagers[phoneId - 1]->getSystemInfo(sysInfo);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT, "Call sdk function failed");
-
-    switch (sysInfo.domain)
+    if (domainPtr == nullptr)
     {
-        case telux::tel::ServiceDomain::NO_SRV:
-            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_NO_SVC;
-            break;
-        case telux::tel::ServiceDomain::CS_ONLY:
-            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_CS_ONLY;
-            break;
-        case telux::tel::ServiceDomain::PS_ONLY:
-            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_PS_ONLY;
-            break;
-        case telux::tel::ServiceDomain::CS_PS:
-            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_CS_AND_PS;
-            break;
-        case telux::tel::ServiceDomain::CAMPED:
-            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_CAMPED;
-            break;
-        default:
-            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_UNKNOWN;
-            break;
+        LE_ERROR("domainPtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
+
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_Rat_t rat = TAF_PA_RADIO_RAT_UNKNOWN;
+    pa_result_t paResult = taf_pa_radio_GetServingRat(instance, &rat);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get serving RAT.");
+        return result;
+    }
+
+    taf_pa_radio_ServiceDomain_t domain = TAF_PA_RADIO_SERVICE_DOMAIN_UNKNOWN;
+    paResult = taf_pa_radio_GetServiceDomain(instance, rat, &domain);
+    result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get service domain.");
+        return result;
+    }
+
+    *domainPtr = Utility::Convert::ServiceDomain(domain);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Get service domain preferences.
+ *  Gets the service domain preferences.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
- *  - LE_TIMEOUT -- Time out.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServiceDomainPreferences
 (
-    taf_radio_ServiceDomainState_t* domainPtr, ///< [OUT] Service domain preference.
-    uint8_t phoneId                            ///< [IN] Phone ID.
+    taf_radio_ServiceDomainState_t* domainPtr, ///< [OUT] The service domain preferences.
+    uint8_t phone                              ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(domainPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(domainPtr)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestServiceDomainPreference(
-        taf_RadioServiceDomainPreferenceResponseCallback::serviceDomainPrefResponse);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT, "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(
-        taf_RadioServiceDomainPreferenceResponseCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioServiceDomainPreferenceResponseCallback::result != LE_OK,
-        taf_RadioServiceDomainPreferenceResponseCallback::result, "Fail to get domain preference.");
-
-    switch (taf_RadioServiceDomainPreferenceResponseCallback::domainPref)
+    if (domainPtr == nullptr)
     {
-        case telux::tel::ServiceDomainPreference::CS_ONLY:
-            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_CS_ONLY;
-            break;
-        case telux::tel::ServiceDomainPreference::PS_ONLY:
-            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_PS_ONLY;
-            break;
-        case telux::tel::ServiceDomainPreference::CS_PS:
-            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_CS_AND_PS;
-            break;
-        default:
-            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_UNKNOWN;
-            break;
+        LE_ERROR("domainPtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
+
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_ServiceDomainBitMask_t bitmask = 0x0;
+    pa_result_t paResult = taf_pa_radio_GetServiceDomainPreferences(instance, &bitmask);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get service domain preferences.");
+        return result;
+    }
+
+    *domainPtr = Utility::Convert::ServiceDomain(bitmask);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Set service domain preferences.
+ *  Sets the service domain preferences.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
- *  - LE_TIMEOUT -- Time out.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetServiceDomainPreferences
 (
-    taf_radio_ServiceDomainState_t domain, ///< [IN] Service domain preference.
-    uint8_t phoneId                        ///< [IN] Phone ID.
+    taf_radio_ServiceDomainState_t domain, ///< [IN] The service domain preferences.
+    uint8_t phone                          ///< [IN] Phone.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
-        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_ServiceDomainBitMask_t bitmask = Utility::Convert::ServiceDomain(domain);
+    pa_result_t result = taf_pa_radio_SetServiceDomainPreferences(instance, bitmask);
 
-    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    telux::tel::ServiceDomainPreference domainPref;
-    switch (domain)
-    {
-        case TAF_RADIO_SERVICE_DOMAIN_STATE_CS_ONLY:
-            domainPref = telux::tel::ServiceDomainPreference::CS_ONLY;
-            break;
-        case TAF_RADIO_SERVICE_DOMAIN_STATE_PS_ONLY:
-            domainPref = telux::tel::ServiceDomainPreference::PS_ONLY;
-            break;
-        case TAF_RADIO_SERVICE_DOMAIN_STATE_CS_AND_PS:
-            domainPref = telux::tel::ServiceDomainPreference::CS_PS;
-            break;
-        default:
-            LE_ERROR("Invalid domain(%d)", domain);
-            return LE_BAD_PARAMETER;
-    }
-
-    auto ret = tafRadio.servingSystemManagers[phoneId - 1]->setServiceDomainPreference(domainPref,
-        taf_RadioServingSystemResponseCallback::servingSystemResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioServingSystemResponseCallback::semaphore,
-        timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioServingSystemResponseCallback::result != LE_OK,
-        taf_RadioServingSystemResponseCallback::result, "Fail to set rat preference.");
-
-    return LE_OK;
+    return Utility::Convert::Result(result);
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the signal quality.
+ *  Gets the signal strength level.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
- *  - LE_TIMEOUT -- Time out.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetSignalQual
 (
-    uint32_t* qualityPtr, ///< [OUT] Signal quality level.
-    uint8_t phoneId       ///< [IN] Phone ID.
+    uint32_t* levelPtr, ///< [OUT] Signal strength level.
+    uint8_t phone       ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(qualityPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(qualityPtr)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    telux::tel::ServingSystemInfo sysInfo;
-    auto status = tafRadio.servingSystemManagers[phoneId - 1]->getSystemInfo(sysInfo);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    auto ret = tafRadio.phones[phoneId - 1]->requestSignalStrength(tafRadio.signalStrengthCb);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.signalStrengthCb->semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.signalStrengthCb->result != LE_OK,
-        tafRadio.signalStrengthCb->result, "Fail to get signal quality.");
-
-    // RAT persists when UE is out of service.
-    switch (sysInfo.rat)
+    if (levelPtr == nullptr)
     {
-        case telux::tel::RadioTechnology::RADIO_TECH_GSM:
-        case telux::tel::RadioTechnology::RADIO_TECH_GPRS:
-        case telux::tel::RadioTechnology::RADIO_TECH_EDGE:
-            if (tafRadio.signalStrengthCb->ssMetrics.ratMask & TAF_RADIO_RAT_BIT_MASK_GSM)
-            {
-                *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.gsm.sslv;
-            }
-            else
-            {
-                LE_ERROR("Fail to get GSM signal strength.");
-                return LE_FAULT;
-            }
-            break;
-        case telux::tel::RadioTechnology::RADIO_TECH_UMTS:
-        case telux::tel::RadioTechnology::RADIO_TECH_HSDPA:
-        case telux::tel::RadioTechnology::RADIO_TECH_HSUPA:
-        case telux::tel::RadioTechnology::RADIO_TECH_HSPA:
-        case telux::tel::RadioTechnology::RADIO_TECH_HSPAP:
-            if (tafRadio.signalStrengthCb->ssMetrics.ratMask & TAF_RADIO_RAT_BIT_MASK_UMTS)
-            {
-                *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.umts.sslv;
-            }
-            else
-            {
-                LE_ERROR("Fail to get UMTS signal strength.");
-                return LE_FAULT;
-            }
-            break;
-        case telux::tel::RadioTechnology::RADIO_TECH_IS95A:
-        case telux::tel::RadioTechnology::RADIO_TECH_IS95B:
-        case telux::tel::RadioTechnology::RADIO_TECH_1xRTT:
-        case telux::tel::RadioTechnology::RADIO_TECH_EVDO_0:
-        case telux::tel::RadioTechnology::RADIO_TECH_EVDO_A:
-        case telux::tel::RadioTechnology::RADIO_TECH_EVDO_B:
-        case telux::tel::RadioTechnology::RADIO_TECH_EHRPD:
-            if (tafRadio.signalStrengthCb->ssMetrics.ratMask & TAF_RADIO_RAT_BIT_MASK_CDMA)
-            {
-                *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.cdma.sslv;
-            }
-            else
-            {
-                LE_ERROR("Fail to get CDMA signal strength.");
-                return LE_FAULT;
-            }
-            break;
-        case telux::tel::RadioTechnology::RADIO_TECH_TD_SCDMA:
-            return LE_UNAVAILABLE;
-        case telux::tel::RadioTechnology::RADIO_TECH_LTE:
-        case telux::tel::RadioTechnology::RADIO_TECH_LTE_CA:
-            if (tafRadio.signalStrengthCb->ssMetrics.ratMask & TAF_RADIO_RAT_BIT_MASK_LTE)
-            {
-                *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.lte.sslv;
-            }
-            else
-            {
-                LE_ERROR("Fail to get LTE signal strength.");
-                return LE_FAULT;
-            }
-            break;
-        case telux::tel::RadioTechnology::RADIO_TECH_NR5G:
-            if (tafRadio.signalStrengthCb->ssMetrics.ratMask & TAF_RADIO_RAT_BIT_MASK_NR5G)
-            {
-                *qualityPtr = (uint32_t)tafRadio.signalStrengthCb->ssMetrics.nr5g.sslv;
-            }
-            else
-            {
-                LE_ERROR("Fail to get NR5G signal strength.");
-                return LE_FAULT;
-            }
-            break;
-        default:
-            LE_ERROR("Invalid RAT.");
-            return LE_FAULT;
+        LE_ERROR("levelPtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    return LE_OK;
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_MeasureSignalMetrics
-
- DESCRIPTION     Get the reference of measure signal metrics.
-
- DEPENDENCIES    Initialization of Radio Service
-
- PARAMETERS      [IN] uint8_t phoneId: The phone id.
-
- RETURN VALUE    taf_radio_MetricsRef_t
-                     nullptr:     Fail
-                     non-nullptr: Success
- SIDE EFFECTS
-
-======================================================================*/
-taf_radio_MetricsRef_t taf_radio_MeasureSignalMetrics(uint8_t phoneId)
-{
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), nullptr,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, nullptr,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto ret = tafRadio.phones[phoneId - 1]->requestSignalStrength(tafRadio.signalStrengthCb);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, nullptr,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.signalStrengthCb->semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, nullptr, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.signalStrengthCb->result != LE_OK,
-        NULL, "Fail to get signal metrics.");
-
-    taf_RadioSignalMetrics_t* metricsPtr = (taf_RadioSignalMetrics_t*)le_mem_ForceAlloc(tafRadio.metricsPool);
-    memcpy(metricsPtr, &tafRadio.signalStrengthCb->ssMetrics, sizeof(taf_RadioSignalMetrics_t));
-    metricsPtr->phoneId = phoneId;
-
-    return (taf_radio_MetricsRef_t)le_ref_CreateRef(tafRadio.metricsRefMap, (void*)metricsPtr);
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_DeleteSignalMetrics
-
- DESCRIPTION     Delete a reference of signal metrics.
-
- DEPENDENCIES    Initialization of signal metrics.
-
- PARAMETERS      [IN] taf_radio_MetricsRef_t metricsRef: The signal metrics reference.
-
- RETURN VALUE    le_result_t
-                     LE_NOT_FOUND: Fail.
-                     LE_OK:        Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_radio_DeleteSignalMetrics(taf_radio_MetricsRef_t metricsRef)
-{
-    TAF_ERROR_IF_RET_VAL(metricsRef == nullptr, LE_BAD_PARAMETER,
-        "Null reference(metricsRef)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioSignalMetrics_t* metricsPtr =
-        (taf_RadioSignalMetrics_t*)le_ref_Lookup(tafRadio.metricsRefMap, metricsRef);
-    TAF_ERROR_IF_RET_VAL(metricsPtr == nullptr, LE_NOT_FOUND, "Invalid para(null reference ptr)");
-
-    le_ref_DeleteRef(tafRadio.metricsRefMap, metricsRef);
-    le_mem_Release(metricsPtr);
-
-    return LE_OK;
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_GetRatOfSignalMetrics
-
- DESCRIPTION     Get the cell rat bitmask with a metrics reference.
-
- DEPENDENCIES    Initialization of signal metrics.
-
- PARAMETERS      [IN] taf_radio_MetricsRef_t metricsRef: The signal metrics reference.
-
- RETURN VALUE    taf_radio_RatBitMask_t
-
- SIDE EFFECTS
-
-======================================================================*/
-taf_radio_RatBitMask_t taf_radio_GetRatOfSignalMetrics(taf_radio_MetricsRef_t metricsRef)
-{
-    TAF_ERROR_IF_RET_VAL(metricsRef == nullptr, 0x0, "Null reference(metricsRef)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioSignalMetrics_t* metricsPtr =
-        (taf_RadioSignalMetrics_t*)le_ref_Lookup(tafRadio.metricsRefMap, metricsRef);
-    TAF_ERROR_IF_RET_VAL(metricsPtr == nullptr, 0x0, "Invalid para(null reference ptr)");
-
-    return metricsPtr->ratMask;
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_GetGsmSignalMetrics
-
- DESCRIPTION     Get the GSM signal metircs with a metrics reference.
-
- DEPENDENCIES    Initialization of signal metrics.
-
- PARAMETERS      [IN] taf_radio_MetricsRef_t metricsRef: The signal metrics reference.
-                 [OUT] int32_t* rssiPtr:                 The signal strength.
-                 [OUT] uint32_t* berPtr:                 The bit error rate.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_NOT_FOUND:     Not found with map reference.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_radio_GetGsmSignalMetrics
-(
-    taf_radio_MetricsRef_t metricsRef,
-    int32_t* rssiPtr,
-    uint32_t* berPtr
-)
-{
-    TAF_ERROR_IF_RET_VAL(metricsRef == nullptr, LE_BAD_PARAMETER,
-        "Null reference(metricsRef)");
-
-    TAF_ERROR_IF_RET_VAL(rssiPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(rssiPtr)");
-
-    TAF_ERROR_IF_RET_VAL(berPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(berPtr)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioSignalMetrics_t* metricsPtr =
-        (taf_RadioSignalMetrics_t*)le_ref_Lookup(tafRadio.metricsRefMap, metricsRef);
-    TAF_ERROR_IF_RET_VAL(metricsPtr == nullptr, LE_NOT_FOUND, "Invalid para(null reference ptr)");
-
-    *rssiPtr = metricsPtr->gsm.ss;
-    *berPtr = metricsPtr->gsm.ber;
-
-    return LE_OK;
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_GetUmtsSignalMetrics
-
- DESCRIPTION     Get the UMTS signal metircs with a metrics reference.
-
- DEPENDENCIES    Initialization of signal metrics.
-
- PARAMETERS      [IN] taf_radio_MetricsRef_t metricsRef: The signal metrics reference.
-                 [OUT] int32_t* ssPtr:
-                           The signal strength, only applicatable for WCDMA.
-                 [OUT] uint32_t* berPtr:
-                           The bit error rate, only applicatable for WCDMA.
-                 [OUT] int32_t* rscpPtr:
-                           The reference signal code power in dBm, only applicatable for TD-SCDMA.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_NOT_FOUND:     Not found with map reference.
-                     LE_UNAVAILABLE:   Not available.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_radio_GetUmtsSignalMetrics
-(
-    taf_radio_MetricsRef_t metricsRef,
-    int32_t* ssPtr,
-    uint32_t* berPtr,
-    int32_t* rscpPtr
-)
-{
-    TAF_ERROR_IF_RET_VAL(metricsRef == nullptr, LE_BAD_PARAMETER,
-        "Null reference(metricsRef)");
-
-    TAF_ERROR_IF_RET_VAL(ssPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(ssPtr)");
-
-    TAF_ERROR_IF_RET_VAL(berPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(berPtr)");
-
-    TAF_ERROR_IF_RET_VAL(rscpPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(rscpPtr)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioSignalMetrics_t* metricsPtr =
-        (taf_RadioSignalMetrics_t*)le_ref_Lookup(tafRadio.metricsRefMap, metricsRef);
-    TAF_ERROR_IF_RET_VAL(metricsPtr == nullptr, LE_NOT_FOUND, "Invalid para(null reference ptr)");
-
-    uint8_t phoneId = metricsPtr->phoneId;
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    if (metricsPtr->ratMask & TAF_RADIO_RAT_BIT_MASK_UMTS)
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_Rat_t rat = TAF_PA_RADIO_RAT_UNKNOWN;
+    pa_result_t paResult = taf_pa_radio_GetServingRat(instance, &rat);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
     {
-        *ssPtr = metricsPtr->umts.ss;
-        *berPtr = metricsPtr->umts.ber;
-        *rscpPtr = metricsPtr->umts.rscp;
-    }
-    else if (metricsPtr->ratMask & TAF_RADIO_RAT_BIT_MASK_TDSCDMA)
-    {
-        *rscpPtr = metricsPtr->tdscdma.rscp;
+        LE_ERROR("Failed to get serving RAT.");
+        return result;
     }
 
-    return LE_OK;
-}
+    taf_pa_radio_SignalStrengthLevel_t level = TAF_PA_RADIO_SIGNAL_STRENGTH_LEVEL_UNKNOWN;
+    paResult = taf_pa_radio_GetSignalStrengthLevel(instance, rat, &level);
+    result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get signal strength level.");
+        return result;
+    }
 
-/*======================================================================
-
- FUNCTION        taf_radio_GetLteSignalMetrics
-
- DESCRIPTION     Get the LTE signal metircs with a metrics reference.
-
- DEPENDENCIES    Initialization of signal metrics.
-
- PARAMETERS      [IN] taf_radio_MetricsRef_t metricsRef: The signal metrics reference.
-                 [OUT] int32_t* ssPtr:                   The signal strength.
-                 [OUT] int32_t* rsrqPtr:                 The reference signal receive quality in dB.
-                 [OUT] int32_t* rsrpPtr:                 The reference signal receive power in dBm.
-                 [OUT] int32_t* snrPtr:                  The signal-to-noise ratio in dB.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_NOT_FOUND:     Not found with map reference.
-                     LE_UNAVAILABLE:   Not available.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_radio_GetLteSignalMetrics
-(
-    taf_radio_MetricsRef_t metricsRef,
-    int32_t* ssPtr,
-    int32_t* rsrqPtr,
-    int32_t* rsrpPtr,
-    int32_t* snrPtr
-)
-{
-    TAF_ERROR_IF_RET_VAL(metricsRef == nullptr, LE_BAD_PARAMETER,
-        "Null reference(metricsRef)");
-
-    TAF_ERROR_IF_RET_VAL(ssPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(ssPtr)");
-
-    TAF_ERROR_IF_RET_VAL(rsrqPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(rsrqPtr)");
-
-    TAF_ERROR_IF_RET_VAL(rsrpPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(rsrpPtr)");
-
-    TAF_ERROR_IF_RET_VAL(snrPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(snrPtr)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioSignalMetrics_t* metricsPtr =
-        (taf_RadioSignalMetrics_t*)le_ref_Lookup(tafRadio.metricsRefMap, metricsRef);
-    TAF_ERROR_IF_RET_VAL(metricsPtr == nullptr, LE_NOT_FOUND, "Invalid para(null reference ptr)");
-
-    *ssPtr = metricsPtr->lte.ss;
-    *rsrqPtr = metricsPtr->lte.rsrq;
-    *rsrpPtr = metricsPtr->lte.rsrp;
-    *snrPtr = metricsPtr->lte.snr;
-
-    return LE_OK;
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_GetCdmaSignalMetrics
-
- DESCRIPTION     Get the CDMA signal metircs with a metrics reference.
-
- DEPENDENCIES    Initialization of signal metrics.
-
- PARAMETERS      [IN] taf_radio_MetricsRef_t metricsRef: The signal metrics reference.
-                 [OUT] int32_t* ssPtr:                   The signal strength in dBm.
-                 [OUT] int32_t* ecioPtr:                 The CDMA Ec/Io in dB.
-                 [OUT] int32_t* snrPtr:                  The EVDO signal-to-noise ratio in dB.
-                 [OUT] int32_t* ioPtr:                   The EVDO Ec/Io in dB.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_NOT_FOUND:     Not found with map reference.
-                     LE_UNAVAILABLE:   Not available.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_radio_GetCdmaSignalMetrics
-(
-    taf_radio_MetricsRef_t metricsRef,
-    int32_t* ssPtr,
-    int32_t* ecioPtr,
-    int32_t* snrPtr,
-    int32_t* ioPtr
-)
-{
-    TAF_ERROR_IF_RET_VAL(metricsRef == nullptr, LE_BAD_PARAMETER,
-        "Null reference(metricsRef)");
-
-    TAF_ERROR_IF_RET_VAL(ssPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(ssPtr)");
-
-    TAF_ERROR_IF_RET_VAL(ecioPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(ecioPtr)");
-
-    TAF_ERROR_IF_RET_VAL(snrPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(snrPtr)");
-
-    TAF_ERROR_IF_RET_VAL(ioPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(ioPtr)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioSignalMetrics_t* metricsPtr =
-        (taf_RadioSignalMetrics_t*)le_ref_Lookup(tafRadio.metricsRefMap, metricsRef);
-    TAF_ERROR_IF_RET_VAL(metricsPtr == nullptr, LE_NOT_FOUND, "Invalid para(null reference ptr)");
-
-    *ssPtr = metricsPtr->cdma.ss;
-    *ecioPtr = metricsPtr->cdma.ecio;
-    *snrPtr = metricsPtr->cdma.snr;
-    *ioPtr = metricsPtr->cdma.io;
+    *levelPtr = Utility::Convert::SignalStrengthLevel(level);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add handler for signal strength change.
+ * Gets the signal metrics.
  *
  * @return
- *  - taf_radio_SignalStrengthChangeHandlerRef_t Handler reference.
+ *  - taf_radio_MetricsRef_t reference for the signal metrics.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_MetricsRef_t taf_radio_MeasureSignalMetrics
+(
+    uint8_t phone ///< [IN] Phone.
+)
+{
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_SignalStrengthInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetSignalStrengthInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get signal strength information.");
+        return nullptr;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SignalStrengthInfo_t* infoPtr =
+        (taf_pa_radio_SignalStrengthInfo_t*)le_mem_ForceAlloc(factory.pools.signalStrengthInfo);
+    memcpy(infoPtr, &info, sizeof(taf_pa_radio_SignalStrengthInfo_t));
+   
+    return (taf_radio_MetricsRef_t)le_ref_CreateRef(factory.maps.signalStrengthInfo,
+        (void*)infoPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes the signal metrics.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_DeleteSignalMetrics
+(
+    taf_radio_MetricsRef_t metricsRef ///< [IN] The signal metrics reference.
+)
+{
+    if (metricsRef == nullptr)
+    {
+        LE_ERROR("metricsRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SignalStrengthInfo_t* infoPtr =(taf_pa_radio_SignalStrengthInfo_t*)le_ref_Lookup(
+        factory.maps.signalStrengthInfo, metricsRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    le_ref_DeleteRef(factory.maps.signalStrengthInfo, metricsRef);
+    le_mem_Release(infoPtr);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the RAT bitmask of the signal metrics.
+ *
+ * @return
+ *  - taf_radio_RatBitMask_t value is the RAT bitmask of the signal metrics.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_RatBitMask_t taf_radio_GetRatOfSignalMetrics
+(
+    taf_radio_MetricsRef_t metricsRef ///< [IN] The signal metrics reference.
+)
+{
+    if (metricsRef == nullptr)
+    {
+        LE_ERROR("metricsRef is nullptr.");
+        return 0x0;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SignalStrengthInfo_t* infoPtr =(taf_pa_radio_SignalStrengthInfo_t*)le_ref_Lookup(
+        factory.maps.signalStrengthInfo, metricsRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return 0x0;
+    }
+
+    return Utility::Convert::Rat(infoPtr->bitmask);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the GSM signal metrics.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetGsmSignalMetrics
+(
+    taf_radio_MetricsRef_t metricsRef, ///< [IN] The signal metrics reference.
+    int32_t* rssiPtr,                  ///< [OUT] Received Signal Strength Indicator in dBm.
+    uint32_t* berPtr                   ///< [OUT] Bit Error Rate.
+)
+{
+    if (metricsRef == nullptr)
+    {
+        LE_ERROR("metricsRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (rssiPtr == nullptr)
+    {
+        LE_ERROR("rssiPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (berPtr == nullptr)
+    {
+        LE_ERROR("berPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SignalStrengthInfo_t* infoPtr =(taf_pa_radio_SignalStrengthInfo_t*)le_ref_Lookup(
+        factory.maps.signalStrengthInfo, metricsRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (infoPtr->bitmask & TAF_PA_RADIO_BITMASK_RAT_GSM)
+    {
+        *rssiPtr = infoPtr->gsmInfo.rssi;
+        *berPtr = infoPtr->gsmInfo.ber;
+    }
+    else
+    {
+        *rssiPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        *berPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the UMTS signal metrics.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetUmtsSignalMetrics
+(
+    taf_radio_MetricsRef_t metricsRef, ///< [IN] The signal metrics reference.
+    int32_t* ssPtr,                    ///< [OUT] Signal Strength in dBm.
+    uint32_t* berPtr,                  ///< [OUT] Bit Error Rate.
+    int32_t* rscpPtr                   ///< [OUT] Received Signal Code Power in dBm.
+)
+{
+    if (metricsRef == nullptr)
+    {
+        LE_ERROR("metricsRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (ssPtr == nullptr)
+    {
+        LE_ERROR("ssPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (berPtr == nullptr)
+    {
+        LE_ERROR("berPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (rscpPtr == nullptr)
+    {
+        LE_ERROR("rscpPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SignalStrengthInfo_t* infoPtr =(taf_pa_radio_SignalStrengthInfo_t*)le_ref_Lookup(
+        factory.maps.signalStrengthInfo, metricsRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (infoPtr->bitmask & TAF_PA_RADIO_BITMASK_RAT_UMTS)
+    {
+        *ssPtr = infoPtr->umtsInfo.ss;
+        *berPtr = infoPtr->umtsInfo.ber;
+        *rscpPtr = infoPtr->umtsInfo.rscp;
+    }
+    else
+    {
+        *ssPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        *berPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        *rscpPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE signal metrics.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteSignalMetrics
+(
+    taf_radio_MetricsRef_t metricsRef, ///< [IN] The signal metrics reference.
+    int32_t* rssiPtr,                  ///< [OUT] Received Signal Strength Indicator in dBm.
+    int32_t* rsrqPtr,                  ///< [OUT] Reference Signal Received Quality in dB.
+    int32_t* rsrpPtr,                  ///< [OUT] Reference Signal Received Power in dBm.
+    int32_t* snrPtr                    ///< [OUT] Signal-to-Noise Ratio in units of 0.1 dB.
+)
+{
+    if (metricsRef == nullptr)
+    {
+        LE_ERROR("metricsRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (rssiPtr == nullptr)
+    {
+        LE_ERROR("rssiPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (rsrqPtr == nullptr)
+    {
+        LE_ERROR("rsrqPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (rsrpPtr == nullptr)
+    {
+        LE_ERROR("rsrpPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (snrPtr == nullptr)
+    {
+        LE_ERROR("snrPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SignalStrengthInfo_t* infoPtr =(taf_pa_radio_SignalStrengthInfo_t*)le_ref_Lookup(
+        factory.maps.signalStrengthInfo, metricsRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (infoPtr->bitmask & TAF_PA_RADIO_BITMASK_RAT_LTE)
+    {
+        *rssiPtr = infoPtr->lteInfo.rssi;
+        *rsrqPtr = infoPtr->lteInfo.rsrq;
+        *rsrpPtr = infoPtr->lteInfo.rsrp;
+        *snrPtr = infoPtr->lteInfo.snr;
+    }
+    else
+    {
+        *rssiPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        *rsrqPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        *rsrpPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        *snrPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the CDMA signal metrics.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetCdmaSignalMetrics
+(
+    taf_radio_MetricsRef_t metricsRef, ///< [IN] The signal metrics reference.
+    int32_t* ssPtr,                    ///< [OUT] Signal Strength in dBm.
+    int32_t* ecioPtr,                  ///< [OUT] Ec/Io in units of -0.5 dB.
+    int32_t* sinrPtr,                  ///< [OUT] Signal-to-Interference-plus-Noise Ratio level.
+    int32_t* ioPtr                     ///< [OUT] Received IO in dBm.
+)
+{
+    if (metricsRef == nullptr)
+    {
+        LE_ERROR("metricsRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (ssPtr == nullptr)
+    {
+        LE_ERROR("ssPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (ecioPtr == nullptr)
+    {
+        LE_ERROR("ecioPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (sinrPtr == nullptr)
+    {
+        LE_ERROR("sinrPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (ioPtr == nullptr)
+    {
+        LE_ERROR("ioPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SignalStrengthInfo_t* infoPtr =(taf_pa_radio_SignalStrengthInfo_t*)le_ref_Lookup(
+        factory.maps.signalStrengthInfo, metricsRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (infoPtr->bitmask & TAF_PA_RADIO_BITMASK_RAT_CDMA)
+    {
+        *ssPtr = infoPtr->cdmaInfo.ss;
+        *ecioPtr = infoPtr->cdmaInfo.ecio;
+        *ioPtr = infoPtr->cdmaInfo.io;
+        *sinrPtr = infoPtr->cdmaInfo.sinr;
+    }
+    else
+    {
+        *ssPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        *ecioPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        *ioPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        *sinrPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the NR5G signal metrics
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetNr5gSignalMetrics
+(
+    taf_radio_MetricsRef_t metricsRef, ///< [IN] The signal metrics reference.
+    int32_t* rsrqPtr,                  ///< [OUT] Reference Signal Received Quality in dB.
+    int32_t* rsrpPtr,                  ///< [OUT] Reference Signal Received Power in dBm.
+    int32_t* snrPtr                    ///< [OUT] Signal-to-Noise Ratio in units of 0.1 dB.
+)
+{
+    if (metricsRef == nullptr)
+    {
+        LE_ERROR("metricsRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (rsrqPtr == nullptr)
+    {
+        LE_ERROR("rsrqPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (rsrpPtr == nullptr)
+    {
+        LE_ERROR("rsrpPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (snrPtr == nullptr)
+    {
+        LE_ERROR("snrPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SignalStrengthInfo_t* infoPtr =(taf_pa_radio_SignalStrengthInfo_t*)le_ref_Lookup(
+        factory.maps.signalStrengthInfo, metricsRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (infoPtr->bitmask & TAF_PA_RADIO_BITMASK_RAT_NR5G)
+    {
+        *rsrqPtr = infoPtr->nr5gInfo.rsrq;
+        *rsrpPtr = infoPtr->nr5gInfo.rsrp;
+        *snrPtr = infoPtr->nr5gInfo.snr;
+    }
+    else
+    {
+        *rsrqPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        *rsrpPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        *snrPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Adds handler for signal strength changes.
+ *
+ * @return
+ *  - taf_radio_SignalStrengthChangeHandlerRef_t handler reference for signal strength changes.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_SignalStrengthChangeHandlerRef_t taf_radio_AddSignalStrengthChangeHandler
 (
     taf_radio_Rat_t rat,                                        ///< [IN] Radio Access Technology.
     taf_radio_SignalStrengthChangeHandlerFunc_t handlerFuncPtr, ///< [IN] Handler function.
-    void* contextPtr                                            ///< [IN] Context.
+    void* contextPtr                                            ///< [IN] Handler context.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    auto& factory = Factory::GetInstance();
 
-    le_event_HandlerRef_t handlerRef;
+    le_event_HandlerRef_t handlerRef = nullptr;
     switch (rat)
     {
         case TAF_RADIO_RAT_GSM:
-            handlerRef = le_event_AddLayeredHandler("GsmSsChangeHandler",
-                tafRadio.gsmSsChangeEvId, taf_Radio::taf_radio_LayerSsHandler,
-                (void*)handlerFuncPtr);
-            break;
-        case TAF_RADIO_RAT_UMTS:
-            handlerRef = le_event_AddLayeredHandler("UmtsSsChangeHandler",
-                tafRadio.umtsSsChangeEvId, taf_Radio::taf_radio_LayerSsHandler,
-                (void*)handlerFuncPtr);
+            handlerRef = le_event_AddLayeredHandler("GsmSignalStrengthInfoChange",
+                factory.events.gsmSignalStrengthInfoChange,
+                Utility::LayeredFunction::SignalStrengthInfoChange, (void*)handlerFuncPtr);
             break;
         case TAF_RADIO_RAT_CDMA:
-            handlerRef = le_event_AddLayeredHandler("CdmaSsChangeHandler",
-                tafRadio.cdmaSsChangeEvId, taf_Radio::taf_radio_LayerSsHandler,
-                (void*)handlerFuncPtr);
+            handlerRef = le_event_AddLayeredHandler("CdmaSignalStrengthInfoChange",
+                factory.events.cdmaSignalStrengthInfoChange,
+                Utility::LayeredFunction::SignalStrengthInfoChange, (void*)handlerFuncPtr);
+            break;
+        case TAF_RADIO_RAT_UMTS:
+            handlerRef = le_event_AddLayeredHandler("UmtsSignalStrengthInfoChange",
+                factory.events.umtsSignalStrengthInfoChange,
+                Utility::LayeredFunction::SignalStrengthInfoChange, (void*)handlerFuncPtr);
+            break;
+        case TAF_RADIO_RAT_TDSCDMA:
+            handlerRef = le_event_AddLayeredHandler("TdscdmaSignalStrengthInfoChange",
+                factory.events.tdscdmaSignalStrengthInfoChange,
+                Utility::LayeredFunction::SignalStrengthInfoChange, (void*)handlerFuncPtr);
             break;
         case TAF_RADIO_RAT_LTE:
-            handlerRef = le_event_AddLayeredHandler("LteSsChangeHandler",
-                tafRadio.lteSsChangeEvId, taf_Radio::taf_radio_LayerSsHandler,
-                (void*)handlerFuncPtr);
+            handlerRef = le_event_AddLayeredHandler("LteSignalStrengthInfoChange",
+                factory.events.lteSignalStrengthInfoChange,
+                Utility::LayeredFunction::SignalStrengthInfoChange, (void*)handlerFuncPtr);
             break;
         case TAF_RADIO_RAT_NR5G:
-            handlerRef = le_event_AddLayeredHandler("Nr5gSsChangeHandler",
-                tafRadio.nr5gSsChangeEvId, taf_Radio::taf_radio_LayerSsHandler,
-                (void*)handlerFuncPtr);
+            handlerRef = le_event_AddLayeredHandler("Nr5gSignalStrengthInfoChange",
+                factory.events.nr5gSignalStrengthInfoChange,
+                Utility::LayeredFunction::SignalStrengthInfoChange, (void*)handlerFuncPtr);
             break;
         default:
-            LE_ERROR("Invalid para(rat:%d)", rat);
-            return NULL;
+            LE_ERROR("Unknown RAT %d.", rat);
+            return nullptr;
     }
 
     le_event_SetContextPtr(handlerRef, contextPtr);
@@ -2103,7 +1735,8 @@ taf_radio_SignalStrengthChangeHandlerRef_t taf_radio_AddSignalStrengthChangeHand
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remove handler for signal strength change.
+ * Removes handler for signal strength change.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 void taf_radio_RemoveSignalStrengthChangeHandler
@@ -2114,1064 +1747,945 @@ void taf_radio_RemoveSignalStrengthChangeHandler
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_GetServingCellId
-
- DESCRIPTION     Get the cell identity.
-
- DEPENDENCIES    Initialization of the radio service.
-
- PARAMETERS      [IN] uint8_t phoneId:    The phone id.
-
- RETURN VALUE    uint32_t
-                     UINT32_MAX: Invalid parameters.
-                     others:     Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-uint32_t taf_radio_GetServingCellId(uint8_t phoneId)
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the serving cell identity. 
+ *
+ * @return
+ *  - UINT32_MAX -- Failed.
+ *  - Others -- The serving cell identity.
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t taf_radio_GetServingCellId
+(
+    uint8_t phone ///< [IN] Phone.
+)
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), UINT32_MAX,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT32_MAX,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT32_MAX,
-            "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT32_MAX, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-            UINT32_MAX, "Fail to get cell information.");
-
-    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
-        "No serving cell.");
-
-    switch (taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat)
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
     {
-        case TAF_RADIO_RAT_GSM:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->gsm.cid;
-        case TAF_RADIO_RAT_UMTS:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->umts.cid;
-        case TAF_RADIO_RAT_TDSCDMA:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->tdscdma.cid;
-        case TAF_RADIO_RAT_LTE:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->lte.cid;
-        default:
-            LE_ERROR("Invalid RAT(%d)", taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat);
+        LE_ERROR("Failed to get cell location list information.");
+        return UINT32_MAX;
     }
 
-    return UINT32_MAX;
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_GetServingCellLocAreaCode
-
- DESCRIPTION     Get the location area code.
-
- DEPENDENCIES    Initialization of the radio service.
-
- PARAMETERS      [IN] uint8_t phoneId:    The phone id.
-
- RETURN VALUE    uint32_t
-                     UINT32_MAX: Invalid parameters.
-                     others:     Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-uint32_t taf_radio_GetServingCellLocAreaCode(uint8_t phoneId)
-{
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), UINT32_MAX,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT32_MAX,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT32_MAX,
-            "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT32_MAX, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-            UINT32_MAX, "Fail to get cell information.");
-
-    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
-           "No serving cell.");
-
-
-    switch (taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat)
+    uint32_t index = Utility::Common::FindServingCell(&info);
+    if (index < info.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT)
     {
-        case TAF_RADIO_RAT_GSM:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->gsm.lac;
-        case TAF_RADIO_RAT_UMTS:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->umts.lac;
-        case TAF_RADIO_RAT_TDSCDMA:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->tdscdma.lac;
-        default:
-            LE_ERROR("Invalid RAT(%d)", taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat);
+        switch (info.cellLocInfo[index].rat)
+        {
+            case TAF_PA_RADIO_RAT_GSM:
+                return info.cellLocInfo[index].gsmInfo.cid;
+            case TAF_PA_RADIO_RAT_UMTS:
+                return info.cellLocInfo[index].umtsInfo.cid;
+            case TAF_PA_RADIO_RAT_TDSCDMA:
+                return info.cellLocInfo[index].tdscdmaInfo.cid;
+            case TAF_PA_RADIO_RAT_LTE:
+                return info.cellLocInfo[index].lteInfo.cid;
+            case TAF_PA_RADIO_RAT_NR5G:
+                LE_ERROR("Please use taf_radio_GetServingNrCellId instead to get 64-bit value.");
+                break;
+            default:
+                LE_ERROR("Unsupported RAT %d.", info.cellLocInfo[index].rat);
+        }
     }
+    else
+        LE_ERROR("Failed to find serving cell.");
 
     return UINT32_MAX;
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_GetServingCellLteTracAreaCode
-
- DESCRIPTION     Get the tracking area code.
-
- DEPENDENCIES    Initialization of the radio service.
-
- PARAMETERS      [IN] uint8_t phoneId:    The phone id.
-
- RETURN VALUE    uint16_t
-                     UINT16_MAX: Invalid parameters.
-                     others:     Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-uint16_t taf_radio_GetServingCellLteTracAreaCode(uint8_t phoneId)
-{
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), UINT16_MAX,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT16_MAX,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT16_MAX,
-            "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT16_MAX, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-            UINT16_MAX, "Fail to get cell information.");
-
-
-    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT16_MAX,
-        "No serving cell.");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
-        TAF_RADIO_RAT_LTE, UINT16_MAX, "Serving cell is not LTE.");
-
-    return (uint16_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->lte.tac;
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_GetServingCellEarfcn
-
- DESCRIPTION     Get the E-UTRA Absolute Radio Frequency Channel Number.
-
- DEPENDENCIES    Initialization of the radio service.
-
- PARAMETERS      [IN] uint8_t phoneId:    The phone id.
-
- RETURN VALUE    uint16_t
-                     UINT16_MAX: Invalid parameters.
-                     others:     Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-uint32_t taf_radio_GetServingCellEarfcn(uint8_t phoneId)
-{
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), UINT32_MAX,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT32_MAX,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT32_MAX,
-            "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT32_MAX, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-            UINT32_MAX, "Fail to get cell information.");
-
-
-    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
-        "No serving cell.");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
-        TAF_RADIO_RAT_LTE, UINT32_MAX, "Serving cell is not LTE.");
-
-    return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->lte.earfcn;
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_GetServingCellTimingAdvance
-
- DESCRIPTION     Get the timing advance, only support GSM/LTE
-
- DEPENDENCIES    Initialization of the radio service.
-
- PARAMETERS      [IN] uint8_t phoneId:    The phone id.
-
- RETURN VALUE    uint32_t
-                     UINT32_MAX: Invalid parameters.
-                     others:     Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-uint32_t taf_radio_GetServingCellTimingAdvance(uint8_t phoneId)
-{
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), UINT32_MAX,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT32_MAX,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT32_MAX,
-            "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-        TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT32_MAX, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-            UINT32_MAX, "Fail to get cell information.");
-
-
-    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
-        "No serving cell.");
-
-    switch (taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat)
-    {
-        case TAF_RADIO_RAT_GSM:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->gsm.ta;
-        case TAF_RADIO_RAT_LTE:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->lte.ta;
-        default:
-            LE_ERROR("Invalid RAT(%d)", taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat);
-    }
-
-    return UINT32_MAX;
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_GetPhysicalServingLteCellId
-
- DESCRIPTION     Get the physical cell identifier.
-
- DEPENDENCIES    Initialization of the radio service.
-
- PARAMETERS      [IN] uint8_t phoneId:    The phone id.
-
- RETURN VALUE    uint16_t
-                     UINT16_MAX: Invalid parameters.
-                     others:     Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-uint16_t taf_radio_GetPhysicalServingLteCellId(uint8_t phoneId)
-{
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), UINT16_MAX,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT16_MAX,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT16_MAX,
-            "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-        TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT16_MAX, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-            UINT16_MAX, "Fail to get cell information.");
-
-
-    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT16_MAX,
-        "No serving cell.");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
-        TAF_RADIO_RAT_LTE, UINT16_MAX, "Serving cell is not LTE.");
-
-    return (uint16_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->lte.pcid;
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_GetServingCellGsmBsic
-
- DESCRIPTION     Get the base station identity code.
-
- DEPENDENCIES    Initialization of the radio service.
-
- PARAMETERS      [OUT] uint8_t* bsicPtr: The base station identity code.
-                 [IN] uint8_t phoneId:   The phone id.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_FAULT:         Fail.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_radio_GetServingCellGsmBsic(uint8_t* bsicPtr, uint8_t phoneId)
-{
-    TAF_ERROR_IF_RET_VAL(bsicPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(bsicPtr)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-            "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-        TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-            taf_RadioCellInfoCallback::result, "Fail to get cell information.");
-
-
-    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), LE_FAULT,
-        "No serving cell.");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
-        TAF_RADIO_RAT_GSM, LE_FAULT, "Serving cell is not GSM.");
-
-    *bsicPtr = (uint8_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->gsm.bsic;
-
-    return LE_OK;
-}
-
-/*======================================================================
-
- FUNCTION        taf_radio_GetServingCellScramblingCode
-
- DESCRIPTION     Get the primary scrambling code.
-
- DEPENDENCIES    Initialization of the radio service.
-
- PARAMETERS      [IN] uint8_t phoneId:    The phone id.
-
- RETURN VALUE    uint16_t
-                     UINT16_MAX: Invalid parameters.
-                     others:     Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-uint16_t taf_radio_GetServingCellScramblingCode(uint8_t phoneId)
-{
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), UINT16_MAX,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT16_MAX,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT16_MAX,
-            "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-        TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT16_MAX, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-            UINT16_MAX, "Fail to get cell information.");
-
-
-    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT16_MAX,
-        "No serving cell.");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
-        TAF_RADIO_RAT_UMTS, UINT16_MAX, "Serving cell is not UMTS.");
-
-    return (uint16_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->umts.psc;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Get current network name.
+ *  Gets the serving cell location area code. 
  *
  * @return
+ *  - UINT32_MAX -- Failed.
+ *  - Others -- The serving cell location area code. 
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t taf_radio_GetServingCellLocAreaCode
+(
+    uint8_t phone ///< [IN] Phone.
+)
+{
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get cell location list information.");
+        return UINT32_MAX;
+    }
+
+    uint32_t index = Utility::Common::FindServingCell(&info);
+    if (index < info.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT)
+    {
+        switch (info.cellLocInfo[index].rat)
+        {
+            case TAF_PA_RADIO_RAT_GSM:
+                return info.cellLocInfo[index].gsmInfo.lac;
+            case TAF_PA_RADIO_RAT_UMTS:
+                return info.cellLocInfo[index].umtsInfo.lac;
+            case TAF_PA_RADIO_RAT_TDSCDMA:
+                return info.cellLocInfo[index].tdscdmaInfo.lac;
+            default:
+                LE_ERROR("Unsupported RAT %d.", info.cellLocInfo[index].rat);
+        }
+    }
+    else
+        LE_ERROR("Failed to find serving cell.");
+
+    return UINT32_MAX;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the serving LTE cell tracking area code.
+ *
+ * @return
+ *  - UINT16_MAX -- Failed.
+ *  - Others -- The serving LTE cell tracking area code.
+ */
+//--------------------------------------------------------------------------------------------------
+uint16_t taf_radio_GetServingCellLteTracAreaCode
+(
+    uint8_t phone ///< [IN] Phone.
+)
+{
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get cell location list information.");
+        return UINT16_MAX;
+    }
+
+    uint32_t index = Utility::Common::FindServingCell(&info);
+    if (index < info.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT &&
+        info.cellLocInfo[index].rat == TAF_PA_RADIO_RAT_LTE)
+        return info.cellLocInfo[index].lteInfo.tac;
+    else
+        LE_ERROR("Failed to find serving cell.");
+
+    return UINT16_MAX;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the LTE serving cell E-UTRA absolute radio frequen channel number.
+ *
+ * @return
+ *  - UINT32_MAX -- Failed.
+ *  - Others -- The LTE serving cell E-UTRA absolute radio frequen channel number.
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t taf_radio_GetServingCellEarfcn
+(
+    uint8_t phone ///< [IN] Phone.
+)
+{
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get cell location list information.");
+        return UINT32_MAX;
+    }
+
+    uint32_t index = Utility::Common::FindServingCell(&info);
+    if (index < info.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT &&
+        info.cellLocInfo[index].rat == TAF_PA_RADIO_RAT_LTE)
+        return info.cellLocInfo[index].lteInfo.earfcn;
+    else
+        LE_ERROR("Failed to find serving cell.");
+
+    return UINT32_MAX;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the serving cell timing advance.
+ *
+ * @return
+ *  - UINT32_MAX -- Failed.
+ *  - Others -- The serving cell timing advance.
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t taf_radio_GetServingCellTimingAdvance
+(
+    uint8_t phone ///< [IN] Phone.
+)
+{
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get cell location list information.");
+        return UINT32_MAX;
+    }
+
+    uint32_t index = Utility::Common::FindServingCell(&info);
+    if (index < info.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT)
+    {
+        switch (info.cellLocInfo[index].rat)
+        {
+            case TAF_PA_RADIO_RAT_GSM:
+                return info.cellLocInfo[index].gsmInfo.ta;
+            case TAF_PA_RADIO_RAT_LTE:
+                return info.cellLocInfo[index].lteInfo.ta;
+            default:
+                LE_ERROR("Unsupported RAT %d.", info.cellLocInfo[index].rat);
+        }
+    }
+    else
+        LE_ERROR("Failed to find serving cell.");
+
+    return UINT32_MAX;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the serving LTE cell physical cell identity.
+ *
+ * @return
+ *  - UINT16_MAX -- Failed.
+ *  - Others -- The serving LTE cell physical cell identity.
+ */
+//--------------------------------------------------------------------------------------------------
+uint16_t taf_radio_GetPhysicalServingLteCellId
+(
+    uint8_t phone ///< [IN] Phone.
+)
+{
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get cell location list information.");
+        return UINT16_MAX;
+    }
+
+    uint32_t index = Utility::Common::FindServingCell(&info);
+    if (index < info.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT &&
+        info.cellLocInfo[index].rat == TAF_PA_RADIO_RAT_LTE)
+        return info.cellLocInfo[index].lteInfo.pcid;
+    else
+        LE_ERROR("Failed to find serving cell.");
+
+    return UINT16_MAX;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the serving GSM cell base station identity code.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
- *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellGsmBsic
+(
+    uint8_t* bsicPtr, ///< [OUT] Base station identity code.
+    uint8_t phone     ///< [IN] Phone.
+)
+{
+    if (bsicPtr == nullptr)
+    {
+        LE_ERROR("bsicPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get cell location list information.");
+        return result;
+    }
+
+    uint32_t index = Utility::Common::FindServingCell(&info);
+    if (index < info.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT &&
+        info.cellLocInfo[index].rat == TAF_PA_RADIO_RAT_GSM)
+    {
+        *bsicPtr = info.cellLocInfo[index].gsmInfo.bsic;
+        return LE_OK;
+    }
+    else
+        LE_ERROR("Failed to find serving cell.");
+
+    return LE_NOT_FOUND;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the serving UMTS cell primary scrambling code.
+ *
+ * @return
+ *  - UINT16_MAX -- Failed.
+ *  - Others -- The serving UMTS cell primary scrambling code.
+ */
+//--------------------------------------------------------------------------------------------------
+uint16_t taf_radio_GetServingCellScramblingCode
+(
+    uint8_t phone
+)
+{
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get cell location list information.");
+        return UINT16_MAX;
+    }
+
+    uint32_t index = Utility::Common::FindServingCell(&info);
+    if (index < info.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT &&
+        info.cellLocInfo[index].rat == TAF_PA_RADIO_RAT_UMTS)
+        return info.cellLocInfo[index].umtsInfo.psc;
+    else
+        LE_ERROR("Failed to find serving cell.");
+
+    return UINT16_MAX;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the current network short name.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCurrentNetworkName
 (
-    char* shortNamePtr,      ///< [OUT] Short network name.
-    size_t shortNamePtrSize, ///< [IN] The size of short network name.
-    uint8_t phoneId          ///< [IN] Phone id.
+    char* namePtr,      ///< [OUT] The short name.
+    size_t namePtrSize, ///< [IN] The short name size.
+    uint8_t phone       ///< [IN] Phone.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_BAD_PARAMETER,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-
-    TAF_ERROR_IF_RET_VAL(shortNamePtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(statePtr)");
-
-    auto opNameStatusCb = [&tafRadio](std::string operatorLongName,
-                                    std::string operatorShortName,
-                                      telux::common::ErrorCode error)
+    if (namePtr == nullptr)
     {
-        LE_DEBUG("<SDK Callback> lamda --> GetCurrentNetworkName");
-        if (error == telux::common::ErrorCode::SUCCESS)
-        {
-            tafRadio.opNameCb.shortOpNamePtr[0] = '\0';
-            if (operatorShortName.c_str() != NULL)
-            {
-                le_utf8_Copy(tafRadio.opNameCb.shortOpNamePtr, operatorShortName.c_str(),
-                TAF_RADIO_NETWORK_NAME_MAX_LEN, NULL);
-            }
-            tafRadio.opNameCb.result = LE_OK;
-        }
-        else
-        {
-            LE_ERROR("Error(%d)", (int)error);
-            tafRadio.opNameCb.result = LE_FAULT;
-        }
-
-        le_sem_Post(tafRadio.opNameCb.semaphore);
-    };
-
-    auto ret = tafRadio.phones[phoneId - 1]->requestOperatorName(opNameStatusCb);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.opNameCb.semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.opNameCb.result != LE_OK,
-        tafRadio.opNameCb.result, "Fail to get short network name.");
-
-    if (shortNamePtrSize > TAF_RADIO_NETWORK_NAME_MAX_LEN)
-    {
-        shortNamePtrSize = TAF_RADIO_NETWORK_NAME_MAX_LEN;
+        LE_ERROR("namePtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
-    size_t opNameSize = strlen(tafRadio.opNameCb.shortOpNamePtr);
-    TAF_ERROR_IF_RET_VAL(opNameSize >= shortNamePtrSize, LE_BAD_PARAMETER,
-        "No enough memory to store the network name.");
 
-    le_utf8_Copy(shortNamePtr, tafRadio.opNameCb.shortOpNamePtr,
-        shortNamePtrSize, NULL);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CurrNetworkName_t name;
+    name.shortNameValid = 1;
+    name.shortNameSize = namePtrSize;
+    name.shortNamePtr = namePtr;
+    name.fullNameValid = 0;
+    pa_result_t paResult = taf_pa_radio_GetCurrNetworkName(instance, &name);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get current network name.");
+        return result;
+    }
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Get current network mobile country code and mobile network code.
+ *  Gets the mobile country code and the mobile network code of the serving cell
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_UNSUPPORTED -- Unsupported.
+ *  - LE_OUT_OF_RANGE -- Out of range.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
- *  - LE_TIMEOUT -- Time out.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCurrentNetworkMccMnc
 (
-    char* mccStr,             ///< [OUT] Mobile country code.
-    size_t mccStrNumElements, ///< [IN] Mobile country code length.
-    char* mncStr,             ///< [OUT] Mobile network code.
-    size_t mncStrNumElements, ///< [IN] Mobile network code length.
-    uint8_t phoneId           ///< [IN] Phone id.
+    char* mccPtr,      ///< [OUT] Mobile Country Code.
+    size_t mccPtrSize, ///< [IN] Mobile Country Code length.
+    char* mncPtr,      ///< [OUT] Mobile Network Code.
+    size_t mncPtrSize, ///< [IN] Mobile Network Code length.
+    uint8_t phone      ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(mccStr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(mccStr)");
+    if (mccPtr == nullptr)
+    {
+        LE_ERROR("mccPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(mccStrNumElements < TAF_RADIO_MCC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mccStrNumElements: %" PRIuS " < %d)", mccStrNumElements, TAF_RADIO_MCC_BYTES);
+    if (mncPtr == nullptr)
+    {
+        LE_ERROR("mncPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(mncStr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(mncStr)");
+    if (mccPtrSize < TAF_RADIO_MCC_BYTES)
+    {
+        LE_ERROR("Invalid mccPtrSize %" PRIuS " < %d.", mccPtrSize, TAF_RADIO_MCC_BYTES);
+        return LE_OUT_OF_RANGE;
+    }
 
-    TAF_ERROR_IF_RET_VAL(mncStrNumElements < TAF_RADIO_MNC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mncStrNumElements: %" PRIuS " < %d)", mncStrNumElements, TAF_RADIO_MNC_BYTES);
+    if (mncPtrSize < TAF_RADIO_MNC_BYTES)
+    {
+        LE_ERROR("Invalid mncPtrSize %" PRIuS " < %d.", mncPtrSize, TAF_RADIO_MNC_BYTES);
+        return LE_OUT_OF_RANGE;
+    }
 
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get cell location list information.");
+        return result;
+    }
 
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
+    uint32_t index = Utility::Common::FindServingCell(&info);
+    if (index < info.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT)
+    {
+        uint16_t mcc = 0, mnc = 0;
+        switch (info.cellLocInfo[index].rat)
+        {
+            case TAF_PA_RADIO_RAT_GSM:
+                if (info.cellLocInfo[index].gsmInfo.plmnIdValid)
+                {
+                    mcc = info.cellLocInfo[index].gsmInfo.plmnId.mcc;
+                    mnc = info.cellLocInfo[index].gsmInfo.plmnId.mnc;
+                }
+                else
+                    LE_ERROR("Invalid PLMN ID.");
+                break;
+            case TAF_PA_RADIO_RAT_UMTS:
+                if (info.cellLocInfo[index].gsmInfo.plmnIdValid)
+                {
+                    mcc = info.cellLocInfo[index].umtsInfo.plmnId.mcc;
+                    mnc = info.cellLocInfo[index].umtsInfo.plmnId.mnc;
+                }
+                else
+                    LE_ERROR("Invalid PLMN ID.");
+                break;
+            case TAF_PA_RADIO_RAT_TDSCDMA:
+                if (info.cellLocInfo[index].gsmInfo.plmnIdValid)
+                {
+                    mcc = info.cellLocInfo[index].tdscdmaInfo.plmnId.mcc;
+                    mnc = info.cellLocInfo[index].tdscdmaInfo.plmnId.mnc;
+                }
+                else
+                    LE_ERROR("Invalid PLMN ID.");
+                break;
+            case TAF_PA_RADIO_RAT_LTE:
+                if (info.cellLocInfo[index].gsmInfo.plmnIdValid)
+                {
+                    mcc = info.cellLocInfo[index].lteInfo.plmnId.mcc;
+                    mnc = info.cellLocInfo[index].lteInfo.plmnId.mnc;
+                }
+                else
+                    LE_ERROR("Invalid PLMN ID.");
+                break;
+            case TAF_PA_RADIO_RAT_NR5G:
+                if (info.cellLocInfo[index].gsmInfo.plmnIdValid)
+                {
+                    mcc = info.cellLocInfo[index].nr5gInfo.plmnId.mcc;
+                    mnc = info.cellLocInfo[index].nr5gInfo.plmnId.mnc;
+                }
+                else
+                    LE_ERROR("Invalid PLMN ID.");
+                break;
+            default:
+                LE_ERROR("Unsupported RAT %d.", info.cellLocInfo[index].rat);
+                return LE_UNSUPPORTED;
+        }
+        result = Utility::Convert::U16ToString(mcc, mccPtr, TAF_RADIO_MCC_BYTES, false);
+        if (result != LE_OK)
+        {
+            LE_ERROR("Failed to convert MCC %d.", mcc);
+            return result;
+        }
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
+        result = Utility::Convert::U16ToString(mnc, mncPtr, TAF_RADIO_MNC_BYTES, true);
+        if (result != LE_OK)
+        {
+            LE_ERROR("Failed to convert MNC %d.", mnc);
+            return result;
+        }
 
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_TIMEOUT, "Wait semaphore timeout");
+        return LE_OK;
+    }
+    else
+        LE_ERROR("Failed to find serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        LE_FAULT, "Fail to get cell information.");
-
-    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), LE_FAULT,
-        "No serving cell.");
-
-    le_utf8_Copy(mccStr, taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->mcc,
-        TAF_RADIO_MCC_BYTES, NULL);
-
-    le_utf8_Copy(mncStr, taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->mnc,
-        TAF_RADIO_MNC_BYTES, NULL);
-
-    return LE_OK;
+    return LE_NOT_FOUND;
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_PerformCellularNetworkScan
-
- DESCRIPTION     Get a reference of a cellular network scan list.
-
- DEPENDENCIES    Initialization of Radio Service
-
- PARAMETERS      [IN] uint8_t phoneId: The phone id.
-
- RETURN VALUE    taf_radio_ScanInformationListRef_t
-                     nullptr:     Fail
-                     non-nullptr: Success
- SIDE EFFECTS
-
-======================================================================*/
-taf_radio_ScanInformationListRef_t taf_radio_PerformCellularNetworkScan(uint8_t phoneId)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Performs a PLMN network scan.
+ *
+ * @return
+ *  - taf_radio_ScanInformationListRef_t reference for the PLMN network scan list.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_ScanInformationListRef_t taf_radio_PerformCellularNetworkScan
+(
+    uint8_t phone ///< [IN] Phone.
+)
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.networkManagers.size(), NULL,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    auto networkManager = tafRadio.networkManagers[phoneId - 1];
-    TAF_ERROR_IF_RET_VAL(networkManager == NULL, NULL,
-        "Invalid para(null network manager ptr, phoneId:%d)", phoneId);
-
-    auto networkListener = tafRadio.networkListeners[phoneId - 1];
-    TAF_ERROR_IF_RET_VAL(networkListener == NULL, NULL,
-        "Invalid para(null network listener ptr, phoneId:%d)", phoneId);
-    networkListener->opInfos.clear();
-
-    auto status = networkManager->registerListener(networkListener);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, NULL,
-        "Fail to register listener with phoneId:%d)", phoneId);
-
-    telux::tel::NetworkScanInfo info;
-    info.scanType = telux::tel::NetworkScanType::ALL_RATS;
-    if (networkManager->performNetworkScan(info,
-        taf_RadioPerformNetworkScanCallback::performNetworkScanResponse) !=
-            telux::common::Status::SUCCESS)
-    {
-        LE_ERROR("Call sdk function failed");
-        status = networkManager->deregisterListener(networkListener);
-        TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, NULL,
-            "Fail to deregister listener with phoneId:%d)", phoneId);
-    };
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioPerformNetworkScanCallback::semaphore,
-        timeToWait);
-    if (res != LE_OK || taf_RadioPerformNetworkScanCallback::result != LE_OK)
-    {
-        LE_ERROR("Perform network scan failed.");
-        status = networkManager->deregisterListener(networkListener);
-        TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, NULL,
-            "Fail to deregister listener with phoneId:%d)", phoneId);
-    }
-
-    le_clk_Time_t timeToScan = {TAF_RADIO_SCAN_INTERVAL, 0};
-    res = le_sem_WaitWithTimeOut(networkListener->semaphore, timeToScan);
-    if (res != LE_OK)
-    {
-        LE_ERROR("Wait semaphore timeout");
-        status = networkManager->deregisterListener(networkListener);
-        TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, NULL,
-            "Fail to deregister listener with phoneId:%d)", phoneId);
-    };
-
-    status = networkManager->deregisterListener(networkListener);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, NULL,
-        "Fail to deregister listener with phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(networkListener->opInfos.size() == 0, NULL,
-        "Phone%d has no operators after scanning", phoneId);
-
-    taf_RadioScanOpList_t* opsList = (taf_RadioScanOpList_t*)le_mem_ForceAlloc(tafRadio.scanOpsListPool);
-    opsList->scanOpList = LE_SLS_LIST_INIT;
-    opsList->safeRefList = LE_SLS_LIST_INIT;
-    opsList->currPtr = NULL;
-
-    taf_RadioScanOp_t* opPtr;
-    for (auto info : networkListener->opInfos) {
-        opPtr = (taf_RadioScanOp_t*)le_mem_ForceAlloc(tafRadio.scanOpPool);
-        le_utf8_Copy(opPtr->name, info.getName().c_str(), TAF_RADIO_NETWORK_NAME_MAX_LEN, NULL);
-        le_utf8_Copy(opPtr->mcc, info.getMcc().c_str(), TAF_RADIO_MCC_BYTES, NULL);
-        le_utf8_Copy(opPtr->mnc, info.getMnc().c_str(), TAF_RADIO_MNC_BYTES, NULL);
-        opPtr->status.inUse = info.getStatus().inUse;
-        opPtr->status.roaming = info.getStatus().roaming;
-        opPtr->status.forbidden = info.getStatus().forbidden;
-        opPtr->status.preferred = info.getStatus().preferred;
-        opPtr->rat = info.getRat();
-        opPtr->link = LE_SLS_LINK_INIT;
-        le_sls_Queue(&(opsList->scanOpList), &(opPtr->link));
-    }
-
-    return (taf_radio_ScanInformationListRef_t)le_ref_CreateRef(tafRadio.scanOpListRefMap, (void*)opsList);
+    return Utility::Common::PlmnNetworkScan(phone);
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_PerformCellularNetworkScanAsync
-
- DESCRIPTION     Perform network scan asynchronously.
-
- DEPENDENCIES    Initialization of Radio Service
-
- PARAMETERS      [IN] taf_radio_CellularNetworkScanHandlerFunc_t handlerPtr:
-                          Handler for network scan.
-                 [IN] void* contextPtr:   Context pointer.
-                 [IN] uint8_t phoneId: The phone id.
-
- RETURN VALUE    None
-
- SIDE EFFECTS
-
-======================================================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ * Peforms a network scan asynchronously.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
 void taf_radio_PerformCellularNetworkScanAsync
 (
-    taf_radio_CellularNetworkScanHandlerFunc_t handlerPtr,
-    void* contextPtr,
-    uint8_t phoneId
+    taf_radio_CellularNetworkScanHandlerFunc_t handlerFuncPtr, ///< [IN] Handler function.
+    void* contextPtr,                                          ///< [IN] Handler context.
+    uint8_t phone                                              ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_NIL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM,
-        "Invalid para(phoneId:%d)", phoneId);
+    Request_t request;
+    memset(&request, 0, sizeof(Request_t));
 
-    taf_RadioCmdReq_t cmdReq;
-    memset(&cmdReq, 0, sizeof(taf_RadioCmdReq_t));
-    cmdReq.cmdType = TAF_RADIO_CMD_TYPE_ASYNC_NETWORK_SCAN;
-    cmdReq.handlerFuncPtr = (void*)handlerPtr;
-    cmdReq.contextPtr = contextPtr;
-    cmdReq.phoneId = phoneId;
+    request.command = COMMAND_PERFORM_PLMN_NETWORK_SCAN;
+    request.handlerFuncPtr = (void*)handlerFuncPtr;
+    request.contextPtr = contextPtr;
+    request.phone = phone;
 
-    le_event_Report(taf_Radio::radioCmdEvId, &cmdReq, sizeof(taf_RadioCmdReq_t));
+    le_event_Report(Factory::staticEvents.request, &request, sizeof(Request_t));
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_GetFirstCellularNetworkScan
-
- DESCRIPTION     Get the reference of the first operator from a scan list.
-
- DEPENDENCIES    Initialization of a scan operator list
-
- PARAMETERS      [IN] taf_radio_ScanInformationListRef_t scanInformationListRef: The scan operator list reference.
-
- RETURN VALUE    taf_radio_ScanInformationRef_t
-                     nullptr:     Fail
-                     non-nullptr: Success
- SIDE EFFECTS
-
-======================================================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the first scanned PLMN network.
+ *
+ * @return
+ *  - taf_radio_ScanInformationRef_t reference for the first scanned PLMN network.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_ScanInformationRef_t taf_radio_GetFirstCellularNetworkScan
 (
-    taf_radio_ScanInformationListRef_t scanInformationListRef
+    taf_radio_ScanInformationListRef_t listRef ///< [IN] The PLMN network scan list reference.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioScanOpList_t* listPtr = (taf_RadioScanOpList_t*)le_ref_Lookup(tafRadio.scanOpListRefMap,
-        scanInformationListRef);
+    if (listRef == nullptr)
+    {
+        LE_ERROR("listRef is nullptr.");
+        return nullptr;
+    }
 
-    TAF_ERROR_IF_RET_VAL(listPtr == nullptr, nullptr,
-        "Failed to look up the reference:%p", scanInformationListRef);
+    auto& factory = Factory::GetInstance();
+    CommonList_t* listPtr = (CommonList_t*)le_ref_Lookup(factory.maps.commonList, listRef);
+    if (listPtr == nullptr)
+    {
+        LE_ERROR("listPtr is nullptr.");
+        return nullptr;
+    }
 
-    le_sls_Link_t* linkPtr = le_sls_Peek(&(listPtr->scanOpList));
-    TAF_ERROR_IF_RET_VAL(linkPtr == nullptr, nullptr, "Empty list");
+    le_sls_Link_t* linkPtr = le_sls_Peek(&(listPtr->commonList));
+    if (linkPtr == nullptr)
+    {
+        LE_ERROR("linkPtr is nullptr.");
+        return nullptr;
+    }
 
-    taf_RadioScanOp_t* opPtr = CONTAINER_OF(linkPtr, taf_RadioScanOp_t, link);
+    PlmnInfo_t* infoPtr = CONTAINER_OF(linkPtr, PlmnInfo_t, link);
     listPtr->currPtr = linkPtr;
 
-    taf_RadioScanOpSafeRef_t* safeRefPtr = (taf_RadioScanOpSafeRef_t*)le_mem_ForceAlloc(tafRadio.scanOpSafeRefPool);
-    safeRefPtr->safeRef = le_ref_CreateRef(tafRadio.scanOpSafeRefMap, (void*)opPtr);
+    SafeRef_t* safeRefPtr = (SafeRef_t*)le_mem_ForceAlloc(factory.pools.safeRef);
+    safeRefPtr->safeRef = le_ref_CreateRef(factory.maps.safeRef, (void*)infoPtr);
     safeRefPtr->link = LE_SLS_LINK_INIT;
     le_sls_Queue(&(listPtr->safeRefList), &(safeRefPtr->link));
 
     return (taf_radio_ScanInformationRef_t)safeRefPtr->safeRef;
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_GetNextCellularNetworkScan
-
- DESCRIPTION     Get the reference of the next operator from a scan list.
-
- DEPENDENCIES    Initialization of a scan operator list
-
- PARAMETERS      [IN] taf_radio_ScanInformationListRef_t scanInformationListRef: The scan operator list reference.
-
- RETURN VALUE    taf_radio_ScanInformationRef_t
-                     nullptr:     Fail
-                     non-nullptr: Success
- SIDE EFFECTS
-
-======================================================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the next scanned PLMN network.
+ *
+ * @return
+ *  - taf_radio_ScanInformationRef_t reference for the next scanned PLMN network.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_ScanInformationRef_t taf_radio_GetNextCellularNetworkScan
 (
-    taf_radio_ScanInformationListRef_t  scanInformationListRef
+    taf_radio_ScanInformationListRef_t listRef ///< [IN] The PLMN network scan list reference.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioScanOpList_t* listPtr = (taf_RadioScanOpList_t*)le_ref_Lookup(tafRadio.scanOpListRefMap,
-        scanInformationListRef);
+    if (listRef == nullptr)
+    {
+        LE_ERROR("listRef is nullptr.");
+        return nullptr;
+    }
 
-    TAF_ERROR_IF_RET_VAL(listPtr == nullptr, nullptr,
-        "Failed to look up the reference:%p", scanInformationListRef);
+    auto& factory = Factory::GetInstance();
+    CommonList_t* listPtr = (CommonList_t*)le_ref_Lookup(factory.maps.commonList, listRef);
+    if (listPtr == nullptr)
+    {
+        LE_ERROR("listPtr is nullptr.");
+        return nullptr;
+    }
 
-    le_sls_Link_t* linkPtr = le_sls_PeekNext(&(listPtr->scanOpList), listPtr->currPtr);
-    TAF_ERROR_IF_RET_VAL(linkPtr == nullptr, nullptr, "Reach to the end of list");
+    le_sls_Link_t* linkPtr = le_sls_PeekNext(&(listPtr->commonList), listPtr->currPtr);
+    if (linkPtr == nullptr)
+        return nullptr;
 
-    taf_RadioScanOp_t* opPtr = CONTAINER_OF(linkPtr, taf_RadioScanOp_t, link);
+    PlmnInfo_t* netPtr = CONTAINER_OF(linkPtr, PlmnInfo_t, link);
     listPtr->currPtr = linkPtr;
 
-    taf_RadioScanOpSafeRef_t* safeRefPtr = (taf_RadioScanOpSafeRef_t*)le_mem_ForceAlloc(tafRadio.scanOpSafeRefPool);
-    safeRefPtr->safeRef = le_ref_CreateRef(tafRadio.scanOpSafeRefMap, (void*)opPtr);
+    SafeRef_t* safeRefPtr = (SafeRef_t*)le_mem_ForceAlloc(factory.pools.safeRef);
+    safeRefPtr->safeRef = le_ref_CreateRef(factory.maps.safeRef, (void*)netPtr);
     safeRefPtr->link = LE_SLS_LINK_INIT;
     le_sls_Queue(&(listPtr->safeRefList) ,&(safeRefPtr->link));
 
     return (taf_radio_ScanInformationRef_t)safeRefPtr->safeRef;
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_GetCellularNetworkMccMnc
-
- DESCRIPTION     Get the mobile country code and mobile network code of an operator from a scan list.
-
- DEPENDENCIES    Initialization of a scan operator list and get a safe reference of an operator.
-
- PARAMETERS      [IN] taf_radio_ScanInformationRef_t scanInformationRef:
-                          The operator reference.
-                 [OUT] char* mccPtr:     The mobile country code.
-                 [IN] size_t mccPtrSize: Mobile country code length.
-                 [OUT] char* mncPtr:     The mobile network code.
-                 [IN] size_t mncPtrSize: Mobile network code length.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_NOT_FOUND:     Fail.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the mobile country code and mobile network code of a scanned PLMN network
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OUT_OF_RANGE -- Out of range.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCellularNetworkMccMnc
 (
-    taf_radio_ScanInformationRef_t scanInformationRef,
-    char* mccPtr,
-    size_t mccPtrSize,
-    char* mncPtr,
-    size_t mncPtrSize
+    taf_radio_ScanInformationRef_t infoRef, ///< [IN] The PLMN network reference.
+    char* mccPtr,                           ///< [OUT] Mobile Country Code.
+    size_t mccPtrSize,                      ///< [IN] Mobile Country Code length.
+    char* mncPtr,                           ///< [OUT] Mobile Network Code.
+    size_t mncPtrSize                       ///< [IN] Mobile Network Code length.
 )
 {
-    TAF_ERROR_IF_RET_VAL(scanInformationRef == nullptr, LE_BAD_PARAMETER,
-        "Null reference(scanInformationRef)");
+    if (infoRef == nullptr)
+    {
+        LE_ERROR("infoRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(mccPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(mccPtr)");
+    if (mccPtr == nullptr)
+    {
+        LE_ERROR("mccPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(mccPtrSize < TAF_RADIO_MCC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mccPtrSize: %" PRIuS " < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
+    if (mncPtr == nullptr)
+    {
+        LE_ERROR("mncPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(mncPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(mncPtr)");
+    if (mccPtrSize < TAF_RADIO_MCC_BYTES)
+    {
+        LE_ERROR("Invalid mccPtrSize %" PRIuS " < %d.", mccPtrSize, TAF_RADIO_MCC_BYTES);
+        return LE_OUT_OF_RANGE;
+    }
 
-    TAF_ERROR_IF_RET_VAL(mncPtrSize < TAF_RADIO_MNC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mncPtrSize: %" PRIuS " < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
+    if (mncPtrSize < TAF_RADIO_MNC_BYTES)
+    {
+        LE_ERROR("Invalid mncPtrSize %" PRIuS " < %d.", mncPtrSize, TAF_RADIO_MNC_BYTES);
+        return LE_OUT_OF_RANGE;
+    }
 
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioScanOp_t* opPtr = (taf_RadioScanOp_t*)le_ref_Lookup(tafRadio.scanOpSafeRefMap, scanInformationRef);
-    TAF_ERROR_IF_RET_VAL(opPtr == nullptr, LE_NOT_FOUND, "Invalid para(null reference ptr)");
+    auto& factory = Factory::GetInstance();
+    PlmnInfo_t* infoPtr = (PlmnInfo_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
 
-    le_utf8_Copy(mccPtr, opPtr->mcc, mccPtrSize, NULL);
-    le_utf8_Copy(mncPtr, opPtr->mnc, mncPtrSize, NULL);
+    if (infoPtr->plmnInfo.plmnIdValid)
+    {
+        le_result_t result = Utility::Convert::U16ToString(infoPtr->plmnInfo.plmnId.mcc, mccPtr,
+            TAF_RADIO_MCC_BYTES, false);
+        if (result != LE_OK)
+        {
+            LE_ERROR("Failed to convert MCC %d.", infoPtr->plmnInfo.plmnId.mcc);
+            return result;
+        }
+
+        result = Utility::Convert::U16ToString(infoPtr->plmnInfo.plmnId.mnc, mncPtr,
+            TAF_RADIO_MNC_BYTES, false);
+        if (result != LE_OK)
+        {
+            LE_ERROR("Failed to convert MNC %d.", infoPtr->plmnInfo.plmnId.mnc);
+            return result;
+        }
+    }
+    else
+    {
+        LE_ERROR("PLMN ID is invalid.");
+        return LE_FAULT;
+    }
 
     return LE_OK;
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_GetCellularNetworkName
-
- DESCRIPTION     Get the name of an operator from a scan list.
-
- DEPENDENCIES    Initialization of a scan operator list and get a safe reference of an operator.
-
- PARAMETERS      [IN] taf_radio_ScanInformationRef_t scanInformationRef:
-                          The operator reference.
-                 [OUT] char* namePtr:  The network name.
-                 [IN] size_t nameSize: Network name length.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_NOT_FOUND:     Fail.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the the namework name of a scanned PLMN network
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OUT_OF_RANGE -- Out of range.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCellularNetworkName
 (
-    taf_radio_ScanInformationRef_t scanInformationRef,
-    char* namePtr,
-    size_t nameSize
+    taf_radio_ScanInformationRef_t infoRef, ///< [IN] The PLMN network reference.
+    char* namePtr,                          ///< [OUT] The PLMN network name.
+    size_t namePtrSize                      ///< [IN] The PLMN network name size.
 )
 {
-    TAF_ERROR_IF_RET_VAL(scanInformationRef == nullptr, LE_BAD_PARAMETER,
-        "Null reference(scanInformationRef)");
+    if (infoRef == nullptr)
+    {
+        LE_ERROR("infoRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(namePtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(namePtr)");
+    if (namePtr == nullptr)
+    {
+        LE_ERROR("namePtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioScanOp_t* opPtr = (taf_RadioScanOp_t*)le_ref_Lookup(tafRadio.scanOpSafeRefMap, scanInformationRef);
-    TAF_ERROR_IF_RET_VAL(opPtr == nullptr, LE_NOT_FOUND, "Invalid para(null reference ptr)");
+    auto& factory = Factory::GetInstance();
+    PlmnInfo_t* infoPtr = (PlmnInfo_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
 
-    le_utf8_Copy(namePtr, opPtr->name, nameSize, NULL);
+    le_utf8_Copy(namePtr, infoPtr->plmnInfo.description, namePtrSize, nullptr);
 
     return LE_OK;
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_IsCellularNetworkInUse
-
- DESCRIPTION     Check if cellular network is in use.
-
- DEPENDENCIES    Initialization of a scan operator list and get a safe reference of an operator.
-
- PARAMETERS      [IN] taf_radio_ScanInformationRef_t scanInformationRef:
-                          The operator reference.
-
- RETURN VALUE    bool
-                     ture:  In use.
-                     false: Not in use.
-
- SIDE EFFECTS
-
-======================================================================*/
-bool taf_radio_IsCellularNetworkInUse(taf_radio_ScanInformationRef_t scanInformationRef)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the scanned PLMN network in use status
+ *
+ * @return
+ *  - Ture -- The PLMN network is in use.
+ *  - False -- The PLMN network is not in use.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_radio_IsCellularNetworkInUse
+(
+    taf_radio_ScanInformationRef_t infoRef ///< [IN] The PLMN network reference.
+)
 {
-    TAF_ERROR_IF_RET_VAL(scanInformationRef == nullptr, false,
-        "Null reference(scanInformationRef)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioScanOp_t* opPtr = (taf_RadioScanOp_t*)le_ref_Lookup(tafRadio.scanOpSafeRefMap, scanInformationRef);
-    TAF_ERROR_IF_RET_VAL(opPtr == nullptr, false, "Invalid para(null reference ptr)");
-
-    if (opPtr->status.inUse == telux::tel::InUseStatus::CURRENT_SERVING) {
-        return true;
+    if (infoRef == nullptr)
+    {
+        LE_ERROR("infoRef is nullptr.");
+        return false;
     }
+
+    auto& factory = Factory::GetInstance();
+    PlmnInfo_t* infoPtr = (PlmnInfo_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return false;
+    }
+
+    if (infoPtr->plmnInfo.inUseStatus == TAF_PA_RADIO_NETWORK_IN_USE_STATUS_CURRENT_SERVING)
+        return true;
 
     return false;
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_IsCellularNetworkAvailable
-
- DESCRIPTION     Check if cellular network is available.
-
- DEPENDENCIES    Initialization of a scan operator list and get a safe reference of an operator.
-
- PARAMETERS      [IN] taf_radio_ScanInformationRef_t scanInformationRef:
-                          The operator reference.
-
- RETURN VALUE    bool
-                     ture:  Available.
-                     false: Not available.
-
- SIDE EFFECTS
-
-======================================================================*/
-bool taf_radio_IsCellularNetworkAvailable(taf_radio_ScanInformationRef_t scanInformationRef)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the scanned PLMN network available status
+ *
+ * @return
+ *  - Ture -- The PLMN network is available.
+ *  - False -- The PLMN network is not available.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_radio_IsCellularNetworkAvailable
+(
+    taf_radio_ScanInformationRef_t infoRef ///< [IN] The PLMN network reference.
+)
 {
-    TAF_ERROR_IF_RET_VAL(scanInformationRef == nullptr, false,
-        "Null reference(scanInformationRef)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioScanOp_t* opPtr = (taf_RadioScanOp_t*)le_ref_Lookup(tafRadio.scanOpSafeRefMap, scanInformationRef);
-    TAF_ERROR_IF_RET_VAL(opPtr == nullptr, false, "Invalid para(null reference ptr)");
-
-    if (opPtr->status.inUse == telux::tel::InUseStatus::AVAILABLE) {
-        return true;
+    if (infoRef == nullptr)
+    {
+        LE_ERROR("infoRef is nullptr.");
+        return false;
     }
+
+    auto& factory = Factory::GetInstance();
+    PlmnInfo_t* infoPtr = (PlmnInfo_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return false;
+    }
+
+
+    if (infoPtr->plmnInfo.inUseStatus == TAF_PA_RADIO_NETWORK_IN_USE_STATUS_AVAILABLE)
+        return true;
 
     return false;
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_IsCellularNetworkHome
-
- DESCRIPTION     Check if cellular network is home.
-
- DEPENDENCIES    Initialization of a scan operator list and get a safe reference of an operator.
-
- PARAMETERS      [IN] taf_radio_ScanInformationRef_t scanInformationRef:
-                          The operator reference.
-
- RETURN VALUE    bool
-                     ture:  Home.
-                     false: Roaming or unknown.
-
- SIDE EFFECTS
-
-======================================================================*/
-bool taf_radio_IsCellularNetworkHome(taf_radio_ScanInformationRef_t scanInformationRef)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the scanned PLMN network home status
+ *
+ * @return
+ *  - Ture -- The PLMN network is home status.
+ *  - False -- The PLMN network is not home status.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_radio_IsCellularNetworkHome
+(
+    taf_radio_ScanInformationRef_t infoRef ///< [IN] The PLMN network reference.
+)
 {
-    TAF_ERROR_IF_RET_VAL(scanInformationRef == nullptr, false,
-        "Null reference(scanInformationRef)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioScanOp_t* opPtr = (taf_RadioScanOp_t*)le_ref_Lookup(tafRadio.scanOpSafeRefMap, scanInformationRef);
-    TAF_ERROR_IF_RET_VAL(opPtr == nullptr, false, "Invalid para(null reference ptr)");
-
-    if (opPtr->status.roaming == telux::tel::RoamingStatus::HOME) {
-        return true;
+    if (infoRef == nullptr)
+    {
+        LE_ERROR("infoRef is nullptr.");
+        return false;
     }
+
+    auto& factory = Factory::GetInstance();
+    PlmnInfo_t* infoPtr = (PlmnInfo_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return false;
+    }
+
+
+    if (infoPtr->plmnInfo.roamingStatus == TAF_PA_RADIO_NETWORK_ROAMING_STATUS_HOME)
+        return true;
 
     return false;
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_IsCellularNetworkForbidden
-
- DESCRIPTION     Check if cellular network is forbidden.
-
- DEPENDENCIES    Initialization of a scan operator list and get a safe reference of an operator.
-
- PARAMETERS      [IN] taf_radio_ScanInformationRef_t scanInformationRef:
-                          The operator reference.
-
- RETURN VALUE    bool
-                     ture:  Forbidden.
-                     false: Not forbidden.
-
- SIDE EFFECTS
-
-======================================================================*/
-bool taf_radio_IsCellularNetworkForbidden(taf_radio_ScanInformationRef_t scanInformationRef)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the scanned PLMN network forbidden status
+ *
+ * @return
+ *  - Ture -- The PLMN network is forbidden status.
+ *  - False -- The PLMN network is not forbidden status.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_radio_IsCellularNetworkForbidden
+(
+    taf_radio_ScanInformationRef_t infoRef ///< [IN] The PLMN network reference.
+)
 {
-    TAF_ERROR_IF_RET_VAL(scanInformationRef == nullptr, false,
-        "Null reference(scanInformationRef)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioScanOp_t* opPtr = (taf_RadioScanOp_t*)le_ref_Lookup(tafRadio.scanOpSafeRefMap, scanInformationRef);
-    TAF_ERROR_IF_RET_VAL(opPtr == nullptr, false, "Invalid para(null reference ptr)");
-
-    if (opPtr->status.forbidden == telux::tel::ForbiddenStatus::FORBIDDEN) {
-        return true;
+    if (infoRef == nullptr)
+    {
+        LE_ERROR("infoRef is nullptr.");
+        return false;
     }
+
+    auto& factory = Factory::GetInstance();
+    PlmnInfo_t* infoPtr = (PlmnInfo_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return false;
+    }
+
+    if (infoPtr->plmnInfo.forbiddenStatus == TAF_PA_RADIO_NETWORK_FORBIDDEN_STATUS_FORBIDDEN)
+        return true;
 
     return false;
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_DeleteCellularNetworkScan
-
- DESCRIPTION     Delete a reference of a scan operator list.
-
- DEPENDENCIES    Initialization of a scan operator list
-
- PARAMETERS      [IN] taf_radio_ScanInformationListRef_t scanInformationListRef: The scan operator list reference.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_NOT_FOUND:     Fail.
-                     LE_OK:            Success.
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_radio_DeleteCellularNetworkScan(taf_radio_ScanInformationListRef_t scanInformationListRef)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes the scanned PLMN network list
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_DeleteCellularNetworkScan
+(
+    taf_radio_ScanInformationListRef_t listRef ///< [IN] The PLMN network scan list reference.
+)
 {
-    TAF_ERROR_IF_RET_VAL(scanInformationListRef == nullptr, LE_BAD_PARAMETER,
-        "Null reference(scanInformationListRef)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioScanOpList_t* listPtr = (taf_RadioScanOpList_t*)le_ref_Lookup(tafRadio.scanOpListRefMap,
-        scanInformationListRef);
-    TAF_ERROR_IF_RET_VAL(listPtr == nullptr, LE_NOT_FOUND, "Invalid para(null reference ptr)");
-
-    taf_RadioScanOp_t* opPtr;
-    le_sls_Link_t *linkPtr;
-    while ((linkPtr = le_sls_Pop(&(listPtr->scanOpList))) != NULL) {
-        opPtr = CONTAINER_OF(linkPtr, taf_RadioScanOp_t, link);
-        le_mem_Release(opPtr);
+    if (listRef == nullptr)
+    {
+        LE_ERROR("listRef is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    taf_RadioScanOpSafeRef_t* safeRefPtr;
-    while ((linkPtr = le_sls_Pop(&(listPtr->safeRefList))) != NULL) {
-        safeRefPtr = CONTAINER_OF(linkPtr, taf_RadioScanOpSafeRef_t, link);
-        le_ref_DeleteRef(tafRadio.scanOpSafeRefMap, safeRefPtr->safeRef);
+    auto& factory = Factory::GetInstance();
+    CommonList_t* listPtr = (CommonList_t*)le_ref_Lookup(factory.maps.commonList, listRef);
+    if (listPtr == nullptr)
+    {
+        LE_ERROR("listPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    PlmnInfo_t* infoPtr = nullptr;
+    le_sls_Link_t* linkPtr = nullptr;
+    while ((linkPtr = le_sls_Pop(&(listPtr->commonList))) != nullptr)
+    {
+        infoPtr = CONTAINER_OF(linkPtr, PlmnInfo_t, link);
+        le_mem_Release(infoPtr);
+    }
+
+    SafeRef_t* safeRefPtr = nullptr;
+    while ((linkPtr = le_sls_Pop(&(listPtr->safeRefList))) != nullptr)
+    {
+        safeRefPtr = CONTAINER_OF(linkPtr, SafeRef_t, link);
+        le_ref_DeleteRef(factory.maps.safeRef, safeRefPtr->safeRef);
         le_mem_Release(safeRefPtr);
     }
 
-    le_ref_DeleteRef(tafRadio.scanOpListRefMap, scanInformationListRef);
+    le_ref_DeleteRef(factory.maps.commonList, listRef);
 
     le_mem_Release(listPtr);
 
@@ -3180,603 +2694,442 @@ le_result_t taf_radio_DeleteCellularNetworkScan(taf_radio_ScanInformationListRef
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Set signal strength indication thresholds.
+ * Sets the signal strength indication thresholds.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
- *  - LE_TIMEOUT       Time out.
- *  - LE_UNSUPPORTED   Unsupported function.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetSignalStrengthIndThresholds
 (
-    taf_radio_SigType_t sigType, ///< [IN] Signal type.
+    taf_radio_SigType_t metric,  ///< [IN] The signal metric.
     int32_t lowerRangeThreshold, ///< [IN] Lower range threshold in 0.1 dBm.
     int32_t upperRangeThreshold, ///< [IN] Upper range threshold in 0.1 dBm.
-    uint8_t phoneId              ///< [IN] Phone ID.
+    uint8_t phone                ///< [IN] Phone.
 )
 {
-#ifdef LE_CONFIG_RADIO_SIGNAL_INDICATION_CONFIG
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_BAD_PARAMETER,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    std::vector<telux::tel::SignalStrengthConfigEx> sigStrengthConfigList = {};
-    std::vector<telux::tel::SignalStrengthConfigData> sigConfigDataList = {};
-    std::vector<int32_t> thresholdList = {};
-
-    telux::tel::SignalStrengthConfigEx sigStrengthConfig = {};
-    telux::tel::SignalStrengthConfigData sigConfigData = {};
-    sigStrengthConfig.configTypeMask.set(telux::tel::SignalStrengthConfigExType::THRESHOLD);
-    for (auto hys : tafRadio.hysteresisConfigs)
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_SignalStrengthIndConfig_t config;
+    Utility::Convert::SignalStrengthIndConfig(instance, metric, &config);
+    config.deltaValid = 0;
+    config.thresholdValid = 1;
+    config.thresholdCount = 2;
+    config.thresholds[0] = lowerRangeThreshold;
+    config.thresholds[1] = upperRangeThreshold;
+    pa_result_t paResult = taf_pa_radio_SetSignalStrengthInd(instance, &config);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
     {
-        if(hys.sigType == sigType && hys.phoneId == phoneId)
-        {
-            sigStrengthConfig.configTypeMask.set(
-                   telux::tel::SignalStrengthConfigExType::HYSTERESIS_DB);
-            sigConfigData.hysteresisDb = hys.hysteresisdB;
-            LE_DEBUG("SigType is %d hysteresisdB is %d", hys.sigType,hys.hysteresisdB);
-            break;
-        }
+        LE_ERROR("Failed to set signal strength indication configuration.");
+        return result;
     }
-    switch (sigType)
-    {
-        case TAF_RADIO_SIG_TYPE_GSM_RSSI:
-            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_GSM;
-            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSSI;
-            break;
-        case TAF_RADIO_SIG_TYPE_UMTS_RSSI:
-            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_UMTS;
-            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSSI;
-            break;
-        case TAF_RADIO_SIG_TYPE_LTE_RSRP:
-            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_LTE;
-            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSRP;
-            break;
-        case TAF_RADIO_SIG_TYPE_NR5G_RSRP:
-            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_NR5G;
-            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSRP;
-            break;
-        default:
-            LE_ERROR("Unsupported signal type : %d.", sigType);
-            return LE_UNSUPPORTED;
-    }
-    sigConfigData.thresholdList[0] = lowerRangeThreshold;
-    sigConfigData.thresholdList[1] = upperRangeThreshold;
-
-    sigConfigDataList.emplace_back(sigConfigData);
-    sigStrengthConfig.sigConfigData = sigConfigDataList;
-    sigStrengthConfigList.emplace_back(sigStrengthConfig);
-    auto ret = tafRadio.phones[phoneId - 1]->configureSignalStrength(sigStrengthConfigList,
-        tafRadio.hysteresisTimer[phoneId - 1],
-        taf_RadioConfigureSignalStrengthCallback::configureSignalStrengthResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(
-        taf_RadioConfigureSignalStrengthCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_TIMEOUT, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioConfigureSignalStrengthCallback::result != LE_OK,
-        LE_FAULT, "Fail to set signal strengh thresolds.");
 
     return LE_OK;
-#else
-    return LE_UNSUPPORTED;
-#endif
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Set signal strength indication delta.
+ * Sets the signal strength indication delta.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
- *  - LE_TIMEOUT       Time out.
- *  - LE_UNSUPPORTED   Unsupported function.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetSignalStrengthIndDelta
 (
-    taf_radio_SigType_t sigType, ///< [IN] Signal type.
-    uint16_t delta,              ///< [IN] Signal delta.
-    uint8_t phoneId              ///< [IN] Phone ID.
+    taf_radio_SigType_t metric, ///< [IN] The signal metric.
+    uint16_t delta,             ///< [IN] Delta in 0.1 dBm.
+    uint8_t phone               ///< [IN] Phone.
 )
 {
-#ifdef LE_CONFIG_RADIO_SIGNAL_INDICATION_CONFIG
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_BAD_PARAMETER,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    std::vector<telux::tel::SignalStrengthConfigEx> sigStrengthConfigList = {};
-    std::vector<telux::tel::SignalStrengthConfigData> sigConfigDataList = {};
-
-    telux::tel::SignalStrengthConfigEx sigStrengthConfig = {};
-    telux::tel::SignalStrengthConfigData sigConfigData = {};
-
-    sigStrengthConfig.configTypeMask.set(telux::tel::SignalStrengthConfigExType::DELTA);
-    switch (sigType)
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_SignalStrengthIndConfig_t config;
+    Utility::Convert::SignalStrengthIndConfig(instance, metric, &config);
+    config.thresholdValid = 0;
+    config.deltaValid = 1;
+    config.delta = delta;
+    pa_result_t paResult = taf_pa_radio_SetSignalStrengthInd(instance, &config);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
     {
-        case TAF_RADIO_SIG_TYPE_GSM_RSSI:
-            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_GSM;
-            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSSI;
-            break;
-        case TAF_RADIO_SIG_TYPE_UMTS_RSSI:
-            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_UMTS;
-            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSSI;
-            break;
-        case TAF_RADIO_SIG_TYPE_LTE_RSRP:
-            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_LTE;
-            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSRP;
-            break;
-        case TAF_RADIO_SIG_TYPE_NR5G_RSRP:
-            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_NR5G;
-            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSRP;
-            break;
-        default:
-            LE_ERROR("Unsupported signal type : %d.", sigType);
-            return LE_UNSUPPORTED;
+        LE_ERROR("Failed to set signal strength indication configuration.");
+        return result;
     }
-    sigConfigData.delta = delta;
-
-    sigConfigDataList.emplace_back(sigConfigData);
-    sigStrengthConfig.sigConfigData = sigConfigDataList;
-    sigStrengthConfigList.emplace_back(sigStrengthConfig);
-    auto ret = tafRadio.phones[phoneId - 1]->configureSignalStrength(sigStrengthConfigList,
-        tafRadio.hysteresisTimer[phoneId - 1],
-        taf_RadioConfigureSignalStrengthCallback::configureSignalStrengthResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(
-        taf_RadioConfigureSignalStrengthCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_TIMEOUT, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioConfigureSignalStrengthCallback::result != LE_OK,
-        LE_FAULT, "Fail to set signal strengh delta.");
 
     return LE_OK;
-#else
-    return LE_UNSUPPORTED;
-#endif
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get NR Cell ID.
+ *  Gets the serving NR cell identity. 
  *
  * @return
- *  - INT64_MAX Internal error.
- *  - Others     NR Cell ID.
+ *  - UINT64_MAX -- Failed.
+ *  - Others -- The serving NR cell identity.
  */
 //--------------------------------------------------------------------------------------------------
 uint64_t taf_radio_GetServingNrCellId
 (
-    uint8_t phoneId ///< [IN] Phone ID.
+    uint8_t phone ///< [IN] Phone.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), UINT64_MAX,
-        "Invalid para(phoneId:%d)", phoneId);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get cell location list information.");
+        return UINT64_MAX;
+    }
 
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT64_MAX,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
+    uint32_t index = Utility::Common::FindServingCell(&info);
+    if (index < info.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT &&
+        info.cellLocInfo[index].rat == TAF_PA_RADIO_RAT_NR5G)
+        return info.cellLocInfo[index].nr5gInfo.cid;
+    else
+        LE_ERROR("Failed to find serving cell.");
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-            taf_RadioCellInfoCallback::cellInfoListResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT64_MAX,
-            "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-        TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT64_MAX, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT64_MAX,
-        "No serving cell.");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
-        TAF_RADIO_RAT_NR5G, LE_FAULT, "Serving cell is not NR5G.");
-
-    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->nr5g.cid;
+    return UINT64_MAX;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get NR Tracking Area Code.
+ *  Gets the serving NR cell tracking area code.
  *
  * @return
- *  - INT32_MAX Internal error.
- *  - Others    NR Tracking Area Code.
+ *  - INT32_MAX -- Failed.
+ *  - Others -- The serving NR cell tracking area code.
  */
 //--------------------------------------------------------------------------------------------------
 int32_t taf_radio_GetServingCellNrTracAreaCode
 (
-    uint8_t phoneId ///< [IN] Phone ID.
+    uint8_t phone ///< [IN] Phone.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), INT32_MAX,
-        "Invalid para(phoneId:%d)", phoneId);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get cell location list information.");
+        return INT32_MAX;
+    }
 
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, INT32_MAX,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
+    uint32_t index = Utility::Common::FindServingCell(&info);
+    if (index < info.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT &&
+        info.cellLocInfo[index].rat == TAF_PA_RADIO_RAT_NR5G)
+        return info.cellLocInfo[index].nr5gInfo.tac;
+    else
+        LE_ERROR("Failed to find serving cell.");
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-           taf_RadioCellInfoCallback::cellInfoListResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, INT32_MAX,
-            "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, INT32_MAX, "Wait semaphore timeout");
-
-
-    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), INT32_MAX,
-        "No serving cell.");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
-        TAF_RADIO_RAT_NR5G, INT32_MAX, "Serving cell is not NR5G.");
-
-    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->nr5g.tac;
+    return INT32_MAX;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get NR Absolute RF Channel Number.
+ *  Gets the NR serving cell absolute radio frequen channel number.
  *
  * @return
- *  - INT32_MAX Internal error.
- *  - -1 Unknown.
- *  - Others    NR Absolute RF Channel Number.
+ *  - INT32_MAX -- Failed.
+ *  - Others -- The NR serving cell absolute radio frequen channel number.
  */
 //--------------------------------------------------------------------------------------------------
 int32_t taf_radio_GetServingCellNrArfcn
 (
-    uint8_t phoneId ///< [IN] Phone ID.
+    uint8_t phone ///< [IN] Phone.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), INT32_MAX,
-        "Invalid para(phoneId:%d)", phoneId);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get cell location list information.");
+        return INT32_MAX;
+    }
 
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, INT32_MAX,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
+    uint32_t index = Utility::Common::FindServingCell(&info);
+    if (index < info.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT &&
+        info.cellLocInfo[index].rat == TAF_PA_RADIO_RAT_NR5G)
+        return info.cellLocInfo[index].nr5gInfo.arfcn;
+    else
+        LE_ERROR("Failed to find serving cell.");
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-            taf_RadioCellInfoCallback::cellInfoListResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, INT32_MAX,
-            "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, INT32_MAX, "Wait semaphore timeout");
-
-
-    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), INT32_MAX,
-        "No serving cell.");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
-        TAF_RADIO_RAT_NR5G, INT32_MAX, "Serving cell is not NR5G.");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->nr5g.arfcn == -1,
-        INT32_MAX, "Arfcn is unknown.");
-
-    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->nr5g.arfcn;
+    return INT32_MAX;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get NR5G Physical Cell ID.
+ *  Gets the serving NR cell physical cell identity.
  *
  * @return
- *  - UINT32_MAX Internal error.
- *  - Others Physical Cell ID..
+ *  - UINT32_MAX -- Failed.
+ *  - Others -- The serving NR cell physical cell identity.
  */
 //--------------------------------------------------------------------------------------------------
 uint32_t taf_radio_GetPhysicalServingNrCellId
 (
-    uint8_t phoneId ///< [IN] Phone ID.
+    uint8_t phone ///< [IN] Phone.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), UINT32_MAX,
-        "Invalid para(phoneId:%d)", phoneId);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get cell location list information.");
+        return UINT16_MAX;
+    }
 
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT32_MAX,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
+    uint32_t index = Utility::Common::FindServingCell(&info);
+    if (index < info.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT &&
+        info.cellLocInfo[index].rat == TAF_PA_RADIO_RAT_NR5G)
+        return info.cellLocInfo[index].nr5gInfo.pcid;
+    else
+        LE_ERROR("Failed to find serving cell.");
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-            taf_RadioCellInfoCallback::cellInfoListResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT32_MAX,
-            "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT32_MAX, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
-        "No serving cell.");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
-        TAF_RADIO_RAT_NR5G, UINT32_MAX, "Serving cell is not NR5G.");
-
-    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->nr5g.pcid;
+    return UINT16_MAX;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get NR5G signal metrics
+ * Gets the neighbor cells information.
  *
  * @return
- *  - LE_BAD_PARAMETER Invalid parameters.
- *  - LE_OK            On success.
- *  - LE_NOT_FOUND     Reference not found.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_radio_GetNr5gSignalMetrics
-(
-    taf_radio_MetricsRef_t metricsRef, ///< [IN] Signal metrics reference.
-    int32_t* rsrqPtr,                  ///< [OUT] Reference Signal Received Quality.
-    int32_t* rsrpPtr,                  ///< [OUT] Reference Signal Received Power.
-    int32_t* snrPtr                    ///< [OUT] Signal to Noise Ratio.
-)
-{
-    TAF_ERROR_IF_RET_VAL(metricsRef == NULL, LE_BAD_PARAMETER, "Null reference(metricsRef)");
-
-    TAF_ERROR_IF_RET_VAL(rsrqPtr == NULL, LE_BAD_PARAMETER, "Null ptr(rsrqPtr)");
-
-    TAF_ERROR_IF_RET_VAL(rsrpPtr == NULL, LE_BAD_PARAMETER, "Null ptr(rsrpPtr)");
-
-    TAF_ERROR_IF_RET_VAL(snrPtr == NULL, LE_BAD_PARAMETER, "Null ptr(snrPtr)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioSignalMetrics_t* metricsPtr =
-        (taf_RadioSignalMetrics_t*)le_ref_Lookup(tafRadio.metricsRefMap, metricsRef);
-    TAF_ERROR_IF_RET_VAL(metricsPtr == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
-
-    *rsrqPtr = metricsPtr->nr5g.rsrq;
-    *rsrpPtr = metricsPtr->nr5g.rsrp;
-    *snrPtr = metricsPtr->nr5g.snr;
-
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Get Neighbor Cells Information
- *
- * @return
- *  - NULL   Invalid parameters or internal errors.
- *  - Others Neighbor cells reference.
+ *  - taf_radio_NeighborCellsRef_t reference for neighbor cells information.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_NeighborCellsRef_t taf_radio_GetNeighborCellsInfo
 (
-    uint8_t phoneId ///< [IN] Phone ID.
+    uint8_t phone ///< [IN] Phone.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), NULL,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == NULL, NULL,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-            taf_RadioCellInfoCallback::cellInfoListResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, NULL,
-            "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, NULL, "Wait semaphore timeout");
-
-    taf_RadioNgbrCells_t* ngbrCellsPtr =
-        (taf_RadioNgbrCells_t*)le_mem_ForceAlloc(tafRadio.ngbrCellsPool);
-    ngbrCellsPtr->cellInfoList = LE_SLS_LIST_INIT;
-    ngbrCellsPtr->safeRefList = LE_SLS_LIST_INIT;
-    ngbrCellsPtr->currPtr = NULL;
-
-    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr;
-    for (auto cell : taf_RadioCellInfoCallback::cellListInfo.neighborCell)
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
     {
-        ngbrCellInfoPtr = (taf_RadioNgbrCellInfo_t*)le_mem_ForceAlloc(tafRadio.ngbrCellInfoPool);
-        ngbrCellInfoPtr->cell.rat = cell->rat;
-        ngbrCellInfoPtr->cell.ss = cell->ss;
-        switch (cell->rat)
-        {
-            case TAF_RADIO_RAT_GSM:
-                ngbrCellInfoPtr->cell.gsm = cell->gsm;
-                break;
-            case TAF_RADIO_RAT_CDMA:
-                ngbrCellInfoPtr->cell.cdma = cell->cdma;
-                break;
-            case TAF_RADIO_RAT_UMTS:
-                ngbrCellInfoPtr->cell.umts = cell->umts;
-                break;
-            case TAF_RADIO_RAT_TDSCDMA:
-                ngbrCellInfoPtr->cell.tdscdma = cell->tdscdma;
-                break;
-            case TAF_RADIO_RAT_LTE:
-                ngbrCellInfoPtr->cell.lte = cell->lte;
-                break;
-            case TAF_RADIO_RAT_NR5G:
-                ngbrCellInfoPtr->cell.nr5g = cell->nr5g;
-                break;
-            default:
-                break;
-        }
-        ngbrCellInfoPtr->link = LE_SLS_LINK_INIT;
-        le_sls_Queue(&(ngbrCellsPtr->cellInfoList), &(ngbrCellInfoPtr->link));
+        LE_ERROR("Failed to get cell location list information.");
+        return nullptr;
     }
 
-    return (taf_radio_NeighborCellsRef_t)le_ref_CreateRef(tafRadio.ngbrCellsRefMap,
-        (void*)ngbrCellsPtr);
+    auto& factory = Factory::GetInstance();
+    CommonList_t* listPtr = (CommonList_t*)le_mem_ForceAlloc(factory.pools.commonList);
+    listPtr->commonList = LE_SLS_LIST_INIT;
+    listPtr->safeRefList = LE_SLS_LIST_INIT;
+    listPtr->currPtr = nullptr;
+
+    NgbrCell_t* cellPtr = nullptr;
+    for (uint32_t i = 0; i < info.cellLocInfoCount && i < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT;
+        i++)
+    {
+        if (info.cellLocInfo[i].location == TAF_PA_RADIO_CELL_LOCATION_NEIGHBOR)
+        {
+            cellPtr = (NgbrCell_t*)le_mem_ForceAlloc(factory.pools.ngbrCell);
+            cellPtr->ngbrCell = info.cellLocInfo[i];
+
+            cellPtr->link = LE_SLS_LINK_INIT;
+            le_sls_Queue(&(listPtr->commonList), &(cellPtr->link));
+        }
+    }
+
+    return (taf_radio_NeighborCellsRef_t)le_ref_CreateRef(factory.maps.commonList, (void*)listPtr);
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Delete neighbor cells information
+ * Deletes neighbor cells information.
  *
  * @return
- *  - LE_NOT_FOUND     Reference not found.
- *  - LE_OK            On success.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeleteNeighborCellsInfo
 (
-    taf_radio_NeighborCellsRef_t ngbrCellsRef ///< [IN] Neighbor cells reference.
+    taf_radio_NeighborCellsRef_t infoRef ///< [IN] The neighbor cells information reference.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-
-    taf_RadioNgbrCells_t* ngbrCellsPtr =
-        (taf_RadioNgbrCells_t*)le_ref_Lookup(tafRadio.ngbrCellsRefMap, ngbrCellsRef);
-    TAF_ERROR_IF_RET_VAL(ngbrCellsPtr == NULL, LE_NOT_FOUND, "Invalid para(null ptr)");
-
-    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr;
-    le_sls_Link_t *linkPtr;
-    while ((linkPtr = le_sls_Pop(&(ngbrCellsPtr->cellInfoList))) != NULL)
+    if (infoRef == nullptr)
     {
-        ngbrCellInfoPtr = CONTAINER_OF(linkPtr, taf_RadioNgbrCellInfo_t, link);
-        le_mem_Release(ngbrCellInfoPtr);
+        LE_ERROR("infoRef is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    taf_RadioNgbrCellInfoSafeRef_t* safeRefPtr;
-    while ((linkPtr = le_sls_Pop(&(ngbrCellsPtr->safeRefList))) != NULL)
+    auto& factory = Factory::GetInstance();
+    CommonList_t* listPtr = (CommonList_t*)le_ref_Lookup(factory.maps.commonList, infoRef);
+    if (listPtr == nullptr)
     {
-        safeRefPtr = CONTAINER_OF(linkPtr, taf_RadioNgbrCellInfoSafeRef_t, link);
-        le_ref_DeleteRef(tafRadio.ngbrCellInfoSafeRefMap, safeRefPtr->safeRef);
+        LE_ERROR("listPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    NgbrCell_t* cellPtr = nullptr;
+    le_sls_Link_t* linkPtr = nullptr;
+    while ((linkPtr = le_sls_Pop(&(listPtr->commonList))) != nullptr)
+    {
+        cellPtr = CONTAINER_OF(linkPtr, NgbrCell_t, link);
+        le_mem_Release(cellPtr);
+    }
+
+    SafeRef_t* safeRefPtr = nullptr;
+    while ((linkPtr = le_sls_Pop(&(listPtr->safeRefList))) != nullptr)
+    {
+        safeRefPtr = CONTAINER_OF(linkPtr, SafeRef_t, link);
+        le_ref_DeleteRef(factory.maps.safeRef, safeRefPtr->safeRef);
         le_mem_Release(safeRefPtr);
     }
 
-    le_ref_DeleteRef(tafRadio.ngbrCellsRefMap, ngbrCellsRef);
+    le_ref_DeleteRef(factory.maps.commonList, infoRef);
 
-    le_mem_Release(ngbrCellsPtr);
+    le_mem_Release(listPtr);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the first neighbor cell information
+ * Gets the first neighbor cell.
  *
  * @return
- *  - NULL   Invalid parameters or internal errors.
- *  - Others Neighbor cell information reference.
+ *  - taf_radio_CellInfoRef_t reference for the first neighbor cell.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_CellInfoRef_t taf_radio_GetFirstNeighborCellInfo
 (
-    taf_radio_NeighborCellsRef_t ngbrCellsRef ///< [IN] Neighbor cells reference.
+    taf_radio_NeighborCellsRef_t cellRef ///< [IN] The neighbor cell reference.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    if (cellRef == nullptr)
+    {
+        LE_ERROR("cellRef is nullptr.");
+        return nullptr;
+    }
 
-    taf_RadioNgbrCells_t* ngbrCellsPtr =
-        (taf_RadioNgbrCells_t*)le_ref_Lookup(tafRadio.ngbrCellsRefMap, ngbrCellsRef);
-    TAF_ERROR_IF_RET_VAL(ngbrCellsPtr == NULL, NULL, "Invalid para(null ptr)");
+    auto& factory = Factory::GetInstance();
+    CommonList_t* listPtr = (CommonList_t*)le_ref_Lookup(factory.maps.commonList, cellRef);
+    if (listPtr == nullptr)
+    {
+        LE_ERROR("listPtr is nullptr.");
+        return nullptr;
+    }
 
-    le_sls_Link_t* linkPtr = le_sls_Peek(&(ngbrCellsPtr->cellInfoList));
-    TAF_ERROR_IF_RET_VAL(linkPtr == NULL, NULL, "Empty list");
+    le_sls_Link_t* linkPtr = le_sls_Peek(&(listPtr->commonList));
+    if (linkPtr == nullptr)
+    {
+        LE_ERROR("linkPtr is nullptr.");
+        return nullptr;
+    }
 
-    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr = CONTAINER_OF(linkPtr, taf_RadioNgbrCellInfo_t, link);
-    ngbrCellsPtr->currPtr = linkPtr;
+    NgbrCell_t* cellPtr = CONTAINER_OF(linkPtr, NgbrCell_t, link);
+    listPtr->currPtr = linkPtr;
 
-    taf_RadioNgbrCellInfoSafeRef_t* safeRefPtr =
-       (taf_RadioNgbrCellInfoSafeRef_t*)le_mem_ForceAlloc(tafRadio.ngbrCellInfoSafeRefPool);
-    safeRefPtr->safeRef = le_ref_CreateRef(tafRadio.ngbrCellInfoSafeRefMap, (void*)ngbrCellInfoPtr);
+    SafeRef_t* safeRefPtr = (SafeRef_t*)le_mem_ForceAlloc(factory.pools.safeRef);
+    safeRefPtr->safeRef = le_ref_CreateRef(factory.maps.safeRef, (void*)cellPtr);
     safeRefPtr->link = LE_SLS_LINK_INIT;
-    le_sls_Queue(&(ngbrCellsPtr->safeRefList), &(safeRefPtr->link));
+    le_sls_Queue(&(listPtr->safeRefList), &(safeRefPtr->link));
 
     return (taf_radio_CellInfoRef_t)safeRefPtr->safeRef;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the next neighbor cell information
+ * Gets the next neighbor cell.
  *
  * @return
- *  - NULL   Invalid parameters or internal errors.
- *  - Others Neighbor cell information reference.
+ *  - taf_radio_CellInfoRef_t reference for the next neighbor cell.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_CellInfoRef_t taf_radio_GetNextNeighborCellInfo
 (
-    taf_radio_NeighborCellsRef_t ngbrCellsRef ///< [IN] Neighbor cells reference.
+    taf_radio_NeighborCellsRef_t cellRef ///< [IN] The neighbor cell reference.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-
-    taf_RadioNgbrCells_t* ngbrCellsPtr =
-        (taf_RadioNgbrCells_t*)le_ref_Lookup(tafRadio.ngbrCellsRefMap, ngbrCellsRef);
-    TAF_ERROR_IF_RET_VAL(ngbrCellsPtr == NULL, NULL, "Invalid para(null ptr)");
-
-    le_sls_Link_t* linkPtr = le_sls_PeekNext(&(ngbrCellsPtr->cellInfoList), ngbrCellsPtr->currPtr);
-    if (linkPtr == NULL)
+    if (cellRef == nullptr)
     {
-        LE_WARN("Reach to the end of list.");
-        return NULL;
+        LE_ERROR("cellRef is nullptr.");
+        return nullptr;
     }
 
-    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr = CONTAINER_OF(linkPtr, taf_RadioNgbrCellInfo_t, link);
-    ngbrCellsPtr->currPtr = linkPtr;
+    auto& factory = Factory::GetInstance();
+    CommonList_t* listPtr = (CommonList_t*)le_ref_Lookup(factory.maps.commonList, cellRef);
+    if (listPtr == nullptr)
+    {
+        LE_ERROR("listPtr is nullptr.");
+        return nullptr;
+    }
 
-    taf_RadioNgbrCellInfoSafeRef_t* safeRefPtr =
-       (taf_RadioNgbrCellInfoSafeRef_t*)le_mem_ForceAlloc(tafRadio.ngbrCellInfoSafeRefPool);
-    safeRefPtr->safeRef = le_ref_CreateRef(tafRadio.ngbrCellInfoSafeRefMap, (void*)ngbrCellInfoPtr);
+    le_sls_Link_t* linkPtr = le_sls_PeekNext(&(listPtr->commonList), listPtr->currPtr);
+    if (linkPtr == nullptr)
+        return nullptr;
+
+    NgbrCell_t* cellPtr = CONTAINER_OF(linkPtr, NgbrCell_t, link);
+    listPtr->currPtr = linkPtr;
+
+    SafeRef_t* safeRefPtr = (SafeRef_t*)le_mem_ForceAlloc(factory.pools.safeRef);
+    safeRefPtr->safeRef = le_ref_CreateRef(factory.maps.safeRef, (void*)cellPtr);
     safeRefPtr->link = LE_SLS_LINK_INIT;
-    le_sls_Queue(&(ngbrCellsPtr->safeRefList) ,&(safeRefPtr->link));
+    le_sls_Queue(&(listPtr->safeRefList) ,&(safeRefPtr->link));
 
     return (taf_radio_CellInfoRef_t)safeRefPtr->safeRef;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get neighbor Cell ID.
+ * Get the neighbor cell identity.
  *
  * @return
- *  - UINT64_MAX Invalid Radio Access Technology or neighbor cell information reference.
- *  - Others     Neighbor Cell ID.
+ *  - UINT64_MAX -- Failed
+ *  - Others -- The neighbor cell identity.
  */
 //--------------------------------------------------------------------------------------------------
 uint64_t taf_radio_GetNeighborCellId
 (
-    taf_radio_CellInfoRef_t ngbrCellInfoRef ///< [IN] Neighbor cell information reference.
+    taf_radio_CellInfoRef_t infoRef ///< [IN] The neighbor cell information reference.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-
-    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr =
-        (taf_RadioNgbrCellInfo_t*)le_ref_Lookup(tafRadio.ngbrCellInfoSafeRefMap, ngbrCellInfoRef);
-    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr == NULL, UINT64_MAX, "Invalid para(null ptr)");
-
-    switch (ngbrCellInfoPtr->cell.rat)
+    if (infoRef == nullptr)
     {
-        case TAF_RADIO_RAT_GSM:
-            return (uint64_t)ngbrCellInfoPtr->cell.gsm.cid;
-        case TAF_RADIO_RAT_UMTS:
-            return (uint64_t)ngbrCellInfoPtr->cell.umts.cid;
-        case TAF_RADIO_RAT_TDSCDMA:
-            return (uint64_t)ngbrCellInfoPtr->cell.tdscdma.cid;
-        case TAF_RADIO_RAT_LTE:
-            return (uint64_t)ngbrCellInfoPtr->cell.lte.cid;
-        case TAF_RADIO_RAT_NR5G:
-            return (uint64_t)ngbrCellInfoPtr->cell.nr5g.cid;
+        LE_ERROR("infoRef is nullptr.");
+        return UINT64_MAX;
+    }
+
+    auto& factory = Factory::GetInstance();
+    NgbrCell_t* cellPtr = (NgbrCell_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
+    if (cellPtr == nullptr)
+    {
+        LE_ERROR("cellPtr is nullptr.");
+        return UINT64_MAX;
+    }
+
+    switch (cellPtr->ngbrCell.rat)
+    {
+        case TAF_PA_RADIO_RAT_GSM:
+            return cellPtr->ngbrCell.gsmInfo.cid;
+        case TAF_PA_RADIO_RAT_UMTS:
+            return cellPtr->ngbrCell.umtsInfo.cid;
+        case TAF_PA_RADIO_RAT_TDSCDMA:
+            return cellPtr->ngbrCell.tdscdmaInfo.cid;
+        case TAF_PA_RADIO_RAT_LTE:
+            return cellPtr->ngbrCell.lteInfo.cid;
+        case TAF_PA_RADIO_RAT_NR5G:
+            return cellPtr->ngbrCell.nr5gInfo.cid;
         default:
-            LE_ERROR("Invalid RAT(%d)", ngbrCellInfoPtr->cell.rat);
+            LE_ERROR("Unsupported RAT %d.", cellPtr->ngbrCell.rat);
     }
 
     return UINT64_MAX;
@@ -3784,34 +3137,42 @@ uint64_t taf_radio_GetNeighborCellId
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get neighbor cell Location Area Code.
+ * Gets the neighbor cell location area code.
  *
  * @return
- *  - UINT32_MAX Invalid Radio Access Technology or neighbor cell information reference.
- *  - Others     Neighbor cell Location Area Code.
+ *  - UINT32_MAX -- Failed
+ *  - Others -- The neighbor cell location area code.
  */
 //--------------------------------------------------------------------------------------------------
 uint32_t taf_radio_GetNeighborCellLocAreaCode
 (
-    taf_radio_CellInfoRef_t ngbrCellInfoRef ///< [IN] Neighbor cell information reference.
+    taf_radio_CellInfoRef_t infoRef ///< [IN] The neighbor cell information reference.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-
-    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr =
-        (taf_RadioNgbrCellInfo_t*)le_ref_Lookup(tafRadio.ngbrCellInfoSafeRefMap, ngbrCellInfoRef);
-    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr == NULL, UINT32_MAX, "Invalid para(null ptr)");
-
-    switch (ngbrCellInfoPtr->cell.rat)
+    if (infoRef == nullptr)
     {
-        case TAF_RADIO_RAT_GSM:
-            return (uint32_t)ngbrCellInfoPtr->cell.gsm.lac;
-        case TAF_RADIO_RAT_UMTS:
-            return (uint32_t)ngbrCellInfoPtr->cell.umts.lac;
-        case TAF_RADIO_RAT_TDSCDMA:
-            return (uint32_t)ngbrCellInfoPtr->cell.tdscdma.lac;
+        LE_ERROR("infoRef is nullptr.");
+        return UINT32_MAX;
+    }
+
+    auto& factory = Factory::GetInstance();
+    NgbrCell_t* cellPtr = (NgbrCell_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
+    if (cellPtr == nullptr)
+    {
+        LE_ERROR("cellPtr is nullptr.");
+        return UINT32_MAX;
+    }
+
+    switch (cellPtr->ngbrCell.rat)
+    {
+        case TAF_PA_RADIO_RAT_GSM:
+            return cellPtr->ngbrCell.gsmInfo.lac;
+        case TAF_PA_RADIO_RAT_UMTS:
+            return cellPtr->ngbrCell.umtsInfo.lac;
+        case TAF_PA_RADIO_RAT_TDSCDMA:
+            return cellPtr->ngbrCell.tdscdmaInfo.lac;
         default:
-            LE_ERROR("Invalid RAT(%d)", ngbrCellInfoPtr->cell.rat);
+            LE_ERROR("Unsupported RAT %d.", cellPtr->ngbrCell.rat);
     }
 
     return UINT32_MAX;
@@ -3819,653 +3180,553 @@ uint32_t taf_radio_GetNeighborCellLocAreaCode
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get neighbor cell signal strengh.
+ * Gets the neighbor cell signal strength.
  *
  * @return
- *  - INT32_MAX Invalid Radio Access Technology or neighbor cell information reference.
- *  - Others    Neighbor cell signal strengh.
+ *  - UINT32_MAX -- Failed
+ *  - Others -- The neighbor cell signal strength in dBm.
  */
 //--------------------------------------------------------------------------------------------------
 int32_t taf_radio_GetNeighborCellRxLevel
 (
-    taf_radio_CellInfoRef_t ngbrCellInfoRef ///< [IN] Neighbor cell information reference.
+    taf_radio_CellInfoRef_t infoRef ///< [IN] The neighbor cell information reference.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    if (infoRef == nullptr)
+    {
+        LE_ERROR("infoRef is nullptr.");
+        return UINT32_MAX;
+    }
 
-    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr =
-        (taf_RadioNgbrCellInfo_t*)le_ref_Lookup(tafRadio.ngbrCellInfoSafeRefMap, ngbrCellInfoRef);
-    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr == NULL, INT32_MAX, "Invalid para(null ptr)");
+    auto& factory = Factory::GetInstance();
+    NgbrCell_t* cellPtr = (NgbrCell_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
+    if (cellPtr == nullptr)
+    {
+        LE_ERROR("cellPtr is nullptr.");
+        return UINT32_MAX;
+    }
 
-    return (int32_t)ngbrCellInfoPtr->cell.ss;
+    switch (cellPtr->ngbrCell.rat)
+    {
+        case TAF_PA_RADIO_RAT_GSM:
+            return cellPtr->ngbrCell.gsmInfo.rssi;
+        case TAF_PA_RADIO_RAT_CDMA:
+            return cellPtr->ngbrCell.cdmaInfo.ss;
+        case TAF_PA_RADIO_RAT_UMTS:
+            return cellPtr->ngbrCell.umtsInfo.ss;
+        case TAF_PA_RADIO_RAT_LTE:
+            return cellPtr->ngbrCell.lteInfo.rssi;
+        default:
+            LE_ERROR("Unsupported RAT %d.", cellPtr->ngbrCell.rat);
+    }
+
+    return UINT32_MAX;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get neighbor cell Radio Access Technology
+ * Gets the neighbor cell RAT .
  *
  * @return
- *  - TAF_RADIO_RAT_UNKNOWN Invalid neighbor cell information reference.
- *  - Others                Radio Access Technology.
+ *  - TAF_RADIO_RAT_UNKNOWN -- Failed.
+ *  - Others -- The neighbor cell RAT.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_Rat_t taf_radio_GetNeighborCellRat
 (
-    taf_radio_CellInfoRef_t ngbrCellInfoRef ///< [IN] Neighbor cell information reference.
+    taf_radio_CellInfoRef_t infoRef ///< [IN] The neighbor cell information reference.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    if (infoRef == nullptr)
+    {
+        LE_ERROR("infoRef is nullptr.");
+        return TAF_RADIO_RAT_UNKNOWN;
+    }
 
-    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr =
-        (taf_RadioNgbrCellInfo_t*)le_ref_Lookup(tafRadio.ngbrCellInfoSafeRefMap, ngbrCellInfoRef);
-    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr == NULL, TAF_RADIO_RAT_UNKNOWN, "Invalid para(null ptr)");
+    auto& factory = Factory::GetInstance();
+    NgbrCell_t* cellPtr = (NgbrCell_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
+    if (cellPtr == nullptr)
+    {
+        LE_ERROR("cellPtr is nullptr.");
+        return TAF_RADIO_RAT_UNKNOWN;
+    }
 
-    return ngbrCellInfoPtr->cell.rat;
+    return Utility::Convert::Rat(cellPtr->ngbrCell.rat);
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get neighbor cell GSM Base Station Identity Code.
+ * Get neighbor GSM cell base station identity code.
  *
  * @return
- *  - LE_FAULT     Invalid Radio Access Technology.
- *  - LE_OK        On success.
- *  - LE_NOT_FOUND Reference not found.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetNeighborCellGsmBsic
 (
-    taf_radio_CellInfoRef_t ngbrCellInfoRef, ///< [IN] Neighbor cell information reference.
-    uint8_t* bsicPtr                         ///< [OUT] Base Station Identity Code.
+    taf_radio_CellInfoRef_t infoRef, ///< [IN] The neighbor cell information reference.
+    uint8_t* bsicPtr                 ///< [OUT] Base station identity code.
 )
 {
-    TAF_ERROR_IF_RET_VAL(bsicPtr == NULL, LE_FAULT, "Invalid para(null ptr)");
+    if (infoRef == nullptr)
+    {
+        LE_ERROR("infoRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    auto &tafRadio = taf_Radio::GetInstance();
+    if (bsicPtr == nullptr)
+    {
+        LE_ERROR("bsicPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr =
-        (taf_RadioNgbrCellInfo_t*)le_ref_Lookup(tafRadio.ngbrCellInfoSafeRefMap, ngbrCellInfoRef);
-    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr == NULL, LE_NOT_FOUND, "Invalid para(null ptr)");
+    auto& factory = Factory::GetInstance();
+    NgbrCell_t* cellPtr = (NgbrCell_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
+    if (cellPtr == nullptr)
+    {
+        LE_ERROR("cellPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
 
-    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr->cell.rat != TAF_RADIO_RAT_GSM, LE_FAULT, "Not GSM cell.");
+    if (cellPtr->ngbrCell.rat != TAF_PA_RADIO_RAT_GSM)
+    {
+        LE_ERROR("Unable to obtain BSID from a non-GSM cell.");
+        return LE_FAULT;
+    }
 
-    *bsicPtr = (uint8_t)ngbrCellInfoPtr->cell.gsm.bsic;
+    *bsicPtr = cellPtr->ngbrCell.gsmInfo.bsic;
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get neighbor cell LTE Physical Cell ID.
+ * Gets the neighbor LTE cell physical cell identity.
  *
  * @return
- *  - UINT16_MAX Invalid Radio Access Technology or neighbor cell information reference.
- *  - Others Physical Cell ID.
+ *  - UINT16_MAX -- Failed
+ *  - Others -- The neighbor LTE cell physical cell identity.
  */
 //--------------------------------------------------------------------------------------------------
 uint16_t taf_radio_GetPhysicalNeighborLteCellId
 (
-    taf_radio_CellInfoRef_t ngbrCellInfoRef ///< [IN] Neighbor cell information reference.
+    taf_radio_CellInfoRef_t infoRef ///< [IN] The neighbor cell information reference.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    if (infoRef == nullptr)
+    {
+        LE_ERROR("infoRef is nullptr.");
+        return UINT16_MAX;
+    }
 
-    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr =
-        (taf_RadioNgbrCellInfo_t*)le_ref_Lookup(tafRadio.ngbrCellInfoSafeRefMap, ngbrCellInfoRef);
-    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr == NULL, UINT16_MAX, "Invalid para(null ptr)");
+    auto& factory = Factory::GetInstance();
+    NgbrCell_t* cellPtr = (NgbrCell_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
+    if (cellPtr == nullptr)
+    {
+        LE_ERROR("cellPtr is nullptr.");
+        return UINT16_MAX;
+    }
 
-    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr->cell.rat != TAF_RADIO_RAT_LTE, UINT16_MAX,
-        "Not LTE cell.");
+    if (cellPtr->ngbrCell.rat != TAF_PA_RADIO_RAT_LTE)
+    {
+        LE_ERROR("Unable to obtain PCID from a non-LTE cell.");
+        return UINT16_MAX;
+    }
 
-    return (uint16_t)ngbrCellInfoPtr->cell.lte.pcid;
+    return cellPtr->ngbrCell.lteInfo.pcid;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get neighbor cell NR5G Physical Cell ID.
+ * Gets the neighbor NR5G cell physical cell identity.
  *
  * @return
- *  - UINT32_MAX Invalid Radio Access Technology or neighbor cell information reference.
- *  - Others Physical Cell ID.
+ *  - UINT32_MAX -- Failed
+ *  - Others -- The neighbor NR5G cell physical cell identity.
  */
 //--------------------------------------------------------------------------------------------------
 uint32_t taf_radio_GetPhysicalNeighborNrCellId
 (
-    taf_radio_CellInfoRef_t ngbrCellInfoRef ///< [IN] Neighbor cell information reference.
+    taf_radio_CellInfoRef_t infoRef ///< [IN] The neighbor cell information reference.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    if (infoRef == nullptr)
+    {
+        LE_ERROR("infoRef is nullptr.");
+        return UINT32_MAX;
+    }
 
-    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr =
-        (taf_RadioNgbrCellInfo_t*)le_ref_Lookup(tafRadio.ngbrCellInfoSafeRefMap, ngbrCellInfoRef);
-    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr == NULL, UINT32_MAX, "Invalid para(null ptr)");
+    auto& factory = Factory::GetInstance();
+    NgbrCell_t* cellPtr = (NgbrCell_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
+    if (cellPtr == nullptr)
+    {
+        LE_ERROR("cellPtr is nullptr.");
+        return UINT32_MAX;
+    }
 
-    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr->cell.rat != TAF_RADIO_RAT_NR5G, UINT32_MAX,
-        "Not NR5G cell.");
+    if (cellPtr->ngbrCell.rat != TAF_PA_RADIO_RAT_NR5G)
+    {
+        LE_ERROR("Unable to obtain PCID from a non-NR5G cell.");
+        return UINT32_MAX;
+    }
 
-    return ngbrCellInfoPtr->cell.nr5g.pcid;
+    return cellPtr->ngbrCell.nr5gInfo.pcid;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get 2G/3G band capabilities.
+ * Gets the 2G/3G band capabilities.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetBandCapabilities
 (
-    taf_radio_BandBitMask_t* bandMaskPtr, ///< [OUT] 2G/3G band capabilities.
-    uint8_t phoneId                       ///< [IN] Phone ID.
+    taf_radio_BandBitMask_t* bitmaskPtr, ///< [OUT] The 2G/3G band capabilities.
+    uint8_t phone                        ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(bandMaskPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandMaskPtr)");
+    if (bitmaskPtr == nullptr)
+    {
+        LE_ERROR("bitmaskPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
-        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_BandBitMask_t bitmask = 0x0;
+    pa_result_t paResult = taf_pa_radio_GetBandCapabilities(instance, &bitmask);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get band capabilities.");
+        return result;
+    }
 
-    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestRFBandCapability(
-        taf_RadioRFBandCapabilityResponseCallback::rfBandCapabilityResponse);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(
-        taf_RadioRFBandCapabilityResponseCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandCapabilityResponseCallback::result != LE_OK,
-        taf_RadioRFBandCapabilityResponseCallback::result, "Fail to get RF band capability.");
-
-    *bandMaskPtr = taf_RadioRFBandCapabilityResponseCallback::bandCapability;
+    *bitmaskPtr = Utility::Convert::ToBand(bitmask);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get LTE band capabilities.
+ * Gets the LTE band capabilities.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteBandCapabilities
 (
-    uint64_t* bandMaskPtr,   ///< [OUT] LTE band capabilities.
-    size_t* bandMaskSizePtr, ///< [OUT] The size of LTE band capabilities.
-    uint8_t phoneId          ///< [IN] Phone ID.
+    uint64_t* bitmaskPtr,   ///< [OUT] The LTE band capabilities.
+    size_t* bitmaskPtrSize, ///< [OUT] The LTE band capabilities size.
+    uint8_t phone           ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(bandMaskPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandMaskPtr)");
-
-    TAF_ERROR_IF_RET_VAL(bandMaskSizePtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandMaskSizePtr)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
-        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestRFBandCapability(
-        taf_RadioRFBandCapabilityResponseCallback::rfBandCapabilityResponse);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(
-        taf_RadioRFBandCapabilityResponseCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandCapabilityResponseCallback::result != LE_OK,
-        taf_RadioRFBandCapabilityResponseCallback::result, "Fail to get LTE band capability.");
-
-    for (uint8_t i = 0; i < TAF_RADIO_LTE_BAND_GROUP_NUM; i++)
+    if (bitmaskPtr == nullptr)
     {
-        bandMaskPtr[i] = taf_RadioRFBandCapabilityResponseCallback::lteBandCapability[i];
+        LE_ERROR("bitmaskPtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    *bandMaskSizePtr = TAF_RADIO_LTE_BAND_GROUP_NUM;
+    if (bitmaskPtrSize == nullptr)
+    {
+        LE_ERROR("bitmaskPtrSize is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_LteBand_t band;
+    pa_result_t paResult = taf_pa_radio_GetLteBandCapabilities(instance, &band);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get band capabilities.");
+        return result;
+    }
+
+    for (uint32_t i = 0; i < TAF_PA_RADIO_LTE_BAND_GROUP_COUNT; i++)
+        bitmaskPtr[i] = band.bitmask[i];
+
+    *bitmaskPtrSize = TAF_PA_RADIO_LTE_BAND_GROUP_COUNT;
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Set 2G/3G band preferences.
+ * Sets the 2G/3G band preferences.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetBandPreferences
 (
-    taf_radio_BandBitMask_t bandMask, ///< [IN] 2G/3G band preferences.
-    uint8_t phoneId                   ///< [IN] Phone ID.
+    taf_radio_BandBitMask_t bitmask, ///< [IN] The 2G/3G band preferences.
+    uint8_t phone                    ///< [IN] Phone.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
-        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_BandBitMask_t band = Utility::Convert::ToPaBand(bitmask);
+    pa_result_t result = taf_pa_radio_SetBandPreferences(instance, band);
 
-    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    std::vector<telux::tel::GsmRFBand> gsmBands;
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_GSM_BAND_450)
-    {
-        gsmBands.push_back(telux::tel::GsmRFBand::GSM_450);
-    }
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_GSM_BAND_480)
-    {
-        gsmBands.push_back(telux::tel::GsmRFBand::GSM_480);
-    }
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_GSM_BAND_750)
-    {
-        gsmBands.push_back(telux::tel::GsmRFBand::GSM_750);
-    }
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_GSM_BAND_850)
-    {
-        gsmBands.push_back(telux::tel::GsmRFBand::GSM_850);
-    }
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_CLASS_E_GSM_900_BAND)
-    {
-        gsmBands.push_back(telux::tel::GsmRFBand::GSM_900_EXTENDED);
-    }
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_CLASS_P_GSM_900_BAND)
-    {
-        gsmBands.push_back(telux::tel::GsmRFBand::GSM_900_PRIMARY);
-    }
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_GSM_BAND_RAILWAYS_900_BAND)
-    {
-        gsmBands.push_back(telux::tel::GsmRFBand::GSM_900_RAILWAYS);
-    }
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_CLASS_GSM_DCS_1800_BAND)
-    {
-        gsmBands.push_back(telux::tel::GsmRFBand::GSM_1800);
-    }
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_GSM_PCS_1900_BAND)
-    {
-        gsmBands.push_back(telux::tel::GsmRFBand::GSM_1900);
-    }
-
-    std::vector<telux::tel::WcdmaRFBand> wcdmaBands;
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_EU_J_CH_IMT_2100_BAND)
-    {
-        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_2100);
-    }
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_US_PCS_1900_BAND)
-    {
-        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_PCS_1900);
-    }
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_EU_CH_DCS_1800_BAND)
-    {
-        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_DCS_1800);
-    }
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_US_1700_BAND)
-    {
-        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_1700_US);
-    }
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_US_850_BAND)
-    {
-        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_850);
-    }
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_JAPAN_800_BAND)
-    {
-        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_800);
-    }
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_EU_2600_BAND)
-    {
-        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_2600);
-    }
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_EU_J_900_BAND)
-    {
-        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_900);
-    }
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_EU_J_1700_BAND)
-    {
-        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_1700_JAPAN);
-    }
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_JAPAN_1500_BAND)
-    {
-        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_1500_JAPAN);
-    }
-    if (bandMask & TAF_RADIO_BAND_BIT_MASK_WCDMA_JAPAN_850_BAND)
-    {
-        wcdmaBands.push_back(telux::tel::WcdmaRFBand::WCDMA_850_JAPAN);
-    }
-
-    auto builder = std::make_shared<telux::tel::RFBandListBuilder>();
-    telux::common::ErrorCode errCode = telux::common::ErrorCode::UNKNOWN;
-    std::shared_ptr<telux::tel::IRFBandList> prefBands =
-        builder->addGsmRFBands(gsmBands).addWcdmaRFBands(wcdmaBands).build(errCode);
-    TAF_ERROR_IF_RET_VAL(errCode != telux::common::ErrorCode::SUCCESS, LE_FAULT,
-        "Fail to create band reference list.");
-
-    auto status = tafRadio.servingSystemManagers[phoneId - 1]->setRFBandPreferences(
-        prefBands, taf_RadioRFBandPrefResponseCallback::setRFBandPrefResponse);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(
-        taf_RadioRFBandPrefResponseCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandPrefResponseCallback::result != LE_OK,
-        taf_RadioRFBandPrefResponseCallback::result, "Fail to set RF band preferences.");
-
-    return LE_OK;
+    return Utility::Convert::Result(result);
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get 2G/3G band preferences.
+ * Gets the 2G/3G band preferences.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetBandPreferences
 (
-    taf_radio_BandBitMask_t* bandMaskPtr, ///< [OUT] 2G/3G band preferences.
-    uint8_t phoneId                       ///< [IN] Phone ID.
+    taf_radio_BandBitMask_t* bitmaskPtr, ///< [OUT] The 2G/3G band preferences.
+    uint8_t phone                        ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(bandMaskPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandMaskPtr)");
+    if (bitmaskPtr == nullptr)
+    {
+        LE_ERROR("bitmaskPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
-        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_BandBitMask_t bitmask = 0x0;
+    pa_result_t paResult = taf_pa_radio_GetBandPreferences(instance, &bitmask);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get band preferences.");
+        return result;
+    }
 
-    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestRFBandPreferences(
-        taf_RadioRFBandPrefResponseCallback::rfBandPrefResponse);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(
-        taf_RadioRFBandPrefResponseCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandPrefResponseCallback::result != LE_OK,
-        taf_RadioRFBandPrefResponseCallback::result, "Fail to get RF band preferences.");
-
-    *bandMaskPtr = taf_RadioRFBandPrefResponseCallback::bandPreferences;
+    *bitmaskPtr = Utility::Convert::ToBand(bitmask);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Set LTE band preferences.
+ * Sets the LTE band preferences.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetLteBandPreferences
 (
-    const uint64_t* bandMask, ///< [IN] LTE band preferences.
-    size_t bandMaskSize,      ///< [IN] The size of LTE band preferences.
-    uint8_t phoneId           ///< [IN] Phone ID.
+    const uint64_t* bitmaskPtr, ///< [IN] The LTE band preferences.
+    size_t bitmaskPtrSize,      ///< [IN] The size of LTE band preferences.
+    uint8_t phone               ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(bandMask == NULL, LE_BAD_PARAMETER, "Null ptr(bandMask)");
-
-    TAF_ERROR_IF_RET_VAL(bandMaskSize < TAF_RADIO_LTE_BAND_GROUP_NUM, LE_BAD_PARAMETER,
-        "Invalid para(bandMaskSize:%" PRIuS ")", bandMaskSize);
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
-        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    std::vector<telux::tel::LteRFBand> lteBands;
-    for (uint32_t i = 0; i < TAF_RADIO_LTE_BAND_GROUP_NUM; i++)
+    if (bitmaskPtr == nullptr)
     {
-        for (uint32_t j = 0; j < TAF_RADIO_BAND_NUM_PER_GROUP; j++)
-        {
-            if (bandMask[i] & (uint64_t)0x1 << j)
-            {
-                lteBands.push_back(
-                    static_cast<telux::tel::LteRFBand>(i * TAF_RADIO_BAND_NUM_PER_GROUP + j + 1));
-            }
-        }
+        LE_ERROR("bitmaskPtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    auto builder = std::make_shared<telux::tel::RFBandListBuilder>();
-    telux::common::ErrorCode errCode = telux::common::ErrorCode::UNKNOWN;
-    std::shared_ptr<telux::tel::IRFBandList> prefBands =
-        builder->addLteRFBands(lteBands).build(errCode);
-    TAF_ERROR_IF_RET_VAL(errCode != telux::common::ErrorCode::SUCCESS, LE_FAULT,
-        "Fail to create band reference list.");
+    if (bitmaskPtrSize < TAF_RADIO_LTE_BAND_GROUP_NUM)
+    {
+        LE_ERROR("Invalid bitmaskPtrSize %" PRIuS ".", bitmaskPtrSize);
+        return LE_BAD_PARAMETER;
+    }
 
-    auto status = tafRadio.servingSystemManagers[phoneId - 1]->setRFBandPreferences(
-        prefBands, taf_RadioRFBandPrefResponseCallback::setRFBandPrefResponse);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_LteBand_t band;
+    for (uint32_t i = 0; i < TAF_RADIO_LTE_BAND_GROUP_NUM ; i++)
+        band.bitmask[i] = bitmaskPtr[i];
 
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(
-        taf_RadioRFBandPrefResponseCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+    pa_result_t result = taf_pa_radio_SetLteBandPreferences(instance, &band);
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandPrefResponseCallback::result != LE_OK,
-        taf_RadioRFBandPrefResponseCallback::result, "Fail to set LTE RF band preferences.");
-
-    return LE_OK;
+    return Utility::Convert::Result(result);
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get LTE band preferences.
+ * Gets the LTE band preferences.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteBandPreferences
 (
-    uint64_t* bandMaskPtr,   ///< [OUT] LTE band preferences.
-    size_t* bandMaskSizePtr, ///< [OUT] The size of LTE band preferences.
-    uint8_t phoneId          ///< [IN] Phone ID.
+    uint64_t* bitmaskPtr,   ///< [OUT] The LTE band preferences.
+    size_t* bitmaskPtrSize, ///< [OUT] The LTE band preferences size.
+    uint8_t phone           ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(bandMaskPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandMaskPtr)");
-
-    TAF_ERROR_IF_RET_VAL(bandMaskSizePtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandMaskSizePtr)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
-        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestRFBandPreferences(
-        taf_RadioRFBandPrefResponseCallback::rfBandPrefResponse);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(
-        taf_RadioRFBandPrefResponseCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandPrefResponseCallback::result != LE_OK,
-        taf_RadioRFBandPrefResponseCallback::result, "Fail to get LTE RF band preferences.");
-
-    for (uint8_t i = 0; i < TAF_RADIO_LTE_BAND_GROUP_NUM; i++)
+    if (bitmaskPtr == nullptr)
     {
-        bandMaskPtr[i] = taf_RadioRFBandPrefResponseCallback::lteBandPreferences[i];
+        LE_ERROR("bitmaskPtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    *bandMaskSizePtr = TAF_RADIO_LTE_BAND_GROUP_NUM;
+    if (bitmaskPtrSize == nullptr)
+    {
+        LE_ERROR("bitmaskPtrSize is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_LteBand_t band;
+    pa_result_t paResult = taf_pa_radio_GetLteBandPreferences(instance, &band);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get band capabilities.");
+        return result;
+    }
+
+    for (uint32_t i = 0; i < TAF_PA_RADIO_LTE_BAND_GROUP_COUNT; i++)
+        bitmaskPtr[i] = band.bitmask[i];
+
+    *bitmaskPtrSize = TAF_PA_RADIO_LTE_BAND_GROUP_COUNT;
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Cet cellular network radio access technology.
+ * Gets the RAT of a scanned PLMN network
  *
  * @return
- *  - TAF_RADIO_RAT_UNKNOWN Invalid parameters or internal errors.
- *  - Others                Radio Access Technology.
+ *  - taf_radio_Rat_t RAT of a scanned PLMN network
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_Rat_t taf_radio_GetCellularNetworkRat
 (
-    taf_radio_ScanInformationRef_t scanInformationRef ///< [IN] Network scan information reference.
+    taf_radio_ScanInformationRef_t infoRef ///< [IN] The PLMN network reference.
 )
 {
-    TAF_ERROR_IF_RET_VAL(scanInformationRef == nullptr, TAF_RADIO_RAT_UNKNOWN,
-        "Null reference(scanInformationRef)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    taf_RadioScanOp_t* opPtr = (taf_RadioScanOp_t*)le_ref_Lookup(tafRadio.scanOpSafeRefMap,
-        scanInformationRef);
-    TAF_ERROR_IF_RET_VAL(opPtr == nullptr, TAF_RADIO_RAT_UNKNOWN, "Invalid para(null ptr)");
-
-    switch (opPtr->rat)
+    if (infoRef == nullptr)
     {
-        case telux::tel::RadioTechnology::RADIO_TECH_GSM:
-            return TAF_RADIO_RAT_GSM;
-        case telux::tel::RadioTechnology::RADIO_TECH_UMTS:
-            return TAF_RADIO_RAT_UMTS;
-        case telux::tel::RadioTechnology::RADIO_TECH_1xRTT:
-        case telux::tel::RadioTechnology::RADIO_TECH_EVDO_0:
-        case telux::tel::RadioTechnology::RADIO_TECH_EVDO_A:
-            return TAF_RADIO_RAT_CDMA;
-        case telux::tel::RadioTechnology::RADIO_TECH_TD_SCDMA:
-            return TAF_RADIO_RAT_TDSCDMA;
-        case telux::tel::RadioTechnology::RADIO_TECH_LTE:
-        case telux::tel::RadioTechnology::RADIO_TECH_LTE_CA:
-            return TAF_RADIO_RAT_LTE;
-        case telux::tel::RadioTechnology::RADIO_TECH_NR5G:
-            return TAF_RADIO_RAT_NR5G;
-        default:
-            LE_WARN("Unknown RAT(%d).", (int)opPtr->rat);
+        LE_ERROR("infoRef is nullptr.");
+        return TAF_RADIO_RAT_UNKNOWN;
     }
 
-    return TAF_RADIO_RAT_UNKNOWN;
+    auto& factory = Factory::GetInstance();
+    PlmnInfo_t* cellPtr = (PlmnInfo_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
+    if (cellPtr == nullptr)
+    {
+        LE_ERROR("cellPtr is nullptr.");
+        return TAF_RADIO_RAT_UNKNOWN;
+    }
+
+    return Utility::Convert::Rat(cellPtr->plmnInfo.rat);
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Perform network scan with Pysical Cell ID.
+ * Performs a network scan with physical cell identity.
  *
  * @return
- *  - NULL   Invalid parameters or internal errors.
- *  - Others Handler reference of performing network scan with Pysical Cell ID.
+ *  - taf_radio_PciScanInformationListRef_t reference for the PCI network scan list.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_PciScanInformationListRef_t taf_radio_PerformPciNetworkScan
 (
-    taf_radio_RatBitMask_t ratMask, ///< [IN] Radio Access Technology bitmask, not support NR5G.
-    uint8_t phoneId                 ///< [IN] Phone ID.
+    taf_radio_RatBitMask_t bitmask, ///< [IN] RAT bitmask.
+    uint8_t phone                   ///< [IN] Phone.
 )
 {
-    return Utility::Common::PciScan(phoneId, ratMask);
+    return Utility::Common::PciNetworkScan(phone, bitmask);
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Perform PCI network scan asynchronously.
+ * Performs a network scan with physical cell identity asynchronously.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 void taf_radio_PerformPciNetworkScanAsync
 (
-    taf_radio_RatBitMask_t ratMask,                   ///< [IN] Radio Access Technology bitmask.
-    taf_radio_PciNetworkScanHandlerFunc_t handlerPtr, ///< [IN] Handler function for PCI network scan.
-    void* contextPtr,                                 ///< [IN] Handler context.
-    uint8_t phoneId                                   ///< [IN] Phone ID.
+    taf_radio_RatBitMask_t bitmask,                       ///< [IN] RAT bitmask.
+    taf_radio_PciNetworkScanHandlerFunc_t handlerFuncPtr, ///< [IN] Handler function.
+    void* contextPtr,                                     ///< [IN] Handler context.
+    uint8_t phone                                         ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_NIL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM,
-        "Invalid para(phoneId:%d)", phoneId);
+    Request_t request;
+    memset(&request, 0, sizeof(Request_t));
 
-    taf_RadioCmdReq_t cmdReq;
-    memset(&cmdReq, 0, sizeof(taf_RadioCmdReq_t));
-    cmdReq.cmdType = TAF_RADIO_CMD_TYPE_ASYNC_PCI_NETWORK_SCAN;
-    cmdReq.handlerFuncPtr = (void*)handlerPtr;
-    cmdReq.contextPtr = contextPtr;
-    cmdReq.phoneId = phoneId;
-    cmdReq.ratMask = ratMask;
+    request.command = COMMAND_PERFORM_PCI_NETWORK_SCAN;
+    request.handlerFuncPtr = (void*)handlerFuncPtr;
+    request.contextPtr = contextPtr;
+    request.phone = phone;
+    request.rat = bitmask;
 
-    le_event_Report(taf_Radio::radioCmdEvId, &cmdReq, sizeof(taf_RadioCmdReq_t));
+    le_event_Report(Factory::staticEvents.request, &request, sizeof(Request_t));
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the first PCI network scan information reference.
+ * Get the first PCI network scan information.
  *
  * @return
- *  - NULL   Invalid parameters or internal errors.
- *  - Others PCI network scan information reference.
+ *  - taf_radio_PciScanInformationRef_t reference for the first PCI network scan information
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_PciScanInformationRef_t taf_radio_GetFirstPciScanInfo
 (
-    taf_radio_PciScanInformationListRef_t pciScanInformationListRef
-        ///< [IN] PCI network scan information list reference.
+    taf_radio_PciScanInformationListRef_t listRef ///< [IN] PCI network scan list reference.
 )
 {
-    if (pciScanInformationListRef == nullptr)
+    if (listRef == nullptr)
     {
-        LE_ERROR("pciScanInformationListRef is nullptr.");
+        LE_ERROR("listRef is nullptr.");
         return nullptr;
     }
 
-    auto& radio = taf_Radio::GetInstance();
-    PciInfoList_t* listPtr = (PciInfoList_t*)le_ref_Lookup(radio.pciInfoListRefMap,
-        pciScanInformationListRef);
+    auto& factory = Factory::GetInstance();
+    CommonList_t* listPtr = (CommonList_t*)le_ref_Lookup(factory.maps.commonList, listRef);
     if (listPtr == nullptr)
     {
         LE_ERROR("listPtr is nullptr.");
         return nullptr;
     }
 
-    le_sls_Link_t* linkPtr = le_sls_Peek(&(listPtr->pciCellInfoList));
+    le_sls_Link_t* linkPtr = le_sls_Peek(&(listPtr->commonList));
     if (linkPtr == nullptr)
         return nullptr;
 
-    PciCellInfo_t* cellPtr = CONTAINER_OF(linkPtr, PciCellInfo_t, link);
+    PciCell_t* cellPtr = CONTAINER_OF(linkPtr, PciCell_t, link);
     listPtr->currPtr = linkPtr;
 
-    PciCellInfoSafeRef_t* safeRefPtr = (PciCellInfoSafeRef_t*)le_mem_ForceAlloc(
-        radio.pciCellInfoSafeRefPool);
-    safeRefPtr->safeRef = le_ref_CreateRef(radio.pciCellInfoSafeRefMap, (void*)cellPtr);
+    SafeRef_t* safeRefPtr = (SafeRef_t*)le_mem_ForceAlloc(factory.pools.safeRef);
+    safeRefPtr->safeRef = le_ref_CreateRef(factory.maps.safeRef, (void*)cellPtr);
     safeRefPtr->link = LE_SLS_LINK_INIT;
     le_sls_Queue(&(listPtr->safeRefList), &(safeRefPtr->link));
 
@@ -4474,44 +3735,40 @@ taf_radio_PciScanInformationRef_t taf_radio_GetFirstPciScanInfo
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the next PCI network scan information reference.
+ * Get the next PCI network scan information.
  *
  * @return
- *  - NULL   Invalid parameters or internal errors.
- *  - Others PCI network scan information reference.
+ *  - taf_radio_PciScanInformationRef_t reference for the next PCI network scan information
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_PciScanInformationRef_t taf_radio_GetNextPciScanInfo
 (
-    taf_radio_PciScanInformationListRef_t pciScanInformationListRef
-        ///< [IN] PCI network scan information list reference.
+    taf_radio_PciScanInformationListRef_t listRef ///< [IN] PCI network scan list reference.
 )
 {
-    if (pciScanInformationListRef == nullptr)
+    if (listRef == nullptr)
     {
-        LE_ERROR("pciScanInformationListRef is nullptr.");
+        LE_ERROR("listRef is nullptr.");
         return nullptr;
     }
 
-    auto& radio = taf_Radio::GetInstance();
-    PciInfoList_t* listPtr = (PciInfoList_t*)le_ref_Lookup(radio.pciInfoListRefMap,
-        pciScanInformationListRef);
+    auto& factory = Factory::GetInstance();
+    CommonList_t* listPtr = (CommonList_t*)le_ref_Lookup(factory.maps.commonList, listRef);
     if (listPtr == nullptr)
     {
         LE_ERROR("listPtr is nullptr.");
         return nullptr;
     }
 
-    le_sls_Link_t* linkPtr = le_sls_PeekNext(&(listPtr->pciCellInfoList), listPtr->currPtr);
+    le_sls_Link_t* linkPtr = le_sls_PeekNext(&(listPtr->commonList), listPtr->currPtr);
     if (linkPtr == nullptr)
         return nullptr;
 
-    PciCellInfo_t* cellPtr = CONTAINER_OF(linkPtr, PciCellInfo_t, link);
+    PciCell_t* cellPtr = CONTAINER_OF(linkPtr, PciCell_t, link);
     listPtr->currPtr = linkPtr;
 
-    PciCellInfoSafeRef_t* safeRefPtr = (PciCellInfoSafeRef_t*)le_mem_ForceAlloc(
-        radio.pciCellInfoSafeRefPool);
-    safeRefPtr->safeRef = le_ref_CreateRef(radio.pciCellInfoSafeRefMap, (void*)cellPtr);
+    SafeRef_t* safeRefPtr = (SafeRef_t*)le_mem_ForceAlloc(factory.pools.safeRef);
+    safeRefPtr->safeRef = le_ref_CreateRef(factory.maps.safeRef, (void*)cellPtr);
     safeRefPtr->link = LE_SLS_LINK_INIT;
     le_sls_Queue(&(listPtr->safeRefList), &(safeRefPtr->link));
 
@@ -4520,28 +3777,25 @@ taf_radio_PciScanInformationRef_t taf_radio_GetNextPciScanInfo
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the first PLMN network information reference.
+ * Get the first PLMN information.
  *
  * @return
- *  - NULL   Invalid parameters or internal errors.
- *  - Others PLMN network scan information reference.
+ *  - taf_radio_PlmnInformationRef_t reference for the first PLMN information.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_PlmnInformationRef_t taf_radio_GetFirstPlmnInfo
 (
-    taf_radio_PciScanInformationRef_t pciScanInformationRef
-        ///< [IN] PCI network scan information reference.
+    taf_radio_PciScanInformationRef_t infoRef ///< [IN] PCI network scan information reference.
 )
 {
-    if (pciScanInformationRef == nullptr)
+    if (infoRef == nullptr)
     {
-        LE_ERROR("pciScanInformationRef is nullptr.");
+        LE_ERROR("infoRef is nullptr.");
         return nullptr;
     }
 
-    auto& radio = taf_Radio::GetInstance();
-    PciCellInfo_t* cellPtr = (PciCellInfo_t*)le_ref_Lookup(radio.pciCellInfoSafeRefMap,
-        pciScanInformationRef);
+    auto& factory = Factory::GetInstance();
+    PciCell_t* cellPtr = (PciCell_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
     if (cellPtr == nullptr)
     {
         LE_ERROR("cellPtr is nullptr.");
@@ -4555,8 +3809,8 @@ taf_radio_PlmnInformationRef_t taf_radio_GetFirstPlmnInfo
     PlmnId_t* idPtr = CONTAINER_OF(linkPtr, PlmnId_t, link);
     cellPtr->currPtr = linkPtr;
 
-    PlmnIdSafeRef_t* safeRefPtr =(PlmnIdSafeRef_t*)le_mem_ForceAlloc(radio.plmnIdSafeRefPool);
-    safeRefPtr->safeRef = le_ref_CreateRef(radio.plmnIdSafeRefMap, (void*)idPtr);
+    SafeRef_t* safeRefPtr =(SafeRef_t*)le_mem_ForceAlloc(factory.pools.safeRef);
+    safeRefPtr->safeRef = le_ref_CreateRef(factory.maps.safeRef, (void*)idPtr);
     safeRefPtr->link = LE_SLS_LINK_INIT;
     le_sls_Queue(&(cellPtr->safeRefList), &(safeRefPtr->link));
 
@@ -4565,28 +3819,25 @@ taf_radio_PlmnInformationRef_t taf_radio_GetFirstPlmnInfo
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the next PLMN network information reference.
+ * Get the next PLMN information.
  *
  * @return
- *  - NULL   Invalid parameters or internal errors.
- *  - Others PLMN network scan information reference.
+ *  - taf_radio_PlmnInformationRef_t reference for the next PLMN information.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_PlmnInformationRef_t taf_radio_GetNextPlmnInfo
 (
-    taf_radio_PciScanInformationRef_t pciScanInformationRef
-        ///< [IN] PCI network scan information reference.
+    taf_radio_PciScanInformationRef_t infoRef ///< [IN] PCI network scan information reference.
 )
 {
-    if (pciScanInformationRef == nullptr)
+    if (infoRef == nullptr)
     {
-        LE_ERROR("pciScanInformationRef is nullptr.");
+        LE_ERROR("infoRef is nullptr.");
         return nullptr;
     }
 
-    auto& radio = taf_Radio::GetInstance();
-    PciCellInfo_t* cellPtr = (PciCellInfo_t*)le_ref_Lookup(radio.pciCellInfoSafeRefMap,
-        pciScanInformationRef);
+    auto& factory = Factory::GetInstance();
+    PciCell_t* cellPtr = (PciCell_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
     if (cellPtr == nullptr)
     {
         LE_ERROR("cellPtr is nullptr.");
@@ -4600,8 +3851,8 @@ taf_radio_PlmnInformationRef_t taf_radio_GetNextPlmnInfo
     PlmnId_t* idPtr = CONTAINER_OF(linkPtr, PlmnId_t, link);
     cellPtr->currPtr = linkPtr;
 
-    PlmnIdSafeRef_t* safeRefPtr = (PlmnIdSafeRef_t*)le_mem_ForceAlloc(radio.plmnIdSafeRefPool);
-    safeRefPtr->safeRef = le_ref_CreateRef(radio.plmnIdSafeRefMap, (void*)idPtr);
+    SafeRef_t* safeRefPtr =(SafeRef_t*)le_mem_ForceAlloc(factory.pools.safeRef);
+    safeRefPtr->safeRef = le_ref_CreateRef(factory.maps.safeRef, (void*)idPtr);
     safeRefPtr->link = LE_SLS_LINK_INIT;
     le_sls_Queue(&(cellPtr->safeRefList), &(safeRefPtr->link));
 
@@ -4610,28 +3861,26 @@ taf_radio_PlmnInformationRef_t taf_radio_GetNextPlmnInfo
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get PCI network scan Cell ID.
+ * Gets the PCI network scan cell identity.
  *
  * @return
- *  - UINT16_MAX Invalid parameters or internal errors.
- *  - Others     Cell ID.
+ *  - UINT16_MAX -- Failed
+ *  - Others -- The PCI network scan cell identity.
  */
 //--------------------------------------------------------------------------------------------------
 uint16_t taf_radio_GetPciScanCellId
 (
-    taf_radio_PciScanInformationRef_t pciScanInformationRef
-        ///< [IN] PCI network scan information reference.
+    taf_radio_PciScanInformationRef_t infoRef ///< [IN] PCI network scan information reference.
 )
 {
-    if (pciScanInformationRef == nullptr)
+    if (infoRef == nullptr)
     {
-        LE_ERROR("pciScanInformationRef is nullptr.");
+        LE_ERROR("infoRef is nullptr.");
         return UINT16_MAX;
     }
 
-    auto& radio = taf_Radio::GetInstance();
-    PciCellInfo_t* cellPtr = (PciCellInfo_t*)le_ref_Lookup(radio.pciCellInfoSafeRefMap,
-        pciScanInformationRef);
+    auto& factory = Factory::GetInstance();
+    PciCell_t* cellPtr = (PciCell_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
     if (cellPtr == nullptr)
     {
         LE_ERROR("cellPtr is nullptr.");
@@ -4643,28 +3892,26 @@ uint16_t taf_radio_GetPciScanCellId
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get PCI network scan Global Cell ID.
+ * Gets the PCI network scan global cell identity.
  *
  * @return
- *  - UINT32_MAX Invalid parameters or internal errors.
- *  - Others     Global Cell ID.
+ *  - UINT32_MAX -- Failed
+ *  - Others -- The PCI network scan cell identity.
  */
 //--------------------------------------------------------------------------------------------------
 uint32_t taf_radio_GetPciScanGlobalCellId
 (
-    taf_radio_PciScanInformationRef_t pciScanInformationRef
-        ///< [IN] PCI network scan information reference.
+    taf_radio_PciScanInformationRef_t infoRef ///< [IN] PCI network scan information reference.
 )
 {
-    if (pciScanInformationRef == nullptr)
+    if (infoRef == nullptr)
     {
-        LE_ERROR("pciScanInformationRef is nullptr.");
+        LE_ERROR("infoRef is nullptr.");
         return UINT32_MAX;
     }
 
-    auto& radio = taf_Radio::GetInstance();
-    PciCellInfo_t* cellPtr = (PciCellInfo_t*)le_ref_Lookup(radio.pciCellInfoSafeRefMap,
-        pciScanInformationRef);
+    auto& factory = Factory::GetInstance();
+    PciCell_t* cellPtr = (PciCell_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
     if (cellPtr == nullptr)
     {
         LE_ERROR("cellPtr is nullptr.");
@@ -4676,26 +3923,26 @@ uint32_t taf_radio_GetPciScanGlobalCellId
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get MCC and MNC of PLMN information from PCI network scan.
+ * Gets the Mobile Country Code and Mobile Network Code of a PCI network scanned cell.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetPciScanMccMnc
 (
-    taf_radio_PlmnInformationRef_t plmnRef, ///< [IN] PLMN network scan information reference.
+    taf_radio_PlmnInformationRef_t infoRef, ///< [IN] PLMN information reference.
     char* mccPtr,                           ///< [OUT] Mobile Country Code.
-    size_t mccPtrSize,                      ///< [IN] The size of Mobile Country Code string.
+    size_t mccPtrSize,                      ///< [IN] Mobile Country Code length.
     char* mncPtr,                           ///< [OUT] Mobile Network Code.
-    size_t mncPtrSize                       ///< [IN] The size of Mobile Network Code string.
+    size_t mncPtrSize                       ///< [IN] Mobile Network Code length.
 )
 {
-    if (plmnRef == nullptr)
+    if (infoRef == nullptr)
     {
-        LE_ERROR("plmnRef is nullptr.");
+        LE_ERROR("infoRef is nullptr.");
         return LE_BAD_PARAMETER;
     }
 
@@ -4723,8 +3970,8 @@ le_result_t taf_radio_GetPciScanMccMnc
         return LE_BAD_PARAMETER;
     }
 
-    auto& radio = taf_Radio::GetInstance();
-    PlmnId_t* idPtr = (PlmnId_t*)le_ref_Lookup(radio.plmnIdSafeRefMap, plmnRef);
+    auto& factory = Factory::GetInstance();
+    PlmnId_t* idPtr = (PlmnId_t*)le_ref_Lookup(factory.maps.safeRef, infoRef);
     if (idPtr == nullptr)
     {
         LE_ERROR("idPtr is nullptr.");
@@ -4733,7 +3980,7 @@ le_result_t taf_radio_GetPciScanMccMnc
 
     string mcc = to_string(idPtr->mcc);
     string mnc = to_string(idPtr->mnc);
-    le_utf8_Copy(mccPtr, mcc.c_str(), TAF_RADIO_MCC_BYTES, NULL);
+    le_utf8_Copy(mccPtr, mcc.c_str(), TAF_RADIO_MCC_BYTES, nullptr);
 
     size_t offset = 0;
     // If MNC is a two-digit value and has PCS digit.
@@ -4742,76 +3989,76 @@ le_result_t taf_radio_GetPciScanMccMnc
         *mncPtr = '0';
         offset = 1;
     }
-    le_utf8_Copy(mncPtr + offset, mnc.c_str(), TAF_RADIO_MNC_BYTES - offset, NULL);
+    le_utf8_Copy(mncPtr + offset, mnc.c_str(), TAF_RADIO_MNC_BYTES - offset, nullptr);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Delete PCI network scan.
+ * Deletes the PCI network scan list.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeletePciNetworkScan
 (
-    taf_radio_PciScanInformationListRef_t pciScanInformationListRef
-        ///< [IN] PCI network scan information list reference.
+    taf_radio_PciScanInformationListRef_t listRef ///< [IN] PCI network scan list reference.
 )
 {
-    if (pciScanInformationListRef == nullptr)
+    if (listRef == nullptr)
     {
-        LE_ERROR("pciScanInformationListRef is nullptr.");
+        LE_ERROR("listRef is nullptr.");
         return LE_BAD_PARAMETER;
     }
 
-    auto& radio = taf_Radio::GetInstance();
-    PciInfoList_t* listPtr = (PciInfoList_t*)le_ref_Lookup(radio.pciInfoListRefMap,
-        pciScanInformationListRef);
+    auto& factory = Factory::GetInstance();
+    CommonList_t* listPtr = (CommonList_t*)le_ref_Lookup(factory.maps.commonList, listRef);
     if (listPtr == nullptr)
     {
         LE_ERROR("listPtr is nullptr.");
         return LE_NOT_FOUND;
     }
 
-    PciCellInfo_t* cellPtr = nullptr;
+    PciCell_t* cellPtr = nullptr;
     le_sls_Link_t *linkPtr = nullptr;
-    while ((linkPtr = le_sls_Pop(&(listPtr->pciCellInfoList))) != NULL)
+    while ((linkPtr = le_sls_Pop(&(listPtr->commonList))) != nullptr)
     {
-        cellPtr = CONTAINER_OF(linkPtr, PciCellInfo_t, link);
+        cellPtr = CONTAINER_OF(linkPtr, PciCell_t, link);
 
-        PlmnId_t* plmnIdPtr = nullptr;
-        le_sls_Link_t* plmnlinkPtr = nullptr;
-        while ((plmnlinkPtr = le_sls_Pop(&(cellPtr->plmnIdList))) != NULL)
+        PlmnId_t* idPtr = nullptr;
+        le_sls_Link_t* idLinkPtr = nullptr;
+        while ((idLinkPtr = le_sls_Pop(&(cellPtr->plmnIdList))) !=
+            nullptr)
         {
-            plmnIdPtr = CONTAINER_OF(plmnlinkPtr, PlmnId_t, link);
-            le_mem_Release(plmnIdPtr);
+            idPtr = CONTAINER_OF(idLinkPtr, PlmnId_t, link);
+            le_mem_Release(idPtr);
         }
 
-        PlmnIdSafeRef_t* plmnIdSafeRefPtr = nullptr;
-        while ((plmnlinkPtr = le_sls_Pop(&(cellPtr->safeRefList))) != NULL)
+        SafeRef_t* idSafeRefPtr = nullptr;
+        while ((idLinkPtr = le_sls_Pop(&(cellPtr->safeRefList)))
+            != nullptr)
         {
-            plmnIdSafeRefPtr = CONTAINER_OF(plmnlinkPtr, PlmnIdSafeRef_t, link);
-            le_ref_DeleteRef(radio.plmnIdSafeRefMap, plmnIdSafeRefPtr->safeRef);
-            le_mem_Release(plmnIdSafeRefPtr);
+            idSafeRefPtr = CONTAINER_OF(idLinkPtr, SafeRef_t, link);
+            le_ref_DeleteRef(factory.maps.safeRef, idSafeRefPtr->safeRef);
+            le_mem_Release(idSafeRefPtr);
         }
 
         le_mem_Release(cellPtr);
     }
 
-    PciCellInfoSafeRef_t* safeRefPtr = nullptr;
+    SafeRef_t* safeRefPtr = nullptr;
     while ((linkPtr = le_sls_Pop(&(listPtr->safeRefList))) != NULL)
     {
-        safeRefPtr = CONTAINER_OF(linkPtr, PciCellInfoSafeRef_t, link);
-        le_ref_DeleteRef(radio.pciCellInfoSafeRefMap, safeRefPtr->safeRef);
+        safeRefPtr = CONTAINER_OF(linkPtr, SafeRef_t, link);
+        le_ref_DeleteRef(factory.maps.safeRef, safeRefPtr->safeRef);
         le_mem_Release(safeRefPtr);
     }
 
-    le_ref_DeleteRef(radio.pciInfoListRefMap, pciScanInformationListRef);
+    le_ref_DeleteRef(factory.maps.commonList, listRef);
 
     le_mem_Release(listPtr);
 
@@ -4820,75 +4067,62 @@ le_result_t taf_radio_DeletePciNetworkScan
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get IMS registration status.
+ * Gets the IMS registration status.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
- *  - LE_TIMEOUT       Time out.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetImsRegStatus
 (
-    taf_radio_ImsRegStatus_t* statusPtr, ///< [OUT] IMS registration status.
-    uint8_t phoneId                      ///< [IN] Phone ID.
+    taf_radio_ImsRegStatus_t* statusPtr, ///< [OUT] The IMS registration status.
+    uint8_t phone                        ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(statusPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(statusPtr)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-
-    SlotId slotId = (SlotId)tafRadio.phoneManager->getSlotIdFromPhoneId(phoneId);
-    TAF_ERROR_IF_RET_VAL(tafRadio.imsServingSystemMgrs[slotId] == nullptr, LE_FAULT,
-        "Invalid IMS serving system manager(slotId:%d)", slotId);
-
-    auto ret = tafRadio.imsServingSystemMgrs[slotId]->requestRegistrationInfo(
-        taf_RadioImsServSysCallback::imsRegStateResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioImsServSysCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_TIMEOUT, "Wait semaphore timeout");
-
-    if (taf_RadioImsServSysCallback::status == telux::tel::RegistrationStatus::REGISTERED ||
-        taf_RadioImsServSysCallback::status == telux::tel::RegistrationStatus::LIMITED_REGISTERED)
+    if (statusPtr == nullptr)
     {
-        *statusPtr = TAF_RADIO_IMS_REG_STATUS_REGISTERED;
+        LE_ERROR("statusPtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
-    else
+
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_ImsRegistrationStatus_t status = TAF_PA_RADIO_IMS_REGISTRATION_STATUS_UNKNOWN;
+    pa_result_t paResult = taf_pa_radio_GetImsRegistrationStatus(instance, &status);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
     {
-        *statusPtr = TAF_RADIO_IMS_REG_STATUS_NOT_REGISTERED;
+        LE_ERROR("Failed to get IMS registration status.");
+        return result;
     }
+
+    *statusPtr = Utility::Convert::ImsRegistrationStatus(status);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add handler for IMS registration status.
+ * Adds handler for IMS registration status.
  *
  * @return
- *  - taf_radio_ImsRegStatusChangeHandlerRef_t Handler reference.
+ *  - taf_radio_ImsRegStatusChangeHandlerRef_t handler reference for IMS registration status.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_ImsRegStatusChangeHandlerRef_t taf_radio_AddImsRegStatusChangeHandler
 (
-    taf_radio_ImsRegStatusChangeHandlerFunc_t handlerPtr,
-        ///< [IN] Handler function for IMS registration status.
-    void* contextPtr
-        ///< [IN] Handler context.
+    taf_radio_ImsRegStatusChangeHandlerFunc_t handlerFuncPtr, ///< [IN] Handler function.
+    void* contextPtr                                          ///< [IN] Handler context.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    auto& factory = Factory::GetInstance();
 
-    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("ImsRegStatusChangeHandler",
-        tafRadio.imsRegStatusChangeId, taf_Radio::taf_radio_LayerImsRegStateHandler,
-        (void*)handlerPtr);
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("ImsRegStatusChange",
+        factory.events.imsRegStatusChange, Utility::LayeredFunction::ImsRegStatusChange,
+       (void*)handlerFuncPtr);
 
     le_event_SetContextPtr(handlerRef, contextPtr);
 
@@ -4897,7 +4131,8 @@ taf_radio_ImsRegStatusChangeHandlerRef_t taf_radio_AddImsRegStatusChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remove handler for IMS registration status.
+ * Removes handler for IMS registration status.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 void taf_radio_RemoveImsRegStatusChangeHandler
@@ -4910,22 +4145,23 @@ void taf_radio_RemoveImsRegStatusChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add handler for operating mode changes.
+ * Adds handler for operating mode changes.
  *
  * @return
- *  - taf_radio_OpModeChangeHandlerRef_t Handler reference.
+ *  - taf_radio_OpModeChangeHandlerRef_t handler reference for operating mode changes.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_OpModeChangeHandlerRef_t taf_radio_AddOpModeChangeHandler
 (
-    taf_radio_OpModeChangeHandlerFunc_t handlerPtr, ///< [IN] Handler function for operating mode.
-    void* contextPtr                                ///< [IN] Handler context.
+    taf_radio_OpModeChangeHandlerFunc_t handlerFuncPtr, ///< [IN] Handler function.
+    void* contextPtr                                    ///< [IN] Handler context.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    auto& factory = Factory::GetInstance();
 
-    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("OpModeChangeHandler",
-        tafRadio.opModeChangeId, taf_Radio::taf_radio_LayerOpModeHandler, (void*)handlerPtr);
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("OperatingModeChange",
+        factory.events.operatingModeChange, Utility::LayeredFunction::OperatingModeChange,
+       (void*)handlerFuncPtr);
 
     le_event_SetContextPtr(handlerRef, contextPtr);
 
@@ -4934,7 +4170,8 @@ taf_radio_OpModeChangeHandlerRef_t taf_radio_AddOpModeChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remove handler for operating mode.
+ * Removes handler for operating mode changes.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 void taf_radio_RemoveOpModeChangeHandler
@@ -4947,115 +4184,111 @@ void taf_radio_RemoveOpModeChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets network status reference.
+ *  Gets the network status reference.
  *
  * @return
- *  - Non-null pointer -- Network status reference.
- *  - Null pointer -- Internal error.
+ *  - Non-null pointer -- The network status reference.
+ *  - Null pointer -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_NetStatusRef_t taf_radio_GetNetStatus
 (
-    uint8_t phoneId ///< [IN] Phone ID.
+    uint8_t phone ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, NULL,
-        "Invalid para(phoneId:%d)", phoneId);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    if (instance >= INSTANCE_MAX_COUNT)
+    {
+        LE_ERROR("Invalid instance %d.", instance);
+        return nullptr;
+    }
 
-    auto &tafRadio = taf_Radio::GetInstance();
-
-    return tafRadio.netStatusRefs[phoneId - 1];
+    auto& factory = Factory::GetInstance();
+    return factory.cache.netStatusRefs[instance];
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets CS capabilitiy of LTE network.
+ *  Gets the CS capabilitiy of LTE network.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
- *  - LE_TIMEOUT -- Time out.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteCsCap
 (
-    taf_radio_NetStatusRef_t netRef, ///< [IN] Network status reference.
-    taf_radio_CsCap_t* capabilitiy   ///< [OUT] CS capabilitiy of LTE network.
+    taf_radio_NetStatusRef_t reference,  ///< [IN] The network status reference.
+    taf_radio_CsCap_t* capabilitiyPtr    ///< [OUT] The CS capabilitiy of LTE network.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    uint8_t* phoneIdPtr = (uint8_t*)le_ref_Lookup(tafRadio.netStatusRefMap, netRef);
-    TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Fail to look up reference.");
-
-    TAF_ERROR_IF_RET_VAL(capabilitiy == nullptr, LE_BAD_PARAMETER, "Null ptr(capabilitiy)");
-
-    uint8_t phoneId = *phoneIdPtr;
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
-        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    telux::tel::LteCsCapability lteCapability = telux::tel::LteCsCapability::UNKNOWN;
-    auto status = tafRadio.servingSystemManagers[phoneId - 1]->getLteCsCapability(lteCapability);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandPrefResponseCallback::result != LE_OK,
-        taf_RadioRFBandPrefResponseCallback::result, "Fail to get LTE RF band preferences.");
-
-    switch (lteCapability)
+    if (capabilitiyPtr == nullptr)
     {
-        case telux::tel::LteCsCapability::FULL_SERVICE:
-            *capabilitiy = TAF_RADIO_CS_CAP_FULL_SERVICE;
-            break;
-        case telux::tel::LteCsCapability::CSFB_NOT_PREFERRED:
-            *capabilitiy = TAF_RADIO_CS_CAP_CSFB_NOT_PREFERRED;
-            break;
-        case telux::tel::LteCsCapability::SMS_ONLY:
-            *capabilitiy = TAF_RADIO_CS_CAP_SMS_ONLY;
-            break;
-        case telux::tel::LteCsCapability::LIMITED:
-            *capabilitiy = TAF_RADIO_CS_CAP_LIMITED;
-            break;
-        case telux::tel::LteCsCapability::BARRED:
-            *capabilitiy = TAF_RADIO_CS_CAP_BARRED;
-            break;
-        case telux::tel::LteCsCapability::UNKNOWN:
-        default:
-            *capabilitiy = TAF_RADIO_CS_CAP_UNKNOWN;
-            break;
+        LE_ERROR("capabilitiyPtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
+
+    uint32_t instance = INSTANCE_MAX_COUNT;
+    le_result_t result = Utility::Convert::ReferenceToInstance(reference, &instance);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to convert reference.");
+        return result;
+    }
+
+    taf_pa_radio_LteCsCapability_t capability = TAF_PA_RADIO_LTE_CS_CAPABILITY_UNKNOWN;
+    pa_result_t paResult = taf_pa_radio_GetLteCsCapability(instance, &capability);
+    result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get LTE CS capability.");
+        return result;
+    }
+
+    *capabilitiyPtr = Utility::Convert::LteCsCapability(capability);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Get RAT service status.
+ *  Gets the RAT service status.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
- *  - LE_TIMEOUT -- Time out.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetRatSvcStatus
 (
-    taf_radio_NetStatusRef_t netRef,    ///< [IN] Network status reference.
-    taf_radio_RatSvcStatus_t* statusPtr ///< [OUT] RAT service status.
+    taf_radio_NetStatusRef_t reference, ///< [IN] The network status reference.
+    taf_radio_RatSvcStatus_t* statusPtr ///< [OUT] The RAT service status.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    uint8_t* phoneIdPtr = (uint8_t*)le_ref_Lookup(tafRadio.netStatusRefMap, netRef);
-    TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Fail to look up reference.");
+    if (statusPtr == nullptr)
+    {
+        LE_ERROR("statusPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    uint32_t instance = Utility::Convert::PhoneToInstance(*phoneIdPtr);
+    uint32_t instance = INSTANCE_MAX_COUNT;
+    le_result_t result = Utility::Convert::ReferenceToInstance(reference, &instance);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to convert reference.");
+        return result;
+    }
 
     taf_pa_radio_Rat_t rat = TAF_PA_RADIO_RAT_UNKNOWN;
-    pa_result_t result = taf_pa_radio_GetServingRat(instance, &rat);
+    pa_result_t paResult = taf_pa_radio_GetServingRat(instance, &rat);
     if (result != 0)
     {
         LE_ERROR("Failed to get serving RAT.");
@@ -5063,41 +4296,48 @@ le_result_t taf_radio_GetRatSvcStatus
     }
 
     taf_pa_radio_RatServiceStatus_t status = TAF_PA_RADIO_RAT_SERVICE_STATUS_UNKNOWN;
-    result = taf_pa_radio_GetRatSvcStatus(instance, rat, &status);
+    paResult = taf_pa_radio_GetRatSvcStatus(instance, rat, &status);
+    result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get RAT service status.");
+        return result;
+    }
+
     *statusPtr = Utility::Convert::RatServiceStatus(status);
 
-    return Utility::Convert::Result(result);
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add handler for network status.
+ * Adds handler for the network status changes.
  *
  * @return
- *  - taf_radio_NetStatusChangeHandlerRef_t Handler reference.
+ *  - af_radio_NetStatusChangeHandlerRef_t handler reference for the network status changes.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_NetStatusChangeHandlerRef_t taf_radio_AddNetStatusChangeHandler
 (
-    taf_radio_NetStatusHandlerFunc_t handlerFuncPtr,
-        ///< [IN] Handler function for network status changes.
-    void* contextPtr
-        ///< [IN] Handler context.
+    taf_radio_NetStatusHandlerFunc_t handlerFuncPtr, ///< [IN] Handler function.
+    void* contextPtr                                 ///< [IN] Handler context.
 )
 {
-    auto& radio = taf_Radio::GetInstance();
-    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("netStatusHandler",
-        radio.netStatusEvId, taf_Radio::taf_radio_LayerNetStatusHandler,
-        (void*)handlerFuncPtr);
+    auto& factory = Factory::GetInstance();
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("NetStatusChange",
+        factory.events.netStatusChange, Utility::LayeredFunction::NetStatusChange,
+       (void*)handlerFuncPtr);
 
     le_event_SetContextPtr(handlerRef, contextPtr);
 
-    return (taf_radio_NetStatusChangeHandlerRef_t)handlerRef;
+    return (taf_radio_NetStatusChangeHandlerRef_t)(handlerRef);
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remove handler for network status.
+ * Removes handler for network status changes.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 void taf_radio_RemoveNetStatusChangeHandler
@@ -5110,442 +4350,310 @@ void taf_radio_RemoveNetStatusChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get IMS reference.
+ * Gets the IMS reference.
  *
  * @return
- *  - NULL   Invalid parameters or internal errors.
- *  - Others IMS reference.
+ *  - Non-null pointer -- The IMS reference.
+ *  - Null pointer -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_ImsRef_t taf_radio_GetIms
 (
-    uint8_t phoneId ///< [IN] Phone ID.
+    uint8_t phone ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, NULL,
-        "Invalid para(phoneId:%d)", phoneId);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    if (instance >= INSTANCE_MAX_COUNT)
+    {
+        LE_ERROR("Invalid instance %d.", instance);
+        return nullptr;
+    }
 
-    auto &tafRadio = taf_Radio::GetInstance();
-
-    return tafRadio.imsRefs[phoneId - 1];
+    auto& factory = Factory::GetInstance();
+    return factory.cache.imsRefs[instance];
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get IMS service status.
+ * Gets the IMS service status.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
- *  - LE_TIMEOUT       Time out.
- *  - LE_UNSUPPORTED   Unsupported function.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_UNSUPPORTED -- Unsupported.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetImsSvcStatus
 (
-    taf_radio_ImsRef_t imsRef,          ///< [IN] IMS reference.
-    taf_radio_ImsSvcType_t sevice,      ///< [IN] IMS service type.
-    taf_radio_ImsSvcStatus_t* statusPtr ///< [OUT] IMS service status.
+    taf_radio_ImsRef_t reference,       ///< [IN] The IMS reference.
+    taf_radio_ImsSvcType_t sevice,      ///< [IN] The IMS service.
+    taf_radio_ImsSvcStatus_t* statusPtr ///< [OUT] The IMS service status.
 )
 {
-#ifdef LE_CONFIG_FEATURE_ENHANCED_IMS
-    auto &tafRadio = taf_Radio::GetInstance();
-    uint8_t* phoneIdPtr = (uint8_t*)le_ref_Lookup(tafRadio.imsRefMap, imsRef);
-    TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Fail to look up reference.");
-
-    TAF_ERROR_IF_RET_VAL(*phoneIdPtr == 0 || *phoneIdPtr > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", *phoneIdPtr);
-
-    TAF_ERROR_IF_RET_VAL(statusPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(statusPtr)");
-
-    SlotId slotId = (SlotId)tafRadio.phoneManager->getSlotIdFromPhoneId(*phoneIdPtr);
-    TAF_ERROR_IF_RET_VAL(tafRadio.imsServingSystemMgrs[slotId] == nullptr, LE_FAULT,
-        "Invalid IMS serving system manager(slotId:%d)", slotId);
-
-    auto ret = tafRadio.imsServingSystemMgrs[slotId]->requestServiceInfo(
-        taf_RadioImsServSysCallback::imsSvcInfoResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioImsServSysCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_TIMEOUT, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioImsServSysCallback::result != LE_OK,
-        LE_FAULT, "Fail to get IMS service status.");
-
-    switch (sevice)
+    if (statusPtr == nullptr)
     {
-        case TAF_RADIO_IMS_SVC_TYPE_SMS:
-            *statusPtr = taf_RadioImsServSysCallback::sms;
-            break;
-        case TAF_RADIO_IMS_SVC_TYPE_VOIP:
-            *statusPtr = taf_RadioImsServSysCallback::voip;
-            break;
-        default:
-            LE_ERROR("Invalid IMS service type(sevice:%d)", sevice);
-            return LE_BAD_PARAMETER;
+        LE_ERROR("statusPtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
+    uint32_t instance = INSTANCE_MAX_COUNT;
+    le_result_t result = Utility::Convert::ReferenceToInstance(reference, &instance);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to convert reference.");
+        return result;
+    }
+
+    taf_pa_radio_ImsService_t paService = TAF_PA_RADIO_IMS_SERVICE_UNKNOWN;
+    result = Utility::Convert::ImsService(sevice, &paService);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to IMS service.");
+        return result;
+    }
+
+    taf_pa_radio_ImsServiceStatus_t status = TAF_PA_RADIO_IMS_SERVICE_STATUS_UNKNOWN;
+    pa_result_t paResult = taf_pa_radio_GetImsServiceStatus(instance, paService, &status);
+    result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get IMS service status.");
+        return result;
+    }
+
+    *statusPtr = Utility::Convert::ImsServiceStatus(status);
+
     return LE_OK;
-#else
-    return LE_UNSUPPORTED;
-#endif
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get PDP error.
+ * Gets the IMS PDP error.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
- *  - LE_TIMEOUT       Time out.
- *  - LE_UNSUPPORTED   Unsupported function.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetImsPdpError
 (
-    taf_radio_ImsRef_t imsRef,     ///< [IN] IMS reference.
-    taf_radio_PdpError_t* errorPtr ///< [OUT] PDP error.
+    taf_radio_ImsRef_t reference,  ///< [IN] The IMS reference.
+    taf_radio_PdpError_t* errorPtr ///< [OUT] The IMS PDP error.
 )
 {
-#ifdef LE_CONFIG_FEATURE_ENHANCED_IMS
-    auto &tafRadio = taf_Radio::GetInstance();
-    uint8_t* phoneIdPtr = (uint8_t*)le_ref_Lookup(tafRadio.imsRefMap, imsRef);
-    TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Fail to look up reference.");
+    if (errorPtr == nullptr)
+    {
+        LE_ERROR("errorPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(*phoneIdPtr == 0 || *phoneIdPtr > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", *phoneIdPtr);
+    uint32_t instance = INSTANCE_MAX_COUNT;
+    le_result_t result = Utility::Convert::ReferenceToInstance(reference, &instance);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to convert reference.");
+        return result;
+    }
 
-    TAF_ERROR_IF_RET_VAL(errorPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(errorPtr)");
+    taf_pa_radio_ImsPdpFailureErrorCode_t code = TAF_PA_RADIO_IMS_PDP_FAILURE_ERROR_CODE_UNKNOWN;
+    pa_result_t paResult = taf_pa_radio_GetImsPdpFailureErrorCode(instance, &code);
+    result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get IMS PDP failure error code.");
+        return result;
+    }
 
-    SlotId slotId = (SlotId)tafRadio.phoneManager->getSlotIdFromPhoneId(*phoneIdPtr);
-    TAF_ERROR_IF_RET_VAL(tafRadio.imsServingSystemMgrs[slotId] == nullptr, LE_FAULT,
-        "Invalid IMS serving system manager(slotId:%d)", slotId);
-
-    auto ret = tafRadio.imsServingSystemMgrs[slotId]->requestPdpStatus(
-        taf_RadioImsServSysCallback::imsPdpStatusResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioImsServSysCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_TIMEOUT, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioImsServSysCallback::result != LE_OK,
-        LE_FAULT, "Fail to get IMS PDP status.");
-
-    *errorPtr = taf_RadioImsServSysCallback::pdpError;
+    *errorPtr = Utility::Convert::PdpError(code);
 
     return LE_OK;
-#else
-    return LE_UNSUPPORTED;
-#endif
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Set IMS service enable configuration parameters.
+ * Toggles the IMS service.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
- *  - LE_TIMEOUT       Time out.
- *  - LE_UNSUPPORTED   Unsupported function.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetImsSvcCfg
 (
-    taf_radio_ImsRef_t imsRef,      ///< [IN] IMS reference.
-    taf_radio_ImsSvcType_t service, ///< [IN] IMS service type.
-    bool enable                     ///< [IN] True if enabling service, false if disabling service.
+    taf_radio_ImsRef_t reference,   ///< [IN] The IMS reference.
+    taf_radio_ImsSvcType_t service, ///< [IN] The IMS service.
+    bool enable                     ///< [IN] Toggle.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    uint8_t* phoneIdPtr = (uint8_t*)le_ref_Lookup(tafRadio.imsRefMap, imsRef);
-    TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Fail to look up reference.");
-
-    TAF_ERROR_IF_RET_VAL(*phoneIdPtr == 0 || *phoneIdPtr > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", *phoneIdPtr);
-
-    SlotId slotId = (SlotId)tafRadio.phoneManager->getSlotIdFromPhoneId(*phoneIdPtr);
-    TAF_ERROR_IF_RET_VAL(tafRadio.imsSettingMgr == nullptr, LE_FAULT,
-        "Invalid IMS setting manager(slotId:%d)", slotId);
-
-    auto ret = telux::common::Status::FAILED;
-    if (service == TAF_RADIO_IMS_SVC_TYPE_VONR)
+    uint32_t instance = INSTANCE_MAX_COUNT;
+    le_result_t result = Utility::Convert::ReferenceToInstance(reference, &instance);
+    if (result != LE_OK)
     {
-        ret = tafRadio.imsSettingMgr->toggleVonr(slotId, enable,
-            taf_RadioImsSettingCallback::onResponseCallback);
-    } else {
-        telux::tel::ImsServiceConfig config{};
-        switch (service)
-        {
-#ifdef LE_CONFIG_FEATURE_ENHANCED_IMS
-            case TAF_RADIO_IMS_SVC_TYPE_SMS:
-                config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_SMS);
-                config.smsEnabled = enable;
-                break;
-            case TAF_RADIO_IMS_SVC_TYPE_RTT:
-                config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_RTT);
-                config.rttEnabled = enable;
-                break;
-#endif
-                case TAF_RADIO_IMS_SVC_TYPE_VOIP:
-                    config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_VOIMS);
-                    config.voImsEnabled = enable;
-                    break;
-                case TAF_RADIO_IMS_SVC_TYPE_IMS_REG:
-                config.configValidityMask.set(telux::tel::ImsServiceConfigType::IMSSETTINGS_IMS_SERVICE);
-                config.imsServiceEnabled = enable;
-                break;
-            case TAF_RADIO_IMS_SVC_TYPE_VONR:
-                break;
-            default:
-                LE_ERROR("Invalid IMS service type(service:%d)", service);
-                return LE_UNSUPPORTED;
-            }
-
-        ret = tafRadio.imsSettingMgr->setServiceConfig(slotId, config,
-            taf_RadioImsSettingCallback::onResponseCallback);
+        LE_ERROR("Failed to convert reference.");
+        return result;
     }
 
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioImsSettingCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_TIMEOUT, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioImsSettingCallback::result != LE_OK,
-        LE_FAULT, "Fail to set IMS service enable configuration.");
-
-    if (service == TAF_RADIO_IMS_SVC_TYPE_VONR)
-    {
-        //Waits for modem to finish the process
-        sleep(1);
-    }
-    return LE_OK;
+    taf_pa_radio_ImsServiceSettingBitMask_t bitmask = Utility::Convert::ImsService(service);
+    pa_result_t paResult = taf_pa_radio_ToggleImsService(instance, bitmask, enable);
+    return Utility::Convert::Result(paResult);
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get IMS service enable configuration parameters.
+ * Gets the IMS service toggle status.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
- *  - LE_TIMEOUT       Time out.
- *  - LE_UNSUPPORTED   Unsupported function.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetImsSvcCfg
 (
-    taf_radio_ImsRef_t imsRef,      ///< [IN] IMS reference.
-    taf_radio_ImsSvcType_t service, ///< [IN] IMS service type.
-    bool* enable                    ///< [OUT] True if service enabled, false if service disabled.
+    taf_radio_ImsRef_t reference,   ///< [IN] The IMS reference.
+    taf_radio_ImsSvcType_t service, ///< [IN] The IMS service.
+    bool* enablePtr                 ///< [OUT] Toggle status.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    uint8_t* phoneIdPtr = (uint8_t*)le_ref_Lookup(tafRadio.imsRefMap, imsRef);
-    TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Fail to look up reference.");
-
-    TAF_ERROR_IF_RET_VAL(*phoneIdPtr == 0 || *phoneIdPtr > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", *phoneIdPtr);
-
-    TAF_ERROR_IF_RET_VAL(enable == nullptr, LE_BAD_PARAMETER, "Null ptr(enable)");
-
-    SlotId slotId = (SlotId)tafRadio.phoneManager->getSlotIdFromPhoneId(*phoneIdPtr);
-    TAF_ERROR_IF_RET_VAL(tafRadio.imsSettingMgr == nullptr, LE_FAULT,
-        "Invalid IMS setting manager(slotId:%d)", slotId);
-
-    auto ret = telux::common::Status::FAILED;
-    if (service == TAF_RADIO_IMS_SVC_TYPE_VONR)
+    if (enablePtr == nullptr)
     {
-        ret = tafRadio.imsSettingMgr->requestVonrStatus(slotId,
-            taf_RadioImsSettingCallback::onRequestImsVonr);
-    } else {
-        ret = tafRadio.imsSettingMgr->requestServiceConfig(slotId,
-            taf_RadioImsSettingCallback::onRequestImsServiceConfig);
+        LE_ERROR("enablePtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioImsSettingCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_TIMEOUT, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioImsSettingCallback::result != LE_OK,
-        LE_FAULT, "Fail to get IMS service enable configuration.");
-
-    *enable = false;
-    if (service == TAF_RADIO_IMS_SVC_TYPE_VONR)
+    uint32_t instance = INSTANCE_MAX_COUNT;
+    le_result_t result = Utility::Convert::ReferenceToInstance(reference, &instance);
+    if (result != LE_OK)
     {
-        if (taf_RadioImsSettingCallback::vonrConfig == true)
-        {
-            *enable = true;
-        }
-    } else {
-        telux::tel::ImsServiceConfig config = taf_RadioImsSettingCallback::config;
-        switch (service)
-        {
-#ifdef LE_CONFIG_FEATURE_ENHANCED_IMS
-            case TAF_RADIO_IMS_SVC_TYPE_SMS:
-                if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_SMS]
-                    && config.smsEnabled)
-                    *enable = true;
-                break;
-            case TAF_RADIO_IMS_SVC_TYPE_RTT:
-                if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_RTT]
-                    && config.rttEnabled)
-                    *enable = true;
-                break;
-#endif
-            case TAF_RADIO_IMS_SVC_TYPE_VOIP:
-                if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_VOIMS]
-                    && config.voImsEnabled)
-                    *enable = true;
-                break;
-            case TAF_RADIO_IMS_SVC_TYPE_IMS_REG:
-                if (config.configValidityMask[telux::tel::ImsServiceConfigType::IMSSETTINGS_IMS_SERVICE]
-                    && config.imsServiceEnabled)
-                    *enable = true;
-            break;
-        default:
-            LE_ERROR("Invalid IMS service type(service:%d)", service);
-            return LE_UNSUPPORTED;
-        }
+        LE_ERROR("Failed to convert reference.");
+        return result;
     }
+
+    taf_pa_radio_ImsServiceSettingBitMask_t bitmask = 0x0;
+    pa_result_t paResult = taf_pa_radio_GetEnabledImsService(instance, &bitmask);
+    result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get enabled IMS service.");
+        return result;
+    }
+
+    if (Utility::Convert::ImsService(service) & bitmask)
+        *enablePtr = true;
+    else
+        *enablePtr = false;
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Set SIP user agent.
+ * Sets the IMS user agent.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
- *  - LE_TIMEOUT       Time out.
- *  - LE_UNSUPPORTED   Unsupported function.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetImsUserAgent
 (
-    taf_radio_ImsRef_t imsRef, ///< [IN] IMS reference.
-    const char* userAgent      ///< [IN] User agent string to be sent with SIP message.
+    taf_radio_ImsRef_t reference, ///< [IN] The IMS reference.
+    const char* namePtr           ///< [IN] The user agent to be sent with SIP message.
 )
 {
-#ifdef LE_CONFIG_FEATURE_ENHANCED_IMS
-    auto &tafRadio = taf_Radio::GetInstance();
-    uint8_t* phoneIdPtr = (uint8_t*)le_ref_Lookup(tafRadio.imsRefMap, imsRef);
-    TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Fail to look up reference.");
+    if (namePtr == nullptr)
+    {
+        LE_ERROR("namePtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(*phoneIdPtr == 0 || *phoneIdPtr > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", *phoneIdPtr);
+    uint32_t instance = INSTANCE_MAX_COUNT;
+    le_result_t result = Utility::Convert::ReferenceToInstance(reference, &instance);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to convert reference.");
+        return result;
+    }
 
-    SlotId slotId = (SlotId)tafRadio.phoneManager->getSlotIdFromPhoneId(*phoneIdPtr);
-    TAF_ERROR_IF_RET_VAL(tafRadio.imsSettingMgr == nullptr, LE_FAULT,
-        "Invalid IMS setting manager(slotId:%d)", slotId);
-
-    std::string uaStr(userAgent);
-    auto ret = tafRadio.imsSettingMgr->setSipUserAgent(slotId, uaStr,
-        taf_RadioImsSettingCallback::onResponseCallback);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioImsSettingCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_TIMEOUT, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioImsSettingCallback::result != LE_OK,
-        LE_FAULT, "Fail to set IMS sip user agent.");
-
-    return LE_OK;
-#else
-    return LE_UNSUPPORTED;
-#endif
+    pa_result_t paResult = taf_pa_radio_SetImsUserAgent(instance, namePtr);
+    return Utility::Convert::Result(paResult);
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get SIP user agent.
+ * Gets the IMS user agent.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
- *  - LE_TIMEOUT       Time out.
- *  - LE_UNSUPPORTED   Unsupported function.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetImsUserAgent
 (
-    taf_radio_ImsRef_t imsRef, ///< [IN] IMS reference.
-    char* userAgent,           ///< [OUT] User agent string to be sent with SIP message.
-    size_t userAgentSize       ///< [IN] User agent string size.
+    taf_radio_ImsRef_t reference, ///< [IN] The IMS reference.
+    char* namePtr,                ///< [OUT] The user agent name.
+    size_t namePtrSize            ///< [IN] The user agent name size.
 )
 {
-#ifdef LE_CONFIG_FEATURE_ENHANCED_IMS
-    auto &tafRadio = taf_Radio::GetInstance();
-    uint8_t* phoneIdPtr = (uint8_t*)le_ref_Lookup(tafRadio.imsRefMap, imsRef);
-    TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Fail to look up reference.");
+    if (namePtr == nullptr)
+    {
+        LE_ERROR("namePtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(*phoneIdPtr == 0 || *phoneIdPtr > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", *phoneIdPtr);
+    uint32_t instance = INSTANCE_MAX_COUNT;
+    le_result_t result = Utility::Convert::ReferenceToInstance(reference, &instance);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to convert reference.");
+        return result;
+    }
 
-    SlotId slotId = (SlotId)tafRadio.phoneManager->getSlotIdFromPhoneId(*phoneIdPtr);
-    TAF_ERROR_IF_RET_VAL(tafRadio.imsSettingMgr == nullptr, LE_FAULT,
-        "Invalid IMS setting manager(slotId:%d)", slotId);
-
-    auto ret = tafRadio.imsSettingMgr->requestSipUserAgent(slotId,
-        taf_RadioImsSettingCallback::onRequestImsSipUserAgentConfig);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioImsSettingCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_TIMEOUT, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioImsSettingCallback::result != LE_OK,
-        LE_FAULT, "Fail to get IMS sip user agent.");
-
-    le_utf8_Copy(userAgent, taf_RadioImsSettingCallback::sipUserAgentPtr,
-        TAF_RADIO_IMS_USER_AGENT_BYTES, NULL);
-
-    return LE_OK;
-#else
-    return LE_UNSUPPORTED;
-#endif
+    pa_result_t paResult = taf_pa_radio_GetImsUserAgent(instance, namePtr, namePtrSize);
+    return Utility::Convert::Result(paResult);
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add handler for IMS status.
+ * Adds handler for the IMS status changes.
  *
  * @return
- *  - taf_radio_ImsStatusChangeHandlerRef_t Handler reference.
+ *  - taf_radio_ImsStatusChangeHandlerRef_t handler reference for the IMS status changes.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_ImsStatusChangeHandlerRef_t taf_radio_AddImsStatusChangeHandler
 (
-    taf_radio_ImsStatusChangeHandlerFunc_t handlerPtr, ///< [IN] Handler function for IMS status.
-    void* contextPtr                                   ///< [IN] Handler context.
+    taf_radio_ImsStatusChangeHandlerFunc_t handlerFuncPtr, ///< [IN] Handler function.
+    void* contextPtr                                       ///< [IN] Handler context.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    auto& factory = Factory::GetInstance();
 
-    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("ImsStatusChangeHandler",
-        tafRadio.imsStatusChangeId, taf_Radio::taf_radio_LayerImsStateHandler,
-        (void*)handlerPtr);
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("ImsStatusChange",
+        factory.events.imsStatusChange, Utility::LayeredFunction::ImsStatusChange,
+       (void*)handlerFuncPtr);
 
     le_event_SetContextPtr(handlerRef, contextPtr);
 
@@ -5554,7 +4662,8 @@ taf_radio_ImsStatusChangeHandlerRef_t taf_radio_AddImsStatusChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remove handler for IMS status.
+ * Removes handler for the IMS status changes.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 void taf_radio_RemoveImsStatusChangeHandler
@@ -5567,415 +4676,212 @@ void taf_radio_RemoveImsStatusChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the details of DCNR and ENDC mode
+ * Gets the ENDC availability and DCNR restriction.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
  *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_FAULT -- Failed
+ *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetNrDualConnectivityStatus
 (
-    taf_radio_NREndcAvailability_t* statusEndcPtr, ///< [OUT] Endc status.
-    taf_radio_NRDcnrRestriction_t* statusDcnrPtr,  ///< [OUT] Dcnr status.
-    uint8_t phoneId                                ///< [IN] Phone id.
+    taf_radio_NREndcAvailability_t* availabilityPtr, ///< [OUT] The ENDC availability.
+    taf_radio_NRDcnrRestriction_t* restrictionPtr,   ///< [OUT] The DCNR restriction.
+    uint8_t phone                                    ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(statusEndcPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(statusEndcPtr)");
-    TAF_ERROR_IF_RET_VAL(statusDcnrPtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(statusDcnrPtr)");
-
-   auto &tafRadio = taf_Radio::GetInstance();
-   TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
-        LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    taf_radio_NREndcAvailability_t endcAvail = TAF_RADIO_NR_ENDC_UNKNOWN;
-    taf_radio_NRDcnrRestriction_t dcNRRestrict = TAF_RADIO_NR_DCNR_UNKNOWN;
-
-    telux::tel::DcStatus dcStatus = { telux::tel::EndcAvailability::UNKNOWN,
-                                      telux::tel::DcnrRestriction::UNKNOWN};
-
-    dcStatus = tafRadio.servingSystemManagers[phoneId - 1]->getDcStatus();
-
-    // fill ENDC.
-    switch (dcStatus.endcAvailability)
+    if (availabilityPtr == nullptr)
     {
-        case telux::tel::EndcAvailability::UNKNOWN:
-            endcAvail = TAF_RADIO_NR_ENDC_UNKNOWN;
-             break;
-        case telux::tel::EndcAvailability::AVAILABLE:
-            endcAvail = TAF_RADIO_NR_ENDC_AVAILABLE;
-             break;
-        case telux::tel::EndcAvailability::UNAVAILABLE:
-            endcAvail = TAF_RADIO_NR_ENDC_UNAVAILABLE;
-             break;
-        default:
-            endcAvail = TAF_RADIO_NR_ENDC_UNKNOWN;
-            break;
+        LE_ERROR("availabilityPtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    // fill DCNR.
-    switch (dcStatus.dcnrRestriction)
+    if (restrictionPtr == nullptr)
     {
-        case telux::tel::DcnrRestriction::UNKNOWN:
-            dcNRRestrict = TAF_RADIO_NR_DCNR_UNKNOWN;
-             break;
-        case telux::tel::DcnrRestriction::RESTRICTED:
-            dcNRRestrict = TAF_RADIO_NR_DCNR_RESTRICTED;
-             break;
-        case telux::tel::DcnrRestriction::UNRESTRICTED:
-            dcNRRestrict = TAF_RADIO_NR_DCNR_UNRESTRICTED;
-             break;
-        default:
-            dcNRRestrict = TAF_RADIO_NR_DCNR_UNKNOWN;
-            break;
+        LE_ERROR("restrictionPtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    *statusEndcPtr = endcAvail;
-    *statusDcnrPtr = dcNRRestrict;
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_EndcAvailability_t availability = TAF_PA_RADIO_ENDC_AVAILABILITY_UNKNOWN;
+    pa_result_t paResult = taf_pa_radio_GetEndcAvailability(instance, &availability);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get ENDC availability.");
+        return result;
+    }
+
+    taf_pa_radio_DcnrRestriction_t restriction = TAF_PA_RADIO_DCNR_RESTRICTION_UNKNOWN;
+    paResult = taf_pa_radio_GetDcnrRestriction(instance, &restriction);
+    result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get DCNR restriction.");
+        return result;
+    }
+
+    *availabilityPtr = Utility::Convert::EndcAvailability(availability);
+    *restrictionPtr = Utility::Convert::DcnrRestriction(restriction);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Get Operator Name ( long and short )
+ *  Gets the current network full name.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
- *  - LE_TIMEOUT -- Time out.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCurrentNetworkLongName
 (
-    char* longNamePtr,              ///< [OUT] Long operator name.
-    size_t longNamePtrSize,         ///< [IN] The size of long operator name.
-    uint8_t phoneId                 ///< [IN] Phone id.
+    char* namePtr,      ///< [OUT] The full name.
+    size_t namePtrSize, ///< [IN] The full name size.
+    uint8_t phone       ///< [IN] Phone.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_BAD_PARAMETER,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(longNamePtr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(statePtr)");
-
-    auto opNameStatusCb = [&tafRadio](std::string operatorLongName,
-                                    std::string operatorShortName,
-                                      telux::common::ErrorCode error)
+    if (namePtr == nullptr)
     {
-        LE_DEBUG("<SDK Callback> lamda --> GetCurrentNetworkLongName");
-        if (error == telux::common::ErrorCode::SUCCESS)
-        {
-            tafRadio.opNameCb.longOpNamePtr[0] = '\0';
-            if (operatorLongName.c_str() != NULL)
-            {
-                le_utf8_Copy(tafRadio.opNameCb.longOpNamePtr, operatorLongName.c_str(),
-                TAF_RADIO_NETWORK_NAME_MAX_LEN, NULL);
-            }
-
-            tafRadio.opNameCb.result = LE_OK;
-        }
-        else
-        {
-            LE_ERROR("Error(%d)", (int)error);
-            tafRadio.opNameCb.result = LE_FAULT;
-        }
-
-        le_sem_Post(tafRadio.opNameCb.semaphore);
-    };
-
-    auto ret = tafRadio.phones[phoneId - 1]->requestOperatorName(opNameStatusCb);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.opNameCb.semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.opNameCb.result != LE_OK,
-        tafRadio.opNameCb.result, "Fail to get Operator name.");
-
-    if (longNamePtrSize > TAF_RADIO_NETWORK_NAME_MAX_LEN)
-    {
-        longNamePtrSize = TAF_RADIO_NETWORK_NAME_MAX_LEN;
+        LE_ERROR("namePtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
-    size_t opNameSize = strlen(tafRadio.opNameCb.longOpNamePtr);
-    TAF_ERROR_IF_RET_VAL(opNameSize >= longNamePtrSize, LE_BAD_PARAMETER,
-        "No enough memory to store the network name.");
 
-    le_utf8_Copy(longNamePtr, tafRadio.opNameCb.longOpNamePtr,
-        longNamePtrSize, NULL);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CurrNetworkName_t name;
+    name.fullNameValid = 1;
+    name.fullNameSize = namePtrSize;
+    name.fullNamePtr = namePtr;
+    name.shortNameValid = 0;
+    pa_result_t paResult = taf_pa_radio_GetCurrNetworkName(instance, &name);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get current network name.");
+        return result;
+    }
 
     return LE_OK;
 }
 
-
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the details of the Total SIM count and Max Active SIM count
+ *  Gets the total SIM count and maximum active SIM count.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
- *  - LE_TIMEOUT -- Time out.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetHardwareSimConfig
 (
-    uint8_t* totalSimCount, ///< [OUT] The max number of sims that can be supported simultaneously.
-    uint8_t* maxActiveSims  ///< [OUT] The max number of sims that can be simultaneously active.
+    uint8_t* totalCountPtr,     ///< [OUT] The total SIM count.
+    uint8_t* maxActiveCountPtr  ///< [OUT] The maximum active SIM count.
 )
 {
+    if (totalCountPtr == nullptr)
+    {
+        LE_ERROR("totalCountPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    auto &tafRadio = taf_Radio::GetInstance();
+    if (maxActiveCountPtr == nullptr)
+    {
+        LE_ERROR("maxActiveCountPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    auto ret = tafRadio.phoneManager->requestCellularCapabilityInfo(tafRadio.cellularCapsCb);
-     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
+    taf_pa_radio_SimCapabilityInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetSimCapacityInfo(&info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get SIM capabilitiy information.");
+        return result;
+    }
 
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.cellularCapsCb->semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.cellularCapsCb->result != LE_OK,
-        tafRadio.cellularCapsCb->result, "Fail to get cellular capability.");
-
-
-    TAF_ERROR_IF_RET_VAL(totalSimCount == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(totalSimCount)");
-    TAF_ERROR_IF_RET_VAL(maxActiveSims == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(maxActiveSims)");
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.cellularCapsCb == nullptr, LE_FAULT,
-        "Null ptr(GetHardwareSimConfig)");
-
-    *totalSimCount = tafRadio.cellularCapsCb->simCount;
-    *maxActiveSims = tafRadio.cellularCapsCb->maxActiveSIM;
+    *totalCountPtr = info.totalCount;
+    *maxActiveCountPtr = info.maxActiveCount;
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the rat capabilities supported by the hardware for the phone id
+ *  Gets the device RAT capabilities and SIM card RAT capabilities.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
- *  - LE_TIMEOUT -- Time out.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetHardwareSimRatCapabilities
 (
-    taf_radio_RatBitMask_t* hwRatCapMask,  ///< [OUT] Hardware rat capability bitmask.
-    taf_radio_RatBitMask_t* simRatCapMask, ///< [OUT] Sim rat capability bitmask.
-    uint8_t phoneId                                  ///< [IN] Phone id.
+    taf_radio_RatBitMask_t* devBitmaskPtr, ///< [OUT] The device RAT capabilities.
+    taf_radio_RatBitMask_t* simBitmaskPtr, ///< [OUT] The SIM card RAT capabilities.
+    uint8_t phone                          ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(hwRatCapMask == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(hwRatCapMask)");
-    TAF_ERROR_IF_RET_VAL(simRatCapMask == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(simRatCapMask)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-
-    auto ret = tafRadio.phoneManager->requestCellularCapabilityInfo(tafRadio.cellularCapsCb);
-     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.cellularCapsCb->semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.cellularCapsCb->result != LE_OK,
-        tafRadio.cellularCapsCb->result, "Fail to get cellular capability.");
-
-
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    // Fetch device rat capability.
-
-    TAF_ERROR_IF_RET_VAL(true == tafRadio.cellularCapsCb->deviceRatCaps.empty(), LE_FAULT,
-        "taf_radio_GetHardwareSIMRatCapabilities function failed");
-
-    TAF_ERROR_IF_RET_VAL(phoneId > tafRadio.cellularCapsCb->deviceRatCaps.size(), LE_FAULT,
-        "taf_radio_GetHardwareSIMRatCapabilities invalid phoneId");
-
-    SlotId slotId = (SlotId)tafRadio.phoneManager->getSlotIdFromPhoneId(phoneId);
-
-
-    taf_radio_RatBitMask_t hwRatCapsMask = 0x0;
-    telux::tel::DeviceRatCapability devRatCaps;
-    for (auto deviceCaps : tafRadio.cellularCapsCb->deviceRatCaps)
+    if (devBitmaskPtr == nullptr)
     {
-      if(deviceCaps.slotId == slotId)
-      {
-        devRatCaps = deviceCaps;
-        break;
-      }
-
-    }
-    telux::tel::RATCapabilitiesMask hwCaps = devRatCaps.capabilities;
-
-    if (
-        hwCaps[(uint16_t)telux::tel::RATCapability::CDMA] |
-        hwCaps[(uint16_t)telux::tel::RATCapability::HDR]
-       )
-    {
-        hwRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_CDMA;
+        LE_ERROR("devBitmaskPtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    if(hwCaps[(uint16_t)telux::tel::RATCapability::TDS])
+    if (simBitmaskPtr == nullptr)
     {
-        hwRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_TDSCDMA;
+        LE_ERROR("simBitmaskPtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    if (hwCaps[(uint16_t)telux::tel::RATCapability::GSM])
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_DeviceAndSimCardRatCapability_t capability;
+    pa_result_t paResult = taf_pa_radio_GetDeviceAndSimCardRatCapability(instance, &capability);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
     {
-        hwRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_GSM;
+        LE_ERROR("Failed to get device and SIM card RAT capability.");
+        return result;
     }
 
-    if (hwCaps[(uint16_t)telux::tel::RATCapability::WCDMA])
-    {
-        hwRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_UMTS;
-    }
-
-    if (hwCaps[(uint16_t)telux::tel::RATCapability::LTE])
-    {
-        hwRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_LTE;
-    }
-
-    if (
-        hwCaps[(uint16_t)telux::tel::RATCapability::NR5G] |
-        hwCaps[(uint16_t)telux::tel::RATCapability::NR5GSA]
-       )
-    {
-        hwRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_NR5G;
-    }
-
-
-
-    if (hwRatCapsMask == (TAF_RADIO_RAT_BIT_MASK_CDMA | TAF_RADIO_RAT_BIT_MASK_GSM |
-        TAF_RADIO_RAT_BIT_MASK_UMTS | TAF_RADIO_RAT_BIT_MASK_LTE |
-        TAF_RADIO_RAT_BIT_MASK_NR5G | TAF_RADIO_RAT_BIT_MASK_TDSCDMA))
-    {
-        *hwRatCapMask = TAF_RADIO_RAT_BIT_MASK_ALL;
-    }
-    else
-    {
-        *hwRatCapMask = hwRatCapsMask;
-    }
-
-    // Fetch sim rat capability.
-
-    TAF_ERROR_IF_RET_VAL(true == tafRadio.cellularCapsCb->simRatCaps.empty(), LE_FAULT,
-        "taf_radio_GetHardwareSIMRatCapabilities function failed");
-
-    TAF_ERROR_IF_RET_VAL(phoneId > tafRadio.cellularCapsCb->simRatCaps.size(), LE_FAULT,
-        "taf_radio_GetHardwareSIMRatCapabilities invalid phoneId");
-
-
-    taf_radio_RatBitMask_t simRatCapsMask = 0x0;
-    telux::tel::DeviceRatCapability simRatCaps;
-    for (auto simCaps : tafRadio.cellularCapsCb->simRatCaps)
-    {
-      if(simCaps.slotId == slotId)
-      {
-        simRatCaps = simCaps;
-        break;
-      }
-
-    }
-    telux::tel::RATCapabilitiesMask simRatMask = simRatCaps.capabilities;
-
-
-    if (simRatMask[(uint16_t)telux::tel::RATCapability::CDMA] |
-        simRatMask[(uint16_t)telux::tel::RATCapability::HDR]
-        )
-    {
-        simRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_CDMA;
-    }
-
-    if(simRatMask[(uint16_t)telux::tel::RATCapability::TDS])
-    {
-        simRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_TDSCDMA;
-    }
-
-    if (simRatMask[(uint16_t)telux::tel::RATCapability::GSM])
-    {
-        simRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_GSM;
-    }
-
-    if (simRatMask[(uint16_t)telux::tel::RATCapability::WCDMA])
-    {
-        simRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_UMTS;
-    }
-
-    if (simRatMask[(uint16_t)telux::tel::RATCapability::LTE])
-    {
-        simRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_LTE;
-    }
-
-    if (
-        simRatMask[(uint16_t)telux::tel::RATCapability::NR5G] |
-        simRatMask[(uint16_t)telux::tel::RATCapability::NR5GSA]
-       )
-    {
-        simRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_NR5G;
-    }
-
-
-    if (simRatCapsMask == (TAF_RADIO_RAT_BIT_MASK_CDMA | TAF_RADIO_RAT_BIT_MASK_GSM |
-        TAF_RADIO_RAT_BIT_MASK_UMTS | TAF_RADIO_RAT_BIT_MASK_LTE |
-        TAF_RADIO_RAT_BIT_MASK_NR5G | TAF_RADIO_RAT_BIT_MASK_TDSCDMA))
-    {
-        *simRatCapMask = TAF_RADIO_RAT_BIT_MASK_ALL;
-    }
-    else
-    {
-        *simRatCapMask = simRatCapsMask;
-    }
+    *devBitmaskPtr = Utility::Convert::Rat(capability.devBitmask);
+    *simBitmaskPtr = Utility::Convert::Rat(capability.simBitmask);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add handler for CellInfo changes.
+ * Adds handler for the cell information changes.
  *
  * @return
- *  - taf_radio_CellInfoChangeHandlerRef_t Handler reference.
+ *  - taf_radio_CellInfoChangeHandlerRef_t handler reference for the cell information changes.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_CellInfoChangeHandlerRef_t taf_radio_AddCellInfoChangeHandler
 (
-    taf_radio_CellInfoChangeHandlerFunc_t handlerPtr,
-        ///< [IN] Handler function for Cell Info changes.
-    void* contextPtr
-        ///< [IN] Handler context.
+    taf_radio_CellInfoChangeHandlerFunc_t handlerFuncPtr, ///< [IN] Handler function.
+    void* contextPtr                                      ///< [IN] Handler context.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    auto& factory = Factory::GetInstance();
 
-    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("CellInfoChangeHandler",
-        tafRadio.cellInfoChangeEvId, taf_Radio::taf_radio_LayerCellInfoHandler,
-        (void*)handlerPtr);
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("CellInfoChange",
+        factory.events.cellInfoChange, Utility::LayeredFunction::CellInfoChange,
+       (void*)handlerFuncPtr);
 
     le_event_SetContextPtr(handlerRef, contextPtr);
 
@@ -5984,7 +4890,8 @@ taf_radio_CellInfoChangeHandlerRef_t taf_radio_AddCellInfoChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remove handler for cell info changes.
+ * Removes handler for the cell information changes.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 void taf_radio_RemoveCellInfoChangeHandler
@@ -5997,7 +4904,7 @@ void taf_radio_RemoveCellInfoChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Sets the hysteresis db for signal strength criteria.
+ *  Sets the hysteresis delta for signal strength criteria.
  *
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
@@ -6006,33 +4913,20 @@ void taf_radio_RemoveCellInfoChangeHandler
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetSignalStrengthIndHysteresis
 (
-    taf_radio_SigType_t sigType,    ///< Signal type.
-    uint16_t hysteresisdB,          ///< Hysteresis dBm in units of 0.1 dBm.
-    uint8_t phoneId                 ///< Phone ID.
+    taf_radio_SigType_t metric, ///< The Signal metric.
+    uint16_t delta,             ///< Hysteresis delta in units of 0.1 dBm.
+    uint8_t phone               ///< Phone.
 )
 {
-   auto &tafRadio = taf_Radio::GetInstance();
-
-   TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-   for (auto& hys : tafRadio.hysteresisConfigs)
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    if (instance >= INSTANCE_MAX_COUNT)
     {
-        if((hys.sigType == sigType) && (hys.phoneId == phoneId))
-        {
-            hys.hysteresisdB = hysteresisdB;
-            //TBD optimize this to use optimal hysteresis value.
-            return LE_OK;
-        }
+        LE_ERROR("Invalid instance %d.", instance);
+        return LE_BAD_PARAMETER;
     }
 
-    //Add a new element.
-    taf_RadioHysteresisConfig_t hysteresisNew;
-    hysteresisNew.sigType = sigType;
-    hysteresisNew.phoneId = phoneId;
-    hysteresisNew.hysteresisdB = hysteresisdB;
-    tafRadio.hysteresisConfigs.emplace_back(hysteresisNew);
-    LE_DEBUG("SigType is %d hysteresisdB is %d", sigType,hysteresisdB);
+    auto& factory = Factory::GetInstance();
+    factory.cache.hysteresisConfig[instance].delta[metric] = delta;
 
     return LE_OK;
 }
@@ -6048,68 +4942,69 @@ le_result_t taf_radio_SetSignalStrengthIndHysteresis
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetSignalStrengthIndHysteresisTimer
 (
-    uint16_t hysteresisTimer,     ///< Hysteresis time in milliseconds.
-    uint8_t phoneId               ///< Phone ID.
+    uint16_t time, ///< [IN] Hysteresis time in milliseconds.
+    uint8_t phone  ///< [IN] Phone.
 )
 {
-   auto &tafRadio = taf_Radio::GetInstance();
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    if (instance >= INSTANCE_MAX_COUNT)
+    {
+        LE_ERROR("Invalid instance %d.", instance);
+        return LE_BAD_PARAMETER;
+    }
 
-   TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
+    auto& factory = Factory::GetInstance();
+    factory.cache.hysteresisConfig[instance].time = time;
 
-   tafRadio.hysteresisTimer[phoneId - 1] =  hysteresisTimer;
-   LE_DEBUG("Hysteresis timer %d phoneId %d", hysteresisTimer,phoneId);
-   return LE_OK;
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the serving cell absolute radio frequency channel number.
+ *  Gets the serving GSM cell absolute radio frequency channel number.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
- *
- * @note Only applicable for GSM.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellArfcn
 (
-    int32_t* arfcn, ///< [OUT] Absolute radio frequency channel number.
-    uint8_t phoneId ///< [IN] Phone ID.
+    int32_t* arfcnPtr, ///< [OUT] The absolute radio frequency channel number.
+    uint8_t phone      ///< [IN] Phone ID.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
+    if (arfcnPtr == nullptr)
+    {
+        LE_ERROR("arfcnPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get cell location list information.");
+        return result;
+    }
 
-    TAF_ERROR_IF_RET_VAL(arfcn == nullptr, LE_BAD_PARAMETER, "Null ptr(arfcn)");
+    uint32_t index = Utility::Common::FindServingCell(&info);
+    if (index < info.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT &&
+        info.cellLocInfo[index].rat == TAF_PA_RADIO_RAT_GSM)
+    {
+        *arfcnPtr = info.cellLocInfo[index].gsmInfo.arfcn;
+        return LE_OK;
+    }
+    else
+        LE_ERROR("Failed to find serving cell.");
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        LE_FAULT, "Fail to get cell information.");
-
-    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), LE_FAULT,
-        "No serving cell.");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
-        TAF_RADIO_RAT_GSM, LE_FAULT, "Serving cell is not GSM.");
-
-    *arfcn = (int32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->gsm.arfcn;
-
-    return LE_OK;
+    return LE_NOT_FOUND;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -6117,56 +5012,67 @@ le_result_t taf_radio_GetServingCellArfcn
  *  Gets the serving cell UTRA absolute radio frequency channel number.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_UNSUPPORTED -- Unsupported.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
- *
- * @note Only applicable for UMTS.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellUarfcn
 (
-    int32_t* uarfcn, ///< [OUT] UTRA absolute radio frequency channel number.
-    uint8_t phoneId  ///< [IN] Phone ID.
+    int32_t* uarfcnPtr, ///< [OUT] The UTRA absolute radio frequency channel number.
+    uint8_t phone       ///< [IN] Phone.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
+    if (uarfcnPtr == nullptr)
+    {
+        LE_ERROR("uarfcnPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get cell location list information.");
+        return result;
+    }
 
-    TAF_ERROR_IF_RET_VAL(uarfcn == nullptr, LE_BAD_PARAMETER, "Null ptr(uarfcn)");
+    uint32_t index = Utility::Common::FindServingCell(&info);
+    if (index < info.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT)
+    {
+        switch (info.cellLocInfo[index].rat)
+        {
+            case TAF_PA_RADIO_RAT_UMTS:
+                *uarfcnPtr = info.cellLocInfo[index].umtsInfo.uarfcn;
+                return LE_OK;
+            case TAF_PA_RADIO_RAT_TDSCDMA:
+                *uarfcnPtr = info.cellLocInfo[index].tdscdmaInfo.uarfcn;
+                return LE_OK;
+            default:
+                LE_ERROR("Unsupported RAT %d.", info.cellLocInfo[index].rat);
+                return LE_UNSUPPORTED;
+        }
+        return LE_OK;
+    }
+    else
+        LE_ERROR("Failed to find serving cell.");
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        LE_FAULT, "Fail to get cell information.");
-
-    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), LE_FAULT,
-        "No serving cell.");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
-        TAF_RADIO_RAT_UMTS, LE_FAULT, "Serving cell is not UMTS.");
-
-    *uarfcn = (int32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->umts.uarfcn;
-
-    return LE_OK;
+    return LE_NOT_FOUND;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the operating mode.
+ *  Sets the operating mode.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
@@ -6174,56 +5080,14 @@ le_result_t taf_radio_GetServingCellUarfcn
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetOperatingMode
 (
-    taf_radio_OpMode_t mode, ///< [IN] Operating mode.
-    uint8_t phoneId          ///< [IN] Phone ID.
+    taf_radio_OpMode_t mode, ///< [IN] The operating mode.
+    uint8_t phone            ///< [IN] Phone.
 )
 {
-    telux::tel::OperatingMode opMode;
-    switch (mode)
-    {
-        case TAF_RADIO_OP_MODE_ONLINE:
-            opMode = telux::tel::OperatingMode::ONLINE;
-            break;
-        case TAF_RADIO_OP_MODE_AIRPLANE:
-            opMode = telux::tel::OperatingMode::AIRPLANE;
-            break;
-        case TAF_RADIO_OP_MODE_FACTORY_TEST:
-            opMode = telux::tel::OperatingMode::FACTORY_TEST;
-            break;
-        case TAF_RADIO_OP_MODE_OFFLINE:
-            opMode = telux::tel::OperatingMode::OFFLINE;
-            break;
-        case TAF_RADIO_OP_MODE_RESETTING:
-            opMode = telux::tel::OperatingMode::RESETTING;
-            break;
-        case TAF_RADIO_OP_MODE_SHUTTING_DOWN:
-            opMode = telux::tel::OperatingMode::SHUTTING_DOWN;
-            break;
-        case TAF_RADIO_OP_MODE_PERSISTENT_LOW_POWER:
-            opMode = telux::tel::OperatingMode::PERSISTENT_LOW_POWER;
-            break;
-        default:
-            LE_ERROR("Invalid operating mode %d.", mode);
-            return LE_BAD_PARAMETER;
-    }
+    taf_pa_radio_OperatingMode_t paMode = Utility::Convert::OperatingMode(mode);
+    pa_result_t result = taf_pa_radio_SetOperatingMode(0, paMode);
 
-    auto &tafRadio = taf_Radio::GetInstance();
-
-    auto respenseCb = std::bind(&taf_RadioSetOperatingModeCallback::setOperatingModeResponse,
-        tafRadio.setOperatingModeCb, std::placeholders::_1);
-
-    auto ret = tafRadio.phoneManager->setOperatingMode(opMode, respenseCb);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {5, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.setOperatingModeCb->semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout.");
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.setOperatingModeCb->result != LE_OK,
-        tafRadio.setOperatingModeCb->result, "Fail to set operating mode.");
-
-    return LE_OK;
+    return Utility::Convert::Result(result);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -6231,6 +5095,8 @@ le_result_t taf_radio_SetOperatingMode
  *  Gets the operating mode.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
@@ -6238,51 +5104,30 @@ le_result_t taf_radio_SetOperatingMode
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetOperatingMode
 (
-    taf_radio_OpMode_t* mode, ///< [OUT] Operating mode.
-    uint8_t phoneId           ///< [IN] Phone ID.
+    taf_radio_OpMode_t* modePtr, ///< [OUT] The operating mode.
+    uint8_t phone                ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(mode == nullptr, LE_BAD_PARAMETER, "Null ptr(mode)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-
-    auto ret = tafRadio.phoneManager->requestOperatingMode(tafRadio.getOperatingModeCb);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {5, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.getOperatingModeCb->semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.getOperatingModeCb->result != LE_OK,
-        tafRadio.getOperatingModeCb->result, "Fail to get operating mode.");
-
-    switch (tafRadio.getOperatingModeCb->opMode)
+    if (modePtr == nullptr)
     {
-        case telux::tel::OperatingMode::ONLINE:
-            *mode = TAF_RADIO_OP_MODE_ONLINE;
-            break;
-        case telux::tel::OperatingMode::AIRPLANE:
-            *mode = TAF_RADIO_OP_MODE_AIRPLANE;
-            break;
-        case telux::tel::OperatingMode::FACTORY_TEST:
-            *mode = TAF_RADIO_OP_MODE_FACTORY_TEST;
-            break;
-        case telux::tel::OperatingMode::OFFLINE:
-            *mode = TAF_RADIO_OP_MODE_OFFLINE;
-            break;
-        case telux::tel::OperatingMode::RESETTING:
-            *mode = TAF_RADIO_OP_MODE_RESETTING;
-            break;
-        case telux::tel::OperatingMode::SHUTTING_DOWN:
-            *mode = TAF_RADIO_OP_MODE_SHUTTING_DOWN;
-            break;
-        case telux::tel::OperatingMode::PERSISTENT_LOW_POWER:
-            *mode = TAF_RADIO_OP_MODE_PERSISTENT_LOW_POWER;
-            break;
-        default:
-            LE_ERROR("Invalid operating mode.");
-            return LE_FAULT;
+        LE_ERROR("modePtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    taf_pa_radio_OperatingMode_t mode = TAF_PA_RADIO_OPERATING_MODE_UNKNOWN;
+    pa_result_t paResult = taf_pa_radio_GetOperatingMode(0, &mode);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get operating mode.");
+        return result;
+    }
+
+    result = Utility::Convert::OperatingMode(mode, modePtr);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to convert operating mode %d.", mode);
+        return result;
     }
 
     return LE_OK;
@@ -6293,26 +5138,26 @@ le_result_t taf_radio_GetOperatingMode
  *  Gets routing area code.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_TIMEOUT -- Response time out.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
- *
- * @note Only applicable for GSM/WCDMA/TDSCDMA.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellRoutingAreaCode
 (
-    uint8_t* rac,   ///< [OUT] Routing area code.
-    uint8_t phoneId ///< [IN] Phone id.
+    uint8_t* racPtr, ///< [OUT] The routing area code.
+    uint8_t phone    ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(rac == nullptr, LE_BAD_PARAMETER, "Null ptr(rac)");
+    if (racPtr == nullptr)
+    {
+        LE_ERROR("racPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    uint32_t instance = Utility::Convert::PhoneToInstance(phoneId);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
 
     taf_pa_radio_Rat_t rat = TAF_PA_RADIO_RAT_UNKNOWN;
     pa_result_t result = taf_pa_radio_GetServingRat(instance, &rat);
@@ -6322,234 +5167,228 @@ le_result_t taf_radio_GetServingCellRoutingAreaCode
         return LE_FAULT;
     }
 
-    result = taf_pa_radio_GetServingCellRac(instance, rat, rac);
+    result = taf_pa_radio_GetServingCellRac(instance, rat, racPtr);
 
     return Utility::Convert::Result(result);
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets 2G/3G band information.
+ *  Gets the 2G/3G serving cell band information.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_TIMEOUT -- Response time out.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
- *
- * @note Only applicable for GSM/WCDMA/TDSCDMA.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellBandInfo
 (
-    taf_radio_BandBitMask_t* bandPtr,      ///< [OUT] 2G/3G active band.
-    taf_radio_RFBandWidth_t* bandWidthPtr, ///< [OUT] RF bandwidth.
-    uint8_t phoneId                        ///< [IN] Phone ID.
+    taf_radio_BandBitMask_t* bitmaskPtr,   ///< [OUT] The 2G/3G active band.
+    taf_radio_RFBandWidth_t* bandwidthPtr, ///< [OUT] The RF bandwidth.
+    uint8_t phone                          ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(bandPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandPtr)");
+    if (bitmaskPtr == nullptr)
+    {
+        LE_ERROR("bitmaskPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(bandWidthPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandWidthPtr)");
+    if (bandwidthPtr == nullptr)
+    {
+        LE_ERROR("bandwidthPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
-        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_ServingCellBandInfo_t info;
+    info.bandInfoValid = 1;
+    info.lteBandInfoValid = 0;
+    info.nr5gBandInfoValid = 0;
+    pa_result_t paResult = taf_pa_radio_GetServingCellBandInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get serving cell band information.");
+        return result;
+    }
 
-    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestRFBandInfo(
-        taf_RadioRFBandInfoResponseCallback::rfBandInfoResponse);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(
-        taf_RadioRFBandInfoResponseCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandInfoResponseCallback::result != LE_OK,
-        taf_RadioRFBandInfoResponseCallback::result, "Fail to get RF band information.");
-
-    *bandPtr = taf_RadioRFBandInfoResponseCallback::band;
-    *bandWidthPtr = taf_RadioRFBandInfoResponseCallback::bandwidth;
+    *bitmaskPtr = Utility::Convert::ToBand(info.activeBand);
+    *bandwidthPtr = Utility::Convert::Bandwidth(info.bandwidth);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets LTE band information.
+ *  Gets the LTE serving cell band information.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_TIMEOUT -- Response time out.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellLteBandInfo
 (
-    uint32_t* bandPtr,                     ///< [OUT] LTE active band.
-    taf_radio_RFBandWidth_t* bandWidthPtr, ///< [OUT] RF bandwidth.
-    uint8_t phoneId                        ///< [IN] Phone ID.
+    uint32_t* bandPtr,                     ///< [OUT] The LTE active band.
+    taf_radio_RFBandWidth_t* bandwidthPtr, ///< [OUT] The RF bandwidth.
+    uint8_t phone                          ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(bandPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandPtr)");
+    if (bandPtr == nullptr)
+    {
+        LE_ERROR("bandPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(bandWidthPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandWidthPtr)");
+    if (bandwidthPtr == nullptr)
+    {
+        LE_ERROR("bandwidthPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
-        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+    taf_pa_radio_Bandwidth_t bandwidth = TAF_PA_RADIO_BANDWIDTH_UNKNOWN;
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_ServingCellBandInfo_t info;
+    info.bandInfoValid = 0;
+    info.lteBandInfoValid = 1;
+    info.lteActiveBandPtr = bandPtr;
+    info.lteBandwidthPtr = &bandwidth;
+    info.nr5gBandInfoValid = 0;
+    pa_result_t paResult = taf_pa_radio_GetServingCellBandInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get serving cell band information.");
+        return result;
+    }
 
-    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestRFBandInfo(
-        taf_RadioRFBandInfoResponseCallback::rfBandInfoResponse);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(
-        taf_RadioRFBandInfoResponseCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandInfoResponseCallback::result != LE_OK,
-        taf_RadioRFBandInfoResponseCallback::result, "Fail to get RF band information.");
-
-    *bandPtr = taf_RadioRFBandInfoResponseCallback::lteBand;
-    *bandWidthPtr = taf_RadioRFBandInfoResponseCallback::bandwidth;
+    *bandwidthPtr = Utility::Convert::Bandwidth(bandwidth);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets NR band information.
+ *  Gets the NR5G serving cell band information.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_TIMEOUT -- Response time out.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellNrBandInfo
 (
-    uint32_t* bandPtr,                     ///< [OUT] NR active band.
-    taf_radio_RFBandWidth_t* bandWidthPtr, ///< [OUT] RF bandwidth.
-    uint8_t phoneId                        ///< [IN] Phone ID.
+    uint32_t* bandPtr,                     ///< [OUT] The NR5G active band.
+    taf_radio_RFBandWidth_t* bandwidthPtr, ///< [OUT] The RF bandwidth.
+    uint8_t phone                          ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(bandPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandPtr)");
+    if (bandPtr == nullptr)
+    {
+        LE_ERROR("bandPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    TAF_ERROR_IF_RET_VAL(bandWidthPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandWidthPtr)");
+    if (bandwidthPtr == nullptr)
+    {
+        LE_ERROR("bandwidthPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
-        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+    taf_pa_radio_Bandwidth_t bandwidth = TAF_PA_RADIO_BANDWIDTH_UNKNOWN;
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_ServingCellBandInfo_t info;
+    info.bandInfoValid = 0;
+    info.lteBandInfoValid = 0;
+    info.nr5gBandInfoValid = 1;
+    info.nr5gActiveBandPtr = bandPtr;
+    info.nr5gBandwidthPtr = &bandwidth;
+    pa_result_t paResult = taf_pa_radio_GetServingCellBandInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get serving cell band information.");
+        return result;
+    }
 
-    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
-        "Invalid para(null ptr, phoneId:%d)", phoneId);
-
-    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestRFBandInfo(
-        taf_RadioRFBandInfoResponseCallback::rfBandInfoResponse);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(
-        taf_RadioRFBandInfoResponseCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(taf_RadioRFBandInfoResponseCallback::result != LE_OK,
-        taf_RadioRFBandInfoResponseCallback::result, "Fail to get RF band information.");
-
-    *bandPtr = taf_RadioRFBandInfoResponseCallback::nrBand;
-    *bandWidthPtr = taf_RadioRFBandInfoResponseCallback::bandwidth;
+    *bandwidthPtr = Utility::Convert::Bandwidth(bandwidth);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets NR icon type.
+ *  Gets the NR icon.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
  *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_TIMEOUT -- Response time out.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetNrIconType
 (
-    taf_radio_NrIconType_t* typePtr, ///< [OUT] NR icon type.
-    uint8_t phoneId                  ///< [IN] Phone ID.
+    taf_radio_NrIconType_t* iconPtr, ///< [OUT] The NR icon.
+    uint8_t phone                    ///< [IN] Phone.
 )
 {
-    TAF_ERROR_IF_RET_VAL(typePtr == NULL, LE_BAD_PARAMETER, "Null ptr(typePtr)");
-
-    auto &tafRadio = taf_Radio::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    SlotId slotId = (SlotId)tafRadio.phoneManager->getSlotIdFromPhoneId(phoneId);
-    TAF_ERROR_IF_RET_VAL(tafRadio.dataServSysManagers[slotId] == nullptr, LE_FAULT,
-        "Invalid Data Serving manager(slotId:%d)", slotId);
-
-    auto iconTypeCb = [&tafRadio](telux::data::NrIconType type, telux::common::ErrorCode error)
+    if (iconPtr == nullptr)
     {
-        LE_DEBUG("<SDK Callback> lamda --> requestNrIconType");
-        if (error == telux::common::ErrorCode::SUCCESS)
-        {
-            tafRadio.nrIconCb.type = tafRadio.taf_radio_ConvertNrIconType(type);
-            tafRadio.nrIconCb.result = LE_OK;
-        }
-        else
-        {
-            LE_ERROR("Error(%d)", (int)error);
-            tafRadio.nrIconCb.result = LE_FAULT;
-        }
+        LE_ERROR("iconPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-        le_sem_Post(tafRadio.nrIconCb.semaphore);
-    };
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_NrIcon_t icon = TAF_PA_RADIO_NR_ICON_UNKNOWN;
+    pa_result_t paResult = taf_pa_radio_GetNrIcon(instance, &icon);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get NR icon.");
+        return result;
+    }
 
-    auto ret = tafRadio.dataServSysManagers[slotId]->requestNrIconType(iconTypeCb);
-    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
+    *iconPtr = Utility::Convert::NrIcon(icon);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to convert NR icon %d.", icon);
+        return result;
+    }
 
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.nrIconCb.semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
-
-    TAF_ERROR_IF_RET_VAL(tafRadio.nrIconCb.result != LE_OK,
-        tafRadio.nrIconCb.result, "Fail to get NR icon type.");
-
-    *typePtr = tafRadio.nrIconCb.type;
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add handler for NR icon type changes.
+ * Adds handler for the NR icon type changes.
+ *
+ * @return
+ *  - taf_radio_NrIconTypeHandlerRef_t handler reference for the NR icon type changes.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_NrIconTypeHandlerRef_t taf_radio_AddNrIconTypeHandler
 (
-    taf_radio_NrIconTypeHandlerFunc_t handlerFuncPtr,
-        ///< [IN] Handler function for NR icon type changes.
-    void* contextPtr
-        ///< [IN] Context.
+    taf_radio_NrIconTypeHandlerFunc_t handlerFuncPtr, ///< [IN] Handler function.
+    void* contextPtr                                  ///< [IN] Handler context.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    auto& factory = Factory::GetInstance();
 
-    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("NrIconTypeHandler",
-        tafRadio.nrIconTypeEvId, taf_Radio::taf_radio_LayerNrIconTypeHandler,
-        (void*)handlerFuncPtr);
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("NrIconChange",
+        factory.events.nrIconChange, Utility::LayeredFunction::NrIconChange,
+       (void*)handlerFuncPtr);
 
     le_event_SetContextPtr(handlerRef, contextPtr);
 
@@ -6558,12 +5397,13 @@ taf_radio_NrIconTypeHandlerRef_t taf_radio_AddNrIconTypeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remove handler for NR icon type changes.
+ * Removes handler for the NR icon type changes.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 void taf_radio_RemoveNrIconTypeHandler
 (
-    taf_radio_NrIconTypeHandlerRef_t handlerRef  ///< [IN] Handler reference.
+    taf_radio_NrIconTypeHandlerRef_t handlerRef ///< [IN] Handler reference.
 )
 {
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
@@ -6571,26 +5411,30 @@ void taf_radio_RemoveNrIconTypeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add handler for CA information changes.
+ * Adds handler for the CA information changes.
+ *
+ * @return
+ *  - taf_radio_CAInfoHandlerRef_t handler reference for the CA information changes.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_CAInfoHandlerRef_t taf_radio_AddCAInfoHandler
 (
-    taf_radio_Rat_t rat,
-        ///< [IN] Radio Access Technology.
-    taf_radio_CAInfoHandlerFunc_t handlerFuncPtr,
-        ///< [IN] Handler function for CA information changes.
-    void* contextPtr
-        ///< [IN] Context.
+    taf_radio_Rat_t rat,                          ///< [IN] Radio Access Technology.
+    taf_radio_CAInfoHandlerFunc_t handlerFuncPtr, ///< [IN] Handler function.
+    void* contextPtr                              ///< [IN] Handler Context.
 )
 {
-    TAF_ERROR_IF_RET_VAL(rat != TAF_RADIO_RAT_LTE, nullptr, "Invalid para(RAT:%d)", rat);
+    if (rat != TAF_RADIO_RAT_LTE)
+    {
+        LE_ERROR("Invalid RAT %d.", rat);
+        return nullptr;
+    }
 
-    auto &tafRadio = taf_Radio::GetInstance();
+    auto& factory = Factory::GetInstance();
 
-    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("LteCAInfoHandler",
-        tafRadio.lteCAIndEvId, taf_Radio::taf_radio_LayerLteCAHandler,
-        (void*)handlerFuncPtr);
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("CAInfoChange",
+        factory.events.caInfoChange, Utility::LayeredFunction::CAInfoChange,
+       (void*)handlerFuncPtr);
 
     le_event_SetContextPtr(handlerRef, contextPtr);
 
@@ -6599,12 +5443,13 @@ taf_radio_CAInfoHandlerRef_t taf_radio_AddCAInfoHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remove handler for CA information changes.
+ * Removes handler for CA information changes.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 void taf_radio_RemoveCAInfoHandler
 (
-    taf_radio_CAInfoHandlerRef_t handlerRef  ///< [IN] Handler reference.
+    taf_radio_CAInfoHandlerRef_t handlerRef ///< [IN] Handler reference.
 )
 {
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
@@ -6612,63 +5457,84 @@ void taf_radio_RemoveCAInfoHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get carrier aggregation information.
+ *  Gets the carrier aggregation information.
  *
  * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_UNSUPPORTED -- Unsupported.
  *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCAInformation
 (
-    uint8_t phoneId,
-    taf_radio_Rat_t rat,
-    taf_radio_CAInfoRef_t* infoRefPtr
+    uint8_t phone,                      ///< [IN] Phone.
+    taf_radio_Rat_t rat,                ///< [IN] Radio Access Technology.
+    taf_radio_CAInfoRef_t* referencePtr ///< [OUT] The carrier aggregation information reference.
 )
 {
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    TAF_ERROR_IF_RET_VAL(rat != TAF_RADIO_RAT_LTE, LE_BAD_PARAMETER, "Invalid para(RAT:%d)", rat);
-
-    uint32_t instance = Utility::Convert::PhoneToInstance(phoneId);
-    taf_pa_radio_LteCphyCaInfo_t info;
-    pa_result_t result = taf_pa_radio_GetLteCphyCaInfo(instance, &info);
-    if (result != 0)
+    if (referencePtr == nullptr)
     {
-        LE_ERROR("Failed to LTE Control PHY Carrier Aggregation information.");
-        return LE_FAULT;
+        LE_ERROR("referencePtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    auto& radio = taf_Radio::GetInstance();
-    taf_RadioCAInfo_t* infoPtr = (taf_RadioCAInfo_t*)le_mem_ForceAlloc(radio.caInfoPool);
+    if (rat != TAF_RADIO_RAT_LTE)
+    {
+        LE_ERROR("Invalid RAT %d.", rat);
+        return LE_UNSUPPORTED;
+    }
+
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_LteCphyCaInfo_t info;
+    pa_result_t paResult = taf_pa_radio_GetLteCphyCaInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to LTE Control PHY Carrier Aggregation information.");
+        return result;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_mem_ForceAlloc(factory.pools.caInfo);
     Utility::Convert::LteCphyCaInfo(&info, infoPtr);
-    *infoRefPtr = (taf_radio_CAInfoRef_t)le_ref_CreateRef(radio.caInfoMap, (void*)infoPtr);
+    *referencePtr = (taf_radio_CAInfoRef_t)le_ref_CreateRef(factory.maps.caInfo, (void*)infoPtr);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Delete carrier aggregation information.
+ *  Deletes the carrier aggregation information.
  *
  * @return
- *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeleteCAInformation
 (
-    taf_radio_CAInfoRef_t infoRef
+    taf_radio_CAInfoRef_t reference ///< [IN] The carrier aggregation information reference.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    taf_RadioCAInfo_t* infoPtr = (taf_RadioCAInfo_t*)le_ref_Lookup(tafRadio.caInfoMap, infoRef);
-    TAF_ERROR_IF_RET_VAL(infoPtr == nullptr, LE_NOT_FOUND, "Invalid para(null ptr)");
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
 
-    le_ref_DeleteRef(tafRadio.caInfoMap, infoRef);
+    le_ref_DeleteRef(factory.maps.caInfo, reference);
 
     le_mem_Release(infoPtr);
 
@@ -6677,49 +5543,73 @@ le_result_t taf_radio_DeleteCAInformation
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the CA status and active CC count of LTE.
+ * Gets the Carrier Aggregation (CA) status and the number of active Component Carriers (CC)
+ * currently configured for LTE.
  *
  * @return
- *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteCAStatus
 (
-    taf_radio_CAInfoRef_t infoRef,
-    taf_radio_CAStatus_t* statusPtr,
-    uint32_t* activeCCNumPtr
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    taf_radio_CAStatus_t* statusPtr, ///< [OUT] The carrier aggregation status.
+    uint32_t* numPtr                 ///< [OUT] The number of active component carriers
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    taf_RadioCAInfo_t* infoPtr = (taf_RadioCAInfo_t*)le_ref_Lookup(tafRadio.caInfoMap, infoRef);
-    TAF_ERROR_IF_RET_VAL(infoPtr == nullptr, LE_NOT_FOUND, "Invalid para(null ptr)");
+    if (statusPtr == nullptr)
+    {
+        LE_ERROR("statusPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (numPtr == nullptr)
+    {
+        LE_ERROR("numPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
 
     *statusPtr = infoPtr->status;
-    *activeCCNumPtr = infoPtr->cellCount;
+    *numPtr = infoPtr->cellCount;
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add handler for connection status
+ * Adds handler for the connection status changes.
+ *
+ * @return
+ *  - taf_radio_ConnectionStatusHandlerRef_t handler reference for the connection status changes.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_ConnectionStatusHandlerRef_t taf_radio_AddConnectionStatusHandler
 (
-    taf_radio_ConnectionStatusHandlerFunc_t handlerFuncPtr,
-        ///< [IN] Handler function for connection status.
-    void* contextPtr
-        ///< [IN] Context.
+    taf_radio_ConnectionStatusHandlerFunc_t handlerFuncPtr, ///< [IN] Handler function.
+    void* contextPtr                                        ///< [IN] Handler context.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    auto& factory = Factory::GetInstance();
 
-    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("ConnectionStatus",
-        tafRadio.connStatusEvId, taf_Radio::taf_radio_LayerConnStatusHandler,
-        (void*)handlerFuncPtr);
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("ConnStatusChange",
+        factory.events.connStatusChange, Utility::LayeredFunction::ConnStatusChange,
+       (void*)handlerFuncPtr);
 
     le_event_SetContextPtr(handlerRef, contextPtr);
 
@@ -6728,12 +5618,13 @@ taf_radio_ConnectionStatusHandlerRef_t taf_radio_AddConnectionStatusHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remove handler for connection status
+ * Removes the handler for the connection status changes
+ *
  */
 //--------------------------------------------------------------------------------------------------
 void taf_radio_RemoveConnectionStatusHandler
 (
-    taf_radio_ConnectionStatusHandlerRef_t handlerRef  ///< [IN] Handler reference.
+    taf_radio_ConnectionStatusHandlerRef_t handlerRef ///< [IN] Handler reference.
 )
 {
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
@@ -6745,63 +5636,79 @@ void taf_radio_RemoveConnectionStatusHandler
  *
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetConnStatus
 (
-    uint8_t phoneId,
-    taf_radio_ConnStatusRef_t* statusRefPtr
+    uint8_t phone,                          ///< [IN] Phone.
+    taf_radio_ConnStatusRef_t* referencePtr ///< [OUT] The reference of connection status.
 )
 {
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
-        "Invalid para(phoneId:%d)", phoneId);
-
-    uint32_t instance = Utility::Convert::PhoneToInstance(phoneId);
-
-    taf_pa_radio_DataAvailSysStatus_t status;
-    pa_result_t result = taf_pa_radio_GetDataAvailSysStatus(instance, &status);
-    if (result != 0)
+    if (referencePtr == nullptr)
     {
-        LE_ERROR("Failed to get data available system status.");
-        return LE_FAULT;
+        LE_ERROR("referencePtr is nullptr.");
+        return LE_BAD_PARAMETER;
     }
 
-    auto& radio = taf_Radio::GetInstance();
-    taf_radio_NREndcAvailability_t* statusPtr =
-        (taf_radio_NREndcAvailability_t*)le_mem_ForceAlloc(radio.connStatusPool);
-    *statusPtr = Utility::Convert::EndcStatus(&status);
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
 
-    *statusRefPtr = (taf_radio_ConnStatusRef_t)le_ref_CreateRef(radio.connStatusMap,
-        (void*)statusPtr);
+    taf_pa_radio_DataAvailSysStatus_t status;
+    pa_result_t paResult = taf_pa_radio_GetDataAvailSysStatus(instance, &status);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get data available system status.");
+        return result;
+    }
+
+    auto& factory = Factory::GetInstance();
+
+    taf_radio_NREndcAvailability_t* availabilityPtr =
+        (taf_radio_NREndcAvailability_t*)le_mem_ForceAlloc(factory.pools.connStatus);
+    *availabilityPtr = Utility::Convert::EndcStatus(&status);
+
+    *referencePtr = (taf_radio_ConnStatusRef_t)le_ref_CreateRef(factory.maps.connStatus,
+        (void*)availabilityPtr);
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Delete the reference of connection status.
+ *  Deletes the connection status.
  *
  * @return
- *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeleteConnStatus
 (
-    taf_radio_ConnStatusRef_t statusRef
+    taf_radio_ConnStatusRef_t reference ///< [IN] The reference of connection status.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    taf_radio_NREndcAvailability_t* statusPtr =
-        (taf_radio_NREndcAvailability_t*)le_ref_Lookup(tafRadio.connStatusMap, statusRef);
-    TAF_ERROR_IF_RET_VAL(statusPtr == nullptr, LE_NOT_FOUND, "Invalid para(null ptr)");
+    auto& factory = Factory::GetInstance();
 
-    le_ref_DeleteRef(tafRadio.connStatusMap, statusRef);
+    taf_radio_NREndcAvailability_t* availabilityPtr =
+        (taf_radio_NREndcAvailability_t*)le_ref_Lookup(factory.maps.connStatus, reference);
+    if (availabilityPtr == nullptr)
+    {
+        LE_ERROR("availabilityPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    le_mem_Release(statusPtr);
+    le_ref_DeleteRef(factory.maps.connStatus, reference);
+
+    le_mem_Release(availabilityPtr);
 
     return LE_OK;
 }
@@ -6811,23 +5718,28 @@ le_result_t taf_radio_DeleteConnStatus
  *  Gets the ENDC connection status.
  *
  * @return
- *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetEndcConnectionStatus
 (
-    taf_radio_ConnStatusRef_t statusRef,
-    taf_radio_NREndcAvailability_t* statusPtr
+    taf_radio_ConnStatusRef_t reference,            ///< [IN] The reference of connection status.
+    taf_radio_NREndcAvailability_t* statusPtr ///< [OUT] The ENDC connection status.
 )
 {
-    auto &tafRadio = taf_Radio::GetInstance();
+    auto& factory = Factory::GetInstance();
 
-    taf_radio_NREndcAvailability_t* statePtr =
-        (taf_radio_NREndcAvailability_t*)le_ref_Lookup(tafRadio.connStatusMap, statusRef);
-    TAF_ERROR_IF_RET_VAL(statePtr == nullptr, LE_NOT_FOUND, "Invalid para(null ptr)");
+    taf_radio_NREndcAvailability_t* availabilityPtr =
+        (taf_radio_NREndcAvailability_t*)le_ref_Lookup(factory.maps.connStatus, reference);
+    if (availabilityPtr == nullptr)
+    {
+        LE_ERROR("availabilityPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
 
-    *statusPtr = *statePtr;
+    *statusPtr = *availabilityPtr;
 
     return LE_OK;
 }

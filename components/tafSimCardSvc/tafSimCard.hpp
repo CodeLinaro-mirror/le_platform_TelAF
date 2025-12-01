@@ -205,10 +205,8 @@ using namespace std;
                 std::shared_ptr<telux::tel::ISubscriptionManager> subMgr = nullptr;
                 std::shared_ptr<telux::tel::ISubscriptionListener> subscriptionListener;
                 std::shared_ptr<telux::tel::ISimProfileManager> simProfileManager = nullptr;
-                std::promise<le_result_t> ProfileSyncPromise = std::promise<le_result_t>();
                 std::shared_ptr<telux::tel::IMultiSimManager> multiSimMgr = nullptr;
                 std::shared_ptr<telux::tel::IMultiSimListener> multiSimListener;
-                std::promise<telux::common::ErrorCode> slotStatusCbPromise;
 
                 int slot = DEFAULT_SLOT_ID;
                 int slotCount = 0;
@@ -289,6 +287,7 @@ using namespace std;
                 le_result_t IsEmergencyCallSubscriptionSelected (taf_sim_Id_t simId, bool* isEcs);
                 le_result_t LocalSwapToEmergencyCallSubscription(taf_sim_Id_t simId, taf_sim_Manufacturer_t manufacturer);
                 le_result_t LocalSwapToCommercialCallSubscription(taf_sim_Id_t simId, taf_sim_Manufacturer_t manufacturer);
+                void requestsSlotsStatusResponse(std::map<SlotId,telux::tel::SlotStatus> slotStatus,telux::common::ErrorCode error);
                 le_result_t profileListCallbackEm(
                         const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles,
                         telux::common::ErrorCode error,

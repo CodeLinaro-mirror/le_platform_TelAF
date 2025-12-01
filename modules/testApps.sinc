@@ -12,6 +12,7 @@ apps:
     $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallUnitTest/tafDataCallUnitTest
     $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallIntTest/tafDataCallIntTest
     $TELAF_ROOT/apps/test/tafVoiceCallTest/tafVoiceCallUnitTest/tafVoiceCallUnitTest
+    $TELAF_ROOT/apps/test/tafVoiceCallTest/tafVoiceCallIntegrationTest/tafVoiceCallIntTest
     $TELAF_ROOT/apps/test/ConsoleApp/tafVoiceCallApp/tafVoiceCallConsoleApp
     $TELAF_ROOT/apps/test/tafRadioTest/tafRadioUnitTest
     $TELAF_ROOT/apps/test/tafRadioTest/tafRadioIntTest

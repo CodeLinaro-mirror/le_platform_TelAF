@@ -2011,8 +2011,8 @@ le_result_t taf_Audio::RecordFile
     TAF_ERROR_IF_RET_VAL((streamPtr->direction == TAF_AUDIO_TX) ? mIsRecording : mIsRxRecording,
             LE_BUSY, "Another file recording is in progress");
 
-    if (((streamPtr->direction == TAF_AUDIO_TX) && !mIsRecording/*!mIsCaptureStreamCreated*/)
-            || ((streamPtr->direction == TAF_AUDIO_RX) && !mIsRxRecording/*!mIsRxCaptureStreamCreated*/)) {
+    if (((streamPtr->direction == TAF_AUDIO_TX) && !mIsCaptureStreamCreated)
+            || ((streamPtr->direction == TAF_AUDIO_RX) && !mIsRxCaptureStreamCreated)) {
         PaStreamConfig config = {};
         config.type = PaStreamType::CAPTURE;
         config.slotId = PaSlotId::SLOT_ID_1;
@@ -2628,7 +2628,6 @@ le_result_t taf_Audio::StopAudio(taf_audio_Stream_t* streamPtr)
         if ((streamPtr->direction == TAF_AUDIO_TX && mIsRecording)
                     || (streamPtr->direction == TAF_AUDIO_RX && mIsRxRecording)) {
             LE_DEBUG("Stop Recording");
-            resetCallbackPromise();
             if(streamPtr->direction == TAF_AUDIO_TX)
                 mIsRecording = false;
             else
@@ -2718,12 +2717,12 @@ le_result_t taf_Audio::DeleteAudioStream(taf_audio_Stream_t* streamPtr)
                 if(cbRes == PA_OK)
                 {
                     LE_DEBUG("Successfully deleted the capture stream");
+                    mIsCaptureStreamCreated = false;
                 }
                 else
                 {
                     LE_ERROR("Failed to delete capture stream, err : %d", cbRes);
                 }
-                gCallbackPromise.set_value(cbRes);
             }
             else {
                 LE_ERROR("Error in delete capture stream");
@@ -2747,13 +2746,29 @@ le_result_t taf_Audio::DeleteAudioStream(taf_audio_Stream_t* streamPtr)
                 {
                     LE_ERROR("Failed to delete remote capture stream, err : %d", cbRes);
                 }
-                gCallbackPromise.set_value(cbRes);
             }
             else {
                 LE_ERROR("Error in delete capture stream");
                 return LE_FAULT;
             }
         }
+        try
+        {
+            gCallbackPromise.set_value(cbRes);
+        }
+        catch (const std::future_error& e)
+        {
+            LE_ERROR("Future error in callback: %s", e.what());
+        }
+        catch (const std::exception& e)
+        {
+            LE_ERROR("Exception in callback: %s", e.what());
+        }
+        catch (...)
+        {
+            LE_ERROR("Unknown error in callback.");
+        }
+        resetCallbackPromise();
     }
     if(status == PA_OK)
         LE_INFO("status is success");
@@ -3403,7 +3418,7 @@ le_result_t taf_Audio::SetVolume
         LE_DEBUG("Set volume to recorder stream reference");
         TAF_ERROR_IF_RET_VAL(streamPtr->direction == TAF_AUDIO_RX, LE_UNSUPPORTED,
                 "Volume API is not supported on remote stream");
-        if(!mIsRecording) {
+        if(!mIsCaptureStreamCreated) {
             LE_DEBUG("Stream is not active, update the volume level to stream reference");
             streamPtr->volLevel = volLevel;
             return LE_OK;

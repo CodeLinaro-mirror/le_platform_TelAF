@@ -26,8 +26,8 @@ requires:
 
     lib:
     {
-        libtaf_pa_sms.so
-        libtaf_pa_smsDef.so
+        libComponent_taf_pa_sms.so
+        libComponent_taf_pa_smsDef.so
     }
 }
 

@@ -17,8 +17,8 @@ requires:
 {
     lib:
     {
-        libtaf_pa_wlan.so
-        libtaf_pa_wlanDef.so
+        libComponent_taf_pa_wlan.so
+        libComponent_taf_pa_wlanDef.so
     }
 
     api:

@@ -4955,7 +4955,7 @@ le_result_t taf_locGnss::StartMode
                 /* 0 - EPHEMERIS 1 - DR_SENSOR_CALIBRATION
                 AidingData |1UL << 0 which is 1*/
 
-                uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_DR_SENSOR_CALIBRATION;
+                uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_EPHEMERIS;
                 pa_result_t res = taf_pa_location_deleteAidingData((taf_pa_location_AidingDataType_t)AidingData, cb1, (std::any)&resCallback);
                 if (res != PA_OK)
                 {

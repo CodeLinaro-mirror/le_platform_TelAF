@@ -3338,7 +3338,38 @@ bool tafMngdConnAdmin::DataConnectivityTest_URL(std::string url, std::string int
 bool tafMngdConnAdmin::DataConnectivityTest_IPv4(std::string ipv4, std::string interfaceName)
 {
     //Enable LE_CONFIG_DEBUG to get the output of ping in logs
-    LE_INFO("DataConnectivityTest_IPv4 entered for interface %s",interfaceName.c_str());
+    LE_INFO("DataConnectivityTest_IPv4 entered for interface %s", interfaceName.c_str());
+
+    // Validate interface name (prevent invalid or unsafe values)
+    if (interfaceName.empty())
+    {
+        LE_ERROR("Interface name is empty");
+        LE_INFO("DataConnectivityTest_IPv4 failed for interface %s", interfaceName.c_str());
+        return false;
+    }
+
+    // Allow only common network interface characters: letters, digits, underscore, hyphen, dot
+    std::regex interfacePattern("^[A-Za-z0-9_.-]+$");
+    if (!std::regex_match(interfaceName, interfacePattern))
+    {
+        LE_ERROR("Invalid interface name: %s", interfaceName.c_str());
+        LE_INFO("DataConnectivityTest_IPv4 failed for interface %s", interfaceName.c_str());
+        return false;
+    }
+
+    // Validate IPv4 format before attempting ping
+    std::regex ipv4Pattern(
+        "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}"
+        "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+    );
+
+    if (!std::regex_match(ipv4, ipv4Pattern))
+    {
+        LE_ERROR("Invalid IPv4 address format: %s", ipv4.c_str());
+        LE_INFO("DataConnectivityTest_IPv4 failed for interface %s", interfaceName.c_str());
+        return false;
+    }
+
 #if LE_CONFIG_DEBUG
         std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+ ipv4;
         //5 is the number of ping pockets

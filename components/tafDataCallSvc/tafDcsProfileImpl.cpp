@@ -345,19 +345,16 @@ le_result_t TafDcsProfile::SetIPv4Addresses
     ipv4DnsSecondary_ = ipv4DnsSecondary;
     ipv4AddrMask_     = ipv4AddrMask;
     ipv4GatewayMask_  = ipv4GatewayMask;
-    LE_INFO("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
-    LE_INFO("IPv4 address: %s", ipv4Addr_.c_str());
-    LE_DEBUG("IPv4 gateway: %s", ipv4Gateway_.c_str());
-    LE_DEBUG("IPv4 DNS primary: %s", ipv4DnsPrimary_.c_str());
-    LE_DEBUG("IPv4 DNS secondary: %s", ipv4DnsSecondary_.c_str());
-    LE_DEBUG("IPv4 address mask: %u", ipv4AddrMask_);
-    LE_DEBUG("IPv4 gateway mask: %u", ipv4GatewayMask_);
+    LE_INFO("Phone Id: %d, Profile Id: %d, addr: %s", phoneId_, profileId_, ipv4Addr_.c_str());
+    LE_INFO("IPv4 gateway: %s, DNS primary: %s, DNS secondary: %s", ipv4Gateway_.c_str(),
+                                           ipv4DnsPrimary_.c_str(), ipv4DnsSecondary_.c_str());
+    LE_INFO("IPv4 address mask: %u, gateway mask: %u", ipv4AddrMask_, ipv4GatewayMask_);
     return LE_OK;
 }
 
 void TafDcsProfile::ResetIPv4Addresses ()
 {
-    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_INFO("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
     ipv4Addr_.clear();
     ipv4Gateway_.clear();
     ipv4DnsPrimary_.clear();
@@ -382,13 +379,11 @@ le_result_t TafDcsProfile::SetIPv6Addresses
     ipv6DnsSecondary_ = ipv6DnsSecondary;
     ipv6AddrMask_     = ipv6AddrMask;
     ipv6GatewayMask_  = ipv6GatewayMask;
-    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
-    LE_DEBUG("IPv6 address: %s", ipv6Addr_.c_str());
-    LE_DEBUG("IPv6 gateway: %s", ipv6Gateway_.c_str());
-    LE_DEBUG("IPv6 DNS primary: %s", ipv6DnsPrimary_.c_str());
-    LE_DEBUG("IPv6 DNS secondary: %s", ipv6DnsSecondary_.c_str());
-    LE_DEBUG("IPv6 address mask: %d", ipv6AddrMask_);
-    LE_DEBUG("IPv6 gateway mask: %d", ipv6GatewayMask_);
+    LE_INFO("Phone Id: %d, Profile Id: %d, IPv6 address: %s", phoneId_, profileId_,
+                                                                                ipv6Addr_.c_str());
+    LE_INFO("IPv6 gateway: %s, DNS primary: %s, DNS secondary: %s", ipv6Gateway_.c_str(),
+                                                ipv6DnsPrimary_.c_str(), ipv6DnsSecondary_.c_str());
+    LE_INFO("IPv6 address mask: %d, gateway mask: %d", ipv6AddrMask_, ipv6GatewayMask_);
     return LE_OK;
 }
 void TafDcsProfile::ResetIPv6Addresses()
@@ -460,6 +455,29 @@ le_result_t TafDcsProfile::SetEmergencyCallSupport(bool bEmerCallSupport)
     return LE_OK;
 }
 
+/**
+ * @brief Convert connection state to string.
+ *
+ * TODO: Move to a common location.
+ */
+static inline const char *ToString(taf_dcs_ConState_t state)
+{
+    switch (state)
+    {
+    case TAF_DCS_DISCONNECTED:
+        return "disconnected";
+    case TAF_DCS_CONNECTING:
+        return "connecting";
+    case TAF_DCS_CONNECTED:
+        return "connected";
+    case TAF_DCS_DISCONNECTING:
+        return "disconnecting";
+    default:
+        LE_WARN("unknown state: %d", state);
+        return "unknown state";
+    }
+}
+
 le_result_t TafDcsProfile::SetSessionState
 (
     const taf_dcs_ConState_t state,
@@ -470,10 +488,10 @@ le_result_t TafDcsProfile::SetSessionState
     connState_     = state;
     connStateIPv4_ = stateIPv4;
     connStateIPv6_ = stateIPv6;
-    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
-    LE_DEBUG("Conn state           : %d", TO_INT(connState_));
-    LE_DEBUG("Connection state IPv4: %d", TO_INT(connStateIPv4_));
-    LE_DEBUG("Connection state IPv6: %d", TO_INT(connStateIPv6_));
+    LE_INFO("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_INFO("Conn state : %s (IPv4: %s, IPv6: %s)", ToString(connState_),
+                                                            ToString(connStateIPv4_),
+                                                            ToString(connStateIPv6_));
     return LE_OK;
 }
 
@@ -489,25 +507,26 @@ le_result_t TafDcsProfile::GetCallEndReason
     code     = callEndReasonCode_;
     typeIPv4 = callEndReasonTypeIPv4_;
     typeIPv6 = callEndReasonTypeIPv6_;
-    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
-    LE_DEBUG("Reason     : %d, Code: %d", TO_INT(callEndReasonType_), callEndReasonCode_);
-    LE_DEBUG("Reason IPv4: %d, IPv4: %d", TO_INT(connStateIPv4_), TO_INT(connStateIPv6_));
+    LE_INFO("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
+    LE_INFO("Reason     : %d, Code: %d (Reason IPv4: %d, Reason IPv6: %d)",
+            TO_INT(callEndReasonType_), callEndReasonCode_,
+            TO_INT(callEndReasonTypeIPv4_), TO_INT(callEndReasonTypeIPv6_));
     return LE_OK;
 }
 
 le_result_t TafDcsProfile::GetDataBearerTech(taf_dcs_DataBearerTechnology_t &tech) const
 {
     tech = dataBearerTech_;
-    LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
-    LE_DEBUG("Data bearer tech: %d", TO_INT(dataBearerTech_));
+    LE_DEBUG("Phone Id: %d, Profile Id: %d, Tech: %d", phoneId_, profileId_,
+                                                                          TO_INT(dataBearerTech_));
     return LE_OK;
 }
 
 le_result_t TafDcsProfile::SetDataBearerTech(const taf_dcs_DataBearerTechnology_t tech)
 {
     dataBearerTech_  = tech;
-    LE_INFO("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
-    LE_INFO("Data bearer tech: %d", TO_INT(dataBearerTech_));
+    LE_DEBUG("Phone Id: %d, Profile Id: %d, Tech: %d", phoneId_, profileId_,
+                                                                          TO_INT(dataBearerTech_));
     return LE_OK;
 }
 
@@ -610,11 +629,11 @@ le_result_t TafDcsProfile::RemoveClient(le_msg_SessionRef_t clientRef, size_t &l
     std::unique_lock lock(dataReqClientsSetMutex_);
     if (dataReqClients_.erase(clientRef))
     {
-        LE_DEBUG("Erased %p", clientRef);
+        LE_INFO("Erased %p", clientRef);
     }
     else
     {
-        LE_DEBUG("Not available in the set: %p", clientRef);
+        LE_INFO("Not available in the set: %p", clientRef);
         result = LE_NOT_FOUND;
     }
 
@@ -634,10 +653,10 @@ bool TafDcsProfile::HasClientCalledSessionStart(le_msg_SessionRef_t clientRef)
     auto client = dataReqClients_.find(clientRef);
     if (client != dataReqClients_.end())
     {
-        LE_DEBUG("Client %p has requested data.", clientRef);
+        LE_INFO("Client %p has requested data: true", clientRef);
         return true;
     }
-    LE_DEBUG("Client %p has not requested data.", clientRef);
+    LE_DEBUG("Client %p has requested data: false", clientRef);
     return false;
 }
 
@@ -652,7 +671,7 @@ bool TafDcsProfile::AddStartSessionAsyncClient
     // Get a write lock
     std::unique_lock<std::shared_mutex> lock(startSessionAsyncRequestorsMapMutex_);
     auto result = startSessionAsyncRequestorsMap_.emplace(client,std::make_pair(callback, context));
-    LE_DEBUG("Added client %p: %s", client, (result.second ? "true" : "false"));
+    LE_INFO("Added client %p: %s", client, (result.second ? "true" : "false"));
     // Returns true if insertion was successful, false if client already exists
     return result.second;
 }
@@ -669,6 +688,7 @@ TafDcsProfile::GetStartSessionAsyncClients() const
         LE_DEBUG("Add client %p", client);
         entries.emplace_back(client, pair.first, pair.second);
     }
+    LE_INFO("Num entries: %zu", entries.size());
     return entries;
 }
 
@@ -679,7 +699,7 @@ bool TafDcsProfile::RemoveStartSessionAsyncClient(le_msg_SessionRef_t client)
     // Returns true if the entry was removed, false if the key was not found
     if (startSessionAsyncRequestorsMap_.erase(client))
     {
-        LE_DEBUG("Client :%p was erased.", client);
+        LE_INFO("Client :%p was erased.", client);
         return true;
     }
     LE_DEBUG("Client :%p was not erased.", client);
@@ -697,7 +717,7 @@ bool TafDcsProfile::AddStopSessionAsyncClient
     // Get a write lock
     std::unique_lock<std::shared_mutex> lock(stopSessionAsyncRequestorsMapMutex_);
     auto result = stopSessionAsyncRequestorsMap_.insert({client, {callback, context}});
-    LE_DEBUG("Added client %p: %s", client, (result.second ? "true" : "false"));
+    LE_INFO("Added client %p: %s", client, (result.second ? "true" : "false"));
     // Returns true if insertion was successful, false if client already exists
     return result.second;
 }
@@ -713,6 +733,7 @@ TafDcsProfile::GetStopSessionAsyncClients() const
         LE_DEBUG("Add client %p", client);
         entries.emplace_back(client, pair.first, pair.second);
     }
+    LE_INFO("Num entries: %zu", entries.size());
     return entries;
 }
 
@@ -723,7 +744,7 @@ bool TafDcsProfile::RemoveStopSessionAsyncClient(le_msg_SessionRef_t client)
     // Returns true if the entry was removed, false if the key was not found
     if (stopSessionAsyncRequestorsMap_.erase(client))
     {
-        LE_DEBUG("Client %p was erased.", client);
+        LE_INFO("Client %p was erased.", client);
         return true;
     }
     LE_DEBUG("Client %p was not erased.", client);

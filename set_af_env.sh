@@ -236,9 +236,6 @@ function build_target() {
         return
     fi
 
-    # Build telaf-prop source code if exists
-    build_extras "prop" "${TARGET}"
-
     # Build telaf-noship source code if exists
     build_extras "noship" "${TARGET}"
 
@@ -251,7 +248,6 @@ function build_target() {
     local TELAF_PA_BUILD_DIR="${TELAF_ROOT}/build/${TARGET}/telaf-pa"
 
     [[ ! -d $TELAF_NOSHIP_BUILD_DIR ]] && TELAF_NOSHIP_BUILD_DIR=$TELAF_NOSHIP
-    [[ ! -d $TELAF_PROP_BUILD_DIR ]] && TELAF_PROP_BUILD_DIR=$TELAF_PROP
 
     build_extras_pa "${TELAF_PROP}" "${TELAF_PROP_BUILD_DIR}/"
     if [ $? -ne 0 ]; then

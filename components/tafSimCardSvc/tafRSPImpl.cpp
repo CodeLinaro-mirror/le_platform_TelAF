@@ -183,48 +183,51 @@ void* taf_simRsp::ProfileAddHandlerThread(void* contextPtr)
 void taf_simRsp::Init(void)
 {
     auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
-    simProfileManager = phoneFactory.getSimProfileManager();
-    if (!simProfileManager)
-    {
-        LE_FATAL("Failed to get sim profile manager.");
-    }
-    else
-    {
-        telux::common::ServiceStatus simProfileMgrStatus = simProfileManager->getServiceStatus();
-        if (simProfileMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+
+    telux::common::ServiceStatus simProfileMgrStatus = telux::common::ServiceStatus::SERVICE_UNAVAILABLE;
+
+    LE_INFO("Sim profile subsystem initializing...");
+
+    std::promise<telux::common::ServiceStatus> simProfileMgrProm;
+    simProfileManager = phoneFactory.getSimProfileManager([&](telux::common::ServiceStatus status) {
+        LE_INFO("Getting status:%d from sim profile manager", (int)status);
+        if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
         {
-            LE_INFO("Sim profile subsystem is not ready, waiting for it to be ready...");
-            std::promise<telux::common::ServiceStatus> simProfileMgrProm;
-            simProfileManager = phoneFactory.getSimProfileManager([&](telux::common::ServiceStatus status) {
-                LE_INFO("Getting status:%d from sim profile manager", (int)status);
-                if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-                {
-                    simProfileMgrProm.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
-                }
-                else {
-                    simProfileMgrProm.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
-                }
-            });
-            std::future<telux::common::ServiceStatus> initFuture = simProfileMgrProm.get_future();
-            std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
-                TAF_SIM_SUBSYSTEM_TIMEOUT));
-            if (std::future_status::timeout == waitStatus)
-            {
-                LE_FATAL ("Timeout waiting for sim profile susbsytem");
-            }
-            else
-            {
-                simProfileMgrStatus = initFuture.get();
-            }
+            simProfileMgrProm.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
         }
-        if (simProfileMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        else {
+            simProfileMgrProm.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
+        }
+    });
+
+    if(simProfileManager != nullptr)
+    {
+        std::future<telux::common::ServiceStatus> initFuture = simProfileMgrProm.get_future();
+        std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
+            TAF_SIM_SUBSYSTEM_TIMEOUT));
+        if (std::future_status::timeout == waitStatus)
         {
-            LE_INFO("Sim profile subsystem is ready.");
+            LE_ERROR("Timeout waiting for sim profile susbsytem");
         }
         else
         {
-            LE_FATAL("Fail to init sim profile subsystem");
+            simProfileMgrStatus = initFuture.get();
         }
+    }
+    else
+    {
+        LE_INFO("simProfileManager is null.");
+        simProfileMgrStatus = telux::common::ServiceStatus::SERVICE_FAILED;
+    }
+
+    if (simProfileMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+    {
+        LE_INFO("Sim profile subsystem is ready.");
+    }
+    else
+    {
+        LE_ERROR("Fail to init sim profile subsystem");
+        return;
     }
 
     ProfileListPool = le_mem_InitStaticPool(tafProfileListPool,
@@ -242,6 +245,8 @@ void taf_simRsp::Init(void)
     char eidPtr[TAF_SIM_EID_BYTES];
     GetEID((taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_2, eidPtr, TAF_SIM_EID_BYTES);
     LE_INFO(" EID = %s", eidPtr);
+
+    taf_simRsp_AdvertiseService();
 }
 
 taf_simRsp &taf_simRsp::GetInstance()

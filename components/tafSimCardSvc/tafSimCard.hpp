@@ -230,6 +230,7 @@ using namespace std;
                 bool IsPsEventInProgress = false;
                 bool RefreshVoteSent_Slot1 = false;
                 bool RefreshVoteSent_Slot2 = false;
+                bool IsSimProfileEnable = false;
                 void RemoveStateHandler(taf_sim_NewStateHandlerRef_t handlerRef);
                 taf_sim_States_t getState(taf_sim_Id_t simId);
                 const char* cardStateToString(CardState state);

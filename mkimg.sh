@@ -185,7 +185,19 @@ install_libs_to_runtime() {
       continue
     fi
 
-    run cp -a "$so" "$dst/"
+    if [[ ! -L "$so" ]]; then
+      if [[ -n "$OBJCOPY" && -n "$OUTPUT" ]]; then
+        ensure_dir "$OUTPUT"
+        local dbgfile="$OUTPUT/${base}.debug"
+        info "[$module] keep debug: $dbgfile"
+        run "$OBJCOPY" --only-keep-debug "$so" "$dbgfile"
+        (( ! NO_STRIP )) && run "$STRIP" --strip-unneeded "$so"
+      else
+        (( ! NO_STRIP )) && run "$STRIP" --strip-unneeded "$so"
+      fi
+    fi
+
+    run cp "${CP_FLAGS[@]}" "$so" "$dst/"
     ((count++))
   done < <(find "$dir" -maxdepth 2 \( -type f -o -type l \) -name '*.so*' -print0) || true
 

@@ -76,8 +76,12 @@ using namespace tafpa::audio;
 #define DEFAULT_MAX_FILE_BYTES 90112
 #define MAX_FILE_BYTES_NODE_NAME "maxFileBytes"
 #define INFINITE_TONE_DURATION 65535
-#define MAX_NUM_OF_ATTEMPTS   10
-#define RETRY_TIMER_INTERVAL  3000
+#define MAX_NUM_OF_VHAL_LOAD_ATTEMPTS   10
+#define VHAL_RETRY_TIMER_INTERVAL  3000
+#define MAX_NUM_OF_MPMS_CONN_ATTEMPTS 3
+#define MAX_NUM_OF_MPMS_TIMER_REPEAT 2
+#define MPMS_DELAY_TIMER_INTERVAL 31000
+#define MPMS_CONN_RETRY_TIMER_INTERVAL 1000
 
 /**
  * Symbols used to populate wave header file.
@@ -439,10 +443,10 @@ class taf_Audio : public ITafSvc
         bool mIsCaptureStreamCreated = false, mIsRxCaptureStreamCreated = false;
         bool mIsPlayStreamCreated = false;
         bool mIsRecording = false, mIsRxRecording = false;
-        bool mIsMpmsReady = false;
         uint32_t mBufferRecordedTillNow, mRxBufferRecordedTillNow;
         uint32_t maxFileBytes;
         int32_t  currentRepeat;
+        uint32_t mpmsTimerRepeat = 0;
         FILE *mFile, // File ptr for local recording
                 *mRxFile; //File ptr for incall downlink recording
         le_sem_Ref_t mRecordSemRef, mRxRecordSemRef, mPbStartedSemRef,
@@ -453,6 +457,8 @@ class taf_Audio : public ITafSvc
         taf_Dtmf_t dtmfDataRx{}, dtmfDataTx{};
         taf_mngdPm_InfoReportHandlerRef_t bubHandlerRef;
         le_event_HandlerRef_t bufferHandlerRef;
+        le_timer_Ref_t vhalRetryTimer = nullptr, mpmsRetryTimer = nullptr,
+                mpmsDelayTimer = nullptr;
 
         le_mem_PoolRef_t ConnectorPool = NULL;
         le_mem_PoolRef_t StreamPool = NULL;
@@ -501,6 +507,7 @@ class taf_Audio : public ITafSvc
         le_result_t startRecording(taf_audio_Stream_t* streamPtr);
         void RecBufferHandler(taf_audio_Stream_t* streamPtr);
         void AdvertiseAndRegisterHandler();
+        void StartMpmsRetryTimer();
 
         static void ClientSessionCloseEventHandler( le_msg_SessionRef_t sessionRef,
                             void* contextPtr);
@@ -520,6 +527,9 @@ class taf_Audio : public ITafSvc
         static void* playAllDtmfTones(void* dtmfTones);
         static void* playDTMFonTX(void* dtmfTones);
         static void BufferEventHandler(void* contextPtr);
-        static void RetryHandler(le_timer_Ref_t timerRef);
+        static void VhalRetryHandler(le_timer_Ref_t timerRef);
+        static void MpmsConnectHandler(le_timer_Ref_t timerRef);
+        static void MpmsDelayHandler(le_timer_Ref_t timerRef);
+        static void MpmsDisconnectHandler(void* contextPtr);
 };
 }

@@ -1764,7 +1764,7 @@ le_result_t TafDcsProfileManager::SvcStartSessionSync
     taf_dcs_ConState_t ipv4state, ipv6state;
     result = profile.GetSessionState(connState, ipv4state, ipv6state);
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "GetSessionState failed: %d", TO_INT(result));
-    LE_DEBUG("Phone Id: %d, Profile Id: %d, PDP: %d", phoneId, profileId,TO_INT(pdpIpType));
+    LE_INFO("Phone Id: %d, Profile Id: %d, PDP: %d", phoneId, profileId,TO_INT(pdpIpType));
     LE_DEBUG("State: %d", TO_INT(connState));
 
     LE_INFO("Client: %p", clientRef);
@@ -1781,6 +1781,11 @@ le_result_t TafDcsProfileManager::SvcStartSessionSync
         // Add this client to the list of clients that have requested data.
         profile.AddClient(clientRef, listSize);
         return LE_IN_PROGRESS;
+    }
+    if (TAF_DCS_DISCONNECTING == connState)
+    {
+        LE_WARN("Disconnection in progress");
+        return LE_BUSY;
     }
     taf::pa::data::DataCallStartStopParams_t params =
     {
@@ -1961,7 +1966,7 @@ void TafDcsProfileManager::SvcStartSessionASync
         );
         return;
     }
-    LE_DEBUG("Phone Id: %d, Profile Id: %d, PDP: %d", phoneId, profileId, TO_INT(pdpIpType));
+    LE_INFO("Phone Id: %d, Profile Id: %d, PDP: %d", phoneId, profileId, TO_INT(pdpIpType));
     LE_DEBUG("State: %d", TO_INT(connState));
 
     if (TAF_DCS_CONNECTED == connState)
@@ -1994,6 +1999,18 @@ void TafDcsProfileManager::SvcStartSessionASync
         size_t listSize;
         profile.AddClient(clientRef, listSize);
         LE_DEBUG("Client %p added. Num clients: %zu", clientRef, listSize);
+        return;
+    }
+    if (TAF_DCS_DISCONNECTING == connState)
+    {
+        LE_WARN("Disconnection in progress");
+        response.result = LE_BUSY;
+        le_event_Report
+        (
+            tafDcsSvc.GetStartSessionAsyncRspEvtId(),
+            &response,
+            sizeof(TafDcsSendStartSessionAsyncRsp_t)
+        );
         return;
     }
 
@@ -2054,7 +2071,7 @@ le_result_t TafDcsProfileManager::SvcStopSessionSync
     taf_dcs_ConState_t ipv4state, ipv6state;
     result = profile.GetSessionState(connState, ipv4state, ipv6state);
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "GetSessionState failed: %d", TO_INT(result));
-    LE_DEBUG("Phone Id: %d, Profile Id: %d, PDP: %d", phoneId, profileId,TO_INT(pdpIpType));
+    LE_INFO("Phone Id: %d, Profile Id: %d, PDP: %d", phoneId, profileId, TO_INT(pdpIpType));
     LE_DEBUG("State: %d", TO_INT(connState));
 
     if (TAF_DCS_DISCONNECTED == connState)
@@ -2081,6 +2098,11 @@ le_result_t TafDcsProfileManager::SvcStopSessionSync
     {
         LE_INFO("Disconnection in progress");
         return LE_IN_PROGRESS;
+    }
+    if (TAF_DCS_CONNECTING == connState)
+    {
+        LE_WARN("Connection in progress");
+        return LE_BUSY;
     }
     taf::pa::data::DataCallStartStopParams_t params =
     {
@@ -2235,9 +2257,8 @@ void TafDcsProfileManager::SvcStopSessionASync
         );
         return;
     }
-    LE_DEBUG("Phone Id: %d, Profile Id: %d, PDP: %d", phoneId, profileId, TO_INT(pdpIpType));
-    LE_DEBUG("State: %d", TO_INT(connState));
-
+    LE_INFO("Phone Id: %d, Profile Id: %d, PDP: %d, State: %d", phoneId, profileId,
+                                                            TO_INT(pdpIpType), TO_INT(connState));
     if (TAF_DCS_DISCONNECTED == connState)
     {
         LE_WARN("Already disconnected. No active data call found.");
@@ -2262,6 +2283,18 @@ void TafDcsProfileManager::SvcStopSessionASync
             &response,
             sizeof(TafDcsSendStopSessionAsyncRsp_t)
         );
+        return;
+    }
+    if (TAF_DCS_CONNECTING == connState)
+    {
+        LE_WARN("Connection in progress");
+        response.result = LE_BUSY;
+        le_event_Report(
+            tafDcsSvc.GetStopSessionAsyncRspEvtId(),
+            &response,
+            sizeof(TafDcsSendStopSessionAsyncRsp_t)
+        );
+        return;
     }
 
     // Remove the client from the list of clients that had called StartSession before stopping data.
@@ -4098,9 +4131,8 @@ void TafDcsProfileManager::startSessionAsyncRspEventHandler(void *reqPtr)
 
     TafDcsSendStartSessionAsyncRsp_t *eventPtr = static_cast<TafDcsSendStartSessionAsyncRsp_t *>
                                                                                         (reqPtr);
-    LE_DEBUG("Client  ref: %p", eventPtr->clientRef);
-    LE_DEBUG("Profile ref: %p", eventPtr->profileRef);
-    LE_DEBUG("Result     : %d", TO_INT(eventPtr->result));
+    LE_INFO("Client  ref: %p, Profile ref: %p, Result : %d", eventPtr->clientRef,
+                                                   eventPtr->profileRef, TO_INT(eventPtr->result));
 
     // Get the profile.
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -4123,7 +4155,7 @@ void TafDcsProfileManager::startSessionAsyncRspEventHandler(void *reqPtr)
         taf_dcs_AsyncSessionHandlerFunc_t handlerFunc = std::get<1>(client);
         void *context = std::get<2>(client);
 
-        LE_DEBUG("Sending event to client %p", clientRef);
+        LE_INFO("Sending event to client %p", clientRef);
         handlerFunc(eventPtr->profileRef, eventPtr->result, context);
 
         // Remove the client from the list of clients that have requested async session start.
@@ -4134,7 +4166,6 @@ void TafDcsProfileManager::startSessionAsyncRspEventHandler(void *reqPtr)
             // Add this client to the list of clients that have requested data.
             size_t listSize = 0;
             profile.AddClient(clientRef, listSize);
-            LE_DEBUG("Client %p added. Num clients: %zu", clientRef, listSize);
         }
     }
 }
@@ -4165,9 +4196,8 @@ void TafDcsProfileManager::stopSessionAsyncRspEventHandler(void *reqPtr)
 
     TafDcsSendStopSessionAsyncRsp_t *eventPtr = static_cast<TafDcsSendStopSessionAsyncRsp_t *>(
                                                                                             reqPtr);
-    LE_DEBUG("Client  ref: %p", eventPtr->clientRef);
-    LE_DEBUG("Profile ref: %p", eventPtr->profileRef);
-    LE_DEBUG("Result     : %d", TO_INT(eventPtr->result));
+    LE_INFO("Client  ref: %p, Profile ref: %p, Result : %d", eventPtr->clientRef,
+                                                   eventPtr->profileRef, TO_INT(eventPtr->result));
 
     // Get the profile.
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -4190,7 +4220,7 @@ void TafDcsProfileManager::stopSessionAsyncRspEventHandler(void *reqPtr)
         taf_dcs_AsyncSessionHandlerFunc_t handlerFunc = std::get<1>(client);
         void *context = std::get<2>(client);
 
-        LE_DEBUG("Sending event to client %p", clientRef);
+        LE_INFO("Sending event to client %p", clientRef);
         handlerFunc(eventPtr->profileRef, eventPtr->result, context);
 
         // Remove the client from the list of clients that have requested async session stop.

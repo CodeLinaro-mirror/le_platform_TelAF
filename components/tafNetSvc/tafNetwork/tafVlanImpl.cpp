@@ -1920,6 +1920,10 @@ le_result_t taf_Vlan::UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef)
 
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting slotId and profileId failed");
 
+    vlanConfig.vlanId = vlanId;
+    vlanBindConfig.slotId = slotId;
+    vlanBindConfig.profileId = profileId;
+
     result = PA_TO_LE_RESULT(taf_pa_net_UnbindWithProfile(vlanConfig,vlanBindConfig));
     return result;
 }

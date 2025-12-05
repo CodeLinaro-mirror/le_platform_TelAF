@@ -39,6 +39,7 @@
 #include <memory>
 #include <vector>
 #include <iostream>
+#include <atomic>
 #include "telux/data/DataConnectionManager.hpp"
 #include "telux/data/DataDefines.hpp"
 #include "telux/data/DataFactory.hpp"
@@ -442,6 +443,7 @@ namespace tafsvc {
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             bool subSystemStatusUpdated;
             std::mutex mtx;
+            mutable std::mutex managersMutex_;
             std::condition_variable conVar;
             std::map<SlotId, std::shared_ptr<telux::data::IServingSystemManager>>
                                                                           dataServingSystemManagers;
@@ -468,8 +470,13 @@ namespace tafsvc {
                                                                             dataConnectionListeners;
             std::map<SlotId, std::shared_ptr<taf_DataConnectionListener>>
                                                                         tafDataConnectionListeners;
+            bool IsActive() const
+            {
+                return isActive_.load(std::memory_order_acquire);
+            }
 
         private:
+            std::atomic<bool> isActive_{false};
             le_dls_List_t    DataCallCtxList = LE_DLS_LIST_INIT;
             le_dls_List_t HandlerSessionMappingList = LE_DLS_LIST_INIT;
             le_mem_PoolRef_t HandlerSessionMappingPool = NULL;

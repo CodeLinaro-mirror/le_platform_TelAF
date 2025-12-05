@@ -1459,6 +1459,76 @@ le_result_t taf_DataConnection::SendGettingDefaultProfileIdCmd(uint8_t slotId)
     return LE_OK;
 }
 
+
+/**
+ * @brief Builds a data-call response callback used for start/stop operations.
+ *
+ * @param slotId          - Slot associated with the data call (captured for logging/reporting).
+ * @param profileId       - Data profile identifier used when initiating or stopping the call.
+ * @param eventType       - Event type dispatched if the call object is missing or invalid.
+ * @param successCallback - Handler invoked when TelSDK returns a valid IDataCall pointer.
+ *
+ * @return telux::data::DataCallResponseCb  A lambda safe for asynchronous invocation that
+ *         reports failures through taf_DataConnection events and forwards successes
+ *         to the supplied handler.
+ */
+template <typename CallbackFunc>
+telux::data::DataCallResponseCb CreateStartStopDataCallCb
+(
+    uint8_t slotId,
+    int32_t profileId,
+    EventType_t eventType,
+    CallbackFunc &&successCallback
+)
+{
+    using CallbackT = typename std::decay<CallbackFunc>::type;
+    auto cbHolder = std::make_shared<CallbackT>(std::forward<CallbackFunc>(successCallback));
+
+    return [slotId, profileId, eventType, cbHolder]
+    (
+        const std::shared_ptr<telux::data::IDataCall> &iCall,
+        telux::common::ErrorCode err
+    )
+    {
+        auto &dc = taf_DataConnection::GetInstance();
+        if (!dc.IsActive())
+        {
+            LE_WARN("Ignoring TelSDK callback for slotId(%d) profileId(%d) after deinit",
+                slotId, profileId);
+            return;
+        }
+
+        if (iCall == nullptr)
+        {
+            LE_WARN("NULL iCall for slotId(%d) profileId(%d), errorCode: %d",
+                slotId, profileId, static_cast<int>(err));
+
+            dataCallEvent_t callEvent{}; // value-initialized to zero all fields
+            callEvent.event = eventType;
+            callEvent.errorCode = telux::common::ErrorCode::SUCCESS;
+            callEvent.profileId = profileId;
+            callEvent.slotId = slotId;
+            callEvent.callStatus = telux::data::DataCallStatus::NET_NO_NET;
+            callEvent.ipType = telux::data::IpFamilyType::UNKNOWN;
+            callEvent.ipv4Status = telux::data::DataCallStatus::NET_NO_NET;
+            callEvent.ipv6Status = telux::data::DataCallStatus::NET_NO_NET;
+            callEvent.dataBearerTech = telux::data::DataBearerTechnology::UNKNOWN;
+            callEvent.maxRxBitRate = 0;
+            callEvent.maxTxBitRate = 0;
+            callEvent.callEndReasonIPv4.callEndReasonType = TAF_DCS_CE_TYPE_UNKNOWN;
+            callEvent.callEndReasonIPv4.reasonInternal = TAF_DCS_CE_INTERNAL_UNKNOWN;
+            callEvent.callEndReasonIPv6.callEndReasonType = TAF_DCS_CE_TYPE_UNKNOWN;
+            callEvent.callEndReasonIPv6.reasonInternal = TAF_DCS_CE_INTERNAL_UNKNOWN;
+
+            le_event_Report(dc.CallEvent, &callEvent, sizeof(dataCallEvent_t));
+            return;
+        }
+
+        // Calling Start/Stop cb
+        (*cbHolder)(iCall, err);
+    };
+}
+
 le_result_t taf_DataConnection::MakeCall
 (
     uint8_t slotId,
@@ -1466,19 +1536,41 @@ le_result_t taf_DataConnection::MakeCall
     telux::data::IpFamilyType ipType
 )
 {
-    telux::common::Status status;
-
-    if(dataConnectionManagers.find((SlotId)slotId) == dataConnectionManagers.end())
+    auto &dc = taf_DataConnection::GetInstance();
+    if (!dc.IsActive())
     {
-        LE_ERROR("Connection manager is not init for slot %d", slotId);
+        LE_WARN("startDataCall ignored for slotId(%d) profileId(%d); taf_DataConnection inactive",
+            slotId, profileId);
         return LE_FAULT;
     }
 
-    status = dataConnectionManagers[static_cast<SlotId>(slotId)]->startDataCall(profileId, ipType,
-                                                                            StartDataCallCallback);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
-                         "Starting call failed, ret: %d", (int32_t)status);
+    std::shared_ptr<telux::data::IDataConnectionManager> manager;
+    {
+        std::lock_guard<std::mutex> lock(managersMutex_);
+        const auto it = dataConnectionManagers.find(static_cast<SlotId>(slotId));
+        if (it != dataConnectionManagers.end())
+        {
+            manager = it->second;
+        }
+    }
 
+    if (!manager)
+    {
+        LE_ERROR("Connection manager is not initialized for slot %d", slotId);
+        return LE_FAULT;
+    }
+
+    auto cb = CreateStartStopDataCallCb(slotId, profileId, EVT_START_CALLBACK,
+        StartDataCallCallback);
+
+    const auto status = manager->startDataCall(profileId, ipType, cb);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS,
+                         LE_FAULT,
+                         "Starting call failed for slot %d profile %d, ret: %d",
+                         slotId,
+                         profileId,
+                         static_cast<int32_t>(status));
+    LE_DEBUG("startDataCall was successful for slot %d profile %d", slotId, profileId);
     return LE_OK;
 }
 
@@ -1489,19 +1581,41 @@ le_result_t taf_DataConnection::StopCall
     telux::data::IpFamilyType ipType
 )
 {
-    telux::common::Status status;
-
-    if(dataConnectionManagers.find((SlotId)slotId) == dataConnectionManagers.end())
+    auto &dc = taf_DataConnection::GetInstance();
+    if (!dc.IsActive())
     {
-        LE_ERROR("Connection manager is not init for slot %d", slotId);
+        LE_WARN("stopDataCall ignored for slotId(%d) profileId(%d); taf_DataConnection inactive",
+            slotId, profileId);
         return LE_FAULT;
     }
 
-    status = dataConnectionManagers[static_cast<SlotId>(slotId)]->stopDataCall(profileId, ipType,
-                                                                           StopDataCallCallback);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
-                         "Stopping call failed, ret: %d", (int32_t)status);
+    std::shared_ptr<telux::data::IDataConnectionManager> manager;
+    {
+        std::lock_guard<std::mutex> lock(managersMutex_);
+        const auto it = dataConnectionManagers.find(static_cast<SlotId>(slotId));
+        if (it != dataConnectionManagers.end())
+        {
+            manager = it->second;
+        }
+    }
 
+    if (!manager)
+    {
+        LE_ERROR("Connection manager is not initialized for slot %d", slotId);
+        return LE_FAULT;
+    }
+
+    auto cb = CreateStartStopDataCallCb(slotId, profileId, EVT_STOP_CALLBACK,
+        StopDataCallCallback);
+
+    const auto status = manager->stopDataCall(profileId, ipType, cb);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS,
+                         LE_FAULT,
+                         "Stopping call failed for slot %d profile %d, ret: %d",
+                         slotId,
+                         profileId,
+                         static_cast<int32_t>(status));
+    LE_DEBUG("stopDataCall was successful for slot %d profile %d", slotId, profileId);
     return LE_OK;
 }
 
@@ -3106,6 +3220,11 @@ taf_dcs_Pdp_t taf_DataConnection::GetEvtInfoFromConnStatus
 
 void taf_DataConnection::InternalDataCallEventHandler(void *reportPtr)
 {
+    if (!IsActive())
+    {
+        LE_WARN("Dropping internal data call event because taf_DataConnection is deinitialized");
+        return;
+    }
     le_result_t result = LE_OK, clientRet = LE_OK;
     bool isSendNotification;
     dataCallEvent_t *eventPtr = (dataCallEvent_t *)reportPtr;
@@ -4167,6 +4286,7 @@ void taf_DataConnection::Init(void)
     }
 #endif
 
+    isActive_.store(true, std::memory_order_release);
     return;
 }
 
@@ -4217,6 +4337,8 @@ void taf_DataConnection::ClearDataCallCtxList(void)
 
 void taf_DataConnection::Deinit(void)
 {
+    isActive_.store(false, std::memory_order_release);
+
     // Deregister TelSDK listeners
     DeregisterListeners();
 

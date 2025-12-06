@@ -8,6 +8,8 @@
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
 #include "tafMngdConnAdmin.hpp"
+#include <map>
+#include <utility>
 
 namespace tafsvc {
 
@@ -18,6 +20,7 @@ namespace tafsvc {
             ~tafMngdConnData() {};
 
             void Init(void);
+            void Deinit(void);
             static tafMngdConnData &GetInstance();
             le_result_t Startdata(uint8_t phoneId, uint32_t profileId);
             le_result_t Startdata(uint8_t phoneId, uint32_t profileId, uint8_t timeout);
@@ -26,6 +29,8 @@ namespace tafsvc {
             le_result_t GetConnectionInfo(mcs_DataCtx_t* dataCtxPtr);
             le_result_t GetAllConnectionInfo(profileInfo_t *profileNumberList, int listSize);
             void RegisterEvents();
+            void UnregisterEvents();
+
         private:
             // Promise to sync async commands
             static std::promise<le_result_t> AsyncAPIPromise;
@@ -48,9 +53,12 @@ namespace tafsvc {
             le_result_t result,
             void* contextPtr);
             static void* DataThreadHandler(void *contextPtr);
+            static void DataThreadDestructor(void *contextPtr);
 
         private:
-            taf_dcs_SessionStateHandlerRef_t SessionStateHandlerRef = NULL;
+            // Map to store session state handlers: key is (phoneId,profileId), value is handler ref
+            std::map<std::pair<int, uint32_t>, taf_dcs_SessionStateHandlerRef_t>
+                                                                           sessionStateHandlerMap_;
 
     };
 

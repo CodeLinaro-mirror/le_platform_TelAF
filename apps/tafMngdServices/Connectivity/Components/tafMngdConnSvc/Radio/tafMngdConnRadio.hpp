@@ -36,6 +36,7 @@ class tafMngdConnRadio: public ITafSvc
         le_result_t SetAutoRegMode(uint8_t phoneId);
         bool IsAutoRegMode(uint8_t phoneId);
         void RegisterEvents();
+        void UnregisterEvents();
         bool IsNetworkRegistered(uint8_t phoneId);
         static void GsmSsChangeHandler(int32_t ss, int32_t rsrp, uint8_t phoneId, void *contextPtr);
         static void UmtsSsChangeHandler(int32_t ss, int32_t rsrp,

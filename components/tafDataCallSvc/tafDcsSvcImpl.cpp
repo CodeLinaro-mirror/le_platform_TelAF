@@ -245,6 +245,7 @@ void TafDcsSvc::startThreads()
     // Start the internal events thread
     tafDcsEventsThreadRef_ = le_thread_Create("tafDcsEventsThread", tafDcsEventsThreadHandler,
                                                                                             NULL);
+    le_thread_SetJoinable(tafDcsEventsThreadRef_);
     le_thread_Start(tafDcsEventsThreadRef_);
 }
 
@@ -252,6 +253,7 @@ void TafDcsSvc::stopThreads()
 {
     // Stop the internal events thread
     le_thread_Cancel(tafDcsEventsThreadRef_);
+    le_thread_Join(tafDcsEventsThreadRef_, NULL);
 }
 
 void TafDcsSvc::registerClientsConnectDisconnectHandlers()

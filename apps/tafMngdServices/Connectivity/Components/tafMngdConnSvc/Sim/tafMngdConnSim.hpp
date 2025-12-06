@@ -21,8 +21,9 @@ class tafMngdConnSim: public ITafSvc
         static tafMngdConnSim &GetInstance();
         bool IsSimReady(uint8_t slotId);
         void RegisterEvents();
+        void UnregisterEvents();
         static void SimStateHandler(taf_sim_Id_t simId, taf_sim_States_t simState,
-                                    void* contextPtr);
+                                    void *contextPtr);
         le_result_t PowerOn(uint8_t slotId);
         le_result_t PowerOff(uint8_t slotId);
 

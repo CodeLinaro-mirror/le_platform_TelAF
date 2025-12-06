@@ -41,6 +41,7 @@ static void DcsSigTermEventHandler
     // Call deinit function to cleanup
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
     tafDcsSvc.Deinit();
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -49,6 +50,7 @@ COMPONENT_INIT
     LE_INFO("Data Call Service Component Init");
 
     // Setup signal event handler.
+    le_sig_Block(SIGTERM);
     le_sig_SetEventHandler(SIGTERM, DcsSigTermEventHandler);
 
     // Check if the PA service is initialized.

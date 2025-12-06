@@ -157,6 +157,19 @@ void tafMngdConnRadio::PackSwStateHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Unregister radio events.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnRadio::UnregisterEvents()
+{
+    if (packSwStateHandlerRef)
+    {
+        taf_radio_RemovePacketSwitchedChangeHandler(packSwStateHandlerRef);
+        packSwStateHandlerRef = NULL;
+    }
+}
+//--------------------------------------------------------------------------------------------------
+/**
  * Register radio event handler.
  */
 //--------------------------------------------------------------------------------------------------

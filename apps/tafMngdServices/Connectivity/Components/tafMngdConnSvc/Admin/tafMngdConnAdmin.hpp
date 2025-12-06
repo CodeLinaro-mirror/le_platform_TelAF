@@ -230,6 +230,7 @@ namespace tafsvc {
             ~tafMngdConnAdmin() {};
 
             void Init(void);
+            void Deinit(void);
             static tafMngdConnAdmin &GetInstance();
             taf_mngdConn_DataRef_t GetRefByDataId(uint8_t dataId);
             taf_mngdConn_DataRef_t GetRefByName(const char *dataName);
@@ -370,10 +371,14 @@ namespace tafsvc {
             // TelAF event handler and callback functions
             // Entry function for thread that receives events from TelAF services.
             static void *callback_thread_func(void *contextPtr);
+            // Events thread destructor
+            static void callback_thread_destructor(void *contextPtr);
             // State machine thread entry function
             static void *StateMachineEventThreadFunc(void *contextPtr);
             // State machine event handler function
             static void StateMachineEvtHandlerFunc(void *reqPtr);
+            // State machine thread destructor function
+            static void StateMachineEvtThreadDestructorFunc(void *contextPtr);
 
             // Timer handler
             static void PeriodicConnectivityTestTimerHandler(le_timer_Ref_t timerRef);

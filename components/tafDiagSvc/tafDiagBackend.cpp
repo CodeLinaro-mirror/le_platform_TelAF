@@ -38,8 +38,6 @@ void taf_DiagBackend::UdsIndicationHanler
     taf_uds_AddrInfo_t addrInfo;
     taf_DiagBackend& backend = taf_DiagBackend::GetInstance();
 
-    LE_DEBUG("Enter UdsIndicationHanler");
-
     if (addrInfoPtr == NULL || diagMsgPtr == NULL)
     {
         LE_ERROR("Bad parameter, invalid indication.");
@@ -102,8 +100,6 @@ void taf_DiagBackend::IntIndicationHandler
 )
 {
     taf_DiagBackend& backend = taf_DiagBackend::GetInstance();
-
-    LE_DEBUG("Enter IntegrationIndicationHanler");
 
     if (addrInfoPtr == NULL || msgPtr == NULL)
     {
@@ -223,7 +219,6 @@ le_result_t taf_DiagBackend::InitUdsStack
         VlanAndSesTypePtr = (taf_RxVlanCurrentSesType_t *)le_mem_ForceAlloc(VlanAndSesTypeMemPool);
         VlanAndSesTypePtr->vlanId = vlanIdPtr->vlanId;
         VlanAndSesTypePtr->currentSesType = 0x01; // Set Default value on starting
-        LE_DEBUG("vlanId: %x", VlanAndSesTypePtr->vlanId);
         VlanAndSesTypePtr->link = LE_DLS_LINK_INIT;
 
         // add this event context to list
@@ -260,8 +255,6 @@ void taf_DiagBackend::ClearUDSVlanList
     le_dls_List_t* vlanIdListPtr
 )
 {
-    LE_DEBUG("ClearUDSVlanList");
-
     le_dls_Link_t* linkPtr = NULL;
 
     TAF_ERROR_IF_RET_NIL(vlanIdListPtr == NULL, "vlanListPtr is null");
@@ -293,7 +286,6 @@ bool taf_DiagBackend::isVlanIdValid
     uint16_t vlanId
 )
 {
-    LE_INFO("isVlanIdValid");
     le_dls_Link_t* linkPtr = NULL;
 
     linkPtr = le_dls_Peek(&VlanAndSesTypeList);
@@ -305,7 +297,6 @@ bool taf_DiagBackend::isVlanIdValid
 
         if (vlanSesTypePtr->vlanId == vlanId)
         {
-            LE_DEBUG("VlanId is valid %d", vlanId);
             return true;
         }
     }
@@ -322,8 +313,6 @@ le_result_t taf_DiagBackend::GetCurrentSesType
     uint8_t* currentSesTypePtr
 )
 {
-    LE_DEBUG("GetCurrentSesType");
-
     // Check session type for respective VLAN ID
     le_dls_Link_t* linkPtr = NULL;
     linkPtr = le_dls_Peek(&VlanAndSesTypeList);
@@ -335,8 +324,6 @@ le_result_t taf_DiagBackend::GetCurrentSesType
 
         if (vlanSesTypePtr->vlanId == vlanId)
         {
-            LE_DEBUG("Current session type is %d for vlanId %d", vlanSesTypePtr->currentSesType,
-                    vlanId);
             *currentSesTypePtr = vlanSesTypePtr->currentSesType;
             return LE_OK;
         }

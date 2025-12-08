@@ -36,7 +36,6 @@ le_result_t taf_diag_SetEnableCondition
         ///< [IN] Enable condition status.
 )
 {
-    LE_DEBUG("taf_diag_SetEnableCondition");
     auto &diag = taf_DiagSvr::GetInstance();
     return diag.SetEnableCondition(enableConditionID, conditionFulfilled);
 }
@@ -57,7 +56,6 @@ bool taf_diag_GetEnableConditionStatus
         ///< [IN] Enable condition ID.
 )
 {
-    LE_DEBUG("taf_diag_GetEnableCondition");
     auto &diag = taf_DiagSvr::GetInstance();
     return diag.GetEnableConditionStatus(enableConditionID);
 }
@@ -77,7 +75,6 @@ taf_diag_ServiceRef_t taf_diag_GetService
 (
 )
 {
-    LE_DEBUG("taf_diag_GetService");
     auto &diag = taf_DiagSvr::GetInstance();
     return diag.GetService();
 }
@@ -102,7 +99,6 @@ le_result_t taf_diag_SetVlanId
         ///< [IN] VLAN ID.
 )
 {
-    LE_DEBUG("taf_diag_SetVlanId");
     auto &diag = taf_DiagSvr::GetInstance();
     return diag.SetVlanId(svcRef, vlanId);
 }
@@ -126,7 +122,6 @@ le_result_t taf_diag_SelectTargetVlanID
         ///< [IN] VLAN ID.
 )
 {
-    LE_DEBUG("taf_diag_SelectTargetVlanID");
     auto &diag = taf_DiagSvr::GetInstance();
     return diag.SelectTargetVlanID(svcRef, vlanId);
 }
@@ -148,7 +143,6 @@ taf_diag_TesterStateHandlerRef_t taf_diag_AddTesterStateHandler
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diag_AddTesterStateHandler");
     auto &diag = taf_DiagSvr::GetInstance();
     return diag.AddTesterStateHandler(svcRef, handlerPtr, contextPtr);
 }
@@ -164,7 +158,6 @@ void taf_diag_RemoveTesterStateHandler
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diag_RemoveTesterStateHandler");
     auto &diag = taf_DiagSvr::GetInstance();
     return diag.RemoveTesterStateHandler(handlerRef);
 }
@@ -184,7 +177,6 @@ le_result_t taf_diag_ReleaseTesterStateMsg
         ///< [IN] Tester state reference.
 )
 {
-    LE_DEBUG("taf_diag_ReleaseTesterStateMsg");
     auto &diag = taf_DiagSvr::GetInstance();
     return diag.ReleaseTesterStateMsg(stateRef);
 }
@@ -199,7 +191,6 @@ void taf_diag_CancelFileXferAsync
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diag_CancelFileXferAsync");
     auto &diag = taf_DiagSvr::GetInstance();
     return diag.CancelFileXferAsync(svcRef, handlerPtr, contextPtr);
 }
@@ -289,7 +280,6 @@ le_result_t taf_diag_RemoveSvc
         ///< [IN] Service reference.
 )
 {
-    LE_DEBUG("taf_diag_RemoveSvc");
     auto &diag = taf_DiagSvr::GetInstance();
     return diag.RemoveSvc(svcRef);
 }

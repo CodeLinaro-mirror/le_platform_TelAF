@@ -1063,8 +1063,6 @@ LE_SHARED taf_doip_EventHandlerRef_t taf_doip_AddEventHandler
         eventId, FirstDoIPEventHandler, (void*)handlerPtr);
     le_event_SetContextPtr(handlerRef, userPtr);
 
-    LE_INFO("Registered event handler to DoIP stack");
-
     return (taf_doip_EventHandlerRef_t)handlerRef;
 }
 

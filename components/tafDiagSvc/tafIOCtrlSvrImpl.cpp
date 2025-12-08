@@ -72,12 +72,9 @@ taf_diagIOCtrl_ServiceRef_t taf_IOCtrlSvr::GetService
         // Create a Safe Reference for this service object
         servicePtr->svcRef = (taf_diagIOCtrl_ServiceRef_t)le_ref_CreateRef(SvcRefMap,
                 servicePtr);
-
-        LE_DEBUG("svcRef %p of client %p is created for DataId.",
-                servicePtr->svcRef, servicePtr->sessionRef);
     }
 
-    LE_INFO("Get serviceRef %p for Diag IOCtrl service.", servicePtr->svcRef);
+    LE_DEBUG("Get serviceRef %p for Diag IOCtrl service.", servicePtr->svcRef);
 
     return servicePtr->svcRef;
 }
@@ -94,8 +91,6 @@ taf_IOCtrlSvc_t* taf_IOCtrlSvr::GetServiceObj
     le_msg_SessionRef_t sessionRef
 )
 {
-    LE_DEBUG("find the service object!");
-
     le_ref_IterRef_t iterRef = le_ref_GetIterator(SvcRefMap);
 
     while (le_ref_NextNode(iterRef) == LE_OK)
@@ -117,7 +112,6 @@ taf_IOCtrlSvc_t* taf_IOCtrlSvr::GetServiceObj
     uint16_t vlanId
 )
 {
-    LE_DEBUG("find the service object!");
     bool isFound = false;
     le_ref_IterRef_t iterRef = le_ref_GetIterator(SvcRefMap);
 
@@ -143,6 +137,7 @@ taf_IOCtrlSvc_t* taf_IOCtrlSvr::GetServiceObj
                 {
                     // Match.
                     isFound = true;
+                    LE_DEBUG("Service object for vlan(x%0x) found", vlanId);
                     break;
                 }
                 linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
@@ -171,8 +166,6 @@ void taf_IOCtrlSvr::UDSMsgHandler
     size_t msgLen
 )
 {
-    LE_DEBUG("UDSMsgHandler!");
-
     TAF_ERROR_IF_RET_NIL(addrPtr == NULL, "Invalid addrPtr");
     TAF_ERROR_IF_RET_NIL(msgPtr == NULL, "Invalid msgPtr");
 
@@ -181,7 +174,7 @@ void taf_IOCtrlSvr::UDSMsgHandler
 
     if (sid == reqIOCtrlSvcId)
     {
-        LE_DEBUG("IO control service");
+        LE_DEBUG("UDSMsgHandler, IO control service");
 
         // check enable condition
 #ifndef LE_CONFIG_DIAG_FEATURE_A
@@ -191,7 +184,6 @@ void taf_IOCtrlSvr::UDSMsgHandler
 
         try
         {
-            LE_INFO("IO ctrl enable condition check");
             cfg::Node & node = cfg::top_IO_all<int>("identifier", dataId);
             cfg::Node & enableNode = node.get_child("data_enable_condition");
 
@@ -201,12 +193,10 @@ void taf_IOCtrlSvr::UDSMsgHandler
                 std::string enableOperation = enable.first;
                 if (enableOperation == "and")
                 {
-                    LE_INFO("Check IO Ctrl enable condition status based on AND operation");
                     cfg::Node & optNodeList = enableNode.get_child("and");
                     for (const auto & optNode: optNodeList)
                     {
                         uint8_t enableId = optNode.second.get_value<uint8_t>();
-                        LE_DEBUG("Enable condition id = 0x%x", enableId);
 
                         if (!diag.GetEnableConditionStatus(enableId))
                         {
@@ -220,7 +210,6 @@ void taf_IOCtrlSvr::UDSMsgHandler
                 }
                 else if (enableOperation == "or")
                 {
-                    LE_INFO("Check IO ctrl enable condition status based on OR operation");
                     cfg::Node & optNodeList = enableNode.get_child("or");
                     bool enableStatus = false;
                     uint8_t enableId = 0;
@@ -228,12 +217,10 @@ void taf_IOCtrlSvr::UDSMsgHandler
                     for (const auto & optNode: optNodeList)
                     {
                         enableId = optNode.second.get_value<uint8_t>();
-                        LE_DEBUG("Enable condition id = 0x%x", enableId);
 
                         if(diag.GetEnableConditionStatus(enableId))
                         {
                             enableStatus = true;
-                            LE_INFO("enable id %d status is true", enableId);
                             break;
                         }
                     }
@@ -276,7 +263,8 @@ void taf_IOCtrlSvr::UDSMsgHandler
         // This parameter record contains control state.
         if ((msgLen - msgPos) > TAF_DIAGIOCTRL_MAX_CONTROL_RECORD_SIZE)
         {
-            LE_DEBUG("Message length(%" PRIuS ") is not in correct format", msgLen - msgPos);
+            LE_WARN("Message length(%" PRIuS ") is not in correct format, send NRC %x",
+                    msgLen - msgPos, TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
             errCode = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
             SendNRCResp(sid, addrPtr, errCode);
             le_mem_Release(rxIOCtrlMsgPtr);
@@ -295,17 +283,14 @@ void taf_IOCtrlSvr::UDSMsgHandler
             // Get the controlState size from config module
             try
             {
-                LE_DEBUG("identifier: %hu", rxIOCtrlMsgPtr->dataID);
                 cfg::Node & ioNode = cfg::top_IO_all<int>("identifier", rxIOCtrlMsgPtr->dataID);
-                LE_DEBUG("request.control_option_record.did_size");
                 uint32_t byteSize = ioNode.get<uint32_t>("request.control_option_record.did_size");
-                LE_DEBUG("Configured byteSize : %d", byteSize);
 
                 rxIOCtrlMsgPtr->controlStateSize = byteSize;
             }
             catch (const std::exception& e)
             {
-                LE_ERROR("Exception: %s", e.what());
+                LE_WARN("Exception: %s, NRC %x", e.what(), TAF_DIAG_REQUEST_OUT_OF_RANGE);
                 errCode = TAF_DIAG_REQUEST_OUT_OF_RANGE;
                 SendNRCResp(sid, addrPtr, errCode);
                 le_mem_Release(rxIOCtrlMsgPtr);
@@ -314,7 +299,8 @@ void taf_IOCtrlSvr::UDSMsgHandler
 
             if ((rxIOCtrlMsgPtr->controlStateSize + msgPos) > msgLen)
             {
-                LE_DEBUG("Received msg length(%" PRIuS ") is not in correct format", msgLen);
+                LE_WARN("Received msg length(%" PRIuS ") is not in correct format, send NRC %x",
+                        msgLen, TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
                 errCode = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
                 SendNRCResp(sid, addrPtr, errCode);
                 le_mem_Release(rxIOCtrlMsgPtr);
@@ -329,7 +315,8 @@ void taf_IOCtrlSvr::UDSMsgHandler
         }
         else
         {
-            LE_ERROR("controlState is for ISOReserved inputOutputControlParameter!");
+            LE_WARN("controlState is for ISOReserved inputOutputControlParameter, send NRC %x",
+                    TAF_DIAG_REQUEST_OUT_OF_RANGE);
             errCode = TAF_DIAG_REQUEST_OUT_OF_RANGE;
             SendNRCResp(sid, addrPtr, errCode);
             le_mem_Release(rxIOCtrlMsgPtr);
@@ -348,15 +335,12 @@ void taf_IOCtrlSvr::UDSMsgHandler
         rxIOCtrlMsgPtr->rxMsgRef = (taf_diagIOCtrl_RxMsgRef_t)le_ref_CreateRef(
                 RxMsgRefMap, rxIOCtrlMsgPtr);
 
-        LE_DEBUG("Receive message(%p) for serviceId: 0x%x)", rxIOCtrlMsgPtr->rxMsgRef,
-                sid);
-
         // Report the IOCtrl request message to message handler in service layer.
         le_event_ReportWithRefCounting(ReqEvent, rxIOCtrlMsgPtr);
     }
     else
     {
-        LE_DEBUG("Service(0x%x) is invalid", sid);
+        LE_WARN("Service(0x%x) is invalid, send NRC %x", sid, TAF_DIAG_SERVICE_NOT_SUPPORTED);
         errCode = TAF_DIAG_SERVICE_NOT_SUPPORTED; // ServiceNotSupported
         SendNRCResp(sid, addrPtr, errCode);
         return;
@@ -405,8 +389,6 @@ taf_diagIOCtrl_RxMsgHandlerRef_t taf_IOCtrlSvr::AddRxMsgHandler
     // Attach handler to service.
     servicePtr->handlerRef = handlerObjPtr->handlerRef;
 
-    LE_INFO("IOCtrl: Registered Rx Handler");
-
     return handlerObjPtr->handlerRef;
 }
 
@@ -420,8 +402,6 @@ void taf_IOCtrlSvr::RxIOCtrlEventHandler
     void* reportPtr
 )
 {
-    LE_DEBUG("RxIOCtrlEventHandler!");
-
     auto &ioCtrl = taf_IOCtrlSvr::GetInstance();
 
     taf_IOCtrlRxMsg_t* rxIOCtrlMsgPtr = (taf_IOCtrlRxMsg_t*)reportPtr;
@@ -438,7 +418,8 @@ void taf_IOCtrlSvr::RxIOCtrlEventHandler
 #endif
     if (servicePtr == NULL)
     {
-        LE_WARN("Not found registered IOCtrl service for this request!");
+        LE_WARN("Not found registered IOCtrl service for this request, send NRC %x",
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         // UDS_0x2F_NRC_21: service pointer is null
         ioCtrl.SendNRCResp(rxIOCtrlMsgPtr->serviceId, &(rxIOCtrlMsgPtr->addrInfo),
                 TAF_DIAG_BUSY_REPEAT_REQUEST);
@@ -449,7 +430,8 @@ void taf_IOCtrlSvr::RxIOCtrlEventHandler
 
     if (servicePtr->handlerRef == NULL)
     {
-        LE_WARN("Did not register handler for IOCtrl service.");
+        LE_WARN("Did not register handler for IOCtrl service, send NRC %x",
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         // UDS_0x2F_NRC_21: handler is not registered
         ioCtrl.SendNRCResp(rxIOCtrlMsgPtr->serviceId, &(rxIOCtrlMsgPtr->addrInfo),
                 TAF_DIAG_BUSY_REPEAT_REQUEST);
@@ -464,7 +446,8 @@ void taf_IOCtrlSvr::RxIOCtrlEventHandler
                     servicePtr->handlerRef);
     if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
     {
-        LE_ERROR("Can not find IO control handler object!");
+        LE_ERROR("Can not find IO control handler object, send NRC %x",
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         // UDS_0x2F_NRC_21: handler is null
         ioCtrl.SendNRCResp(rxIOCtrlMsgPtr->serviceId, &(rxIOCtrlMsgPtr->addrInfo),
                 TAF_DIAG_BUSY_REPEAT_REQUEST);
@@ -541,8 +524,6 @@ le_result_t taf_IOCtrlSvr::GetCtrlState
     size_t* controlStateSizePtr
 )
 {
-    LE_DEBUG("GetCtrlState!");
-
     TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
     TAF_ERROR_IF_RET_VAL(controlStatePtr == NULL, LE_BAD_PARAMETER, "Invalid controlStatePtr");
     TAF_ERROR_IF_RET_VAL(controlStateSizePtr == NULL, LE_BAD_PARAMETER,
@@ -574,8 +555,6 @@ le_result_t taf_IOCtrlSvr::GetCtrlEnableMaskRecd
     size_t* maskRecordSizePtr
 )
 {
-    LE_DEBUG("GetCtrlEnableMaskRecd!");
-
     TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
     TAF_ERROR_IF_RET_VAL(maskRecordPtr == NULL, LE_BAD_PARAMETER, "Invalid maskRecordPtr");
     TAF_ERROR_IF_RET_VAL(maskRecordSizePtr == NULL, LE_BAD_PARAMETER,
@@ -608,8 +587,6 @@ le_result_t taf_IOCtrlSvr::SendResp
     size_t dataSize
 )
 {
-    LE_DEBUG("SendResp");
-
     TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
 
     le_result_t ret = LE_OK;
@@ -701,8 +678,6 @@ le_result_t taf_IOCtrlSvr::SendNRCResp
     uint8_t errCode
 )
 {
-    LE_DEBUG("SendNRCResp");
-
     TAF_ERROR_IF_RET_VAL(addrInfoPtr == NULL, LE_BAD_PARAMETER, "Invalid addrInfoPtr");
 
     taf_uds_AddrInfo_t addrInfo;
@@ -731,7 +706,6 @@ void taf_IOCtrlSvr::ClearMsgList
     taf_IOCtrlSvc_t* servicePtr
 )
 {
-    LE_DEBUG("ClearMsgList");
     TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
 
     // Clear the UDS Rx message of IOCtrl list.
@@ -741,7 +715,6 @@ void taf_IOCtrlSvr::ClearMsgList
         taf_IOCtrlRxMsg_t* rxIOCtrlMsgPtr = CONTAINER_OF(linkPtr, taf_IOCtrlRxMsg_t, link);
         if (rxIOCtrlMsgPtr != NULL)
         {
-            LE_DEBUG("Release ReqMsg(ref=%p)", rxIOCtrlMsgPtr->rxMsgRef);
             // Free the message
             le_ref_DeleteRef(RxMsgRefMap, rxIOCtrlMsgPtr->rxMsgRef);
             le_mem_Release(rxIOCtrlMsgPtr);
@@ -764,7 +737,6 @@ void taf_IOCtrlSvr::ClearVlanList
     taf_IOCtrlSvc_t* servicePtr
 )
 {
-    LE_DEBUG("ClearVlanList");
     TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
 
     // Clear the vlan id list.
@@ -774,7 +746,6 @@ void taf_IOCtrlSvr::ClearVlanList
         taf_IOCtrlVlanIdNode_t *vlanPtr = CONTAINER_OF(linkPtr, taf_IOCtrlVlanIdNode_t, link);
         if (vlanPtr != NULL)
         {
-            LE_DEBUG("Release vlan node(id=0x%x)", vlanPtr->vlanId);
             le_mem_Release(vlanPtr);
         }
 
@@ -795,8 +766,6 @@ le_result_t taf_IOCtrlSvr::RemoveSvc
     taf_diagIOCtrl_ServiceRef_t svcRef
 )
 {
-    LE_DEBUG("RemoveSvc");
-
     taf_IOCtrlSvc_t* servicePtr = (taf_IOCtrlSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid servicePtr");
 
@@ -878,7 +847,6 @@ le_result_t taf_IOCtrlSvr::SetVlanId
             taf_IOCtrlVlanIdNode_t, link);
         if (vlan != NULL && vlan->vlanId == vlanId)
         {
-            LE_INFO("The Vlan id(0x%x) is set for ref%p", vlanId, svcRef);
             return LE_OK;
         }
         linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
@@ -888,7 +856,7 @@ le_result_t taf_IOCtrlSvr::SetVlanId
         le_mem_ForceAlloc(vlanPool);
     if (vlanPtr == NULL)
     {
-        LE_INFO("Failed to allocate memory.");
+        LE_DEBUG("Failed to allocate memory.");
         return LE_NO_MEMORY;
     }
 
@@ -937,8 +905,6 @@ void taf_IOCtrlSvr::Init
     void
 )
 {
-    LE_INFO("taf_IOCtrlSvr Init!");
-
     // Create memory pools.
     SvcPool = le_mem_CreatePool("IOCtrlSvcPool", sizeof(taf_IOCtrlSvc_t));
     RxMsgPool = le_mem_CreatePool("IOCtrlRxMsgPool", sizeof(taf_IOCtrlRxMsg_t));
@@ -963,5 +929,5 @@ void taf_IOCtrlSvr::Init
     auto& backend = taf_DiagBackend::GetInstance();
     backend.RegisterUdsService(reqIOCtrlSvcId, this);
 
-    LE_INFO("Diag IOCtrl Service started!");
+    LE_DEBUG("taf_IOCtrlSvr Init completed!");
 }

@@ -52,7 +52,8 @@ void taf_ROESvr::UDSMsgHandler
         type != ON_DTC_STATUS_CHANGE &&
         type != START_RESPONSE_ON_EVENT)
     {
-        LE_DEBUG("Sunfunction(0x%x) is invalid", subFunc);
+        LE_WARN("Sunfunction(0x%x) is invalid, send NRC %x",
+                subFunc, TAF_DIAG_SUBFUNCTION_NOT_SUPPORTED);
         errCode = TAF_DIAG_SUBFUNCTION_NOT_SUPPORTED; // SubfunctionNotSupported
         SendNRCResp(sid, addrPtr, errCode);
         return;
@@ -76,7 +77,8 @@ void taf_ROESvr::UDSMsgHandler
         {
             if (msgLen < MIN_ROE_ON_DTC_STATUS_CHANGE)
             {
-                LE_DEBUG("Invalid length %" PRIuS " for subFunc(0x%x)", msgLen, subFunc);
+                LE_WARN("Invalid length %" PRIuS " for subFunc(0x%x), send NRC %x",
+                        msgLen, subFunc, TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
                 le_ref_DeleteRef(RxMsgRefMap, rxMsgPtr->rxMsgRef);
                 le_mem_Release(rxMsgPtr);
                 errCode = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
@@ -109,8 +111,6 @@ le_result_t taf_ROESvr::SendResp
     uint8_t errCode
 )
 {
-    LE_DEBUG("ResponseOnEvent service SendResp");
-
     TAF_ERROR_IF_RET_VAL(rxMsgPtr == NULL, LE_BAD_PARAMETER, "Invalid addrInfoPtr");
 
     taf_uds_AddrInfo_t addrInfo;
@@ -167,8 +167,6 @@ void taf_ROESvr::SendNRCResp
     uint8_t errCode
 )
 {
-    LE_DEBUG("ResponseOnEvent service SendNRCResp");
-
     TAF_ERROR_IF_RET_NIL(addrInfoPtr == NULL, "Invalid addrInfoPtr");
 
     taf_uds_AddrInfo_t addrInfo;
@@ -242,8 +240,6 @@ void taf_ROESvr::Init
     void
 )
 {
-    LE_INFO("taf_ROESvr Init!");
-
     // Create memory pools.
     RxMsgPool = le_mem_CreatePool("ROERxMsgPool", sizeof(taf_ROERxMsg_t));
 
@@ -259,6 +255,5 @@ void taf_ROESvr::Init
     backend.RegisterUdsService(reqSvcId, this);
 
     rxMsgList  = LE_DLS_LIST_INIT;
-
-    LE_INFO("Diag ResponseOnEvent Service started!");
+    LE_DEBUG("taf_ROESvr Init completed!");
 }

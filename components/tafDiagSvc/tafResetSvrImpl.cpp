@@ -75,7 +75,7 @@ taf_diagReset_ServiceRef_t taf_ResetSvr::GetService
 
         servicePtr->supportedVlanList = LE_DLS_LIST_INIT;
 
-        LE_INFO("svcRef %p of client %p is created for ECU reset type %x.",
+        LE_DEBUG("svcRef %p of client %p is created for ECU reset type %x.",
                 servicePtr->svcRef, servicePtr->sessionRef, resetType);
     }
     else
@@ -139,6 +139,7 @@ taf_ResetSvc_t* taf_ResetSvr::GetServiceObj
                     {
                         // Match.
                         isFound = true;
+                        LE_DEBUG("Service object for vlan(x%0x) found", vlanId);
                         break;
                     }
                     linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
@@ -224,7 +225,6 @@ void taf_ResetSvr::UDSMsgHandler
     // check enable condition
     try
     {
-        LE_DEBUG("Reset enable condition check");
         cfg::Node & node = cfg::top_reset_all<int>("sub_function_identifier", resetType);
         cfg::Node & enableNode = node.get_child("data_enable_condition");
 
@@ -234,12 +234,10 @@ void taf_ResetSvr::UDSMsgHandler
             std::string enableOperation = enable.first;
             if (enableOperation == "and")
             {
-                LE_INFO("Check reset enable condition status based on AND operation");
                 cfg::Node & optNodeList = enableNode.get_child("and");
                 for (const auto & optNode: optNodeList)
                 {
                     uint8_t enableId = optNode.second.get_value<uint8_t>();
-                    LE_DEBUG("Enable condition id = 0x%x", enableId);
 
                     if (!diag.GetEnableConditionStatus(enableId))
                     {
@@ -253,7 +251,6 @@ void taf_ResetSvr::UDSMsgHandler
             }
             else if (enableOperation == "or")
             {
-                LE_INFO("Check reset enable condition status based on OR operation");
                 cfg::Node & optNodeList = enableNode.get_child("or");
                 bool enableStatus = false;
                 uint8_t enableId = 0;
@@ -261,12 +258,10 @@ void taf_ResetSvr::UDSMsgHandler
                 for (const auto & optNode: optNodeList)
                 {
                     enableId = optNode.second.get_value<uint8_t>();
-                    LE_DEBUG("Enable condition id = 0x%x", enableId);
 
                     if(diag.GetEnableConditionStatus(enableId))
                     {
                         enableStatus = true;
-                        LE_INFO("enable id %d status is true", enableId);
                         break;
                     }
                 }
@@ -348,8 +343,6 @@ taf_diagReset_RxMsgHandlerRef_t taf_ResetSvr::AddRxMsgHandler
     // Attach handler to service.
     servicePtr->handlerRef = handlerObjPtr->handlerRef;
 
-    LE_INFO("ECUReset: Registered Rx Handler for reset type %x", servicePtr->resetType);
-
     return handlerObjPtr->handlerRef;
 }
 
@@ -400,8 +393,8 @@ void taf_ResetSvr::RxReqEventHandler
 
     if (servicePtr->handlerRef == NULL)
     {
-        LE_WARN("Did not register handler for ECU reset service type: 0x%x",
-                rxMsgPtr->subFunc);
+        LE_WARN("Did not register handler for ECU reset service type: 0x%x, send NRC %x",
+                rxMsgPtr->subFunc, TAF_DIAG_BUSY_REPEAT_REQUEST);
         // UDS_0x11_NRC_21: handler is not registered
         reset.SendNRCResp(&(rxMsgPtr->addrInfo), TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(reset.RxMsgRefMap, rxMsgPtr->rxMsgRef);
@@ -492,8 +485,6 @@ le_result_t taf_ResetSvr::SendNRCResp
     uint8_t errCode
 )
 {
-    LE_DEBUG("SendNRCResp");
-
     TAF_ERROR_IF_RET_VAL(addrInfoPtr == NULL, LE_BAD_PARAMETER, "Invalid addrInfoPtr");
 
     // Call UDS function to send the response message.
@@ -520,8 +511,6 @@ le_result_t taf_ResetSvr::SendResp
     uint8_t errCode
 )
 {
-    LE_DEBUG("SendResp");
-
     TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
 
     le_result_t ret;
@@ -600,7 +589,6 @@ void taf_ResetSvr::ClearResetMsgList
     taf_ResetSvc_t* servicePtr
 )
 {
-    LE_DEBUG("ClearResetMsgList");
     TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
 
     // Clear the UDS Rx message of reset list.
@@ -610,7 +598,6 @@ void taf_ResetSvr::ClearResetMsgList
         taf_ResetRxMsg_t* msgPtr = CONTAINER_OF(linkPtr, taf_ResetRxMsg_t, link);
         if (msgPtr != NULL)
         {
-            LE_INFO("Release (rxMsgRef: %p, subFunc: 0x%x)", msgPtr->rxMsgRef, msgPtr->subFunc);
             // Free the message
             le_ref_DeleteRef(RxMsgRefMap, msgPtr->rxMsgRef);
             le_mem_Release(msgPtr);
@@ -633,7 +620,6 @@ void taf_ResetSvr::ClearVlanList
     taf_ResetSvc_t* servicePtr
 )
 {
-    LE_DEBUG("ClearVlanList");
     TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
 
     // Clear the vlan id list.
@@ -643,7 +629,6 @@ void taf_ResetSvr::ClearVlanList
         taf_ResetVlanIdNode_t *vlanPtr = CONTAINER_OF(linkPtr, taf_ResetVlanIdNode_t, link);
         if (vlanPtr != NULL)
         {
-            LE_INFO("Release vlan(id=0x%x)", vlanPtr->vlanId);
             le_mem_Release(vlanPtr);
         }
 
@@ -751,7 +736,6 @@ le_result_t taf_ResetSvr::SetVlanId
         taf_ResetVlanIdNode_t *vlan = CONTAINER_OF(linkPtr, taf_ResetVlanIdNode_t, link);
         if (vlan != NULL && vlan->vlanId == vlanId)
         {
-            LE_INFO("The Vlan id(0x%x) is set for ref%p", vlanId, svcRef);
             return LE_OK;
         }
         linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
@@ -760,7 +744,7 @@ le_result_t taf_ResetSvr::SetVlanId
     taf_ResetVlanIdNode_t *vlanPtr = (taf_ResetVlanIdNode_t *)le_mem_ForceAlloc(VlanPool);
     if (vlanPtr == NULL)
     {
-        LE_INFO("Failed to allocate memory.");
+        LE_DEBUG("Failed to allocate memory.");
         return LE_NO_MEMORY;
     }
 
@@ -810,8 +794,6 @@ le_result_t taf_ResetSvr::GetVlanIdFromMsg
 //--------------------------------------------------------------------------------------------------
 void taf_ResetSvr::Init()
 {
-    LE_INFO("tafResetSvr Init!");
-
     // Create memory pools.
     SvcPool = le_mem_CreatePool("ResetSvcPool", sizeof(taf_ResetSvc_t));
     RxMsgPool = le_mem_CreatePool("ResetRxMsgPool", sizeof(taf_ResetRxMsg_t));
@@ -833,6 +815,5 @@ void taf_ResetSvr::Init()
 
     auto& backend = taf_DiagBackend::GetInstance();
     backend.RegisterUdsService(reqSvcId, this);
-
-    LE_INFO("taf_ResetSvr Service started");
+    LE_DEBUG("tafResetSvr Init completed!");
 }

@@ -50,7 +50,7 @@ void VehicleManager::ParseJsonConfig
     bool isVinStored
 )
 {
-    LE_INFO("ParseJsonConfig");
+    LE_DEBUG("ParseJsonConfig");
 
     if (configPathPtr == NULL)
     {
@@ -91,7 +91,6 @@ void VehicleManager::ParseJsonConfig
         {
             std::string vin = root.get<std::string>("vehicleInfo.VIN");
             le_utf8_Copy(vehicleMgr.doipConfigPtr->vin, vin.c_str(), TAF_DOIP_VIN_SIZE + 1, NULL);
-            LE_INFO("Parsed VIN: %s", vehicleMgr.doipConfigPtr->vin);
         }
 
         std::string eidIn = root.get<std::string>("vehicleInfo.EID");
@@ -116,7 +115,6 @@ void VehicleManager::ParseJsonConfig
 
         std::string srcAdd = root.get<std::string>("vehicleInfo.source_address");
         vehicleMgr.doipConfigPtr->entityLA = std::stoul(srcAdd, nullptr, 16);
-        LE_INFO("Parsed Source address: %x", vehicleMgr.doipConfigPtr->entityLA);
 
         pt::ptree &funcGroups = root.get_child("vehicleInfo.Function_group");
         for (const auto &funcGroup : funcGroups)
@@ -127,7 +125,6 @@ void VehicleManager::ParseJsonConfig
             funcAddrPtr->groupAddr = std::stoul(funcAddr, nullptr, 16);
             funcAddrPtr->link = LE_DLS_LINK_INIT;
             le_dls_Queue(&vehicleMgr.doipConfigPtr->funcGroupList, &funcAddrPtr->link);
-            LE_INFO("Parsed Functional address: 0x%x", funcAddrPtr->groupAddr);
         }
 
         vehicleMgr.doipConfigPtr->maxSockNum
@@ -177,7 +174,6 @@ void VehicleManager::ParseJsonConfig
             interfacePtr->link = LE_DLS_LINK_INIT;
             le_utf8_Copy(interfacePtr->ifName, ifName.c_str(),
                     TAF_DOIP_INTERFACE_NAME_MAX_LEN, NULL);
-            LE_INFO("ifName: %s", interfacePtr->ifName);
             interfacePtr->vlanId = tafCmMgr.GetVlanId(interfacePtr->ifName);
             le_dls_Queue(&vehicleMgr.doipConfigPtr->ifaceList, &interfacePtr->link);
             cnt++;
@@ -376,7 +372,7 @@ bool VehicleManager::GetAnnounceWait
     }
     else
     {
-        LE_INFO("Announce_Wait in json configuration is false!");
+        LE_WARN("Announce_Wait in json configuration is false!");
         return false;
     }
 }
@@ -784,7 +780,6 @@ taf_doip_Result_t VehicleManager::SetVinInStorage
         return TAF_DOIP_RESULT_PARAM_ERROR;
     }
 
-    LE_INFO(" vehicle idendification number =  %s", vinPtr);
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_DOIP_VIN_PATH );
 
     le_cfg_SetString(iteratorRef, CFG_DOIP_VIN_NODE, vinPtr);
@@ -975,7 +970,7 @@ taf_doip_Result_t VehicleManager::DeInit
 (
 )
 {
-    LE_INFO("DeInitialization!");
+    LE_DEBUG("DeInitialization!");
 
     auto &vehicleMgr = VehicleManager::GetInstance();
 
@@ -996,7 +991,7 @@ void VehicleManager::Init
     taf_doip_Result_t result;
     bool isVinStored = false;
 
-    LE_INFO("VehicleManager Initialization!");
+    LE_DEBUG("VehicleManager Initialization!");
 
     if (configPathPtr == NULL)
     {
@@ -1021,7 +1016,6 @@ void VehicleManager::Init
     result = vehicleMgr.GetVinFromStorage(vehicleMgr.doipConfigPtr->vin);
     if(result == TAF_DOIP_RESULT_OK)
     {
-        LE_INFO("Get VIN from storage successfully, VIN: %s", vehicleMgr.doipConfigPtr->vin);
         isVinStored = true;
     }
 

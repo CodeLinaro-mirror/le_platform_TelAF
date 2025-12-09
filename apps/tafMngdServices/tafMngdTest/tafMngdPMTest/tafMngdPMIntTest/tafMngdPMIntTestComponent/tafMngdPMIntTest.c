@@ -173,7 +173,9 @@ static void PrintUsage ()
         "-------- Provide ACK type: 1=ACK, -1=NACK, 2=NO_RESP, 3=ACK_AFTER_TIMEOUT when prompted--------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ImmediateNotifyClientOnCurrNodePwStateOnRegister <NODE_ID>\n"
         "------------To Test GracefulSysShutdown for node pw state change notification-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestGracefulSysShutdownForNodePwStateChange <NODE_ID>\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestGracefulSysShutdownForNodePwStateChange <NODE_ID>\n"
+        "------------To Test PMVHAL stayawake after while suspending through MPMS-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestPmvhalStayAwakeAfterMpmsSuspendTrigger\n");
 }
 
 static uint32_t StateToBit(taf_mngdPm_NodePowerState_t st)
@@ -2861,6 +2863,59 @@ void ShouldNotDeleteWsIfIgnored()
 
 }
 
+void NodePowerStateChangeHandler(
+    uint8_t pmNodeId,
+    taf_mngdPm_nodePowerStateRef_t nodePowerStateRef,
+    taf_mngdPm_NodePowerState_t state,
+    void *contextPtr)
+{
+    if (state == TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE)
+    {
+        printf("Received SUSPEND state (%d). "
+               "Intentionally NOT sending ACK to test timeout.\\n",
+               state);
+        // IMPORTANT: do NOT call taf_mngdPm_SendNodePowerStateChangeAck here
+        // for this test, so that the MPMS timer expires.
+    }
+}
+
+void TestPmvhalStayAwakeAfterMpmsSuspendTrigger()
+{
+    LE_INFO("TestPmvhalStayAwakeAfterMpmsSuspendTrigger");
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_VEH_NETWORK;
+    le_result_t res = LE_FAULT;
+    taf_mngdPm_NodePowerStateChangeHandlerRef_t ref =
+        taf_mngdPm_AddNodePowerStateChangeHandler(NodePowerStateChangeHandler,
+        NULL, 0, TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE);
+    if(ref)
+    {
+        LE_INFO("AddNodePowerStateChangeHandler is success for TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE");
+    }
+
+    // Authorized the reason for bit0
+    res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VEH_NETWORK);
+    if(res == LE_OK) {
+        taf_mngdPm_wsRef_t wsRefAuthorized = taf_mngdPm_CreateWakeupSource(reason, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized) {
+            printf("Created wakeupsource ref for wsRefUnauthorized reason %d\n", reason);
+            if(wsRefAuthorized != NULL) {
+                res = taf_mngdPm_StayAwake(wsRefAuthorized);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized'\n");
+                    res = taf_mngdPm_Relax(wsRefAuthorized);
+                    if(res == LE_OK) {
+                        printf("'Suspended system with wsRefAuthorized'\n");
+                    }
+                }
+            }
+        }
+        else{
+            printf("Failed to create wakeupsource ref for authorized reason %d\n", reason);
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
 void NotifyVhalOnClientDisconnectionForReleaseWS()
 {
     LE_INFO("--NotifyVhalOnClientDisconnectionForReleaseWS--");
@@ -3153,6 +3208,9 @@ COMPONENT_INIT
                 printf("Enter NODE_ID");
                 exit(EXIT_FAILURE);
             }
+        }else if(strcmp(testType, "TestPmvhalStayAwakeAfterMpmsSuspendTrigger") == 0)
+        {
+            TestPmvhalStayAwakeAfterMpmsSuspendTrigger();
         }
         else
         {

@@ -2800,16 +2800,30 @@ void taf_sim::DeleteFPLMNList
 {
     taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
     if(ListReference == NULL) {
+        LE_WARN("Cannot find the FPLMNList with ref: %p", FPLMNListRef);
         return;
     }
+
+    // Release all nodes in the list before releasing the list itself
     while(!le_dls_IsEmpty(&(ListReference->link))) {
-        auto l=le_dls_Peek(&(ListReference->link));
-        if (l != NULL) {
-            le_dls_Remove(&(ListReference->link), l);
+        le_dls_Link_t* link = le_dls_Peek(&(ListReference->link));
+        if (link != NULL) {
+            le_dls_Remove(&(ListReference->link), link);
+            FPLMNNode_t* node = CONTAINER_OF(link, FPLMNNode_t, link);
+            if (node != NULL)
+            {
+                le_mem_Release(node);
+            }
         }
     }
+    le_ref_DeleteRef(FPLMNListRefMap, FPLMNListRef);
     fplmnListIndex = 0;
     le_mem_Release(ListReference);
+
+    // Clear fplmnListRefs if it points to the deleted list
+    if (fplmnListRefs == FPLMNListRef) {
+        fplmnListRefs = nullptr;
+    }
 }
 
 le_result_t taf_sim::WriteFPLMNList

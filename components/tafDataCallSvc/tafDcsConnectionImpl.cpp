@@ -2416,20 +2416,30 @@ le_result_t taf_DataConnection::GetSlotIdAndProfileIdByIfName
 )
 {
     TAF_ERROR_IF_RET_VAL(namePtr == NULL, LE_BAD_PARAMETER, "namePtr is null");
+    TAF_ERROR_IF_RET_VAL(namePtr[0] == '\0', LE_BAD_PARAMETER, "namePtr is empty");
     TAF_ERROR_IF_RET_VAL(slotId == NULL, LE_BAD_PARAMETER, "slotId is null");
     TAF_ERROR_IF_RET_VAL(profileId == NULL, LE_BAD_PARAMETER, "profileId is null");
 
-    le_dls_Link_t* linkPtr = NULL;
+    size_t inputLen = strnlen(namePtr, TAF_DCS_NAME_MAX_LEN);
 
+    le_dls_Link_t* linkPtr = NULL;
     le_mutex_Lock(callCtxMutex);
     linkPtr = le_dls_Peek(&DataCallCtxList);
-
     while (linkPtr)
     {
         taf_dcs_CallCtx_t* callCtxPtr = CONTAINER_OF(linkPtr, taf_dcs_CallCtx_t, link);
         linkPtr = le_dls_PeekNext(&DataCallCtxList, linkPtr);
 
-        if (strncmp(callCtxPtr->intfName,namePtr,TAF_DCS_NAME_MAX_LEN)== 0)
+        // Skip entries with empty or uninitialized interface name
+        size_t storedLen = strnlen(callCtxPtr->intfName, TAF_DCS_NAME_MAX_LEN);
+        if (storedLen == 0)
+        {
+            continue;
+        }
+
+        // Exact match: length and content must match
+        if (storedLen == inputLen &&
+            strncmp(callCtxPtr->intfName, namePtr, inputLen) == 0)
         {
             *profileId = callCtxPtr->profileId;
             *slotId = callCtxPtr->slotId;

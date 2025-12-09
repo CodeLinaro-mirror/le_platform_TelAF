@@ -1599,7 +1599,11 @@ static le_result_t GetPhoneIdByInterfaceName()
     std::cin.getline(ifNameStr, TAF_DCS_NAME_MAX_LEN);
 
     le_result_t result = taf_dcs_GetPhoneIdByInterfaceName(ifNameStr, &phoneID);
-    TAF_ERROR_IF_RET_VAL(LE_OK != result, LE_FAULT, "taf_dcs_GetPhoneIdByInterfaceName failed");
+    if (result != LE_OK)
+    {
+        LE_ERROR("taf_dcs_GetPhoneIdByInterfaceName failed");
+        return result;
+    }
 
     LE_TEST_INFO("Phone Id: %d", phoneID);
     std::cout << "Phone Id: " << static_cast<int>(phoneID) << std::endl;
@@ -1614,7 +1618,11 @@ static le_result_t GetProfileIdByInterfaceName()
     std::cin.getline(ifNameStr, TAF_DCS_NAME_MAX_LEN);
 
     le_result_t result = taf_dcs_GetProfileIdByInterfaceName(ifNameStr, &profileID);
-    TAF_ERROR_IF_RET_VAL(LE_OK != result, LE_FAULT, "taf_dcs_GetProfileIdByInterfaceName failed");
+    if (result != LE_OK)
+    {
+        LE_ERROR("taf_dcs_GetProfileIdByInterfaceName failed");
+        return result;
+    }
 
     LE_TEST_INFO("Profile Id: %d", profileID);
     std::cout << "Profile Id: " << static_cast<int>(profileID) << std::endl;

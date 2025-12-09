@@ -1496,13 +1496,13 @@ le_result_t taf_dcs_GetDefaultPhoneIdAndProfileId(uint8_t* phoneIdPtr, uint32_t*
  */
 le_result_t taf_dcs_GetProfileIdByInterfaceName(const char* intfName,uint32_t* profileIdPtr)
 {
+    TAF_ERROR_IF_RET_VAL(intfName == nullptr, LE_BAD_PARAMETER, "Null intfName");
+    TAF_ERROR_IF_RET_VAL(intfName[0] == '\0', LE_BAD_PARAMETER, "Empty intfName");
+    TAF_ERROR_IF_RET_VAL(profileIdPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(profileIdPtr)");
+
     auto &dataConnection = taf_DataConnection::GetInstance();
     uint8_t slotId;
-
-    le_result_t result = dataConnection.GetSlotIdAndProfileIdByIfName(intfName, &slotId,
-                                                                      profileIdPtr);
-
-    return result;
+    return dataConnection.GetSlotIdAndProfileIdByIfName(intfName, &slotId, profileIdPtr);
 }
 
 /**
@@ -1521,29 +1521,26 @@ le_result_t taf_dcs_GetPhoneIdByInterfaceName
     uint8_t *phoneIdPtr
 )
 {
-    le_result_t result = LE_OK;
-    uint8_t slotId;
-    uint32_t profileId;
-
-    TAF_ERROR_IF_RET_VAL(intfName == nullptr, LE_BAD_PARAMETER, "Null ptr(intfName)");
+    TAF_ERROR_IF_RET_VAL(intfName == nullptr, LE_BAD_PARAMETER, "Null intfName");
+    TAF_ERROR_IF_RET_VAL(intfName[0] == '\0', LE_BAD_PARAMETER, "Empty intfName");
     TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(phoneIdPtr)");
 
+    uint8_t slotId;
+    uint32_t profileId;
     auto &dataConnection = taf_DataConnection::GetInstance();
     auto &dataProfile = taf_DataProfile::GetInstance();
 
-    result = dataConnection.GetSlotIdAndProfileIdByIfName(intfName, &slotId, &profileId);
-
-    if (result == LE_OK)
+    le_result_t res = dataConnection.GetSlotIdAndProfileIdByIfName(intfName, &slotId, &profileId);
+    if (res == LE_OK)
     {
-        result = dataProfile.getPhoneIdFromSlotId(slotId, phoneIdPtr);
-        TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Failed to get phone id from slot id");
+        res = dataProfile.getPhoneIdFromSlotId(slotId, phoneIdPtr);
+        TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Failed to get phone id from slot id");
     }
     else
     {
-        LE_ERROR("Getting phone id by interface name(%s) is failed", intfName);
+        LE_ERROR("Getting phone id by interface name(%s) failed", intfName);
     }
-
-    return result;
+    return res;
 }
 
 /**

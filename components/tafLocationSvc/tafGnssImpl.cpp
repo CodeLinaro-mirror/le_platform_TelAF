@@ -7060,7 +7060,7 @@ le_result_t taf_locGnss::GetSatellitesInfoEx
 
 )
 {
-    le_result_t result = LE_OK;
+    le_result_t result = LE_FAULT;
     taf_locGnss_PositionSampleRequest_t* posSampleReqPtr = (taf_locGnss_PositionSampleRequest_t*)le_ref_Lookup(PositionSampleMap,positionSampleRef);
     int i;
 
@@ -7075,30 +7075,39 @@ le_result_t taf_locGnss::GetSatellitesInfoEx
         size_t svInfoNumElements = NUM_ARRAY_MEMBERS(posSampleReqPtr->positionSampleNodePtr->satInfo);
         LE_DEBUG("GetSatellitesInfoEx: svInfoNumElements %d, constellation: %d, input len: %d", (int)svInfoNumElements, (int) constellation, (int) *svInfoLen);
 
+        int count = 0;
+        bool truncated = false;
         if (posSampleReqPtr->positionSampleNodePtr->satInfoValid)
         {
-            int count = 0;
             for(i=0; i < (int) svInfoNumElements; i++)
             {
                 if(posSampleReqPtr->positionSampleNodePtr->satInfo[i].satConst == constellation) {
-                  if (count < (int)*svInfoLen) {
-                    svInfoPtr[count].satId = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satId;
-                    svInfoPtr[count].satConst = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satConst;
-                    svInfoPtr[count].satTracked = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satTracked;
-                    svInfoPtr[count].satSnr = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satSnr;
-                    svInfoPtr[count].satAzim = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satAzim;
-                    svInfoPtr[count].satElev = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satElev;
-                    svInfoPtr[count].signalType = posSampleReqPtr->positionSampleNodePtr->satInfo[i].signalType;
-                    svInfoPtr[count].glonassFcn = posSampleReqPtr->positionSampleNodePtr->satInfo[i].glonassFcn;
-                    svInfoPtr[count].baseBandCnr = posSampleReqPtr->positionSampleNodePtr->satInfo[i].baseBandCnr;
-                    count++;
-                  }
+                    if (count < (int)*svInfoLen) {
+                        svInfoPtr[count].satId = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satId;
+                        svInfoPtr[count].satConst = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satConst;
+                        svInfoPtr[count].satUsed = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satUsed;
+                        svInfoPtr[count].satTracked = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satTracked;
+                        svInfoPtr[count].satSnr = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satSnr;
+                        svInfoPtr[count].satAzim = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satAzim;
+                        svInfoPtr[count].satElev = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satElev;
+                        svInfoPtr[count].signalType = posSampleReqPtr->positionSampleNodePtr->satInfo[i].signalType;
+                        svInfoPtr[count].glonassFcn = posSampleReqPtr->positionSampleNodePtr->satInfo[i].glonassFcn;
+                        svInfoPtr[count].baseBandCnr = posSampleReqPtr->positionSampleNodePtr->satInfo[i].baseBandCnr;
+                        count++;
+                    }else{
+                        truncated = true;
+                    }
                 }
             }
-            if ((int)*svInfoLen <= count) {
+            if (truncated){
+                count = 0;
+                *svInfoLen = 0;
                 result = LE_OVERFLOW;
+            }else{
+                result = LE_OK;
             }
             *svInfoLen = count;
+            return result;
         }
         else
         {
@@ -7106,6 +7115,7 @@ le_result_t taf_locGnss::GetSatellitesInfoEx
             {
                 svInfoPtr[i].satId = UINT16_MAX;
                 svInfoPtr[i].satConst = TAF_LOCGNSS_SV_CONSTELLATION_UNDEFINED;
+                svInfoPtr[i].satUsed = false;
                 svInfoPtr[i].satTracked = false;
                 svInfoPtr[i].satSnr = UINT8_MAX;
                 svInfoPtr[i].satAzim = UINT16_MAX;
@@ -7114,23 +7124,8 @@ le_result_t taf_locGnss::GetSatellitesInfoEx
                 svInfoPtr[i].glonassFcn = UINT16_MAX;
                 svInfoPtr[i].baseBandCnr = 0.0;
             }
-            result = LE_OUT_OF_RANGE;
-        }
-
-        if (posSampleReqPtr->positionSampleNodePtr->satsUsedCountValid)
-        {
-            for(i=0; i < (int)*svInfoLen; i++)
-            {
-                svInfoPtr[i].satUsed = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satUsed;
-            }
-        }
-        else
-        {
-            for(i=0; i < (int)*svInfoLen; i++)
-            {
-                svInfoPtr[i].satUsed = false;
-            }
-            result = LE_OUT_OF_RANGE;
+            *svInfoLen = 0;
+            return LE_OUT_OF_RANGE;
         }
     }
 

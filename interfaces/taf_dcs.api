@@ -989,14 +989,15 @@ STRUCT RoamingStatusInd
  * Starts a synchronous data cellular session for the given profile reference.
  *
  * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Parameter is invalid or couldn't create the data call.
+ *  - LE_OK           -- Succeeded.
+ *  - LE_NOT_FOUND    -- Parameter is invalid or couldn't create the data call.
  *  - LE_OUT_OF_RANGE -- PDP type is unknown.
- *  - LE_DUPLICATE -- If the data session is already connected for the given profile.
- *  - LE_IN_PROGRESS -- The profile is in use and a data call is in progress.
- *  - LE_TIMEOUT -- Timed out when attempting to make the data call.
+ *  - LE_DUPLICATE    -- The data session is already connected for the given profile.
+ *  - LE_IN_PROGRESS  -- The profile is in use and a data call is in progress.
+ *  - LE_TIMEOUT      -- Timed out when attempting to make the data call.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
- *  - LE_FAULT -- Failed.
+ *  - LE_TERMINATED   -- The data session was terminated after the call was made.
+ *  - LE_FAULT        -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StartSession
@@ -1040,14 +1041,14 @@ FUNCTION StartSessionAsync
  * Stops (synchronously) a cellular data session for the given profile reference.
  *
  * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Can't find a data call.
+ *  - LE_OK           -- Succeeded.
+ *  - LE_NOT_FOUND    -- Can't find a data call.
  *  - LE_OUT_OF_RANGE -- PdpType type is unknown.
  *  - LE_BAD_PARAMETER -- Call context is NULL.
- *  - LE_TIMEOUT -- Timeout to stop a data call.
- *  - LE_IN_PROGRESS -- The profile is in use and a data call is in progress.
+ *  - LE_TIMEOUT      -- Timeout to stop a data call.
+ *  - LE_IN_PROGRESS  -- The profile is in use and a data call is in progress.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
- *  - LE_FAULT -- Failed.
+ *  - LE_FAULT        -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StopSession
@@ -1072,10 +1073,10 @@ FUNCTION StopSessionAsync
  * Gets a connected data call interface name.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK            -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameter.
- *  - LE_NOT_POSSIBLE -- Invalid status.
- *  - LE_NOT_FOUND -- Cannot find the interface name.
+ *  - LE_NOT_POSSIBLE  -- Invalid status.
+ *  - LE_NOT_FOUND     -- Cannot find the interface name.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetInterfaceName
@@ -1245,10 +1246,10 @@ EVENT HwAccelerationState
  *  Gets the roaming status.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK            -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_TIMEOUT -- Response timed out.
- *  - LE_FAULT -- Failed.
+ *  - LE_TIMEOUT       -- Response timed out.
+ *  - LE_FAULT         -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetRoamingStatus
@@ -1264,8 +1265,8 @@ FUNCTION le_result_t GetRoamingStatus
  * Gets the connected data session IPv4 address.
  *
  * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Failed.
+ *  - LE_OK           -- Succeeded.
+ *  - LE_NOT_FOUND    -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1280,8 +1281,8 @@ FUNCTION le_result_t GetIPv4Address
  * Gets the connected data session IPv4 gateway address.
  *
  * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Failed.
+ *  - LE_OK           -- Succeeded.
+ *  - LE_NOT_FOUND    -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1296,8 +1297,8 @@ FUNCTION le_result_t GetIPv4GatewayAddress
  * Gets the connected data session primary and secondary DNS IPv4 addresses.
  *
  * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Failed.
+ *  - LE_OK           -- Succeeded.
+ *  - LE_NOT_FOUND    -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1313,8 +1314,8 @@ FUNCTION le_result_t GetIPv4DNSAddresses
  * Gets the connected data session IPv6 address.
  *
  * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Failed.
+ *  - LE_OK           -- Succeeded.
+ *  - LE_NOT_FOUND    -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1329,8 +1330,8 @@ FUNCTION le_result_t GetIPv6Address
  * Gets the connected data session IPv6 gateway address.
  *
  * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Failed.
+ *  - LE_OK           -- Succeeded.
+ *  - LE_NOT_FOUND    -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1345,8 +1346,8 @@ FUNCTION le_result_t GetIPv6GatewayAddress
  * Gets the connected data session primary and secondary DNS IPv6 addresses.
  *
  * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Failed.
+ *  - LE_OK           -- Succeeded.
+ *  - LE_NOT_FOUND    -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1362,8 +1363,8 @@ FUNCTION le_result_t GetIPv6DNSAddresses
  * Gets the data session's current state.
  *
  * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Failed.
+ *  - LE_OK           -- Succeeded.
+ *  - LE_NOT_FOUND    -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1406,8 +1407,8 @@ FUNCTION bool IsIPv6
  * Gets the connected data session data bearer technology.
  *
  * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Failed.
+ *  - LE_OK           -- Succeeded.
+ *  - LE_NOT_FOUND    -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  *  - LE_UNAVAILABLE  -- Data call is not active.
  */
@@ -1464,9 +1465,9 @@ HANDLER ProfileListHandler
  * the data profile list with phone ID 1.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK            -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameter.
- *  - LE_FAULT -- Failed.
+ *  - LE_FAULT         -- Failed.
  */
 FUNCTION le_result_t GetProfileList
 (
@@ -1478,9 +1479,9 @@ FUNCTION le_result_t GetProfileList
  * Gets the data profile list with the specified phone ID.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK            -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameter.
- *  - LE_FAULT -- Failed.
+ *  - LE_FAULT         -- Failed.
  */
 FUNCTION le_result_t GetProfileListEx
 (
@@ -1508,9 +1509,9 @@ FUNCTION uint32 GetDefaultProfileIndex
  * gets the default data profile ID with default phone ID 1.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK            -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameter.
- *  - LE_FAULT -- Failed.
+ *  - LE_FAULT         -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetDefaultPhoneIdAndProfileId
@@ -1527,7 +1528,7 @@ FUNCTION le_result_t GetDefaultPhoneIdAndProfileId
  * the data profile with default phone ID 1.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK    -- Succeeded.
  *  - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1546,7 +1547,7 @@ FUNCTION le_result_t SetDefaultProfileIndex
  * default to WAN network corresponding to the default profile index.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK    -- Succeeded.
  *  - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1563,7 +1564,7 @@ FUNCTION le_result_t SetDefaultProfileIndexEx
  * @instaging
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK    -- Succeeded.
  *  - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1620,10 +1621,10 @@ FUNCTION Profile GetProfileEx
  * ID. Clients can use taf_dcs_GetProfileId() to get the created profile ID.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK            -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameter.
- *  - LE_DUPLICATE -- Profile already created.
- *  - Others -- Failed.
+ *  - LE_DUPLICATE     -- Profile already created.
+ *  - Others           -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CreateProfile
@@ -1637,12 +1638,12 @@ FUNCTION le_result_t CreateProfile
  * no longer valid.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK            -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameter.
- *  - LE_NOT_FOUND -- Profile reference was not found.
- *  - LE_BUSY -- Profile connection state is not DISCONNECTED. App should stop data and then delete
- *               the profile.
- *  - LE_FAULT -- Failed.
+ *  - LE_NOT_FOUND     -- Profile reference was not found.
+ *  - LE_BUSY          -- Profile connection state is not DISCONNECTED. App should stop data and then delete
+ *                        the profile.
+ *  - LE_FAULT         -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteProfile
@@ -1671,9 +1672,9 @@ FUNCTION uint32 GetProfileIndex
  * Gets the profile ID for the given profile reference.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK        -- Succeeded.
  *  - LE_NOT_FOUND -- Profile reference was not found.
- *  - Others -- Failed.
+ *  - Others       -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetProfileId
@@ -1689,10 +1690,10 @@ FUNCTION le_result_t GetProfileId
  * Gets the phone ID for the given profile reference.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK            -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameter.
- *  - LE_NOT_FOUND -- Profile reference was not found.
- *  - LE_FAULT -- Failed.
+ *  - LE_NOT_FOUND     -- Profile reference was not found.
+ *  - LE_FAULT         -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetPhoneId
@@ -1706,9 +1707,9 @@ FUNCTION le_result_t GetPhoneId
  * Sets the data profile APN name.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK        -- Succeeded.
  *  - LE_NOT_FOUND -- Profile reference was not found.
- *  - LE_FAULT -- Failed.
+ *  - LE_FAULT     -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetAPN
@@ -1722,9 +1723,9 @@ FUNCTION le_result_t SetAPN
  * Gets the data profile APN name.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK        -- Succeeded.
  *  - LE_NOT_FOUND -- Failed.
- *  - LE_OVERFLOW -- Apn size is smaller than APN_NAME_MAX_BYTES.
+ *  - LE_OVERFLOW  -- Apn size is smaller than APN_NAME_MAX_BYTES.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetAPN
@@ -1738,9 +1739,9 @@ FUNCTION le_result_t GetAPN
  * Sets the data profile name.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK        -- Succeeded.
  *  - LE_NOT_FOUND -- Profile reference was not found.
- *  - LE_FAULT -- Failed.
+ *  - LE_FAULT     -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetProfileName
@@ -1754,9 +1755,9 @@ FUNCTION le_result_t SetProfileName
  * Gets the data profile name.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK        -- Succeeded.
  *  - LE_NOT_FOUND -- Failed.
- *  - LE_OVERFLOW -- Apn size is smaller than APN_NAME_MAX_BYTES.
+ *  - LE_OVERFLOW  -- Apn size is smaller than APN_NAME_MAX_BYTES.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetProfileName
@@ -1770,9 +1771,9 @@ FUNCTION le_result_t GetProfileName
  * Sets the data profile technology preference.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK        -- Succeeded.
  *  - LE_NOT_FOUND -- Profile reference was not found.
- *  - LE_FAULT -- Failed.
+ *  - LE_FAULT     -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetTechPreference
@@ -1786,7 +1787,7 @@ FUNCTION le_result_t SetTechPreference
  * Gets the data profile technology preference.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK        -- Succeeded.
  *  - LE_NOT_FOUND -- Profile reference was not found.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1801,7 +1802,7 @@ FUNCTION le_result_t GetTechPreference
  * Sets the data profile APN type.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK        -- Succeeded.
  *  - LE_NOT_FOUND -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1816,7 +1817,7 @@ FUNCTION le_result_t SetApnTypes
  * Gets the data profile APN types.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK        -- Succeeded.
  *  - LE_NOT_FOUND -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1831,9 +1832,9 @@ FUNCTION le_result_t GetApnTypes
  * Sets the data profile PDP type.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK        -- Succeeded.
  *  - LE_NOT_FOUND -- Profile reference was not found.
- *  - LE_FAULT -- Failed.
+ *  - LE_FAULT     -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetPDP
@@ -1863,9 +1864,9 @@ FUNCTION Pdp GetPDP
  * Set the data profile authentication type and username/password.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK        -- Succeeded.
  *  - LE_NOT_FOUND -- Could not retrieve the profile information.
- *  - LE_FAULT -- Failed.
+ *  - LE_FAULT     -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetAuthentication
@@ -1881,9 +1882,9 @@ FUNCTION le_result_t SetAuthentication
  * Gets the data profile authentication type and username/password.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK           -- Succeeded.
  *  - LE_OUT_OF_RANGE -- The size of username or password is invalid.
- *  - LE_NOT_FOUND -- Failed.
+ *  - LE_NOT_FOUND    -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetAuthentication
@@ -1899,9 +1900,9 @@ FUNCTION le_result_t GetAuthentication
  * Gets the data profile index by the interface name.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK            -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameter.
- *  - LE_NOT_FOUND -- Failed.
+ *  - LE_NOT_FOUND     -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetProfileIdByInterfaceName
@@ -1915,9 +1916,9 @@ FUNCTION le_result_t GetProfileIdByInterfaceName
  * Gets the phone ID by the interface name.
  *
  * @return
- *  - LE_OK -- Succeeded.
+ *  - LE_OK            -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameter.
- *  - LE_NOT_FOUND -- Failed.
+ *  - LE_NOT_FOUND     -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetPhoneIdByInterfaceName
@@ -1931,8 +1932,8 @@ FUNCTION le_result_t GetPhoneIdByInterfaceName
  * Gets the connected data session IPv6 mask.
  *
  * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Failed.
+ *  - LE_OK           -- Succeeded.
+ *  - LE_NOT_FOUND    -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1947,8 +1948,8 @@ FUNCTION le_result_t GetIPv6SubnetMask
  * Gets the connected data session IPv4 mask.
  *
  * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Failed.
+ *  - LE_OK           -- Succeeded.
+ *  - LE_NOT_FOUND    -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1966,8 +1967,8 @@ FUNCTION le_result_t GetIPv4SubnetMask
  * If profile belongs to only one ipType then FFFF is returned for not supported ipType.
  *
  * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Failed.
+ *  - LE_OK           -- Succeeded.
+ *  - LE_NOT_FOUND    -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not created.
  *  - LE_UNAVAILABLE  -- Data profile is not throttled.
  */
@@ -1985,8 +1986,8 @@ FUNCTION le_result_t GetAPNThrottledStatus
  * Gets the PLMN on which the APN is throttled.
  *
  * @return
- *  - LE_OK -- Succeeded.
- *  - LE_NOT_FOUND -- Failed.
+ *  - LE_OK           -- Succeeded.
+ *  - LE_NOT_FOUND    -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not created.
  *  - LE_UNAVAILABLE  -- Data profile is not throttled.
  */
@@ -2047,11 +2048,11 @@ FUNCTION le_result_t GetCallEndReason
  * Gets the connected data session MTU.
  *
  * @return
- *  - LE_OK -- Succeeded.
- *  - LE_FAULT -- Failed.
+ *  - LE_OK           -- Succeeded.
+ *  - LE_FAULT        -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
- *  - LE_OVERFLOW -- IOCTL interface name is smaller than profile interface name.
- *  - LE_IO_ERROR -- IOCTL operation failed.
+ *  - LE_OVERFLOW     -- IOCTL interface name is smaller than profile interface name.
+ *  - LE_IO_ERROR     -- IOCTL operation failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetMtu
@@ -2067,9 +2068,9 @@ FUNCTION le_result_t GetMtu
  * @instaging
  *
  * @return
+ *  - LE_OK            -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_NOT_FOUND -- QOS flow not found.
- *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND     -- QOS flow not found.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetQosId
@@ -2085,9 +2086,9 @@ FUNCTION le_result_t GetQosId
  * @instaging
  *
  * @return
+ *  - LE_OK            -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_NOT_FOUND -- QOS flow not found.
- *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND     -- QOS flow not found.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetQosParameterMask
@@ -2103,9 +2104,9 @@ FUNCTION le_result_t GetQosParameterMask
  * @instaging
  *
  * @return
+ *  - LE_OK            -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_NOT_FOUND -- QOS flow not found.
- *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND     -- QOS flow not found.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetQosProfile

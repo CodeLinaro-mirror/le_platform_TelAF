@@ -10,9 +10,13 @@
  *
  * <HR>
  *
- * Wireless LAN(WLAN) Management Service provides APIs for applications to manage the WLAN
- * chipset. Before a WLAN access point or station can be started, this service's APIs should be used
- * to enable and configure the WLAN chipset for proper use.
+ * The wireless LAN (WLAN) device management service provides APIs for
+ * applications to manage and control WLAN chipsets. This service acts as the foundation
+ * layer that must be configured before any WLAN access point (AP) or station (STA)
+ * operations can be performed.
+ *
+ * The service supports multiple concurrent WLAN interfaces, advanced interference management
+ * between 5G N79 and WLAN 5 GHz bands, and real-time device state monitoring.
  *
  * @section taf_wlan_binding IPC interfaces binding
  *
@@ -26,20 +30,289 @@
    }
    @endverbatim
  *
- * @section taf_wlan_set_interference N79 5G and WLAN 5G interference management
+ * @section c_taf_wlan_device_management Device Management Operations
  *
- * The N79 5G and WLAN 5G interference management is supported by the WLAN service. The service will
- * enable or disable either band depending on the priority and wait times specified. Set all
- * parameters and call taf_wlan_SetBandIntState for them to be applied. After the parameters are
- * applied, the get APIs can be used to check the current values.
- * @verbatim
-   taf_wlan_SetBandIntPriority() - Set the band to prioritize.
-   taf_wlan_SetBandIntWaitTime() - Set the wait time for both bands.
-   taf_wlan_SetBandIntState()    - Set the band interference management state.
-   taf_wlan_GetBandIntPriority() - Get the priority band.
-   taf_wlan_GetBandIntWaitTime() - Get the wait time for both bands.
-   taf_wlan_GetBandIntState()    - Get the current band interference state.
-   @endverbatim
+ * The WLAN device must be turned ON and configured with the appropriate mode before any AP
+ * or STA operations can be performed. The service supports various device modes including
+ * single AP, single STA, and concurrent AP+STA configurations.
+ *
+ * @subsection c_taf_wlan_basic_setup Setup the device
+ *
+ * The following example demonstrates the basic WLAN device setup workflow:
+ *
+ * @code
+ *
+   // Register for device state change events
+   taf_wlan_DeviceStateHandlerRef_t stateHandlerRef =
+       taf_wlan_AddDeviceStateHandler(NULL, DeviceStateHandler, NULL);
+ *
+   // Turn on the WLAN device
+   le_result_t result = taf_wlan_TurnOn(NULL);
+   if (result != LE_OK) {
+       LE_ERROR("Failed to turn on WLAN device: %d", result);
+       return result;
+   }
+ *
+   // Set the device mode (e.g., AP + STA)
+   result = taf_wlan_SetMode(NULL, TAF_WLAN_MODE_STA_AP);
+   if (result != LE_OK) {
+       LE_ERROR("Failed to set WLAN mode: %d", result);
+       return result;
+   }
+ *
+   // Verify the device state
+   taf_wlan_DeviceState_t state;
+   result = taf_wlan_GetState(NULL, &state);
+   if (result == LE_OK && state == TAF_WLAN_ON) {
+       LE_INFO("WLAN device is now ON and ready");
+   }
+ *
+   @endcode
+ *
+ * @subsection c_taf_wlan_interface_discovery Discover available interfaces
+ *
+ * After setting the device mode, applications need to discover the available interfaces to
+ * get references for AP and STA operations:
+ *
+ * @code
+ *
+   // Get interface information
+   taf_wlan_APIntfInfo_t apIntf[TAF_WLAN_MAX_NUM_AP];
+   taf_wlan_STAIntfInfo_t staIntf[TAF_WLAN_MAX_NUM_STA];
+   size_t apIntfSize = TAF_WLAN_MAX_NUM_AP;
+   size_t staIntfSize = TAF_WLAN_MAX_NUM_STA;
+ *
+   result = taf_wlan_GetIntfInfo(NULL, apIntf, &apIntfSize, staIntf, &staIntfSize);
+   if (result != LE_OK) {
+       LE_ERROR("Failed to get interface info: %d", result);
+       return result;
+   }
+ *
+   // Display available interfaces
+   LE_INFO("Available AP interfaces: %zu", apIntfSize);
+   for (size_t i = 0; i < apIntfSize; i++) {
+       LE_INFO("  AP ID: %d, Interface: %s", apIntf[i].id, apIntf[i].IntfName);
+   }
+ *
+   LE_INFO("Available STA interfaces: %zu", staIntfSize);
+   for (size_t i = 0; i < staIntfSize; i++) {
+       LE_INFO("  STA ID: %d, Interface: %s", staIntf[i].id, staIntf[i].IntfName);
+   }
+ *
+   @endcode
+ *
+ * @subsection c_taf_wlan_state_monitoring Monitor device state
+ *
+ * Applications should register for device state change events to monitor WLAN device status:
+ *
+ * @code
+ *
+   // Device state change handler
+   static void DeviceStateHandler(
+       taf_wlan_WlanRef_t wlanRef,
+       taf_wlan_DeviceState_t state,
+       void* contextPtr
+   )
+   {
+       switch (state) {
+           case TAF_WLAN_OFF:
+               LE_INFO("WLAN device is OFF");
+               break;
+           case TAF_WLAN_ON:
+               LE_INFO("WLAN device is ON and ready");
+               break;
+           case TAF_WLAN_UNAVAILABLE:
+               LE_ERROR("WLAN device is unavailable");
+               break;
+           default:
+               LE_ERROR("Unknown WLAN device state: %d", state);
+               break;
+       }
+   }
+ *
+   @endcode
+ *
+ * @section taf_wlan_set_interference Manage N79 5G and WLAN 5G interference
+ *
+ * The service provides advanced interference management between N79 5G and WLAN 5GHz bands
+ * to optimize performance and avoid conflicts for devices that support 5G cellular and WLAN 5 GHz operations.
+ *
+ * @subsection c_taf_wlan_interference_setup Set up interference management
+ *
+ * The following example demonstrates how to configure band interference management:
+ *
+ * @code
+ *
+   // Set N79 5G band as higher priority
+   le_result_t result = taf_wlan_SetBandIntPriority(NULL, TAF_WLAN_PRIO_BAND_N79);
+   if (result != LE_OK) {
+       LE_ERROR("Failed to set band priority: %d", result);
+       return result;
+   }
+ *
+   // Set wait times for both bands (in seconds)
+   result = taf_wlan_SetBandIntWaitTime(NULL, TAF_WLAN_PRIO_BAND_N79, 30);
+   if (result == LE_OK) {
+       result = taf_wlan_SetBandIntWaitTime(NULL, TAF_WLAN_PRIO_BAND_WLAN_5_GHZ, 30);
+   }
+   if (result != LE_OK) {
+       LE_ERROR("Failed to set wait times: %d", result);
+       return result;
+   }
+ *
+   // Enable interference management
+   result = taf_wlan_SetBandIntState(NULL, TAF_WLAN_BAND_INT_ENABLED);
+   if (result != LE_OK) {
+       LE_ERROR("Failed to enable interference management: %d", result);
+       return result;
+   }
+ *
+   LE_INFO("Band interference management enabled successfully");
+ *
+   @endcode
+ *
+ * @subsection c_taf_wlan_interference_monitoring Monitor interference status
+ *
+ * The following snippet shows how applications can monitor the current interference management state:
+ *
+ * @code
+ *
+   // Get current interference state
+   taf_wlan_BandIntState_t intState;
+   le_result_t result = taf_wlan_GetBandIntState(NULL, &intState);
+   if (result == LE_OK) {
+       LE_INFO("Interference management is %s",
+               (intState == TAF_WLAN_BAND_INT_ENABLED) ? "ENABLED" : "DISABLED");
+   }
+ *
+   // Get current priority band
+   taf_wlan_BandIntPriority_t priority;
+   result = taf_wlan_GetBandIntPriority(NULL, &priority);
+   if (result == LE_OK) {
+       const char* priorityStr = (priority == TAF_WLAN_PRIO_BAND_N79) ?
+                                "N79 5G" : "WLAN 5GHz";
+       LE_INFO("Priority band: %s", priorityStr);
+   }
+ *
+   // Get wait times for both bands
+   uint32_t waitTime;
+   result = taf_wlan_GetBandIntWaitTime(NULL, TAF_WLAN_PRIO_BAND_N79, &waitTime);
+   if (result == LE_OK) {
+       LE_INFO("N79 5G wait time: %u seconds", waitTime);
+   }
+ *
+   result = taf_wlan_GetBandIntWaitTime(NULL, TAF_WLAN_PRIO_BAND_WLAN_5_GHZ, &waitTime);
+   if (result == LE_OK) {
+       LE_INFO("WLAN 5GHz wait time: %u seconds", waitTime);
+   }
+ *
+   @endcode
+ *
+ * @section c_taf_wlan_complete_workflow Complete WLAN setup workflow
+ *
+ * The following example demonstrates a complete WLAN device setup workflow:
+ *
+ * @code
+ *
+   static taf_wlan_DeviceStateHandlerRef_t stateHandlerRef = NULL;
+   static le_sem_Ref_t wlanSemRef = NULL;
+ *
+   static void DeviceStateHandler(
+       taf_wlan_WlanRef_t wlanRef,
+       taf_wlan_DeviceState_t state,
+       void* contextPtr
+   )
+   {
+       if (state == TAF_WLAN_ON) {
+           LE_INFO("WLAN device is ready");
+           le_sem_Post(wlanSemRef);
+       }
+   }
+ *
+   le_result_t SetupWlanDevice(void)
+   {
+       le_result_t result;
+ *
+       // Create semaphore for synchronization
+       wlanSemRef = le_sem_Create("WlanSem", 0);
+ *
+       // Register for state change events
+       stateHandlerRef = taf_wlan_AddDeviceStateHandler(NULL, DeviceStateHandler, NULL);
+       if (stateHandlerRef == NULL) {
+           LE_ERROR("Failed to register state handler");
+           return LE_FAULT;
+       }
+ *
+       // Turn on WLAN device
+       result = taf_wlan_TurnOn(NULL);
+       if (result != LE_OK) {
+           LE_ERROR("Failed to turn on WLAN: %d", result);
+           return result;
+       }
+ *
+       // Wait for device to be ready
+       le_sem_Wait(wlanSemRef);
+ *
+       // Set device mode for concurrent AP and STA
+       result = taf_wlan_SetMode(NULL, TAF_WLAN_MODE_STA_AP);
+       if (result != LE_OK) {
+           LE_ERROR("Failed to set WLAN mode: %d", result);
+           return result;
+       }
+ *
+       // Configure interference management
+       result = taf_wlan_SetBandIntPriority(NULL, TAF_WLAN_PRIO_BAND_N79);
+       if (result == LE_OK) {
+           result = taf_wlan_SetBandIntWaitTime(NULL, TAF_WLAN_PRIO_BAND_N79, 30);
+       }
+       if (result == LE_OK) {
+           result = taf_wlan_SetBandIntWaitTime(NULL, TAF_WLAN_PRIO_BAND_WLAN_5_GHZ, 30);
+       }
+       if (result == LE_OK) {
+           result = taf_wlan_SetBandIntState(NULL, TAF_WLAN_BAND_INT_ENABLED);
+       }
+ *
+       if (result != LE_OK) {
+           LE_WARN("Interference management setup failed: %d", result);
+           // Continue anyway as this is optional
+       }
+ *
+       LE_INFO("WLAN device setup completed successfully");
+       return LE_OK;
+   }
+ *
+   void CleanupWlanDevice(void)
+   {
+       if (stateHandlerRef) {
+           taf_wlan_RemoveDeviceStateHandler(stateHandlerRef);
+           stateHandlerRef = NULL;
+       }
+ *
+       taf_wlan_TurnOff(NULL);
+ *
+       if (wlanSemRef) {
+           le_sem_Delete(wlanSemRef);
+           wlanSemRef = NULL;
+       }
+   }
+ *
+   @endcode
+ *
+ * @section c_taf_wlan_supported_modes Supported device modes
+ *
+ * The WLAN service supports the following device modes:
+ *
+ * | Mode | Description | Max APs | Max STAs |
+ * |:-----|:------------|:--------|:---------|
+ * | TAF_WLAN_MODE_AP | Single Access Point | 1 | 0 |
+ * | TAF_WLAN_MODE_STA | Single Station | 0 | 1 |
+ * | TAF_WLAN_MODE_STA_AP | Station + Access Point | 1 | 1 |
+ * | TAF_WLAN_MODE_AP_AP | Dual Access Points | 2 | 0 |
+ * | TAF_WLAN_MODE_AP_AP_STA | Dual APs + Station | 2 | 1 |
+ *
+ * @b NOTE: Mode changes require a device OFF/ON cycle to take effect.
+ *
+ * <HR>
  *
  */
 //--------------------------------------------------------------------------------------------------

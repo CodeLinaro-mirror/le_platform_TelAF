@@ -192,11 +192,9 @@ void TryToCreateStorageFromTree(AO_SecurityAccess_t *self)
 
     snprintf(nodePath, sizeof(nodePath), "%s", self->ifname);
 
-    LE_INFO("Security config tree: %s", nodePath);
-
     if (le_cfg_NodeExists(iteratorRef, nodePath))
     {
-        LE_INFO("Tree for security_access already exists.");
+        LE_INFO("Tree for security_access already exists. if:%s", self->ifname);
 
         /* FIXME: Now, if we want to update the configuration from YAML to configTree
          *        use the target-tool 'config' to delete the 'tafDiagSvc:' subTree,
@@ -244,7 +242,7 @@ static void AO_SecurityAccess_ctor
     MFsm_ctor(&self->super, (MStateHandler_t)&State_initial);
     try
     {
-        LE_INFO("Parsing security_binding ...");
+
         cfg::Node & sec_binding = cfg::get_root_node().get_child("security_binding");
 
         self->session_list = LE_SLS_LIST_INIT;
@@ -260,7 +258,6 @@ static void AO_SecurityAccess_ctor
 
         for (auto & binding: sec_binding) {
             std::string sname = binding.first;
-            LE_INFO("- Pick sesion: %s", sname.c_str());
             SecuritySession_t * sess = (SecuritySession_t*)le_mem_ForceAlloc(SecuritySessionPool);
 
             cfg::Node & attr = binding.second;
@@ -303,7 +300,7 @@ static void AO_SecurityAccess_ctor
         LE_FATAL("Bad configuration for security access service init: %s", e.what());
     }
 
-    LE_INFO("[%s] Done", __FUNCTION__);
+    LE_DEBUG("[%s] Done", __FUNCTION__);
 }
 
 static void TryToPostSemaphore
@@ -430,7 +427,6 @@ static void LoadAttCntAndDelayTimer(AO_SecurityAccess_t * self, MEvent_t const *
         }
     }
     le_cfg_CancelTxn(iteratorRef);
-    LE_INFO("Load Att_Cnt from tree");
 
     /* FIXME: Now, Delay_Timer duration time is fixed, to be reset every time */
 }
@@ -892,7 +888,7 @@ static void CaptureIgnoreEvent
 
 MState_t State_initial(AO_SecurityAccess_t * self, MEvent_t const *ev)
 {
-    LE_INFO("SECURITY_ACCESS: %s", __FUNCTION__);
+    LE_DEBUG("SECURITY_ACCESS: %s", __FUNCTION__);
     LoadAttCntAndDelayTimer(self, ev);
     self->current_session = self->default_session;
     return M_Translate(&State_LockedNoActiveSeed);
@@ -900,7 +896,7 @@ MState_t State_initial(AO_SecurityAccess_t * self, MEvent_t const *ev)
 
 MState_t State_LockedNoActiveSeed(AO_SecurityAccess_t * self, MEvent_t const *ev)
 {
-    LE_INFO("S-Function [%s]", __FUNCTION__);
+    LE_DEBUG("S-Function [%s]", __FUNCTION__);
 
     switch(ev->sig) {
         case REQUEST_SEED_SIG: {

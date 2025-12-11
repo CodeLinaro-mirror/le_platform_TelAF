@@ -87,7 +87,6 @@ UdsCommunicationMgr::UdsCommunicationMgr
 )
 {
     le_utf8_Copy(interface, ifName, MAX_INTERFACE_NAME_LEN, NULL);
-    LE_INFO("create instance for ifName:%s", interface);
 }
 
 UdsCommunicationMgr::UdsCommunicationMgr()
@@ -163,7 +162,6 @@ void UdsCommunicationMgr::InitInstances
 
     InitAuthData(interfaceList);
 
-    LE_INFO("UDS communication manager ok.");
     return;
 }
 
@@ -195,20 +193,19 @@ void UdsCommunicationMgr::InitAuthData
 
         if (le_cfg_NodeExists(iteratorRef, nodePath))
         {
-            LE_INFO("Interface:%s exists in auth config tree", pair.second->interface);
 
             //Get Att_Cnt and Delay_time from config tree
             udsCmMgr->authAttCnt = le_cfg_GetInt(iteratorRef, attCntNodePath, 0);
             udsCmMgr->authDelayTime = le_cfg_GetInt(iteratorRef, delayTimeNodePath, 1);
 
-            LE_INFO("authAttCnt=%d, authDelayTime=%d", udsCmMgr->authAttCnt,
+            LE_DEBUG("authAttCnt=%d, authDelayTime=%d", udsCmMgr->authAttCnt,
                     udsCmMgr->authDelayTime);
             le_cfg_CancelTxn(iteratorRef);
 
             //Check if need to start auth delay timer
             if(udsCmMgr->authAttCnt >= AUTH_DEFAULT_MAX_ATT_CNT)
             {
-                LE_INFO("start auth delay timer");
+                LE_DEBUG("start auth delay timer");
                 udsCmMgr->UdsTimerEventReport(TAF_UDS_AUTH_DELAY_TIMER_START,
                         udsCmMgr->authDelayTime* 1000, pair.second->interface);
             }
@@ -513,8 +510,6 @@ void* UdsCommunicationMgr::UdsTimerThread
     le_event_AddHandler("UDS Timer Event Handler", udsTimerEventId, UdsTimerHandler);
 
     le_sem_Post(semRef);
-
-    LE_INFO("Create event loop for timer event");
 
     le_event_RunLoop();
 
@@ -874,8 +869,6 @@ le_result_t UdsCommunicationMgr::UdsStart
 
     le_cfg_ConnectService();
 
-    LE_INFO("Start UDS server with config file %s", configPathPtr);
-
     //Init and start DoIP to enable the ability of sending/receiving data packets
     if (DoipEntityRef == NULL)
     {
@@ -910,8 +903,6 @@ le_result_t UdsCommunicationMgr::UdsStart
         LE_FATAL("interface list is empty");
         return LE_FAULT;
     }
-
-    LE_INFO("Interface list num=%d", (int)le_dls_NumLinks(interfaceList));
 
     //Initialize instance with interface name
     InitInstances(interfaceList);
@@ -1031,13 +1022,9 @@ void UdsCommunicationMgr::GetVlanIdList
     le_dls_List_t* vlanIDListPtr
 )
 {
-    LE_DEBUG("GetVlanIdList");
-
     // Store VLAN id in list. In non-VLAN case, vlanId will be 0.
     for (const auto &pair : instances)
     {
-        LE_INFO("vlanId=%d", pair.second->vlanId);
-
         taf_uds_VlanId_t* vlanIdPtr = NULL;
 
         // Need to be released by diag service
@@ -1045,7 +1032,6 @@ void UdsCommunicationMgr::GetVlanIdList
 
         vlanIdPtr->vlanId = pair.second->vlanId;
         vlanIdPtr->link = LE_DLS_LINK_INIT;
-        LE_DEBUG("Supported vlanId : %x", vlanIdPtr->vlanId);
 
         le_dls_Queue(vlanIDListPtr, &(vlanIdPtr->link));
     }
@@ -4653,8 +4639,6 @@ le_result_t UdsCommunicationMgr::UdsAddDiagIndicationHandler
 (
 )
 {
-    LE_INFO("UdsAddDiagIndicationHandler");
-
     if (DoipEntityRef == NULL)
     {
         LE_ERROR("DoIP stack is not initialized");
@@ -4693,7 +4677,6 @@ le_result_t UdsCommunicationMgr::SendUDSResp
     uint16_t dataSize
 )
 {
-    LE_DEBUG("SendUDSResp");
 
     if(ifName == NULL)
     {

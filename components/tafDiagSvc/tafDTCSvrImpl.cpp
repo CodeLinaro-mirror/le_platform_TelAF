@@ -159,12 +159,12 @@ le_result_t taf_DTCSvr::ReadStatus
     //Check if DTC is suppressed
     if(dtcCtxPtr->suppressionStatus == true)
     {
-        LE_INFO("DTC code:0x%x is suppressed", dtcCtxPtr->dtcCode);
+        LE_WARN("DTC code:0x%x is suppressed", dtcCtxPtr->dtcCode);
         return LE_UNAVAILABLE;
     }
 
     *statusPtr = taf_DataAccess_GetDTCStatus(dtcCtxPtr->dtcCode);
-    LE_INFO("Database: get DTC code:0x%x, DTC status in DB:0x%x", dtcCtxPtr->dtcCode, *statusPtr);
+    LE_DEBUG("Database: get DTC code:0x%x, DTC status in DB:0x%x", dtcCtxPtr->dtcCode, *statusPtr);
 
     return LE_OK;
 }
@@ -198,7 +198,7 @@ le_result_t taf_DTCSvr::SetActivationStatus
 
     if(curActStatus == status)
     {
-        LE_INFO("Status is same as current");
+        LE_DEBUG("Status is same as current");
         return LE_OK;
     }
 
@@ -248,7 +248,6 @@ le_result_t taf_DTCSvr::GetActivationStatus
 
     //Activation status may be set by DTOOL, read it from database.
     activationStatus = taf_DataAccess_GetDTCActivation(dtcCtxPtr->dtcCode);
-    LE_INFO("Activation status=%d", activationStatus);
 
     if(activationStatus == 1)
     {
@@ -286,7 +285,7 @@ le_result_t taf_DTCSvr::SetSuppression
     result = diagEvent.SetDTCSuppression(dtcCtxPtr->dtcCode, suppressionStatus);
     if(result != LE_OK)
     {
-        LE_INFO("Failed to set suppression for DTC 0x%x", dtcCtxPtr->dtcCode);
+        LE_ERROR("Failed to set suppression for DTC 0x%x", dtcCtxPtr->dtcCode);
         return result;
     }
 
@@ -341,7 +340,7 @@ le_result_t taf_DTCSvr::ClearInfo
     //Check if DTC is suppressed
     if(dtcCtxPtr->suppressionStatus == true)
     {
-        LE_INFO("DTC code:0x%x is suppressed", dtcCtxPtr->dtcCode);
+        LE_WARN("DTC code:0x%x is suppressed", dtcCtxPtr->dtcCode);
         return LE_UNAVAILABLE;
     }
 
@@ -418,7 +417,7 @@ taf_diagDTC_DataListRef_t taf_DTCSvr::GetDataList
     //Check if DTC is suppressed
     if(dtcCtxPtr->suppressionStatus == true)
     {
-        LE_INFO("DTC code:0x%x is suppressed", dtcCtxPtr->dtcCode);
+        LE_WARN("DTC code:0x%x is suppressed", dtcCtxPtr->dtcCode);
         return NULL;
     }
 
@@ -781,7 +780,6 @@ le_result_t taf_DTCSvr::RemoveSvc
             if( le_dls_NumLinks(&dtcCtxPtr->sessionRefList)  == 0)
             {
                 // Clear service object
-                LE_DEBUG(" clear dtc code 0x%x context", dtcCtxPtr->dtcCode);
                 le_ref_DeleteRef(SvcRefMap, (void*)dtcCtxPtr->svcRef);
                 dtcCtxPtr->svcRef = NULL;
             }
@@ -815,13 +813,10 @@ le_result_t taf_DTCSvr::AddSessionToDtcCtx
 
         if (sessionRefPtr->sessionRef == sessionRef)
         {
-            LE_DEBUG("Session(%p) has been added to dtcCtx dtcCode 0x%x", sessionRef,
-                    dtcCtxPtr->dtcCode);
             return LE_DUPLICATE;
         }
     }
 
-    LE_DEBUG("add session %p for DTC code 0x%x", sessionRef, dtcCtxPtr->dtcCode );
     taf_diagDTC_SessionRef_t* newSessionRefPtr =
             (taf_diagDTC_SessionRef_t *)le_mem_ForceAlloc(SessionRefPool);
 
@@ -856,7 +851,6 @@ le_result_t taf_DTCSvr::RemoveSessionFromDtcCtx
 
         if (sessionRefPtr->sessionRef == sessionRef)
         {
-            LE_DEBUG("remove ref(%p) from DTC code(%d)", sessionRef, dtcCtxPtr->dtcCode);
             le_dls_Remove(&(dtcCtxPtr->sessionRefList), &(sessionRefPtr->link));
             le_mem_Release(sessionRefPtr);
             return LE_OK;
@@ -945,7 +939,6 @@ void taf_DTCSvr::FirstLayerClearDtcStatusHandler
     void* secondLayerHandlerFunc
 )
 {
-    LE_INFO("FirstLayerClearDtcStatusHandler!!");
     TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
 
     taf_diagDTC_ClearStatus_t* clearDtcStatusEvent = (taf_diagDTC_ClearStatus_t *)reportPtr;
@@ -1017,8 +1010,6 @@ void taf_DTCSvr::ReportClearDTCStatus
     taf_diagDTC_ReqClientType_t clientType
 )
 {
-    LE_DEBUG("ReportClearDTCStatus!!");
-
     // Search the service.
     taf_diagDTC_DtcCtx_t* dtcCtxPtr = GetDtcCtxByCode(dtcCode);
 
@@ -1052,7 +1043,6 @@ void taf_DTCSvr::ReportClearAllDTCStatus
     taf_diagDTC_ReqClientType_t clientType
 )
 {
-    LE_DEBUG("ReportClearAllDTCStatus!!");
 
     if(AllDtcCtx.svcRef != NULL)
     {
@@ -1101,14 +1091,12 @@ le_event_Id_t taf_DTCSvr::GetClearDtcStatusEvent
     taf_diagDTC_ServiceRef_t svcRef
 )
 {
-    LE_DEBUG("GetClearDtcStatusEvent!!");
     TAF_ERROR_IF_RET_VAL(svcRef == NULL, NULL, "svcRef is null");
 
     taf_diagDTC_DtcCtx_t* dtcCtxPtr = GetDtcCtx(svcRef);
 
     TAF_ERROR_IF_RET_VAL(dtcCtxPtr == NULL, NULL, "dtcCtxPtr is null");
 
-    LE_INFO("dtcCtxPtr->clearDtcStatusEventId: %p",dtcCtxPtr->clearDtcStatusEventId);
     return dtcCtxPtr->clearDtcStatusEventId;
 }
 
@@ -1223,7 +1211,6 @@ void taf_DTCSvr::FirstLayerClearAllDtcStatusHandler
     void* secondLayerHandlerFunc
 )
 {
-    LE_DEBUG("FirstLayerClearAllDtcStatusHandler!!");
     TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
 
     taf_diagDTC_ClearAllStatus_t* clearAllDtcStatusEvent = (taf_diagDTC_ClearAllStatus_t*)reportPtr;
@@ -1276,7 +1263,7 @@ le_result_t taf_DTCSvr::SetAllSuppression
     result = diagEvent.SetAllDTCSuppression(suppressionStatus);
     if(result != LE_OK)
     {
-        LE_INFO("Failed to set suppression for all DTC");
+        LE_ERROR("Failed to set suppression for all DTC");
         return result;
     }
 
@@ -1298,8 +1285,7 @@ le_result_t taf_DTCSvr::RemoveAllSvc
     TAF_ERROR_IF_RET_VAL(svcRef == NULL, LE_FAULT, "svcRef is null");
     le_msg_SessionRef_t sessionRef = taf_diagDTC_GetClientSessionRef();
 
-    if( RemoveSessionFromAllDtcCtx(sessionRef) == LE_OK)
-        LE_DEBUG(" remove session %p, from AllDTC", sessionRef);
+    RemoveSessionFromAllDtcCtx(sessionRef);
 
     return LE_OK;
 }
@@ -1330,7 +1316,6 @@ le_result_t taf_DTCSvr::AddSessionToAllDtcCtx
         }
     }
 
-    LE_DEBUG("add session %p for AllDTC", sessionRef);
     taf_diagDTC_SessionRef_t* newSessionRefPtr =
             (taf_diagDTC_SessionRef_t *)le_mem_ForceAlloc(SessionRefPool);
 
@@ -1412,7 +1397,7 @@ void taf_DTCSvr::InitDtcCtx
     //Get suppression status from database
     dtcCtxPtr->suppressionStatus = taf_DataAccess_GetDTCSuppression(dtcCode);
 
-    LE_INFO("DTC code:0x%x, suppression status in DB:0x%x", dtcCode, dtcCtxPtr->suppressionStatus);
+    LE_DEBUG("DTC code:0x%x, suppression status in DB:0x%x", dtcCode, dtcCtxPtr->suppressionStatus);
 
     dtcCtxPtr->link = LE_DLS_LINK_INIT;
 
@@ -1474,14 +1459,12 @@ void taf_DTCSvr::OnClientDisconnection
         if (dtcCtxPtr != NULL)
         {
             //Remove client session reference from DTC session reference list
-            if( diagDTC.RemoveSessionFromDtcCtx(dtcCtxPtr, sessionRef) == LE_OK)
-                LE_DEBUG("remove DTC from context, DTC code 0x%x", dtcCtxPtr->dtcCode);
+            diagDTC.RemoveSessionFromDtcCtx(dtcCtxPtr, sessionRef);
 
             //If session number of links is 0, release DTC context
             if( le_dls_NumLinks(&dtcCtxPtr->sessionRefList) == 0)
             {
                 // Clear service object
-                LE_INFO(" clear dtc code 0x%x context", dtcCtxPtr->dtcCode);
                 le_ref_DeleteRef(diagDTC.SvcRefMap, (void*)dtcCtxPtr->svcRef);
                 dtcCtxPtr->svcRef = NULL;
             }
@@ -1489,8 +1472,8 @@ void taf_DTCSvr::OnClientDisconnection
     }
 
     //Remove session from AllDTC
-    if(diagDTC.RemoveSessionFromAllDtcCtx(sessionRef) == LE_OK)
-        LE_DEBUG(" remove session %p, from AllDtc", sessionRef);
+    diagDTC.RemoveSessionFromAllDtcCtx(sessionRef);
+
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1507,7 +1490,6 @@ void taf_DTCSvr::DtcConfiguration(cfg::Node & node)
     for (const auto & dtc: dtc_map)
     {
         dtcCode= dtc.first;
-        LE_DEBUG("dtc code=0x%x",dtcCode);
 
         if((dtcCode & 0xff000000) != 0)
         {
@@ -1599,5 +1581,4 @@ void taf_DTCSvr::Init
 
     InitAllDtcCtx();
 
-    LE_INFO("Diag DTC Service started!");
 }

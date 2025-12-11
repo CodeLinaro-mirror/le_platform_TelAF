@@ -122,8 +122,6 @@ COMPONENT_INIT
     }
 
     { /* Output all information tafDiagGen tool generated */
-        LE_INFO("%s", tafDiagGen_tool_version);
-        LE_INFO("%s", tafDiagGen_tool_timestamp);
         LE_INFO("%s", tafDiagGen_tool_json_md5);
         LE_INFO("%s", tafDiagGen_tool_evid_h_md5);
     }
@@ -154,10 +152,6 @@ COMPONENT_INIT
 
         LE_ERROR("MD5 of JSON file [Mismatched], FATAL!");
         exit(EXIT_SUCCESS);
-    }
-    else
-    {
-        LE_INFO("MD5 of JSON file [Matched], continue ...");
     }
 
 }

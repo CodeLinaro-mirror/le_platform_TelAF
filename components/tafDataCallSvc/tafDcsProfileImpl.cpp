@@ -1772,6 +1772,7 @@ void taf_DataProfile::Init(void)
 
     le_sem_Ref_t semRef = le_sem_Create("ProfileThreadSem", 0);
     ProfileEventThreadRef = le_thread_Create("DcsProfileThread", ProfileEventThread, (void*)semRef);
+    le_thread_SetJoinable(ProfileEventThreadRef);
     le_thread_Start(ProfileEventThreadRef);
     le_sem_Wait(semRef);
     le_sem_Delete(semRef);
@@ -1807,4 +1808,5 @@ void taf_DataProfile::Deinit(void)
     CleanupAllProfiles();
     // Stop the profile event thread
     le_thread_Cancel(ProfileEventThreadRef);
+    le_thread_Join(ProfileEventThreadRef, NULL);
 }

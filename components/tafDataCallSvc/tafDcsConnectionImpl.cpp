@@ -4149,6 +4149,7 @@ void taf_DataConnection::Init(void)
     le_sem_Ref_t semRef = le_sem_Create("ConnThreadSem", 0);
     ConnectionEventThreadRef = le_thread_Create("DcsEvtThread", ConnectionEventThread,
                                                 (void*)semRef);
+    le_thread_SetJoinable(ConnectionEventThreadRef);
     le_thread_Start(ConnectionEventThreadRef);
     le_sem_Wait(semRef);
     le_sem_Delete(semRef);
@@ -4227,4 +4228,5 @@ void taf_DataConnection::Deinit(void)
 
     // Stop the connection event thread
     le_thread_Cancel(ConnectionEventThreadRef);
+    le_thread_Join(ConnectionEventThreadRef, NULL);
 }

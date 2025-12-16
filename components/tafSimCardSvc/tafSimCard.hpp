@@ -92,7 +92,7 @@ using namespace std;
         typedef struct
         {
             taf_sim_Id_t        simId;
-            string              ICCID;
+            char                ICCID[TAF_SIM_ICCID_BYTES];
         }
         sim_iccid_event_t;
 

@@ -75,6 +75,8 @@ gen_require(`
   type shell_exec_t;
   type loc_socket_t;
   type sysctl_t;
+  type sysctl_vm_t;
+  type sysctl_vm_overcommit_t;
   type sysfs_t;
   type syslogd_t;
   type system_dbusd_t;
@@ -490,6 +492,11 @@ allow coredump_data_t tmpfs_t:filesystem { associate };
 allow data_t tmpfs_t:filesystem { associate };
 allow telaf_app_domain coredump_data_t:file { relabelfrom relabelto };
 allow telaf_app_domain data_t:file { relabelfrom relabelto };
+
+# Allow telaf_app_domain to access sysctl vm overcommit settings
+allow telaf_app_domain sysctl_t:dir { search };
+allow telaf_app_domain sysctl_vm_t:dir { search };
+allow telaf_app_domain sysctl_vm_overcommit_t:file { read open };
 
 # Define core domain
 allow telaf_core_domain telaf_fw_t : dir { manage_dir_perms };

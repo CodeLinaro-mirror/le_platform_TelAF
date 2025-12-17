@@ -910,6 +910,7 @@ le_result_t taf_dcs_GetInterfaceName(taf_dcs_ProfileRef_t profileRef, char* name
  *
  * @returns LE_OK                       Success to get IP address.
  *          OTHER                       Failed to get IP address.
+ *          LE_UNAVAILALE               Invalid connection status
  *
  * @note    If this session is not connected, '\0' string will be set on output addr pointers.
  */
@@ -940,6 +941,7 @@ le_result_t taf_dcs_GetIPv4Address(taf_dcs_ProfileRef_t profileRef, char *addrPt
  *
  * @returns LE_OK                       Success to get mask.
  *          OTHER                       Failed to get mask.
+ *          LE_UNAVAILALE               Invalid connection status
  *
  * @note    If this session is not connected, '\0' string will be set on output addr pointers.
  */
@@ -970,6 +972,8 @@ le_result_t taf_dcs_GetIPv4SubnetMask(taf_dcs_ProfileRef_t profileRef, uint32_t*
  *
  * @returns LE_OK                       Success to get gateway address.
  *          OTHER                       Failed to get gateway address.
+ *          LE_UNAVAILALE               Invalid connection status
+ *
  *
  * @note    If this session is not connected, '\0' string will be set on output addr pointers.
  */
@@ -1007,6 +1011,7 @@ le_result_t taf_dcs_GetIPv4GatewayAddress
  *
  * @returns LE_OK                       Success to get DNS address.
  *          OTHER                       Failed to get DNS address.
+ *          LE_UNAVAILALE               Invalid connection status
  *
  * @note    If this session is not connected, '\0' string will be set on output addr pointers.
  */
@@ -1045,6 +1050,7 @@ le_result_t taf_dcs_GetIPv4DNSAddresses
  *
  * @returns LE_OK                       Success to get IP address.
  *          OTHER                       Failed to get IP address.
+ *          LE_UNAVAILALE               Invalid connection status
  *
  * @note    If this session is not connected, '\0' string will be set on output addr pointers.
  */
@@ -1075,6 +1081,7 @@ le_result_t taf_dcs_GetIPv6Address(taf_dcs_ProfileRef_t profileRef, char *addrPt
  *
  * @returns LE_OK                       Success to get mask.
  *          OTHER                       Failed to get mask.
+ *          LE_UNAVAILALE               Invalid connection status
  *
  * @note    If this session is not connected, '\0' string will be set on output addr pointers.
  */
@@ -1106,6 +1113,7 @@ le_result_t taf_dcs_GetIPv6SubnetMask(taf_dcs_ProfileRef_t profileRef, uint32_t*
  *
  * @returns LE_OK                       Success to get gateway address.
  *          OTHER                       Failed to get gateway address.
+ *          LE_UNAVAILALE               Invalid connection status
  *
  * @note    If this session is not connected, '\0' string will be set on output addr pointers.
  */
@@ -1143,6 +1151,7 @@ le_result_t taf_dcs_GetIPv6GatewayAddress
  *
  * @returns LE_OK                       Success to get DNS address.
  *          OTHER                       Failed to get DNS address.
+ *          LE_UNAVAILALE               Invalid connection status
  *
  * @note    If this session is not connected, '\0' string will be set on output addr pointers.
  */

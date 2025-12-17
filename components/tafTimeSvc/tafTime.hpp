@@ -279,6 +279,19 @@ typedef struct
     taf_DateTimeInf_t dateTimeInf;                ///< Date time information.
 }TimeSourceRef_Event_t;
 
+typedef enum
+{
+    RTC_SYNC_CB,
+    RTC_ASYNC_CB
+} RtcCallbackType_t;
+
+typedef struct
+{
+    RtcCallbackType_t cbType;
+    le_result_t       status;
+    struct TimeSpec   timeVal;   ///< MUST be set for RTC_SYNC_CB
+} RtcEvent_t;
+
 typedef struct
 {
     le_msg_SessionRef_t sessionRef;
@@ -603,6 +616,8 @@ struct ValidityParams
                 le_result_t InitGnssManager(void);
 
                 le_result_t InitNetworkBaseData(void);
+                le_result_t InitAsyncRtcBaseData(void);
+
                 le_result_t InitNetworkManager(void);
 
                 taf_time_TimeValueChangeHandlerRef_t AddTimeValueChangeHandler(
@@ -656,19 +671,30 @@ struct ValidityParams
                 le_ref_MapRef_t TsrEventMap;
                 le_mem_PoolRef_t TsrEventPool;
 
+                taf_time_TimeSpec_t* RtcAsyncDeltaTimePtr = NULL;
+                le_mem_PoolRef_t RtcAsyncDeltaTimePool = NULL;
+
                 //For getting network time and notification
                 std::shared_ptr<telux::tel::IPhoneManager> phoneManager;
                 //std::vector<std::shared_ptr<telux::tel::IPhone>> phones;
                 std::vector<std::shared_ptr<taf_TimeServingSystemListener>> servSysListeners;
                 std::vector<std::shared_ptr<telux::tel::IServingSystemManager>> servingSystemManagers;
 
+                le_event_Id_t RtcEvtHandlerId;
                 time_Inf_t* timeInf = nullptr;
                 bool isDrvPresent = false;
                 static taf_time_getRTCCb_t getRTCCBtoClient;
                 static taf_time_setRTCCb_t setRTCCBtoClient;
                 static void getRtcTimeRespCB(struct TimeSpec timeVal, le_result_t result);
+                static void getRtcTimeRespCbEvtHandler(const struct TimeSpec& timeVal,
+                                                                    le_result_t response);
+
                 static void setRtcTimeRespCB(le_result_t result);
                 static void setRtcTrustTimeRespCB(le_result_t result);
+                static void setRtcTimeRespCbEvtHandler(const struct TimeSpec& timeVal,
+                                                                   le_result_t response);
+                void InitAsyncRtcEvtHandler(void);
+                static void RtcCbEventHandler(void* context);
 
                 using SetRtcHalCb = void (*)(le_result_t);
                 le_result_t SetRtcTimeReqAsync(const taf_time_TimeSpec_t* timeValPtr,

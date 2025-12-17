@@ -154,14 +154,11 @@ LE_SHARED le_result_t taf_gptpTime_GetTimeValue
     }
 
     bool gptpSyncStatus = gptpGetSyncStatus();
-    LE_INFO("gptpSyncStatus: %d", gptpSyncStatus);
-
     if (!gptpSyncStatus)
     {
         LE_ERROR("Gptp time is not synced.");
         return LE_UNAVAILABLE;
     }
-
 
     taf_GptpTime_t* gptpPtr = (taf_GptpTime_t*)le_ref_Lookup(GptpTimeRefMap, gptpTimeRef);
     if(gptpPtr == NULL)

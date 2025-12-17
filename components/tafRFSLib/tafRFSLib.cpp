@@ -698,7 +698,7 @@ extern "C" LE_SHARED int taf_rfs_Close
     if (len != -1)
     {
         actualPath[len] = '\0'; // ensure the string end with null terminator
-        LE_INFO("The file path is: %s\n", actualPath);
+        LE_DEBUG("The file path is: %s\n", actualPath);
     }
 
     SetFileMD5ToExtendedAttr(actualPath);

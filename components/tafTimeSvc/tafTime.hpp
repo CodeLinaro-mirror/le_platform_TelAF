@@ -454,25 +454,25 @@ struct ValidityParams
             // Print the details of all source in time sources configuration
             void printSourceDetails() const {
                 for (const Source& item : source) {
-                    LE_INFO("Name: %s, priority: %d, setTimeFlag: %d, ToleranceMillsec: %ld, "
-                        "SetTimeCounter: %ld\n",
+                    LE_INFO("Name: %s, priority: %d, SetTime: %d, ToleranceMillsec: %ld, "
+                        "SetTimeCounter: %ld",
                         item.sourceName.c_str(), item.priority, item.setSystemTime,
                         item.toleranceMillsec, item.setTimeCounter);
                 }
                 if (pollingInterval) {
-                    LE_INFO("PollingInterval: %ld\n", pollingInterval);
+                    LE_DEBUG("PollingInterval: %ld\n", pollingInterval);
                 }
                 LE_INFO("allowOverrideAfterFail: %" PRId64 "\n", allowOverrideAfterFail);
 
                 for (auto item : validClientList) {
-                    LE_INFO("Client: %s\n", item.c_str());
+                    LE_DEBUG("Client: %s\n", item.c_str());
                 }
                 if(!gptpDeviceName.empty())
                 {
                     LE_INFO("GptpDeviceName %s\n", gptpDeviceName.c_str());
                 }
 
-                LE_INFO("Time source size: %zu\n", source.size());
+                LE_DEBUG("Time source size: %zu\n", source.size());
             }
         };
 

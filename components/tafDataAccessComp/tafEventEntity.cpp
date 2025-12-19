@@ -26,6 +26,7 @@ EventEntity::EventEntity
 EventEntity::EventEntity
 (
     int32_t eventId,
+    const char *eventName,
     int32_t dtc,
     int32_t status,
     int32_t testFailedCounter,
@@ -34,6 +35,7 @@ EventEntity::EventEntity
 )
 {
     mEventId = eventId;
+    mEventName = eventName;
     mDtc = dtc;
     mStatus = status;
     mTestFailedCounter = testFailedCounter;
@@ -54,6 +56,21 @@ void EventEntity::SetEventId
 )
 {
     mEventId = eventId;
+}
+
+const char *EventEntity::GetEventName
+(
+)
+{
+    return mEventName.c_str();
+}
+
+void EventEntity::SetEventName
+(
+    const char *eventName
+)
+{
+    mEventName = eventName;
 }
 
 int32_t EventEntity::GetEventDtc

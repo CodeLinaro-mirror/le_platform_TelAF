@@ -192,7 +192,7 @@ typedef struct {
 {% endfor %}
 } common_props_t;
 
-
+EXPORT_SYM void init();
 EXPORT_SYM void diag_config_init(const char * cfg_path);
 
 EXPORT_SYM bool get_init_status(void);
@@ -235,6 +235,8 @@ EXPORT_SYM std::map<uint16_t, std::shared_ptr<Node>> get_event_nodes(uint32_t dt
 EXPORT_SYM std::vector<uint16_t> get_event_ids(uint32_t dtc_code);
 EXPORT_SYM std::map<uint32_t, std::shared_ptr<Node>> get_dtc_nodes(void);
 EXPORT_SYM std::vector<uint32_t> get_dtc_codes(void);
+EXPORT_SYM std::string get_event_name(uint16_t event_id);
+EXPORT_SYM std::vector<std::pair<uint16_t, std::string>> get_event_idNames();
 
 EXPORT_SYM size_t get_did_value_size(uint16_t did_code);
 

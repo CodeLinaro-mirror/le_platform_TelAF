@@ -220,7 +220,17 @@ __attribute__((unused)) void TestEventOperation
 
     taf_DataAccess_DeleteAllData();
     readFailedCounter = taf_DataAccess_GetEventFailedCounter(DATA_ACCESS_TEST_DTC0_EV1);
-    LE_TEST_ASSERT(readFailedCounter == 6, "Test taf_DataAccess_GetEventFailedCounter");   
+    LE_TEST_ASSERT(readFailedCounter == 6, "Test taf_DataAccess_GetEventFailedCounter");
+
+    rdStatus = taf_DataAccess_GetEventStatusByName(TEST_EVENT_NAME);
+    LE_TEST_ASSERT(rdStatus == 0, "Test taf_DataAccess_GetEventStatusEx");
+
+    status2 = 0x11;
+    ret = taf_DataAccess_SetEventStatusByName(TEST_EVENT_NAME, status2);
+    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DataAccess_SetEventStatusByName");
+
+    rdStatus = taf_DataAccess_GetEventStatusByName(TEST_EVENT_NAME);
+    LE_TEST_ASSERT(rdStatus == status2, "Test taf_DataAccess_GetEventStatusEx");
 
     LE_TEST_INFO("TestEventOperation Exit...");
 }

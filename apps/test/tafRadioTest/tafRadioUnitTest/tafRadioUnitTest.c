@@ -1553,6 +1553,36 @@ void TestTafRadioLteCaInformation
         TAF_RADIO_RAT_LTE, (taf_radio_CAInfoHandlerFunc_t)LteCaInfoHandler, NULL);
     LE_TEST_OK(lteCaInfoHandlerRef != NULL, "taf_radio_AddCAInfoHandler - !NULL");
 
+    taf_radio_CAInfoRef_t infoRef = NULL;
+    le_result_t result = taf_radio_GetCAInformation(DEFAULT_PHONE_ID, TAF_RADIO_RAT_LTE, &infoRef);
+    if (result == LE_OK)
+    {
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetCAInformation - LE_OK");
+
+        taf_radio_CAStatus_t status = TAF_RADIO_CA_STATUS_DEACTIVATED;
+        uint32_t count = 0;
+        result =  taf_radio_GetLteCAStatus(infoRef, &status, &count);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetLteCAStatus - OK");
+        if (result == LE_OK)
+        {
+            switch (status)
+            {
+                case TAF_RADIO_CA_STATUS_DEACTIVATED:
+                    LE_INFO("CA status : Deactivated.");
+                    break;
+                case TAF_RADIO_CA_STATUS_ACTIVATED:
+                    LE_INFO("CA status : Activated.");
+                    break;
+                default:
+                    LE_INFO("CA status : Unknown.");
+                break;
+            }
+            LE_INFO("CA activated CC number : %d", count);
+        }
+        result = taf_radio_DeleteCAInformation(infoRef);
+        LE_TEST_OK(result == LE_OK, "taf_radio_DeleteCAInformation - LE_OK");
+    }
+
     taf_radio_RemoveCAInfoHandler(lteCaInfoHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveCAInfoHandler - void");
 

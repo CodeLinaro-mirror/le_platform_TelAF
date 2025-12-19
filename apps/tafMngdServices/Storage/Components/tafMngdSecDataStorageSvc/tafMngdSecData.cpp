@@ -488,7 +488,7 @@ int tafMngdStorageSvc::RenameTempFile
         return -1;
     }
 
-    LE_INFO("Renamed to data label: %s", filename);
+    LE_DEBUG("Renamed to data label: %s", filename);
 
     // Ensure rename is synced
     char dirPath[LIMIT_MAX_PATH_BYTES];
@@ -512,7 +512,7 @@ int tafMngdStorageSvc::RenameTempFile
         LE_WARN("Failed to open directory '%s' for fsync", dirName);
         return -1;
     }
-    LE_INFO("fsync for %s finished", filename);
+    LE_DEBUG("fsync for %s finished", filename);
 
     return 0;
 }

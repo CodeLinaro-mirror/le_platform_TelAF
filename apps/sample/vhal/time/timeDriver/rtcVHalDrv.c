@@ -12,26 +12,27 @@
 #define TAF_HAL_RTC_DEV_NAME      "/dev/rtc0"
 #define TAF_HAL_FILE_NAME         "/tmp/rtc0"
 #define TAF_HAL_RTC_IS_READ_ONLY  1
+
 static TAF_HAL_GETRTCASYNCCALLBACK getRTCAsyncCallbackFunc = NULL;
 static TAF_HAL_SETRTCASYNCCALLBACK setRTCAsyncCallbackFunc = NULL;
 
-static le_mem_PoolRef_t GetRTCRequestPoolRef;
-static le_event_Id_t GetRTCRequestEventId;
-static le_mem_PoolRef_t setRTCRequestPoolRef;
-static le_event_Id_t SetRTCRequestEventId;
+static le_mem_PoolRef_t AsyncRtcEventPoolRef;
+static le_event_Id_t    AsyncRTCRequestEventId;
+
+typedef enum
+{
+    RTC_EVT_SET = 0,
+    RTC_EVT_GET = 1,
+} RtcEvtType;
 
 typedef struct
 {
-    le_result_t responseState;
-} SetRTCRequest_t;
+    RtcEvtType   type;           // distinguish GET vs SET
+    struct TimeSpec timeVal;     // valid for GET, optional for SET
+    le_result_t  responseState;  // LE_OK / LE_FAULT / LE_UNAVAILABLE, etc.
+} RtcEvent_t;
 
-typedef struct
-{
-    struct TimeSpec timeVal;
-    le_result_t responseState;
-} GetRTCRequest_t;
-
-struct timespec bootTimeOnSetRTCTime = {0,0};
+struct timespec bootTimeOnSetRTCTime = (struct timespec){0, 0};
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -60,16 +61,16 @@ le_result_t GetBootTime
 
 static int WriteTimeToFile(struct TimeSpec timeVal)
 {
-    int fd;
-
-    if ((fd = open(TAF_HAL_FILE_NAME, O_RDWR | O_CREAT | O_SYNC, 0666)) < 0)
+    int fd = open(TAF_HAL_FILE_NAME, O_RDWR | O_CREAT | O_SYNC, 0666);
+    if (fd < 0)
     {
-        LE_ERROR("Open file %s failed\n", TAF_HAL_FILE_NAME);
+        LE_ERROR("Open file %s failed", TAF_HAL_FILE_NAME);
         return 1;
     }
-    if (write(fd, &timeVal, sizeof(struct TimeSpec)) < 0)
+    ssize_t wrote = write(fd, &timeVal, sizeof(struct TimeSpec));
+    if (wrote < 0 || wrote != (ssize_t)sizeof(struct TimeSpec))
     {
-        LE_ERROR("Writing to file %s failed\n", TAF_HAL_FILE_NAME);
+        LE_ERROR("Writing to file %s failed", TAF_HAL_FILE_NAME);
         close(fd);
         return 1;
     }
@@ -79,16 +80,16 @@ static int WriteTimeToFile(struct TimeSpec timeVal)
 
 static int ReadTimeFromFile(struct TimeSpec* timeVal)
 {
-    int fd;
-
-    if ((fd = open(TAF_HAL_FILE_NAME, O_RDONLY)) < 0)
+    int fd = open(TAF_HAL_FILE_NAME, O_RDONLY);
+    if (fd < 0)
     {
-        LE_ERROR("Open file %s failed\n", TAF_HAL_FILE_NAME);
+        LE_ERROR("Open file %s failed", TAF_HAL_FILE_NAME);
         return 1;
     }
-    if (read(fd, (struct TimeSpec*)timeVal, sizeof(struct TimeSpec)) < 0)
+    ssize_t rd = read(fd, timeVal, sizeof(struct TimeSpec));
+    if (rd < 0 || rd != (ssize_t)sizeof(struct TimeSpec))
     {
-        LE_ERROR("Read from %s failed\n", TAF_HAL_FILE_NAME);
+        LE_ERROR("Read from %s failed", TAF_HAL_FILE_NAME);
         close(fd);
         return 1;
     }
@@ -289,100 +290,114 @@ static void* taf_hal_GetModInf(void)
     return &(TAF_HAL_INFO_TAB.timeInf);
 }
 
-static void GetRTCRespHandler (void* context)
+static void RtcRespHandler(void* context)
 {
-    struct TimeSpec timeVal = ((GetRTCRequest_t*)context)->timeVal;
-    le_result_t responseState = ((GetRTCRequest_t*)context)->responseState;
-    if (getRTCAsyncCallbackFunc)
-    {
-        getRTCAsyncCallbackFunc(timeVal, responseState);
-    }
-    else
-    {
+    RtcEvent_t* evt = (RtcEvent_t*)context;
 
-        LE_ERROR("get RTC callback function is NULL");
+    switch (evt->type)
+    {
+        case RTC_EVT_SET:
+            if (setRTCAsyncCallbackFunc)
+            {
+                setRTCAsyncCallbackFunc(evt->responseState);
+            }
+            else
+            {
+                LE_WARN("SET RTC callback is NULL.");
+            }
+            break;
+
+        case RTC_EVT_GET:
+            if (getRTCAsyncCallbackFunc)
+            {
+                getRTCAsyncCallbackFunc(evt->timeVal, evt->responseState);
+            }
+            else
+            {
+                LE_WARN("GET RTC callback is NULL.");
+            }
+            break;
+
+        default:
+            LE_ERROR("Unknown RTC event type: %d", (int)evt->type);
+            break;
     }
-    return;
 }
 
 static void ProcessGetRTCRequest(void* param1,void* param2)
 {
-    GetRTCRequest_t* req = (GetRTCRequest_t*)(param1);
+    LE_UNUSED(param2);
+    RtcEvent_t* evt = (RtcEvent_t*)param1;
+    if (evt == NULL)
+    {
+        LE_ERROR("Parameter 'evt' is NULL");
+        return;
+    }
 
-    req->responseState = LE_UNAVAILABLE;
+    evt->type          = RTC_EVT_GET;
+    evt->responseState = LE_UNAVAILABLE;
+
 #ifdef TAF_HAL_RTC_IS_READ_ONLY
-    int ret = 0;
-    struct TimeSpec timeInFile;
-    struct timespec presentBootTime = {0,0}, deltaBootTime = {0,0};
+    struct timespec presentBootTime = {0, 0};
     le_result_t result = GetBootTime(&presentBootTime);
-    if (result)
+    if (result != LE_OK)
     {
-        LE_ERROR("Unable to read system boot time\n");
-    }
-    deltaBootTime.tv_sec = presentBootTime.tv_sec - bootTimeOnSetRTCTime.tv_sec;
-    deltaBootTime.tv_nsec = presentBootTime.tv_nsec - bootTimeOnSetRTCTime.tv_nsec;
-
-
-    ret = ReadTimeFromFile(&timeInFile);
-    if (ret != 0)
-    {
-        timeInFile.sec = 0;
-        timeInFile.nanosec = 0;
-        LE_ERROR("%s, simulate reading async RTC time failed when openning file\n", __func__);
+        LE_ERROR("Unable to read system boot time");
     }
 
-    if (timeInFile.sec <= 0)
+    struct TimeSpec timeInFile = {0, 0};
+    int ret = ReadTimeFromFile(&timeInFile);
+    if (ret != 0 || timeInFile.sec <= 0)
     {
         LE_ERROR("%s, time in file not correct\n", __func__);
+        evt->timeVal.sec     = 0;
+        evt->timeVal.nanosec = 0;
+        evt->responseState   = LE_FAULT;
     }
     else
     {
-        req->timeVal.sec = timeInFile.sec+ deltaBootTime.tv_sec;
-        req->timeVal.nanosec = 0; //dropping the accuracy for simulation test
-        req->responseState = LE_OK;
+        time_t deltaSec = presentBootTime.tv_sec - bootTimeOnSetRTCTime.tv_sec;
+        if (deltaSec < 0) deltaSec = 0;
+        evt->timeVal.sec     = timeInFile.sec + (uint64_t)deltaSec;
+        evt->timeVal.nanosec = 0;
+        evt->responseState   = LE_OK;
     }
+
 #else
-    //Get the RTC value
-    req->timeVal.sec = 1712345678;
-    req->timeVal.nanosec = 10086;
-    req->responseState = LE_OK;
+    evt->timeVal.sec = 1712345678;
+    evt->timeVal.nanosec = 10086;
+    evt->responseState = LE_OK;
 #endif
 
-    le_event_Report(GetRTCRequestEventId, (void*)req, sizeof(GetRTCRequest_t));
-    le_mem_Release(req);
-    return;
+    le_event_Report(AsyncRTCRequestEventId, (void*)evt, sizeof(RtcEvent_t));
+    le_mem_Release(evt);
 }
 
 static le_result_t taf_hal_getRtcTimeReqAsync(TAF_HAL_GETRTCASYNCCALLBACK callback)
 {
     getRTCAsyncCallbackFunc = callback;
-    GetRTCRequest_t* req = (GetRTCRequest_t*)le_mem_ForceAlloc(GetRTCRequestPoolRef);
-    le_event_QueueFunction(ProcessGetRTCRequest, (void*)(req), NULL);
-    return LE_OK;
-}
 
-static void SetRTCRespHandler(void* context)
-{
-    le_result_t responseState = ((SetRTCRequest_t*)context)->responseState;
-    if (setRTCAsyncCallbackFunc)
-    {
-        setRTCAsyncCallbackFunc(responseState);
-    }
-    else
-    {
-        LE_ERROR("set RTC callback function is NULL");
-    }
-    return;
+    RtcEvent_t* evt = (RtcEvent_t*)le_mem_ForceAlloc(AsyncRtcEventPoolRef);
+    le_event_QueueFunction(ProcessGetRTCRequest, (void*)evt, NULL);
+
+    return LE_OK;
 }
 
 static void ProcessSetRTCRequest(void* param1, void* param2)
 {
-    SetRTCRequest_t* req = (SetRTCRequest_t*)(param1);
-    //Set the return value of response
-    req->responseState = LE_OK;
-    le_event_Report(SetRTCRequestEventId, (void*)req, sizeof(SetRTCRequest_t));
-    le_mem_Release(req);
-    return;
+    LE_UNUSED(param2);
+    RtcEvent_t* evt = (RtcEvent_t*)param1;
+    if (evt == NULL)
+    {
+        LE_ERROR("Parameter 'evt' is NULL");
+        return;
+    }
+
+    evt->type          = RTC_EVT_SET;
+    evt->responseState = LE_OK;
+
+    le_event_Report(AsyncRTCRequestEventId, (void*)evt, sizeof(RtcEvent_t));
+    le_mem_Release(evt);
 }
 
 static le_result_t taf_hal_setRtcTimeReqAsync(const struct TimeSpec* timeVal,
@@ -393,49 +408,66 @@ static le_result_t taf_hal_setRtcTimeReqAsync(const struct TimeSpec* timeVal,
     LE_DEBUG("VHAL received new time:  %"PRIu64".%"PRIu64" trying to update to RTC",
         timeVal->sec, timeVal->nanosec);
 #ifdef TAF_HAL_RTC_IS_READ_ONLY
-    int ret = 0;
     le_result_t result = GetBootTime(&bootTimeOnSetRTCTime);
-    if (result)
+    if (result != LE_OK)
     {
-        LE_ERROR("Unable to read system boot time\n");
+        LE_ERROR("Unable to read system boot time");
     }
     /*
      * Since the RTC in QC was set to read only, so the RTC time cannot
      * be set. Here define "TAF_HAL_RTC_IS_READ_ONLY" to use write file
      * instead of write RTC Hardware device for verifying the write logic.
      */
-    ret = WriteTimeToFile(*timeVal);
+    int ret = WriteTimeToFile(*timeVal);
     if (ret != 0)
     {
         LE_ERROR("%s, simulate async set RTC failed in writing file\n", __func__);
     }
-#else
-   // Please don't set new time to RTC Hardware device in this function, set it
-   // in function "ProcessSetRTCRequest" to avoid long time response.
 #endif
 
-    SetRTCRequest_t* req = (SetRTCRequest_t*)le_mem_ForceAlloc(setRTCRequestPoolRef);
-    le_event_QueueFunction(ProcessSetRTCRequest, (void*)(req), NULL);
+   // Please don't set new time to RTC Hardware device in this function, set it
+   // in function "ProcessSetRTCRequest" to avoid long time response.
+    RtcEvent_t* evt = (RtcEvent_t*)le_mem_ForceAlloc(AsyncRtcEventPoolRef);
+    le_event_QueueFunction(ProcessSetRTCRequest, (void*)evt, NULL);
+
     return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Why to use this thread "VhalCbHandlerThread":
+ * Simulate sending event (cb) back to the service in different thread. But suggest not to send the
+ * callback in different thread from vhal to service to avoid below issue:
+ * "Legato threading API used in non-Legato thread" issue.
+ */
+//--------------------------------------------------------------------------------------------------
+static void* VhalCbHandlerThread
+(
+    void* contextPtr
+)
+{
+    LE_UNUSED(contextPtr);
+    LE_INFO("rtc_vhal: %s starting", __FUNCTION__);
+
+    le_event_AddHandler("RtcRespHandler", AsyncRTCRequestEventId, RtcRespHandler);
+    le_event_RunLoop();
+
+    LE_ERROR("VhalCbHandlerThread: event loop exited unexpectedly.");
+    return NULL;
 }
 
 static void taf_hal_Init(void)
 {
-    LE_DEBUG("TestDrv: %s", __FUNCTION__);
-    GetRTCRequestPoolRef = le_mem_CreatePool("GetRTCRequest", sizeof(GetRTCRequest_t));
-    GetRTCRequestEventId = le_event_CreateId("GetRTCRequestEventId", sizeof(GetRTCRequest_t));
-    // Register handler for get RTC asyn response events.
-      le_event_AddHandler("GetRTCRespHandler",
-          GetRTCRequestEventId,
-          GetRTCRespHandler);
+    AsyncRtcEventPoolRef   = le_mem_CreatePool("RtcEventPool", sizeof(RtcEvent_t));
+    AsyncRTCRequestEventId = le_event_CreateId("AsyncRTCRequestEventId", sizeof(RtcEvent_t));
 
-      setRTCRequestPoolRef = le_mem_CreatePool("SetRTCRequest", sizeof(SetRTCRequest_t));
-      SetRTCRequestEventId = le_event_CreateId("SetRTCRequestEventId", sizeof(SetRTCRequest_t));
-      // Register handler for set RTC asyn response events.
-      le_event_AddHandler("SetRTCRespHandler",
-          SetRTCRequestEventId,
-          SetRTCRespHandler);
-      return;
+    le_thread_Ref_t threadRef = le_thread_Create("VhalCbHandlerTh", VhalCbHandlerThread, NULL);
+    if (!threadRef)
+    {
+        LE_ERROR("Failed to create VHAL callback thread");
+        return;
+    }
+    le_thread_Start(threadRef);
 }
 
 LE_SHARED time_InfoTab_t TAF_HAL_INFO_TAB = {

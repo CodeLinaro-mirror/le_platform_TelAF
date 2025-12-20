@@ -430,10 +430,11 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         {
             PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_ACTIVE"<<endl;
             std::cout <<endl;
-            PRINT_NOTIFICATION << getCurrentTime() <<" Wait! The active call shall be hangup after 4 sec... "<<endl;
-            sleep(4);
+            PRINT_NOTIFICATION << getCurrentTime() <<" Wait! The active call shall be hangup after 10 sec... "<<endl;
+            sleep(10);
             PRINT_NOTIFICATION << getCurrentTime() <<" Sending hangup... "<<endl;
             std::cout <<endl;
+            taf_ecall_endCall_test(eCallReference);
             break;
         }
         case TAF_ECALL_STATE_IDLE:

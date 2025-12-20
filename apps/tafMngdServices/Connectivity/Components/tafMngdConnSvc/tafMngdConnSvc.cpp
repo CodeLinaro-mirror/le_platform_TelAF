@@ -16,6 +16,12 @@ void Admin_init()
     LE_INFO("Admin_init...\n");
 }
 
+void Admin_deinit()
+{
+    auto &admin = tafMngdConnAdmin::GetInstance();
+    admin.Deinit();
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  ** Gets the data reference for the given Data ID.
@@ -320,12 +326,33 @@ void taf_mngdConn_RemoveRecoveryEventHandler(
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * The SIGTERM signal handler
+ */
+//--------------------------------------------------------------------------------------------------
+static void McsSigTermEventHandler(int tafSigNum)
+{
+    LE_INFO("Signal : %d", tafSigNum);
+    Admin_deinit();
+    exit(EXIT_SUCCESS);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The application init function for the tafMngdConn Service
+ */
+//--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
     LE_INFO("tafMngdConnSvc COMPONENT init...");
     // Print pre-configured values used by the  service.
     LE_INFO("Max JSON objects supported: %d", MCS_MAX_DATA_OBJ);
     LE_INFO("Max clients supported: %d", MCS_MAX_SESSIONS);
+
+    // Capture the SIGTERM signal to handle app stop/restart gracefully
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, McsSigTermEventHandler);
 
     Admin_init();
     LE_INFO("COMPONENT end init");

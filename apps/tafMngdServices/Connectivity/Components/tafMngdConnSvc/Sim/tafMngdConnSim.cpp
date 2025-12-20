@@ -55,6 +55,21 @@ void tafMngdConnSim::SimStateHandler
  * Register SIM state change handler.
  */
 //--------------------------------------------------------------------------------------------------
+void tafMngdConnSim::UnregisterEvents()
+{
+    if (simtateHandlerRef)
+    {
+        taf_sim_RemoveNewStateHandler(simtateHandlerRef);
+        simtateHandlerRef = NULL;
+        LE_DEBUG("Sim Event callback is removed.");
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Register SIM state change handler.
+ */
+//--------------------------------------------------------------------------------------------------
 void tafMngdConnSim::RegisterEvents()
 {
     taf_sim_ConnectService();

@@ -2135,6 +2135,8 @@ static void DcsSigTermEventHandler
     // Call deinit function to cleanup
     dataConnection.Deinit();
     dataProfile.Deinit();
+
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -2142,6 +2144,7 @@ COMPONENT_INIT
 {
 
     // Setup signal event handler.
+    le_sig_Block(SIGTERM);
     le_sig_SetEventHandler(SIGTERM, DcsSigTermEventHandler);
 
     taf_dcs_profile_init();

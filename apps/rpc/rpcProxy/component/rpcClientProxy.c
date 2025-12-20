@@ -592,7 +592,7 @@ static le_result_t SdirGetServiceInfo
     rspMsgPtr = le_msg_GetPayloadPtr(msgRef);
     if (rspMsgPtr->result != LE_OK)
     {
-        LE_ERROR("Failed to get service info (%s).", LE_RESULT_TXT(rspMsgPtr->result));
+        LE_WARN("Unable to get service info (%s).", LE_RESULT_TXT(rspMsgPtr->result));
         le_msg_ReleaseMsg(msgRef);
         return LE_FAULT;
     }
@@ -1922,7 +1922,7 @@ le_result_t rpcClientProxy_Start
         if ((LE_OK != SdirGetServiceInfo(uid, namePtr, protoIdPtr, &serviceInfo)) ||
             (serviceInfo.maxPayloadSize > TAF_SOMEIPDEF_MAX_PAYLOAD_SIZE))
         {
-            LE_WARN("Service '<%s>.%s' is not running, monitor availability event.",
+            LE_INFO("Service '<%s>.%s' is not up and running, monitor availability event.",
                     userPtr, namePtr);
 
             return LE_OK;

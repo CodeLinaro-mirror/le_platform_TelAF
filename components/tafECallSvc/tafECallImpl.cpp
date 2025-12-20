@@ -650,8 +650,13 @@ void taf_ecall::HandleHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEven
         }
         if(timerEvents.t2 == HlapTimerEvent::STARTED) {
             state = TAF_ECALL_STATE_T2_STARTED;
-            t2StartTime = std::chrono::steady_clock::now();
-            t2StartTimeSet = true;
+            if (clock_gettime(CLOCK_BOOTTIME, &t2StartTime) != 0) {
+                LE_ERROR("Failed to get CLOCK_BOOTTIME for T2, errno=%d", errno);
+                t2StartTime = {0, 0};
+                t2StartTimeSet = false;
+            } else {
+                t2StartTimeSet = true;
+            }
         }
         if(timerEvents.t2 == HlapTimerEvent::STOPPED) {
             state = TAF_ECALL_STATE_T2_STOPPED;
@@ -723,8 +728,13 @@ void taf_ecall::HandleHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEven
         }
         if(timerEvents.t9 == HlapTimerEvent::STARTED) {
             state = TAF_ECALL_STATE_T9_STARTED;
-            t9StartTime = std::chrono::steady_clock::now();
-            t9StartTimeSet = true;
+            if (clock_gettime(CLOCK_BOOTTIME, &t9StartTime) != 0) {
+                LE_ERROR("Failed to get CLOCK_BOOTTIME for T9, errno=%d", errno);
+                t9StartTime = {0, 0};
+                t9StartTimeSet = false;
+            } else {
+                t9StartTimeSet = true;
+            }
             ElapsedTimeT9 = 0;
         }
         if(timerEvents.t9 == HlapTimerEvent::STOPPED) {
@@ -741,8 +751,13 @@ void taf_ecall::HandleHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEven
             } else {
                 state = TAF_ECALL_STATE_T9_RESUMED;
             }
-            t9StartTime = std::chrono::steady_clock::now();
-            t9StartTimeSet = true;
+            if (clock_gettime(CLOCK_BOOTTIME, &t9StartTime) != 0) {
+                LE_ERROR("Failed to get CLOCK_BOOTTIME for T9, errno=%d", errno);
+                t9StartTime = {0, 0};
+                t9StartTimeSet = false;
+            } else {
+                t9StartTimeSet = true;
+            }
         }
 
         if (state != TAF_ECALL_STATE_UNKNOWN) {
@@ -765,8 +780,13 @@ void taf_ecall::HandleHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEven
         }
         if(timerEvents.t10 == HlapTimerEvent::STARTED) {
             state = TAF_ECALL_STATE_T10_STARTED;
-            t10StartTime = std::chrono::steady_clock::now();
-            t10StartTimeSet = true;
+            if (clock_gettime(CLOCK_BOOTTIME, &t10StartTime) != 0) {
+                LE_ERROR("Failed to get CLOCK_BOOTTIME for T10, errno=%d", errno);
+                t10StartTime = {0, 0};
+                t10StartTimeSet = false;
+            } else {
+                t10StartTimeSet = true;
+            }
             ElapsedTimeT10 = 0;
         }
         if(timerEvents.t10 == HlapTimerEvent::STOPPED) {
@@ -783,8 +803,13 @@ void taf_ecall::HandleHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEven
             } else {
                 state = TAF_ECALL_STATE_T10_RESUMED;
             }
-            t10StartTime = std::chrono::steady_clock::now();
-            t10StartTimeSet = true;
+            if (clock_gettime(CLOCK_BOOTTIME, &t10StartTime) != 0) {
+                LE_ERROR("Failed to get CLOCK_BOOTTIME for T10, errno=%d", errno);
+                t10StartTime = {0, 0};
+                t10StartTimeSet = false;
+            } else {
+                t10StartTimeSet = true;
+            }
         }
 
         if (state != TAF_ECALL_STATE_UNKNOWN) {
@@ -3304,23 +3329,53 @@ taf_ecall_HlapTimerStatus_t taf_ecall::ConvertHlapTimerStatus(telux::tel::HlapTi
     }
 }
 
-uint16_t taf_ecall::ConvertElapsedTime(std::chrono::time_point<std::chrono::steady_clock> startTime)
+uint16_t taf_ecall::ConvertElapsedTime(const timespec& start)
 {
-    auto secs = std::chrono::duration_cast<std::chrono::seconds>(
-        std::chrono::steady_clock::now() - startTime
-    );
-    int64_t elapsed = secs.count();
-    if (elapsed < 0)
-    {
-        elapsed = 0;
+    timespec now{};
+    uint16_t elapseTime = MAX_T9_T10_ELAPSED_TIME_SEC;
+
+    if ((start.tv_nsec < 0) || (start.tv_nsec >= NSEC_PER_SEC)) {
+        LE_ERROR("ConvertElapsedTime: invalid start.tv_nsec=%ld", start.tv_nsec);
+        return elapseTime;
     }
-    if (elapsed > UINT16_MAX)
-    {
-        elapsed = UINT16_MAX;
+
+    int ret = clock_gettime(CLOCK_BOOTTIME, &now);
+    if (ret != 0) {
+        LE_ERROR("ConvertElapsedTime: clock_gettime failed, errno=%d", errno);
+        return elapseTime;
     }
-    uint16_t elapsedTime = static_cast<uint16_t>(elapsed);
-    LE_DEBUG("ElapsedTime is %d when ConvertElapsedTime", elapsedTime);
-    return elapsedTime;
+
+    if ((now.tv_nsec < 0) || (now.tv_nsec >= NSEC_PER_SEC)) {
+        LE_ERROR("ConvertElapsedTime: invalid now.tv_nsec=%ld", now.tv_nsec);
+        return elapseTime;
+    }
+
+    time_t diff_sec  = now.tv_sec  - start.tv_sec;
+    long   diff_nsec = now.tv_nsec - start.tv_nsec;
+
+    if (diff_nsec < 0) {
+        if (diff_nsec < -NSEC_PER_SEC) {
+            LE_ERROR("ConvertElapsedTime: diff_nsec too small=%ld", diff_nsec);
+            return elapseTime;
+        }
+
+        diff_sec  -= 1;
+        diff_nsec += NSEC_PER_SEC;
+    }
+
+    if (diff_sec < 0) {
+        LE_ERROR("ConvertElapsedTime: start is in the future, diff_sec=%ld", diff_sec);
+        return elapseTime;
+    }
+
+    uint64_t diff_sec_u = static_cast<uint64_t>(diff_sec);
+
+    if (diff_sec_u > MAX_T9_T10_ELAPSED_TIME_SEC) {
+        diff_sec_u = MAX_T9_T10_ELAPSED_TIME_SEC;
+    }
+
+    elapseTime = static_cast<uint16_t>(diff_sec_u);
+    return elapseTime;
 }
 
 HlapTimerEventType_t taf_ecall::ConvertHlapTimerEvent(HlapTimerEvent event) {

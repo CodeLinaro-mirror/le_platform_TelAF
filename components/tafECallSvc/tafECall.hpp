@@ -68,6 +68,8 @@ using namespace std;
 #define MIN_MSD_MESSAGE_IDENTIFIER 1
 #define MSD_TIMESTAMP_STR_INVALID "INVALID"
 #define RX_ECALL_EVENT_POOL_SIZE 50
+#define MAX_T9_T10_ELAPSED_TIME_SEC 43200
+#define NSEC_PER_SEC 1000000000L
 
     namespace tafsvc {
 
@@ -350,7 +352,7 @@ using namespace std;
                 le_result_t GetHlapTimerState(taf_ecall_HlapTimerType_t timerType, taf_ecall_HlapTimerStatus_t* timerStatus, uint16_t* elapsedTime);
                 taf_ecall_HlapTimerStatus_t GetHlapTimerStatus(taf_ecall_HlapTimerType_t timerType);
                 taf_ecall_HlapTimerStatus_t ConvertHlapTimerStatus(telux::tel::HlapTimerStatus status);
-                uint16_t ConvertElapsedTime(std::chrono::time_point<std::chrono::steady_clock> startTime);
+                uint16_t ConvertElapsedTime(const timespec& start);
                 HlapTimerEventType_t ConvertHlapTimerEvent(HlapTimerEvent event);
                 static void T9TimerExpiryHandler(le_timer_Ref_t timerRef);
                 static void T10TimerExpiryHandler(le_timer_Ref_t timerRef);
@@ -418,14 +420,6 @@ using namespace std;
                 std::promise<telux::common::ErrorCode> makePrieCallProm;
                 CallEndCause CallEndError = telux::tel::CallEndCause::NORMAL;
 
-                std::chrono::time_point<std::chrono::steady_clock> t2StartTime;
-                std::chrono::time_point<std::chrono::steady_clock> t9StartTime;
-                std::chrono::time_point<std::chrono::steady_clock> t10StartTime;
-                bool t2StartTimeSet = false;
-                bool t9StartTimeSet = false;
-                bool t10StartTimeSet = false;
-                uint16_t ElapsedTimeT9 = 0;
-                uint16_t ElapsedTimeT10 = 0;
                 eCall_Inf_t *eCallInf = nullptr;
                 bool isDrvPresent = false;
 
@@ -434,12 +428,6 @@ using namespace std;
                 le_ref_MapRef_t ECallPtrRefMap = NULL;
 
                 le_event_Id_t ResumeHlapTimerEventId;
-                le_timer_Ref_t elapsedTimeT9Ref;
-                le_timer_Ref_t elapsedTimeT10Ref;
-                bool pendingToResumeHlapTimer = false;
-                bool needReportT9Start = false;
-                bool needReportT10Start = false;
-                bool needReportCallEndOnReboot = false;
                 int8_t lastCallPhoneId = -1;
             private:
                 std::shared_ptr<telux::tel::IPhoneManager> PhoneManager;
@@ -459,6 +447,21 @@ using namespace std;
                 std::vector<PendingECallEvent> pendingECallEvents;
                 std::mutex pendingECallEventsMtx;
                 taf_ECall_t ECallObject;
+
+                timespec t2StartTime{};
+                timespec t9StartTime{};
+                timespec t10StartTime{};
+                bool t2StartTimeSet = false;
+                bool t9StartTimeSet = false;
+                bool t10StartTimeSet = false;
+                uint16_t ElapsedTimeT9 = 0;
+                uint16_t ElapsedTimeT10 = 0;
+                le_timer_Ref_t elapsedTimeT9Ref;
+                le_timer_Ref_t elapsedTimeT10Ref;
+                bool pendingToResumeHlapTimer = false;
+                bool needReportT9Start = false;
+                bool needReportT10Start = false;
+                bool needReportCallEndOnReboot = false;
                 void InitializeECallPtr();
 
         };

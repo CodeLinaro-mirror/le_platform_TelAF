@@ -48,7 +48,6 @@ void taf_RoutinCtrlSvr::UDSMsgHandler
     // check enable condition
     try
     {
-        LE_DEBUG("Routine control enable condition check");
         cfg::Node & node = cfg::top_routines_all<uint16_t>("identifier", routineId);
         cfg::Node & enableNode = node.get_child("data_enable_condition");
 
@@ -58,12 +57,10 @@ void taf_RoutinCtrlSvr::UDSMsgHandler
             std::string enableOperation = enable.first;
             if (enableOperation == "and")
             {
-                LE_INFO("Check routine Ctrl enable condition status based on AND operation");
                 cfg::Node & optNodeList = enableNode.get_child("and");
                 for (const auto & optNode: optNodeList)
                 {
                     uint8_t enableId = optNode.second.get_value<uint8_t>();
-                    LE_DEBUG("Enable condition id = 0x%x", enableId);
 
                     if (!diag.GetEnableConditionStatus(enableId))
                     {
@@ -77,7 +74,6 @@ void taf_RoutinCtrlSvr::UDSMsgHandler
             }
             else if (enableOperation == "or")
             {
-                LE_INFO("Check routine Ctrl enable condition status based on OR operation");
                 cfg::Node & optNodeList = enableNode.get_child("or");
                 bool enableStatus = false;
                 uint8_t enableId = 0;
@@ -85,12 +81,10 @@ void taf_RoutinCtrlSvr::UDSMsgHandler
                 for (const auto & optNode: optNodeList)
                 {
                     enableId = optNode.second.get_value<uint8_t>();
-                    LE_DEBUG("Enable condition id = 0x%x", enableId);
 
                     if(diag.GetEnableConditionStatus(enableId))
                     {
                         enableStatus = true;
-                        LE_INFO("enable id %d status is true", enableId);
                         break;
                     }
                 }
@@ -163,8 +157,6 @@ void taf_RoutinCtrlSvr::ServiceObjDestructor
         taf_RoutineCtrlReqMsg_t* msgPtr = CONTAINER_OF(linkPtr, taf_RoutineCtrlReqMsg_t, link);
         if (msgPtr != NULL)
         {
-            LE_INFO("Release ReqMsg(ref=%p, subFunc=0x%x, routineID=0x%x)",
-                msgPtr->ref, msgPtr->subFunc, msgPtr->routineId);
             le_ref_DeleteRef(rc.reqMsgRefMap, msgPtr->ref);
             le_mem_Release(msgPtr);
         }
@@ -251,7 +243,7 @@ void taf_RoutinCtrlSvr::RxReqEventHandler
         le_ref_Lookup(rc.reqHandlerRefMap, servicePtr->rxHandlerRef);
     if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
     {
-        LE_ERROR("Can not find routine control handler object!");
+        LE_WARN("Can not find routine control handler object!");
         // UDS_0x31_NRC_21: handler is null
         rc.SendNRCResp(rc.svcId, &(msgPtr->addrInfo), TAF_DIAG_BUSY_REPEAT_REQUEST);
         le_ref_DeleteRef(rc.reqMsgRefMap, msgPtr->ref);
@@ -273,7 +265,7 @@ void taf_RoutinCtrlSvr::RxReqEventHandler
     }
     else
     {
-        LE_ERROR("Unknow SubFunction(0x%x)", msgPtr->subFunc);
+        LE_WARN("Unknow SubFunction(0x%x)", msgPtr->subFunc);
         rc.SendNRCResp(rc.svcId, &(msgPtr->addrInfo), TAF_DIAG_SUBFUNCTION_NOT_SUPPORTED);
         le_ref_DeleteRef(rc.reqMsgRefMap, msgPtr->ref);
         le_mem_Release(msgPtr);
@@ -468,16 +460,12 @@ le_result_t taf_RoutinCtrlSvr::SendRoutineCtrlResp
         }
     }
 
-    LE_DEBUG("Sent response message with NRC0x%x", nrc);
-
     // Remove the message from service message list.
     le_dls_Remove(&servicePtr->reqMsgList, &reqMsgPtr->link);
 
     // Free the message
     le_ref_DeleteRef(reqMsgRefMap, reqMsgPtr->ref);
     le_mem_Release(reqMsgPtr);
-
-    LE_DEBUG("Release reqMsg(%p) resource", reqMsgRef);
 
     return LE_OK;
 }
@@ -489,8 +477,6 @@ le_result_t taf_RoutinCtrlSvr::SendNRCResp
     uint8_t errCode
 )
 {
-    LE_DEBUG("SendNRCResp");
-
     TAF_ERROR_IF_RET_VAL(addrInfoPtr == NULL, LE_BAD_PARAMETER, "Invalid addrInfoPtr");
 
     // Call UDS function to send the response message.
@@ -558,8 +544,6 @@ taf_diagRoutineCtrl_ServiceRef_t taf_RoutinCtrlSvr::FindOrCreateService
     uint16_t identifier
 )
 {
-    LE_DEBUG("Enter routine control FindOrCreateService");
-
     // Verify the identifier which is defined in configuration file.
     try
     {
@@ -589,9 +573,6 @@ taf_diagRoutineCtrl_ServiceRef_t taf_RoutinCtrlSvr::FindOrCreateService
     servicePtr->ref = (taf_diagRoutineCtrl_ServiceRef_t)le_ref_CreateRef(svcRefMap, servicePtr);
     servicePtr->supportedVlanList = LE_DLS_LIST_INIT;
 
-    LE_INFO("Routine control: serviceRef%p of client%p is created for identifier0x%x",
-        servicePtr->ref, servicePtr->sessionRef, servicePtr->identifier);
-
     return servicePtr->ref;
 }
 
@@ -600,7 +581,6 @@ void taf_RoutinCtrlSvr::ClearVlanList
     taf_RoutineCtrlSvc_t* servicePtr
 )
 {
-    LE_DEBUG("ClearVlanList");
     TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
 
     // Clear the vlan id list.
@@ -611,7 +591,6 @@ void taf_RoutinCtrlSvr::ClearVlanList
             taf_RoutineCtrlVlanIdNode_t, link);
         if (vlanPtr != NULL)
         {
-            LE_INFO("Release vlan(id=0x%x)", vlanPtr->vlanId);
             le_mem_Release(vlanPtr);
         }
 
@@ -643,8 +622,6 @@ le_result_t taf_RoutinCtrlSvr::RemoveRoutineCtrlSvc
         taf_RoutineCtrlReqMsg_t* msgPtr = CONTAINER_OF(linkPtr, taf_RoutineCtrlReqMsg_t, link);
         if (msgPtr != NULL)
         {
-            LE_INFO("Release ReqMsg(ref=%p, subFunc=0x%x, routineID=0x%x)",
-                msgPtr->ref, msgPtr->subFunc, msgPtr->routineId);
             le_ref_DeleteRef(reqMsgRefMap, msgPtr->ref);
             le_mem_Release(msgPtr);
         }
@@ -874,6 +851,5 @@ void taf_RoutinCtrlSvr::Init()
     auto& backend = taf_DiagBackend::GetInstance();
 
     backend.RegisterUdsService(svcId, this);
-
-    LE_INFO("Routine control service initialization successful in thread%p!", le_thread_GetCurrent());
+    LE_DEBUG("taf_RoutineCtrlSvr Init completed!");
 }

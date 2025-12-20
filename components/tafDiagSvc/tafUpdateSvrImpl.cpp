@@ -63,17 +63,17 @@ void taf_UpdateSvr::Init
 
     // Create the event and add event handler for RequestFileTransfer (0x38).
     FileXferEvent = le_event_CreateIdWithRefCounting("UpdateSvc RequestFileTransfer Event");
-    FileXferEventHandlerRef = le_event_AddHandler("UpdateSvc RequestFileTransfer Event Handler",
+    FileXferEventHandlerRef = le_event_AddHandler("ReqFileXferEvtHandler",
             FileXferEvent, taf_UpdateSvr::RxFileXferEventHandler);
 
     // Create the event and add event handler for TransferData (0x36).
     XferDataEvent = le_event_CreateIdWithRefCounting("UpdateSvc TransferData Event");
-    XferDataEventHandlerRef = le_event_AddHandler("UpdateSvc TransferData Event Handler",
+    XferDataEventHandlerRef = le_event_AddHandler("XferDataEvtHandler",
             XferDataEvent, taf_UpdateSvr::RxXferDataEventHandler);
 
     // Create the event and add event handler for RequestTransferExit (0x37).
     XferExitEvent = le_event_CreateIdWithRefCounting("UpdateSvc TransferData Event");
-    XferExitEventHandlerRef = le_event_AddHandler("UpdateSvc TransferData Event Handler",
+    XferExitEventHandlerRef = le_event_AddHandler("XferExitEvtHandler",
             XferExitEvent, taf_UpdateSvr::RxXferExitEventHandler);
 
     // Create the event ID for NRC notification.
@@ -90,7 +90,8 @@ void taf_UpdateSvr::Init
     backend.RegisterUdsService(fileXferExitSvcId, this);
     backend.RegisterUdsService(nrcStatusMsgId, this);
 
-    LE_INFO("taf_DiagUpdateSvr Service started");
+    LE_DEBUG("taf_DiagUpdateSvr Init completed!");
+
 }
 
 void taf_UpdateSvr::OnClientDisconnection
@@ -145,8 +146,6 @@ taf_diagUpdate_ServiceRef_t taf_UpdateSvr::CreateUpdateSvc
         svcPtr->state = TAF_DIAG_UPDATE_INIT;
 
         svcPtr->supportedVlanList = LE_DLS_LIST_INIT;
-        LE_INFO("svcRef %p of client %p is created for Diag update service.",
-                svcPtr->svcRef, svcPtr->sessionRef);
     }
     else
     {
@@ -158,7 +157,7 @@ taf_diagUpdate_ServiceRef_t taf_UpdateSvr::CreateUpdateSvc
         }
     }
 
-    LE_INFO("Get serviceRef %p for Diag update service.", svcPtr->svcRef);
+    LE_DEBUG("Get serviceRef %p for Diag update service.", svcPtr->svcRef);
 
     return svcPtr->svcRef;
 }
@@ -284,9 +283,6 @@ void taf_UpdateSvr::ClearFileXferMsgList
         taf_FileXferRxMsg_t* msgPtr = CONTAINER_OF(linkPtr, taf_FileXferRxMsg_t, link);
         if (msgPtr != NULL)
         {
-            LE_INFO("Release ReqMsg(ref=%p, sid=0x%x)",
-                msgPtr->rxMsgRef, msgPtr->serviceId);
-
             // Free the message
             le_ref_DeleteRef(RxFileXferMsgRefMap, msgPtr->rxMsgRef);
             le_mem_Release(msgPtr);
@@ -309,9 +305,6 @@ void taf_UpdateSvr::ClearXferDataMsgList
         taf_XferDataRxMsg_t* msgPtr = CONTAINER_OF(linkPtr, taf_XferDataRxMsg_t, link);
         if (msgPtr != NULL)
         {
-            LE_INFO("Release ReqMsg(ref=%p, sid=0x%x)",
-                msgPtr->rxMsgRef, msgPtr->serviceId);
-
             // Free the message
             le_ref_DeleteRef(RxXferDataMsgRefMap, msgPtr->rxMsgRef);
             le_mem_Release(msgPtr);
@@ -334,9 +327,6 @@ void taf_UpdateSvr::ClearXferExitMsgList
         taf_XferExitRxMsg_t* msgPtr = CONTAINER_OF(linkPtr, taf_XferExitRxMsg_t, link);
         if (msgPtr != NULL)
         {
-            LE_INFO("Release ReqMsg(ref=%p, sid=0x%x)",
-                msgPtr->rxMsgRef, msgPtr->serviceId);
-
             // Free the message
             le_ref_DeleteRef(RxXferExitMsgRefMap, msgPtr->rxMsgRef);
             le_mem_Release(msgPtr);
@@ -359,7 +349,6 @@ void taf_UpdateSvr::ClearVlanList
         taf_UpdateVlanIdNode_t *vlanPtr = CONTAINER_OF(linkPtr, taf_UpdateVlanIdNode_t, link);
         if (vlanPtr != NULL)
         {
-            LE_INFO("Release vlan node(id=0x%x)", vlanPtr->vlanId);
             le_mem_Release(vlanPtr);
         }
 
@@ -507,7 +496,7 @@ void taf_UpdateSvr::UDSMsgHandler
         // Format and length of this parameter(s) are vehicle manufacturer specific.
         if ((msgLen - dataPtrPos) > TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE)
         {
-            LE_ERROR("Message length(%" PRIuS ") is out of range", msgLen - dataPtrPos);
+            LE_WARN("Message length(%" PRIuS ") is out of range", msgLen - dataPtrPos);
             // UDS_0x36_NRC_13: Block parameter record is overflow
             nrc = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
             goto errOut;
@@ -518,7 +507,7 @@ void taf_UpdateSvr::UDSMsgHandler
             // 3 = SID + BSC + minimum TRPR_
             if (msgLen + 1 < 3) // Plus 'SID' size first
             {
-                LE_ERROR("Record size less 3 in download direction");
+                LE_WARN("Record size less 3 in download direction");
                 // UDS_0x36_NRC_13: Record size less 3 in download direction
                 nrc = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
                 goto errOut;
@@ -529,7 +518,7 @@ void taf_UpdateSvr::UDSMsgHandler
             // 2 = SID + BSC
             if (msgLen + 1 < 2) // Plus 'SID' size first
             {
-                LE_ERROR("Record size less 2 in upload direction");
+                LE_WARN("Record size less 2 in upload direction");
                 // UDS_0x36_NRC_13: Record size less 2 in upload direction
                 nrc = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
                 goto errOut;
@@ -566,7 +555,7 @@ void taf_UpdateSvr::UDSMsgHandler
         // Format and length of this parameter(s) are vehicle manufacturer specific.
         if ((msgLen - dataPtrPos) > TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE)
         {
-            LE_DEBUG("Message length(%" PRIuS ") is out of range", msgLen - dataPtrPos);
+            LE_WARN("Message length(%" PRIuS ") is out of range", msgLen - dataPtrPos);
             // UDS_0x37_NRC_13: Block parameter record is overflow
             nrc = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
             goto errOut;
@@ -607,7 +596,7 @@ void taf_UpdateSvr::UDSMsgHandler
     }
     else
     {
-        LE_DEBUG("Service(0x%x) is invalid for update", sid);
+        LE_WARN("Service(0x%x) is invalid for update", sid);
         nrc = TAF_DIAG_SERVICE_NOT_SUPPORTED; // ServiceNotSupported
         goto errOut;
     }
@@ -703,9 +692,6 @@ taf_diagUpdate_RxFileXferMsgHandlerRef_t taf_UpdateSvr::AddRxFileXferReqHandler
     // Attach the Rx Handler to the service.
     svcPtr->fileXferRef = handlerCtxPtr->handlerRef;
 
-    LE_INFO("Created handlerRef(%p) for Service reference %p.",
-            handlerCtxPtr->handlerRef, svcPtr->svcRef);
-
     return handlerCtxPtr->handlerRef;
 }
 
@@ -783,9 +769,6 @@ taf_diagUpdate_RxXferDataMsgHandlerRef_t taf_UpdateSvr::AddRxXferDataReqHandler
     // Attach the Rx Handler to the service.
     svcPtr->xferDataRef = handlerCtxPtr->handlerRef;
 
-    LE_INFO("Created handlerRef(%p) for Service reference %p.",
-            handlerCtxPtr->handlerRef, svcPtr->svcRef);
-
     return handlerCtxPtr->handlerRef;
 }
 
@@ -862,9 +845,6 @@ taf_diagUpdate_RxXferExitMsgHandlerRef_t taf_UpdateSvr::AddRxXferExitReqHandler
 
     // Attach the Rx Handler to the service.
     svcPtr->xferExitRef = handlerCtxPtr->handlerRef;
-
-    LE_INFO("Created handlerRef(%p) for Service reference %p.",
-            handlerCtxPtr->handlerRef, svcPtr->svcRef);
 
     return handlerCtxPtr->handlerRef;
 }
@@ -950,7 +930,7 @@ void taf_UpdateSvr::RxFileXferEventHandler
 #endif
     if (svcPtr == NULL)
     {
-        LE_ERROR("Not found registered update service for this request");
+        LE_WARN("Not found registered update service for this request");
         // UDS_0x38_NRC_21: Not found registered diag update svc
         nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
@@ -958,7 +938,7 @@ void taf_UpdateSvr::RxFileXferEventHandler
 
     if (svcPtr->fileXferRef == NULL)
     {
-        LE_ERROR("Did not register RequestFileTransfer handler for update service");
+        LE_WARN("Did not register RequestFileTransfer handler for update service");
         // UDS_0x38_NRC_21: Bad svc ref
         nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
@@ -969,7 +949,7 @@ void taf_UpdateSvr::RxFileXferEventHandler
         le_ref_Lookup(update.RxFileXferHandlerRefMap, svcPtr->fileXferRef);
     if (handlerCtxPtr == NULL || handlerCtxPtr->func == NULL)
     {
-        LE_ERROR("Can not find RequestFileTransfer handler object!");
+        LE_WARN("Can not find RequestFileTransfer handler object!");
         // UDS_0x38_NRC_21: Bad callback fn
         nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
@@ -994,7 +974,7 @@ void taf_UpdateSvr::RxFileXferEventHandler
         }
         else
         {
-            LE_ERROR("Trsnsfer is in progress");
+            LE_WARN("Trsnsfer is in progress");
             // UDS_0x38_NRC_22: Transfer is in progress
             nrc = TAF_DIAG_CONDITION_NOT_CORRECT;
             goto errOut;
@@ -1042,7 +1022,7 @@ void taf_UpdateSvr::RxXferDataEventHandler
 #endif
     if (svcPtr == NULL)
     {
-        LE_DEBUG("Not found registered update service for this request");
+        LE_WARN("Not found registered update service for this request");
         // UDS_0x36_NRC_21: Not found svc
         nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
@@ -1051,7 +1031,7 @@ void taf_UpdateSvr::RxXferDataEventHandler
     if (svcPtr->state == TAF_DIAG_UPDATE_INIT
         || svcPtr->state == TAF_DIAG_UPDATE_EXIT)
     {
-        LE_DEBUG("The update state(0x%x) is incorrect", svcPtr->state);
+        LE_WARN("The update state(0x%x) is incorrect", svcPtr->state);
         // UDS_0x36_NRC_24: Transfer is NOT in progress (again)
         nrc = TAF_DIAG_REQUEST_SEQUENCE_ERROR;  // requestSequenceError
         goto errOut;
@@ -1059,7 +1039,7 @@ void taf_UpdateSvr::RxXferDataEventHandler
 
     if (svcPtr->xferDataRef == NULL)
     {
-        LE_DEBUG("Did not register TransferData handler for update service");
+        LE_WARN("Did not register TransferData handler for update service");
         // UDS_0x36_NRC_21: Invalid handler ref
         nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
@@ -1070,7 +1050,7 @@ void taf_UpdateSvr::RxXferDataEventHandler
         le_ref_Lookup(update.RxXferDataHandlerRefMap, svcPtr->xferDataRef);
     if (handlerCtxPtr == NULL || handlerCtxPtr->func == NULL)
     {
-        LE_DEBUG("Can not find TransferData handler object!");
+        LE_WARN("Can not find TransferData handler object!");
         // UDS_0x36_NRC_21: Invalid handler callback
         nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
@@ -1128,7 +1108,7 @@ void taf_UpdateSvr::RxXferExitEventHandler
 #endif
     if (svcPtr == NULL)
     {
-        LE_DEBUG("Not found registered update service for this request");
+        LE_WARN("Not found registered update service for this request");
         // UDS_0x37_NRC_21: Not found registered svc
         nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
@@ -1137,7 +1117,7 @@ void taf_UpdateSvr::RxXferExitEventHandler
     if (svcPtr->state == TAF_DIAG_UPDATE_INIT
         || svcPtr->state == TAF_DIAG_UPDATE_EXIT)
     {
-        LE_DEBUG("The update state(0x%x) is incorrect", svcPtr->state);
+        LE_WARN("The update state(0x%x) is incorrect", svcPtr->state);
         // UDS_0x37_NRC_24: Transfer is not active (again)
         nrc = TAF_DIAG_REQUEST_SEQUENCE_ERROR;  // requestSequenceError
         goto errOut;
@@ -1145,7 +1125,7 @@ void taf_UpdateSvr::RxXferExitEventHandler
 
     if (svcPtr->xferExitRef == NULL)
     {
-        LE_DEBUG("Did not register RequestTransferExit handler for update service");
+        LE_WARN("Did not register RequestTransferExit handler for update service");
         // UDS_0x37_NRC_21: Invalid svc ref
         nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
@@ -1156,7 +1136,7 @@ void taf_UpdateSvr::RxXferExitEventHandler
         le_ref_Lookup(update.RxXferExitHandlerRefMap, svcPtr->xferExitRef);
     if (handlerCtxPtr == NULL || handlerCtxPtr->func == NULL)
     {
-        LE_DEBUG("Can not find RequestTransferExit handler object!");
+        LE_WARN("Can not find RequestTransferExit handler object!");
         // UDS_0x37_NRC_21: Invalid callback handler
         nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
@@ -1402,7 +1382,6 @@ le_result_t taf_UpdateSvr::SetFileSizeOrDirInfoLength(
     BigEndianNumberFormat(fileSizeUncompressedOrDirInfoLength,
                           mFileSizeUncompressedOrDirInfoLength,
                           TAF_DIAGUPDATE_FILE_SIZE_OR_DIR_INFO_LEN);
-    LE_DEBUG("fileSizeUncompressedOrDirInfoLength: %" PRIu64, fileSizeUncompressedOrDirInfoLength);
 
     if (msgPtr->operationType == TAF_DIAGUPDATE_READ_FILE)
     {
@@ -1410,7 +1389,6 @@ le_result_t taf_UpdateSvr::SetFileSizeOrDirInfoLength(
                               mFileSizeCompressed,
                               TAF_DIAGUPDATE_FILE_SIZE_OR_DIR_INFO_LEN);
     }
-    LE_DEBUG("fileSizeCompressed: %" PRIu64, fileSizeCompressed);
 
     BigEndianNumberFormat(nCharsToSave, mFileSizeOrDirInfoParameterLength, SIZE_OF_FSDIL);
     LE_DEBUG("fileSizeOrDirInfoParameterLength = %d", nCharsToSave);
@@ -1461,8 +1439,6 @@ le_result_t taf_UpdateSvr::SendFileXferResp
         uint8_t *buffer = NULL ;
         uint16_t bufsize = 0;
 
-        LE_INFO("MOOP = 0x%02X", (int)msgPtr->operationType);
-
         if (msgPtr->operationType == TAF_DIAGUPDATE_RESUME_FILE)
         {
             buffer = mFilePosition;
@@ -1480,7 +1456,6 @@ le_result_t taf_UpdateSvr::SendFileXferResp
         }
         else if (msgPtr->operationType == TAF_DIAGUPDATE_READ_FILE)
         {
-            LE_INFO("nCharsToSave = %d", nCharsToSave);
             uint8_t f_buffer[SIZE_OF_FSDIL + TAF_DIAGUPDATE_FILE_SIZE_OR_DIR_INFO_LEN * 2] = {0};
 
             memcpy(f_buffer, mFileSizeOrDirInfoParameterLength, SIZE_OF_FSDIL);
@@ -1514,7 +1489,6 @@ le_result_t taf_UpdateSvr::SendFileXferResp
             return ret;
         }
 
-        LE_INFO("[RFT] P-ack for moop:[0x%02X]", msgPtr->operationType);
     }
     else
     {
@@ -1524,8 +1498,6 @@ le_result_t taf_UpdateSvr::SendFileXferResp
             LE_ERROR("Failed to respond negative message for RequestFileTransfer(%d)", ret);
             return ret;
         }
-
-        LE_INFO("[RFT] N-ack for moop:[0x%02X]", msgPtr->operationType);
     }
 
     // Remove the message from service message list.
@@ -1534,8 +1506,6 @@ le_result_t taf_UpdateSvr::SendFileXferResp
     // Free the message
     le_ref_DeleteRef(RxFileXferMsgRefMap, msgPtr->rxMsgRef);
     le_mem_Release(msgPtr);
-
-    LE_DEBUG("Release reqMsg(%p) resource for RequestFileTransfer", rxMsgRef);
 
     return LE_OK;
 }
@@ -1574,8 +1544,6 @@ le_result_t taf_UpdateSvr::ReleaseRxFileXferMsg
     // Free the message
     le_ref_DeleteRef(RxFileXferMsgRefMap, msgPtr->rxMsgRef);
     le_mem_Release(msgPtr);
-
-    LE_DEBUG("Release reqMsg(%p) resource for RequestFileTransfer", rxMsgRef);
 
     return LE_OK;
 }
@@ -1721,8 +1689,6 @@ le_result_t taf_UpdateSvr::SendXferDataResp
     // Free the message
     le_ref_DeleteRef(RxXferDataMsgRefMap, msgPtr->rxMsgRef);
     le_mem_Release(msgPtr);
-
-    LE_DEBUG("Release reqMsg(%p) resource for TransferData", rxMsgRef);
 
     return LE_OK;
 }
@@ -1928,8 +1894,6 @@ le_result_t taf_UpdateSvr::ReleaseRxXferExitMsg
     le_ref_DeleteRef(RxXferExitMsgRefMap, msgPtr->rxMsgRef);
     le_mem_Release(msgPtr);
 
-    LE_DEBUG("Release reqMsg(%p) resource for TransferData", rxMsgRef);
-
     return LE_OK;
 }
 
@@ -1958,9 +1922,6 @@ void taf_UpdateSvr::ReportNrcStatus
     nrcStatusMsgPtr->nrc = nrc;
     nrcStatusMsgPtr->nrcStatusRef = (taf_diagUpdate_NrcStatusRef_t)le_ref_CreateRef(
             RxNrcStatusRefMap, nrcStatusMsgPtr);
-
-    LE_DEBUG("Report NRC status, vlanId: %d, sid: %d, nrc: %d", (int)addrPtr->vlanId, (int)sid,
-            (int)nrc);
 
     // Report the request message to message handler in service layer.
     le_event_ReportWithRefCounting(NrcEventId, nrcStatusMsgPtr);
@@ -2035,7 +1996,6 @@ le_result_t taf_UpdateSvr::SetVlanId
             taf_UpdateVlanIdNode_t, link);
         if (vlan != NULL && vlan->vlanId == vlanId)
         {
-            LE_INFO("The Vlan id(0x%x) is set for ref%p", vlanId, svcRef);
             return LE_OK;
         }
         linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
@@ -2045,7 +2005,7 @@ le_result_t taf_UpdateSvr::SetVlanId
         le_mem_ForceAlloc(vlanPool);
     if (vlanPtr == NULL)
     {
-        LE_INFO("Failed to allocate memory.");
+        LE_ERROR("Failed to allocate memory.");
         return LE_NO_MEMORY;
     }
 

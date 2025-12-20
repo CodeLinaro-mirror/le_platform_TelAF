@@ -33,7 +33,6 @@ taf_diagAuth_ServiceRef_t taf_diagAuth_GetService
     void
 )
 {
-    LE_DEBUG("taf_diagAuth_GetService");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.GetService();
@@ -61,7 +60,6 @@ le_result_t taf_diagAuth_SetVlanId
         ///< [IN] VLAN ID
 )
 {
-    LE_DEBUG("taf_diagAuth_SetVlanId: vlan is 0x%x", vlanId);
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.SetVlanId(svcRef, vlanId);
@@ -84,7 +82,6 @@ taf_diagAuth_RxMsgHandlerRef_t taf_diagAuth_AddRxMsgHandler
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagAuth_AddRxMsgHandler");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.AddRxMsgHandler(svcRef, handlerPtr, contextPtr);
@@ -101,7 +98,6 @@ void taf_diagAuth_RemoveRxMsgHandler
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagAuth_RemoveRxMsgHandler");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     authIns.RemoveRxMsgHandler(handlerRef);
@@ -124,7 +120,6 @@ taf_diagAuth_AuthStateExpHandlerRef_t taf_diagAuth_AddAuthStateExpHandler
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagAuth_AddAuthStateExpHandler");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.AddAuthExpHandler(svcRef, handlerPtr, contextPtr);
@@ -141,7 +136,6 @@ void taf_diagAuth_RemoveAuthStateExpHandler
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagAuth_RemoveAuthStateExpHandler");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     authIns.RemoveAuthExpHandler(handlerRef);
@@ -168,7 +162,6 @@ le_result_t taf_diagAuth_GetCommConf
         ///< [OUT] Communication configuration.
 )
 {
-    LE_DEBUG("taf_diagAuth_GetCommConf");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.GetCommConfVal(rxMsgRef, commConfPtr);
@@ -195,7 +188,6 @@ le_result_t taf_diagAuth_GetCertSize
         ///< [OUT] The size of certicicate.
 )
 {
-    LE_DEBUG("taf_diagAuth_GetCertSize");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.GetCertSize(rxMsgRef, sizePtr);
@@ -224,7 +216,6 @@ le_result_t taf_diagAuth_GetCert
         ///< [INOUT]
 )
 {
-    LE_DEBUG("taf_diagAuth_GetCert");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.GetCertData(rxMsgRef, certPtr, certSizePtr);
@@ -251,7 +242,6 @@ le_result_t taf_diagAuth_GetChallengeSize
         ///< [OUT] The size of client challenge.
 )
 {
-    LE_DEBUG("taf_diagAuth_GetChallengeSize");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.GetChallengeSize(rxMsgRef, sizePtr);
@@ -280,7 +270,6 @@ le_result_t taf_diagAuth_GetChallenge
         ///< [INOUT]
 )
 {
-    LE_DEBUG("taf_diagAuth_GetChallenge");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.GetChallengeData(rxMsgRef, challengePtr, challengeSizePtr);
@@ -307,7 +296,6 @@ le_result_t taf_diagAuth_GetPOWNSize
         ///< [OUT] The size of proof of ownership.
 )
 {
-    LE_DEBUG("taf_diagAuth_GetPOWNSize");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.GetPOWNSize(rxMsgRef, sizePtr);
@@ -336,7 +324,6 @@ le_result_t taf_diagAuth_GetPOWN
         ///< [INOUT]
 )
 {
-    LE_DEBUG("taf_diagAuth_GetPOWN");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.GetPOWNData(rxMsgRef, proofPtr, proofSizePtr);
@@ -363,7 +350,6 @@ le_result_t taf_diagAuth_GetPublicKeySize
         ///< [OUT] The size of ephemeral public key.
 )
 {
-    LE_DEBUG("taf_diagAuth_GetPublicKeySize");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.GetPublicKeySize(rxMsgRef, sizePtr);
@@ -392,7 +378,6 @@ le_result_t taf_diagAuth_GetPublicKey
         ///< [INOUT]
 )
 {
-    LE_DEBUG("taf_diagAuth_GetPublicKey");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.GetPublicKeyData(rxMsgRef, publicKeyPtr, publicKeySizePtr);
@@ -418,7 +403,6 @@ le_result_t taf_diagAuth_SetRole
         ///< [IN] The role of proof of ownership.
 )
 {
-    LE_DEBUG("taf_diagAuth_SetRole");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.SetRole(rxMsgRef, role);
@@ -445,7 +429,6 @@ le_result_t taf_diagAuth_GetCertEvalId
         ///< [OUT] The certificate evaluation id.
 )
 {
-    LE_DEBUG("taf_diagAuth_GetCertEvalId");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.GetCertEvalId(rxMsgRef, idPtr);
@@ -471,7 +454,6 @@ le_result_t taf_diagAuth_GetVlanIdFromMsg
         ///< [OUT] VLAN ID.
 )
 {
-    LE_DEBUG("taf_diagAuth_GetVlanIdFromMsg");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.GetVlanIdFromMsg(rxMsgRef, vlanIdPtr);
@@ -499,7 +481,6 @@ le_result_t taf_diagAuth_SetChallenge
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagAuth_SetChallenge");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.SetChallenge(rxMsgRef, challengePtr, challengeSize);
@@ -527,7 +508,6 @@ le_result_t taf_diagAuth_SetPublicKey
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagAuth_SetPublicKey");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.SetPublicKey(rxMsgRef, publicKeyPtr, publicKeySize);
@@ -556,7 +536,6 @@ le_result_t taf_diagAuth_SetSessKeyInfo
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagAuth_SetSessKeyInfo");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.SetSessKeyInfo(rxMsgRef, sessKeyInfoPtr, sessKeyInfoSize);
@@ -587,7 +566,6 @@ le_result_t taf_diagAuth_SendResp
         ///< [IN] Authentication result.
 )
 {
-    LE_DEBUG("taf_diagAuth_SendResp");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.SendResp(rxMsgRef, errCode, retVal);
@@ -626,7 +604,6 @@ le_result_t taf_diagAuth_RemoveSvc
         ///< [IN] Service reference.
 )
 {
-    LE_DEBUG("taf_diagAuth_RemoveSvc");
     auto &authIns = taf_AuthSvr::GetInstance();
 
     return authIns.RemoveSvc(svcRef);

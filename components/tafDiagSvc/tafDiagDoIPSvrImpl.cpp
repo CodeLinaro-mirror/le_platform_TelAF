@@ -61,7 +61,7 @@ taf_diagDoIP_ServiceRef_t taf_DiagDoIPSvr::FindOrCreateService
     servicePtr->doiphandlerRef = taf_doip_AddEventHandler(
         servicePtr->doipRef, DoIPEventHandler, NULL);
 
-    LE_INFO("DoIP service: serviceRef%p of client%p is created",
+    LE_DEBUG("DoIP service: serviceRef%p of client%p is created",
         servicePtr->ref, taf_diagDoIP_GetClientSessionRef());
 
 out:
@@ -92,7 +92,6 @@ le_result_t taf_DiagDoIPSvr::RemoveService
         if( le_dls_NumLinks(&svcPtr->sessionList) == 0)
         {
             // Clear service object
-            LE_INFO("Clear service object%p", svcPtr);
             taf_doip_RemoveEventHandler(svcPtr->doiphandlerRef);
             le_ref_DeleteRef(svcRefMap, (void*)svcPtr->ref);
             le_mem_Release(svcPtr);
@@ -137,7 +136,6 @@ taf_diagDoIP_EventHandlerRef_t taf_DiagDoIPSvr::AddEventHandler
         return NULL;
     }
 
-    LE_INFO("Registered event handler to DoIP service");
     taf_VlanCallback_t* vlanPtr = GetVlanInfoWithVlanId(sessionPtr, vlanId);
     if (vlanPtr == NULL)
     {
@@ -246,7 +244,6 @@ void taf_DiagDoIPSvr::DoIPEventHandler
             // No need to report.
             return;
     }
-    LE_DEBUG("Report a event from DoIP");
     taf_DiagDoIPSvr& doipSvr = taf_DiagDoIPSvr::GetInstance();
 
     le_ref_IterRef_t iterRef = le_ref_GetIterator(doipSvr.svcRefMap);
@@ -302,7 +299,6 @@ void taf_DiagDoIPSvr::OnClientDisconnection
         if( le_dls_NumLinks(&svcPtr->sessionList) == 0)
         {
             // Clear service object
-            LE_INFO("Clear service object%p", svcPtr);
             le_ref_DeleteRef(doipSvr.svcRefMap, (void*)svcPtr->ref);
             le_mem_Release(svcPtr);
         }
@@ -382,7 +378,6 @@ le_result_t taf_DiagDoIPSvr::RemoveSessionFromService
 
         if (sessionPtr->sessionRef == sessionRef)
         {
-            LE_DEBUG("remove session ref(%p) from service%p", sessionRef, servicePtr);
             le_dls_Remove(&(servicePtr->sessionList), &(sessionPtr->link));
             RemoveAllVlanFromSession(sessionPtr);
 
@@ -421,7 +416,6 @@ le_result_t taf_DiagDoIPSvr::SetSessionEventHandler
                 le_dls_Remove(&(sessionPtr->vlanInfoList), &(vlanPtr->link));
                 le_ref_DeleteRef(vlanRefMap, vlanPtr->safeRef);
                 le_mem_Release(vlanPtr);
-                LE_DEBUG("Release resources for vlanId:%d", vlanId);
                 return LE_OK;
             }
             linkPtr = le_dls_PeekNext(&(sessionPtr->vlanInfoList), linkPtr);
@@ -451,7 +445,6 @@ le_result_t taf_DiagDoIPSvr::SetSessionEventHandler
         vlanPtr->safeRef = le_ref_CreateRef(vlanRefMap, vlanPtr);
         vlanPtr->sessPtr = sessionPtr;
         le_dls_Queue(&sessionPtr->vlanInfoList, &(vlanPtr->link));
-        LE_DEBUG("Add vlan(0x%x) handler to session successful.", vlanId);
     }
 
     return LE_OK;

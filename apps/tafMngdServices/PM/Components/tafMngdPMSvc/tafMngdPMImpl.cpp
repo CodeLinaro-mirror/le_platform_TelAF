@@ -544,9 +544,17 @@ void tafMngdPMSvc::NodeInternalEventHandler(void *reportPtr)
     taf_mngdPm_NodeEventData_t* eventData = (taf_mngdPm_NodeEventData_t*)reportPtr;
     le_result_t res = LE_FAULT;
 
+    tafMngdPMSvc& mpms = tafMngdPMSvc::GetInstance();
+
     switch (eventData->type)
     {
         case EVT_NODE_EVENT_RELAX:
+            if (mpms.vhalWsState == WAKE_SOURCE_PENDING)
+            {
+                LE_DEBUG("VHAL RELAX req received after caching STAYAWKE req in SUSPENDING state");
+                mpms.vhalWsState = WAKE_SOURCE_NOT_ACQUIRED;
+            }
+
             if(tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE) != LE_OK)
             {
                 LE_WARN("RequestStateChange for RELEASING_WAKE_SOURCE not permitted for VHAL node event.");
@@ -557,12 +565,21 @@ void tafMngdPMSvc::NodeInternalEventHandler(void *reportPtr)
             {
                 LE_INFO("ReleaseWakeLock successful initiated by VHAL node event.");
                 tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
+                mpms.vhalWsState = WAKE_SOURCE_NOT_ACQUIRED;
             } else {
                 LE_ERROR("ReleaseWakeLock failed initiated by VHAL node event: %s", LE_RESULT_TXT(res));
             }
             break;
 
         case EVT_NODE_EVENT_STAYAWAKE:
+            // If MPMS is currently suspending, cache the VHAL request
+            if (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SUSPENDING)
+            {
+                LE_INFO("Caching VHAL STAYAWAKE request during SUSPENDING state");
+                mpms.vhalWsState = WAKE_SOURCE_PENDING;
+                return;
+            }
+
             if(tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_WAKING_UP) != LE_OK)
             {
                 LE_WARN("RequestStateChange for WAKING_UP not permitted for VHAL node event.");
@@ -573,6 +590,7 @@ void tafMngdPMSvc::NodeInternalEventHandler(void *reportPtr)
             {
                 LE_INFO("AcquireWakeLock successful initiated by VHAL node event.");
                 tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_WAKING_UP);
+                mpms.vhalWsState = WAKE_SOURCE_ACQUIRED;
             } else {
                 LE_ERROR("AcquireWakeLock failed initiated by VHAL node event: %s", LE_RESULT_TXT(res));
             }
@@ -795,39 +813,64 @@ void tafMngdPMSvc::ProcessCachedAwakeReqs()
     LE_INFO("Check & process cached requests!");
     auto &mpms = tafMngdPMSvc::GetInstance();
 
-    if(wsCachedReqsRefSet.empty()){
-        LE_INFO("No cached awake requests found!");
-        return;
-    }
+    if(!wsCachedReqsRefSet.empty()){
+        LE_INFO("Processing cached MPMS STAYAWAKE");
 
-    for (auto it = wsCachedReqsRefSet.begin(); it != wsCachedReqsRefSet.end();)
-    {
-        bool found = false;
-        le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.wsRefList));
-        while (linkHandlerPtr) {
-            taf_wsRefCtx_t* wsRefCtxPtr = CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
-            linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
+        for (auto it = wsCachedReqsRefSet.begin(); it != wsCachedReqsRefSet.end();)
+        {
+            bool found = false;
+            le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.wsRefList));
+            while (linkHandlerPtr) {
+                taf_wsRefCtx_t* wsRefCtxPtr = CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
+                linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
 
-            if (wsRefCtxPtr && wsRefCtxPtr->wsRef == *it) {
-                found = true;
-                if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason)) {
-                    LE_INFO("Cached ws for %s with wsReason:%d is authorized", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
-                    le_result_t res = mpms.AcquireWakeSource(wsRefCtxPtr);
-                    if(res != LE_OK) {
-                        LE_ERROR("Failed to acquire ws of %s with wsReason:%d", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
+                if (wsRefCtxPtr && wsRefCtxPtr->wsRef == *it) {
+                    found = true;
+                    if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason)) {
+                        LE_INFO("Cached ws for %s with wsReason:%d is authorized", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
+                        le_result_t res = mpms.AcquireWakeSource(wsRefCtxPtr);
+                        if(res != LE_OK) {
+                            LE_ERROR("Failed to acquire ws of %s with wsReason:%d", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
+                        }
+                    } else {
+                        LE_INFO("StayAwakeReason:%d for cachedAwakeReqs is unauthorized!, wsState: %d", wsRefCtxPtr->reason, wsRefCtxPtr->wakeSourceState);
+                        wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_IGNORED;
                     }
-                } else {
-                    LE_INFO("StayAwakeReason:%d for cachedAwakeReqs is unauthorized!, wsState: %d", wsRefCtxPtr->reason, wsRefCtxPtr->wakeSourceState);
-                    wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_IGNORED;
+                    it = wsCachedReqsRefSet.erase(it);
+                    break;
                 }
+            }
+
+            if (!found) {
+                LE_WARN("Cached wsRef %p not found in the wsList", *it);
                 it = wsCachedReqsRefSet.erase(it);
-                break;
             }
         }
+    }
+    else {
+        LE_INFO("No cached mpms awake requests found!");
+    }
 
-        if (!found) {
-            LE_WARN("Cached wsRef %p not found in the wsList", *it);
-            it = wsCachedReqsRefSet.erase(it);
+    // Process cached VHAL STAYAWAKE
+    if (tafMngdPMSvc::vhalWsState == WAKE_SOURCE_PENDING)
+    {
+        LE_INFO("Processing cached VHAL STAYAWAKE");
+
+        if(tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_WAKING_UP) != LE_OK)
+        {
+            LE_WARN("RequestStateChange for WAKING_UP not permitted for VHAL node event.");
+            tafMngdPMSvc::vhalWsState = WAKE_SOURCE_NOT_ACQUIRED;
+            return;
+        }
+        le_result_t ret = tafMngdPMSvc::AcquireWakeLock();
+        if(ret == LE_OK)
+        {
+            LE_INFO("AcquireWakeLock successful for cached VHAL STAYAWAKE.");
+            tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_WAKING_UP);
+            tafMngdPMSvc::vhalWsState = WAKE_SOURCE_ACQUIRED;
+        } else {
+            LE_ERROR("AcquireWakeLock failed for cached VHAL STAYAWAKE: %s", LE_RESULT_TXT(ret));
+            tafMngdPMSvc::vhalWsState = WAKE_SOURCE_NOT_ACQUIRED;
         }
     }
 }
@@ -938,8 +981,11 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
                 TafStateToString(stateMachine.currentState));
             }
         }
-        // Process the cached awake requests
-        ProcessCachedAwakeReqs();
+
+        if(stateMachine.currentState == TAF_MNGDPM_STATE_SUSPEND){
+            // Process the cached awake requests
+            ProcessCachedAwakeReqs();
+        }
     }
     else if(state == TAF_PM_STATE_SUSPEND)
     {
@@ -2031,6 +2077,9 @@ le_ref_MapRef_t tafMngdPMSvc::wsRefMap;
 
 //cached awake requests ws reference set
 std::unordered_set<taf_mngdPm_wsRef_t>  tafMngdPMSvc::wsCachedReqsRefSet;
+
+// VHAL-held wake source state
+int8_t tafMngdPMSvc::vhalWsState = WAKE_SOURCE_NOT_ACQUIRED;
 
 le_mem_PoolRef_t tafMngdPMSvc::nodeWsRefPool;
 le_dls_List_t tafMngdPMSvc::nodeWsRefList;

@@ -32,6 +32,7 @@
 #define WAKE_SOURCE_ACQUIRED 1
 #define WAKE_SOURCE_NOT_ACQUIRED 0
 #define WAKE_SOURCE_IGNORED 2
+#define WAKE_SOURCE_PENDING 3
 
 #define MAIN_THREAD_KICK_INTERVAL 13
 #define MONITOR_MAIN_THREAD_LOOP 0
@@ -292,6 +293,9 @@ class tafMngdPMSvc: public ITafSvc
 
         //cached awake requests ws reference set
         static std::unordered_set<taf_mngdPm_wsRef_t>  wsCachedReqsRefSet;
+
+        // VHAL-held wake source state
+        static int8_t vhalWsState;
 
         //List for system level wake sources
         static le_mem_PoolRef_t wsRefPool;

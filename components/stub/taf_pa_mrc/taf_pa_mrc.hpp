@@ -8,6 +8,8 @@
 
 #include "legato.h"
 
+#define PA_WEAK __attribute__((weak))
+
 //--------------------------------------------------------------------------------------------------
 /**
  * MRC indication bitmask.
@@ -388,7 +390,7 @@ LE_SHARED le_result_t taf_pa_mrc_Initialize
  *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
-LE_SHARED le_result_t taf_pa_mrc_ConfigTimer
+LE_SHARED PA_WEAK le_result_t taf_pa_mrc_ConfigTimer
 (
     taf_pa_mrc_TimerType_t type,
     uint32_t time

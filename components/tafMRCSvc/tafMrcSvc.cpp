@@ -471,5 +471,8 @@ le_result_t taf_mrc_SetEfsBackupPeriod
     uint32_t period ///< Period in second.
 )
 {
-    return taf_pa_mrc_ConfigTimer(TAF_PA_MRC_TIMER_TYPE_EFS_BACKUP, period);
+    if (taf_pa_mrc_ConfigTimer)
+        return taf_pa_mrc_ConfigTimer(TAF_PA_MRC_TIMER_TYPE_EFS_BACKUP, period);
+
+    return LE_UNSUPPORTED;
 }

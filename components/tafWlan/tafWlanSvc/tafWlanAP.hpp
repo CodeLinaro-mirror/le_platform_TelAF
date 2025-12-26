@@ -22,34 +22,18 @@
     {
         typedef struct
         {
-            le_dls_Link_t           link;
-            taf_wlanAp_WlanAPRef_t  wlanAPRef;
-            taf_wlan_APid_t         id;
-            char                    interfaceName[TAF_NET_INTERFACE_NAME_MAX_LEN + 1];
+            le_dls_Link_t link;
+            taf_wlanAp_WlanAPRef_t wlanAPRef;
+            taf_wlan_APid_t id;
+            char interfaceName[TAF_NET_INTERFACE_NAME_MAX_LEN + 1];
             le_event_Id_t DeviceConnectionEvent; // AP device connection event.
-            bool            isAPWpaCtrlThreadRunning;
+            bool isAPWpaCtrlThreadRunning;
             le_thread_Ref_t APWpaCtrlThreadRef;  // AP internal wpa_ctrl thread reference
             // Clients that have requested device connected events
             std::set<le_msg_SessionRef_t> devCnxEvtClients;
+            taf_wlanAp_WlanAPSecurityConfig_t lastSecCfg;
+            bool hasLastSecCfg;
         } taf_wlan_AP_Ctx_t;
-
-        //------------------------------------------------------------------------------------------
-        /**
-         * The TelAF WLAN AP listener class for TelSDK notifications.
-         */
-        //------------------------------------------------------------------------------------------
-        class taf_WlanAPListener : public telux::wlan::IApListener
-        {
-        public:
-            // AP Config changed handler
-            void onApConfigChanged(telux::wlan::Id apId) override;
-            // AP Band changed handler
-            void onApBandChanged(telux::wlan::BandType radio) override;
-
-            void onApDeviceStatusChanged(
-                telux::wlan::ApDeviceConnectionEvent event,
-                std::vector<telux::wlan::DeviceIndInfo> info) override;
-        };
 
         //------------------------------------------------------------------------------------------
         /**
@@ -106,17 +90,11 @@
                 taf_wlanAp_DeviceConnectionEventHandlerRef_t handlerRef);
 
         private:
-            // The WLAN AP Manager
-            std::shared_ptr<telux::wlan::IApInterfaceManager> wlanAPMgr;
-
-            // The WLAN AP Listener class object
-            std::shared_ptr<tafsvc::taf_WlanAPListener> wlanAPListener;
-
             // AP Reference map
             le_ref_MapRef_t APRefMap = nullptr;
 
             // Mutex for AP context list
-            le_mutex_Ref_t APCtxMutex = nullptr;
+            static le_mutex_Ref_t APCtxMutex;
 
             // Memory pool for AP context(s)
             le_mem_PoolRef_t APCtxPoolRef = nullptr;

@@ -183,20 +183,6 @@ namespace tafsvc
 
     //----------------------------------------------------------------------------------------------
     /**
-     * The TelAF WLAN STA listener class for TelSDK notifications.
-     */
-    //----------------------------------------------------------------------------------------------
-    class taf_WlanSTAListener : public telux::wlan::IStaListener
-    {
-    public:
-        // STA Band changed handler
-        void onStationBandChanged(telux::wlan::BandType radio) override;
-        // STA status changed handler
-        void onStationStatusChanged(std::vector<telux::wlan::StaStatus> staStatus) override;
-    };
-
-    //----------------------------------------------------------------------------------------------
-    /**
      * The TelAF WLAN Station WPA supplicant interfaces.
      */
     //----------------------------------------------------------------------------------------------
@@ -457,9 +443,6 @@ namespace tafsvc
         // Gets the number of handler references for the specified STA ID.
         int GetNumSignalStrengthHandlersRefForSta(const taf_wlan_STAid_t staId) const;
 
-        // WPA ctrl FD monitor handler
-        static void WpaSupplicantFdHandler(int fd, short events);
-
         bool WaitForSupplicantEvent(SuppFdCtx_t *ctx, int timeoutMs, StaWpaEvt_e &outEvt);
     private:
         /**
@@ -490,25 +473,9 @@ namespace tafsvc
             inline static le_result_t extractAge(const std::string& bssOutput, int& age);
         };
 
-        friend class taf_WlanSTAListener;
         std::string mNetID;
 
-        std::unordered_map<struct wpa_ctrl*, std::unique_ptr<SuppFdCtx_t>> suppFdContextMap;
-
         // Functions
-
-        // Create fd monitor for WPA ctrl in the client-events thread context
-        le_result_t SetupWpaSupplicantMonitoring(StaCtx_t *CtxPtr,
-                            const std::vector<std::string> &eventsToMonitor,
-                            SuppFdCtx_t **fdCtxPtrPtr);
-
-        // Cleanup fd monitor (queued to client-events thread)
-        void CleanupWpaSupplicantMonitoring(SuppFdCtx_t *fdCtxPtr);
-
-        // {{ add: make queue helpers class statics so they can access private members }}
-        static void QueueCreateWpaSupplicantMonitor(void *param1Ptr, void *param2Ptr);
-        static void QueueDeleteWpaSupplicantMonitor(void *param1Ptr, void *param2Ptr);
-
         static void StaCmdHandler(void *StaCmdPtr);
         static void *StaCmdThreadHdlr(void *context);
         static void FirstLayerEventHandler(void *reportPtr, void *secondLayerHandlerFunc);
@@ -535,11 +502,6 @@ namespace tafsvc
         // The first level handler for connected signal strength events.
         static void connectedApSignalStrengthEventFirstLayerHandler(void *reportPtr,
                                                                     void *secondLayerHandlerFunc);
-
-        // The WLAN STA Manager
-        std::shared_ptr<telux::wlan::IStaInterfaceManager> wlanSTAMgr;
-        // The WLAN STA Listener class object
-        std::shared_ptr<tafsvc::taf_WlanSTAListener> wlanSTAListener;
 
         // Memory pool for STA context(s)
         le_mem_PoolRef_t STACtxPoolRef = NULL;

@@ -46,10 +46,18 @@
 using namespace telux::tel;
 using namespace telux::common;
 using namespace tafsvc;
+using namespace std;
 
 
 COMPONENT_INIT
 {
+    LE_INFO("tafSim Service Init...");
+    pa_result_t result = taf_pa_sim_Init();
+    if (result != 0)
+    {
+        LE_ERROR("Failed to initialize platform adaptor.");
+    }
+
     LE_INFO("tafSimcard Service Init...\n");
     auto &sim = taf_sim::GetInstance();
     sim.Init();
@@ -66,10 +74,17 @@ taf_sim_NewStateHandlerRef_t taf_sim_AddNewStateHandler(taf_sim_NewStateHandlerF
 
     le_event_HandlerRef_t handlerRef;
     auto &sim = taf_sim::GetInstance();
+    if (NULL == handlerPtr)
+    {
+        LE_KILL_CLIENT("Handler function is NULL.");
+        return NULL;
+    }
     handlerRef = (le_event_HandlerRef_t)sim.AddStateHandler(handlerPtr, contextPtr);
+    if(handlerRef != NULL)
+    {
 
-    le_event_SetContextPtr(handlerRef, contextPtr);
-
+        le_event_SetContextPtr(handlerRef, contextPtr);
+    }
     return (taf_sim_NewStateHandlerRef_t)(handlerRef);
 
 }
@@ -83,10 +98,16 @@ void taf_sim_RemoveNewStateHandler(taf_sim_NewStateHandlerRef_t handlerRef)
 taf_sim_RefreshChangeHandlerRef_t taf_sim_AddRefreshChangeHandler(taf_sim_RefreshChangeHandlerFunc_t handlerPtr, void* contextPtr) {
     le_event_HandlerRef_t handlerRef;
     auto &sim = taf_sim::GetInstance();
+    if (NULL == handlerPtr)
+    {
+       LE_KILL_CLIENT("Handler function is NULL.");
+       return NULL;
+    }
     handlerRef = (le_event_HandlerRef_t)sim.AddRefreshChangeHandler(handlerPtr, contextPtr);
-
-    le_event_SetContextPtr(handlerRef, contextPtr);
-
+    if(handlerRef != NULL)
+    {
+        le_event_SetContextPtr(handlerRef, contextPtr);
+    }
     return (taf_sim_RefreshChangeHandlerRef_t)(handlerRef);
 }
 
@@ -261,8 +282,6 @@ le_result_t taf_sim_Unlock( taf_sim_Id_t slotId, taf_sim_LockType_t lockType,
     TAF_ERROR_IF_RET_VAL(pinPtr == NULL, LE_BAD_PARAMETER, "pinPtr is NULL");
     TAF_ERROR_IF_RET_VAL(strlen(pinPtr) < TAF_SIM_PIN_MIN_LEN,
                         LE_UNDERFLOW , "pin length is not enough");
-    TAF_ERROR_IF_RET_VAL(strlen(pinPtr) < TAF_SIM_PIN_MIN_LEN,
-                        LE_UNDERFLOW , "pin length is not enough");
     LE_INFO("tafSimCard taf_sim_UnLock \n");
     auto &sim = taf_sim::GetInstance();
     return sim.SetCardLock(slotId, lockType, pinPtr, false);
@@ -305,9 +324,10 @@ taf_sim_AuthenticationResponseHandlerRef_t taf_sim_AddAuthenticationResponseHand
     }
     handlerRef = (le_event_HandlerRef_t)sim.AddAuthenticationResponseHandler(handlerPtr,
             contextPtr);
-
-    le_event_SetContextPtr(handlerRef, contextPtr);
-
+    if(handlerRef != NULL)
+    {
+        le_event_SetContextPtr(handlerRef, contextPtr);
+    }
     return (taf_sim_AuthenticationResponseHandlerRef_t)(handlerRef);
 
 }
@@ -493,18 +513,22 @@ le_result_t taf_sim_LocalSwapToCommercialSubscription
     return sim.LocalSwapToCommercialCallSubscription(simId, manufacturer);
 }
 
-taf_sim_IccidChangeHandlerRef_t taf_sim_AddIccidChangeHandler(
-        taf_sim_IccidChangeHandlerFunc_t handlerPtr,
-        void* contextPtr){
+taf_sim_IccidChangeHandlerRef_t taf_sim_AddIccidChangeHandler(taf_sim_IccidChangeHandlerFunc_t handlerPtr,
+    void* contextPtr){
 
     le_event_HandlerRef_t handlerRef;
     auto &sim = taf_sim::GetInstance();
+    if (NULL == handlerPtr)
+    {
+        LE_KILL_CLIENT("Handler function is NULL !");
+        return NULL;
+    }
     handlerRef = (le_event_HandlerRef_t)sim.AddIccidChangeHandler(handlerPtr);
-
-    le_event_SetContextPtr(handlerRef, contextPtr);
-
+    if(handlerRef != NULL)
+    {
+        le_event_SetContextPtr(handlerRef, contextPtr);
+    }
     return (taf_sim_IccidChangeHandlerRef_t)(handlerRef);
-
 }
 
 void taf_sim_RemoveIccidChangeHandler(taf_sim_IccidChangeHandlerRef_t handlerRef){

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 function compile() {
@@ -10,7 +10,7 @@ function compile() {
     ${MKTOOLS_X_C_FLAGS} \
     -X "-fPIC" \
     -X "-shared" \
-    -X "-std=c++11" \
+    -X "-std=c++17" \
     -o "$target/pmVHalDrv.so" \
     .
 }

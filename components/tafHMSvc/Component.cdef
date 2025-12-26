@@ -1,3 +1,8 @@
+ldflags:
+{
+    -L$TELAF_DEFAULT_PA_LIB_DIR/lib
+}
+
 provides:
 {
     api:
@@ -15,8 +20,8 @@ requires:
     }
     lib:
     {
-        lib/libtelux_platform.so
-        lib/libtelux_tel.so
+        libComponent_taf_pa_health.so
+        libComponent_taf_pa_healthDef.so
     }
 }
 
@@ -24,6 +29,7 @@ cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
+    -I$TELAF_PA_DEFAULT/include
 }
 
 cflags:

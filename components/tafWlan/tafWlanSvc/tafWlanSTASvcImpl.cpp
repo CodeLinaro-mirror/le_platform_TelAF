@@ -15,6 +15,11 @@
 #include "tafWlan.hpp"
 #include <wpa_ctrl.h>
 #include <errno.h>
+#include <ifaddrs.h>
+#include <arpa/inet.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 using namespace tafsvc;
 
@@ -28,218 +33,160 @@ LE_MEM_DEFINE_STATIC_POOL ( tafWlanStaCtxPool,
                             TAF_WLAN_MAX_NUM_STA,
                             (sizeof(StaCtx_t)) );
 
+namespace {
+// Single active context (commands are serialized in this service)
+static SuppFdCtx_t *gActiveWpaMonCtx = nullptr;
 
-// Internal args used to queue fd monitor creation in the client-events thread.
-struct WpaMonSetupArgs_t
+// Operation args for queued start/stop
+struct MonOpArgs
 {
-    taf_WlanSTASvcImpl *self;
-    StaCtx_t *ctxPtr;
-    std::vector<std::string> events;
-    SuppFdCtx_t **outFdCtxPtr;
-    std::promise<le_result_t> *promisePtr;
+    enum class Op { Start, Stop } op;
+    SuppFdCtx_t *ctx;
+    std::string intfName;                 // used for Start
+    std::promise<le_result_t> *startProm; // used for Start
+    std::promise<void> *stopProm;         // used for Stop
 };
 
-void taf_WlanSTASvcImpl::QueueCreateWpaSupplicantMonitor(void *param1Ptr, void *param2Ptr)
+// FD monitor handler (runs on staClientEventsThreadRef_)
+static void WpaSupplicantFdHandler(int fd, short events)
 {
-    LE_UNUSED(param2Ptr);
-    WpaMonSetupArgs_t *args = static_cast<WpaMonSetupArgs_t *>(param1Ptr);
-    if (!args)
+    LE_UNUSED(events);
+    SuppFdCtx_t *ctx = gActiveWpaMonCtx;
+    if (!ctx || !ctx->ctrl || ctx->fd != fd)
+        return;
+
+    if (ctx->eventCompleted || ctx->EventsToMonitor.empty())
+        return;
+
+    char rsp[WPA_CTRL_RSP_BUF_LEN] = {0};
+    size_t len = sizeof(rsp);
+    if (wpa_ctrl_recv(ctx->ctrl, rsp, &len) < 0)
     {
+        std::lock_guard<std::mutex> lock(ctx->mutex);
+        ctx->resultEvent = EVT_WPA_ERROR;
+        ctx->eventCompleted = true;
+        ctx->eventCv.notify_all();
         return;
     }
 
-    taf_WlanSTASvcImpl *self = args->self;
-    SuppFdCtx_t *fdCtxRaw = nullptr;
-    le_result_t res = LE_FAULT;
-
-    do
+    std::string evt(rsp, len);
+    for (const auto &evtToMonitor : ctx->EventsToMonitor)
     {
-        if (!args->ctxPtr || strlen(args->ctxPtr->IntfName) == 0)
+        if (evt.find(evtToMonitor) != std::string::npos)
         {
-            LE_ERROR("Invalid context or interface name for WPA monitor setup");
-            break;
+            StaWpaEvt_e matched = EVT_WPA_ERROR;
+            if (evtToMonitor == WPA_EVENT_SCAN_RESULTS)
+                matched = EVT_WPA_AP_SCAN_DONE;
+            else if (evtToMonitor == WPA_EVENT_CONNECTED)
+                matched = EVT_WPA_AP_CONNECTED;
+            else if (evtToMonitor == WPA_EVENT_TEMP_DISABLED)
+                matched = EVT_WPA_AP_TEMP_DISABLED;
+            else if (evtToMonitor == WPA_EVENT_DISCONNECTED)
+                matched = EVT_WPA_AP_DISCONNECTED;
+
+            {
+                std::lock_guard<std::mutex> lock(ctx->mutex);
+                ctx->resultEvent = matched;
+                ctx->eventCompleted = true;
+            }
+            ctx->eventCv.notify_all();
+            return;
         }
-
-        std::string wpa_supplicant_path(WPA_SUPPLICANT_LOCATION_PATH);
-        wpa_supplicant_path += args->ctxPtr->IntfName;
-        LE_DEBUG("Supplicant path: %s", wpa_supplicant_path.c_str());
-
-        struct wpa_ctrl *ctrl = wpa_ctrl_open(wpa_supplicant_path.c_str());
-        if (ctrl == nullptr)
-        {
-            LE_ERROR("Failed to open WPA control interface: %s", strerror(errno));
-            break;
-        }
-
-        if (wpa_ctrl_attach(ctrl) != 0)
-        {
-            LE_ERROR("Failed to attach to WPA control interface");
-            wpa_ctrl_close(ctrl);
-            break;
-        }
-
-        int fd = wpa_ctrl_get_fd(ctrl);
-        if (fd < 0)
-        {
-            LE_ERROR("wpa_ctrl_get_fd failed");
-            wpa_ctrl_detach(ctrl);
-            wpa_ctrl_close(ctrl);
-            break;
-        }
-
-        le_fdMonitor_Ref_t monRef = le_fdMonitor_Create(
-            "WpaCtrlMon",
-            fd,
-            taf_WlanSTASvcImpl::WpaSupplicantFdHandler,
-            POLLIN);
-
-        if (!monRef)
-        {
-            LE_ERROR("le_fdMonitor_Create failed");
-            wpa_ctrl_detach(ctrl);
-            wpa_ctrl_close(ctrl);
-            break;
-        }
-
-        std::unique_ptr<SuppFdCtx_t> fdCtx = std::make_unique<SuppFdCtx_t>();
-        if (!fdCtx)
-        {
-            LE_ERROR("Failed to allocate SuppFdCtx_t");
-            le_fdMonitor_Delete(monRef);
-            wpa_ctrl_detach(ctrl);
-            wpa_ctrl_close(ctrl);
-            break;
-        }
-
-        fdCtx->ctrl = ctrl;
-        fdCtx->fd = fd;
-        fdCtx->fdMonitorRef = monRef;
-        fdCtx->EventsToMonitor = args->events;
-        fdCtx->resultEvent = EVT_WPA_ERROR;
-        fdCtx->eventCompleted = false;
-
-        fdCtxRaw = fdCtx.get();
-        self->suppFdContextMap[ctrl] = std::move(fdCtx);
-        res = LE_OK;
-    } while (0);
-
-    if (args->outFdCtxPtr)
-    {
-        *(args->outFdCtxPtr) = fdCtxRaw;
     }
-    if (args->promisePtr)
+}
+
+// Runs on staClientEventsThreadRef_: create or delete monitor
+static void QueueWpaMonOp(void *param1Ptr, void *param2Ptr)
+{
+    LE_UNUSED(param2Ptr);
+    auto *args = static_cast<MonOpArgs *>(param1Ptr);
+    if (!args || !args->ctx)
+        return;
+
+    if (args->op == MonOpArgs::Op::Start)
     {
-        args->promisePtr->set_value(res);
+        le_result_t res = LE_FAULT;
+
+        do
+        {
+            // Open/attach ctrl
+            std::string path = std::string(WPA_SUPPLICANT_LOCATION_PATH) + args->intfName;
+            struct wpa_ctrl *ctrl = wpa_ctrl_open(path.c_str());
+            if (!ctrl)
+                break;
+
+            if (wpa_ctrl_attach(ctrl) != 0)
+            {
+                wpa_ctrl_close(ctrl); break;
+            }
+
+            int fd = wpa_ctrl_get_fd(ctrl);
+            if (fd < 0)
+            {
+                wpa_ctrl_detach(ctrl);
+                wpa_ctrl_close(ctrl);
+                break;
+            }
+
+            auto monRef = le_fdMonitor_Create("WpaCtrlMon", fd, WpaSupplicantFdHandler, POLLIN);
+            if (!monRef)
+            {
+                wpa_ctrl_detach(ctrl);
+                wpa_ctrl_close(ctrl);
+                break;
+            }
+
+            args->ctx->ctrl = ctrl;
+            args->ctx->fd = fd;
+            args->ctx->fdMonitorRef = monRef;
+            args->ctx->resultEvent = EVT_WPA_ERROR;
+            args->ctx->eventCompleted = false;
+
+            gActiveWpaMonCtx = args->ctx;
+            res = LE_OK;
+        } while (0);
+
+        if (args->startProm)
+            args->startProm->set_value(res);
+    }
+    else
+    {
+        // Stop
+        auto *ctx = args->ctx;
+
+        // Wake any waiter
+        {
+            std::lock_guard<std::mutex> lock(ctx->mutex);
+            if (!ctx->eventCompleted)
+            {
+                ctx->resultEvent = EVT_WPA_ERROR;
+                ctx->eventCompleted = true;
+            }
+        }
+        ctx->eventCv.notify_all();
+
+        if (ctx->fdMonitorRef)
+        {
+            le_fdMonitor_Delete(ctx->fdMonitorRef);
+            ctx->fdMonitorRef = nullptr;
+        }
+        if (ctx->ctrl)
+        {
+            wpa_ctrl_detach(ctx->ctrl);
+            wpa_ctrl_close(ctx->ctrl);
+            ctx->ctrl = nullptr;
+        }
+        if (gActiveWpaMonCtx == ctx)
+            gActiveWpaMonCtx = nullptr;
+
+        if (args->stopProm)
+            args->stopProm->set_value();
     }
 
     delete args;
 }
 
-void taf_WlanSTASvcImpl::QueueDeleteWpaSupplicantMonitor(void *param1Ptr, void *param2Ptr)
-{
-    LE_UNUSED(param2Ptr);
-
-    auto *ctrl = static_cast<struct wpa_ctrl *>(param1Ptr);
-    if (!ctrl)
-    {
-        LE_WARN("QueueDeleteWpaSupplicantMonitor: ctrl is null");
-        return;
-    }
-
-    auto &self = taf_WlanSTASvcImpl::GetInstance();
-    auto it = self.suppFdContextMap.find(ctrl);
-    if (it != self.suppFdContextMap.end())
-    {
-        if (it->second)
-        {
-            // Inert the ctx and wake any waiters before tearing down resources.
-            {
-                std::lock_guard<std::mutex> lock(it->second->mutex);
-                it->second->resultEvent    = EVT_WPA_ERROR;
-                it->second->eventCompleted = true;
-                it->second->EventsToMonitor.clear();
-                it->second->fd             = -1;
-            }
-            it->second->eventCv.notify_all();
-
-            // Delete fd monitor first to stop callbacks.
-            if (it->second->fdMonitorRef)
-            {
-                le_fdMonitor_Delete(it->second->fdMonitorRef);
-                it->second->fdMonitorRef = nullptr;
-            }
-        }
-
-        wpa_ctrl_detach(ctrl);
-        wpa_ctrl_close(ctrl);
-
-        self.suppFdContextMap.erase(it);
-        LE_INFO("WPA supplicant monitor removed and ctrl closed");
-    }
-    else
-    {
-        LE_WARN("QueueDeleteWpaSupplicantMonitor: no context found for ctrl %p (already cleaned?)",
-            ctrl);
-    }
-}
-
-// Create WPA ctrl fd monitor in staClientEventsThreadRef_ and return its ctx
-le_result_t taf_WlanSTASvcImpl::SetupWpaSupplicantMonitoring(
-    StaCtx_t *CtxPtr,
-    const std::vector<std::string> &eventsToMonitor,
-    SuppFdCtx_t **fdCtxPtrPtr)
-{
-    // Validate inputs
-    TAF_ERROR_IF_RET_VAL(CtxPtr == nullptr, LE_BAD_PARAMETER, "CtxPtr is NULL!");
-    TAF_ERROR_IF_RET_VAL(fdCtxPtrPtr == nullptr, LE_BAD_PARAMETER, "fdCtxPtrPtr is NULL!");
-    TAF_ERROR_IF_RET_VAL(staClientEventsThreadRef_ == nullptr, LE_FAULT,
-                         "Client events thread not started");
-
-    // Prepare args for queued creation on client events thread
-    auto *args = new (std::nothrow) WpaMonSetupArgs_t();
-    if (!args)
-    {
-        LE_ERROR("Failed to allocate WpaMonSetupArgs_t");
-        return LE_FAULT;
-    }
-
-    // Promise/future to synchronize monitor creation
-    std::promise<le_result_t> prom;
-    std::future<le_result_t> fut = prom.get_future();
-
-    args->self        = this;
-    args->ctxPtr      = CtxPtr;
-    args->events      = eventsToMonitor;
-    args->outFdCtxPtr = fdCtxPtrPtr;
-    args->promisePtr  = &prom;
-
-    le_event_QueueFunctionToThread(
-        staClientEventsThreadRef_,
-        taf_WlanSTASvcImpl::QueueCreateWpaSupplicantMonitor,
-        args,
-        nullptr);
-
-    // Wait for completion
-    le_result_t res = fut.get();
-    if (res != LE_OK || *fdCtxPtrPtr == nullptr)
-    {
-        LE_ERROR("SetupWpaSupplicantMonitoring failed (res:%d ctx:%p)", res, *fdCtxPtrPtr);
-        return LE_FAULT;
-    }
-
-    return LE_OK;
-}
-
-// Queue cleanup on client events thread to safely delete monitor and close socket.
-void taf_WlanSTASvcImpl::CleanupWpaSupplicantMonitoring(SuppFdCtx_t *fdCtxPtr)
-{
-    if (!fdCtxPtr) return;
-
-    le_event_QueueFunctionToThread(staClientEventsThreadRef_,
-        taf_WlanSTASvcImpl::QueueDeleteWpaSupplicantMonitor,
-        fdCtxPtr->ctrl,
-        nullptr);
-}
+} // anonymous namespace
 
 bool taf_WlanSTASvcImpl::IsConnectedToSSID(StaCtx_t *CtxPtr, const char *targetSsid)
 {
@@ -371,7 +318,12 @@ bool taf_WlanSTASvcImpl::IsConnectedToSSID(StaCtx_t *CtxPtr, const char *targetS
                 std::vector<std::string> cols;
                 std::istringstream ls(line);
                 std::string tok;
-                while (std::getline(ls, tok, '\t')) cols.push_back(tok);
+
+                while (std::getline(ls, tok, '\t'))
+                {
+                    cols.push_back(tok);
+                }
+
                 if (cols.size() >= 2)
                 {
                     std::string curSsid = normalize(cols[1]);
@@ -389,90 +341,12 @@ bool taf_WlanSTASvcImpl::IsConnectedToSSID(StaCtx_t *CtxPtr, const char *targetS
     return false;
 }
 
-// FD monitor handler: read WPA events and signal waiting code.
-void taf_WlanSTASvcImpl::WpaSupplicantFdHandler(int fd, short events)
-{
-    LE_UNUSED(events);
-    auto &self = taf_WlanSTASvcImpl::GetInstance();
-
-    SuppFdCtx_t *ctxMatch = nullptr;
-    for (const auto &pair : self.suppFdContextMap)
-    {
-        const auto *ctx = pair.second.get();
-        if (ctx && ctx->fd == fd)
-        {
-            ctxMatch = const_cast<SuppFdCtx_t *>(ctx);
-            break;
-        }
-    }
-
-    if (!ctxMatch || !ctxMatch->ctrl)
-    {
-        LE_WARN("WpaSupplicantFdHandler: context not found for fd %d", fd);
-        return;
-    }
-
-    // Early exit guards to avoid unnecessary work on inert/completed contexts.
-    if (ctxMatch->eventCompleted)
-    {
-        LE_DEBUG("WpaSupplicantFdHandler: event already completed for fd %d", fd);
-        return;
-    }
-    if (ctxMatch->EventsToMonitor.empty())
-    {
-        LE_DEBUG("WpaSupplicantFdHandler: no events to monitor; returning.");
-        return;
-    }
-
-    // Read exactly one message; let the monitor re-invoke us if more data remains.
-    char rsp[WPA_CTRL_RSP_BUF_LEN] = {0};
-    size_t len = sizeof(rsp);
-    int ret = wpa_ctrl_recv(ctxMatch->ctrl, rsp, &len);
-    if (ret < 0)
-    {
-        LE_WARN("wpa_ctrl_recv failed");
-        std::lock_guard<std::mutex> lock(ctxMatch->mutex);
-        ctxMatch->resultEvent = EVT_WPA_ERROR;
-        ctxMatch->eventCompleted = true;
-        ctxMatch->eventCv.notify_all();
-        return;
-    }
-
-    std::string evt(rsp, len);
-    LE_INFO("WPA evt len:%zu data:%s", len, evt.c_str());
-
-    // Try to match one of the monitored substrings against the full event line.
-    for (const std::string &evtToMonitor : ctxMatch->EventsToMonitor)
-    {
-        if (evt.find(evtToMonitor) != std::string::npos)
-        {
-            StaWpaEvt_e matched = EVT_WPA_ERROR;
-            if (evtToMonitor == WPA_EVENT_SCAN_RESULTS)
-                matched = EVT_WPA_AP_SCAN_DONE;
-            else if (evtToMonitor == WPA_EVENT_CONNECTED)
-                matched = EVT_WPA_AP_CONNECTED;
-            else if (evtToMonitor == WPA_EVENT_TEMP_DISABLED)
-                matched = EVT_WPA_AP_TEMP_DISABLED;
-            else if (evtToMonitor == WPA_EVENT_DISCONNECTED)
-                matched = EVT_WPA_AP_DISCONNECTED;
-
-            {
-                std::lock_guard<std::mutex> lock(ctxMatch->mutex);
-                ctxMatch->resultEvent = matched;
-                ctxMatch->eventCompleted = true;
-            }
-            ctxMatch->eventCv.notify_all();
-            LE_INFO("Matched WPA event: %s", evtToMonitor.c_str());
-            return;
-        }
-    }
-}
-
 bool taf_WlanSTASvcImpl::WaitForSupplicantEvent(SuppFdCtx_t *ctx, int timeoutMs,
     StaWpaEvt_e &outEvt)
 {
     if (!ctx)
     {
+        LE_WARN("WaitForSupplicantEvent: ctx is NULL; returning false");
         return false;
     }
     std::unique_lock<std::mutex> lock(ctx->mutex);
@@ -482,9 +356,11 @@ bool taf_WlanSTASvcImpl::WaitForSupplicantEvent(SuppFdCtx_t *ctx, int timeoutMs,
 
     if (!signaled)
     {
+        LE_WARN("WaitForSupplicantEvent: timed out after %d ms; returning false", timeoutMs);
         return false;
     }
     outEvt = ctx->resultEvent;
+    LE_INFO("WaitForSupplicantEvent: event=%d; returning true", static_cast<int>(outEvt));
     return true;
 }
 
@@ -1069,66 +945,104 @@ void taf_WlanSTASvcImpl::PerformScan(StaCtx_t *CtxPtr)
         return;
     }
 
-    // Set up fd monitoring for SCAN_RESULTS
-    SuppFdCtx_t *fdCtxPtr = nullptr;
-    std::vector<std::string> eventsToMonitor = { WPA_EVENT_SCAN_RESULTS };
-    if (SetupWpaSupplicantMonitoring(CtxPtr, eventsToMonitor, &fdCtxPtr) != LE_OK) {
+    // Prepare monitor context
+    auto *fdCtxPtr = new (std::nothrow) SuppFdCtx_t();
+    if (!fdCtxPtr)
+    {
+        ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_FAILED);
+        return;
+    }
+    fdCtxPtr->ctrl = nullptr; fdCtxPtr->fd = -1; fdCtxPtr->fdMonitorRef = nullptr;
+    fdCtxPtr->EventsToMonitor = { WPA_EVENT_SCAN_RESULTS };
+    fdCtxPtr->resultEvent = EVT_WPA_ERROR; fdCtxPtr->eventCompleted = false;
+
+    // Start monitor in client-events thread
+    std::promise<le_result_t> startProm;
+    auto startFut = startProm.get_future();
+    auto *startArgs = new (std::nothrow) MonOpArgs{ MonOpArgs::Op::Start, fdCtxPtr,
+                                                    std::string(CtxPtr->IntfName),
+                                                    &startProm, nullptr };
+    if (!startArgs)
+    {
+        delete fdCtxPtr;
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_FAILED);
         return;
     }
 
+    le_event_QueueFunctionToThread(staClientEventsThreadRef_, QueueWpaMonOp, startArgs, nullptr);
+
+    le_result_t result = LE_FAULT;
+    try
+    {
+        result = startFut.get();
+    }
+    catch (...)
+    {
+        LE_ERROR("Exception while waiting for monitor start");
+    }
+
+    if (result != LE_OK)
+    {
+        delete fdCtxPtr;
+        ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_FAILED);
+        return;
+    }
+
+    // Issue SCAN
     char rsp_buf[WPA_CTRL_RSP_BUF_LEN] = {0};
-
-    // Start SCAN
-    LE_DEBUG("WPA CMD: SCAN");
-    std::string wpaReqCmd = "SCAN";
-    le_result_t res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
-    if(res != LE_OK || strncmp(rsp_buf, "OK", strlen("OK")) != 0)
+    if (runWPACommand(CtxPtr, "SCAN", rsp_buf, sizeof(rsp_buf)) != LE_OK ||
+        strncmp(rsp_buf, "OK", 2) != 0)
     {
-        LE_ERROR("SCAN command failed");
-        CleanupWpaSupplicantMonitoring(fdCtxPtr);
-        ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_FAILED);
-        return;
-    }
-
-    // Wait for SCAN_RESULTS event with timeout (event-driven, no polling)
-    StaWpaEvt_e resultEvent = EVT_WPA_ERROR;
-    bool signaled = false;
-    {
-        std::unique_lock<std::mutex> lock(fdCtxPtr->mutex);
-        signaled = fdCtxPtr->eventCv.wait_for(
-            lock, std::chrono::seconds(15),
-            [&]{ return fdCtxPtr->eventCompleted; });
-        if (signaled)
+        // Stop monitor and cleanup
+        std::promise<void> stopProm; auto stopFut = stopProm.get_future();
+        auto *stopArgs = new MonOpArgs{ MonOpArgs::Op::Stop, fdCtxPtr, {}, nullptr, &stopProm };
+        le_event_QueueFunctionToThread(staClientEventsThreadRef_, QueueWpaMonOp,
+            stopArgs, nullptr);
+        try
         {
-            resultEvent = fdCtxPtr->resultEvent;
+            stopFut.get();
         }
-    }
-
-    // Cleanup fd monitor (queue to client-events thread)
-    CleanupWpaSupplicantMonitoring(fdCtxPtr);
-
-    if (!signaled || resultEvent != EVT_WPA_AP_SCAN_DONE)
-    {
-        LE_ERROR("WPA AP scan failed or timed out");
+        catch (...)
+        {
+            LE_ERROR("Exception while waiting for monitor stop");
+        }
+        delete fdCtxPtr;
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_FAILED);
         return;
     }
 
-    // Get the scan results
+    // Wait for event
+    StaWpaEvt_e evt = EVT_WPA_ERROR;
+    bool ok = WaitForSupplicantEvent(fdCtxPtr, 15000, evt);
+
+    // Stop monitor
+    std::promise<void> stopProm; auto stopFut = stopProm.get_future();
+    auto *stopArgs = new MonOpArgs{ MonOpArgs::Op::Stop, fdCtxPtr, {}, nullptr, &stopProm };
+    le_event_QueueFunctionToThread(staClientEventsThreadRef_, QueueWpaMonOp, stopArgs, nullptr);
+    try
+    {
+        stopFut.get();
+    }
+    catch (...)
+    {
+        LE_ERROR("Exception while waiting for monitor stop");
+    }
+    delete fdCtxPtr;
+
+    if (!ok || evt != EVT_WPA_AP_SCAN_DONE)
+    {
+        ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_FAILED);
+        return;
+    }
+
+    // Fetch results
     memset(rsp_buf, 0, sizeof(rsp_buf));
-    wpaReqCmd = "SCAN_RESULTS";
-    res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
-    if(res != LE_OK)
+    if (runWPACommand(CtxPtr, "SCAN_RESULTS", rsp_buf, sizeof(rsp_buf)) != LE_OK)
     {
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_FAILED);
         return;
     }
-
-    // Store results
     PopulateScanResults(CtxPtr, rsp_buf);
-
-    // Report completion
     ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_COMPLETED);
 }
 
@@ -1139,34 +1053,30 @@ void taf_WlanSTASvcImpl::PerformScan(StaCtx_t *CtxPtr)
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_WlanSTASvcImpl::SetWpa2Psk(
     taf_wlanSta_WlanSTARef_t staRef,
-    const taf_wlanSta_APInfo_t* LE_NONNULL ApInfo,
-    const char* LE_NONNULL psk
-)
+    const taf_wlanSta_APInfo_t *LE_NONNULL ApInfo,
+    const char *LE_NONNULL psk)
 {
-    if(ApInfo->secAuthMethod != TAF_WLAN_SEC_AUTH_METHOD_PSK)
+    if (ApInfo->secAuthMethod != TAF_WLAN_SEC_AUTH_METHOD_PSK)
     {
         LE_INFO("Other authentication methods are not supported yet");
         return LE_UNSUPPORTED;
     }
 
-    TAF_ERROR_IF_RET_VAL(wlanSTAMgr == nullptr, LE_FAULT, "WLAN STA Manager not initialized");
-
     StaCtx_t *CtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
     TAF_ERROR_IF_RET_VAL(CtxPtr == nullptr, LE_FAULT, "Unable to find context");
 
     char rsp_buf[WPA_CTRL_RSP_BUF_LEN] = {0};
-
     std::string wpaReqCmd;
     le_result_t res;
 
     std::string netID = CheckNetworkAdded(CtxPtr, ApInfo);
     bool isNetNotAdded = (netID == WPA_STA_NET_NOT_ADDED);
-    if(isNetNotAdded)
+    if (isNetNotAdded)
     {
-        // Start ADD_NETWORK
+        // ADD_NETWORK
         wpaReqCmd = "ADD_NETWORK";
         res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
-        if(res == LE_FAULT)
+        if (res == LE_FAULT)
         {
             ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
             return LE_FAULT;
@@ -1174,74 +1084,40 @@ le_result_t taf_WlanSTASvcImpl::SetWpa2Psk(
         netID = rsp_buf;
     }
 
-    if(netID.substr(0, 4) == "FAIL")
+    if (netID.substr(0, 4) == "FAIL")
     {
         LE_ERROR("ADD_NETWORK failed");
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
         return LE_FAULT;
     }
 
-    LE_INFO("Added Network ID: %s", netID.c_str());
+    LE_INFO("Network ID: %s", netID.c_str());
     mNetID = netID;
 
-    if(!isNetNotAdded)
-    {
-        // If we found a network ID for given SSID, we will
-        // select network ID to make it current one and Force reassociation.
-        memset(rsp_buf, 0, WPA_CTRL_RSP_BUF_LEN);
-
-        wpaReqCmd = "SELECT_NETWORK " + netID;
-        res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
-        if (res == LE_FAULT)
-        {
-            ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
-            return LE_FAULT;
-        }
-        if (strncmp(rsp_buf, "OK", strlen("OK")) != 0)
-        {
-            LE_ERROR("SELECT_NETWORK failed");
-            ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
-            return LE_FAULT;
-        }
-    }
-
-    // Set network name(SSID)
-    LE_DEBUG("WPA CMD: SET_NETWORK(SSID)");
-    memset(rsp_buf, 0, WPA_CTRL_RSP_BUF_LEN);
-    wpaReqCmd = "SET_NETWORK " + netID + " ssid \"" + ApInfo->SSID + "\"";
+    // Set SSID
+    memset(rsp_buf, 0, sizeof(rsp_buf));
+    wpaReqCmd = "SET_NETWORK " + netID + " ssid \"" + std::string(ApInfo->SSID) + "\"";
     res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
-    if (res == LE_FAULT)
+    if (res == LE_FAULT || strncmp(rsp_buf, "OK", 2) != 0)
     {
-        ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
-        return LE_FAULT;
-    }
-    if (strncmp(rsp_buf, "OK", strlen("OK")) != 0)
-    {
-        LE_ERROR("SET_NETWORK(SSID) failed");
+        LE_ERROR("SET_NETWORK(ssid) failed");
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
         return LE_FAULT;
     }
 
-    if(ApInfo->secAuthMethod == TAF_WLAN_SEC_AUTH_METHOD_PSK)
+    // Set PSK
+    memset(rsp_buf, 0, sizeof(rsp_buf));
+    wpaReqCmd = "SET_NETWORK " + netID + " psk \"" + std::string(psk) + "\"";
+    res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
+    if (res == LE_FAULT || strncmp(rsp_buf, "OK", 2) != 0)
     {
-        // Set network(psk)
-        LE_DEBUG("WPA CMD: SET_NETWORK(psk)");
-        memset(rsp_buf, 0, WPA_CTRL_RSP_BUF_LEN);
-        wpaReqCmd = "SET_NETWORK " + netID + " psk \"" + psk + "\"";
-        res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
-        if (res == LE_FAULT)
-        {
-            ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
-            return LE_FAULT;
-        }
-        if (strncmp(rsp_buf, "OK", strlen("OK")) != 0)
-        {
-            LE_ERROR("SET_NETWORK(psk) failed");
-            ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
-            return LE_FAULT;
-        }
+        LE_ERROR("SET_NETWORK(psk) failed");
+        ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
+        return LE_FAULT;
     }
 
+    LE_INFO("Successfully set WPA2-PSK for SSID %s with network ID %s",
+        ApInfo->SSID, netID.c_str());
     return LE_OK;
 }
 
@@ -1259,47 +1135,19 @@ le_result_t taf_WlanSTASvcImpl::APConnect(
     const taf_wlanSta_APInfo_t* LE_NONNULL ApInfo
 )
 {
-    if(ApInfo->secAuthMethod != TAF_WLAN_SEC_AUTH_METHOD_PSK)
+    if (ApInfo->secAuthMethod != TAF_WLAN_SEC_AUTH_METHOD_PSK)
     {
         LE_INFO("Other authentication methods are not supported yet");
         return LE_UNSUPPORTED;
     }
 
-    TAF_ERROR_IF_RET_VAL(!wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
-
     StaCtx_t *staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
     TAF_ERROR_IF_RET_VAL(!staCtxPtr, LE_FAULT, "Unable to find context");
-
-    // Ensure STA is active
-    std::vector<telux::wlan::StaStatus> status;
-    telux::common::ErrorCode errCode = wlanSTAMgr->getStatus(status);
-    if (telux::common::ErrorCode::SUCCESS != errCode)
-    {
-        LE_WARN("WLAN STA getStatus failed with error : %d", static_cast<int>(errCode));
-        return LE_FAULT;
-    }
-    for (auto &element : status)
-    {
-        LE_DEBUG("------------------------------------------");
-        LE_DEBUG("STA Id: %d", static_cast<int>(element.id));
-        if (taf_WlanHelper::TAFSTAidtoTeluxId(staCtxPtr->id) == element.id)
-        {
-            if (telux::wlan::StaInterfaceStatus::UNKNOWN == element.status)
-            {
-                LE_WARN("STA %d status known", staCtxPtr->id);
-                return LE_FAULT;
-            }
-            else
-            {
-                // STA sate is good
-                break;
-            }
-        }
-    }
 
     staCtxPtr->ApInfoConnect = *ApInfo;
 
     // Send cmd event to connect to AP
+    LE_INFO("Queued connection request to SSID %s", ApInfo->SSID);
     StaCmd_t cmd = {staCtxPtr, CMD_WPA_DO_AP_CONNECT};
     le_event_Report(staCommand_, &cmd, sizeof(StaCmd_t));
     return LE_OK;
@@ -1315,8 +1163,8 @@ le_result_t taf_WlanSTASvcImpl::Connect(
     const taf_wlanSta_APInfo_t* LE_NONNULL ApInfo
 )
 {
-    TAF_ERROR_IF_RET_VAL(CtxPtr == nullptr, LE_FAULT, "Received null context");
-    TAF_ERROR_IF_RET_VAL(0 == strlen(ApInfo->SSID), LE_BAD_PARAMETER, "SSID is empty");
+    TAF_ERROR_IF_RET_VAL(!CtxPtr, LE_FAULT, "Null context");
+    TAF_ERROR_IF_RET_VAL(strlen(ApInfo->SSID) == 0, LE_BAD_PARAMETER, "SSID is empty");
 
     if (mNetID.empty())
     {
@@ -1332,23 +1180,81 @@ le_result_t taf_WlanSTASvcImpl::Connect(
         return LE_OK;
     }
 
-    // Set up fd monitoring
-    SuppFdCtx_t *fdCtxPtr = nullptr;
-    std::vector<std::string> eventsToMonitor = { WPA_EVENT_CONNECTED, WPA_EVENT_TEMP_DISABLED };
-    if (SetupWpaSupplicantMonitoring(CtxPtr, eventsToMonitor, &fdCtxPtr) != LE_OK)
+    // Prepare monitor context
+    SuppFdCtx_t *fdCtxPtr = new (std::nothrow) SuppFdCtx_t();
+    if (!fdCtxPtr)
     {
+        LE_ERROR("Failed to allocate monitor context for SSID %s", ApInfo->SSID);
+        ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
+        return LE_FAULT;
+    }
+    fdCtxPtr->ctrl = nullptr;
+    fdCtxPtr->fd = -1;
+    fdCtxPtr->fdMonitorRef = nullptr;
+    fdCtxPtr->EventsToMonitor = { WPA_EVENT_CONNECTED, WPA_EVENT_TEMP_DISABLED };
+    fdCtxPtr->resultEvent = EVT_WPA_ERROR;
+    fdCtxPtr->eventCompleted = false;
+
+    // Local cleanup helper to stop monitor (queued) and free ctx
+    auto stopMonitorAndDelete = [&](SuppFdCtx_t *ctx)
+    {
+        if (!ctx) return;
+        std::promise<void> stopProm; auto stopFut = stopProm.get_future();
+        auto *stopArgs = new MonOpArgs{ MonOpArgs::Op::Stop, ctx, {}, nullptr, &stopProm };
+        le_event_QueueFunctionToThread(staClientEventsThreadRef_, QueueWpaMonOp,
+            stopArgs, nullptr);
+        try
+        {
+            stopFut.get();
+        }
+        catch (...)
+        {
+            LE_ERROR("Exception while waiting for monitor stop");
+        }
+        delete ctx;
+    };
+
+    // Start monitor in client-events thread
+    std::promise<le_result_t> startProm; auto startFut = startProm.get_future();
+    auto *startArgs = new (std::nothrow) MonOpArgs{
+        MonOpArgs::Op::Start, fdCtxPtr, std::string(CtxPtr->IntfName), &startProm, nullptr
+    };
+    if (!startArgs)
+    {
+        delete fdCtxPtr;
+        LE_ERROR("Failed to allocate monitor operation args for SSID %s", ApInfo->SSID);
+        ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
+        return LE_FAULT;
+    }
+    le_event_QueueFunctionToThread(staClientEventsThreadRef_, QueueWpaMonOp, startArgs, nullptr);
+
+    le_result_t res = LE_FAULT;
+    try
+    {
+        res = startFut.get();
+    }
+    catch (...)
+    {
+        LE_ERROR("Exception while waiting for monitor start");
+    }
+
+    if (res != LE_OK)
+    {
+        delete fdCtxPtr;
+        LE_ERROR("Failed to start monitor for SSID %s", ApInfo->SSID);
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
         return LE_FAULT;
     }
 
+    // Issue WPA commands
     char rsp_buf[WPA_CTRL_RSP_BUF_LEN] = {0};
 
-    // Select the network and enable it
     std::string wpaReqCmd = "SELECT_NETWORK " + mNetID;
-    le_result_t res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
-    if (res == LE_FAULT || strncmp(rsp_buf, "OK", strlen("OK")) != 0)
+    res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
+    if (res == LE_FAULT || strncmp(rsp_buf, "OK", 2) != 0)
     {
-        CleanupWpaSupplicantMonitoring(fdCtxPtr);
+        stopMonitorAndDelete(fdCtxPtr);
+        LE_ERROR("SELECT_NETWORK failed for SSID %s", ApInfo->SSID);
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
         return LE_FAULT;
     }
@@ -1356,47 +1262,37 @@ le_result_t taf_WlanSTASvcImpl::Connect(
     memset(rsp_buf, 0, sizeof(rsp_buf));
     wpaReqCmd = "ENABLE_NETWORK " + mNetID;
     res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
-    if(res == LE_FAULT || strncmp(rsp_buf, "OK", strlen("OK")) != 0)
+    if (res == LE_FAULT || strncmp(rsp_buf, "OK", 2) != 0)
     {
-        CleanupWpaSupplicantMonitoring(fdCtxPtr);
+        stopMonitorAndDelete(fdCtxPtr);
+        LE_ERROR("ENABLE_NETWORK failed for SSID %s", ApInfo->SSID);
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
         return LE_FAULT;
     }
 
-    // Prefer RECONNECT to avoid a forced disconnect if already connected
     memset(rsp_buf, 0, sizeof(rsp_buf));
     wpaReqCmd = "RECONNECT";
     res = runWPACommand(CtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
-    if(res == LE_FAULT || strncmp(rsp_buf, "OK", strlen("OK")) != 0)
+    if (res == LE_FAULT || strncmp(rsp_buf, "OK", 2) != 0)
     {
-        CleanupWpaSupplicantMonitoring(fdCtxPtr);
+        stopMonitorAndDelete(fdCtxPtr);
+        LE_ERROR("RECONNECT failed for SSID %s", ApInfo->SSID);
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
         return LE_FAULT;
     }
 
     // Wait for connection result with timeout
     StaWpaEvt_e resultEvent = EVT_WPA_ERROR;
-    bool signaled = false;
-    {
-        std::unique_lock<std::mutex> lock(fdCtxPtr->mutex);
-        signaled = fdCtxPtr->eventCv.wait_for(
-            lock, std::chrono::seconds(15),
-            [&]{ return fdCtxPtr->eventCompleted; });
-        if (signaled)
-        {
-            resultEvent = fdCtxPtr->resultEvent;
-        }
-    }
+    bool signaled = WaitForSupplicantEvent(fdCtxPtr, 15000 /* ms */, resultEvent);
 
     // Cleanup monitor
-    CleanupWpaSupplicantMonitoring(fdCtxPtr);
+    stopMonitorAndDelete(fdCtxPtr);
 
     if (signaled)
     {
         if (resultEvent == EVT_WPA_AP_CONNECTED)
         {
             LE_INFO("Connection to AP %s was successful", ApInfo->SSID);
-            // Notify clients immediately to satisfy tests waiting on CONNECTED.
             ReportStaState(CtxPtr, TAF_WLANSTA_STATE_CONNECTED);
             return LE_OK;
         }
@@ -1431,44 +1327,15 @@ le_result_t taf_WlanSTASvcImpl::Connect(
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_WlanSTASvcImpl::APDisconnect(
     taf_wlanSta_WlanSTARef_t staRef,
-    const taf_wlanSta_APInfo_t* LE_NONNULL ApInfo
-)
+    const taf_wlanSta_APInfo_t *LE_NONNULL ApInfo)
 {
-    TAF_ERROR_IF_RET_VAL(!wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
-
     StaCtx_t *staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
     TAF_ERROR_IF_RET_VAL(!staCtxPtr, LE_FAULT, "Unable to find context");
-
-    // Ensure STA is active
-    std::vector<telux::wlan::StaStatus> status;
-    telux::common::ErrorCode errCode = wlanSTAMgr->getStatus(status);
-    if (telux::common::ErrorCode::SUCCESS != errCode)
-    {
-        LE_WARN("WLAN STA getStatus failed with error : %d", static_cast<int>(errCode));
-        return LE_FAULT;
-    }
-    for (auto &element : status)
-    {
-        LE_DEBUG("------------------------------------------");
-        LE_DEBUG("STA Id: %d", static_cast<int>(element.id));
-        if (taf_WlanHelper::TAFSTAidtoTeluxId(staCtxPtr->id) == element.id)
-        {
-            if (telux::wlan::StaInterfaceStatus::UNKNOWN == element.status)
-            {
-                LE_WARN("STA %d status known", staCtxPtr->id);
-                return LE_FAULT;
-            }
-            else
-            {
-                // STA sate is good
-                break;
-            }
-        }
-    }
 
     staCtxPtr->ApInfoConnect = *ApInfo;
 
     // Send cmd event to disconnect from AP
+    LE_INFO("Queued disconnect request from SSID %s", ApInfo->SSID);
     StaCmd_t cmd = {staCtxPtr, CMD_WPA_DO_AP_DISCONNECT};
     le_event_Report(staCommand_, &cmd, sizeof(StaCmd_t));
     return LE_OK;
@@ -1613,24 +1480,24 @@ void taf_WlanSTASvcImpl::StaCmdHandler(void *StaCmdPtr)
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_WlanSTASvcImpl::Start(taf_wlanSta_WlanSTARef_t staRef)
 {
-    StaCtx_t *staCtxPtr = NULL;
-    telux::common::ErrorCode errCode = telux::common::ErrorCode::SUCCESS;
-
-    TAF_ERROR_IF_RET_VAL(nullptr == wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
-
-    staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
+    StaCtx_t *staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
     TAF_ERROR_IF_RET_VAL(NULL == staCtxPtr, LE_FAULT, "Unable to find context");
 
-    errCode = wlanSTAMgr->manageStaService( taf_WlanHelper::TAFSTAidtoTeluxId(staCtxPtr->id),
-                                            telux::wlan::ServiceOperation::START);
-    if (telux::common::ErrorCode::SUCCESS != errCode)
+    std::string ctrlPath(WPA_SUPPLICANT_LOCATION_PATH);
+    ctrlPath += staCtxPtr->IntfName;
+
+    struct wpa_ctrl *ctrl = wpa_ctrl_open(ctrlPath.c_str());
+    if (!ctrl)
     {
-        LE_WARN("WLAN STA Start failed with error : %d", static_cast<int>(errCode));
+        LE_WARN("wpa_supplicant control socket not available at %s", ctrlPath.c_str());
         return LE_FAULT;
     }
-    LE_INFO ("WLAN STA Start success");
+    wpa_ctrl_close(ctrl);
+
+    LE_INFO("wpa_supplicant control socket OK for %s", staCtxPtr->IntfName);
     return LE_OK;
 }
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Stops the specified Station.
@@ -1642,25 +1509,21 @@ le_result_t taf_WlanSTASvcImpl::Start(taf_wlanSta_WlanSTARef_t staRef)
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_WlanSTASvcImpl::Stop(taf_wlanSta_WlanSTARef_t staRef)
 {
-    StaCtx_t *staCtxPtr = NULL;
-    telux::common::ErrorCode errCode = telux::common::ErrorCode::SUCCESS;
-
-    TAF_ERROR_IF_RET_VAL(nullptr == wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
-
-    staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
+    StaCtx_t *staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
     TAF_ERROR_IF_RET_VAL(NULL == staCtxPtr, LE_FAULT, "Unable to find context");
 
-    errCode = wlanSTAMgr->manageStaService( taf_WlanHelper::TAFSTAidtoTeluxId(staCtxPtr->id),
-                                            telux::wlan::ServiceOperation::STOP);
-    if (telux::common::ErrorCode::SUCCESS != errCode)
+    char rsp_buf[WPA_CTRL_RSP_BUF_LEN] = {0};
+    le_result_t res = runWPACommand(staCtxPtr, "DISCONNECT", rsp_buf, sizeof(rsp_buf));
+    if (res != LE_OK || strncmp(rsp_buf, "OK", 2) != 0)
     {
-        LE_WARN("WLAN STA Stop failed with error : %d", static_cast<int>(errCode));
+        LE_WARN("DISCONNECT failed or returned: %s", rsp_buf);
         return LE_FAULT;
     }
-    LE_INFO ("WLAN STA Stop success");
-    return LE_OK;
 
+    LE_INFO("STA disconnected: %s", staCtxPtr->IntfName);
+    return LE_OK;
 }
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Restarts the specified Station.
@@ -1672,22 +1535,21 @@ le_result_t taf_WlanSTASvcImpl::Stop(taf_wlanSta_WlanSTARef_t staRef)
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_WlanSTASvcImpl::Restart(taf_wlanSta_WlanSTARef_t staRef)
 {
-    StaCtx_t *staCtxPtr = NULL;
-    telux::common::ErrorCode errCode = telux::common::ErrorCode::SUCCESS;
-
-    TAF_ERROR_IF_RET_VAL(nullptr == wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
-
-    staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
+    StaCtx_t *staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
     TAF_ERROR_IF_RET_VAL(NULL == staCtxPtr, LE_FAULT, "Unable to find context");
 
-    errCode = wlanSTAMgr->manageStaService( taf_WlanHelper::TAFSTAidtoTeluxId(staCtxPtr->id),
-                                            telux::wlan::ServiceOperation::RESTART);
-    if (telux::common::ErrorCode::SUCCESS != errCode)
+    char rsp_buf[WPA_CTRL_RSP_BUF_LEN] = {0};
+
+    runWPACommand(staCtxPtr, "DISCONNECT", rsp_buf, sizeof(rsp_buf));
+    memset(rsp_buf, 0, sizeof(rsp_buf));
+    if (runWPACommand(staCtxPtr, "RECONNECT", rsp_buf, sizeof(rsp_buf)) != LE_OK ||
+        strncmp(rsp_buf, "OK", 2) != 0)
     {
-        LE_WARN("WLAN STA Restart failed with error : %d", static_cast<int>(errCode));
+        LE_WARN("RECONNECT failed or returned: %s", rsp_buf);
         return LE_FAULT;
     }
-    LE_INFO ("WLAN STA Restart success");
+
+    LE_INFO("STA restart (disconnect/reconnect) OK: %s", staCtxPtr->IntfName);
     return LE_OK;
 }
 
@@ -1707,22 +1569,25 @@ le_result_t taf_WlanSTASvcImpl::SetMode(
     ///< [IN] The WLAN STA mode to set.
 )
 {
-    StaCtx_t *staCtxPtr = NULL;
-    telux::common::ErrorCode errCode = telux::common::ErrorCode::SUCCESS;
-
-    TAF_ERROR_IF_RET_VAL(nullptr == wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
-
-    staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
+    StaCtx_t *staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
     TAF_ERROR_IF_RET_VAL(NULL == staCtxPtr, LE_FAULT, "Unable to find context");
 
-    errCode = wlanSTAMgr->setBridgeMode( taf_WlanHelper::TAFSTAidtoTeluxId(staCtxPtr->id),
-                                         taf_WlanHelper::StaModeToTelux(StaMode));
-    if (telux::common::ErrorCode::SUCCESS != errCode)
+    taf::pa::wlan::Mode_e paMode = (StaMode == TAF_WLANSTA_MODE_BRIDGE)
+        ? taf::pa::wlan::Mode_e::BRIDGE
+        : taf::pa::wlan::Mode_e::ROUTER;
+
+    // Map internal STA ID to PA StaId_e
+    taf::pa::wlan::StaId_e paStaId =
+        (staCtxPtr->id == TAF_WLAN_STA_ID1) ? taf::pa::wlan::StaId_e::ONE
+                                            : taf::pa::wlan::StaId_e::TWO;
+
+    pa_result_t res = taf::pa::wlan::SetStaBridgeMode(paStaId, paMode);
+    if(res != PA_OK)
     {
-        LE_WARN("WLAN STA SetMode failed with error : %d", static_cast<int>(errCode));
+        LE_ERROR("SetStaBridgeMode failed");
         return LE_FAULT;
     }
-
+    LE_INFO("SetStaBridgeMode successful");
     return LE_OK;
 }
 
@@ -1743,31 +1608,27 @@ le_result_t taf_WlanSTASvcImpl::GetMode
     ///< [OUT] The WLAN STA mode that is set.
 )
 {
-    StaCtx_t *staCtxPtr = NULL;
-    telux::common::ErrorCode errCode = telux::common::ErrorCode::SUCCESS;
-
-    TAF_ERROR_IF_RET_VAL(nullptr == wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
-
-    staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
+    TAF_ERROR_IF_RET_VAL(NULL == StaModePtr, LE_BAD_PARAMETER, "StaModePtr is NULL!");
+    StaCtx_t *staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
     TAF_ERROR_IF_RET_VAL(NULL == staCtxPtr, LE_FAULT, "Unable to find context");
 
-    std::vector<telux::wlan::StaConfig> config;
-    errCode = wlanSTAMgr->getConfig(config);
-    if (telux::common::ErrorCode::SUCCESS != errCode)
+    taf::pa::wlan::Mode_e modeOut{};
+    taf::pa::wlan::StaId_e paStaId =
+        (staCtxPtr->id == TAF_WLAN_STA_ID1) ? taf::pa::wlan::StaId_e::ONE
+                                            : taf::pa::wlan::StaId_e::TWO;
+
+    pa_result_t res = taf::pa::wlan::GetStaBridgeMode(paStaId, modeOut);
+    if (res != PA_OK)
     {
-        LE_WARN("WLAN STA GetMode failed with error : %d", static_cast<int>(errCode));
+        LE_ERROR("GetStaBridgeMode failed");
         return LE_FAULT;
     }
-    for (auto &cfg : config)
-    {
-        LE_DEBUG("------------------------------------------");
-        LE_DEBUG("STA Id: %d", static_cast<int>(cfg.staId));
-        if (taf_WlanHelper::TAFSTAidtoTeluxId(staCtxPtr->id) == cfg.staId)
-        {
-            *StaModePtr = taf_WlanHelper::StaModeToTAF(cfg.bridgeMode);
-            break;
-        }
-    }
+
+    *StaModePtr = (modeOut == taf::pa::wlan::Mode_e::BRIDGE)
+                    ? TAF_WLANSTA_MODE_BRIDGE
+                    : TAF_WLANSTA_MODE_ROUTER;
+
+    LE_INFO("GetStaBridgeMode successful");
     return LE_OK;
 }
 
@@ -1787,32 +1648,42 @@ le_result_t taf_WlanSTASvcImpl::SetIPConfig
     taf_wlanSta_IPType_t StaIPType,
     const taf_wlanSta_IPConfig_t *LE_NONNULL StaStaticIPConfigPtr)
 {
-    StaCtx_t *staCtxPtr = NULL;
-    telux::common::ErrorCode errCode = telux::common::ErrorCode::SUCCESS;
-
-    TAF_ERROR_IF_RET_VAL(nullptr == wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
-
-    staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
+    StaCtx_t *staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
     TAF_ERROR_IF_RET_VAL(NULL == staCtxPtr, LE_FAULT, "Unable to find context");
 
-    telux::wlan::StaStaticIpConfig staticIpConfig;
-    if (TAF_WLANSTA_IPTYPE_STATIC == StaIPType)
+    taf::pa::wlan::StaId_e paStaId =
+        (staCtxPtr->id == TAF_WLAN_STA_ID1) ? taf::pa::wlan::StaId_e::ONE
+                                            : taf::pa::wlan::StaId_e::TWO;
+
+    taf::pa::wlan::IPType_e paIpType = (StaIPType == TAF_WLANSTA_IPTYPE_STATIC)
+        ? taf::pa::wlan::IPType_e::STATIC
+        : taf::pa::wlan::IPType_e::DYNAMIC;
+
+    if (StaIPType == TAF_WLANSTA_IPTYPE_STATIC && StaStaticIPConfigPtr)
     {
-        LE_INFO("Static IP configuration");
-        // Static IP. Populate the static IP structure.
-        staticIpConfig.ipAddr   = StaStaticIPConfigPtr->IPv4Addr;
-        staticIpConfig.gwIpAddr = StaStaticIPConfigPtr->GWAddr;
-        staticIpConfig.netMask  = StaStaticIPConfigPtr->NetMask;
-        staticIpConfig.dnsAddr  = StaStaticIPConfigPtr->DNSAddr;
+        taf::pa::wlan::StaIpConfig_t paCfg;
+        paCfg.ipAddr   = StaStaticIPConfigPtr->IPv4Addr;
+        paCfg.gwIpAddr = StaStaticIPConfigPtr->GWAddr;
+        paCfg.netMask  = StaStaticIPConfigPtr->NetMask;
+        paCfg.dnsAddr  = StaStaticIPConfigPtr->DNSAddr;
+
+        pa_result_t res = taf::pa::wlan::SetStaIpConfig(paStaId, paIpType, paCfg);
+        if (res != PA_OK)
+        {
+            LE_ERROR("SetStaIpConfig failed");
+            return LE_FAULT;
+        }
     }
-    errCode = wlanSTAMgr->setIpConfig(taf_WlanHelper::TAFSTAidtoTeluxId(staCtxPtr->id),
-                                      taf_WlanHelper::StaIPTypeToTelux(StaIPType),
-                                      staticIpConfig);
-    if (telux::common::ErrorCode::SUCCESS != errCode)
+    else
     {
-        LE_WARN("WLAN STA SetMode failed with error : %d", static_cast<int>(errCode));
-        return LE_FAULT;
+        pa_result_t res = taf::pa::wlan::SetStaIpConfig(paStaId, paIpType);
+        if (res != PA_OK)
+        {
+            LE_ERROR("SetStaIpConfig failed");
+            return LE_FAULT;
+        }
     }
+    LE_INFO("SetStaIpConfig successful");
     return LE_OK;
 }
 
@@ -1835,63 +1706,42 @@ le_result_t taf_WlanSTASvcImpl::GetIPConfig
     ///< [OUT] Details of static IP configuration.
 )
 {
-    StaCtx_t *staCtxPtr = NULL;
-    telux::common::ErrorCode errCode = telux::common::ErrorCode::SUCCESS;
+    TAF_ERROR_IF_RET_VAL(nullptr == StaIPTypePtr, LE_FAULT, "StaIPTypePtr is NULL!");
 
-    TAF_ERROR_IF_RET_VAL(nullptr == wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
+    StaCtx_t *staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
+    TAF_ERROR_IF_RET_VAL(nullptr == staCtxPtr, LE_FAULT, "Unable to find context");
 
-    staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
-    TAF_ERROR_IF_RET_VAL(NULL == staCtxPtr, LE_FAULT, "Unable to find context");
+    taf::pa::wlan::StaId_e paStaId =
+        (staCtxPtr->id == TAF_WLAN_STA_ID1) ? taf::pa::wlan::StaId_e::ONE
+                                            : taf::pa::wlan::StaId_e::TWO;
 
-    std::vector<telux::wlan::StaConfig> config;
-    errCode = wlanSTAMgr->getConfig(config);
-    if (telux::common::ErrorCode::SUCCESS != errCode)
+    taf::pa::wlan::IPType_e ipTypeOut{};
+    taf::pa::wlan::StaIpConfig_t paCfg{};
+
+    pa_result_t res = taf::pa::wlan::GetStaIpConfig(paStaId, ipTypeOut, paCfg);
+    if (res != PA_OK)
     {
-        LE_WARN("WLAN STA GetMode failed with error : %d", static_cast<int>(errCode));
+        LE_ERROR("GetStaIpConfig failed");
         return LE_FAULT;
     }
-    for (auto &cfg : config)
+
+    *StaIPTypePtr = (ipTypeOut == taf::pa::wlan::IPType_e::STATIC)
+                        ? TAF_WLANSTA_IPTYPE_STATIC
+                        : TAF_WLANSTA_IPTYPE_DYNAMIC;
+
+    if (StaStaticIPConfigPtr && *StaIPTypePtr == TAF_WLANSTA_IPTYPE_STATIC)
     {
-        LE_DEBUG("------------------------------------------");
-        LE_DEBUG("STA Id: %d", static_cast<int>(cfg.staId));
-        if (taf_WlanHelper::TAFSTAidtoTeluxId(staCtxPtr->id) == cfg.staId)
-        {
-            *StaIPTypePtr = taf_WlanHelper::StaIPTypeToTAF(cfg.ipConfig);
-            if (StaStaticIPConfigPtr && telux::wlan::StaIpConfig::STATIC_IP==cfg.ipConfig)
-            {
-                le_result_t ret = LE_OK;
-                LE_DEBUG ("IPv4Addr :%s",cfg.staticIpConfig.ipAddr.c_str());
-                ret = le_utf8_Copy(StaStaticIPConfigPtr->IPv4Addr,cfg.staticIpConfig.ipAddr.c_str(),
-                                               TAF_NET_IPV4_ADDR_MAX_LEN+1, NULL);
-                if (LE_OK != ret)
-                {
-                    LE_WARN("IPv4Addr copy error: %d", ret);
-                }
-                LE_DEBUG ("GWAddr :%s",cfg.staticIpConfig.gwIpAddr.c_str());
-                ret = le_utf8_Copy(StaStaticIPConfigPtr->GWAddr,cfg.staticIpConfig.gwIpAddr.c_str(),
-                                               TAF_NET_IPV4_ADDR_MAX_LEN+1, NULL);
-                if (LE_OK != ret)
-                {
-                    LE_WARN("GWAddr copy error: %d", ret);
-                }
-                LE_DEBUG ("DNSAddr :%s",cfg.staticIpConfig.dnsAddr.c_str());
-                ret = le_utf8_Copy(StaStaticIPConfigPtr->DNSAddr,cfg.staticIpConfig.dnsAddr.c_str(),
-                                               TAF_NET_IPV4_ADDR_MAX_LEN+1, NULL);
-                if (LE_OK != ret)
-                {
-                    LE_WARN("DNSAddr copy error: %d", ret);
-                }
-                LE_DEBUG ("NetMask :%s",cfg.staticIpConfig.netMask.c_str());
-                ret = le_utf8_Copy(StaStaticIPConfigPtr->NetMask,cfg.staticIpConfig.netMask.c_str(),
-                                               TAF_NET_IPV4_ADDR_MAX_LEN+1, NULL);
-                if (LE_OK != ret)
-                {
-                    LE_WARN("NetMask copy error: %d", ret);
-                }
-            }
-            break;
-        }
+        le_utf8_Copy(StaStaticIPConfigPtr->IPv4Addr,
+                     paCfg.ipAddr.c_str(), TAF_NET_IPV4_ADDR_MAX_LEN + 1, nullptr);
+        le_utf8_Copy(StaStaticIPConfigPtr->GWAddr,
+                     paCfg.gwIpAddr.c_str(), TAF_NET_IPV4_ADDR_MAX_LEN + 1, nullptr);
+        le_utf8_Copy(StaStaticIPConfigPtr->DNSAddr,
+                     paCfg.dnsAddr.c_str(), TAF_NET_IPV4_ADDR_MAX_LEN + 1, nullptr);
+        le_utf8_Copy(StaStaticIPConfigPtr->NetMask,
+                     paCfg.netMask.c_str(), TAF_NET_IPV4_ADDR_MAX_LEN + 1, nullptr);
     }
+
+    LE_INFO("GetStaIpConfig succeeded");
     return LE_OK;
 }
 
@@ -1928,68 +1778,106 @@ le_result_t taf_WlanSTASvcImpl::GetStatus
     ///< [IN]
 )
 {
-    StaCtx_t *staCtxPtr = NULL;
-    telux::common::ErrorCode errCode = telux::common::ErrorCode::SUCCESS;
+    TAF_ERROR_IF_RET_VAL(!StaSatePtr, LE_BAD_PARAMETER, "StaSatePtr is NULL");
 
-    TAF_ERROR_IF_RET_VAL(nullptr == wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
-
-    staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
+    StaCtx_t *staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
     TAF_ERROR_IF_RET_VAL(NULL == staCtxPtr, LE_FAULT, "Unable to find context");
 
-    std::vector<telux::wlan::StaStatus> status;
-    errCode = wlanSTAMgr->getStatus(status);
-    if (telux::common::ErrorCode::SUCCESS != errCode)
+    *StaSatePtr = TAF_WLANSTA_STATE_DISCONNECTED;
+    if (IntfName && IntfNameSize)
+        le_utf8_Copy(IntfName, staCtxPtr->IntfName, TAF_NET_INTERFACE_NAME_MAX_LEN + 1, NULL);
+    if (IPv4Address && IPv4AddressSize)
+        IPv4Address[0] = '\0';
+    if (IPv6Address && IPv6AddressSize)
+        IPv6Address[0] = '\0';
+    if (MACAddress && MACAddressSize)
+        MACAddress[0] = '\0';
+
+    char rsp_buf[WPA_CTRL_RSP_BUF_LEN] = {0};
+    if (runWPACommand(staCtxPtr, "STATUS", rsp_buf, sizeof(rsp_buf)) == LE_OK)
     {
-        LE_WARN("WLAN STA getStatus failed with error : %d", static_cast<int>(errCode));
-        return LE_FAULT;
-    }
-    for (auto &element : status)
-    {
-        LE_DEBUG("------------------------------------------");
-        LE_DEBUG("STA Id: %d", static_cast<int>(element.id));
-        if (taf_WlanHelper::TAFSTAidtoTeluxId(staCtxPtr->id) == element.id)
+        std::string status(rsp_buf);
+
+        auto findVal = [&](const std::string &key) -> std::string
         {
-            le_result_t ret = LE_OK;
-            *StaSatePtr = taf_WlanHelper::StaIntfStatusToTAF(element.status);
-            if (IntfName && (IntfNameSize>0))
+            size_t pos = status.find(key);
+            if (pos == std::string::npos)
+                return "";
+            pos += key.size();
+            size_t end = status.find('\n', pos);
+            return status.substr(pos, (end == std::string::npos) ?
+                std::string::npos : (end - pos));
+        };
+
+        std::string wpaState = findVal("wpa_state=");
+        if (wpaState == "COMPLETED")
+            *StaSatePtr = TAF_WLANSTA_STATE_CONNECTED;
+        else if (wpaState == "SCANNING" || wpaState == "ASSOCIATING" ||
+                 wpaState == "ASSOCIATED" || wpaState == "4WAY_HANDSHAKE")
+            *StaSatePtr = TAF_WLANSTA_STATE_CONNECTING;
+        else
+            *StaSatePtr = TAF_WLANSTA_STATE_DISCONNECTED;
+
+        std::string ip4 = findVal("ip_address=");
+        std::string ip6 = findVal("ipv6_address=");
+        if (IPv4Address && IPv4AddressSize && !ip4.empty())
+            le_utf8_Copy(IPv4Address, ip4.c_str(), TAF_NET_IPV4_ADDR_MAX_LEN + 1, NULL);
+        if (IPv6Address && IPv6AddressSize && !ip6.empty())
+            le_utf8_Copy(IPv6Address, ip6.c_str(), TAF_NET_IPV6_ADDR_MAX_LEN + 1, NULL);
+    }
+
+    // Fallback to getifaddrs if needed
+    if ((IPv4Address && IPv4AddressSize && IPv4Address[0] == '\0') ||
+        (IPv6Address && IPv6AddressSize && IPv6Address[0] == '\0'))
+    {
+        struct ifaddrs *ifa = nullptr;
+        if (getifaddrs(&ifa) == 0)
+        {
+            for (struct ifaddrs *p = ifa; p; p = p->ifa_next)
             {
-                ret = le_utf8_Copy(IntfName, element.name.c_str(),
-                                               TAF_NET_INTERFACE_NAME_MAX_LEN+1, NULL);
-                if (LE_OK != ret)
+                if (!p->ifa_name || strcmp(p->ifa_name, staCtxPtr->IntfName) != 0 || !p->ifa_addr)
+                    continue;
+
+                char abuf[INET6_ADDRSTRLEN] = {0};
+                if (p->ifa_addr->sa_family == AF_INET && IPv4Address && IPv4AddressSize)
                 {
-                    LE_WARN("IntfName copy error: %d", ret);
+                    auto *sin = (struct sockaddr_in *)p->ifa_addr;
+                    if (inet_ntop(AF_INET, &sin->sin_addr, abuf, sizeof(abuf)))
+                        le_utf8_Copy(IPv4Address, abuf, TAF_NET_IPV4_ADDR_MAX_LEN + 1, NULL);
+                }
+                else if (p->ifa_addr->sa_family == AF_INET6 && IPv6Address && IPv6AddressSize)
+                {
+                    auto *sin6 = (struct sockaddr_in6 *)p->ifa_addr;
+                    if (inet_ntop(AF_INET6, &sin6->sin6_addr, abuf, sizeof(abuf)))
+                        le_utf8_Copy(IPv6Address, abuf, TAF_NET_IPV6_ADDR_MAX_LEN + 1, NULL);
                 }
             }
-            if (IPv4Address && (IPv4AddressSize>0))
-            {
-                ret = le_utf8_Copy(IPv4Address, element.ipv4Address.c_str(),
-                                               TAF_NET_IPV4_ADDR_MAX_LEN+1, NULL);
-                if (LE_OK != ret)
-                {
-                    LE_WARN("IPv4Address copy error: %d", ret);
-                }
-            }
-            if (IPv6Address && (IPv6AddressSize>0))
-            {
-                ret = le_utf8_Copy(IPv6Address, element.ipv6Address.c_str(),
-                                               TAF_NET_IPV6_ADDR_MAX_LEN+1, NULL);
-                if (LE_OK != ret)
-                {
-                    LE_WARN("IPv6Address copy error: %d", ret);
-                }
-            }
-            if (MACAddress && (MACAddressSize>0))
-            {
-                ret = le_utf8_Copy(MACAddress, element.macAddress.c_str(),
-                                               TAF_NET_IPV6_ADDR_MAX_LEN+1, NULL);
-                if (LE_OK != ret)
-                {
-                    LE_WARN("MACAddress copy error: %d", ret);
-                }
-            }
-            break;
+            freeifaddrs(ifa);
         }
     }
+
+    // MAC from sysfs
+    if (MACAddress && MACAddressSize)
+    {
+        char mac[32] = {0};
+        char path[128] = {0};
+        snprintf(path, sizeof(path), "/sys/class/net/%s/address", staCtxPtr->IntfName);
+        int fd = open(path, O_RDONLY);
+        if (fd >= 0)
+        {
+            ssize_t n = read(fd, mac, sizeof(mac) - 1);
+            close(fd);
+            if (n > 0)
+            {
+                while (n > 0 && (mac[n - 1] == '\n' || mac[n - 1] == '\r'))
+                    --n;
+                mac[n] = '\0';
+                le_utf8_Copy(MACAddress, mac, TAF_NET_MAC_ADDR_MAX_LEN + 1, NULL);
+            }
+        }
+    }
+
+    LE_INFO("GetStatus succeeded");
     return LE_OK;
 }
 
@@ -2014,13 +1902,15 @@ le_result_t taf_WlanSTASvcImpl::SvcGetConnectedApSignalStrength
     int16_t sigStrength = 0xFFFF;
     le_result_t result = sigStrengthMonitorRefMap_[staCtxPtr->id]->GetLastSignalStrength(
                                                                                     sigStrength);
-    if (LE_OK == result)
+    if (result == LE_OK)
     {
         *ssPtr = sigStrength;
+        LE_INFO("Signal strength for STA %d: %d dBm", staCtxPtr->id, sigStrength);
     }
     else
     {
-        LE_WARN("GetLastSignalStrength failed. Result:%d", result);
+        LE_WARN("Failed to get signal strength for STA %d: %s",
+                staCtxPtr->id, LE_RESULT_TXT(result));
     }
     return result;
 }
@@ -2077,13 +1967,13 @@ void taf_WlanSTASvcImpl::apSigStrengthClientEventsTimerHandler(le_timer_Ref_t ti
     int16_t sigStrength = 0xFFFF;
     if (key.bAverage)
     {
-        result = myWlanSta.sigStrengthMonitorRefMap_[sigCtxPtr->staId]->GetAverageSignalStrength (
-                                                                        key.frequency, sigStrength);
+        result = myWlanSta.sigStrengthMonitorRefMap_[sigCtxPtr->staId]->GetAverageSignalStrength(
+                    key.frequency, sigStrength);
     }
     else
     {
         result = myWlanSta.sigStrengthMonitorRefMap_[sigCtxPtr->staId]->GetLastSignalStrength(
-                                                                                       sigStrength);
+                    sigStrength);
     }
     if (LE_OK != result)
     {
@@ -2720,42 +2610,11 @@ le_result_t taf_WlanSTASvcImpl::DoAPScan(
     taf_wlanSta_WlanSTARef_t staRef ///< [IN] The WLAN STA reference.
 )
 {
-    StaCtx_t *staCtxPtr = NULL;
-    telux::common::ErrorCode errCode = telux::common::ErrorCode::SUCCESS;
-
-    TAF_ERROR_IF_RET_VAL(nullptr == wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
-
-    staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
+    StaCtx_t *staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
     TAF_ERROR_IF_RET_VAL(NULL == staCtxPtr, LE_FAULT, "Unable to find context");
 
-    // Ensure STA is active
-    std::vector<telux::wlan::StaStatus> status;
-    errCode = wlanSTAMgr->getStatus(status);
-    if (telux::common::ErrorCode::SUCCESS != errCode)
-    {
-        LE_WARN("WLAN STA getStatus failed with error : %d", static_cast<int>(errCode));
-        return LE_FAULT;
-    }
-    for (auto &element : status)
-    {
-        LE_DEBUG("------------------------------------------");
-        LE_DEBUG("STA Id: %d", static_cast<int>(element.id));
-        if (taf_WlanHelper::TAFSTAidtoTeluxId(staCtxPtr->id) == element.id)
-        {
-            if (telux::wlan::StaInterfaceStatus::UNKNOWN == element.status)
-            {
-                LE_WARN("STA %d status known", staCtxPtr->id);
-                return LE_FAULT;
-            }
-            else
-            {
-                // STA sate is good. Scan can be performed.
-                break;
-            }
-        }
-    }
-
     // Send cmd event to perform scan
+    LE_INFO("Queued AP scan request for STA %d", staCtxPtr->id);
     StaCmd_t cmd = {staCtxPtr, CMD_WPA_DO_SCAN};
     le_event_Report(staCommand_, &cmd, sizeof(StaCmd_t));
     return LE_OK;
@@ -2781,90 +2640,46 @@ le_result_t taf_WlanSTASvcImpl::GetAPScanResults(
     ///< [INOUT]
 )
 {
-    StaCtx_t *staCtxPtr = NULL;
-
-    // Check for null pointers
-    TAF_ERROR_IF_RET_VAL(nullptr == wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
     TAF_ERROR_IF_RET_VAL(numAPPtr == nullptr, LE_BAD_PARAMETER, "numAPPtr is NULL");
     TAF_ERROR_IF_RET_VAL(ApInfoPtr == nullptr, LE_BAD_PARAMETER, "ApInfoPtr is NULL");
     TAF_ERROR_IF_RET_VAL(ApInfoSizePtr == nullptr, LE_BAD_PARAMETER, "ApInfoSizePtr is NULL");
     TAF_ERROR_IF_RET_VAL(*ApInfoSizePtr == 0, LE_BAD_PARAMETER, "ApInfoSizePtr is 0");
 
-    staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
+    StaCtx_t *staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
     TAF_ERROR_IF_RET_VAL(NULL == staCtxPtr, LE_FAULT, "Unable to find context");
 
-    // Update the number of APs available
+    // Lazy refresh scan results if empty
+    if (staCtxPtr->numScannedAPs == 0)
+    {
+        char rsp_buf[WPA_CTRL_RSP_BUF_LEN] = {0};
+        if (runWPACommand(staCtxPtr, "SCAN_RESULTS", rsp_buf, sizeof(rsp_buf)) == LE_OK)
+        {
+            PopulateScanResults(staCtxPtr, rsp_buf);
+        }
+    }
+
     *numAPPtr = staCtxPtr->numScannedAPs;
-
-    LE_DEBUG("numAPPtr     : %d", *numAPPtr);
-    LE_DEBUG("ApInfoSizePtr: %zu", *ApInfoSizePtr);
-
-    // Check if enough space is available to store all scanned APs.
     size_t copyCount = std::min(static_cast<size_t>(staCtxPtr->numScannedAPs), *ApInfoSizePtr);
-
-    // Update the Info size pointer
     *ApInfoSizePtr = copyCount;
 
-    if (copyCount < staCtxPtr->numScannedAPs) {
-        LE_WARN("Number of elements(%zu) less than number of available APs(%d)",
-                copyCount, staCtxPtr->numScannedAPs);
-    }
-
-    // Copy AP information
-    for (size_t iCount = 0; iCount < copyCount; ++iCount)
+    for (size_t i = 0; i < copyCount; ++i)
     {
-        // Initialize destination strings to empty
-        ApInfoPtr[iCount].BSSID[0] = '\0';
-        ApInfoPtr[iCount].SSID[0] = '\0';
+        // Copy fields
+        le_utf8_Copy(ApInfoPtr[i].BSSID, staCtxPtr->ApInfo[i].BSSID,
+                     TAF_WLAN_MAX_BSSID_LENGTH + 1, NULL);
+        le_utf8_Copy(ApInfoPtr[i].SSID, staCtxPtr->ApInfo[i].SSID,
+                     TAF_WLAN_MAX_SSID_LENGTH + 1, NULL);
 
-        // BSSID
-        if (staCtxPtr->ApInfo[iCount].BSSID != nullptr &&
-            strlen(staCtxPtr->ApInfo[iCount].BSSID) > 0)
-        {
-            le_result_t result = le_utf8_Copy(ApInfoPtr[iCount].BSSID,
-                staCtxPtr->ApInfo[iCount].BSSID, TAF_WLAN_MAX_BSSID_LENGTH + 1, NULL);
-            if (result != LE_OK)
-            {
-                LE_ERROR("Failed to copy BSSID: %s", LE_RESULT_TXT(result));
-                ApInfoPtr[iCount].BSSID[0] = '\0';
-            }
-        }
-
-        // SSID
-        if (staCtxPtr->ApInfo[iCount].SSID != nullptr &&
-            strlen(staCtxPtr->ApInfo[iCount].SSID) > 0)
-        {
-            le_result_t result = le_utf8_Copy(ApInfoPtr[iCount].SSID,
-                staCtxPtr->ApInfo[iCount].SSID,  TAF_WLAN_MAX_SSID_LENGTH + 1, NULL);
-            if (result != LE_OK)
-            {
-                LE_ERROR("Failed to copy SSID: %s", LE_RESULT_TXT(result));
-                ApInfoPtr[iCount].SSID[0] = '\0';
-            }
-        }
-
-        // Signal Level
-        ApInfoPtr[iCount].SignalLevel = staCtxPtr->ApInfo[iCount].SignalLevel;
-
-        // Frequency
-        ApInfoPtr[iCount].Frequency = staCtxPtr->ApInfo[iCount].Frequency;
-
-        // Service Set
-        ApInfoPtr[iCount].SS = staCtxPtr->ApInfo[iCount].SS;
-
-        // Security Mode/Proto
-        ApInfoPtr[iCount].secMode = staCtxPtr->ApInfo[iCount].secMode;
-
-        // Auth Method
-        ApInfoPtr[iCount].secAuthMethod = staCtxPtr->ApInfo[iCount].secAuthMethod;
-
-        // Encryption Method
-        ApInfoPtr[iCount].secEncryptionMethod = staCtxPtr->ApInfo[iCount].secEncryptionMethod;
-
-        // WPS
-        ApInfoPtr[iCount].WPSEnabled = staCtxPtr->ApInfo[iCount].WPSEnabled;
+        ApInfoPtr[i].SignalLevel = staCtxPtr->ApInfo[i].SignalLevel;
+        ApInfoPtr[i].Frequency = staCtxPtr->ApInfo[i].Frequency;
+        ApInfoPtr[i].SS = staCtxPtr->ApInfo[i].SS;
+        ApInfoPtr[i].secMode = staCtxPtr->ApInfo[i].secMode;
+        ApInfoPtr[i].secAuthMethod = staCtxPtr->ApInfo[i].secAuthMethod;
+        ApInfoPtr[i].secEncryptionMethod = staCtxPtr->ApInfo[i].secEncryptionMethod;
+        ApInfoPtr[i].WPSEnabled = staCtxPtr->ApInfo[i].WPSEnabled;
     }
 
+    LE_INFO("Retrieved %zu APs from scan results for STA %d", copyCount, staCtxPtr->id);
     return LE_OK;
 }
 
@@ -3199,7 +3014,6 @@ le_result_t taf_WlanSTASvcImpl::GetAPEstimatedThroughput
     int32_t* agePtr
 )
 {
-    TAF_ERROR_IF_RET_VAL(nullptr == wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
     TAF_ERROR_IF_RET_VAL(nullptr == BSSID, LE_BAD_PARAMETER, "BSSID is NULL");
     TAF_ERROR_IF_RET_VAL(nullptr == estimatedThroughputPtr, LE_BAD_PARAMETER,
         "estimatedThroughputPtr is NULL");
@@ -3220,29 +3034,31 @@ le_result_t taf_WlanSTASvcImpl::GetAPEstimatedThroughput
     TAF_ERROR_IF_RET_VAL(strncmp(rsp_buf, "FAIL", 4) == 0, LE_NOT_FOUND,
         "BSSID %s not found in scan results", BSSID);
 
-    // Extract estimated throughput
     int throughput = 0;
-    le_result_t throughputResult = BSSParser::extractEstThroughput(rsp_buf, throughput);
-    if (throughputResult != LE_OK)
+    le_result_t tRes = BSSParser::extractEstThroughput(rsp_buf, throughput);
+    if (tRes == LE_FAULT)
     {
-        LE_WARN("Failed to extract estimated throughput for BSSID %s: %d",
-        BSSID, throughputResult);
-        return LE_FAULT;
+        LE_INFO("Estimated throughput information not available for BSSID %s", BSSID);
+        return LE_UNAVAILABLE;
+    }
+    if (tRes != LE_OK)
+    {
+        LE_ERROR("Invalid throughput value for BSSID %s", BSSID);
+        return tRes;
     }
 
-    // Extract age
+    // Extract age (best-effort)
     int age = -1;
-    le_result_t ageResult = BSSParser::extractAge(rsp_buf, age);
-    if (ageResult == LE_OK)
-    {
+    le_result_t aRes = BSSParser::extractAge(rsp_buf, age);
+    if (aRes == LE_OK) {
         *agePtr = static_cast<int32_t>(age);
-    }
-    else
-    {
-        LE_WARN("Failed to extract age for BSSID %s: %d (using default -1)", BSSID, ageResult);
+    } else {
+        LE_WARN("Failed to extract age for BSSID %s: %d (using default -1)", BSSID, aRes);
     }
 
     *estimatedThroughputPtr = static_cast<uint32_t>(throughput);
+    LE_INFO("Retrieved estimated throughput %u kbps (age: %d) for BSSID %s",
+            *estimatedThroughputPtr, *agePtr, BSSID);
     return LE_OK;
 }
 
@@ -3258,41 +3074,12 @@ le_result_t taf_WlanSTASvcImpl::GetAPEstimatedThroughput
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_WlanSTASvcImpl::RemoveNetwork(
     taf_wlanSta_WlanSTARef_t staRef,
-    const taf_wlanSta_APInfo_t* LE_NONNULL ApInfo
-)
+    const taf_wlanSta_APInfo_t *LE_NONNULL ApInfo)
 {
-    TAF_ERROR_IF_RET_VAL(!wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
     TAF_ERROR_IF_RET_VAL(0 == strlen(ApInfo->SSID), LE_BAD_PARAMETER, "SSID is empty");
 
     StaCtx_t *staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
     TAF_ERROR_IF_RET_VAL(!staCtxPtr, LE_FAULT, "Unable to find context");
-
-    // Ensure STA is active
-    std::vector<telux::wlan::StaStatus> status;
-    telux::common::ErrorCode errCode = wlanSTAMgr->getStatus(status);
-    if (telux::common::ErrorCode::SUCCESS != errCode)
-    {
-        LE_WARN("WLAN STA getStatus failed with error : %d", static_cast<int>(errCode));
-        return LE_FAULT;
-    }
-    for (auto &element : status)
-    {
-        LE_DEBUG("------------------------------------------");
-        LE_DEBUG("STA Id: %d", static_cast<int>(element.id));
-        if (taf_WlanHelper::TAFSTAidtoTeluxId(staCtxPtr->id) == element.id)
-        {
-            if (telux::wlan::StaInterfaceStatus::UNKNOWN == element.status)
-            {
-                LE_WARN("STA %d status unknown", staCtxPtr->id);
-                return LE_FAULT;
-            }
-            break;
-        }
-    }
-
-    char rsp_buf[WPA_CTRL_RSP_BUF_LEN] = {0};
-    std::string wpaReqCmd;
-    le_result_t res;
 
     // Check if network is added
     std::string netID = CheckNetworkAdded(staCtxPtr, ApInfo);
@@ -3302,132 +3089,49 @@ le_result_t taf_WlanSTASvcImpl::RemoveNetwork(
         return LE_NOT_FOUND;
     }
 
-    LE_INFO("Found network %s with ID: %s", ApInfo->SSID, netID.c_str());
+    char rsp_buf[WPA_CTRL_RSP_BUF_LEN] = {0};
 
-    // If we're connected to this network, disconnect first (event-driven)
+    // If currently connected to this SSID, disconnect
     memset(rsp_buf, 0, WPA_CTRL_RSP_BUF_LEN);
-    wpaReqCmd = "STATUS";
-    res = runWPACommand(staCtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
-    if (res == LE_OK)
+    if (runWPACommand(staCtxPtr, "STATUS", rsp_buf, sizeof(rsp_buf)) == LE_OK)
     {
-        std::string statusOutput(rsp_buf);
-        std::string currentSSID;
-
-        // Extract current SSID from status
-        size_t ssidPos = statusOutput.find("ssid=");
-        if (ssidPos != std::string::npos)
+        std::string st(rsp_buf);
+        size_t pos = st.find("ssid=");
+        if (pos != std::string::npos)
         {
-            ssidPos += 5; // Length of "ssid="
-            size_t endPos = statusOutput.find('\n', ssidPos);
-            if (endPos != std::string::npos)
+            pos += 5;
+            size_t end = st.find('\n', pos);
+            std::string cur = st.substr(pos, (end == std::string::npos) ? std::string::npos : (end - pos));
+            if (cur == std::string(ApInfo->SSID))
             {
-                currentSSID = statusOutput.substr(ssidPos, endPos - ssidPos);
-            }
-        }
-
-        if (!currentSSID.empty() && currentSSID == std::string(ApInfo->SSID))
-        {
-            LE_INFO("Currently connected to %s, disconnecting first", ApInfo->SSID);
-
-            // Set up monitor for DISCONNECTED event
-            SuppFdCtx_t *fdCtxPtr = nullptr;
-            std::vector<std::string> eventsToMonitor = { WPA_EVENT_DISCONNECTED };
-            if (SetupWpaSupplicantMonitoring(staCtxPtr, eventsToMonitor, &fdCtxPtr) != LE_OK)
-            {
-                LE_WARN("Failed to set up DISCONNECTED monitor; proceeding without wait");
-                fdCtxPtr = nullptr;
-            }
-
-            // Issue DISCONNECT
-            memset(rsp_buf, 0, WPA_CTRL_RSP_BUF_LEN);
-            wpaReqCmd = "DISCONNECT";
-            res = runWPACommand(staCtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
-            if (res == LE_FAULT)
-            {
-                if (fdCtxPtr) { CleanupWpaSupplicantMonitoring(fdCtxPtr); }
-                LE_ERROR("DISCONNECT failed");
-                return LE_FAULT;
-            }
-            if (strncmp(rsp_buf, "OK", strlen("OK")) != 0)
-            {
-                if (fdCtxPtr) { CleanupWpaSupplicantMonitoring(fdCtxPtr); }
-                LE_ERROR("DISCONNECT command failed: %s", rsp_buf);
-                return LE_FAULT;
-            }
-
-            // Wait for DISCONNECTED event (up to 10s), then cleanup monitor
-            bool disconnected = false;
-            if (fdCtxPtr)
-            {
-                StaWpaEvt_e evt = EVT_WPA_ERROR;
-                bool gotEvt = WaitForSupplicantEvent(fdCtxPtr, 10000 /* ms */, evt);
-                CleanupWpaSupplicantMonitoring(fdCtxPtr);
-                if (gotEvt && evt == EVT_WPA_AP_DISCONNECTED)
-                {
-                    LE_INFO("Received DISCONNECTED event.");
-                    disconnected = true;
-                }
-                else
-                {
-                    LE_WARN("No DISCONNECTED event received (timeout or mismatch);"
-                        "verifying status.");
-                }
-            }
-
-            // Fallback: verify STATUS to confirm not connected
-            if (!disconnected)
-            {
-                memset(rsp_buf, 0, sizeof(rsp_buf));
-                if (runWPACommand(staCtxPtr, "STATUS", rsp_buf, sizeof(rsp_buf)) == LE_OK)
-                {
-                    std::string st(rsp_buf);
-                    if (st.find("wpa_state=COMPLETED") == std::string::npos)
-                    {
-                        disconnected = true;
-                    }
-                }
-            }
-
-            // Report DISCONNECTED state to stop link monitoring and notify clients
-            if (disconnected)
-            {
-                ReportStaState(staCtxPtr, TAF_WLANSTA_STATE_DISCONNECTED);
+                // Best-effort DISCONNECT
+                char tmp[WPA_CTRL_RSP_BUF_LEN] = {0};
+                runWPACommand(staCtxPtr, "DISCONNECT", tmp, sizeof(tmp));
             }
         }
     }
 
     // Disable the network
     memset(rsp_buf, 0, WPA_CTRL_RSP_BUF_LEN);
-    wpaReqCmd = "DISABLE_NETWORK " + netID;
-    res = runWPACommand(staCtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
-    if (res == LE_FAULT)
+    std::string wpaReqCmd = "DISABLE_NETWORK " + netID;
+    le_result_t res = runWPACommand(staCtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
+    if (res != LE_OK)
     {
-        LE_ERROR("DISABLE_NETWORK failed");
-        return LE_FAULT;
-    }
-    if (strncmp(rsp_buf, "OK", strlen("OK")) != 0)
-    {
-        LE_WARN("DISABLE_NETWORK command returned: %s", rsp_buf);
-        // Continue with removal even if disable fails
+        LE_WARN("DISABLE_NETWORK %s failed", netID.c_str());
+        // continue to remove anyway
     }
 
     // Remove the network
     memset(rsp_buf, 0, WPA_CTRL_RSP_BUF_LEN);
     wpaReqCmd = "REMOVE_NETWORK " + netID;
     res = runWPACommand(staCtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
-    if (res == LE_FAULT)
+    if (res != LE_OK || strncmp(rsp_buf, "OK", 2) != 0)
     {
-        LE_ERROR("REMOVE_NETWORK failed");
-        return LE_FAULT;
-    }
-    if (strncmp(rsp_buf, "OK", strlen("OK")) != 0)
-    {
-        LE_ERROR("REMOVE_NETWORK command failed: %s", rsp_buf);
+        LE_ERROR("REMOVE_NETWORK failed: %s", rsp_buf);
         return LE_FAULT;
     }
 
-    LE_INFO("Successfully removed network %s (ID: %s) - use SaveNetworkConfig() to persist",
-            ApInfo->SSID, netID.c_str());
+    LE_INFO("Successfully removed network %s (ID: %s)", ApInfo->SSID, netID.c_str());
     ReportStaState(staCtxPtr, TAF_WLANSTA_STATE_NETWORK_REMOVED);
     return LE_OK;
 }
@@ -3446,51 +3150,14 @@ le_result_t taf_WlanSTASvcImpl::SaveNetworkConfig(
     taf_wlanSta_WlanSTARef_t staRef
 )
 {
-    TAF_ERROR_IF_RET_VAL(!wlanSTAMgr, LE_FAULT, "WLAN STA Manager not initialized");
-
     StaCtx_t *staCtxPtr = (StaCtx_t *)le_ref_Lookup(StaRefMap, (void *)staRef);
     TAF_ERROR_IF_RET_VAL(!staCtxPtr, LE_FAULT, "Unable to find context");
 
-    // Ensure STA is active
-    std::vector<telux::wlan::StaStatus> status;
-    telux::common::ErrorCode errCode = wlanSTAMgr->getStatus(status);
-    if (telux::common::ErrorCode::SUCCESS != errCode)
-    {
-        LE_WARN("WLAN STA getStatus failed with error : %d", static_cast<int>(errCode));
-        return LE_FAULT;
-    }
-
-    for (auto &element : status)
-    {
-        LE_DEBUG("------------------------------------------");
-        LE_DEBUG("STA Id: %d", static_cast<int>(element.id));
-        if (taf_WlanHelper::TAFSTAidtoTeluxId(staCtxPtr->id) == element.id)
-        {
-            if (telux::wlan::StaInterfaceStatus::UNKNOWN == element.status)
-            {
-                LE_WARN("STA %d status unknown", staCtxPtr->id);
-                return LE_FAULT;
-            }
-            else
-            {
-                // STA state is good
-                break;
-            }
-        }
-    }
-
     char rsp_buf[WPA_CTRL_RSP_BUF_LEN] = {0};
-    std::string wpaReqCmd = "SAVE_CONFIG";
-    le_result_t res = runWPACommand(staCtxPtr, wpaReqCmd.c_str(), rsp_buf, sizeof(rsp_buf));
-    if (res == LE_FAULT)
+    if (runWPACommand(staCtxPtr, "SAVE_CONFIG", rsp_buf, sizeof(rsp_buf)) != LE_OK ||
+        strncmp(rsp_buf, "OK", 2) != 0)
     {
-        LE_ERROR("SAVE_CONFIG command failed");
-        return LE_FAULT;
-    }
-
-    if (strncmp(rsp_buf, "OK", strlen("OK")) != 0)
-    {
-        LE_ERROR("SAVE_CONFIG command returned: %s", rsp_buf);
+        LE_ERROR("SAVE_CONFIG failed or returned: %s", rsp_buf);
         return LE_FAULT;
     }
 
@@ -3505,96 +3172,55 @@ le_result_t taf_WlanSTASvcImpl::SaveNetworkConfig(
 //--------------------------------------------------------------------------------------------------
 void taf_WlanSTASvcImpl::Init()
 {
-    // Initialize to nullptr
-    wlanSTAMgr = nullptr;
-
-    auto &wlanFactory = telux::wlan::WlanFactory::getInstance();
-    wlanSTAMgr = wlanFactory.getStaInterfaceManager();
-    if (wlanSTAMgr == nullptr)
-    {
-        // Unable to initialize the WLAN STA subsystem. Stop the service.
-        LE_FATAL(" *** Unable to initialize Wlan STA subsystem *** ");
-    }
-
-    // Register the Listener class shared object
-    wlanSTAListener = std::make_shared<taf_WlanSTAListener>();
-    telux::common::ErrorCode retCode = wlanSTAMgr->registerListener(wlanSTAListener);
-    if (telux::common::ErrorCode::SUCCESS != retCode)
-    {
-        LE_WARN("WLAN STA registerListener failed: %d", static_cast<int>(retCode));
-    }
-
-    // Initiate the STA context pool.
-    STACtxPoolRef = le_mem_InitStaticPool(tafWlanStaCtxPool,TAF_WLAN_MAX_NUM_STA,sizeof(StaCtx_t));
-
-    // Create the STA context list mutex.
+    // STA contexts pool and mutex
+    STACtxPoolRef = le_mem_InitStaticPool(tafWlanStaCtxPool, TAF_WLAN_MAX_NUM_STA, sizeof(StaCtx_t));
     STACtxMutex = le_mutex_CreateNonRecursive("STACtxMutex");
-
-    // Create reference map for Station context(s)
     StaRefMap = le_ref_CreateMap("StaRefMap", TAF_WLAN_MAX_NUM_STA);
 
-    // Create contexts for support Stations
-    StaCtx_t *staCtxPtr = NULL;
-    taf_wlanSta_WlanSTARef_t staRef = NULL;
-    std::string eventName;
-    for (int iCount = 1; iCount <= TAF_WLAN_MAX_NUM_STA; iCount++)
+    // Create contexts and per-STA resources
+    for (int i = 1; i <= TAF_WLAN_MAX_NUM_STA; ++i)
     {
-        staCtxPtr = NULL;
-        staRef = NULL;
-        staCtxPtr = (StaCtx_t *)le_mem_ForceAlloc(STACtxPoolRef);
-        if (NULL == staCtxPtr)
-        {
-            LE_FATAL("Unable to allocate staCtxPtr for STA ID: %d", iCount);
-        }
-        // Set STA ID.
-        staCtxPtr->id = static_cast<taf_wlan_STAid_t>(iCount);
-        // NULL terminate Interface name string.
-        staCtxPtr->IntfName[0] = 0;
-        // Create reference for this context
-        staRef = (taf_wlanSta_WlanSTARef_t)le_ref_CreateRef(StaRefMap, (void *)staCtxPtr);
-        if (NULL == staRef)
-        {
-            LE_FATAL("Unable to allocate reference for STA ID: %d", iCount);
-        }
+        StaCtx_t *staCtxPtr = (StaCtx_t *)le_mem_ForceAlloc(STACtxPoolRef);
+        if (!staCtxPtr)
+            LE_FATAL("Unable to allocate StaCtx for STA ID: %d", i);
+
+        staCtxPtr->id = static_cast<taf_wlan_STAid_t>(i);
+        staCtxPtr->IntfName[0] = '\0';
+        staCtxPtr->numScannedAPs = 0;
+        memset(staCtxPtr->ApInfo, 0, sizeof(staCtxPtr->ApInfo));
+        memset(&staCtxPtr->ApInfoConnect, 0, sizeof(staCtxPtr->ApInfoConnect));
+
+        taf_wlanSta_WlanSTARef_t staRef = (taf_wlanSta_WlanSTARef_t)le_ref_CreateRef(StaRefMap, (void *)staCtxPtr);
+        if (!staRef)
+            LE_FATAL("Unable to create ref for STA ID: %d", i);
         staCtxPtr->staRef = staRef;
 
-        // Create STA event for applications.
-        eventName.clear();
-        eventName = "StaStateEvent-" + staCtxPtr->id;
-        staCtxPtr->StaEvent = le_event_CreateIdWithRefCounting(eventName.c_str());
+        // Per-STA state change event
+        std::string evtName = "StaStateEvent-" + std::to_string(staCtxPtr->id);
+        staCtxPtr->StaEvent = le_event_CreateIdWithRefCounting(evtName.c_str());
 
-        // Queue this STA context
         le_dls_Queue(&STACtxList, &staCtxPtr->link);
 
-        // Create a connected AP signal monitoring class object.
+        // Create signal-strength monitor object for this STA
         sigStrengthMonitorRefMap_[staCtxPtr->id] =
-                    std::make_shared<taf_WlanStaConnectedApSignalStrengthMonitor>(staCtxPtr->id);
-
-        LE_DEBUG("Context created for STA ID: %d", staCtxPtr->id);
+            std::make_shared<taf_WlanStaConnectedApSignalStrengthMonitor>(staCtxPtr->id);
     }
 
-    // Memory for STA events
-    StaEventsPoolRef = le_mem_InitStaticPool(StaEventsPool, TAF_WLAN_MAX_SESSION_REF,
-                                                          sizeof(StaEvents_t));
-
-    // Mutex for STA events
+    // STA events pool and mutex
+    StaEventsPoolRef = le_mem_InitStaticPool(StaEventsPool, TAF_WLAN_MAX_SESSION_REF, sizeof(StaEvents_t));
     STAEventsMutexRef = le_mutex_CreateNonRecursive("STAEventsMutex");
 
-    // Create internal STA command event ref
+    // Internal STA command event and thread
     staCommand_ = le_event_CreateId("staCommand_", sizeof(StaCmd_t));
-    // Start Sta events thread
-    staCmdThreadRef_ = le_thread_Create("StaCmdThread", StaCmdThreadHdlr,NULL);
+    staCmdThreadRef_ = le_thread_Create("StaCmdThread", StaCmdThreadHdlr, NULL);
     le_thread_Start(staCmdThreadRef_);
 
-    // Start client events thread
-    staClientEventsThreadRef_ = le_thread_Create("StaEvtThread",
-                                                            staClientEventsThreadHandler, NULL);
+    // Client events thread (timers and WPA monitors run here)
+    staClientEventsThreadRef_ = le_thread_Create("StaEvtThread", staClientEventsThreadHandler, NULL);
     le_thread_Start(staClientEventsThreadRef_);
 
-    // Register handlers to track connected clients.
+    // Register client connect/disconnect handlers
     registerClientsConnectDisconnectHandlers();
 
     LE_INFO(" *** Wlan STA Initialized *** ");
-
-    return;
 }

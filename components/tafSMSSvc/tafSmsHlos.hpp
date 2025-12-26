@@ -165,7 +165,7 @@ LE_SHARED le_result_t taf_sms_hlos_SetLockStatus(taf_sms_Storage_t storage,
  */
 //--------------------------------------------------------------------------------------------------
 LE_SHARED taf_sms_LockStatus_t taf_sms_hlos_GetLockStatus(
-    taf_sms_Storage_t storage, uint32_t index, uint8_t phoneId);
+    taf_sms_Storage_t storage, uint32_t index);
 
 //--------------------------------------------------------------------------------------------------
 /**

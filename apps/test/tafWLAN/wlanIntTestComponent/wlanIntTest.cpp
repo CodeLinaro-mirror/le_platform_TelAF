@@ -236,8 +236,33 @@ static le_result_t wlanTestSetBandIntPriority()
 
 static le_result_t wlanTestGetBandIntWaitTime()
 {
-    taf_wlan_BandIntPriority_t bandPriority = TAF_WLAN_PRIO_BAND_N79;
-    uint32_t waitTime=0;
+    taf_wlan_BandIntPriority_t bandPriority;
+    uint32_t waitTime = 0;
+
+    const char *bandStr = le_arg_GetArg(1);
+    if (NULL != bandStr)
+    {
+        // If band argument is provided, get wait time for that specific band
+        bandPriority = static_cast<taf_wlan_BandIntPriority_t>(atoi(bandStr));
+        le_result_t result = taf_wlan_GetBandIntWaitTime(NULL, bandPriority, &waitTime);
+        if (LE_OK == result)
+        {
+            LE_TEST_INFO("taf_wlan_GetBandIntWaitTime succeeded");
+            LE_TEST_INFO("Priority : %d", bandPriority);
+            LE_TEST_INFO("Wait time: %d", waitTime);
+        }
+        else
+        {
+            LE_TEST_INFO("taf_wlan_GetBandIntWaitTime failed: %d", result);
+        }
+        std::cout << "taf_wlan_GetBandIntWaitTime Return: " << result
+                  << " Band: " << bandPriority
+                  << " Wait Time: " << waitTime << std::endl;
+        return result;
+    }
+
+    // If no band argument provided, get wait times for both bands
+    bandPriority = TAF_WLAN_PRIO_BAND_N79;
     le_result_t result = taf_wlan_GetBandIntWaitTime(NULL, bandPriority, &waitTime);
     std::cout << "taf_wlan_GetBandIntWaitTime Return: " << result
               << " Band: " << bandPriority
@@ -267,7 +292,7 @@ static le_result_t wlanTestGetBandIntWaitTime()
     {
         LE_TEST_INFO("taf_wlan_GetBandIntWaitTime for WLAN 5G failed: %d", result);
     }
-    std::cout << "taf_wlan_GetBandIntWaitTime Return: "<< result
+    std::cout << "taf_wlan_GetBandIntWaitTime Return: " << result
               << " Band: " << bandPriority
               << " Wait Time: " << waitTime << std::endl;
     return result;

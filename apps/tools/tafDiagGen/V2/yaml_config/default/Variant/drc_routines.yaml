@@ -29,4 +29,13 @@ routines_all:
       sub_function: [ 0x01, 0x02, 0x03 ]
       control_option_record:
         start: Base4
-        stop: 
+        stop:
+  0x0249:
+    identifier: 0x0249
+    execution_authorization_pattern: secured_configuration
+    request:
+      sub_function: [ 0x01, 0x02, 0x03 ]
+      control_option_record:
+        start:
+        stop:
+        result:

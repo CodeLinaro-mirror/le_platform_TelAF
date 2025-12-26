@@ -674,17 +674,15 @@ void UdsCommunicationMgr::S3TimeoutHandler
         return;
     }
 
-    le_sem_Ref_t SecAccSem = le_sem_Create("sync", 0);
-
     LE_INFO("report -> SESSION_TIMEOUT_SIG");
     SecAccReport_t report = {
         .type = SESSION_TIMEOUT_SIG,
-        .sem = SecAccSem,
+        .sem = NULL,
         .mgr = udsCmMgr,
+        .semName = "timerSem"
     };
-    le_event_Report(SecAccEventIdRef, &report, sizeof(report));
 
-    le_sem_Wait(SecAccSem);
+    le_event_Report(SecAccEventIdRef, &report, sizeof(report));
 
     IndicateWhenChangingToDefault(ifName);
 }
@@ -2669,8 +2667,11 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED_IN_ACTIVE_SESSION, addrInfoPtr); // NRC 0x7E
     }
 
-    le_sem_Ref_t SecAccSem = le_sem_Create("sync", 0);
+    char udsIndSemName[UDS_SEC_SEM_NAME_MAX_LEN] = "udsIndSem";
+    le_sem_Ref_t SecAccSem = le_sem_Create(udsIndSemName, 0);
 
+    recvSid = recvBuf[0];
+    recvSubFunc = recvBuf[1];
     if (recvBuf[1] % 2 == 1) /* RequestSeed */
     {
         LE_INFO("report -> REQUEST_SEED_SIG (%02X)", recvBuf[1] & 0x7F);
@@ -2680,6 +2681,8 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
             .mgr = this,
             .is_internal = isInternalHandle,
         };
+
+        le_utf8_Copy(report.semName, udsIndSemName, UDS_SEC_SEM_NAME_MAX_LEN, NULL);
         le_event_Report(SecAccEventIdRef, &report, sizeof(report));
     }
     else /* SendKey: recvBuf[1] % 2 == 0 */
@@ -2691,10 +2694,12 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
             .mgr = this,
             .is_internal = isInternalHandle,
         };
+        le_utf8_Copy(report.semName, udsIndSemName, UDS_SEC_SEM_NAME_MAX_LEN, NULL);
         le_event_Report(SecAccEventIdRef, &report, sizeof(report));
     }
 
     le_sem_Wait(SecAccSem);
+    le_sem_Delete(SecAccSem);
 
     LE_INFO("[SecAcc-Return] isInternalHandle: %d, sendNRC-result: %d",
             *isInternalHandle, (int) this->remoteError);
@@ -4270,7 +4275,8 @@ void UdsCommunicationMgr::DiagIndicationHandler
 
         if (udsCmMgr->SessionType != DEFAULT_SESSION)
         {
-            le_sem_Ref_t SecAccSem = le_sem_Create("sync", 0);
+            char udsIndSemName[UDS_SEC_SEM_NAME_MAX_LEN] = "udsIndSem";
+            le_sem_Ref_t SecAccSem = le_sem_Create(udsIndSemName, 0);
 
             LE_INFO("report -> SESSION_CONTROL_SIG (doip-break)");
             SecAccReport_t report = {
@@ -4278,9 +4284,12 @@ void UdsCommunicationMgr::DiagIndicationHandler
                 .sem = SecAccSem,
                 .mgr = udsCmMgr,
             };
+
+            le_utf8_Copy(report.semName, udsIndSemName, UDS_SEC_SEM_NAME_MAX_LEN, NULL);
             le_event_Report(SecAccEventIdRef, &report, sizeof(report));
 
             le_sem_Wait(SecAccSem);
+            le_sem_Delete(SecAccSem);
         }
 
         IndicateWhenChangingToDefault(addrInfoPtr->ifName);
@@ -5177,7 +5186,10 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
                         });
         if (it != session_mapping.end())
         {
-            le_sem_Ref_t SecAccSem = le_sem_Create("sync", 0);
+            char mainSemName[UDS_SEC_SEM_NAME_MAX_LEN] = "mSem";
+            snprintf(mainSemName, sizeof(mainSemName)-1, "mSem-%d-%d", vlanId, mainSemCnt);
+            mainSemCnt++;
+            le_sem_Ref_t SecAccSem = le_sem_Create(mainSemName, 0);
 
             LE_INFO("report -> SESSION_CONTROL_SIG (d-tool)");
             SecAccReport_t report = {
@@ -5185,9 +5197,21 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
                 .sem = SecAccSem,
                 .mgr = this,
             };
+
+            le_utf8_Copy(report.semName, mainSemName, UDS_SEC_SEM_NAME_MAX_LEN, NULL);
             le_event_Report(SecAccEventIdRef, &report, sizeof(report));
 
-            le_sem_Wait(SecAccSem);
+            le_clk_Time_t time = {SEC_ACC_TIME_TO_WAIT, 0};
+            le_result_t ret = le_sem_WaitWithTimeOut(SecAccSem, time);
+
+            if (ret != LE_OK)
+            {
+                LE_ERROR("SecAcc thread timeout");
+                le_sem_Delete(SecAccSem);
+                return LE_TIMEOUT;
+            }
+
+            le_sem_Delete(SecAccSem);
         }
         else
         {
@@ -5220,7 +5244,40 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
         sesChangeMsg.dataLen = UDS_SESSION_CHANGE_DATA_SIZE;
         udsHandler->funcPtr(&addrInfo, &sesChangeMsg, TAF_DOIP_RESULT_OK, udsHandler->ctxPtr);
     }
+    else
+    {
+        //Non-deafult session switched to itself
+        if(newSessionType != DEFAULT_SESSION)
+        {
+            char mainSemName[UDS_SEC_SEM_NAME_MAX_LEN] = "mSem";
+            snprintf(mainSemName, sizeof(mainSemName)-1, "mSem-%d-%d", vlanId, mainSemCnt);
+            mainSemCnt++;
+            le_sem_Ref_t SecAccSem = le_sem_Create(mainSemName, 0);
 
+            LE_INFO("report -> SESSION_CONTROL_SIG (d-tool relock)");
+            SecAccReport_t report = {
+                .type = SESSION_CONTROL_SIG,
+                .sem = SecAccSem,
+                .mgr = this,
+            };
+
+            le_utf8_Copy(report.semName, mainSemName, UDS_SEC_SEM_NAME_MAX_LEN, NULL);
+            le_event_Report(SecAccEventIdRef, &report, sizeof(report));
+
+            le_clk_Time_t time = {SEC_ACC_TIME_TO_WAIT, 0};
+            le_result_t ret = le_sem_WaitWithTimeOut(SecAccSem, time);
+
+            if (ret != LE_OK)
+            {
+                LE_ERROR("SecAcc thread timeout");
+                le_sem_Delete(SecAccSem);
+                return LE_TIMEOUT;
+            }
+
+            le_sem_Delete(SecAccSem);
+
+        }
+    }
 out:
     // Fill the response data to send the session response msg to DTool
     sendBuf[0] = SESSION_CONTROL_RESPONSE_ID;
@@ -5370,7 +5427,10 @@ le_result_t UdsCommunicationMgr::SecurityAccessResp
 
     uint8_t securityAccessType = recvBuf[1] & 0x7F;
 
-    le_sem_Ref_t SecAccSem = le_sem_Create("sync", 0);
+    char mainSemName[UDS_SEC_SEM_NAME_MAX_LEN] = "mSem";
+    snprintf(mainSemName, sizeof(mainSemName)-1, "mSem-%d-%d", vlanId, mainSemCnt);
+    mainSemCnt++;
+    le_sem_Ref_t SecAccSem = le_sem_Create(mainSemName, 0);
 
     if (securityAccessType % 2 != 0) /* Request Seed */
     {
@@ -5380,6 +5440,8 @@ le_result_t UdsCommunicationMgr::SecurityAccessResp
             .sem = SecAccSem,
             .mgr = this,
         };
+
+        le_utf8_Copy(report.semName, mainSemName, UDS_SEC_SEM_NAME_MAX_LEN, NULL);
         le_event_Report(SecAccEventIdRef, &report, sizeof(report));
     }
     else /* Send Key */
@@ -5390,10 +5452,22 @@ le_result_t UdsCommunicationMgr::SecurityAccessResp
             .sem = SecAccSem,
             .mgr = this,
         };
+
+        le_utf8_Copy(report.semName, mainSemName, UDS_SEC_SEM_NAME_MAX_LEN, NULL);
         le_event_Report(SecAccEventIdRef, &report, sizeof(report));
     }
 
-    le_sem_Wait(SecAccSem);
+    le_clk_Time_t time = {SEC_ACC_TIME_TO_WAIT, 0};
+    le_result_t ret = le_sem_WaitWithTimeOut(SecAccSem, time);
+
+    if (ret != LE_OK)
+    {
+        LE_ERROR("SecAcc thread timeout");
+        le_sem_Delete(SecAccSem);
+        return LE_TIMEOUT;
+    }
+
+    le_sem_Delete(SecAccSem);
     LE_INFO("[SecAcc] -> D-Tool");
 
     if (POSITIVE_RESPONSE != this->nrcCode)
@@ -6254,6 +6328,15 @@ bool UdsCommunicationMgr::IsTotalLengthCheckValid
             return false;
         }
     }
+    //tafDiagGenTool always returns NULL for V1, don't check it.
+#ifndef LE_CONFIG_DIAG_FEATURE_A
+    else
+    {
+        //If data record is empty in yaml but present in UDS request, send NRC 0x13.
+        LE_DEBUG("The Option record config of Subfunction 0x%x RID: 0x%x is empty.", subFunc, rid);
+        return false;
+    }
+#endif
     return true;
 }
 

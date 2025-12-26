@@ -6,14 +6,22 @@ provides:
     }
 }
 
+ldflags:
+{
+    -L$TELAF_DEFAULT_PA_LIB_DIR/lib
+}
+
 requires:
 {
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
-        $TELAF_PA_DEFAULT/component/taf_pa_voicecallDef
-        // stub component only for build purpose
-        $LEGATO_BUILD/stub/component/taf_pa_voicecall
+    }
+
+    lib:
+    {
+        libComponent_taf_pa_voicecall.so
+        libComponent_taf_pa_voicecallDef.so
     }
 }
 
@@ -21,7 +29,8 @@ cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
-	-I$TELAF_PA_DEFAULT/include
+    -I$TELAF_PA_DEFAULT/include
+    -std=c++17
 }
 
 sources:

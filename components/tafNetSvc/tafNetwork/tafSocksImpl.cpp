@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -9,9 +9,10 @@
 #include <string>
 #include <memory>
 #include "tafSocksImpl.hpp"
+#include "taf_pa_socks.hpp"
+#include "tafNetUtility.hpp"
 #include "tafSvcIF.hpp"
 
-#define ENABLE_SOCKS_TIMEOUT 30
 #define ENABLE_SOCKS_MAX_NUMBER_AT_THE_SAME_TIME 1
 
 using namespace tafsvc;
@@ -37,60 +38,12 @@ le_event_Id_t taf_Socks::socksEvId = nullptr;
 ======================================================================*/
 void taf_Socks::Init(void)
 {
-    bool isReady = false;
 
-    // 1. Get the DataFactory and socksManager instances
-    if (socksManager == nullptr)
-    {
-        auto &dataFactory = telux::data::DataFactory::getInstance();
-//SA415 using old telsdk,without initCb parameter
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-        auto initCb = std::bind(&taf_Socks::onInitComplete, this, std::placeholders::_1);
+    le_result_t isReady = LE_OK;
 
-        socksManager = dataFactory.getSocksManager(telux::data::OperationType::DATA_LOCAL, initCb);
-#else
-        socksManager = dataFactory.getSocksManager(telux::data::OperationType::DATA_LOCAL);
-#endif
-    }
+    isReady =  PA_TO_LE_RESULT(taf_pa_socks_Init());
 
-    if(socksManager == nullptr )
-    {
-        LE_INFO("Socks manager initialize error...");
-        return ;
-    }
-
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-    // 2. Check subsystem status
-    std::unique_lock<std::mutex> lck(mMutex);
-
-    telux::common::ServiceStatus subSystemStatus = socksManager->getServiceStatus();
-
-    if (subSystemStatus == telux::common::ServiceStatus::SERVICE_UNAVAILABLE)
-    {
-        LE_INFO("Socks manager initialize...");
-        conVar.wait(lck, [this]{return this->IsSubSystemStatusUpdated;});
-        subSystemStatus = socksManager->getServiceStatus();
-    }
-
-    //At this point, initialization should be either AVAILABLE or Failure
-    if (subSystemStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
-    {
-        LE_ERROR("Socks Manager initialization failed");
-        socksManager = nullptr;
-        return ;
-    }
-#endif
-
-    isReady = socksManager->isSubsystemReady();
-
-    if(isReady == false)
-    {
-        LE_INFO("Socks component is not ready, wait for it unconditionally...");
-        std::future<bool> readyFunc = socksManager->onSubsystemReady();
-        isReady = readyFunc.get();
-    }
-
-    if(isReady)
+    if(isReady == LE_OK)
     {
         LE_INFO("socksManager component is ready...");
     }
@@ -98,6 +51,7 @@ void taf_Socks::Init(void)
     {
         LE_CRIT("unable to init socksManager component!");
     }
+
 
     // 3. Initiate the memory pool
     HandlerMappingPool = le_mem_InitStaticPool(HandlerMappingPool, TAF_NET_SOCKSV5_MAX_MAPPING_POOL,
@@ -176,8 +130,7 @@ void taf_Socks::SocksEvtHandler(void* cmdReqPtr)
     switch(cmdReq->event)
     {
         case EVT_ENABLE_SOCKS_ASYNC_CALLBACK:
-            if (cmdReq->errorCode != telux::common::ErrorCode::SUCCESS &&
-                cmdReq->errorCode != telux::common::ErrorCode::NO_EFFECT)
+            if (cmdReq->errorCode != LE_OK)
             {
                 LE_ERROR( "ENABLE_SOCKS_ASYNC_EVT failed with errorCode: %d ",
                            static_cast<int>(cmdReq->errorCode));
@@ -201,8 +154,7 @@ void taf_Socks::SocksEvtHandler(void* cmdReqPtr)
 
         break;
         case EVT_DISABLE_SOCKS_ASYNC_CALLBACK:
-            if (cmdReq->errorCode != telux::common::ErrorCode::SUCCESS &&
-                cmdReq->errorCode != telux::common::ErrorCode::NO_EFFECT)
+            if (cmdReq->errorCode != LE_OK)
             {
                 LE_ERROR( "DISABLE_SOCKS_ASYNC_EVT failed with errorCode: %d ",
                            static_cast<int>(cmdReq->errorCode));
@@ -358,78 +310,6 @@ void* taf_Socks::SocksCmdThread(void* contextPtr)
 
 /*======================================================================
 
- FUNCTION        tafSocksCallback::enableSocksResponse
-
- DESCRIPTION     Call back function for enabling SOCKS.
-
- DEPENDENCIES    The initialization of Socks.
-
- PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
-
- RETURN VALUE    None.
-
-======================================================================*/
-void tafSocksCallback::enableSocksResponse(telux::common::ErrorCode error)
-{
-    auto &tafSocks = taf_Socks::GetInstance();
-    le_result_t result = LE_OK;
-
-    if (error == telux::common::ErrorCode::NO_EFFECT)
-    {
-        LE_INFO("NO_EFFECT");
-        result = LE_OK;
-    }
-    else if (error != telux::common::ErrorCode::SUCCESS)
-    {
-        LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
-        result = LE_FAULT;
-    }
-    else
-    {
-        LE_DEBUG("Request processed successfully \n");
-    }
-
-    tafSocks.EnableSocksSyncPromise.set_value(result);
-}
-
-/*======================================================================
-
- FUNCTION        tafSocksCallback::disableSocksResponse
-
- DESCRIPTION     Call back function for disabling SOCKS.
-
- DEPENDENCIES    The initialization of Socks.
-
- PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
-
- RETURN VALUE    None.
-
-======================================================================*/
-void tafSocksCallback::disableSocksResponse(telux::common::ErrorCode error)
-{
-    auto &tafSocks = taf_Socks::GetInstance();
-    le_result_t result = LE_OK;
-
-    if (error == telux::common::ErrorCode::NO_EFFECT)
-    {
-        LE_INFO("NO_EFFECT");
-        result = LE_OK;
-    }
-    else if (error != telux::common::ErrorCode::SUCCESS)
-    {
-        LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
-        result = LE_FAULT;
-    }
-    else
-    {
-        LE_DEBUG("Request processed successfully \n");
-    }
-
-    tafSocks.DisableSocksSyncPromise.set_value(result);
-}
-
-/*======================================================================
-
  FUNCTION        tafSocksCallback::enableSocksAsyncResponse
 
  DESCRIPTION     Call back function for enabling SOCKS asynchronously.
@@ -441,13 +321,15 @@ void tafSocksCallback::disableSocksResponse(telux::common::ErrorCode error)
  RETURN VALUE    None.
 
 ======================================================================*/
-void tafSocksCallback::enableSocksAsyncResponse(telux::common::ErrorCode error)
+void tafSocksCallback::enableSocksAsyncResponse(pa_result_t error,void *contextPtr)
 {
     auto &tafSocks = taf_Socks::GetInstance();
     taf_SocksEventType_t socksEvent;
+    LE_UNUSED(contextPtr);
+    le_result_t le_error = PA_TO_LE_RESULT(error);
 
     socksEvent.event         = EVT_ENABLE_SOCKS_ASYNC_CALLBACK;
-    socksEvent.errorCode     = error;
+    socksEvent.errorCode     = le_error;
 
     le_event_Report(tafSocks.socksEvId, &socksEvent,sizeof(taf_SocksEventType_t));
 }
@@ -465,38 +347,18 @@ void tafSocksCallback::enableSocksAsyncResponse(telux::common::ErrorCode error)
  RETURN VALUE    None.
 
 ======================================================================*/
-void tafSocksCallback::disableSocksAsyncResponse(telux::common::ErrorCode error)
+void tafSocksCallback::disableSocksAsyncResponse(pa_result_t error,void *contextPtr)
 {
     auto &tafSocks = taf_Socks::GetInstance();
     taf_SocksEventType_t socksEvent;
+    LE_UNUSED(contextPtr);
+    le_result_t le_error = PA_TO_LE_RESULT(error);
 
     socksEvent.event         = EVT_DISABLE_SOCKS_ASYNC_CALLBACK;
-    socksEvent.errorCode     = error;
+    socksEvent.errorCode     = le_error;
 
     le_event_Report(tafSocks.socksEvId, &socksEvent,sizeof(taf_SocksEventType_t));
 }
-
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-/*======================================================================
-
- FUNCTION        taf_Socks::onInitComplete
-
- DESCRIPTION     Call back function of socksManager.
-
- DEPENDENCIES    The initialization of Socks.
-
- PARAMETERS      [IN] telux::common::ServiceStatus status : Socks manager service status.
-
- RETURN VALUE    None
-
-======================================================================*/
-void taf_Socks::onInitComplete(telux::common::ServiceStatus status)
-{
-    std::lock_guard<std::mutex> lock(mMutex);
-    IsSubSystemStatusUpdated = true;
-    conVar.notify_all();
-}
-#endif
 
 /*======================================================================
 
@@ -517,35 +379,8 @@ void taf_Socks::onInitComplete(telux::common::ServiceStatus status)
 le_result_t taf_Socks::EnableSocksCmdSync()
 {
     le_result_t result;
-    std::chrono::seconds span(ENABLE_SOCKS_TIMEOUT);
-    TAF_ERROR_IF_RET_VAL(socksManager == NULL, LE_NOT_FOUND, "socksManager is null");
-
-    EnableSocksSyncPromise = std::promise<le_result_t>();
-    Status status = socksManager->enableSocks(true, tafSocksCallback::enableSocksResponse);
-
-    if (status == Status::SUCCESS)
-    {
-        std::future<le_result_t> futureResult = EnableSocksSyncPromise.get_future();
-        std::future_status waitStatus = futureResult.wait_for(span);
-
-        if (std::future_status::timeout == waitStatus)
-        {
-            LE_ERROR("Enable SOCKS timeout for %d seconds", ENABLE_SOCKS_TIMEOUT);
-            result = LE_TIMEOUT;
-        }
-        else
-        {
-            result = futureResult.get();
-        }
-
-        return result;
-    }
-    else
-    {
-        LE_ERROR( "ERROR - Failed to enable SOCKS, Status:%d ", static_cast<int>(status));
-        return LE_FAULT;
-    }
-
+    result = PA_TO_LE_RESULT(taf_pa_net_EnableSocksCmdSync());
+    return result;
 }
 
 /*======================================================================
@@ -567,34 +402,8 @@ le_result_t taf_Socks::EnableSocksCmdSync()
 le_result_t taf_Socks::DisableSocksCmdSync()
 {
     le_result_t result;
-    std::chrono::seconds span(ENABLE_SOCKS_TIMEOUT);
-    TAF_ERROR_IF_RET_VAL(socksManager == NULL, LE_NOT_FOUND, "socksManager is null");
-
-    DisableSocksSyncPromise = std::promise<le_result_t>();
-    Status status = socksManager->enableSocks(false, tafSocksCallback::disableSocksResponse);
-
-    if (status == Status::SUCCESS)
-    {
-        std::future<le_result_t> futureResult = DisableSocksSyncPromise.get_future();
-        std::future_status waitStatus = futureResult.wait_for(span);
-
-        if (std::future_status::timeout == waitStatus)
-        {
-            LE_ERROR("Disable SOCKS timeout for %d seconds", ENABLE_SOCKS_TIMEOUT);
-            result = LE_TIMEOUT;
-        }
-        else
-        {
-            result = futureResult.get();
-        }
-
-        return result;
-    }
-    else
-    {
-        LE_ERROR( "ERROR - Failed to disable SOCKS, Status:%d ", static_cast<int>(status));
-        return LE_FAULT;
-    }
+    result = PA_TO_LE_RESULT(taf_pa_net_DisableSocksCmdSync());
+    return result;
 
 }
 
@@ -688,31 +497,29 @@ void taf_Socks::DisableSocksCmdAsync
 ======================================================================*/
 le_result_t taf_Socks::EnableSocks(taf_SocksCmdType_t type)
 {
-    Status status = Status::SUCCESS;
-
-    TAF_ERROR_IF_RET_VAL(socksManager == NULL, LE_NOT_FOUND, "socksManager is null");
+    le_result_t result;
 
     switch(type)
     {
         case ASYNC_ENABLE_SOCKS:
-
-            status = socksManager->enableSocks(true, tafSocksCallback::enableSocksAsyncResponse);
+             result = PA_TO_LE_RESULT(taf_pa_net_EnableSocksCmdASync(tafSocksCallback::enableSocksAsyncResponse,nullptr));
         break;
+
         case ASYNC_DISABLE_SOCKS:
-
-            status = socksManager->enableSocks(false, tafSocksCallback::disableSocksAsyncResponse);
+            result = PA_TO_LE_RESULT(taf_pa_net_DisableSocksCmdASync(tafSocksCallback::disableSocksAsyncResponse,nullptr));
         break;
+
         default:
             return LE_FAULT;
     }
 
-    if (status == Status::SUCCESS)
+    if (result == LE_OK)
     {
         return LE_OK;
     }
     else
     {
-        LE_ERROR( "ERROR - Failed to enable/disable socks, Status:%d ", static_cast<int>(status));
+        LE_ERROR( "ERROR - Failed to enable/disable socks, Status:%d ", static_cast<int>(result));
         return LE_FAULT;
     }
 }

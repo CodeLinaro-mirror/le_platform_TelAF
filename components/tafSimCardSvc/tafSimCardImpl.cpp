@@ -49,6 +49,51 @@ static taf_sim_info_t simList[TAF_SIM_ID_MAX];
 static int fplmnListIndex = 0;
 static taf_sim_FPLMNListRef_t fplmnListRefs = nullptr;
 
+taf_pa_common_LogLevel_t Utility::Convert::Level
+(
+    le_log_Level_t level
+)
+{
+    switch (level)
+    {
+        case LE_LOG_DEBUG:
+            return TAF_PA_COMMON_LOG_LEVEL_DEBUG;
+        case LE_LOG_INFO:
+            return TAF_PA_COMMON_LOG_LEVEL_INFO;
+        case LE_LOG_WARN:
+            return TAF_PA_COMMON_LOG_LEVEL_WARN;
+        case LE_LOG_ERR:
+            return TAF_PA_COMMON_LOG_LEVEL_ERROR;
+        case LE_LOG_CRIT:
+            return TAF_PA_COMMON_LOG_LEVEL_CRIT;
+        case LE_LOG_EMERG:
+            return TAF_PA_COMMON_LOG_LEVEL_EMERG;
+        default:
+            LE_INFO("Unknown level %d.", level);
+    }
+
+    return TAF_PA_COMMON_LOG_LEVEL_INFO;
+}
+
+le_result_t Utility::Convert::Result
+(
+    int32_t result
+)
+{
+    switch (result)
+    {
+        case TAF_PA_SIM_RESULT_OK:
+            return LE_OK;
+        case TAF_PA_SIM_RESULT_FAULT:
+            return LE_FAULT;
+        case TAF_PA_SIM_RESULT_BAD_PARAMETER:
+            return LE_BAD_PARAMETER ;
+        default:
+            LE_DEBUG("Unknown result %d.", result);
+    }
+    return LE_FAULT;
+}
+
 void tafCardListener:: onCardInfoChanged(int slotId)
 {
     LE_INFO("Card info changed for slot: %d", slotId);
@@ -160,64 +205,59 @@ void tafMultiSimListener:: onSlotStatusChanged(std::map<SlotId, telux::tel::Slot
     }
 }
 
-void tafMultiSimCallback::requestsSlotsStatusResponse(std::map<SlotId,
+void taf_sim::requestsSlotsStatusResponse(std::map<SlotId,
          telux::tel::SlotStatus> slotStatus, telux::common::ErrorCode error) {
     auto &sim = taf_sim::GetInstance();
-    if(error == telux::common::ErrorCode::SUCCESS) {
-        sim.slotCount = slotStatus.size();
-        LE_INFO("requestsSlotsStatusResponse: slotCount: %d", sim.slotCount);
-        telux::common::Status status;
-        int activeSlots = 0;
-
-        for(auto it = slotStatus.begin(); it != slotStatus.end(); ++it) {
-            auto slotStatus = it->second;
+    sim.slotCount = slotStatus.size();
+    LE_INFO("requestsSlotsStatusResponse: slotCount: %d", sim.slotCount);
+    telux::common::Status status;
+    int activeSlots = 0;
+    for(auto it = slotStatus.begin(); it != slotStatus.end(); ++it) {
+        auto slotStatus = it->second;
+        if (slotStatus.slotState == telux::tel::SlotState::ACTIVE) {
+            activeSlots++;
+        }
+    }
+    int activeSlotCount = 0;
+    sim.cardManager->getSlotCount(activeSlotCount);
+    if(activeSlotCount == 1){
+        sim.isSingleActive = true;
+    }
+    LE_INFO("activeSlotCount: %d, isSingleActive: %d", activeSlots, (int) sim.isSingleActive);
+    for(auto it = slotStatus.begin(); it != slotStatus.end(); ++it) {
+        auto slotId = it->first;
+        auto slotStatus = it->second;
+        LE_INFO("Slot: %d, slotState: %d, cardState: %d, cardError: %d", slotId,
+                (int) slotStatus.slotState, (int) slotStatus.cardState,
+                (int) slotStatus.cardError);
+        if(activeSlots == 1) {
             if (slotStatus.slotState == telux::tel::SlotState::ACTIVE) {
-                activeSlots++;
+                sim.slot = slotId;
+            }
+            if (slotStatus.cardState != telux::tel::CardState::CARDSTATE_UNKNOWN
+                && slotStatus.cardState != telux::tel::CardState::CARDSTATE_ABSENT) {
+                LE_INFO("Find card for single active in slot: %d", slotId);
+                auto card = sim.cardManager->getCard(DEFAULT_SLOT_ID, &status);
+                sim.cards[slotId] = card;
+                LE_INFO("Put card as %s in cards[%d]",
+                card == nullptr ? "null" : "non-null", slotId);
+            }
+            else {
+                sim.cards[slotId] = nullptr;
+                LE_INFO("Update card as null in cards[%d]", slotId);
             }
         }
-        int activeSlotCount = 0;
-        sim.cardManager->getSlotCount(activeSlotCount);
-        if(activeSlotCount == 1){
-            sim.isSingleActive = true;
-        }
-
-        LE_INFO("activeSlotCount: %d, isSingleActive: %d", activeSlots, (int) sim.isSingleActive);
-
-        for(auto it = slotStatus.begin(); it != slotStatus.end(); ++it) {
-            auto slotId = it->first;
-            auto slotStatus = it->second;
-            LE_INFO("Slot: %d, slotState: %d, cardState: %d, cardError: %d", slotId,
-                    (int) slotStatus.slotState, (int) slotStatus.cardState,
-                    (int) slotStatus.cardError);
-            if(activeSlots == 1) { //Single Active slot
-                if (slotStatus.slotState == telux::tel::SlotState::ACTIVE) {
-                    sim.slot = slotId;
-                }
-                if (slotStatus.cardState != telux::tel::CardState::CARDSTATE_UNKNOWN
-                        && slotStatus.cardState != telux::tel::CardState::CARDSTATE_ABSENT) {
-                    LE_INFO("Find card for single active in slot: %d", slotId);
-                    auto card = sim.cardManager->getCard(DEFAULT_SLOT_ID, &status);
-                    sim.cards[slotId] = card;
-                    LE_INFO("Put card as %s in cards[%d]",
-                            card == nullptr ? "null" : "non-null", slotId);
-                } else {
-                    sim.cards[slotId] = nullptr;
-                    LE_INFO("Update card as null in cards[%d]", slotId);
-                }
-            } else if((slotStatus.slotState == telux::tel::SlotState::ACTIVE)
+        else if((slotStatus.slotState == telux::tel::SlotState::ACTIVE)
                     && (activeSlots == 2)){
-                LE_INFO("Find card for dual active in slot: %d", slotId);
-                auto card = sim.cardManager->getCard(slotId, &status);
-                sim.cards.emplace(slotId, card);
-            } else {
-                LE_INFO("Find no card for slot: %d", slotId);
-                sim.cards.emplace(slotId, nullptr);
-            }
+            LE_INFO("Find card for dual active in slot: %d", slotId);
+            auto card = sim.cardManager->getCard(slotId, &status);
+            sim.cards.emplace(slotId, card);
         }
-     } else {
-         LE_INFO("Request slot status failed with error %d", static_cast<int>(error));
-     }
-     sim.slotStatusCbPromise.set_value(error);
+        else {
+            LE_INFO("Find no card for slot: %d", slotId);
+            sim.cards.emplace(slotId, nullptr);
+        }
+    }
 }
 
 void tafAuthenticationResponseCallback:: ChangeCardPinResponseCb(int retryCount, telux::common::ErrorCode error) {
@@ -614,17 +654,36 @@ void taf_sim::Init(void)
         if (multiSimMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
         {
             LE_INFO("Multi sim subsystem is ready.");
-            slotStatusCbPromise = std::promise<telux::common::ErrorCode>();
-            auto ret = multiSimMgr->requestSlotStatus(tafMultiSimCallback::requestsSlotsStatusResponse);
+            auto slotStatusCbPromise = std::make_shared<std::promise<telux::common::ErrorCode>>();
+            std::future<telux::common::ErrorCode> errorStatus = slotStatusCbPromise->get_future();
+            auto callback = [slotStatusCbPromise](std::map<SlotId,
+                    telux::tel::SlotStatus> slotStatus, telux::common::ErrorCode error) {
+                auto &sim = taf_sim::GetInstance();
+                if (error == telux::common::ErrorCode::SUCCESS){
+                  sim.requestsSlotsStatusResponse(slotStatus, error);
+                }
+                else {
+                    LE_ERROR("Request slot status failed with error: %d", (int)error);
+                }
+                try{
+                    slotStatusCbPromise->set_value(error);
+                }
+                catch (const std::exception &e) {
+                    LE_ERROR("Exception in UpdateProfileHandler: %s", e.what());
+                }
+            };
+            auto ret = multiSimMgr->requestSlotStatus(callback);
             if(ret != telux::common::Status::SUCCESS){
                 LE_FATAL("Request slot status failed with error: %d", (int)ret);
             }
-            telux::common::ErrorCode errorStatus = slotStatusCbPromise.get_future().get();
-            if(errorStatus == telux::common::ErrorCode::SUCCESS){
-                LE_INFO("Initialize slot card map successfully, default selected slot: %d", (int)slot);
+            try{
+                telux::common::ErrorCode errorCode = errorStatus.get();
+                if(errorCode != telux::common::ErrorCode::SUCCESS){
+                    LE_FATAL("Initialize slot card map failed with error:%d",(int)errorCode);
+                }
             }
-            if(errorStatus != telux::common::ErrorCode::SUCCESS){
-                LE_FATAL("Initialize slot card map failed with error: %d", (int)errorStatus);
+            catch (const std::exception &e) {
+                LE_ERROR("Exception in requestSlotStatus: %s", e.what());
             }
         }
         else
@@ -897,12 +956,12 @@ bool taf_sim::isValidSimId(taf_sim_Id_t simId) {
     return false;
 }
 
-void onRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* contextPtr) {
+void onRefreshEvent(taf_pa_sim_RefreshChangeInd_t ind, void* contextPtr) {
    auto &sim = taf_sim::GetInstance();
 
    LE_INFO("onRefreshEvent: contextPtr: %p", contextPtr);
 
-   sim.NotifyRefreshEvent(ind, contextPtr);
+   sim.NotifyRefreshEvent(&ind,contextPtr);
 }
 
 taf_pa_sim_SessionType_t taf_sim::ConvertTafSessionTypeToPaSessionType(taf_sim_SessionType_t sessionType) {
@@ -981,38 +1040,46 @@ void taf_sim::CheckAndSendProfileSwitchEvent() {
         taf_sim_Session_t* sessionPtr = (taf_sim_Session_t*) le_ref_GetValue(iterRef);
         if(sessionPtr == NULL) {
             LE_INFO("CheckAndSendProfileSwitchEvent sessionPtr null!");
-            result = le_ref_NextNode(iterRef);
             continue;
         }
-        // Send profile switch notification on change in iccicd
 
-        if (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV && iccid1[0] != '\0'
-              && sessionPtr->simProfileIccid1[0] != '\0')
+        LE_INFO("ClientSessionRef %p, refreshResetStart: %d", sessionPtr->clientSessionRef, (int) sessionPtr->refreshResetStart);
+
+            //Send profile switch notification.
+        if (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV)
         {
             if (strncmp(iccid1, sessionPtr->simProfileIccid1, TAF_SIM_ICCID_BYTES) != 0)
             {
-                LE_INFO("Notify: current iccid1: %s previous iccid1: %s and result: %s",
-                      iccid1, sessionPtr->simProfileIccid1,LE_RESULT_TXT(result));
+                LE_INFO("Notify: current iccid1: %s, previous iccid1: %s and result: %s", iccid1, sessionPtr->simProfileIccid1, LE_RESULT_TXT(result));
                 simRefreshEvent.refreshStatus = TAF_SIM_REFRESH_STATUS_PROFILE_SWITCH;
                 le_utf8_Copy(sessionPtr->simProfileIccid1, iccid1, TAF_SIM_ICCID_BYTES, NULL);
                 le_event_Report(sessionPtr->RefreshChangeEventId, &simRefreshEvent, sizeof(simRefreshEvent));
             }
         }
-        if (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_SEC_GW_PROV  &&
-                 sessionPtr->simProfileIccid2[0] != '\0' && iccid2[0] != '\0')
+        else if (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_SEC_GW_PROV)
         {
             if (strncmp(iccid2, sessionPtr->simProfileIccid2, TAF_SIM_ICCID_BYTES) != 0)
             {
-                LE_INFO("Notify: current iccid2: %s, previous iccid2: %s and result: %s",
-                      iccid2,sessionPtr->simProfileIccid2,LE_RESULT_TXT(result));
+                LE_INFO("Notify: current iccid2: %s, previous iccid2: %s and result: %s", iccid2, sessionPtr->simProfileIccid2, LE_RESULT_TXT(result) );
                 simRefreshEvent.refreshStatus = TAF_SIM_REFRESH_STATUS_PROFILE_SWITCH;
                 le_utf8_Copy(sessionPtr->simProfileIccid2, iccid2, TAF_SIM_ICCID_BYTES, NULL);
                 le_event_Report(sessionPtr->RefreshChangeEventId, &simRefreshEvent, sizeof(simRefreshEvent));
             }
         }
+
+        if (strncmp(iccid1, sessionPtr->simProfileIccid1, TAF_SIM_ICCID_BYTES) != 0)
+        {
+            le_utf8_Copy(sessionPtr->simProfileIccid1, iccid1, TAF_SIM_ICCID_BYTES, NULL);
+        }
+        if (strncmp(iccid2, sessionPtr->simProfileIccid2, TAF_SIM_ICCID_BYTES) != 0)
+        {
+            le_utf8_Copy(sessionPtr->simProfileIccid2, iccid2, TAF_SIM_ICCID_BYTES, NULL);
+        }
+
         result = le_ref_NextNode(iterRef);
     }
     sim.IsPsEventInProgress = false;
+
 }
 
 void taf_sim::CheckAndSendRefreshEvent(taf_sim_Id_t SimId) {
@@ -1026,7 +1093,6 @@ void taf_sim::CheckAndSendRefreshEvent(taf_sim_Id_t SimId) {
         taf_sim_Session_t* sessionPtr = (taf_sim_Session_t*) le_ref_GetValue(iterRef);
         if(sessionPtr == NULL) {
             LE_INFO("CheckAndSendRefreshEvent sessionPtr null!");
-            result = le_ref_NextNode(iterRef);
             continue;
         }
         if(isSingleActive ||
@@ -1066,13 +1132,13 @@ void taf_sim::NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* conte
             le_result_t result = CheckRefreshAllow(ind);
             if(result == LE_FAULT)
             {
-                res = taf_pa_sim_RefreshOk(ind->sessionType, false);
-                LE_INFO("Refresh_ok as false");
+                pa_result_t res = taf_pa_sim_RefreshOk(ind->sessionType, &clientRequestPtr-> refreshAllow);
+                LE_INFO("Refresh_ok as false %d", res);
             }
             else
             {
-                res = taf_pa_sim_RefreshOk(ind->sessionType, true);
-                LE_INFO("Refresh_ok as true");
+                pa_result_t res = taf_pa_sim_RefreshOk(ind->sessionType, &clientRequestPtr-> refreshAllow);
+                LE_INFO("Refresh_ok as true %d", res);
             }
             if(clientRequestPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV)
             {
@@ -1087,8 +1153,8 @@ void taf_sim::NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* conte
     }
 
     else if(ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_START && ind->refreshMode == TAF_PA_SIM_REFRESH_MODE_FCN) {
-        res = taf_pa_sim_RefreshComplete(ind->sessionType);
-        LE_INFO("RefreshComplete: result: %s", LE_RESULT_TXT(res));
+        pa_result_t res = taf_pa_sim_RefreshComplete(ind->sessionType);
+        LE_INFO("RefreshComplete: result: %d",res);
         return;
     } else if(ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_START && ind->refreshMode == TAF_PA_SIM_REFRESH_MODE_RESET) {
         LE_INFO("RefreshStart for reset mode");
@@ -1254,7 +1320,6 @@ le_result_t taf_sim::CreateSession(taf_sim_SessionType_t sessionType, taf_sim_Re
     res->refreshRegFilesSize = 0;
     res->RefreshChangeEventId = le_event_CreateId("ClientRefreshEventId", sizeof(sim_refresh_event_t));
     res->semaphore = le_sem_Create("IccidCheckSem", 0);
-
     LE_INFO("res->sessionRef %p, *reference %p", res->ref, *refreshSessionRef);
 
     string iccId = "";
@@ -1366,49 +1431,73 @@ le_result_t taf_sim::SetRefreshAllow(taf_sim_RefreshRef_t refreshSessionRef, boo
         LE_INFO("PA File_id: %d and path_len: %d", refreshPAFiles[i].file_id, refreshPAFiles[i].path_len);
     }
 
-    le_result_t res = taf_pa_sim_RefreshRegister(ConvertTafSessionTypeToPaSessionType(clientRequestPtr->sessionType),
+    pa_result_t res = taf_pa_sim_RefreshRegister(ConvertTafSessionTypeToPaSessionType(clientRequestPtr->sessionType),
             clientRequestPtr->refreshRegFilesSize,
             refreshPAFiles);
+    le_result_t result =Utility::Convert::Result(res);
 
-    LE_INFO("Refresh register done: result: %s", LE_RESULT_TXT(res));
+    LE_INFO("Refresh register done: result: %d", res);
 
     clientRequestPtr->refreshAllow = isRefreshAllowed;
-    return res;
+    return result;
 }
 
 le_result_t taf_sim::selectSimSlot(taf_sim_Id_t simId) {
-    auto ret = LE_OK;
-    auto isInputValid = isValidSimId(simId);
+    if (!isValidSimId(simId)) {
+        LE_WARN("Invalid simId: %d", (int)simId);
+        return LE_FAULT;
+    }
+
+    if (simId == TAF_SIM_UNSPECIFIED || simId == slot) {
+        LE_INFO("No slot switch needed. Requested: %d, Current: %d", (int)simId, (int)slot);
+        return LE_OK;
+    }
+
     LE_INFO("Switch slot to %d, current slot: %d", (int)simId, (int)slot);
-    if (isInputValid
-                && (slot != simId)
-                && (simId != TAF_SIM_UNSPECIFIED)
-                && isSingleActive) {
-        auto cbPromise = std::promise<telux::common::ErrorCode>();
-        multiSimMgr->switchActiveSlot(SlotId((int)simId), [&](telux::common::ErrorCode error){
-            cbPromise.set_value(error);
+    if (isSingleActive) {
+        auto cbPromise = std::make_shared<std::promise<telux::common::ErrorCode>>();
+        multiSimMgr->switchActiveSlot(SlotId((int)simId), [cbPromise](telux::common::ErrorCode error){
+        try {
+            cbPromise->set_value(error);
+        }
+        catch (const std::future_error &e) {
+            LE_ERROR("Promise already satisfied or broken: %s", e.what());
+        }
         });
-        telux::common::ErrorCode errorStatus = cbPromise.get_future().get();
-        if (errorStatus == telux::common::ErrorCode::SUCCESS
-                || errorStatus == telux::common::ErrorCode::NO_EFFECT){
-            LE_INFO("Select slot: %d successfully", (int)simId);
-            slot = simId;
-        } else {
-            LE_ERROR("Active slot: %d failed with error: %d", (int)simId, (int)errorStatus);
-            ret = LE_FAULT;
+        try {
+            std::future<telux::common::ErrorCode> future = cbPromise->get_future();
+            if (future.wait_for(std::chrono::seconds(DEFAULT_TIMEOUT_IN_SECONDS)) ==
+                  std::future_status::ready) {
+                    telux::common::ErrorCode errorStatus = future.get();
+                    if (errorStatus == telux::common::ErrorCode::SUCCESS ||
+                        errorStatus == telux::common::ErrorCode::NO_EFFECT)
+                        {
+                            LE_INFO("Select slot: %d successfully", (int)simId);
+                            slot = simId;
+                            return LE_OK;
+                        } else {
+                            LE_ERROR("Failed to switch to slot %d. Error: %d", int(simId), (int)errorStatus);
+                            return LE_FAULT;
+                        }
+                    }
+            else {
+                LE_ERROR("Timeout waiting for slot switch response");
+                return LE_TIMEOUT;
+            }
+        }
+        catch (const std::future_error &e) {
+            LE_ERROR("Future error while getting result: %s", e.what());
+            return LE_FAULT;
+        }
+        catch (const std::exception &e) {
+            LE_ERROR("Exception while getting future result: %s", e.what());
+            return LE_FAULT;
         }
     }
-    if (isInputValid
-                && (slot != simId)
-                && (simId != TAF_SIM_UNSPECIFIED)
-                && !isSingleActive) {
+    else {
         slot = simId;
+        return LE_OK;
     }
-    if(!isInputValid){
-        LE_WARN("Invalid simId: %d", (int)simId);
-        ret = LE_FAULT;
-    }
-    return ret;
 }
 
 void taf_sim::InitializeSimInfo(std::shared_ptr<telux::tel::ISubscription> subscription,
@@ -2204,14 +2293,27 @@ le_result_t taf_sim::SetPower(taf_sim_Id_t simId, le_onoff_t powerState)
     }
 
     SlotId slotId_for_card = SlotId(ICard->getSlotId());
-    std::promise<telux::common::ErrorCode> p;
-    telux::common::ResponseCallback setPowerResponseCb = [&p]
-            (telux::common::ErrorCode error) {p.set_value(error);};
+    auto p = std::make_shared<std::promise<telux::common::ErrorCode>>();
+    telux::common::ResponseCallback setPowerResponseCb = [p](telux::common::ErrorCode error) {
+        try
+        {
+            p->set_value(error);
+        }
+        catch (const std::future_error &e) {
+            LE_ERROR("Promise already satisfied or broken: %s", e.what());
+        }
+    };
     status = (powerState==LE_OFF)?cardManager->cardPowerDown(slotId_for_card, setPowerResponseCb):
             cardManager->cardPowerUp(slotId_for_card, setPowerResponseCb);
     if(status == Status::SUCCESS)
     {
-        telux::common::ErrorCode error = p.get_future().get();
+        auto future = p->get_future();
+        std::future_status waitStatus = future.wait_for(std::chrono::seconds(DEFAULT_TIMEOUT_IN_SECONDS));
+        if (waitStatus == std::future_status::timeout) {
+            LE_ERROR("Timeout waiting for response");
+            return LE_TIMEOUT ;
+        }
+        telux::common::ErrorCode error =future.get();
         if(error == ErrorCode::SUCCESS)
         {
             return LE_OK;
@@ -2245,34 +2347,59 @@ le_result_t taf_sim::Reset(taf_sim_Id_t simId)
 
 le_result_t taf_sim::IsEmergencyCallSubscriptionSelected(taf_sim_Id_t simId, bool* isEs){
     *isEs = false;
-    std::chrono::seconds span(DEFAULT_TIMEOUT_IN_SECONDS);
     if(selectSimSlot(simId) != LE_OK){
         LE_INFO("Invalid sim identifier given");
         return LE_BAD_PARAMETER;
     }
+    auto profileSyncPromise = std::make_shared<std::promise<le_result_t>>();
+    auto responseCb = [profileSyncPromise](const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles, telux::common::ErrorCode errorCode) {
+        le_result_t result = LE_FAULT;
+        auto &sim = taf_sim::GetInstance();
+        if (errorCode == telux::common::ErrorCode::SUCCESS) {
+            if (profiles.size() == 0) {
+                LE_INFO("Profiles List is empty");
+                result = LE_FAULT;
+            }
+            else {
+                bool active = false;
+                for (auto &profile : profiles) {
+                    if (profile && profile->getType() == telux::tel::ProfileType::EMERGENCY) {
+                        active |= profile->isActive();
+                        sim.isEcs = profile->isActive();
+                        result = LE_OK;
+                        break;
+                    }
+                }
+            }
+        }
+        else {
+            LE_INFO("Profile list retrieval failed with errorCode : %d", static_cast<int>(errorCode));
+            result = LE_FAULT;
+        }
+        try {
 
-    ProfileSyncPromise = std::promise<le_result_t>();
-
-    std::shared_ptr<tafSimProfileCallback> profileListCb = std::make_shared<tafSimProfileCallback>();
-
-    auto responseCb = std::bind(&tafSimProfileCallback::profileListCallBack, profileListCb, std::placeholders::_1, std::placeholders::_2);
-
+            profileSyncPromise->set_value(result);
+        }
+        catch (const std::future_error &e) {
+            LE_ERROR("Promise already satisfied or broken: %s", e.what());
+        }
+    };
     telux::common::Status status = simProfileManager->requestProfileList((SlotId)slot, responseCb);
-
     if(status == telux::common::Status::SUCCESS){
         LE_INFO("Request profile list sent successfully");
-        std::future<le_result_t> futureResult = ProfileSyncPromise.get_future();
+        std::chrono::seconds span(DEFAULT_TIMEOUT_IN_SECONDS);
+        std::future<le_result_t> futureResult = profileSyncPromise->get_future();
         std::future_status waitStatus = futureResult.wait_for(span);
         if(std::future_status::timeout == waitStatus){
             LE_INFO("Unable to read profile list");
             return LE_NOT_FOUND;
         }
-        le_result_t futureResultVal = futureResult.get();
-        if(futureResultVal == LE_OK){
+        le_result_t result = futureResult.get();
+        if(result == LE_OK){
             *isEs = isEcs;
             return LE_OK;
         }
-        if(futureResultVal == LE_NOT_FOUND)
+        if(result  == LE_NOT_FOUND)
         {
             LE_INFO("Unable to determine active profile");
             return LE_NOT_FOUND;
@@ -2280,38 +2407,6 @@ le_result_t taf_sim::IsEmergencyCallSubscriptionSelected(taf_sim_Id_t simId, boo
     }
     LE_INFO("isEmergencyProfileSelected failed ");
     return LE_FAULT;
-}
-
-void tafSimProfileCallback::profileListCallBack(const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles, telux::common::ErrorCode errorCode)
-{
-    auto &sim = taf_sim::GetInstance();
-    if(errorCode == telux::common::ErrorCode::SUCCESS){
-        if(profiles.size() == 0){
-            LE_INFO("Profiles List is empty");
-            sim.ProfileSyncPromise.set_value(LE_FAULT);
-            return;
-        }
-        bool active=false;
-        for(auto &profile:profiles){
-            if(profile){
-                active |= profile->isActive();
-                if(profile->getType() == telux::tel::ProfileType::EMERGENCY){
-                    sim.isEcs=profile->isActive();
-                    sim.ProfileSyncPromise.set_value(LE_OK);
-                    return;
-                }
-            }
-        }
-        if(!active){
-            sim.ProfileSyncPromise.set_value(LE_NOT_FOUND);
-            return;
-        }
-        LE_INFO("telux::tel::ProfileType::EMERGENCY not found");
-        sim.ProfileSyncPromise.set_value(LE_FAULT);
-        return;
-    }
-    LE_INFO("profile list retrieval failed with errorCode : %d", static_cast<int>(errorCode));
-    sim.ProfileSyncPromise.set_value(LE_FAULT);
 }
 
 le_result_t taf_sim::profileListCallbackEm
@@ -2336,19 +2431,43 @@ le_result_t taf_sim::profileListCallbackEm
         return LE_FAULT;
     }
     LE_INFO("EMERGENCY Profile found");
-    std::promise<telux::common::ErrorCode> p;
-    auto swapResponseCb = [&p](telux::common::ErrorCode error){p.set_value(error);};
+    auto promisePtr = std::make_shared<std::promise<telux::common::ErrorCode>>();
+    auto swapResponseCb = [promisePtr](telux::common::ErrorCode error){
+    try {
+        promisePtr->set_value(error);
+    }
+    catch (const std::future_error &e) {
+        LE_ERROR("Promise already satisfied or broken: %s", e.what());
+    }
+    };
+
     auto status = simProfileManager->setProfile((SlotId)slot,
             emergencyProfileId,
             true,
             swapResponseCb
             );
     if(status == Status::SUCCESS){
-        telux::common::ErrorCode error = p.get_future().get();
-        LE_INFO("error: %d", (int)error);
-        if(error == ErrorCode::SUCCESS) {
-            return LE_OK;
+        try {
+            auto future = promisePtr->get_future();
+            std::chrono::seconds span(DEFAULT_TIMEOUT_IN_SECONDS);
+            std::future_status waitStatus = future.wait_for(span);
+            if(std::future_status::timeout == waitStatus){
+                LE_ERROR("Timeout waiting for setProfile response");
+                return LE_TIMEOUT;
+            }
+            telux::common::ErrorCode error =future.get();
+            LE_INFO("error: %d", (int)error);
+            if(error == ErrorCode::SUCCESS) {
+                return LE_OK;
+            }
         }
+        catch (const std::exception &e) {
+            LE_ERROR("Exception while getting future result: %s", e.what());
+            return LE_FAULT;
+        }
+    }
+    else {
+        LE_ERROR("Failed for setProfile response");
     }
     LE_INFO("status : %d", (int)status);
     return LE_FAULT;
@@ -2389,12 +2508,10 @@ le_result_t taf_sim::LocalSwapToEmergencyCallSubscription
         return LE_FAULT;
     return r;
 }
-
 le_result_t taf_sim::profileListCallbackCo
 (
     const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles,
-    telux::common::ErrorCode error, SlotId simId
-)
+    telux::common::ErrorCode error, SlotId simId)
 {
     if(error != telux::common::ErrorCode::SUCCESS){
         LE_ERROR("Failed to retrieve profile list with error %d", (int)error);
@@ -2410,23 +2527,49 @@ le_result_t taf_sim::profileListCallbackCo
         LE_INFO("REGULAR profile not found");
         return LE_FAULT;
     }
-    LE_INFO("REGULAR Profile found");
-    std::promise<telux::common::ErrorCode> p;
-    auto swapResponseCb = [&p](telux::common::ErrorCode error){p.set_value(error);};
-    auto status = simProfileManager->setProfile((SlotId)slot,
-                                                regularProfileId,
-                                                true,
-                                                swapResponseCb);
-    if(status == Status::SUCCESS){
-        telux::common::ErrorCode error = p.get_future().get();
-        LE_INFO("error: %d", (int)error);
-        if(error == ErrorCode::SUCCESS) {
+
+    auto promisePtr = std::make_shared<std::promise<telux::common::ErrorCode>>();
+    auto swapResponseCb = [promisePtr](telux::common::ErrorCode error){
+        try {
+            promisePtr->set_value(error);
+        }
+        catch (const std::future_error &e) {
+            LE_ERROR("Promise error: %s", e.what());
+       }
+    };
+    auto status = simProfileManager->setProfile((SlotId)slot, regularProfileId, true, swapResponseCb);
+    if(status != telux::common::Status::SUCCESS){
+        LE_ERROR("Failed to send setProfile request");
+        return LE_FAULT;
+    }
+    try
+    {
+        auto future = promisePtr->get_future();
+        std::chrono::seconds span(DEFAULT_TIMEOUT_IN_SECONDS);
+        std::future_status waitStatus = future.wait_for(span);
+        if(std::future_status::timeout == waitStatus){
+           LE_ERROR("Timeout waiting for setProfile response");
+            return LE_TIMEOUT;
+        }
+        auto result = future.get();
+        if(result == telux::common::ErrorCode::SUCCESS){
             return LE_OK;
         }
+        else {
+            LE_ERROR("setProfile callback returned error: %d", (int)result);
+            return LE_FAULT;
+        }
     }
-    LE_INFO("status : %d", (int)status);
+    catch (const std::future_error &e) {
+        LE_ERROR("Future error while waiting for setProfile response: %s", e.what());
+        return LE_FAULT;
+    }
+    catch (const std::exception &e) {
+         LE_ERROR("Exception while getting future result: %s", e.what());
+    }
     return LE_FAULT;
 }
+
 
 le_result_t taf_sim::LocalSwapToCommercialCallSubscription
 (

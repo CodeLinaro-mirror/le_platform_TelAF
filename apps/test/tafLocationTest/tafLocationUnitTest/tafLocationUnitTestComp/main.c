@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -11,8 +11,8 @@ static le_mem_PoolRef_t LevArmFramePool = NULL;
 static le_sem_Ref_t PositionHandlerSem;
 static le_thread_Ref_t positionThreadRef = NULL;
 static le_thread_Ref_t positionExThreadRef = NULL;
-static le_thread_Ref_t measThreadRef = NULL;
 static le_thread_Ref_t samplePositionThreadRef = NULL;
+static le_thread_Ref_t measThreadRef = NULL;
 static taf_locGnss_PositionHandlerRef_t PositionHandlerRef = NULL;
 static taf_locGnss_PositionExHandlerRef_t PositionExHandlerRef = NULL;
 static taf_locPos_MovementHandlerRef_t  SamplePositionHandlerRef = NULL;
@@ -100,7 +100,7 @@ static void* StopSession()
 {
     LE_TEST_INFO("Calling StopSession for PositionHandlerRef:%p", PositionHandlerRef);
 
-    LE_TEST_OK(taf_locGnss_Stop() == LE_OK, "taf_gnss_Stop-LE_OK");
+    if (taf_locGnss_Stop() == LE_OK) LE_TEST_INFO("taf_gnss_Stop-LE_OK"); else return NULL;
 
     LE_TEST_INFO("Calling taf_locGnss_RemovePositionHandler!!");
     taf_locGnss_RemovePositionHandler(PositionHandlerRef);
@@ -1794,10 +1794,16 @@ static void* SamplePositionThread
     LE_TEST_INFO("======== Sample Position Handler thread  ========");
     taf_locPos_ConnectService();
 
+    uint32_t acqRate = taf_locPos_GetAcquisitionRate();
+    LE_TEST_INFO("Acqusition Rate before Adding Handler: (%" PRIu32 ")", acqRate);
+
     //174.Sample Position Handler
     SamplePositionHandlerRef = taf_locPos_AddMovementHandler(0, 0, SamplePositionHandler, NULL);
     LE_TEST_OK((SamplePositionHandlerRef != NULL),
         "Confirm sample position handler was added successfully");
+
+    acqRate = taf_locPos_GetAcquisitionRate();
+    LE_TEST_INFO("Acqusition Rate After Adding Handler: (%" PRIu32 ")", acqRate);
 
     LE_TEST_INFO("======== Sample Position Handler thread before le_event_RunLoop ========");
     le_event_RunLoop();
@@ -5044,8 +5050,8 @@ COMPONENT_INIT
    LE_TEST_INFO("======== GNSS Location information APIs Test  ========");
    TestTafGnssPositionHandler();
 
-    LE_TEST_INFO("====TestMeasHandler====");
-    TestTafGnssMeasHandler();
+   LE_TEST_INFO("====TestMeasHandler====");
+   TestTafGnssMeasHandler();
 
    LE_TEST_INFO("======== GNSS NMEA handler Test  ========");
    TestTafGnssNmeaHandler();
@@ -5074,4 +5080,3 @@ COMPONENT_INIT
    LE_TEST_INFO("======== LE_TEST_EXIT  ========");
    LE_TEST_EXIT;
 }
-

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -9,13 +9,9 @@
 #include <memory>
 #include <vector>
 #include <iostream>
-#include <telux/data/DataFactory.hpp>
-#include <telux/data/net/NatManager.hpp>
 #include "tafSvcIF.hpp"
 
-using namespace telux::data;
-using namespace telux::common;
-
+#include "taf_pa_nat.hpp"
 /*
  * @brief The struct of static destination nat entry.
  */
@@ -59,21 +55,6 @@ typedef struct
 namespace tafsvc {
 
     /*
-     * @brief A callback class must be provided when invoke teladk API.
-     */
-    class tafNatCallback
-    {
-        public:
-            static void onNatListResponse(
-                      const std::vector<telux::data::net::NatConfig> &snatEntries, telux::common::ErrorCode error);
-            void onResponseCallback(telux::common::ErrorCode error);
-            tafNatCallback(){};
-            ~tafNatCallback(){};
-            static std::vector<telux::data::net::NatConfig> destNatEntryInfo;
-            static le_sem_Ref_t semaphore;
-    };
-
-    /*
      * @brief taf_Nat class defined as a middleware between interfaces and implementation.
      */
     class taf_Nat :public ITafSvc
@@ -93,9 +74,8 @@ namespace tafsvc {
             le_result_t DeleteDestNatEntryList(taf_net_DestNatEntryListRef_t destNatEntryListRef);
             bool IsRmnetBringUp(uint32_t profileId);
             bool IsDestNatEntryPresent(uint32_t profileId, const char* priIpAddrPtr, uint16_t priPort, uint16_t globalPort, taf_net_IpProto_t ipProto);
-            taf_net_IpProto_t MapIPProtocol(telux::data::IpProtocol iptype);
+            taf_net_IpProto_t MapIPProtocol(uint8_t iptype);
             static void FirstLayerDestNatChangeHandler(void* reportPtr, void* secondLayerHandlerFunc);
-            void onInitComplete(telux::common::ServiceStatus status);
 
             le_mem_PoolRef_t destNatEntryListPool;
             le_mem_PoolRef_t destNatEntryPool;
@@ -104,17 +84,10 @@ namespace tafsvc {
             le_ref_MapRef_t destNatEntrySafeRefMap;
             le_event_Id_t DestNatChangeEvId;
             le_mem_PoolRef_t DestNatChangePool;
-            std::promise<le_result_t> NatSyncPromise;
 
         private:
             le_result_t CleanListRef(taf_net_DestNatEntryListRef_t destNatEntryListRef);
 
-            std::shared_ptr<telux::data::net::INatManager> staticNatManager = nullptr;
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-            bool IsSubSystemStatusUpdated=false;
-            std::mutex mMutex;
-            std::condition_variable conVar;
-#endif
     };
 
 }

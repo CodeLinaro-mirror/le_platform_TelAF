@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -11,12 +11,20 @@
 #include <iostream>
 #include "tafSvcIF.hpp"
 #include "tafRoutingDns.hpp"
-#include <telux/tel/PhoneFactory.hpp>
 
 #define TAF_NET_MAX_CLIENT_APPS         20
-#define DEFAULT_PHONE_ID_1 1
+#define DEFAULT_SLOT_ID_1 1    
 #define MIN_SLOT_COUNT 1
 #define MAX_SLOT_COUNT 2
+
+//telsdk
+/*typedef enum {
+     INVALID_SLOT_ID = -1,
+     DEFAULT_SLOT_ID =  1,
+     SLOT_ID_1 = DEFAULT_SLOT_ID,
+     SLOT_ID_2 = 2,
+     MAX_SLOT_ID = SLOT_ID_2,
+  }SlotId;*/
 
 namespace tafsvc {
 
@@ -64,7 +72,6 @@ class taf_Net: public ITafSvc
 
         le_mem_PoolRef_t DefaultGwConfDbPool = NULL;
         le_dls_List_t DefaultGwConfDbList = LE_DLS_LIST_INIT;
-        std::shared_ptr<telux::tel::IPhoneManager> PhoneMgr;
 
     };
 

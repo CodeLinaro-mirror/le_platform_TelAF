@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -16,20 +16,6 @@
 #include <regex>
 using namespace std;
 
-
-/**
- * callback to receive Device information service status change
- */
-#ifdef LE_CONFIG_GET_IMEI_SUPPORT
-void tafdevinfoServiceStatusListener::onServiceStatusChange(ServiceStatus status) {
-    if (status == ServiceStatus::SERVICE_UNAVAILABLE) {
-        LE_INFO("Service Status : UNAVAILABLE");
-    } else if (status == ServiceStatus::SERVICE_AVAILABLE) {
-        LE_INFO("Service Status : AVAILABLE");
-    }
-}
-#endif
-
 taf_devInfo& taf_devInfo::GetInstance() {
     static taf_devInfo obj;
     return obj;
@@ -39,11 +25,16 @@ taf_devInfo& taf_devInfo::GetInstance() {
 le_result_t taf_devInfo::GetIMEI(char* imeiPtr, size_t numElements) {
     LE_INFO("taf_devInfo::GetIMEI");
 
-    std::string imei = "";
-    telux::common::Status status = deviceInfoManager->getIMEI(imei);
-    TAF_ERROR_IF_RET_VAL(status != Status::SUCCESS, LE_FAULT,
-        "request for IMEI failed(status = %d)", static_cast<int>(status));
-    le_utf8_Copy(imeiPtr, imei.c_str(), numElements, nullptr);
+    char imeiValue[TAF_DEVINFO_IMEI_MAX_BYTES];
+
+    pa_result_t status = taf_pa_deviceinfo_GetIMEI(imeiValue, sizeof(imeiValue));
+    TAF_ERROR_IF_RET_VAL(status != PA_OK, LE_FAULT,
+         "request for IMEI failed(status = %d)", static_cast<int>(status));
+
+    LE_INFO("Retrieved IMEI successfully: %s", imeiValue);
+
+    // Use safe string copy with proper bounds checking
+    le_utf8_Copy(imeiPtr, imeiValue, numElements, nullptr);
 
     LE_INFO("Retrieved IMEI successfully: %s", imeiPtr);
 
@@ -75,57 +66,12 @@ void taf_devInfo::Init() {
     LE_INFO("taf_devInfo::Init");
 
 #ifdef LE_CONFIG_GET_IMEI_SUPPORT
-    // Get platform factory.
-    auto& platformFactory = PlatformFactory::getInstance();
-
-    auto prom = std::make_shared<std::promise<ServiceStatus>>();
-    std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
-
-    auto cb = [prom](ServiceStatus status) {
-        try {
-            if (status == ServiceStatus::SERVICE_AVAILABLE) {
-                prom->set_value(ServiceStatus::SERVICE_AVAILABLE);
-            } else {
-                prom->set_value(ServiceStatus::SERVICE_UNAVAILABLE);
-            }
-        }
-        catch (const std::future_error& e) {
-            LE_ERROR("Future error in callback: %s", e.what());
-        }
-        catch (const std::exception& e) {
-            LE_ERROR("Exception in callback: %s", e.what());
-        }
-        catch (...) {
-            LE_ERROR("Unknown error in callback.");
-        }
-    };
-
-    deviceInfoManager = platformFactory.getDeviceInfoManager(cb);
-    if (deviceInfoManager == nullptr) {
-        LE_FATAL("Failed to get Device Info Manager instance");
-    }
-
-    startTime = std::chrono::system_clock::now();
-    ServiceStatus devInfoMgrStatus = deviceInfoManager->getServiceStatus();
-    if(devInfoMgrStatus != ServiceStatus::SERVICE_AVAILABLE) {
-        LE_INFO( "DevInfoManager subsystem is not ready, Please wait");
-    }
-
-    devInfoMgrStatus = prom->get_future().get();
-    if(devInfoMgrStatus == ServiceStatus::SERVICE_AVAILABLE) {
-        endTime = std::chrono::system_clock::now();
-        std::chrono::duration<double> elapsedTime = endTime - startTime;
-        LE_INFO( "Elapsed Time for DevInfoManager subsystems to ready : %lf", elapsedTime.count());
-    } else {
-        LE_ERROR( "ERROR - Unable to initialize DevInfoManager subsystem");
-    }
-
-    // Register for Device information service status change
-    devinfoServiceStatusListener = std::make_shared<tafdevinfoServiceStatusListener>();
-    telux::common::Status status
-        = deviceInfoManager->registerListener(devinfoServiceStatusListener);
-    if (status != telux::common::Status::SUCCESS) {
-        LE_ERROR("Failed to register for service state change ");
+    pa_result_t  result;
+    result = taf_pa_deviceinfo_Init();
+    if (result != PA_OK)
+    {
+        LE_FATAL("Cannot initialize device info platform adaptor");
     }
 #endif
+    LE_INFO("System ready, start device info service!\n");
 }

@@ -237,6 +237,8 @@ le_result_t ctrlCmd_test7()
 
     tafPMTest_release(LocalSuspendwsRef);
 
+    sleep(3);
+
     LE_TEST_OK(taf_pm_GetPowerState() == TAF_PM_STATE_SUSPEND, "Suspend test case successfull"
             " with multiple times acquire and release of wake source with reference");
     printf("\nACTION : Disconnect USB to SUSPEND the device\n");

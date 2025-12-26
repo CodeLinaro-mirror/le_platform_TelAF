@@ -6,6 +6,11 @@ provides:
     }
 }
 
+ldflags:
+{
+    -L$TELAF_DEFAULT_PA_LIB_DIR/lib
+}
+
 requires:
 {
     api:
@@ -21,10 +26,9 @@ requires:
 
     lib:
     {
-        lib/libtelux_tel.so
-        lib/libtelux_common.so
+        libComponent_taf_pa_sms.so
+        libComponent_taf_pa_smsDef.so
     }
-
 }
 
 cxxflags:
@@ -32,8 +36,8 @@ cxxflags:
     -I$LEGATO_ROOT/components/watchdogChain
     -I$LEGATO_ROOT/components/cfgEntries
     -I$TELAF_ROOT/include
-    -ltelux_tel
-    -ltelux_common
+    -I$TELAF_PA_DEFAULT/include
+    -std=c++17
 }
 
 cflags:

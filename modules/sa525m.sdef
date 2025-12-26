@@ -1,0 +1,99 @@
+//--------------------------------------------------------------------------------------------------
+// TelSDK sa525m system definition that includes essential services.
+//--------------------------------------------------------------------------------------------------
+
+#include "$LEGATO_ROOT/legatoTargetConfig.sinc"
+#if ${LE_CONFIG_ENABLE_TEST_APPS} = y
+    #include "$TELAF_ROOT/modules/testApps.sinc"
+#endif
+
+apps:
+{
+    // Platform services.
+    $TELAF_ROOT/apps/tafServices/tafDevInfoSvc
+    $TELAF_ROOT/apps/tafServices/tafVerInfoSvc
+    $TELAF_ROOT/apps/tafServices/tafThermSvc
+    $TELAF_ROOT/apps/tafServices/tafVoiceCallSvc
+    $TELAF_ROOT/apps/tafServices/tafSimCardSvc
+    $TELAF_ROOT/apps/tafServices/tafRadioSvc
+    $TELAF_ROOT/apps/tafServices/tafAudioSvc
+    $TELAF_ROOT/apps/tafServices/tafLocationSvc
+    $TELAF_ROOT/apps/tafServices/tafSMSSvc
+    $TELAF_ROOT/apps/tafServices/tafDataCallSvc
+    $TELAF_ROOT/apps/tafServices/tafRemoteSimSvc
+    $TELAF_ROOT/apps/tafServices/tafPMSvc
+    $TELAF_ROOT/apps/tafServices/tafUpdateSvc
+    $TELAF_ROOT/apps/tafServices/tafECallSvc
+    $TELAF_ROOT/apps/tafServices/tafMRCSvc
+    $TELAF_ROOT/apps/tafServices/tafGpioSvc
+    $TELAF_ROOT/apps/tafServices/tafNetSvc
+    $TELAF_ROOT/apps/tafServices/tafKeyStoreSvc
+    $TELAF_ROOT/apps/tafServices/tafVNW/tafCanSvc
+    $TELAF_ROOT/apps/tafServices/tafSomeipGWSvc
+    $TELAF_ROOT/apps/tafMngdServices/Connectivity/tafMngdConnSvc
+    $TELAF_ROOT/apps/tafMngdServices/PM/tafMngdPMSvc
+    $TELAF_ROOT/apps/tafMngdServices/Storage/tafMngdStorageSvc
+    $TELAF_ROOT/apps/tafServices/tafDiagSvc
+    $TELAF_ROOT/apps/tafServices/tafTimeSvc
+    $TELAF_ROOT/apps/tafServices/tafHMSvc
+    $TELAF_ROOT/apps/tafServices/tafImuSensorSvc
+    $TELAF_ROOT/apps/tafServices/tafWlanSvc
+
+#if ${LE_CONFIG_DIAG_VSTACK} = y
+    $TELAF_ROOT/apps/tafServices/tafDiagBackendSvc
+#endif
+    $TELAF_ROOT/apps/tafServices/tafDidStoreSvc
+
+    // IVSS services.
+    $TELAF_ROOT/apps/ivss/service/tafIvssTelephonySvc/tafIvssTelephonySvc
+    $TELAF_ROOT/apps/ivss/service/tafIvssDataSvc/tafIvssDataSvc
+
+    // RPC proxy
+    $TELAF_ROOT/apps/rpc/rpcProxy/tafRpcProxy
+
+    // Command-line tools.
+    $LEGATO_ROOT/apps/tools/tools
+    $TELAF_ROOT/apps/tools/tafTools
+}
+
+commands:
+{
+    cm = tools:/scripts/cm
+    gnss = tools:/bin/gnss
+    fwupdate = tools:/bin/fwupdate
+    pm = tafTools:/bin/pm
+    tafmodule = tafTools:/bin/tafmodule
+}
+
+bindings:
+{
+    <telaf>.DeviceManager -> <tafcore>.DeviceManager
+    <tafcore>.DeviceManagerTool -> <tafcore>.DeviceManagerTool
+    <root>.DeviceManagerTool -> <tafcore>.DeviceManagerTool
+    <telaf>.sdirTool -> <tafcore>.sdirTool
+    <telaf>.le_cfg -> <tafcore>.le_cfg
+    <telaf>.le_appInfo -> <tafcore>.le_appInfo
+    <system>.taf_flash -> <telaf>.taf_flash
+}
+
+interfaceSearch:
+{
+    $TELAF_ROOT/interfaces
+    $TELAF_ROOT/interfaces/someipGW
+    $TELAF_ROOT/interfaces/tafVNW
+    $TELAF_ROOT/interfaces/staging
+    $TELAF_ROOT/apps/tafMngdServices/interfaces
+    $TELAF_ROOT/interfaces/tafDiagBackend
+    interfaces/positioning
+    $LEGATO_ROOT/apps/sample/voiceCallApp
+}
+
+cflags:
+{
+    -DTARGET_SA525M
+}
+
+cxxflags:
+{
+    -DTARGET_SA525M
+}

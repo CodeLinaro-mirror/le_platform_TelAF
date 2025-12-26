@@ -171,7 +171,7 @@ typedef MState_t (* State_Function) (AO_SecurityAccess_t * self, MEvent_t const 
 #define CFG_NODE_PATH_LEN 128
 #define DELAY_TIMER_NAME_SIZE 64
 
-#define SecAccType_yy(ev) ((((SecAccEvent_t *) (ev))->report->mgr->recvBuf[1]) & 0x7F)
+#define SecAccType_yy(ev) ((((SecAccEvent_t *) (ev))->report->mgr->recvSubFunc) & 0x7F)
 #define SubFunction_xx(self) ((self)->current_session->active_level->Security_Level)
 #define EVENT(ev) ((SecAccEvent_t *) ev)
 #define CURRENT_SESSION_ID(ev) ((uint32_t)EVENT(ev)->report->mgr->SessionType)
@@ -311,6 +311,8 @@ static void TryToPostSemaphore
     MEvent_t const * ev
 )
 {
+    le_sem_Ref_t semPtr=NULL;
+
     if (ev == NULL)
     {
         LE_ERROR("ev: nullptr");
@@ -323,10 +325,19 @@ static void TryToPostSemaphore
         return;
     }
 
-    if (EVENT(ev)->report->sem != NULL)
+    if (EVENT(ev)->report->sem == NULL)
     {
-        LE_INFO("POST -> /semaphore");
-        le_sem_Post(EVENT(ev)->report->sem);
+        LE_INFO("Do nothing");
+        return;
+    }
+
+    LE_INFO("semaphore name : %s", EVENT(ev)->report->semName);
+    semPtr = le_sem_FindSemaphore(EVENT(ev)->report->semName);
+
+    if(semPtr != NULL)
+    {
+        LE_INFO("POST -> /semaphore ");
+        le_sem_Post(semPtr);
     }
     else
     {
@@ -337,11 +348,10 @@ static void TryToPostSemaphore
 static void ResponseAllZeroSeed(AO_SecurityAccess_t * self, MEvent_t const * ev)
 {
     SecAccEvent_t const * evp = (SecAccEvent_t *)ev;
-    uint8_t * recv_buf = evp->report->mgr->recvBuf;
     uint8_t * send_buf = evp->report->mgr->sendBuf;
 
-    send_buf[0] = recv_buf[0] + 0x40;
-    send_buf[1] = recv_buf[1] & 0x7F;
+    send_buf[0] = evp->report->mgr->recvSid + 0x40;
+    send_buf[1] = evp->report->mgr->recvSubFunc & 0x7F;
 
     uint32_t seed_bit_size = self->current_session->active_level->seed_size;
     uint32_t seed_byte_size = (seed_bit_size % 8) ? (seed_bit_size / 8) + 1 : (seed_bit_size / 8);
@@ -370,7 +380,7 @@ static void ResponseNRC(AO_SecurityAccess_t * self, MEvent_t const * ev, uint8_t
     {
         *evp->report->is_internal = true;
         le_result_t result = evp->report->mgr->SendNRC(
-                                evp->report->mgr->recvBuf[0],
+                                evp->report->mgr->recvSid,
                                 nrc,
                                 &evp->report->mgr->udsRespAddrInfo);
         evp->report->mgr->remoteError = result;
@@ -381,7 +391,6 @@ static void ResponseNRC(AO_SecurityAccess_t * self, MEvent_t const * ev, uint8_t
         evp->report->mgr->remoteError = LE_OK;
     }
 
-    SECACC_ASSERT_FATAL(evp->report->sem != NULL);
     TryToPostSemaphore(ev);
 }
 
@@ -392,7 +401,6 @@ static void SetResponseNRC(AO_SecurityAccess_t * self, MEvent_t const * ev, uint
 
     evp->report->mgr->nrcCode = nrc;
 
-    SECACC_ASSERT_FATAL(evp->report->sem != NULL);
     TryToPostSemaphore(ev);
 }
 
@@ -428,7 +436,7 @@ static void LoadAttCntAndDelayTimer(AO_SecurityAccess_t * self, MEvent_t const *
 
 static bool PreConditionIsNotFulfilled(AO_SecurityAccess_t * self, MEvent_t const *ev)
 {
-    uint8_t sub_function = EVENT(ev)->report->mgr->recvBuf[1] & 0x7F;
+    uint8_t sub_function = EVENT(ev)->report->mgr->recvSubFunc & 0x7F;
     uint32_t current_session_id = CURRENT_SESSION_ID(ev);
 
     if (current_session_id == DEFAULT_SESSION) {
@@ -486,7 +494,7 @@ static bool MsgLengthIsNok(AO_SecurityAccess_t * self, MEvent_t const *ev, SecAc
             /* Just check the configuration from YAML and pass-in from D-Tool */
 
             uint8_t current_session_id = CURRENT_SESSION_ID(ev);
-            uint8_t sub_function = EVENT(ev)->report->mgr->recvBuf[1] & 0x7F;
+            uint8_t sub_function = EVENT(ev)->report->mgr->recvSubFunc & 0x7F;
 
             SecuritySession_t *sess = NULL;
             SecurityLevel_t *level = NULL;
@@ -595,7 +603,7 @@ static bool DelayTimerIsNotExpired(AO_SecurityAccess_t * self, MEvent_t const *e
 
 static void ActivateSubfunction(AO_SecurityAccess_t * self, MEvent_t const *ev)
 {
-    uint8_t sub_function = EVENT(ev)->report->mgr->recvBuf[1] & 0x7F;
+    uint8_t sub_function = EVENT(ev)->report->mgr->recvSubFunc & 0x7F;
     uint32_t current_session_id = CURRENT_SESSION_ID(ev);
 
     SecuritySession_t *sess = NULL;
@@ -664,30 +672,38 @@ static bool RequestedSubFunctionIsStaticSeed(AO_SecurityAccess_t * self, MEvent_
     uint8_t sub_function = 0x00;
 
     if (evp->report->type == REQUEST_SEED_RESPONSE_SIG) {
-        sub_function = evp->report->mgr->recvBuf[1] & 0x7F;
+        sub_function = evp->report->mgr->recvSubFunc & 0x7F;
     } else if (evp->report->type == SEND_KEY_RESPONSE_SIG) {
         /* When the SEND_KEY was received, the Security_Level should be (SecAccType - 1) */
-        sub_function = (evp->report->mgr->recvBuf[1] & 0x7F) - 1;
+        sub_function = (evp->report->mgr->recvSubFunc & 0x7F) - 1;
     }
 
     SecurityLevel_t *level = NULL;
+    bool isLvlPresent = false;
+
     LE_SLS_FOREACH(&self->current_session->level_list, level, SecurityLevel_t, link)
     {
         LE_ASSERT(level != NULL);
 
         if (level->Security_Level == sub_function) {
+            isLvlPresent = true;
             break;
         }
     }
 
-    return level->Static_Seed;
+    // The level may be an invalid pointer, use it when valid
+    if(isLvlPresent)
+        return level->Static_Seed;
+
+    // If cannot find the level,
+    return false;
 }
 
 
 static bool SecAccTypeIsNotActive(AO_SecurityAccess_t * self, MEvent_t const *ev)
 {
     SecAccEvent_t * evp = (SecAccEvent_t *) ev;
-    uint8_t sub_function = evp->report->mgr->recvBuf[1] & 0x7F;
+    uint8_t sub_function = evp->report->mgr->recvSubFunc & 0x7F;
 
     if (self->current_session->active_level->Security_Level == sub_function) {
         return false;
@@ -762,7 +778,7 @@ static bool RequestedLevelIsUnlocked(AO_SecurityAccess_t * self, MEvent_t const 
 {
     SecAccEvent_t * evp = (SecAccEvent_t *) ev;
 
-    uint8_t security_level_type = evp->report->mgr->recvBuf[1] & 0x7F;
+    uint8_t security_level_type = evp->report->mgr->recvSubFunc & 0x7F;
 
     if (self->current_session->unlocked_level == NULL) {
         return false;
@@ -1073,8 +1089,15 @@ MState_t State_LockedWaitingForKey(AO_SecurityAccess_t * self, MEvent_t const *e
                     /* Change back */
                     return M_Translate(&State_LockedNoActiveSeed);
                 } else { /* ALL PASS */
-                    self->current_session->active_level->Att_Cnt = 0;
-                    SaveAttCntToTree(self);
+
+                    // Only if att counter is changed, update it
+                    if(self->current_session->active_level->Att_Cnt != 0)
+                    {
+                        LE_INFO("Update att counter in config tree");
+                        self->current_session->active_level->Att_Cnt = 0;
+                        SaveAttCntToTree(self);
+                    }
+
                     UnlockCurrentSecLevel(self);
                     if (! RequestedSubFunctionIsStaticSeed(self, ev)) {
                         ClearGeneratedSeed(self, ev);
@@ -1316,8 +1339,14 @@ MState_t State_UnlockedWaitingForKey(AO_SecurityAccess_t * self, MEvent_t const 
                     return M_Translate(&State_UnlockedNoActiveSeed);
                 }
                 else { /* ALL PASS */
-                    self->current_session->active_level->Att_Cnt = 0;
-                    SaveAttCntToTree(self);
+
+                    // Only if att counter is changed, update it
+                    if(self->current_session->active_level->Att_Cnt != 0)
+                    {
+                        LE_INFO("Update att counter in config tree");
+                        self->current_session->active_level->Att_Cnt = 0;
+                        SaveAttCntToTree(self);
+                    }
 
                     /* Loack currently unlocked security level,
                     * Unlock security level for SubFunction xx */
@@ -1384,6 +1413,7 @@ static void SecAcc_DelayTimerHandler(le_timer_Ref_t timerRef)
         .sem = NULL,
         .mgr = object->mMgr,
     };
+    memset(report.semName, 0, sizeof(report.semName));
     le_event_Report(SecAccEventIdRef, &report, sizeof(report));
 }
 

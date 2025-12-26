@@ -8,6 +8,12 @@ provides:
     }
 }
 
+
+ldflags:
+{
+    -L$TELAF_DEFAULT_PA_LIB_DIR/lib
+}
+
 requires:
 {
     api:
@@ -24,7 +30,8 @@ requires:
 
     lib:
     {
-        lib/libtelux_loc.so
+        libComponent_taf_pa_location.so
+        libComponent_taf_pa_locationDef.so
     }
 }
 
@@ -33,8 +40,7 @@ cxxflags:
     -I$LEGATO_ROOT/components/watchdogChain
     -I$LEGATO_ROOT/components/cfgEntries
     -I$TELAF_ROOT/include
-    -ltelux_loc
-    -ltelux_common
+    -I$TELAF_PA_DEFAULT/include
 }
 
 cflags:

@@ -9,7 +9,7 @@
 #include "legato.h"
 #include "interfaces.h"
 
-#include "taf_pa_flash.h"
+#include "taf_pa_flash.hpp"
 
 #define PAGE_ERASED -255
 
@@ -19,8 +19,8 @@
 typedef struct
 {
     char name[TAF_FLASH_VOLUME_NAME_MAX_BYTES];
-    taf_flash_OpenMode_t mode;
-    taf_pa_flash_UbiRef_t ubiRef;
+    taf_pa_flash_OpenModeBitMask_t mode;
+    taf_pa_flash_UbiVolumeRef_t ubiRef;
 } taf_flash_Ubi_t;
 
 class taf_FlashAccess

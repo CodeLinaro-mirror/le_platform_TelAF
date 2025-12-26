@@ -44,6 +44,7 @@ typedef struct {
     SecAccSignal_t type;
     le_sem_Ref_t sem;
     UdsCommunicationMgr * mgr;
+    char semName[UDS_SEC_SEM_NAME_MAX_LEN];
     bool * is_internal;
 } SecAccReport_t;
 

@@ -149,7 +149,7 @@ void TafDcsProfileManager::Init()
 void TafDcsProfileManager::InitProfiles()
 {
     // Get the phone IDs
-    le_result_t result = taf::pa::data::GetPhoneIds(phoneIds_);
+    le_result_t result = PA_TO_LE_RESULT(taf::pa::data::GetPhoneIds(phoneIds_));
     if (result != LE_OK)
     {
         LE_ERROR("Failed to get PhoneIds. result: %d. Setting to 1.", result);
@@ -216,8 +216,14 @@ le_result_t TafDcsProfileManager::SvcGetProfilesList
         uint32_t id;
         taf_dcs_Tech_t tech;
         std::string name;
-        profilePtr->GetName(name);
         profilePtr->GetId(id);
+        if (TAF_DCS_UNDEFINED_PROFILE_ID == id)
+        {
+            // Skip an uncreated profile
+            LE_DEBUG("Skip TAF_DCS_UNDEFINED_PROFILE_ID");
+            continue;
+        }
+        profilePtr->GetName(name);
         profilePtr->GetTech(tech);
 
         profilesListPtr[iCount].index = id;
@@ -269,8 +275,8 @@ taf_dcs_ProfileRef_t TafDcsProfileManager::SvcGetProfileRef
             false};
 
     taf::pa::data::SlotId_e paSlotID;
-    le_result_t result = taf::pa::data::GetSimSlotIdFromPhoneId(
-                                    static_cast<taf::pa::data::PhoneId_e>(phoneId), paSlotID);
+    le_result_t result = PA_TO_LE_RESULT(taf::pa::data::GetSimSlotIdFromPhoneId(
+                                    static_cast<taf::pa::data::PhoneId_e>(phoneId), paSlotID));
     if (LE_OK != result)
     {
         LE_WARN("PA GetSimSlotIdFromPhoneId failed: %d", TO_INT(result));
@@ -449,8 +455,8 @@ le_result_t TafDcsProfileManager::SvcCreateProfile(taf_dcs_ProfileRef_t profileR
     taf::pa::data::ProfileInfo_t profileInfo;
     profile.PopulateProfileInfoStruct(profileInfo);
     // Create the profile
-    result = taf::pa::data::CreateProfile(static_cast<taf::pa::data::PhoneId_e>(phoneId),
-                                                                    profileInfo, paProfileId);
+    result = PA_TO_LE_RESULT(taf::pa::data::CreateProfile(
+                        static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo, paProfileId));
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "CreateProfile failed.");
 
     LE_INFO("Created profile ID: %d", TO_INT(paProfileId));
@@ -501,8 +507,8 @@ le_result_t TafDcsProfileManager::SvcDeleteProfile(taf_dcs_ProfileRef_t profileR
 
     taf::pa::data::ProfileInfo_t profileInfo;
     profileInfo.profileId = static_cast<taf::pa::data::ProfileId_e>(profileId);
-    result = taf::pa::data::DeleteProfile(static_cast<taf::pa::data::PhoneId_e>(phoneId),
-                                                                                    profileInfo);
+    result = PA_TO_LE_RESULT(taf::pa::data::DeleteProfile(
+                                    static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo));
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "PA DeleteProfile failed.");
 
     // Remove the this profile object from the service map.
@@ -716,8 +722,8 @@ le_result_t TafDcsProfileManager::SvcSetAPN(taf_dcs_ProfileRef_t profileRef, con
         memset(profileInfo.apn, 0, taf::pa::data::MAX_APN_LEN);
         le_utf8_Copy(profileInfo.apn, apnStr, taf::pa::data::MAX_APN_LEN, nullptr);
 
-        result = taf::pa::data::UpdateProfile(
-                                    static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo);
+        result = PA_TO_LE_RESULT(taf::pa::data::UpdateProfile(
+                                    static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo));
         TAF_ERROR_IF_RET_VAL(LE_OK != result, result,"PA UpdateProfile failed: %d", TO_INT(result));
     }
 
@@ -763,8 +769,8 @@ le_result_t TafDcsProfileManager::SvcSetApnTypes
     {
         // Update APN type preference via PA
         profileInfo.apnTypeMask = TafDcsUtils::ConvertApnTypeMask(apnType);
-        result = taf::pa::data::UpdateProfile(
-                                    static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo);
+        result = PA_TO_LE_RESULT(taf::pa::data::UpdateProfile(
+                                    static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo));
         TAF_ERROR_IF_RET_VAL(LE_OK != result, result,"PA UpdateProfile failed: %d", TO_INT(result));
     }
 
@@ -807,8 +813,8 @@ le_result_t TafDcsProfileManager::SvcSetPDP(taf_dcs_ProfileRef_t profileRef, taf
         // Update PDP name via PA
         profileInfo.ipType = TafDcsUtils::ConvertPDP(pdp);
 
-        result = taf::pa::data::UpdateProfile(
-            static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo);
+        result = PA_TO_LE_RESULT(taf::pa::data::UpdateProfile(
+            static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo));
         TAF_ERROR_IF_RET_VAL(LE_OK != result, result,"PA UpdateProfile failed: %d", TO_INT(result));
     }
 
@@ -856,8 +862,8 @@ le_result_t TafDcsProfileManager::SvcSetProfileName
         memset(profileInfo.name, 0, taf::pa::data::MAX_NAME_LEN);
         le_utf8_Copy(profileInfo.name, nameStr, taf::pa::data::MAX_NAME_LEN, nullptr);
 
-        result = taf::pa::data::UpdateProfile(
-            static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo);
+        result = PA_TO_LE_RESULT(taf::pa::data::UpdateProfile(
+            static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo));
         TAF_ERROR_IF_RET_VAL(LE_OK != result, result,"PA UpdateProfile failed: %d", TO_INT(result));
     }
 
@@ -904,8 +910,8 @@ le_result_t TafDcsProfileManager::SvcSetTechPreference
         // Update tech preference via PA
         profileInfo.techPref = TafDcsUtils::ConvertTechPref(techPreference);
 
-        result = taf::pa::data::UpdateProfile(
-                            static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo);
+        result = PA_TO_LE_RESULT(taf::pa::data::UpdateProfile(
+                            static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo));
         TAF_ERROR_IF_RET_VAL(LE_OK != result, result,"PA UpdateProfile failed: %d", TO_INT(result));
     }
     result = profile.SetTech(techPreference);
@@ -965,8 +971,8 @@ le_result_t TafDcsProfileManager::SvcSetAuthentication
             memset(profileInfo.password, 0, taf::pa::data::MAX_PASSWORD_LEN);
             le_utf8_Copy(profileInfo.password, password, taf::pa::data::MAX_PASSWORD_LEN, nullptr);
 
-            result = taf::pa::data::UpdateProfile(
-                static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo);
+            result = PA_TO_LE_RESULT(taf::pa::data::UpdateProfile(
+                static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo));
             TAF_ERROR_IF_RET_VAL(LE_OK != result,result, "PA UpdateProfile failed: %d",
                                                                                 TO_INT(result));
         }
@@ -1060,8 +1066,8 @@ le_result_t TafDcsProfileManager::SvcGetRoamingStatus
     LE_DEBUG ("Phone ID: %d", phoneId);
 
     taf::pa::data::RoamingStatus_t roamingStatus;
-    le_result_t result = taf::pa::data::GetRoamingStatus(
-                                    static_cast<taf::pa::data::PhoneId_e>(phoneId),roamingStatus);
+    le_result_t result = PA_TO_LE_RESULT(taf::pa::data::GetRoamingStatus(
+                                    static_cast<taf::pa::data::PhoneId_e>(phoneId),roamingStatus));
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "PA GetRoamingStatus failed.");
 
     *isRoamingPtr = roamingStatus.isRoaming;
@@ -1548,8 +1554,8 @@ le_result_t TafDcsProfileManager::SvcGetAPNThrottledStatus
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "GetId failed.");
     LE_DEBUG("Profile ID: %d", profileId);
 
-    result = taf::pa::data::GetThrottledApnInfo(
-        static_cast<taf::pa::data::PhoneId_e>(phoneId), throttledApnEventInfoList);
+    result = PA_TO_LE_RESULT(taf::pa::data::GetThrottledApnInfo(
+        static_cast<taf::pa::data::PhoneId_e>(phoneId), throttledApnEventInfoList));
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result,
                                             "PA GetThrottledApnInfo failed: %d", TO_INT(result));
 
@@ -1636,8 +1642,8 @@ le_result_t TafDcsProfileManager::SvcGetAPNThrottledPLMN
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "GetId failed.");
     LE_DEBUG("Profile ID: %d", profileId);
 
-    result = taf::pa::data::GetThrottledApnInfo(
-        static_cast<taf::pa::data::PhoneId_e>(phoneId), throttledApnEventInfoList);
+    result = PA_TO_LE_RESULT(taf::pa::data::GetThrottledApnInfo(
+                        static_cast<taf::pa::data::PhoneId_e>(phoneId), throttledApnEventInfoList));
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result,
                                         "PA GetThrottledApnInfo failed: %d", TO_INT(result));
 
@@ -1747,6 +1753,7 @@ le_result_t TafDcsProfileManager::SvcStartSessionSync
     taf_dcs_Pdp_t pdpIpType;
     taf_dcs_ConState_t connState;
     le_result_t result;
+    size_t listSize = 0;
 
     result = profile.GetId(profileId);
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "GetId failed: %d", TO_INT(result));
@@ -1757,18 +1764,28 @@ le_result_t TafDcsProfileManager::SvcStartSessionSync
     taf_dcs_ConState_t ipv4state, ipv6state;
     result = profile.GetSessionState(connState, ipv4state, ipv6state);
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "GetSessionState failed: %d", TO_INT(result));
-    LE_DEBUG("Phone Id: %d, Profile Id: %d, PDP: %d", phoneId, profileId,TO_INT(pdpIpType));
+    LE_INFO("Phone Id: %d, Profile Id: %d, PDP: %d", phoneId, profileId,TO_INT(pdpIpType));
     LE_DEBUG("State: %d", TO_INT(connState));
 
+    LE_INFO("Client: %p", clientRef);
     if (TAF_DCS_CONNECTED == connState)
     {
         LE_INFO("Already connected.");
+        // Add this client to the list of clients that have requested data.
+        profile.AddClient(clientRef, listSize);
         return LE_DUPLICATE;
     }
     if (TAF_DCS_CONNECTING == connState)
     {
         LE_INFO("Connection in progress");
+        // Add this client to the list of clients that have requested data.
+        profile.AddClient(clientRef, listSize);
         return LE_IN_PROGRESS;
+    }
+    if (TAF_DCS_DISCONNECTING == connState)
+    {
+        LE_WARN("Disconnection in progress");
+        return LE_BUSY;
     }
     taf::pa::data::DataCallStartStopParams_t params =
     {
@@ -1777,7 +1794,7 @@ le_result_t TafDcsProfileManager::SvcStartSessionSync
         TafDcsUtils::ConvertPDP(pdpIpType),
         ""
     };
-    result = taf::pa::data::StartDataSessionAsync(params);
+    result = PA_TO_LE_RESULT(taf::pa::data::StartDataSessionAsync(params));
     if (LE_OK != result)
     {
         LE_WARN("StartDataSession failed: %d", TO_INT(result));
@@ -1824,7 +1841,6 @@ le_result_t TafDcsProfileManager::SvcStartSessionSync
         }
 
         // Add the client to the list of clients that have requested data.
-        size_t listSize = 0;
         profile.AddClient(clientRef, listSize);
         LE_DEBUG("Client %p added. Num clients: %zu", clientRef, listSize);
     }
@@ -1848,6 +1864,9 @@ void TafDcsProfileManager::SvcStartSessionASync
         handlerPtr(profileRef, LE_NOT_FOUND, contextPtr);
         return;
     }
+
+    LE_INFO("Client: %p", clientRef);
+
     TafDcsProfile &profile = profileOptWrapper.value().get();
 
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
@@ -1860,6 +1879,20 @@ void TafDcsProfileManager::SvcStartSessionASync
     TafDcsSendStartSessionAsyncRsp_t response;
     response.clientRef  = clientRef;
     response.profileRef = profileRef;
+
+    // Check if the subsystem is initialized properly. If not, trigger the cbk and return.
+    if (taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState())
+    {
+        response.result = LE_FAULT;
+        LE_ERROR("Service not initialized.");
+        le_event_Report
+        (
+            tafDcsSvc.GetStartSessionAsyncRspEvtId(),
+            &response,
+            sizeof(TafDcsSendStartSessionAsyncRsp_t)
+        );
+        return;
+    }
 
     uint32_t profileId = 0;
     uint8_t phoneId = 0;
@@ -1933,7 +1966,7 @@ void TafDcsProfileManager::SvcStartSessionASync
         );
         return;
     }
-    LE_DEBUG("Phone Id: %d, Profile Id: %d, PDP: %d", phoneId, profileId, TO_INT(pdpIpType));
+    LE_INFO("Phone Id: %d, Profile Id: %d, PDP: %d", phoneId, profileId, TO_INT(pdpIpType));
     LE_DEBUG("State: %d", TO_INT(connState));
 
     if (TAF_DCS_CONNECTED == connState)
@@ -1968,6 +2001,18 @@ void TafDcsProfileManager::SvcStartSessionASync
         LE_DEBUG("Client %p added. Num clients: %zu", clientRef, listSize);
         return;
     }
+    if (TAF_DCS_DISCONNECTING == connState)
+    {
+        LE_WARN("Disconnection in progress");
+        response.result = LE_BUSY;
+        le_event_Report
+        (
+            tafDcsSvc.GetStartSessionAsyncRspEvtId(),
+            &response,
+            sizeof(TafDcsSendStartSessionAsyncRsp_t)
+        );
+        return;
+    }
 
     // Start the call
     taf::pa::data::DataCallStartStopParams_t params =
@@ -1977,7 +2022,7 @@ void TafDcsProfileManager::SvcStartSessionASync
         TafDcsUtils::ConvertPDP(pdpIpType),
         ""
     };
-    result = taf::pa::data::StartDataSessionAsync(params);
+    result = PA_TO_LE_RESULT(taf::pa::data::StartDataSessionAsync(params));
     if (LE_OK != result)
     {
         LE_WARN("StartDataSession failed: %d", TO_INT(result));
@@ -2009,6 +2054,8 @@ le_result_t TafDcsProfileManager::SvcStopSessionSync
 
     TAF_CHECK_IF_PROFILE_IS_CREATED(profile);
 
+    LE_INFO("Client: %p", clientRef);
+
     uint32_t profileId = 0;
     uint8_t  phoneId   = 0;
     taf_dcs_Pdp_t pdpIpType;
@@ -2024,7 +2071,7 @@ le_result_t TafDcsProfileManager::SvcStopSessionSync
     taf_dcs_ConState_t ipv4state, ipv6state;
     result = profile.GetSessionState(connState, ipv4state, ipv6state);
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "GetSessionState failed: %d", TO_INT(result));
-    LE_DEBUG("Phone Id: %d, Profile Id: %d, PDP: %d", phoneId, profileId,TO_INT(pdpIpType));
+    LE_INFO("Phone Id: %d, Profile Id: %d, PDP: %d", phoneId, profileId, TO_INT(pdpIpType));
     LE_DEBUG("State: %d", TO_INT(connState));
 
     if (TAF_DCS_DISCONNECTED == connState)
@@ -2052,6 +2099,11 @@ le_result_t TafDcsProfileManager::SvcStopSessionSync
         LE_INFO("Disconnection in progress");
         return LE_IN_PROGRESS;
     }
+    if (TAF_DCS_CONNECTING == connState)
+    {
+        LE_WARN("Connection in progress");
+        return LE_BUSY;
+    }
     taf::pa::data::DataCallStartStopParams_t params =
     {
         static_cast<taf::pa::data::PhoneId_e>(phoneId),
@@ -2059,8 +2111,8 @@ le_result_t TafDcsProfileManager::SvcStopSessionSync
         TafDcsUtils::ConvertPDP(pdpIpType),
         ""
     };
-    result = taf::pa::data::StopDataSessionAsync(params);
 
+    result = PA_TO_LE_RESULT(taf::pa::data::StopDataSessionAsync(params));
     if (LE_OK != result)
     {
         LE_WARN("StopDataSessionAsync failed: %d", TO_INT(result));
@@ -2106,6 +2158,9 @@ void TafDcsProfileManager::SvcStopSessionASync
         handlerPtr(profileRef, LE_NOT_FOUND, contextPtr);
         return;
     }
+
+    LE_INFO("Client: %p", clientRef);
+
     TafDcsProfile &profile = profileOptWrapper.value().get();
 
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
@@ -2117,8 +2172,22 @@ void TafDcsProfileManager::SvcStopSessionASync
     TafDcsSendStopSessionAsyncRsp_t response;
     response.clientRef  = clientRef;
     response.profileRef = profileRef;
-    size_t listSize = 0;
 
+    // Check if the subsystem is initialized properly. If not, trigger the cbk and return.
+    if (taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState())
+    {
+        response.result = LE_FAULT;
+        LE_ERROR("Service not initialized.");
+        le_event_Report
+        (
+            tafDcsSvc.GetStopSessionAsyncRspEvtId(),
+            &response,
+            sizeof(TafDcsSendStopSessionAsyncRsp_t)
+        );
+        return;
+    }
+
+    size_t listSize = 0;
     uint32_t profileId = 0;
     uint8_t phoneId = 0;
     taf_dcs_Pdp_t pdpIpType;
@@ -2133,7 +2202,7 @@ void TafDcsProfileManager::SvcStopSessionASync
         (
             tafDcsSvc.GetStopSessionAsyncRspEvtId(),
             &response,
-            sizeof(TafDcsSendStartSessionAsyncRsp_t)
+            sizeof(TafDcsSendStopSessionAsyncRsp_t)
         );
         return;
     }
@@ -2146,7 +2215,8 @@ void TafDcsProfileManager::SvcStopSessionASync
         le_event_Report(
             tafDcsSvc.GetStopSessionAsyncRspEvtId(),
             &response,
-            sizeof(TafDcsSendStartSessionAsyncRsp_t));
+            sizeof(TafDcsSendStopSessionAsyncRsp_t)
+        );
         return;
     }
 
@@ -2155,11 +2225,10 @@ void TafDcsProfileManager::SvcStopSessionASync
     {
         LE_WARN("GetPhoneId failed: %d", TO_INT(result));
         response.result = LE_FAULT;
-        le_event_Report
-        (
+        le_event_Report(
             tafDcsSvc.GetStopSessionAsyncRspEvtId(),
             &response,
-            sizeof(TafDcsSendStartSessionAsyncRsp_t)
+            sizeof(TafDcsSendStopSessionAsyncRsp_t)
         );
         return;
     }
@@ -2168,11 +2237,10 @@ void TafDcsProfileManager::SvcStopSessionASync
     {
         LE_WARN("GetPdp failed: %d", TO_INT(result));
         response.result = LE_FAULT;
-        le_event_Report
-        (
+        le_event_Report(
             tafDcsSvc.GetStopSessionAsyncRspEvtId(),
             &response,
-            sizeof(TafDcsSendStartSessionAsyncRsp_t)
+            sizeof(TafDcsSendStopSessionAsyncRsp_t)
         );
         return;
     }
@@ -2182,26 +2250,23 @@ void TafDcsProfileManager::SvcStopSessionASync
     {
         LE_WARN("GetSessionState failed: %d", TO_INT(result));
         response.result = LE_FAULT;
-        le_event_Report
-        (
+        le_event_Report(
             tafDcsSvc.GetStopSessionAsyncRspEvtId(),
             &response,
-            sizeof(TafDcsSendStartSessionAsyncRsp_t)
+            sizeof(TafDcsSendStopSessionAsyncRsp_t)
         );
         return;
     }
-    LE_DEBUG("Phone Id: %d, Profile Id: %d, PDP: %d", phoneId, profileId, TO_INT(pdpIpType));
-    LE_DEBUG("State: %d", TO_INT(connState));
-
+    LE_INFO("Phone Id: %d, Profile Id: %d, PDP: %d, State: %d", phoneId, profileId,
+                                                            TO_INT(pdpIpType), TO_INT(connState));
     if (TAF_DCS_DISCONNECTED == connState)
     {
         LE_WARN("Already disconnected. No active data call found.");
         response.result = LE_NOT_FOUND;
-        le_event_Report
-        (
+        le_event_Report(
             tafDcsSvc.GetStopSessionAsyncRspEvtId(),
             &response,
-            sizeof(TafDcsSendStartSessionAsyncRsp_t)
+            sizeof(TafDcsSendStopSessionAsyncRsp_t)
         );
         // Remove this client from the list of clients that have requested data.
         // The return value does not matter in this scenario.
@@ -2213,12 +2278,23 @@ void TafDcsProfileManager::SvcStopSessionASync
     {
         LE_INFO("Disconnection in progress");
         response.result = LE_IN_PROGRESS;
-        le_event_Report
-        (
+        le_event_Report(
             tafDcsSvc.GetStopSessionAsyncRspEvtId(),
             &response,
-            sizeof(TafDcsSendStartSessionAsyncRsp_t)
+            sizeof(TafDcsSendStopSessionAsyncRsp_t)
         );
+        return;
+    }
+    if (TAF_DCS_CONNECTING == connState)
+    {
+        LE_WARN("Connection in progress");
+        response.result = LE_BUSY;
+        le_event_Report(
+            tafDcsSvc.GetStopSessionAsyncRspEvtId(),
+            &response,
+            sizeof(TafDcsSendStopSessionAsyncRsp_t)
+        );
+        return;
     }
 
     // Remove the client from the list of clients that had called StartSession before stopping data.
@@ -2228,11 +2304,10 @@ void TafDcsProfileManager::SvcStopSessionASync
     {
         LE_WARN("Client %p has not requested data. Num clients: %zu", clientRef, listSize);
         response.result = LE_NOT_FOUND;
-        le_event_Report
-        (
+        le_event_Report(
             tafDcsSvc.GetStopSessionAsyncRspEvtId(),
             &response,
-            sizeof(TafDcsSendStartSessionAsyncRsp_t)
+            sizeof(TafDcsSendStopSessionAsyncRsp_t)
         );
         return;
     }
@@ -2245,17 +2320,16 @@ void TafDcsProfileManager::SvcStopSessionASync
         TafDcsUtils::ConvertPDP(pdpIpType),
         ""
     };
-    result = taf::pa::data::StopDataSessionAsync(params);
 
+    result = PA_TO_LE_RESULT(taf::pa::data::StopDataSessionAsync(params));
     if (LE_OK != result)
     {
         LE_WARN("StopDataSessionAsync failed: %d", TO_INT(result));
         response.result = result;
-        le_event_Report
-        (
+        le_event_Report(
             tafDcsSvc.GetStopSessionAsyncRspEvtId(),
             &response,
-            sizeof(TafDcsSendStartSessionAsyncRsp_t)
+            sizeof(TafDcsSendStopSessionAsyncRsp_t)
         );
         return;
     }
@@ -2327,7 +2401,7 @@ le_result_t TafDcsProfileManager::SvcSetDefaultProfileIndexEx(uint8_t phoneId, u
     }
     taf::pa::data::PhoneId_e   paPhoneId   = static_cast<taf::pa::data::PhoneId_e>(phoneId);
     taf::pa::data::ProfileId_e paProfileId = static_cast<taf::pa::data::ProfileId_e>(profileId);
-    le_result_t result = taf::pa::data::SetDefaultProfile(paPhoneId, paProfileId);
+    le_result_t result = PA_TO_LE_RESULT(taf::pa::data::SetDefaultProfile(paPhoneId, paProfileId));
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "SetDefaultProfile failed: %d", TO_INT(result));
 
     // Update local default profile ID map after getting a write lock.
@@ -2773,7 +2847,7 @@ le_result_t TafDcsProfileManager::updateProfile(const TafDcsUpdateProfileEvent_t
     // Create a new profile
     taf::pa::data::PhoneId_e phoneId = taf::pa::data::PhoneId_e::PHONE_1;
     taf::pa::data::SlotId_e  slotID = static_cast<taf::pa::data::SlotId_e>(eventPtr->slotId);
-    result = taf::pa::data::GetPhoneIdFromSimSlotId(slotID, phoneId);
+    result = PA_TO_LE_RESULT(taf::pa::data::GetPhoneIdFromSimSlotId(slotID, phoneId));
     if (LE_OK != result)
     {
         LE_WARN("PA GetPhoneIdFromSimSlotId failed: %d", TO_INT(result));
@@ -3137,13 +3211,14 @@ void TafDcsProfileManager::deinitEventsAndMemory()
 void TafDcsProfileManager::getProfilesAsyncCb
 (
     taf::pa::data::PhoneId_e phoneId,                         ///< [IN] The phone id.
-    le_result_t result,                                       ///< [IN] The result of the operation.
+    pa_result_t paResult,                                     ///< [IN] The result of the operation.
     const std::vector<taf::pa::data::ProfileInfo_t> &profiles,///< [IN] The profile list.
     void *contextPtr                                          ///< [IN] The context pointer.
 )
 {
+    le_result_t result = PA_TO_LE_RESULT(paResult);
     TAF_ERROR_IF_RET_NIL(LE_OK != result, "Failed to get profiles for phone Id :%d. result: %d",
-                                                                        TO_INT(phoneId),  result);
+                         TO_INT(phoneId), result);
 
     LE_DEBUG("Received profiles for phone Id : %d", TO_INT(phoneId));
     LE_DEBUG("Number of profiles             : %zu", profiles.size());
@@ -3213,7 +3288,8 @@ void TafDcsProfileManager::initProfiles()
     for (taf::pa::data::PhoneId_e phoneId : phoneIds_)
     {
         LE_DEBUG("Get profiles for phone ID: %d", TO_INT(phoneId));
-        result = taf::pa::data::GetProfilesAsync(phoneId, getProfilesAsyncCb, nullptr);
+        result = PA_TO_LE_RESULT(taf::pa::data::GetProfilesAsync(phoneId, getProfilesAsyncCb,
+            nullptr));
         if (LE_OK != result)
         {
             LE_WARN("GetProfilesAsync failed: %d", result);
@@ -3233,7 +3309,7 @@ void TafDcsProfileManager::updateDefaultProfiles()
     for (taf::pa::data::PhoneId_e phoneId : phoneIds_)
     {
         taf::pa::data::ProfileId_e profileId;
-        le_result_t result = taf::pa::data::GetDefaultProfile(phoneId, profileId);
+        le_result_t result = PA_TO_LE_RESULT(taf::pa::data::GetDefaultProfile(phoneId, profileId));
         if (LE_OK == result)
         {
             LE_DEBUG("Def profile for phone ID: %d = %d", TO_INT(phoneId), TO_INT(profileId));
@@ -3255,33 +3331,33 @@ void TafDcsProfileManager::deinitProfiles()
 
 void TafDcsProfileManager::registerPACallbacks()
 {
-    LE_DEBUG("Register PA callbacks");
+    LE_INFO("Register PA callbacks");
 
     // Register the data events callback
-    le_result_t result = taf::pa::data::AddDataCallEventsCallback (tafPaDataCallEventsCb, nullptr,
-                                                                           dataEventsCallbackId_);
-    LE_DEBUG("AddDataCallEventsCallback, ref: %d, Id: %d", TO_INT(result), dataEventsCallbackId_);
+    le_result_t result = PA_TO_LE_RESULT(taf::pa::data::AddDataCallEventsCallback (
+                                        tafPaDataCallEventsCb, nullptr, dataEventsCallbackId_));
+    LE_DEBUG("AddDataCallEventsCallback, res: %d, Id: %d", TO_INT(result), dataEventsCallbackId_);
 
     // Register the roaming events callback
-    result = taf::pa::data::AddRoamingEventsCallback (tafPaRoamingEventsCb, nullptr,
-                                                                          roamingEventsCallbackId_);
-    LE_DEBUG("AddRoamingEventsCallback, ref: %d, Id: %d", TO_INT(result), roamingEventsCallbackId_);
+    result = PA_TO_LE_RESULT(taf::pa::data::AddRoamingEventsCallback (
+                                    tafPaRoamingEventsCb, nullptr,roamingEventsCallbackId_));
+    LE_DEBUG("AddRoamingEventsCallback, res: %d, Id: %d", TO_INT(result), roamingEventsCallbackId_);
 
     // Register the throttled APN events callback
-    result = taf::pa::data::AddThrottledApnEventsCallback ( tafPaThrottledApnEventsCb, nullptr,
-                                                                    throttledApnEventsCallbackId_);
-    LE_DEBUG("AddThrottledApnEventsCallback, ref: %d, Id: %d", TO_INT(result),
+    result = PA_TO_LE_RESULT(taf::pa::data::AddThrottledApnEventsCallback(
+                                tafPaThrottledApnEventsCb, nullptr, throttledApnEventsCallbackId_));
+    LE_DEBUG("AddThrottledApnEventsCallback, res: %d, Id: %d", TO_INT(result),
                                                                     throttledApnEventsCallbackId_);
 
     // Register the QoS TFT events callback
-    result = taf::pa::data::AddQosTftEventsCallback (tafPaQosTftEventsCb, nullptr,
-                                                                         qosTftEventsCallbackId_);
-    LE_DEBUG("AddQosTftEventsCallback, ref: %d, Id: %d", TO_INT(result), qosTftEventsCallbackId_);
+    result = PA_TO_LE_RESULT(taf::pa::data::AddQosTftEventsCallback (
+                                            tafPaQosTftEventsCb, nullptr,qosTftEventsCallbackId_));
+    LE_DEBUG("AddQosTftEventsCallback, res: %d, Id: %d", TO_INT(result), qosTftEventsCallbackId_);
 
     // Register the HW acceleration events callback
-    result = taf::pa::data::AddHwAccelerationChangeEventsCallback(tafPaHwAccelerationEventsCb,
-                                                          nullptr, hwAccelerationEventsCallbackId_);
-    LE_DEBUG("AddHwAccelerationChangeEventsCallback, ref: %d, Id: %d", TO_INT(result),
+    result = PA_TO_LE_RESULT(taf::pa::data::AddHwAccelerationChangeEventsCallback(
+                            tafPaHwAccelerationEventsCb,nullptr, hwAccelerationEventsCallbackId_));
+    LE_DEBUG("AddHwAccelerationChangeEventsCallback, res: %d, Id: %d", TO_INT(result),
                                                                    hwAccelerationEventsCallbackId_);
 
     LE_DEBUG("PA callback registrations complete.");
@@ -4025,7 +4101,7 @@ void TafDcsProfileManager::sessionStopEvtHandler(void *reqPtr)
         TafDcsUtils::ConvertPDP(eventPtr->ipType_pdp),
         ""
     };
-    le_result_t result = taf::pa::data::StopDataSessionAsync(params);
+    le_result_t result = PA_TO_LE_RESULT(taf::pa::data::StopDataSessionAsync(params));
     LE_INFO ("StopDataSessionAsync result: %d", result);
 }
 
@@ -4055,9 +4131,8 @@ void TafDcsProfileManager::startSessionAsyncRspEventHandler(void *reqPtr)
 
     TafDcsSendStartSessionAsyncRsp_t *eventPtr = static_cast<TafDcsSendStartSessionAsyncRsp_t *>
                                                                                         (reqPtr);
-    LE_DEBUG("Client  ref: %p", eventPtr->clientRef);
-    LE_DEBUG("Profile ref: %p", eventPtr->profileRef);
-    LE_DEBUG("Result     : %d", TO_INT(eventPtr->result));
+    LE_INFO("Client  ref: %p, Profile ref: %p, Result : %d", eventPtr->clientRef,
+                                                   eventPtr->profileRef, TO_INT(eventPtr->result));
 
     // Get the profile.
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -4080,7 +4155,7 @@ void TafDcsProfileManager::startSessionAsyncRspEventHandler(void *reqPtr)
         taf_dcs_AsyncSessionHandlerFunc_t handlerFunc = std::get<1>(client);
         void *context = std::get<2>(client);
 
-        LE_DEBUG("Sending event to client %p", clientRef);
+        LE_INFO("Sending event to client %p", clientRef);
         handlerFunc(eventPtr->profileRef, eventPtr->result, context);
 
         // Remove the client from the list of clients that have requested async session start.
@@ -4091,7 +4166,6 @@ void TafDcsProfileManager::startSessionAsyncRspEventHandler(void *reqPtr)
             // Add this client to the list of clients that have requested data.
             size_t listSize = 0;
             profile.AddClient(clientRef, listSize);
-            LE_DEBUG("Client %p added. Num clients: %zu", clientRef, listSize);
         }
     }
 }
@@ -4122,9 +4196,8 @@ void TafDcsProfileManager::stopSessionAsyncRspEventHandler(void *reqPtr)
 
     TafDcsSendStopSessionAsyncRsp_t *eventPtr = static_cast<TafDcsSendStopSessionAsyncRsp_t *>(
                                                                                             reqPtr);
-    LE_DEBUG("Client  ref: %p", eventPtr->clientRef);
-    LE_DEBUG("Profile ref: %p", eventPtr->profileRef);
-    LE_DEBUG("Result     : %d", TO_INT(eventPtr->result));
+    LE_INFO("Client  ref: %p, Profile ref: %p, Result : %d", eventPtr->clientRef,
+                                                   eventPtr->profileRef, TO_INT(eventPtr->result));
 
     // Get the profile.
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
@@ -4147,7 +4220,7 @@ void TafDcsProfileManager::stopSessionAsyncRspEventHandler(void *reqPtr)
         taf_dcs_AsyncSessionHandlerFunc_t handlerFunc = std::get<1>(client);
         void *context = std::get<2>(client);
 
-        LE_DEBUG("Sending event to client %p", clientRef);
+        LE_INFO("Sending event to client %p", clientRef);
         handlerFunc(eventPtr->profileRef, eventPtr->result, context);
 
         // Remove the client from the list of clients that have requested async session stop.
@@ -4193,12 +4266,10 @@ void TafDcsProfileManager::paSessionStateChangeEvtHandler(void *reqPtr)
     taf_dcs_ConState_t curState, curIpv4State, curIpv6State;
     taf_dcs_Pdp_t profileIpType;
 
-    LE_INFO("Phone   Id: %d", TO_INT(eventPtr->profile.phoneId));
-    LE_INFO("Profile Id: %d", TO_INT(eventPtr->profile.profileId));
-    LE_INFO("IP State  : %d", TO_INT(eventPtr->connState));
-    LE_INFO("IPv4 State: %d", TO_INT(eventPtr->ipv4ConnState));
-    LE_INFO("IPv6 State: %d", TO_INT(eventPtr->ipv6ConnState));
-    LE_INFO("IP Type   : %d", TO_INT(eventPtr->ipType_pdp));
+    LE_INFO("Phone Id, Profile Id, IP type  : %d, %d, %d", TO_INT(eventPtr->profile.phoneId),
+                                TO_INT(eventPtr->profile.profileId), TO_INT(eventPtr->ipType_pdp));
+    LE_INFO("Received IP, IPv4, IPv6 States : %d, %d, %d", TO_INT(eventPtr->connState),
+                                  TO_INT(eventPtr->ipv4ConnState), TO_INT(eventPtr->ipv6ConnState));
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     // Get the profile object based on phone ID and profile ID
@@ -4226,9 +4297,8 @@ void TafDcsProfileManager::paSessionStateChangeEvtHandler(void *reqPtr)
         // Get the profile IP type
         result = profile.GetPdp(profileIpType);
         TAF_ERROR_IF_RET_NIL(LE_OK != result, "GetPdp failed: %d", TO_INT(result));
-        LE_INFO("Current IP State  : %d", TO_INT(curState));
-        LE_INFO("Current IPv4 State: %d", TO_INT(curIpv4State));
-        LE_INFO("Current IPv6 State: %d", TO_INT(curIpv6State));
+        LE_INFO("Current IP, IPv4, IPv6 States  : %d, %d, %d", TO_INT(curState),
+                                                        TO_INT(curIpv4State), TO_INT(curIpv6State));
     }
 
     // Update internal session state

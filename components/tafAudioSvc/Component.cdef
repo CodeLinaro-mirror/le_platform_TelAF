@@ -14,6 +14,11 @@ provides:
     }
 }
 
+ldflags:
+{
+    -L$TELAF_DEFAULT_PA_LIB_DIR/lib
+}
+
 requires:
 {
     api:
@@ -30,8 +35,8 @@ requires:
 
     lib:
     {
-        lib/libtelux_audio.so
-        lib/libtelux_tel.so
+        libComponent_taf_pa_audio.so
+        libComponent_taf_pa_audioDef.so
     }
 
 }
@@ -40,9 +45,10 @@ cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
-    -ltelux_common
-    -ltelux_audio
     -I$TELAF_ROOT/components/tafHalComp
     -I$TELAF_ROOT/include/vhal
     -I$LEGATO_ROOT/components/cfgEntries
+    -I$TELAF_PA_DEFAULT/include
+    -std=c++17
 }
+

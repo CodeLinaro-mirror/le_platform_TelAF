@@ -28,15 +28,14 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 
 #include "legato.h"
 #include "interfaces.h"
-#include <telux/loc/LocationManager.hpp>
 #include "tafPos.hpp"
 #include "tafGnss.hpp"
 #include "tafSvcIF.hpp"

@@ -35,35 +35,49 @@ void TafDcsSvc::Init()
 
     // Initialize the PA
     le_result_t result;
-    taf::pa::data::InitState_e paInitState;
+    taf::pa::data::SubsystemState_e paState = taf::pa::data::SubsystemState_e::FAILED;
 
-
-    result = taf::pa::data::Init(paInitState);
+    LE_INFO("Initialize data PA...");
+    result = PA_TO_LE_RESULT(taf::pa::data::Init(paState));
     if (LE_OK == result)
     {
         // All good
         LE_INFO("PA is initialized.");
-        paInitState_ = paInitState;
+        paInitState_ = paState;
     }
     else if (LE_NOT_IMPLEMENTED == result)
     {
-        paInitState_ = taf::pa::data::InitState_e::INIT_FAILED;
+        paInitState_ = taf::pa::data::SubsystemState_e::FAILED;
         LE_ERROR("PA is not implemented.");
     }
     else if (LE_FAULT == result)
     {
-        paInitState_ = taf::pa::data::InitState_e::INIT_FAILED;
+        paInitState_ = taf::pa::data::SubsystemState_e::FAILED;
         LE_ERROR("PA initialization failed.");
     }
     else if (LE_UNAVAILABLE == result)
     {
         LE_WARN("PA is partially initialized.");
-        LE_INFO("PA Initialization state: %d", static_cast<int>(paInitState));
-        paInitState_ = paInitState;
+        LE_INFO("PA Initialization state: %d", static_cast<int>(paState));
+        paInitState_ = paState;
+    }
+    else
+    {
+        paInitState_ = taf::pa::data::SubsystemState_e::FAILED;
+        LE_ERROR("PA initialization failed with unknown error: %d", result);
     }
 
-    // TODO: If partially initialized, use taf::pa::data::GetInitState() to check if the PA
-    // is available.
+    if (taf::pa::data::SubsystemState_e::AVAILABLE != paState)
+    {
+        LE_ERROR("Exiting the service as subsystem initialization has failed.");
+        exit(EXIT_UNAVAILABLE);
+    }
+
+    // Add subsystem state change event handler.
+    result = PA_TO_LE_RESULT(taf::pa::data::AddSubsystemStateChangeCallback(
+                      tafPaSubsystemStateChangeCallback, nullptr, subsystemStateChangeCallbackId_));
+    LE_INFO("AddSubsystemStateChangeCallback result: %d, Id: %d",
+                                                TO_INT(result), subsystemStateChangeCallbackId_);
 
     // Add power state change handler
     powerStateChangeHandlerRef_= taf_pm_AddStateChangeHandler(powerStateChangeHandler, NULL);
@@ -74,6 +88,26 @@ void TafDcsSvc::Init()
     else
     {
         LE_INFO("Power state change handler registered.");
+    }
+}
+
+void TafDcsSvc::tafPaSubsystemStateChangeCallback
+(
+    taf::pa::data::PhoneId_e phoneId,
+    taf::pa::data::Subsystem_e subsystem,
+    taf::pa::data::SubsystemState_e state,
+    std::shared_ptr<void> context
+)
+{
+    using namespace taf::pa::data;
+    LE_UNUSED(context);
+    LE_WARN("Phone ID: %d, Subsystem: %s, State: %s", TO_INT(phoneId),
+                        TafDcsUtils::ToString(subsystem), TafDcsUtils::ToString(state));
+    if (SubsystemState_e::UNAVAILABLE == state || SubsystemState_e::FAILED == state)
+    {
+        // TODO, exit with proper error code or use a different approach to handle SSR
+        // Depending on which subsystem is unavailable, the service might still be able to operate.
+        // exit(EXIT_UNAVAILABLE);
     }
 }
 
@@ -98,84 +132,12 @@ void TafDcsSvc::powerStateChangeHandler(taf_pm_State_t state, void *contextPtr)
 
 void TafDcsSvc::Deinit()
 {
+    // Stop threads
     stopThreads();
+    // Unregister client handlers
     unregisterClientsConnectDisconnectHandlers();
-}
-
-taf::pa::data::InitState_e TafDcsSvc::GetInitState() const
-{
-    return paInitState_;
-}
-
-// Return the updateProfileEvtId_
-le_event_Id_t TafDcsSvc::GetUpdateProfileEvtId() const
-{
-    return updateProfileEvtId_;
-}
-
-// Return the clientConnectedEvtId_
-le_event_Id_t TafDcsSvc::GetClientsDisconnectedEvtId() const
-{
-    return clientDisconnectedEvtId_;
-}
-
-// Return the sessionStartEvtId_
-le_event_Id_t TafDcsSvc::GetSessionStartEvtId() const
-{
-    return sessionStartEvtId_;
-}
-
-// Return the sessionStopEvtId_
-le_event_Id_t TafDcsSvc::GetSessionStopEvtId() const
-{
-    return sessionStopEvtId_;
-}
-
-// Return the paSessionStateChangeEvtId_
-le_event_Id_t TafDcsSvc::GetPaSessionStateChangeEvtId() const
-{
-    return paSessionStateChangeEvtId_;
-}
-
-// Return paRoamingChangeEvtId_
-le_event_Id_t TafDcsSvc::GetPaRoamingStatusChangeEvtId() const
-{
-    return paRoamingChangeEvtId_;
-}
-
-// Return paThrottledAPNsEvtId_
-le_event_Id_t TafDcsSvc::GetPaThrottledAPNsEvtId() const
-{
-    return paThrottledAPNsEvtId_;
-}
-
-// Return paQosTftEvtId_
-le_event_Id_t TafDcsSvc::GetPaQosTftEvtId() const
-{
-    return paQosTftEvtId_;
-}
-
-// Return paHwAccelerationChangeEvtId_
-le_event_Id_t TafDcsSvc::GetPaHwAccelerationEvtId() const
-{
-    return paHwAccelerationChangeEvtId_;
-}
-
-// Return the startSessionAsyncRspEvtId_
-le_event_Id_t TafDcsSvc::GetStartSessionAsyncRspEvtId() const
-{
-    return startSessionAsyncRspEvtId_;
-}
-
-// Return stopSessionAsyncRspEvtId_
-le_event_Id_t TafDcsSvc::GetStopSessionAsyncRspEvtId() const
-{
-    return stopSessionAsyncRspEvtId_;
-}
-
-le_thread_Ref_t TafDcsSvc::GetEventsThreadRef() const
-{
-    return tafDcsEventsThreadRef_;
+    // Deinitialize the PA
+    taf::pa::data::Deinit();
 }
 
 // The event handler for the internal events thread.
@@ -286,7 +248,7 @@ void TafDcsSvc::unregisterClientsConnectDisconnectHandlers()
 void TafDcsSvc::onDCSClientConnect(le_msg_SessionRef_t sessionRef, void *ctxPtr)
 {
     LE_UNUSED(ctxPtr);
-    LE_DEBUG ("Client connected: %p", sessionRef);
+    LE_INFO ("Client connected: %p", sessionRef);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -298,7 +260,7 @@ void TafDcsSvc::onDCSClientDisconnect(le_msg_SessionRef_t sessionRef, void *ctxP
 {
     LE_UNUSED(ctxPtr);
     TAF_ERROR_IF_RET_NIL (nullptr == sessionRef, "sessionRef is NULL!");
-    LE_DEBUG ("Client disconnected: %p", sessionRef);
+    LE_INFO ("Client disconnected: %p", sessionRef);
     TafDcsClientDisconnectedEvent_t event = {sessionRef};
     // Send this event to the DCS internal event handler thread for processing.
     auto &tafDcsSvc = TafDcsSvc::GetInstance();

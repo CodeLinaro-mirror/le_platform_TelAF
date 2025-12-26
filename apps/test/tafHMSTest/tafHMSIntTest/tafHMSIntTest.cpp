@@ -45,7 +45,7 @@ void HMPrintHelpMenu()
         "\n"
         "SYNOPSIS:\n"
         "    app runProc tafHMSIntTest tafHMSIntTest -- help\n"
-        "    app runProc tafHMSIntTest tafHMSIntTest -- ModemEventHandler 100\n"
+        "    app runProc tafHMSIntTest tafHMSIntTest -- ModemEventHandler 3 100\n"
         "\n"
         "DESCRIPTION:\n"
         "    app runProc tafHMSIntTest tafHMSIntTest -- help\n"
@@ -68,12 +68,18 @@ void CheckArgs(uint8_t argNum)
     }
 }
 
-const char* ModemEventTypeToStr(taf_hms_ModemEvtType_t eventType)
+const char* ModemEventTypeToStr
+(
+    taf_hms_ModemEvtType_t eventType
+)
 {
     switch (eventType)
     {
         case TAF_HMS_MODEM_EVENT_TYPE_CONNECTION_LOST:
             return "CONNECTION_LOST";
+
+        case TAF_HMS_MODEM_EVENT_TYPE_CONNECTION_AVAIL:
+            return "CONNECTION_AVAIL";
 
         case TAF_HMS_MODEM_EVENT_TYPE_CONTINUE_REBOOT:
             return "CONTINUE_REBOOT";
@@ -96,9 +102,9 @@ const char* ModemEventLevelToStr(taf_hms_ModemEvtSeverity_t eventLevel)
 }
 
 void ModemStatusHandler(
-    taf_hms_ModemEvtType_t eventType,
+    taf_hms_ModemEvtType_t     eventType,
     taf_hms_ModemEvtSeverity_t eventLevel,
-    taf_hms_ModemEventRef_t eventRef,
+    taf_hms_ModemEventRef_t    eventRef,
     void* contextPtr
 )
 {
@@ -111,8 +117,18 @@ void ModemStatusHandler(
 void* ModemEventHandlerTestThread(void* contextPtr)
 {
     taf_hms_ConnectService();
+
+    const char* arg2 = le_arg_GetArg(1);
+    if (arg2 == NULL)
+    {
+        LE_ERROR("The modem event type is empty.");
+        return NULL;
+    }
+    taf_hms_ModemEvtBitmask_t reqEventBits = (taf_hms_ModemEvtBitmask_t)strtol(arg2, NULL, 10);
+
     modemStatusHandlerRef =
-        taf_hms_AddModemEvtHandler((taf_hms_ModemEvtHandlerFunc_t)ModemStatusHandler,NULL);
+        taf_hms_AddModemEvtHandler(reqEventBits,
+                         (taf_hms_ModemEvtHandlerFunc_t)ModemStatusHandler,NULL);
     LE_TEST_OK(modemStatusHandlerRef != NULL, "taf_hms_AddModemEvtHandler - OK");
 
     le_sem_Post((le_sem_Ref_t)contextPtr);
@@ -129,13 +145,13 @@ void RemoveRefModemEvtHandler(void)
 
 void ModemEventHandlerTest(void)
 {
-    CheckArgs(2);
+    CheckArgs(3);
     LE_TEST_INFO("======== Modem Event Handler Test ========\n");
 
-    const char* arg2 = le_arg_GetArg(1);
-    if (arg2 != NULL)
+    const char* arg3 = le_arg_GetArg(2);
+    if (arg3 != NULL)
     {
-        long time = strtol(arg2, NULL, 10);
+        long time = strtol(arg3, NULL, 10);
         le_sem_Ref_t semaphore = le_sem_Create("ModemEventHandlerSemaphore", 0);
         le_thread_Ref_t threadRef = le_thread_Create("ModemEventHandlerTestThread",
         ModemEventHandlerTestThread, (void*)semaphore);

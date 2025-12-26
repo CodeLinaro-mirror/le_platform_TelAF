@@ -7,6 +7,7 @@
 #include "interfaces.h"
 #include "le_singlyLinkedList.h"
 #include "tafSvcIF.hpp"
+#include "mutex"
 #include "taf_pa_sensor.hpp"
 
 #define SENSOR_EVENT_HANDLER_HIGH 11
@@ -48,19 +49,9 @@ typedef struct
 }taf_SensorInfoList_t;
 
 typedef struct{
-    uint64_t timestamp;
-    double x;
-    double y;
-    double z;
-    double xb;
-    double yb;
-    double zb;
-}taf_SensorEvent_t;
-
-typedef struct{
-    taf_imuSensor_SensorRef_t sensorRef;
+    tafpa::sensor::taf_pa_sensor_SensorId sensorClientId;
     le_msg_SessionRef_t sessionRef;
-    std::vector<std::shared_ptr<taf_SensorEvent_t>> eventList;
+    std::shared_ptr<const std::vector<tafpa::sensor::taf_pa_sensor_Event>> eventList;
     uint32_t listSize;
 }taf_SensorEventList_t;
 
@@ -82,18 +73,15 @@ typedef struct{
 typedef struct
 {
     uint64_t timestamp;
-    taf_imuSensor_SensorRef_t cSensorRef;
+    le_msg_SessionRef_t sessionRef;
+    tafpa::sensor::taf_pa_sensor_SensorId sensorClientId;
 }
 taf_SensorSelfTest_t;
 
 typedef struct{
-    taf_pa_sensor_Ref_t sensorClient;
-    taf_pa_sensor_EventListener eventListener;
+    tafpa::sensor::taf_pa_sensor_SensorId sensorClient;
+    tafpa::sensor::taf_pa_sensor_EventListener eventListener;
     bool isSensorActivated;
-    le_event_Id_t SensorOnEventId;
-    le_event_Id_t SelfTestEventId;
-    le_mutex_Ref_t mSensorMutexRef;
-    le_event_HandlerRef_t HandlerRef;
     taf_imuSensor_SensorRef_t sensorRef;
     char sensorName[NAME_MAX_SIZE];
 }taf_sensorClientInfo_t;
@@ -106,9 +94,9 @@ typedef struct
 }taf_SensorClient_t;
 
 typedef struct{
-    taf_pa_sensor_basicInfo_t basicInfo;
-    taf_pa_sensor_configInfo_t configInfo;
-    taf_pa_sensor_capabilities_t capInfo;
+    tafpa::sensor::taf_pa_sensor_BasicInfo basicInfo;
+    tafpa::sensor::taf_pa_sensor_ConfigInfo configInfo;
+    tafpa::sensor::taf_pa_sensor_Capabilities capInfo;
 }taf_SensorPAInfo_t;
 
 namespace tafsvc {
@@ -130,6 +118,8 @@ namespace tafsvc {
             le_ref_MapRef_t tSensorInfoMap;
             le_ref_MapRef_t tSensorEventHandlerMap;
             le_ref_MapRef_t tSensorEventMap;
+            le_event_Id_t SensorOnEventId;
+            le_event_Id_t SelfTestEventId;
             static taf_Sensor &GetInstance();
             le_result_t SetEulerAngle(double,double,double);
             static le_result_t InitializeSensorClientList(taf_SensorClient_t* clientRequestPtr);
@@ -171,7 +161,9 @@ namespace tafsvc {
 
         private:
             le_mem_PoolRef_t ClientPoolRef;
+            le_event_HandlerRef_t HandlerRef;
             le_ref_MapRef_t ClientRequestRefMap;
+            std::mutex mtx;
             std::vector<taf_SensorPAInfo_t> sList;
     };
 
@@ -181,9 +173,10 @@ namespace tafsvc {
         void Init() {
             return;
         }
-        static void onSelfTestFailed(taf_pa_sensor_Ref_t reference,uint64_t timestamp,
-            void *contextPtr);
-        static void onEvent(taf_pa_sensor_Ref_t reference,taf_pa_sensor_event_t* events,int count,
-            void *contextPtr);
-};
+        static void onSelfTestFailed(tafpa::sensor::taf_pa_sensor_SensorId sensorId,
+            uint64_t timestamp,std::any context);
+        static void onEvent(tafpa::sensor::taf_pa_sensor_SensorId sensorId,
+            std::shared_ptr<const std::vector<tafpa::sensor::taf_pa_sensor_Event>> events,
+            std::any context);
+    };
 }

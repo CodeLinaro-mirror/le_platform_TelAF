@@ -26,30 +26,23 @@
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- *  ​​​​​Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
 
- *  Copyright (c) 2022, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
+Changes from Qualcomm Technologies, Inc. are provided under the following license:
+Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
 #include "tafHalAudio.h"
+#include "taf_pa_audio.hpp"
 #include <queue>
 #include <unordered_map>
 #include <thread>
 #include <chrono>
-#include <telux/audio/AudioFactory.hpp>
-#include <telux/audio/AudioManager.hpp>
-#include <telux/audio/AudioPlayer.hpp>
-#include <telux/tel/CallManager.hpp>
-#include <telux/tel/CallListener.hpp>
-#include <telux/common/CommonDefines.hpp>
-#include <telux/tel/PhoneDefines.hpp>
 
-using namespace telux::common;
-using namespace telux::audio;
+using namespace tafpa::audio;
 
 #define SUBSYSTEM_TIMEOUT          5
 #define STOP_TIMEOUT               5
@@ -69,17 +62,6 @@ using namespace telux::audio;
 #define MILLISECS_IN_MICROSECS     1000
 #define MAX_RESPONSE_DELAY         100
 #define DEFAULT_RIFF_SIZE          sizeof(WavHeader_t) - 8 // Total file size - 8 bytes
-
-#define DEVICE_TYPE_SINK_0   1
-#define DEVICE_TYPE_SINK_1   2
-#define DEVICE_TYPE_SINK_2   3
-#define DEVICE_TYPE_SINK_3   4
-#define DEVICE_TYPE_SINK_4   5
-#define DEVICE_TYPE_SOURCE_0 257
-#define DEVICE_TYPE_SOURCE_1 258
-#define DEVICE_TYPE_SOURCE_2 259
-#define DEVICE_TYPE_SOURCE_3 260
-#define DEVICE_TYPE_SOURCE_4 261
 
 #define CHECK_OUTPUT_IF(interface)     ((interface == TAF_AUDIO_IF_CODEC_SPEAKER_1) || \
         (interface == TAF_AUDIO_IF_CODEC_SPEAKER_2) || \
@@ -105,6 +87,54 @@ using namespace telux::audio;
 #define ID_WAVE    0x45564157
 #define ID_FMT     0x20746d66
 #define ID_DATA    0x61746164
+
+#define CALLBACK_TO_SET_PA_RESULT                               \
+    auto prom = std::make_shared<std::promise<pa_result_t>>();  \
+    auto cb = [prom](pa_result_t res, std::any context) {       \
+        try                                                     \
+        {                                                       \
+            if (res != PA_OK) {                                 \
+                LE_ERROR("Request failed!, err : %d", res);     \
+            }                                                   \
+            prom->set_value(res);                               \
+        }                                                       \
+        catch (const std::future_error& e)                      \
+        {                                                       \
+            LE_ERROR("Future error in callback: %s", e.what()); \
+        }                                                       \
+        catch (const std::exception& e)                         \
+        {                                                       \
+            LE_ERROR("Exception in callback: %s", e.what());    \
+        }                                                       \
+        catch (...)                                             \
+        {                                                       \
+            LE_ERROR("Unknown error in callback.");             \
+        }                                                       \
+    };                                                          \
+
+#define CALLBACK1_TO_SET_PA_RESULT                              \
+    auto prom1 = std::make_shared<std::promise<pa_result_t>>(); \
+    auto cb1 = [prom1](pa_result_t res, std::any context) {     \
+        try                                                     \
+        {                                                       \
+            if (res != PA_OK) {                                 \
+                LE_ERROR("Request failed!, err : %d", res);     \
+            }                                                   \
+            prom1->set_value(res);                              \
+        }                                                       \
+        catch (const std::future_error& e)                      \
+        {                                                       \
+            LE_ERROR("Future error in callback: %s", e.what()); \
+        }                                                       \
+        catch (const std::exception& e)                         \
+        {                                                       \
+            LE_ERROR("Exception in callback: %s", e.what());    \
+        }                                                       \
+        catch (...)                                             \
+        {                                                       \
+            LE_ERROR("Unknown error in callback.");             \
+        }                                                       \
+    };                                                          \
 
 typedef struct StreamEventHandlerRef* StreamEventHandlerRef_t;
 typedef struct taf_audio_DtmfStreamEventHandlerRef* taf_audio_DtmfStreamEventHandlerRef_t;
@@ -252,16 +282,7 @@ typedef struct {
 
 typedef struct
 {
-    std::string absoluteFilePath; //Absolute path of the file
-    int32_t  repeat; // Defines how a file should be played. -1 = infinite loop, 0 = play once,
-                     // x = repeat X times.
-    StreamConfig config;
-    taf_audio_Stream* streamPtr;
-}taf_PlaybackFile_t;
-
-typedef struct
-{
-    taf_PlaybackFile_t filesToPlay[MAX_NUM_OF_PLAYBACK_FILES]; // Array of Playback files
+    std::vector<taf_pa_audio_PlayFileInfo_t> playFileInfos;    // Vector of Playback files
     uint32_t numOfFilesToPlay;                                 // Number of Playback files
     bool isPlaybackInProgress;
     le_msg_SessionRef_t sessionRef;
@@ -311,36 +332,20 @@ typedef struct
 
 namespace tafsvc {
 
-    class tafPromptsStatusListener : public telux::audio::IPlayListListener {
+    class tafPromptsStatusListener : public tafpa::audio::IPaPlayListListener {
         public:
             void onPlaybackStarted() override;
             void onPlaybackStopped() override;
-            void onError(telux::common::ErrorCode error, std::string file) override;
+            void onError(int error, std::string file) override;
             void onFilePlayed(std::string file) override;
             void onPlaybackFinished() override;
             taf_audio_Stream_t* streamPtr;
     };
 
-    class tafPlayListener : public telux::audio::IPlayListener {
+    class tafDtmfListener : public tafpa::audio::IPaDtmfListener {
         public:
-            void onReadyForWrite() override;
-            void onPlayStopped() override;
+            virtual void onDtmfToneDetection(PaDtmfTone dtmfTone) override;
     };
-
-    class tafVoiceListener : public telux::audio::IVoiceListener {
-        public:
-            virtual void onDtmfToneDetection(DtmfTone dtmfTone) override;
-    };
-
-    class tafSignallingDtmfListener : public telux::common::ICommandResponseCallback {
-        public:
-        tafSignallingDtmfListener(std::string commandName);
-        void commandResponse(telux::common::ErrorCode error) override;
-
-        private:
-        std::string commandName_;
-    };
-
 
 class taf_Audio : public ITafSvc
 {
@@ -352,7 +357,7 @@ class taf_Audio : public ITafSvc
         taf_Audio() {};
         ~taf_Audio() {};
 
-        std::promise<telux::common::ErrorCode> gCallbackPromise, gDelCbPromise;
+        std::promise<pa_result_t> gCallbackPromise, gDelCbPromise;
         bool mIsPlaying = false;
         bool mIsTxPlaying = false;
         bool mIsPbError = false;
@@ -361,7 +366,7 @@ class taf_Audio : public ITafSvc
         bool mEmptyPipeline = false;
         bool isRecMuteSet = false;
         bool isRxRecMuteSet = false;
-        AudioFormat mPbFileFormat = AudioFormat::UNKNOWN;
+        bool mIsLoopbackActive = false;
         le_sem_Ref_t mPlayCompletedSemRef;
         le_dls_List_t  EventIdList = LE_DLS_LIST_INIT;
         taf_audio_StreamRef_t mDtmfAudioRef = NULL;
@@ -408,32 +413,18 @@ class taf_Audio : public ITafSvc
                 const char* dtmfPtr, uint16_t duration, uint32_t pause, double gain);
         le_result_t StopDtmf(taf_audio_StreamRef_t streamRef);
         le_result_t StopSignallingDtmf(uint32_t slotId);
-        char getDTMFChar(telux::audio::DtmfLowFreq lowFreq, telux::audio::DtmfHighFreq highFreq);
+        char getDTMFChar(int lowFreq, int highFreq);
 
         private:
 
-        std::shared_ptr<telux::audio::IAudioManager> mAudioManager;
-        std::shared_ptr<telux::audio::IAudioVoiceStream> mAudioVoiceStream;
-        std::shared_ptr<telux::audio::IAudioCaptureStream> mAudioCaptureStream; // local capture stream
-
-        // incall downlink capture stream
-        std::shared_ptr<telux::audio::IAudioCaptureStream> mAudioRxCaptureStream;
-        std::shared_ptr<telux::audio::IAudioPlayStream> mAudioPlayStream;
-        std::shared_ptr<telux::audio::IAudioLoopbackStream> mAudioLoopbackStream;
-        std::shared_ptr<telux::audio::IStreamBuffer> mPbStreamBuffer, mRecStreamBuffer,
-                mRxRecStreamBuffer;
-
-        // mAudioPlayer - local/incall downlink playback, mTxAudioPlayer - incall uplink playback
-        std::shared_ptr<telux::audio::IAudioPlayer> mAudioPlayer, mTxAudioPlayer;
-        std::shared_ptr<telux::audio::IPlayListener> mPlayListener;
-        std::shared_ptr<telux::audio::IVoiceListener> mVoiceListener;
-
+        std::shared_ptr<tafpa::audio::IPaDtmfListener> mDtmfListener = nullptr;
+        std::shared_ptr<tafpa::audio::IPaStreamBuffer> mRecStreamBuffer, mRxRecStreamBuffer;
         // local/incall downlink playback listener
         std::shared_ptr<tafPromptsStatusListener> repeatedPlayerStatusListener;
         // incall uplink playback listener
         std::shared_ptr<tafPromptsStatusListener> repeatedTxPlayerStatusListener;
-        std::queue<std::shared_ptr<telux::audio::IStreamBuffer>> mPbFreeBuffers,
-                mRecFreeBuffers, mRxRecFreeBuffers;
+        std::queue<std::shared_ptr<tafpa::audio::IPaStreamBuffer>> mRecFreeBuffers,
+                mRxRecFreeBuffers;
 
         bool isVhalAvailable = false;
         bool isEcnrEnabled = false;
@@ -454,15 +445,13 @@ class taf_Audio : public ITafSvc
         int32_t  currentRepeat;
         FILE *mFile, // File ptr for local recording
                 *mRxFile; //File ptr for incall downlink recording
-        FILE *mPlayFile;
         le_sem_Ref_t mRecordSemRef, mRxRecordSemRef, mPbStartedSemRef,
                 mDtmfStartedSemRef, mDtmfStartedSemRefTx;
-        SlotId mRxSlotId = INVALID_SLOT_ID , mTxSlotId = INVALID_SLOT_ID;
-        StreamConfig voiceStreamConfig = {};
+        PaSlotId mRxSlotId = PaSlotId::SLOT_ID_INVALID , mTxSlotId = PaSlotId::SLOT_ID_INVALID;
+        PaStreamConfig paVoiceStreamConfig = {};
         taf_PbList_t pbList;
         taf_Dtmf_t dtmfDataRx{}, dtmfDataTx{};
         taf_mngdPm_InfoReportHandlerRef_t bubHandlerRef;
-        taf_PlaybackFile_t currentPbFile;
         le_event_HandlerRef_t bufferHandlerRef;
 
         le_mem_PoolRef_t ConnectorPool = NULL;
@@ -491,13 +480,13 @@ class taf_Audio : public ITafSvc
         le_hashmap_Ref_t GetHashMap( );
         le_result_t ConnectStreamPaths( taf_audio_Stream_t* streamPtr,
                 le_hashmap_Ref_t streamListPtr );
-        le_result_t StartAudio( StreamConfig config );
+        le_result_t StartAudio( PaStreamConfig config );
         le_result_t PlayWave( taf_audio_Stream_t* streamPtr, const char *srcPath);
         le_result_t PlayAmr( taf_audio_Stream_t* streamPtr, const char *srcPath);
-        le_result_t ReadPcmHeader( taf_audio_Stream_t* streamPtr, const char *srcPath,
-                StreamConfig &config);
-        le_result_t ReadAmrHeader( taf_audio_Stream_t* streamPtr, const char *srcPath,
-                StreamConfig &config);
+        le_result_t ReadPcmHeader( taf_audio_Stream_t* streamPtr,
+                taf_pa_audio_PlayFileInfo_t* playFileInfo);
+        le_result_t ReadAmrHeader( taf_audio_Stream_t* streamPtr,
+                taf_pa_audio_PlayFileInfo_t* playFileInfo);
         ssize_t ReadHeader( int fd, void* bufPtr, size_t bufSize);
         le_result_t setWavHeader( FILE *mFile, taf_audio_Stream_t *config);
         le_result_t StopAudio(taf_audio_Stream_t* streamPtr);
@@ -509,33 +498,24 @@ class taf_Audio : public ITafSvc
                 taf_audio_StreamEventBitMask_t streamEventBitMask, void* contextPtr );
         void RemoveStreamEventHandler( StreamEventHandlerRef_t handlerRef );
         le_result_t StopandDelete(taf_audio_Stream_t* strmPtr, le_hashmap_Ref_t strmListPtr);
-        void PlayAudioFile( taf_PlaybackFile_t fileToPlay);
         le_result_t startRecording(taf_audio_Stream_t* streamPtr);
-        void PbBufferHandler();
         void RecBufferHandler(taf_audio_Stream_t* streamPtr);
         void AdvertiseAndRegisterHandler();
 
         static void ClientSessionCloseEventHandler( le_msg_SessionRef_t sessionRef,
                             void* contextPtr);
         static void DestructStream( void *objPtr );
-        static void DeletePlayCallback(ErrorCode error);
         static void FirstLayerEventHandler( void* reportPtr, void* secondLayerHandlerFunc );
         static le_event_Id_t CreateEventId();
         static void* Record( void* ctxPtr);
         static void* PlayList( void* ctxPtr);
         static void* RegisterBufferEvent( void* ctxPtr);
         static void* RegisterRecBufferEvent( void* ctxPtr);
-        static void ReadCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer,
-                    telux::common::ErrorCode error);
-        static void RxReadCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer,
-                    telux::common::ErrorCode error);
-        static void WriteCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer,
-                uint32_t bytes, telux::common::ErrorCode error);
+        static void ReadCallback(std::shared_ptr<tafpa::audio::IPaStreamBuffer> buffer,
+                    pa_result_t paRes);
+        static void RxReadCallback(std::shared_ptr<tafpa::audio::IPaStreamBuffer> buffer,
+                    pa_result_t paRes);
         static void BuBStatusCB(int32_t status, void *contextPtr);
-        static void RegisterDtmfListenerCallback(ErrorCode error);
-        std::shared_ptr<tafSignallingDtmfListener> onStartDtmfTone = nullptr;
-        std::shared_ptr<tafSignallingDtmfListener> onStopDtmfTone = nullptr;
-        std::shared_ptr<telux::tel::ICallManager> callManager = nullptr;
         std::pair<int, int> getDTMFFrequencies(char key);
         static void* playAllDtmfTones(void* dtmfTones);
         static void* playDTMFonTX(void* dtmfTones);

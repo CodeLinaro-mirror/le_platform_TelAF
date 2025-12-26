@@ -140,6 +140,7 @@ static uint8_t TxCount = 0;
 
 static int callbackCount = 0;
 static taf_sms_SendStatus_t lastStatus[AMOUNT_MSG_TX];
+le_sem_Ref_t callbackSem = NULL;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1136,6 +1137,12 @@ __attribute__((unused)) static void Callback_MsgSendStatusAsync
         lastStatus[idx] = status;
         callbackCount++;
     }
+
+    if(callbackCount == AMOUNT_MSG_TX)
+    {
+        LE_INFO("Posting semaphore callbackSem");
+        le_sem_Post(callbackSem); // Signal that all callbacks are done
+    }
 }
 
 /*======================================================================
@@ -1173,6 +1180,8 @@ static void* EventThread(void* param)
 
         LE_TEST_ASSERT(taf_sms_SendAsync(msgRef, Callback_MsgSendStatusAsync, NULL) == LE_OK,
             "Test taf_sms_Send %s", "#s# + send msg");
+
+        le_thread_Sleep(1);
     }
 
     // Run the Legato event loop (blocks)
@@ -1202,21 +1211,39 @@ __attribute__((unused)) static void Test_taf_sms_SendAsync
 )
 {
     taf_sms_ConnectService();
+
+    callbackSem = le_sem_Create("CallbackSem", 0);
+    if (callbackSem == NULL)
+    {
+        LE_FATAL("Failed to create semaphore");
+        return;
+    }
+
     le_thread_Ref_t testThread = le_thread_Create("TestThread", EventThread, NULL);
     le_thread_Start(testThread);
 
-    // Wait for callback to be invoked
-    int retries = 0;
-    while (callbackCount < AMOUNT_MSG_TX && retries < 20)
+    le_clk_Time_t timeout;
+    timeout.sec = 30;
+    timeout.usec = 0;
+
+    if (le_sem_WaitWithTimeOut(callbackSem, timeout) != LE_OK)
     {
-        sleep(1);
-        retries++;
+        LE_FATAL("Timeout waiting for callback");
+        return;
     }
 
     // Verify results
     LE_TEST_ASSERT(callbackCount == AMOUNT_MSG_TX, "Test taf_sms_SendAsync");
     for(int i = 0; i < AMOUNT_MSG_TX; ++i)
     {
+        if(lastStatus[i] == TAF_SMS_TXSTS_SENT)
+        {
+            LE_INFO("lastStatus[%d] == TAF_SMS_TXSTS_SENT", i);
+        }
+        else
+        {
+            LE_INFO("lastStatus[%d] == TAF_SMS_TXSTS_SENDING_FAILED", i);
+        }
         LE_TEST_ASSERT(lastStatus[i] == TAF_SMS_TXSTS_SENT, "Test taf_sms_SendAsync");
     }
 

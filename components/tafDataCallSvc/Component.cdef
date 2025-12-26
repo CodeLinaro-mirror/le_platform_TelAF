@@ -9,13 +9,11 @@ provides:
 
 requires:
 {
-    component:
+    lib:
     {
-        $TELAF_PA_DEFAULT/component/taf_pa_dataDef
-        // stub component only for build purpose
-        $LEGATO_BUILD/stub/component/taf_pa_data
+        libComponent_taf_pa_data.so
+        libComponent_taf_pa_dataDef.so
     }
-
     api:
     {
         taf_pm.api
@@ -28,6 +26,11 @@ cxxflags:
     -I$TELAF_PA_DEFAULT/include
     -I$TELAF_PA_DEFAULT/include/data
     -std=c++17
+}
+
+ldflags:
+{
+    -L$TELAF_DEFAULT_PA_LIB_DIR/lib
 }
 
 sources:

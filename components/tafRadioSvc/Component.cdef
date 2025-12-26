@@ -11,13 +11,12 @@ requires:
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
-        $TELAF_ROOT/components/stub/taf_pa_radio
     }
 
     lib:
     {
-        lib/libtelux_tel.so
-        lib/libtelux_data.so
+        libComponent_taf_pa_radio.so
+        libComponent_taf_pa_radioDef.so
     }
 
     api:
@@ -30,14 +29,14 @@ cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
-    -I$TELAF_ROOT/components/stub/taf_pa_radio
-    -ltelux_tel
-    -ltelux_data
+    -I$TELAF_PA_DEFAULT/include
+    -std=c++17
+    -DTAFPA_ENABLE_LEGACY_MACROS=1
 }
 
-cflags:
+ldflags:
 {
-    -I$LEGATO_ROOT/components/watchdogChain
+    -L$TELAF_DEFAULT_PA_LIB_DIR/lib
 }
 
 sources:

@@ -1568,19 +1568,6 @@ FUNCTION ReleaseSampleRef
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Releases the extend position sample per client session.
- *
- * @b NOTE: If the caller passes an invalid position sample reference to this function,
- *       it is a fatal error and the client will be killed.
- */
-//--------------------------------------------------------------------------------------------------
-FUNCTION ReleaseSampleExRef
-(
-    SampleEx postitionSampleExRef IN        ///< Position sample reference.
-) = 96;
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Gets the location data (latitude, longitude, horizontal accuracy)
  * per client session.
  *
@@ -4303,27 +4290,9 @@ FUNCTION ReleaseMeasSampleRef
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the values of GnssMeasurements clock validity mask per client session.
- *
- * @instaging
- *
- * @return
- *  - LE_FAULT         Failed to get the validity mask of the measurement clock data.
- *  - LE_OK            Succeeded.
- *
-*/
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t  GetMeasDataValidityMask
-(
-    MeasSample measSampleRef  IN,                       ///< Measurement sample reference.
-    uint32 measDataValidityMask[MEASUREMENT_INFO_MAX] OUT  ///< GetMeasDataValidityMask.
-) = 97;
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Handler for basic position information.
  *
- * @instaging
+ @instaging
  *
  * @param[in] positionSampleExRef  Extended position sample reference.
  * @param[in] contextPtr              Context pointer.
@@ -4348,3 +4317,34 @@ EVENT PositionEx
 (
  PositionExHandler handler
 ) = (94,95);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Releases the extend position sample per client session.
+ *
+ * @b NOTE: If the caller passes an invalid position sample reference to this function,
+ *       will show error and return.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION ReleaseSampleExRef
+(
+    SampleEx postitionSampleExRef IN        ///< Position sample reference.
+) = 96;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the values of GnssMeasurements clock validity mask per client session.
+ *
+ * @instaging
+ *
+ * @return
+ *  - LE_FAULT         Failed to get the validity mask of the measurement clock data.
+ *  - LE_OK            Succeeded.
+ *
+*/
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t  GetMeasDataValidityMask
+(
+    MeasSample measSampleRef  IN,                       ///< Measurement sample reference.
+    uint32 measDataValidityMask[MEASUREMENT_INFO_MAX] OUT  ///< GetMeasDataValidityMask.
+) = 97;

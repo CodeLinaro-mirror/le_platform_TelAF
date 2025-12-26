@@ -79,9 +79,9 @@ __attribute__((unused)) void timeRetTest_RunApis
     avail = taf_time_IsSourceValid(NULL);
     LE_TEST_OK(avail == false,"***taf_time_IsSourceValid***-false");
 
-    //15.taf_time_SetValidity LE_FAULT scenario
-    res = taf_time_SetValidity(NULL,false);
-    LE_TEST_OK(res == LE_FAULT,"***taf_time_SetValidity***-LE_FAULT");
+    //15.taf_time_SetTrustTime LE_FAULT scenario
+    res = taf_time_SetTrustTime(NULL,NULL,false);
+    LE_TEST_OK(res == LE_FAULT,"***taf_time_SetTrustTime***-LE_FAULT");
 
 
 }

@@ -4,5 +4,3 @@
 /legato/systems/current/appsWriteable/tafDoIPStackUnitTest/bin/tafDoIPStackUnitTest                  gen_context(system_u:object_r:telaf_tafDoIPStackUnitTest_exec_t,s0)
 /legato/apps/[^/]*/read-only/bin/tafDoIPStackUnitTest                                              gen_context(system_u:object_r:telaf_tafDoIPStackUnitTest_exec_t,s0)
 /legato/systems/current/appsWriteable/tafDoIPStackUnitTest/lib(/.*)?                               gen_context(system_u:object_r:telaf_lib_t,s0)
-/legato/systems/current/appsWriteable/tafDoIPStackUnitTest/tafDoIP.json                  gen_context(system_u:object_r:telaf_tafDoIPStackUnitTest_data_t,s0)
-/legato/apps/[^/]*/writeable/tafDoIP.json                                              gen_context(system_u:object_r:telaf_tafDoIPStackUnitTest_data_t,s0)

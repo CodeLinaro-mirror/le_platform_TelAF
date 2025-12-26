@@ -16,6 +16,7 @@ taf_radio_RatChangeHandlerRef_t ratChangeHandlerRef;
 taf_radio_SignalStrengthChangeHandlerRef_t gsmSsChangeHandlerRef;
 taf_radio_SignalStrengthChangeHandlerRef_t umtsSsChangeHandlerRef;
 taf_radio_SignalStrengthChangeHandlerRef_t cdmaSsChangeHandlerRef;
+taf_radio_SignalStrengthChangeHandlerRef_t tdscdmaSsChangeHandlerRef;
 taf_radio_SignalStrengthChangeHandlerRef_t lteSsChangeHandlerRef;
 taf_radio_SignalStrengthChangeHandlerRef_t nr5gSsChangeHandlerRef;
 taf_radio_ImsRegStatusChangeHandlerRef_t imsRegStatusChangeHandlerRef;
@@ -1687,6 +1688,10 @@ void PrintServingStatus
             PrintRFBandwidth(phoneId, bandWidth);
             break;
         case TAF_RADIO_RAT_UMTS:
+            cellId = taf_radio_GetServingCellId(phoneId);
+            LE_TEST_OK(true, "taf_radio_GetServingCellId - OK");
+            LE_INFO("Phone %d UMTS Cell ID %d", phoneId, cellId);
+
             psc = taf_radio_GetServingCellScramblingCode(phoneId);
             LE_TEST_OK(true, "taf_radio_GetServingCellScramblingCode - OK");
             LE_INFO("Phone %d UMTS Primary Scrambling Code %d", phoneId, psc);
@@ -1705,6 +1710,10 @@ void PrintServingStatus
             PrintRFBandwidth(phoneId, bandWidth);
             break;
         case TAF_RADIO_RAT_LTE:
+            cellId = taf_radio_GetServingCellId(phoneId);
+            LE_TEST_OK(true, "taf_radio_GetServingCellId - OK");
+            LE_INFO("Phone %d LTE Cell ID %d", phoneId, cellId);
+
             tac = taf_radio_GetServingCellLteTracAreaCode(phoneId);
             LE_TEST_OK(true, "taf_radio_GetServingCellLteTracAreaCode - OK");
             LE_INFO("Phone %d LTE Tracking Area Code %d", phoneId, tac);
@@ -1750,6 +1759,10 @@ void PrintServingStatus
             PrintRFBandwidth(phoneId, bandWidth);
             break;
         case TAF_RADIO_RAT_TDSCDMA:
+            cellId = taf_radio_GetServingCellId(phoneId);
+            LE_TEST_OK(true, "taf_radio_GetServingCellId - OK");
+            LE_INFO("Phone %d TDSCDMA Cell ID %d", phoneId, cellId);
+
             result = taf_radio_GetServingCellRoutingAreaCode(&rac, phoneId);
             LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellRoutingAreaCode - LE_OK");
             LE_INFO("Phone %d TDSCDMA Routing Area Code %d", phoneId, rac);
@@ -1977,8 +1990,12 @@ void* SignalTestThread
     LE_TEST_OK(umtsSsChangeHandlerRef != NULL, "taf_radio_AddSignalStrengthChangeHandler - OK");
 
     cdmaSsChangeHandlerRef = taf_radio_AddSignalStrengthChangeHandler(TAF_RADIO_RAT_CDMA,
-       (taf_radio_SignalStrengthChangeHandlerFunc_t)UmtsSsChangeHandler, NULL);
+       (taf_radio_SignalStrengthChangeHandlerFunc_t)CdmaSsChangeHandler, NULL);
     LE_TEST_OK(cdmaSsChangeHandlerRef != NULL, "taf_radio_AddSignalStrengthChangeHandler - OK");
+
+    tdscdmaSsChangeHandlerRef = taf_radio_AddSignalStrengthChangeHandler(TAF_RADIO_RAT_TDSCDMA,
+       (taf_radio_SignalStrengthChangeHandlerFunc_t)TdscdmaSsChangeHandler, NULL);
+    LE_TEST_OK(tdscdmaSsChangeHandlerRef != NULL, "taf_radio_AddSignalStrengthChangeHandler - OK");
 
     lteSsChangeHandlerRef = taf_radio_AddSignalStrengthChangeHandler(TAF_RADIO_RAT_LTE,
        (taf_radio_SignalStrengthChangeHandlerFunc_t)LteSsChangeHandler, NULL);
@@ -2034,6 +2051,9 @@ void RemoveSignalTestHandler
     LE_TEST_OK(true, "taf_radio_RemoveSignalStrengthChangeHandler - OK");
 
     taf_radio_RemoveSignalStrengthChangeHandler(cdmaSsChangeHandlerRef);
+    LE_TEST_OK(true, "taf_radio_RemoveSignalStrengthChangeHandler - OK");
+
+    taf_radio_RemoveSignalStrengthChangeHandler(tdscdmaSsChangeHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveSignalStrengthChangeHandler - OK");
 
     taf_radio_RemoveSignalStrengthChangeHandler(lteSsChangeHandlerRef);
@@ -2355,15 +2375,22 @@ COMPONENT_INIT
             result = taf_radio_GetRegisterMode(&isManual, mccStr, TAF_RADIO_MCC_BYTES, mncStr,
                 TAF_RADIO_MNC_BYTES, phoneId);
             LE_TEST_OK(result == LE_OK, "taf_radio_GetRegisterMode - OK");
-            if (isManual)
+            if (result == LE_OK)
             {
-                LE_INFO("Phone %ld registation mode : Manual (MCC:%s MNC:%s).",
-                    phoneId, mccStr, mncStr);
+                if (isManual)
+                {
+                    LE_INFO("Phone %ld registation mode : Manual (MCC:%s MNC:%s).",
+                        phoneId, mccStr, mncStr);
+                }
+                else
+                {
+                    LE_INFO("Phone %ld registation mode : Auto.", phoneId);
+                }
             }
-            else
-            {
-                LE_INFO("Phone %ld registation mode : Auto.", phoneId);
-            }
+
+            int32_t error = taf_radio_GetPlatformSpecificRegistrationErrorCode();
+            LE_TEST_OK(true, "taf_radio_GetPlatformSpecificRegistrationErrorCode - OK");
+            LE_INFO("Phone %ld registation error code for the last time was %d.", phoneId, error);
         }
         else
         {

@@ -19,7 +19,6 @@ capability:
         CAP_FOWNER
         CAP_WAKE_ALARM
         CAP_SYS_RESOURCE
-        CAP_BLOCK_SUSPEND
         CAP_SYS_BOOT
         CAP_SYS_ADMIN
 

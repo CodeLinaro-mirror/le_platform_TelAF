@@ -47,11 +47,15 @@ USETYPES taf_dcs.api;
  *
  * @returns
  * - LE_OK                           Successfully made the data call.
+ * - LE_BAD_PARAMETER                At least one bad parameter was passed.
  * - LE_NOT_FOUND                    Parameter is invalid or cannot create the data call.
  * - LE_OUT_OF_RANGE                 PDP type is unknown.
+ * - LE_DUPLICATE                    A data session is already connected for the given profile.
  * - LE_BUSY                         Profile is in use.
+ * - LE_IN_PROGRESS                  Session start is already in progress.
  * - LE_TIMEOUT                      Timed out while attempting to make the data call.
  * - LE_NOT_POSSIBLE                 Data profile is not yet created.
+ * - LE_TERMINATED                   Session was terminated.
  * - LE_FAULT                        Failed to make the data call.
  */
 //--------------------------------------------------------------------------------------------------
@@ -66,11 +70,15 @@ FUNCTION le_result_t StartSession
  *
  * @returns
  * - LE_OK                           Successfully made the data call.
+ * - LE_BAD_PARAMETER                At least one bad parameter was passed.
  * - LE_NOT_FOUND                    Parameter is invalid or cannot create the data call.
  * - LE_OUT_OF_RANGE                 PDP type is unknown.
+ * - LE_DUPLICATE                    A data session is already connected for the given profile.
  * - LE_BUSY                         Profile is in use.
+ * - LE_IN_PROGRESS                  Session start is already in progress.
  * - LE_TIMEOUT                      Timed out while attempting to make the data call.
  * - LE_NOT_POSSIBLE                 Data profile is not yet created.
+ * - LE_TERMINATED                   Session was terminated.
  * - LE_FAULT                        Failed to make the data call.
  */
 //--------------------------------------------------------------------------------------------------
@@ -87,7 +95,8 @@ FUNCTION le_result_t StartSessionAsync
  * - LE_OK                           Successfully stopped the data call.
  * - LE_NOT_FOUND                    Could not find the data call to stop.
  * - LE_OUT_OF_RANGE                 PDP type is unknown.
- * - LE_BAD_PARAMETER                Call context is NULL.
+ * - LE_BAD_PARAMETER                At least one bad parameter was passed.
+ * - LE_IN_PROGRESS                  Session stop is already in progress.
  * - LE_TIMEOUT                      Timed out while attempting to stop the data call.
  * - LE_NOT_POSSIBLE                 Data profile is not yet created.
  * - LE_FAULT                        Failed to stop the data call.
@@ -106,7 +115,8 @@ FUNCTION le_result_t StopSession
  * - LE_OK                           Successfully stopped the data call.
  * - LE_NOT_FOUND                    Could not find the data call to stop .
  * - LE_OUT_OF_RANGE                 PDP type is unknown.
- * - LE_BAD_PARAMETER                Call context is NULL.
+ * - LE_BAD_PARAMETER                At least one bad parameter was passed.
+ * - LE_IN_PROGRESS                  Session stop is already in progress.
  * - LE_TIMEOUT                      Timed out while attempting to stop the data call.
  * - LE_NOT_POSSIBLE                 Data profile is not yet created.
  * - LE_FAULT                        Failed to stop the data call.

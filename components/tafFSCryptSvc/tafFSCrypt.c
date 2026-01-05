@@ -73,6 +73,96 @@ taf_fsc_Storage_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Mapping pa_result_t to le_result_t
+ */
+//--------------------------------------------------------------------------------------------------
+static le_result_t ConvertPaToLeRet(pa_result_t paResult)
+{
+    switch(paResult)
+    {
+        case PA_OK:
+            return LE_OK;
+            break;
+        case PA_NOT_FOUND:
+            return LE_NOT_FOUND;
+            break;
+        case PA_NOT_POSSIBLE:
+            return LE_NOT_POSSIBLE;
+            break;
+        case PA_OUT_OF_RANGE:
+            return LE_OUT_OF_RANGE;
+            break;
+        case PA_NO_MEMORY:
+            return LE_NO_MEMORY;
+            break;
+        case PA_NOT_PERMITTED:
+            return LE_NOT_PERMITTED;
+            break;
+        case PA_FAULT:
+            return LE_FAULT;
+            break;
+        case PA_COMM_ERROR:
+            return LE_COMM_ERROR;
+            break;
+        case PA_TIMEOUT:
+            return LE_TIMEOUT;
+            break;
+        case PA_OVERFLOW:
+            return LE_OVERFLOW;
+            break;
+        case PA_UNDERFLOW:
+            return LE_UNDERFLOW;
+            break;
+        case PA_WOULD_BLOCK:
+            return LE_WOULD_BLOCK;
+            break;
+        case PA_DEADLOCK:
+            return LE_DEADLOCK;
+            break;
+        case PA_FORMAT_ERROR:
+            return LE_FORMAT_ERROR;
+            break;
+        case PA_DUPLICATE:
+            return LE_DUPLICATE;
+            break;
+        case PA_BAD_PARAMETER:
+            return LE_BAD_PARAMETER;
+            break;
+        case PA_CLOSED:
+            return LE_CLOSED;
+            break;
+        case PA_BUSY:
+            return LE_BUSY;
+            break;
+        case PA_UNSUPPORTED:
+            return LE_UNSUPPORTED;
+            break;
+        case PA_IO_ERROR:
+            return LE_IO_ERROR;
+            break;
+        case PA_NOT_IMPLEMENTED:
+            return LE_NOT_IMPLEMENTED;
+            break;
+        case PA_UNAVAILABLE:
+            return LE_UNAVAILABLE;
+            break;
+        case PA_TERMINATED:
+            return LE_TERMINATED;
+            break;
+        case PA_IN_PROGRESS:
+            return LE_IN_PROGRESS;
+            break;
+        case PA_SUSPENDED:
+            return LE_SUSPENDED;
+            break;
+        default:
+            LE_FATAL("Unknown PA return code: %d.", paResult);
+            break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Checks whether the specified directory is empty.
  */
 //--------------------------------------------------------------------------------------------------
@@ -479,11 +569,12 @@ le_result_t taf_fsc_UnlockStorage
     }
 
     // Process PA layer validation and get raw key
-    le_result_t res = taf_pa_fsc_GetKey(taf_fsc_GetClientSessionRef(),
+    le_result_t res = ConvertPaToLeRet(taf_pa_fsc_GetKey(
+                                        le_msg_GetClientFd(taf_fsc_GetClientSessionRef()),
                                         storagePtr->dirpath,
                                         &keyFileRef,
                                         key,
-                                        FSC_MAX_KEY_SIZE);
+                                        FSC_MAX_KEY_SIZE));
 
     if(keyFileRef != storagePtr->keyFileRef)
     {
@@ -550,7 +641,9 @@ le_result_t taf_fsc_DeleteStorage
 
     if(LE_OK == res)
     {
-        res = taf_pa_fsc_DeleteKey(storagePtr->clientSessionRef, storagePtr->keyFileRef);
+        res = ConvertPaToLeRet(taf_pa_fsc_DeleteKey(
+                                   le_msg_GetClientFd(taf_fsc_GetClientSessionRef()),
+                                   storagePtr->keyFileRef));
     }
 
     if(LE_OK == res)
@@ -642,11 +735,12 @@ taf_fsc_StorageRef_t taf_fsc_GetStorageRef
     // Check whether the specifid direcroty already exists
     if (le_dir_IsDir(dirPath))
     {
-        *result = taf_pa_fsc_GetKey(taf_fsc_GetClientSessionRef(),
+        *result = ConvertPaToLeRet(taf_pa_fsc_GetKey(
+                                        le_msg_GetClientFd(taf_fsc_GetClientSessionRef()),
                                         dirPath,
                                         &keyFileRef,
                                         key,
-                                        FSC_MAX_KEY_SIZE);
+                                        FSC_MAX_KEY_SIZE));
 
         LE_INFO("taf_pa_fsc_GetKey - %s", LE_RESULT_TXT(*result));
         if(*result == LE_NOT_FOUND)
@@ -694,11 +788,12 @@ taf_fsc_StorageRef_t taf_fsc_GetStorageRef
     // If key file doesn't exist or it's new directory, generate new key
     if(*result == LE_NOT_FOUND)
     {
-        *result = taf_pa_fsc_GenerateAesKey(taf_fsc_GetClientSessionRef(),
+        *result = ConvertPaToLeRet(taf_pa_fsc_GenerateAesKey(
+                                                le_msg_GetClientFd(taf_fsc_GetClientSessionRef()),
                                                 dirPath,
                                                 &keyFileRef,
                                                 key,
-                                                FSC_MAX_KEY_SIZE);
+                                                FSC_MAX_KEY_SIZE));
 
         if(LE_OK != *result)
         {
@@ -763,7 +858,7 @@ exception:
     // Deletes key if something wrong happend
     if(!storageAlreadyExist)
     {
-        taf_pa_fsc_DeleteKey(taf_fsc_GetClientSessionRef(), keyFileRef);
+        taf_pa_fsc_DeleteKey(le_msg_GetClientFd(taf_fsc_GetClientSessionRef()), keyFileRef);
     }
 
     LE_ERROR("taf_fsc_GetStorageRef - %s", LE_RESULT_TXT(*result));

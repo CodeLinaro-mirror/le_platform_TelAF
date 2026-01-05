@@ -164,7 +164,7 @@ build_extras() {
             cp -r "${PREBUILT_DIR}" "${DIST_DIR}/"
             export TELAF_${EXTRA_TYPE^^}="${DIST_DIR}/telaf-${EXTRA_TYPE}/lib"
         else
-            echo "Error: Unable to find the required prebuilt files for telaf-${EXTRA_TYPE}."
+            echo "Warning: Unable to find the required prebuilt files for telaf-${EXTRA_TYPE}."
         fi
     fi
 }
@@ -236,18 +236,11 @@ function build_target() {
         return
     fi
 
-    # Build telaf-noship source code if exists
-    build_extras "noship" "${TARGET}"
-
-    build_extras "pa" "${TARGET}"
-
     # Repack TelAF image
     local TELAF_REPACK_DIR="${TELAF_ROOT}/build/${TARGET}/"
     local TELAF_NOSHIP_BUILD_DIR="${TELAF_ROOT}/build/${TARGET}/telaf-noship"
     local TELAF_PROP_BUILD_DIR="${TELAF_ROOT}/build/${TARGET}/telaf-prop"
     local TELAF_PA_BUILD_DIR="${TELAF_ROOT}/build/${TARGET}/telaf-pa"
-
-    [[ ! -d $TELAF_NOSHIP_BUILD_DIR ]] && TELAF_NOSHIP_BUILD_DIR=$TELAF_NOSHIP
 
     build_extras_pa "${TELAF_PROP}" "${TELAF_PROP_BUILD_DIR}/"
     if [ $? -ne 0 ]; then

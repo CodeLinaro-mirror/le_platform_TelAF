@@ -363,8 +363,8 @@ ENUM ModemEvtSeverity
 * @instaging
 *
 * @return
-* - LE_FAULT         Failed.
-* - LE_OK            Succeeded.
+* - LE_BAD_PARAMETER     At least one bad parameter was passed.
+* - LE_OK                Succeeded.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t  GetCpuLoad
@@ -380,8 +380,7 @@ FUNCTION le_result_t  GetCpuLoad
 * @instaging
 *
 * @return
-* - LE_FAULT         Failed.
-* - LE_OK            Succeeded.
+* - Number of CPU cores.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetCpuCoreNum
@@ -469,7 +468,7 @@ FUNCTION UbiDevInfo GetFirstUbiDevInfo
 * @instaging
 *
 * @return
-*  - LE_BAD_PARAMETER -- Bad parameters.
+*  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 *  - LE_OK -- Succeeded.
 */
 //------------------------------------------------------------------------------------------------
@@ -504,8 +503,9 @@ FUNCTION UbiDevInfo GetNextUbiDevInfo
 * @instaging
 *
 * @return
-* - LE_FAULT         Failed.
-* - LE_OK            Succeeded.
+* - LE_FAULT                 Failed.
+* - LE_BAD_PARAMETER         At least one bad parameter was passed.
+* - LE_OK                    Succeeded.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetUbiDevId
@@ -522,8 +522,9 @@ FUNCTION le_result_t GetUbiDevId
 * @instaging
 *
 * @return
-* - LE_FAULT         Failed.
-* - LE_OK            Succeeded.
+* - LE_FAULT                 Failed.
+* - LE_BAD_PARAMETER         At least one bad parameter was passed.
+* - LE_OK                    Succeeded.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetUbiDevMaxEraseCnt
@@ -540,8 +541,9 @@ FUNCTION le_result_t GetUbiDevMaxEraseCnt
 * @instaging
 *
 * @return
-* - LE_FAULT         Failed.
-* - LE_OK            Succeeded.
+* - LE_FAULT                 Failed.
+* - LE_BAD_PARAMETER         At least one bad parameter was passed.
+* - LE_OK                    Succeeded.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetUbiDevBadBlkCnt
@@ -594,8 +596,9 @@ FUNCTION UbiVolInfo GetNextUbiVolInfo
 * @instaging
 *
 * @return
-* - LE_FAULT         Failed.
-* - LE_OK            Succeeded.
+* - LE_FAULT                 Failed.
+* - LE_BAD_PARAMETER         At least one bad parameter was passed.
+* - LE_OK                    Succeeded.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetUbiVolId
@@ -630,8 +633,9 @@ FUNCTION le_result_t GetUbiVolName
 * @instaging
 *
 * @return
-* - LE_FAULT         Failed.
-* - LE_OK            Succeeded.
+* - LE_FAULT                 Failed.
+* - LE_BAD_PARAMETER         At least one bad parameter was passed.
+* - LE_OK                    Succeeded.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetUbiVolSize
@@ -666,8 +670,8 @@ FUNCTION MtdDevInfoList GetMtdDevInfoList
 * @instaging
 *
 * @return
-*  - LE_BAD_PARAMETER -- Bad parameters.
-*  - LE_OK -- Succeeded.
+*  - LE_NOT_FOUND     No list exist.
+*  - LE_OK            Succeeded.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteMtdDevInfoList
@@ -719,8 +723,9 @@ FUNCTION MtdDevInfo GetNextMtdDevInfo
 * @instaging
 *
 * @return
-* - LE_FAULT         Failed.
-* - LE_OK            Succeeded.
+* - LE_FAULT                Failed.
+* - LE_BAD_PARAMETER        At least one bad parameter was passed.
+* - LE_OK                   Succeeded.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetMtdDevName
@@ -737,8 +742,9 @@ FUNCTION le_result_t GetMtdDevName
 * @instaging
 *
 * @return
-* - LE_FAULT         Failed.
-* - LE_OK            Succeeded.
+* - LE_FAULT                Failed.
+* - LE_BAD_PARAMETER        At least one bad parameter was passed.
+* - LE_OK                   Succeeded.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetMtdDevBlkSize
@@ -755,8 +761,9 @@ FUNCTION le_result_t GetMtdDevBlkSize
 * @instaging
 *
 * @return
-* - LE_FAULT         Failed.
-* - LE_OK            Succeeded.
+* - LE_FAULT                Failed.
+* - LE_BAD_PARAMETER        At least one bad parameter was passed.
+* - LE_OK                   Succeeded.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetMtdDevId
@@ -773,8 +780,9 @@ FUNCTION le_result_t GetMtdDevId
 * @instaging
 *
 * @return
-* - LE_FAULT         Failed.
-* - LE_OK            Succeeded.
+* - LE_FAULT                Failed.
+* - LE_BAD_PARAMETER        At least one bad parameter was passed.
+* - LE_OK                   Succeeded.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetMtdDevBlkCnt
@@ -825,8 +833,8 @@ EVENT ModemEvt
 * @instaging
 *
 * @return
-* - LE_FAULT         Failed.
-* - LE_OK            Succeeded.
+* - LE_NOT_FOUND -- Reference not found.
+* - LE_OK -- Succeeded.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ReleaseModemEvt
@@ -870,10 +878,9 @@ ENUM Reset
  * @instaging
  *
  * @return
- *      - LE_OK          on success
- *      - LE_UNSUPPORTED if it is not supported by the platform
- *        LE_OVERFLOW    specific reset information length exceeds the maximum length.
- *      - LE_FAULT       for any other errors
+ * - LE_OK -- Succeeded.
+ * - LE_OVERFLOW -- The reset specific information length exceeds the maximum length.
+ * - LE_NOT_FOUND -- Reference was not found.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetResetInformation

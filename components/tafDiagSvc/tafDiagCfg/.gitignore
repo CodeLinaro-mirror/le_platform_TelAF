@@ -2,7 +2,7 @@ configuration.cpp
 configuration.hpp
 diag_ids.h
 diag_template.yaml.json
-serialization
+serialization.host
 serialization.cpp
 serialization.hpp
 tree_data

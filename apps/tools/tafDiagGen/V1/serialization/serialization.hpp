@@ -39,10 +39,14 @@ struct FreezeFrameEntry {
 
 struct Access {
     std::vector<std::string> session;
+    uint8_t security_type = 0;
+    std::vector<std::string> security_level;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
         ar & session;
+        ar & security_type;
+        ar & security_level;
     }
 };
 
@@ -61,6 +65,7 @@ struct SubFunction {
 
 struct ServiceEntry {
     bool supported = false;
+    bool authentication = false;
     std::string execution_authorization_pattern;
     Access access;
     std::map<std::string, SubFunction> sub_functions;
@@ -68,6 +73,7 @@ struct ServiceEntry {
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
         ar & supported;
+        ar & authentication;
         ar & execution_authorization_pattern;
         ar & access;
         ar & sub_functions;
@@ -165,12 +171,14 @@ struct DiagnosticSession {
 
 struct DiagnosticSessionAndSecurityLevel {
     std::string execution_authorization_pattern_read;
+    std::string execution_authorization_pattern_write;
     std::string execution_authorization_pattern_io;
     std::vector<std::string> execution_authentication_pattern_io;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
         ar & execution_authorization_pattern_read;
+        ar & execution_authorization_pattern_write;
         ar & execution_authorization_pattern_io;
         ar & execution_authentication_pattern_io;
     }
@@ -193,6 +201,8 @@ struct DidEntry {
     SupportedFunctions supported_functions;
     DidAccessibility did_accessibility;
     std::vector<std::string> io_role;
+    std::vector<std::string> read_role;
+    std::vector<std::string> write_role;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
@@ -201,6 +211,8 @@ struct DidEntry {
         ar & supported_functions;
         ar & did_accessibility;
         ar & io_role;
+        ar & read_role;
+        ar & write_role;
     }
 };
 
@@ -296,6 +308,27 @@ struct CommonProps {
         ar & s3_server_max;
         ar & ignore_request_for_hardreset;
         ar & dtc_status_availability_mask;
+    }
+};
+
+struct ExtendedDataRecordEntry {
+    std::string short_name;
+    int record_element_bit_off_set;
+    std::string base_type;
+    int record_number;
+    std::string data_provider;
+    std::string trigger;
+    bool update;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & short_name;
+        ar & record_element_bit_off_set;
+        ar & base_type;
+        ar & record_number;
+        ar & data_provider;
+        ar & trigger;
+        ar & update;
     }
 };
 
@@ -403,9 +436,9 @@ struct DebounceCustom {
 };
 
 struct DebounceAlgorithm {
-    DebounceCounterBasedAlgorithm counter_based;
-    DebounceTimeBasedAlgorithm time_based;
-    DebounceCustom custom;
+    std::map<std::string, DebounceCounterBasedAlgorithm> counter_based;
+    std::map<std::string, DebounceTimeBasedAlgorithm>    time_based;
+    std::map<std::string, DebounceCustom>                custom;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
@@ -417,10 +450,16 @@ struct DebounceAlgorithm {
 
 struct RoutineRequest {
     std::vector<int> sub_function;
+    std::string start;
+    std::string stop;
+    std::string result;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
         ar & sub_function;
+        ar & start;
+        ar & stop;
+        ar & result;
     }
 };
 
@@ -450,7 +489,7 @@ struct AuthRoleEntry {
 
 struct SecurBindingEntry {
     int session_id;
-    std::vector<std::string> security_level;
+    std::map<std::string, SessionSecurLvlEntry> security_level;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
@@ -459,12 +498,23 @@ struct SecurBindingEntry {
     }
 };
 
+// Define helper struct
+struct EnableConditionData {
+    std::vector<uint8_t> and_conditions;
+    std::vector<uint8_t> or_conditions;
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & and_conditions;
+        ar & or_conditions;
+    }
+};
+
 struct EventEntry {
     int id;
     int confirmation_threshold;
     std::string operation_cycle;
     std::string debounce_algorithm;
-    std::string enable_condition;
+    EnableConditionData enable_condition;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
@@ -479,11 +529,13 @@ struct EventEntry {
 struct DTCIdentification {
     int code;
     int fault_type;
+    std::vector<std::string> extended_data_records;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
         ar & code;
         ar & fault_type;
+        ar & extended_data_records;
     }
 };
 
@@ -579,10 +631,12 @@ struct DiagConf {
     std::map<std::string, AuthAntiConfEntry> auth_anti_conf;
     std::map<std::string, SessionSecurLvlEntry> session_secur_level;
     CommonProps common_props;
+    std::map<std::string, ExtendedDataRecordEntry> extended_data_records;
     std::map<std::string, DiagSessionEntry> diag_session;
     DebounceAlgorithm debounce_algorithm;
     std::map<std::string, RoutineEntry> routines_all;
     std::map<std::string, AuthRoleEntry> auth_roles;
+    std::map<std::string, ExecAuthPatternEntry> exec_auth_pattern;
     std::map<std::string, SecurBindingEntry> secur_binding;
     std::map<int, EventEntry> events;
     std::map<int, DTCEntry> dtc_all;
@@ -599,10 +653,12 @@ struct DiagConf {
         ar & auth_anti_conf;
         ar & session_secur_level;
         ar & common_props;
+        ar & extended_data_records;
         ar & diag_session;
         ar & debounce_algorithm;
         ar & routines_all;
         ar & auth_roles;
+        ar & exec_auth_pattern;
         ar & secur_binding;
         ar & events;
         ar & dtc_all;

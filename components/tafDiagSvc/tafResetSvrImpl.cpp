@@ -41,7 +41,8 @@ taf_diagReset_ServiceRef_t taf_ResetSvr::GetService
     {
         try
         {
-            cfg::Node node = cfg::top_reset_all<int>("sub_function_identifier", resetType);
+            const int& cfgValue = cfg::get_reset_sub_function_id(resetType);
+            (void)cfgValue;
             LE_DEBUG("Reset type 0x%x is supported", resetType);
         }
         catch (const std::exception& e)
@@ -203,7 +204,6 @@ void taf_ResetSvr::UDSMsgHandler
 )
 {
     LE_DEBUG("UDSMsgHandler!");
-
     TAF_ERROR_IF_RET_NIL(addrPtr == NULL, "Invalid addrPtr");
     TAF_ERROR_IF_RET_NIL(msgPtr == NULL, "Invalid msgPtr");
 
@@ -217,89 +217,84 @@ void taf_ResetSvr::UDSMsgHandler
     uint8_t errCode = 0;
     taf_uds_AddrInfo_t addrInfo;
     memcpy(&addrInfo, addrPtr, sizeof(taf_uds_AddrInfo_t));
-
     auto &diag = taf_DiagSvr::GetInstance();
-    uint8_t resetType = msgPtr[1] & 0x7F;
 
-    // check enable condition
+    uint8_t resetType = msgPtr[1] & 0x7F;          // sub‑function identifier
+
     try
     {
-        cfg::Node & node = cfg::top_reset_all<int>("sub_function_identifier", resetType);
-        cfg::Node & enableNode = node.get_child("data_enable_condition");
+        const EnableConditionData& cond =
+            cfg::get_event_enable_conditions(resetType);
 
-        for (const auto & enable: enableNode)
+        // Process the “and” list (if any)
+        if (!cond.and_conditions.empty())
         {
-            // Get the defined enable operation type: "and" or "or"
-            std::string enableOperation = enable.first;
-            if (enableOperation == "and")
+            for (uint8_t enableId : cond.and_conditions)
             {
-                cfg::Node & optNodeList = enableNode.get_child("and");
-                for (const auto & optNode: optNodeList)
-                {
-                    uint8_t enableId = optNode.second.get_value<uint8_t>();
-
-                    if (!diag.GetEnableConditionStatus(enableId))
-                    {
-                        errCode = cfg::get_nrc_by_condition_id(enableId);
-                        LE_WARN("Enable id %d condition is false, send nrc 0x%x",
-                                enableId, errCode);
-                        SendNRCResp(&addrInfo, errCode);
-                        return;
-                    }
-                }
-            }
-            else if (enableOperation == "or")
-            {
-                cfg::Node & optNodeList = enableNode.get_child("or");
-                bool enableStatus = false;
-                uint8_t enableId = 0;
-
-                for (const auto & optNode: optNodeList)
-                {
-                    enableId = optNode.second.get_value<uint8_t>();
-
-                    if(diag.GetEnableConditionStatus(enableId))
-                    {
-                        enableStatus = true;
-                        break;
-                    }
-                }
-
-                if(!enableStatus && enableId != 0)
+                if (!diag.GetEnableConditionStatus(enableId))
                 {
                     errCode = cfg::get_nrc_by_condition_id(enableId);
                     LE_WARN("Enable id %d condition is false, send nrc 0x%x",
-                            enableId, errCode);
-                    SendNRCResp(&addrInfo, errCode);
+                        enableId, errCode);
+                    //SendNRCResp(sid, addrPtr, errCode);
+                    SendNRCResp(const_cast<taf_uds_AddrInfo_t*>(addrPtr), errCode);
                     return;
                 }
+            }
+        }
+
+        //   Process the “or” list (if any)
+        else if (!cond.or_conditions.empty())
+        {
+           bool enableStatus = false;
+           uint8_t failingId = 0;
+
+           for (uint8_t enableId : cond.or_conditions)
+           {
+               if (diag.GetEnableConditionStatus(enableId))
+               {
+                   enableStatus = true;
+                   LE_INFO("enable id %d status is true", enableId);
+                   break;
+                }
+                failingId = enableId;   // remember the last id for error reporting
+            }
+
+            if (!enableStatus && failingId != 0)
+            {
+                errCode = cfg::get_nrc_by_condition_id(failingId);
+                LE_WARN("Enable id %d condition is false, send nrc 0x%x",
+                    failingId, errCode);
+                //SendNRCResp(sid, addrPtr, errCode);
+                SendNRCResp(const_cast<taf_uds_AddrInfo_t*>(addrPtr), errCode);
+                return;
             }
         }
     }
     catch (const std::exception& e)
     {
-        LE_WARN("Enable condition does not define for reset type: 0x%x, Exception: %s",
-                    resetType, e.what());
+        LE_WARN("Enable condition not defined for event 0x%x – %s",
+            resetType, e.what());
     }
-#endif
+#endif   // LE_CONFIG_DIAG_FEATURE_A
 
-    taf_ResetRxMsg_t* rxMsgPtr = NULL;
 
-    rxMsgPtr = (taf_ResetRxMsg_t*)le_mem_ForceAlloc(RxMsgPool);
+    //  Build the Reset‑Rx message and forward it to the service layer.
+    taf_ResetRxMsg_t* rxMsgPtr = nullptr;
+    rxMsgPtr = static_cast<taf_ResetRxMsg_t*>(le_mem_ForceAlloc(RxMsgPool));
     memset(rxMsgPtr, 0, sizeof(taf_ResetRxMsg_t));
 
     memcpy(&rxMsgPtr->addrInfo, addrPtr, sizeof(taf_uds_AddrInfo_t));
-    rxMsgPtr->subFunc = msgPtr[1] & 0x7F;
+    rxMsgPtr->subFunc = msgPtr[1] & 0x7F;          // same as `resetType`
     rxMsgPtr->link = LE_DLS_LINK_INIT;
-    rxMsgPtr->rxMsgRef = (taf_diagReset_RxMsgRef_t)le_ref_CreateRef(RxMsgRefMap, rxMsgPtr);
+    rxMsgPtr->rxMsgRef = static_cast<taf_diagReset_RxMsgRef_t>(
+                            le_ref_CreateRef(RxMsgRefMap, rxMsgPtr));
 
     LE_DEBUG("Receive message(%p) for serviceId: 0x%x and subFunction: 0x%x)",
-            rxMsgPtr->rxMsgRef, sid, rxMsgPtr->subFunc);
+             rxMsgPtr->rxMsgRef, sid, rxMsgPtr->subFunc);
 
-    // Report the request message to message handler in service layer.
+    // Report the request message to the service‑layer event handler.
     le_event_ReportWithRefCounting(ResetEvent, rxMsgPtr);
-
-    return;
 }
 
 //-------------------------------------------------------------------------------------------------

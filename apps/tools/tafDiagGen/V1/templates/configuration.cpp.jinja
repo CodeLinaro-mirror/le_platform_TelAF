@@ -26,11 +26,11 @@
 #include <map>
 #include "serialization.hpp"
 #include <chrono>
+#include <set>
 
 namespace tafsvc {
 namespace cfg {
 
-static Node root;
 static bool root_inited = false;
 
 static DiagConf diagConf;
@@ -48,10 +48,10 @@ void load_tree(DiagConf& tree, const std::string& filename) {
     }
 }
 
-EXPORT_SYM Node & get_root_node(void)
+EXPORT_SYM DiagConf & get_diag_config_root(void)
 {
     NEED_INITED();
-    return root;
+    return diagConf;
 }
 
 EXPORT_SYM bool get_init_status(void)
@@ -61,107 +61,79 @@ EXPORT_SYM bool get_init_status(void)
 
 EXPORT_SYM void diag_config_init(const char * cfg_path)
 {
-    load_tree(diagConf, "tree_data");
+    try
+    {
+        load_tree(diagConf, "tree_data");
+    }
+    catch (const std::exception& e)
+    {
+        LE_ERROR("diag_config_init: load_tree failed: %s", e.what());
+        throw;
+    }
 
     // Validate deserialized data
     if (diagConf.services_all.empty()) {
         throw std::runtime_error("Deserialized configuration appears to be empty");
     }
 
-    boost::property_tree::json_parser::read_json(cfg_path, root);
     root_inited = true;
 }
 
-EXPORT_SYM Node & get_dtc_node(uint32_t dtc_code)
+EXPORT_SYM DTCEntry & get_dtc_node(uint32_t dtc_code)
 {
     NEED_INITED();
-
-    Node & dtcs = root.get_child("dtc_all");
-
-    for (auto & dtc: dtcs)
-    {
-        long this_dtc_code = std::stol(dtc.first);
-
-        if ((uint32_t)this_dtc_code == dtc_code)
-        {
-            return dtc.second;
-        }
+    // Access directly from diagConf.dtc_all map
+    auto it = diagConf.dtc_all.find(dtc_code);
+    if (it != diagConf.dtc_all.end()) {
+        return it->second;
     }
-
     throw std::runtime_error("Not found any [DTC node] matched DTC code.");
 }
 
-EXPORT_SYM Node & get_dtc_node(uint16_t event_id)
+EXPORT_SYM DTCEntry & get_dtc_node(uint16_t event_id)
 {
     NEED_INITED();
-
-    Node & dtcs = root.get_child("dtc_all");
-
-    uint16_t ev_id = 0;
-
-    for (auto & dtc: dtcs)
+    for (auto & dtc_pair : diagConf.dtc_all)
     {
-        Node & evl = dtc.second.get_child("events");
-
-        for (auto & ev : evl)
+        // dtc_pair.second is a DTCEntry. Its 'events' member is std::vector<int>
+        for (const int& ev_id_in_list : dtc_pair.second.events)
         {
-            ev_id = (uint16_t) std::stoi(ev.second.get_value<std::string>());
-
-            /* Only match the first, event should be unique and mutually exclusive in each DTC */
-            if (ev_id == event_id)
+            if ((uint16_t)ev_id_in_list == event_id)
             {
-                return dtc.second;
+                return dtc_pair.second; // Return reference to the found DTCEntry
             }
         }
     }
-
-    throw std::runtime_error("Not found any [dtc node] matched event id.");
+    throw std::runtime_error("Not found any [DTC entry] matched event id.");
 }
 
-EXPORT_SYM Node & get_event_node(uint16_t event_id)
+EXPORT_SYM EventEntry & get_event_node(uint16_t event_id)
 {
     NEED_INITED();
-
-    Node & evs = root.get_child("events");
-
-    for (auto & ev: evs)
-    {
-        int this_event_id = std::stoi(ev.second.get<std::string>("id"));
-
-        if ((uint16_t)this_event_id == event_id)
-        {
-            return ev.second;
-        }
+    // The 'events' map in DiagConf is typically keyed by event ID directly.
+    auto it = diagConf.events.find(event_id);
+    if (it != diagConf.events.end()) {
+        return it->second;
     }
-
-    throw std::runtime_error("Not found any [event node] matched event id.");
+    throw std::runtime_error("Not found any [event entry] matched event id.");
 }
 
-EXPORT_SYM std::map<uint16_t, std::shared_ptr<Node>> get_event_nodes(uint32_t dtc_code)
+EXPORT_SYM std::map<uint16_t, std::shared_ptr<EventEntry>> get_event_nodes(uint32_t dtc_code)
 {
     NEED_INITED();
-
-    Node & dtcs = root.get_child("dtc_all");
-
-    std::map<uint16_t, std::shared_ptr<Node>> ev_map;
-    uint16_t ev_id = 0;
-
-    for (auto & dtc: dtcs)
-    {
-        long this_dtc_code = std::stol(dtc.first);
-
-        if ((uint32_t)this_dtc_code == dtc_code)
-        {
-            Node & evl = dtc.second.get_child("events");
-
-            for (auto & ev : evl)
-            {
-                ev_id = (uint16_t) std::stoi(ev.second.get_value<std::string>());
-                ev_map.insert(std::make_pair(ev_id, std::make_shared<Node>(get_event_node(ev_id))));
+    std::map<uint16_t, std::shared_ptr<EventEntry>> ev_map;
+    auto dtc_it = diagConf.dtc_all.find(dtc_code);
+    if (dtc_it != diagConf.dtc_all.end()) {
+        // dtc_it->second is a DTCEntry. Its 'events' member is std::vector<int>
+        for (const int& ev_id_int : dtc_it->second.events) {
+            uint16_t ev_id = (uint16_t)ev_id_int;
+            auto event_it = diagConf.events.find(ev_id);
+            if (event_it != diagConf.events.end()) {
+                // Now constructing shared_ptr to EventEntry from EventEntry
+                ev_map.insert(std::make_pair(ev_id, std::make_shared<EventEntry>(event_it->second)));
             }
         }
     }
-
     return ev_map;
 }
 
@@ -174,126 +146,167 @@ EXPORT_SYM std::vector<std::pair<uint16_t, std::string>> get_event_idNames()
 {
     NEED_INITED();
 
-    Node & dtcs = root.get_child("dtc_all");
-
     std::vector<std::pair<uint16_t, std::string>> eid_list;
-    uint16_t ev_id = 0;
-    std::string evName;
 
-    for (auto & dtc: dtcs)
+    const auto& all_events = diagConf.events;
+
+    eid_list.reserve(all_events.size());
+
+    for (const auto& event_pair : all_events)
     {
-        Node & evl = dtc.second.get_child("events");
-
-        for (auto & ev : evl)
-        {
-            ev_id = (uint16_t) std::stoi(ev.second.get_value<std::string>());
-            evName = get_event_name(ev_id);
-            eid_list.emplace_back(ev_id, evName);
-        }
+        uint16_t ev_id = static_cast<uint16_t>(event_pair.first);
+        std::string evName = get_event_name(ev_id);
+        eid_list.emplace_back(ev_id, evName);
     }
 
     return eid_list;
 }
 
-EXPORT_SYM std::vector<uint16_t> get_event_ids(uint32_t dtc_code)
+
+EXPORT_SYM std::map<uint32_t, std::shared_ptr<DTCEntry>> get_dtc_nodes(void)
 {
     NEED_INITED();
-
-    Node & dtcs = root.get_child("dtc_all");
-
-    std::vector<uint16_t> eid_list;
-    uint16_t ev_id = 0;
-
-    for (auto & dtc: dtcs)
-    {
-        long this_dtc_code = std::stol(dtc.first);
-
-        if ((uint32_t)this_dtc_code == dtc_code)
-        {
-            Node & evl = dtc.second.get_child("events");
-
-            for (auto & ev : evl)
-            {
-                ev_id = (uint16_t) std::stoi(ev.second.get_value<std::string>());
-                eid_list.push_back(ev_id);
-            }
-        }
+    std::map<uint32_t, std::shared_ptr<DTCEntry>> dtc_map;
+    for (const auto& pair : diagConf.dtc_all) {
+        // Now constructing shared_ptr to DTCEntry from DTCEntry
+        dtc_map.insert(std::make_pair(pair.first, std::make_shared<DTCEntry>(pair.second)));
     }
-
-    return eid_list;
-}
-
-EXPORT_SYM std::map<uint32_t, std::shared_ptr<Node>> get_dtc_nodes(void)
-{
-    NEED_INITED();
-
-    Node & dtcs = root.get_child("dtc_all");
-
-    std::map<uint32_t, std::shared_ptr<Node>> dtc_map;
-    uint32_t dtc_code = 0;
-
-    for (auto & dtc: dtcs)
-    {
-        dtc_code = (uint32_t) std::stol(dtc.first);
-        dtc_map.insert(std::make_pair(dtc_code, std::make_shared<Node>(dtc.second)));
-    }
-
     return dtc_map;
 }
 
-EXPORT_SYM std::vector<uint32_t> get_dtc_codes(void)
+EXPORT_SYM const std::map<int, DTCEntry>& get_all_dtc_entries(void)
 {
     NEED_INITED();
-
-    Node & dtcs = root.get_child("dtc_all");
-
-    std::vector<uint32_t> dtc_code_list;
-    uint32_t dtc_code = 0;
-
-    for (auto & dtc: dtcs)
-    {
-        dtc_code = (uint32_t) std::stol(dtc.first);
-        dtc_code_list.push_back(dtc_code);
-    }
-
-    return dtc_code_list;
+    return diagConf.dtc_all;
 }
 
 EXPORT_SYM size_t get_did_value_size(uint16_t did_code)
 {
     NEED_INITED();
-
-    Node & dids = root.get_child("did_all");
-
-    for (auto & did: dids)
-    {
-        uint16_t this_did_code = (uint16_t) std::stol(did.first);
-        if (this_did_code == did_code)
-        {
-            return (size_t) did.second.get<int>("implementation.did_size");
-        }
+    // Access directly from diagConf.did_all map
+    auto it = diagConf.did_all.find(did_code);
+    if (it != diagConf.did_all.end()) {
+        return (size_t) it->second.implementation.did_size;
     }
-
-    return 0;
+    return 0; // Return 0 if DID not found, or throw an error.
 }
 
 EXPORT_SYM std::map<std::string, uint8_t> get_diagnostic_session_map(void)
 {
     NEED_INITED();
-
-    Node & sessions = root.get_child("diagnostic_session");
-
     std::map<std::string, uint8_t> sess_map;
+    // Iterate over diagConf.diag_session map
+    for (const auto& pair : diagConf.diag_session) {
+        sess_map.insert(std::make_pair(pair.second.short_name, (uint8_t)pair.second.id));
+    }
+    return sess_map;
+}
 
-    for (auto & sess: sessions)
+EXPORT_SYM DiagSessionEntry & get_diag_session_by_short_name(const std::string& short_name)
+{
+    NEED_INITED();
+    auto it = diagConf.diag_session.find(short_name);
+    if (it != diagConf.diag_session.end()) {
+        return it->second;
+    }
+    // Handle case where session is not found
+    throw std::runtime_error("Diagnostic session entry not found for short name: " + short_name);
+}
+
+EXPORT_SYM FreezeFrameEntry & get_freeze_frame_entry_by_short_name(const std::string& short_name)
+{
+    NEED_INITED();
+    auto it = diagConf.freeze_frames.find(short_name);
+    if (it != diagConf.freeze_frames.end()) {
+        return it->second;
+    }
+    throw std::runtime_error("Freeze frame entry not found for short name: " + short_name);
+}
+
+EXPORT_SYM const std::map<std::string, FreezeFrameEntry>& get_all_freeze_frames(void)
+{
+    NEED_INITED();
+    return diagConf.freeze_frames;
+}
+
+EXPORT_SYM const std::map<std::string, ExtendedDataRecordEntry>& get_all_extended_data_records()
+{
+    NEED_INITED();
+    return diagConf.extended_data_records;
+}
+
+EXPORT_SYM DatasEntry & get_datas_entry_by_mnemonic(const std::string& mnemonic)
+{
+    NEED_INITED();
+    auto it = diagConf.datas.find(mnemonic);
+    if (it != diagConf.datas.end()) {
+        return it->second;
+    }
+    throw std::runtime_error("Data entry not found for mnemonic: " + mnemonic);
+}
+
+EXPORT_SYM const DidEntry& get_did_entry(uint16_t did_code)
+{
+    NEED_INITED();
+
+    auto it = diagConf.did_all.find(static_cast<int>(did_code));
+
+    if (it == diagConf.did_all.end())
     {
-        std::string sess_name = sess.second.get<std::string>("short_name");
-        uint8_t sess_id = sess.second.get<uint8_t>("id");
-
-        sess_map.insert(std::make_pair(sess_name, sess_id));
+        std::string msg = "DID 0x" + std::to_string(did_code) +
+                          " not found in configuration";
+        LE_WARN("%s", msg.c_str());
+        throw std::runtime_error(msg);
     }
 
-    return sess_map;
+    return it->second;          // const DidEntry&
+}
+
+EXPORT_SYM const EventEntry& get_event_entry(uint16_t event_id)
+{
+    NEED_INITED();
+    auto it = diagConf.events.find(static_cast<int>(event_id));
+
+    if (it == diagConf.events.end())
+    {
+        std::string msg = "Event id 0x" + std::to_string(event_id) +
+                          " not found in configuration";
+        LE_WARN("%s", msg.c_str());
+        throw std::runtime_error(msg);
+    }
+
+    return it->second;          // const EventEntry&
+}
+
+EXPORT_SYM const EnableConditionData& get_event_enable_conditions(uint16_t event_id)
+{
+    NEED_INITED();
+
+    EventEntry & ev = get_event_node(event_id);   // re‑use the function above
+
+    return ev.enable_condition;
+}
+
+EXPORT_SYM const ResetEntry& get_reset_entry(uint16_t reset_id)
+{
+    NEED_INITED();
+
+    auto it = diagConf.reset_all.find(static_cast<int>(reset_id));
+
+    if (it == diagConf.reset_all.end())
+    {
+        std::string msg = "Reset type 0x" + std::to_string(reset_id) +
+                          " not found in configuration";
+        LE_WARN("%s", msg.c_str());
+        throw std::runtime_error(msg);
+    }
+
+    return it->second;            // const ResetEntry&
+}
+
+EXPORT_SYM int get_reset_sub_function_id(uint16_t reset_id)
+{
+    return get_reset_entry(reset_id).sub_function_identifier;
 }
 
 EXPORT_SYM uint8_t get_nrc_by_condition_id(uint8_t cond_id)
@@ -303,28 +316,15 @@ EXPORT_SYM uint8_t get_nrc_by_condition_id(uint8_t cond_id)
 
 EXPORT_SYM uint8_t get_security_level_id(std::string level_name)
 {
-    /* diagnostic_session_security_level */
-
     NEED_INITED();
-
-    Node & levels = root.get_child("diagnostic_session_security_level");
-
-    uint8_t level_id = 0;
-
-    for (auto & level: levels)
-    {
-        if (level.first == level_name)
-        {
-            level_id = level.second.get<uint8_t>("request_seed_id");
-            break;
-        }
+    // Iterate over diagConf.session_secur_level map
+    auto it = diagConf.session_secur_level.find(level_name);
+    if (it != diagConf.session_secur_level.end()) {
+        return (uint8_t)it->second.level_id;
     }
-
-    if (level_id == 0)
-        throw std::runtime_error("Not found level name: " + level_name);
-
-    return level_id;
+    throw std::runtime_error("Not found level name: " + level_name);
 }
+
 
 EXPORT_SYM std::shared_ptr<std::vector<uint8_t>> get_pattern_sessions_by_session_id(uint8_t session_id)
 {
@@ -353,34 +353,12 @@ EXPORT_SYM bool is_forbidden(uint16_t did_code, const uint8_t *payload, uint32_t
 EXPORT_SYM std::map<std::string, uint64_t> get_authentication_roles()
 {
     NEED_INITED();
-
+    // Directly return the map from diagConf.auth_roles
     std::map<std::string, uint64_t> authentication_roles;
-
-    Node & roles = root.get_child("authentication_timeout_extended");
-
-    for (const auto& role : roles)
-    {
-        uint64_t roleValue = role.second.get<int>("value");
-
-        authentication_roles[role.first] = roleValue;
-
+    for (const auto& pair : diagConf.auth_roles) {
+        authentication_roles[pair.first] = pair.second.value;
     }
-
     return authentication_roles;
-}
-
-EXPORT_SYM uint32_t get_authentication_timeout()
-{
-    NEED_INITED();
-
-    return {{ root.authentication_antibruteforce["authentication_antibruteforce_default"]["AuthenticationTimeout"] }};
-}
-
-EXPORT_SYM int get_operation_cycle_count()
-{
-    NEED_INITED();
-
-    return {{ root.operation_cycle | length }};
 }
 
 EXPORT_SYM std::string get_routine_record(uint16_t rid, uint8_t subFunc)
@@ -411,13 +389,300 @@ EXPORT_SYM bool validate_base_record(const uint8_t* dataRecord, size_t recordLen
     return false;
 }
 
+EXPORT_SYM const CommonProps& get_common_props(void)
+{
+    NEED_INITED();
+    return diagConf.common_props;
+}
+
+EXPORT_SYM float get_s3_server_max(void)
+{
+    return get_common_props().s3_server_max;
+}
+
+EXPORT_SYM const SecurBindingEntry& get_security_binding(const std::string& name)
+{
+    NEED_INITED();
+    auto it = diagConf.secur_binding.find(name);
+    if (it == diagConf.secur_binding.end())
+        throw std::runtime_error("Security binding \"" + name + "\" not found");
+    return it->second;
+}
+
+EXPORT_SYM int get_security_binding_session_id(const std::string& name)
+{
+    return get_security_binding(name).session_id;
+}
+
+EXPORT_SYM const std::map<std::string, SessionSecurLvlEntry>&
+get_security_levels_of_binding(const std::string& name)
+{
+    return get_security_binding(name).security_level;
+}
+
+EXPORT_SYM const SecurBindingEntry& get_security_binding_by_session_id(int session_id)
+{
+    for (const auto& kv : diagConf.secur_binding)
+        if (kv.second.session_id == session_id)
+            return kv.second;
+    throw std::runtime_error("Security binding with session_id " +
+                             std::to_string(session_id) + " not found");
+}
+
+EXPORT_SYM float get_p2_star_server_max(uint16_t session_id)
+{
+    return get_diagnostic_session(session_id).p2_start_server_max;
+}
+
+EXPORT_SYM const ServiceEntry& get_service_entry(uint16_t sid)
+{
+    NEED_INITED();                                   // keep the same guard
+
+    std::string key = std::to_string(sid);           // map key is a string
+    auto it = diagConf.services_all.find(key);
+    if (it == diagConf.services_all.end())
+    {
+        std::string msg = "Service id 0x" + std::to_string(sid) +
+                          " not found in configuration";
+        LE_WARN("%s", msg.c_str());
+        throw std::runtime_error(msg);
+    }
+    return it->second;                               // const ServiceEntry&
+}
+
+EXPORT_SYM bool is_service_supported(uint16_t sid)
+{
+    return get_service_entry(sid).supported;
+}
+
+EXPORT_SYM bool is_authentication_supported(uint16_t sid)
+{
+    return get_service_entry(sid).authentication;
+}
+
+EXPORT_SYM const Access& get_service_access(uint16_t sid)
+{
+    return get_service_entry(sid).access;
+}
+
+EXPORT_SYM uint8_t get_security_type(uint16_t sid)
+{
+    return get_service_entry(sid).access.security_type;
+}
+
+EXPORT_SYM const SubFunction& get_subfunction(uint16_t sid, uint16_t subFunc)
+{
+    const ServiceEntry& svc = get_service_entry(sid);
+    std::string subKey = std::to_string(subFunc);
+    auto it = svc.sub_functions.find(subKey);
+    if (it == svc.sub_functions.end())
+        throw std::runtime_error("Sub‑function 0x" + std::to_string(subFunc) +
+                                 " not found for service 0x" + std::to_string(sid));
+    return it->second;
+}
+
+EXPORT_SYM const std::vector<std::string>& get_subfunction_session_list(uint16_t sid, uint16_t subFunc)
+{
+    return get_subfunction(sid, subFunc).access.session;
+}
+
+EXPORT_SYM const std::vector<std::string> get_did_allowed_sessions(uint16_t did)
+{
+    const DidEntry& didEntry = get_did_entry(did);
+    std::vector<std::string> names;
+    names.reserve(didEntry.did_accessibility.diagnostic_session.size());
+    for (const auto& kv : didEntry.did_accessibility.diagnostic_session)
+        names.push_back(kv.first);
+    return names;
+}
+
+EXPORT_SYM const DiagnosticSession&
+get_diagnostic_session(uint32_t did, const std::string& session_name)
+{
+    const DidEntry& d = get_did_entry(did);
+    const auto& sess_map = d.did_accessibility.diagnostic_session;
+
+    auto it = sess_map.find(session_name);
+    if (it == sess_map.end())
+    {
+        std::string msg = "Session \"" + session_name + "\" not defined for DID 0x" +
+                          std::to_string(did);
+        LE_WARN("%s", msg.c_str());
+        throw std::runtime_error(msg);
+    }
+    return it->second;               // const DiagnosticSession&
+}
+
+EXPORT_SYM const SecurityLevel&
+get_security_level(uint32_t did,
+                    const std::string& session_name,
+                    const std::string& direction)   // "R", "W" or "IO"
+{
+    const DiagnosticSession& ds = get_diagnostic_session(did, session_name);
+
+    const std::map<std::string, SecurityLevel>* map_ptr = nullptr;
+
+    if (direction == "R")  map_ptr = &ds.R;
+    else if (direction == "W") map_ptr = &ds.W;
+    else if (direction == "IO") map_ptr = &ds.IO;
+    else {
+        std::string msg = "Invalid direction \"" + direction + "\" – must be R, W or IO";
+        LE_WARN("%s", msg.c_str());
+        throw std::runtime_error(msg);
+    }
+
+    if (map_ptr->empty())
+    {
+        std::string msg = "No security‑level defined for direction " + direction +
+                          " in session \"" + session_name + "\" (DID 0x" +
+                          std::to_string(did) + ")";
+        LE_WARN("%s", msg.c_str());
+        throw std::runtime_error(msg);
+    }
+
+    return map_ptr->begin()->second;
+}
+
+EXPORT_SYM std::vector<std::string> get_roles_for_pattern(const std::string& pattern_name)
+{
+    std::vector<std::string> roles;
+    try
+    {
+        const auto& pattern_entry = diagConf.exec_auth_pattern.at(pattern_name);
+
+        if (pattern_entry.base) roles.push_back("base");
+        if (pattern_entry.did_read_app) roles.push_back("did_read_app");
+        if (pattern_entry.secured_configuration) roles.push_back("secured_configuration");
+        if (pattern_entry.did_write) roles.push_back("did_write");
+        if (pattern_entry.io_control) roles.push_back("io_control");
+        if (pattern_entry.routine_control) roles.push_back("routine_control");
+        if (pattern_entry.expert_read) roles.push_back("expert_read");
+
+    }
+    catch (const std::out_of_range& e)
+    {
+        LE_WARN("Execution authorization pattern '%s' not found.", pattern_name.c_str());
+    }
+    return roles;
+}
+
+EXPORT_SYM const DiagnosticSessionAndSecurityLevel&
+get_diag_session_defaults(uint32_t did)
+{
+    const DidEntry& d = get_did_entry(did);
+    return d.did_accessibility.diagnostic_session_and_security_level;
+}
+
+EXPORT_SYM bool has_direction(uint32_t did,
+                              const std::string& session_name,
+                              const std::string& direction)
+{
+    const DiagnosticSession& ds = get_diagnostic_session(did, session_name);
+    if (direction == "R")  return !ds.R.empty();
+    if (direction == "W")  return !ds.W.empty();
+    if (direction == "IO") return !ds.IO.empty();
+    return false;
+}
+
+EXPORT_SYM bool is_subfunction_authentication_required(uint16_t sid,
+                                                       uint16_t /*subFunc*/)
+{
+    const ServiceEntry& svc = cfg::get_service_entry(sid);
+    return svc.authentication;      // service‑level flag
+}
+
+EXPORT_SYM uint8_t get_security_type(uint16_t sid, uint16_t subFunc)
+{
+    const SubFunction& sub = get_subfunction(sid, subFunc);   // already exists
+
+    return sub.access.security_type;
+}
+
+EXPORT_SYM const DiagSessionEntry& get_diagnostic_session(uint16_t sid)
+{
+    for (const auto& pair : diagConf.diag_session)
+    {
+        if (pair.second.id == sid)
+        {
+            return pair.second;
+        }
+    }
+    throw std::out_of_range("Diagnostic session with ID " + std::to_string(sid) + " not found.");
+}
+
+EXPORT_SYM const IOEntry& get_io_entry(uint16_t iocid)
+{
+    return diagConf.io_all.at(iocid);
+}
+
+EXPORT_SYM uint32_t get_io_control_state_size(uint16_t iocid)
+{
+    const IOEntry& entry = get_io_entry(iocid);
+    // The struct member is 'int', so we cast it to the required 'uint32_t'.
+    return static_cast<uint32_t>(entry.request.control_option_record.did_size);
+}
+
+EXPORT_SYM const RoutineEntry& get_routine_entry(uint16_t rid)
+{
+    for (const auto& pair : diagConf.routines_all)
+    {
+        if (pair.second.identifier == rid)
+        {
+            return pair.second;
+        }
+    }
+    throw std::out_of_range("Routine with identifier " + std::to_string(rid) + " not found.");
+}
+
+EXPORT_SYM std::vector<uint32_t> get_dtc_codes()
+{
+    std::vector<uint32_t> codes;
+    codes.reserve(diagConf.dtc_all.size());
+    for (const auto& pair : diagConf.dtc_all)
+    {
+        codes.push_back(pair.first);
+    }
+    return codes;
+}
+
+EXPORT_SYM std::vector<uint16_t> get_event_ids(uint32_t dtc_code)
+{
+    const DTCEntry& dtc = diagConf.dtc_all.at(dtc_code);
+    const std::vector<int>& original_events = dtc.events;
+
+    // Create a new vector with the correct type and copy the data, casting each element.
+    std::vector<uint16_t> event_ids_as_u16;
+    event_ids_as_u16.reserve(original_events.size());
+    for (int event_id : original_events)
+    {
+        event_ids_as_u16.push_back(static_cast<uint16_t>(event_id));
+    }
+    return event_ids_as_u16; // Return the new vector by value.
+}
+
+EXPORT_SYM int get_operation_cycle_count()
+{
+    // The .size() method returns size_t, so we cast it to the required 'int'.
+    return static_cast<int>(diagConf.events.size());
+}
+
+EXPORT_SYM uint32_t get_authentication_timeout()
+{
+    if (diagConf.auth_anti_conf.empty())
+    {
+        LE_ERROR("empty auth_anti_conf, return default value(60 seconds)");
+        return 60; //Default value
+    }
+    // The struct member is 'int', so we cast it to the required 'uint32_t'.
+    return static_cast<uint32_t>(diagConf.auth_anti_conf.begin()->second.delayTimerInvokingValueInit);
+}
+
+
 EXPORT_SYM void init()
 {
     LE_INFO("Diagnostic Configuration Inited (v:%s, t:%s)",
             tafDiagGen_tool_version,
             tafDiagGen_tool_timestamp);
 }
-
 }
 }
-

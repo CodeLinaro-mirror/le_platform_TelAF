@@ -214,7 +214,8 @@ using namespace std;
                 void UpdateAllDtcSuppressionStatus(bool suppressionStatus);
 
                 taf_diagDTC_DtcCtx_t* GetDtcCtx(taf_diagDTC_ServiceRef_t svcRef);
-                void DtcConfiguration(cfg::Node & node);
+                void DtcConfiguration(DiagConf & cfgRoot);
+
                 void InitDtcCtx(uint32_t dtcCode);
                 static void OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *contextPtr);
 

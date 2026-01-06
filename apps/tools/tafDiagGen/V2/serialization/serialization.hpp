@@ -17,6 +17,8 @@
 #define SERIALIZATION_INPUT_JSON "diag_template.yaml.json"
 #define SERIALIZATION_OUTPUT_FILE "tree_data"
 
+using boost::property_tree::ptree;
+
 // Structures for freeze_frames
 struct FreezeFrameEntry {
     std::string short_name;
@@ -39,10 +41,14 @@ struct FreezeFrameEntry {
 
 struct Access {
     std::vector<std::string> session;
+    uint8_t security_type = 0;
+    std::vector<std::string> security_level;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
         ar & session;
+        ar & security_type;
+        ar & security_level;
     }
 };
 
@@ -61,6 +67,7 @@ struct SubFunction {
 
 struct ServiceEntry {
     bool supported = false;
+    bool authentication = false;
     std::string execution_authorization_pattern;
     Access access;
     std::map<std::string, SubFunction> sub_functions;
@@ -68,6 +75,7 @@ struct ServiceEntry {
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
         ar & supported;
+        ar & authentication;
         ar & execution_authorization_pattern;
         ar & access;
         ar & sub_functions;
@@ -165,12 +173,14 @@ struct DiagnosticSession {
 
 struct DiagnosticSessionAndSecurityLevel {
     std::string execution_authorization_pattern_read;
+    std::string execution_authorization_pattern_write;
     std::string execution_authorization_pattern_io;
     std::vector<std::string> execution_authentication_pattern_io;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
         ar & execution_authorization_pattern_read;
+        ar & execution_authorization_pattern_write;
         ar & execution_authorization_pattern_io;
         ar & execution_authentication_pattern_io;
     }
@@ -187,12 +197,25 @@ struct DidAccessibility {
     }
 };
 
+struct EnableConditionData {
+    std::vector<uint8_t> and_conditions;
+    std::vector<uint8_t> or_conditions;
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & and_conditions;
+        ar & or_conditions;
+    }
+};
+
 struct DidEntry {
     Identification identification;
     Implementation implementation;
     SupportedFunctions supported_functions;
     DidAccessibility did_accessibility;
     std::vector<std::string> io_role;
+    std::vector<std::string> read_role;
+    std::vector<std::string> write_role;
+    EnableConditionData data_enable_condition;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
@@ -201,6 +224,9 @@ struct DidEntry {
         ar & supported_functions;
         ar & did_accessibility;
         ar & io_role;
+        ar & read_role;
+        ar & write_role;
+        ar & data_enable_condition;
     }
 };
 
@@ -283,6 +309,359 @@ struct SessionSecurLvlEntry {
     }
 };
 
+struct EventEntry {
+    int id;
+    std::string mnemonic;
+    int confirmation_threshold;
+    std::string operation_cycle;
+    std::string debounce_algorithm;
+    EnableConditionData enable_condition;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & id;
+        ar & mnemonic;
+        ar & confirmation_threshold;
+        ar & operation_cycle;
+        ar & debounce_algorithm;
+        ar & enable_condition;
+    }
+};
+
+struct DTCIdentification {
+    int code;
+    int fault_type;
+    std::vector<std::string> extended_data_records;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & code;
+        ar & fault_type;
+        ar & extended_data_records;
+    }
+};
+
+struct DTCSnapshots {
+    std::string snapshot_record_content;
+    std::vector<std::string> freeze_frames;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & snapshot_record_content;
+        ar & freeze_frames;
+    }
+};
+
+struct DTCEntry {
+    DTCIdentification identification;
+    DTCSnapshots snapshots;
+    Access access;
+    std::vector<int> events;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & identification;
+        ar & snapshots;
+        ar & access;
+        ar & events;
+    }
+};
+
+struct DiagSessionEntry {
+    std::string short_name;
+    int id;
+    double p2_server_max;
+    double p2_start_server_max;
+    std::string execution_authorization_pattern;
+    double p2_star_server_max;
+    std::string origin_short_name;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & short_name;
+        ar & id;
+        ar & p2_server_max;
+        ar & p2_start_server_max;
+        ar & execution_authorization_pattern;
+        ar & p2_star_server_max;
+        ar & origin_short_name;
+    }
+};
+
+struct DebounceCounterBasedAlgorithm {
+    std::string short_name;
+    std::string base;
+    std::string debounce_behavior;
+    int counter_decrement_step_size;
+    int counter_passed_threshold;
+    int counter_increment_step_size;
+    int counter_failed_threshold;
+     int counter_jump_down_value;
+     int counter_jump_up_value;
+    bool counter_jump_up;
+    bool counter_jump_down;
+    int counter_fdc_threshold;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & short_name;
+        ar & base;
+        ar & debounce_behavior;
+        ar & counter_decrement_step_size;
+        ar & counter_passed_threshold;
+        ar & counter_increment_step_size;
+        ar & counter_failed_threshold;
+         ar & counter_jump_down_value;
+         ar & counter_jump_up_value;//issue
+        ar & counter_jump_up;
+        ar & counter_jump_down;
+        ar & counter_fdc_threshold; //no issue
+    }
+
+};
+
+struct DebounceTimeBasedAlgorithm {
+    std::string short_name;
+    double time_failed_threshold;
+    double time_passed_threshold;
+    std::string base;
+    double time_fdc_threshold;
+    std::string debounce_behavior;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & short_name;
+        ar & time_failed_threshold;
+        ar & time_passed_threshold;
+        ar & base;
+        ar & time_fdc_threshold;
+        ar & debounce_behavior;
+    }
+
+};
+
+struct DebounceCustom {
+    std::string short_name;
+    std::string base;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & short_name;
+        ar & base;
+    }
+};
+
+struct DebounceAlgorithm {
+    std::map<std::string, DebounceCounterBasedAlgorithm> counter_based;
+    std::map<std::string, DebounceTimeBasedAlgorithm>    time_based;
+    std::map<std::string, DebounceCustom>                custom;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & counter_based;
+        ar & time_based;
+        ar & custom;
+    }
+};
+
+struct RoutineRequest {
+    std::vector<int> sub_function;
+    std::string start;
+    std::string stop;
+    std::string result;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & sub_function;
+        ar & start;
+        ar & stop;
+        ar & result;
+    }
+};
+
+struct RoutineEntry {
+    int identifier;
+    RoutineRequest request;
+    Access access;
+    EnableConditionData data_enable_condition;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & identifier;
+        ar & request;
+        ar & access;
+        ar & data_enable_condition;
+    }
+};
+
+struct BitOffsetElement {
+    std::string dataElement;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & dataElement;
+    }
+};
+
+struct RoutineParameterEntry {
+    std::string name;
+    std::map<std::string, BitOffsetElement> bit_offset;
+    int size;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & name;
+        ar & bit_offset;
+        ar & size;
+    }
+};
+
+struct AuthRoleEntry {
+    std::string name;
+    int value;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & name;
+        ar & value;
+    }
+};
+
+struct ResetEntry {
+    int sub_function_identifier;
+    Access access;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & sub_function_identifier;
+        ar & access;
+    }
+};
+
+struct IOSession {
+    SecurityLevel IO;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & IO;
+    }
+};
+
+struct IOControlOptionRecord {
+    std::vector<int> io_control_parameter;
+    int did_size;
+    std::string control_state;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & io_control_parameter;
+        ar & did_size;
+        ar & control_state;
+    }
+};
+
+struct IORequest {
+    IOControlOptionRecord control_option_record;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & control_option_record;
+    }
+};
+
+struct IOEntry {
+    int identifier;
+    IORequest request;
+    std::map<std::string, SecurityLevel> diagnostic_session;
+    Access access;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & identifier;
+        ar & request;
+        ar & diagnostic_session;
+        ar & access;
+    }
+};
+
+struct SecurBindingEntry {
+    int session_id;
+    std::map<std::string, SessionSecurLvlEntry> security_level;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & session_id;
+        ar & security_level;
+    }
+};
+
+struct CommonProps {
+    int max_number_of_rcrrp;
+    std::string occurrence_counter_processing;
+    double s3_server_max;
+    bool ignore_request_for_hardreset;
+    int dtc_status_availability_mask;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & max_number_of_rcrrp;
+        ar & occurrence_counter_processing;
+        ar & s3_server_max;
+        ar & ignore_request_for_hardreset;
+        ar & dtc_status_availability_mask;
+    }
+};
+
+struct ExtendedDataRecordEntry {
+    std::string short_name;
+    int record_element_bit_off_set;
+    std::string base_type;
+    int record_number;
+    std::string data_provider;
+    std::string trigger;
+    bool update;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & short_name;
+        ar & record_element_bit_off_set;
+        ar & base_type;
+        ar & record_number;
+        ar & data_provider;
+        ar & trigger;
+        ar & update;
+    }
+};
+
+struct DiagnosticSessionAuthPattern {
+    std::string class_name;
+    std::string short_name;
+    std::map<std::string, bool> properties;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & class_name;
+        ar & short_name;
+        ar & properties;
+    }
+
+    // Helper method to check if a property exists and is true
+    bool hasProperty(const std::string& propertyName) const {
+        auto it = properties.find(propertyName);
+        return (it != properties.end() && it->second);
+    }
+};
+
+struct ExecAuthPatternEntry {
+    std::map<std::string, DiagnosticSessionAuthPattern> sessions;
+
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version) {
+        ar & sessions;
+    }
+};
+
+
 struct DiagConf {
     std::map<int, DidEntry> did_all;
     std::map<std::string, ServiceEntry> services_all;
@@ -291,6 +670,19 @@ struct DiagConf {
     std::map<std::string, DatasEntry> datas;
     std::map<std::string, AuthAntiConfEntry> auth_anti_conf;
     std::map<std::string, SessionSecurLvlEntry> session_secur_level;
+    std::map<int, EventEntry> events;
+    std::map<int, DTCEntry> dtc_all;
+    std::map<std::string, DiagSessionEntry> diag_session;
+    DebounceAlgorithm debounce_algorithm;
+    std::map<std::string, SecurBindingEntry> secur_binding;
+    ExecAuthPatternEntry exec_auth_pattern;
+    std::map<std::string, RoutineEntry> routines_all;
+    std::map<std::string, RoutineParameterEntry> routine_parameters_all;
+    std::map<std::string, AuthRoleEntry> auth_roles;
+    std::map<int, ResetEntry> reset_all;
+    std::map<int, IOEntry> io_all;
+    CommonProps common_props;
+    std::map<std::string, ExtendedDataRecordEntry> extended_data_records;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
@@ -301,6 +693,19 @@ struct DiagConf {
         ar & datas;
         ar & auth_anti_conf;
         ar & session_secur_level;
+        ar & events;
+        ar & dtc_all;
+        ar & diag_session;
+        ar & debounce_algorithm;
+        ar & secur_binding;
+        ar & exec_auth_pattern;
+        ar & routines_all;
+        ar & routine_parameters_all;
+        ar & auth_roles;
+        ar & reset_all;
+        ar & io_all;
+        ar & common_props;
+        ar & extended_data_records;
     }
 };
 

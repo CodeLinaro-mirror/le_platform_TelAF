@@ -6,117 +6,117 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "configuration.hpp"
+#include <iostream>
 
 using namespace tafsvc;
 using namespace std;
 
-static void examples(cfg::Node & node)
+static void examples()
 {
+    std::cout << "\n--- EXAMPLES USING SERIALIZATION-BASED API ---\n" << std::endl;
+
+    // Example 1: Get a specific DTC Entry and access its members
+    try
     {
-        cfg::Node & dtc = cfg::get_dtc_node((uint32_t)0xAB0000);
-        std::cout << "Eg. get_dtc_node 1 ..code: " << dtc.get<int>("identification.code") << std::endl;
-        std::cout << "Eg. get_dtc_node 2 ..description: " << dtc.get<string>("identification.description") << std::endl;
+        cout << "--- Example: Get a single DTC Entry ---\n";
+        // Use the new, type-safe getter for a specific DTC.
+        const DTCEntry& dtc = cfg::get_dtc_entry(0xAB0000);
+
+        cout << "Eg. get_dtc_entry ... code: " << dtc.identification.code << endl;
+        cout << "Eg. get_dtc_entry ... first event ID: " << dtc.events.front() << endl;
     }
-
+    catch (const std::exception& e)
     {
-        cfg::Node & dtc = cfg::get_dtc_node((uint16_t)0x0001);
-        std::cout << "Eg. get_dtc_node 1 ..event id: " << dtc.get_child("events").begin()->second.get_value<int>() << std::endl;
+        cerr << "Example failed: " << e.what() << endl;
     }
+    cout << "-------------------------------------------\n" << endl;
 
+    // Example 2: Get a specific Event Entry
+    try
     {
-        cfg::Node & ev = cfg::get_event_node(0x0001);
-        std::cout << "Eg. get_event_node 1 ..name: " << ev.get<string>("long_name") << std::endl;
-
-        cfg::Node & indicator = ev.get_child("connected_indicator.indicator");
-        std::cout << "Eg. get_event_node 2 ..list item: " << indicator.begin()->second.data() << std::endl;
+        cout << "--- Example: Get a single Event Entry ---\n";
+        const EventEntry& ev = cfg::get_event_entry(0x0001);
+        cout << "Eg. get_event_entry ... debounce_algorithm: " << ev.debounce_algorithm << endl;
     }
-
+    catch (const std::exception& e)
     {
-        std::map<uint16_t, std::shared_ptr<cfg::Node>> ev_map = cfg::get_event_nodes(0xAB0000);
-        for (const auto & ev : ev_map)
-        {
-            std::cout << "Eg. get_event_node_list .. eid: " << ev.first << ", long_name: " << ev.second->get<string>("long_name") << std::endl;
-        }
+        cerr << "Example failed: " << e.what() << endl;
     }
+    cout << "-------------------------------------------\n" << endl;
 
+
+    // Example 3: Get all Event IDs for a specific DTC
+    try
     {
+        cout << "--- Example: Get all Event IDs for a DTC ---\n";
+
         vector<uint16_t> eid_list = cfg::get_event_ids(0xAB0000);
-        for (auto & eid : eid_list)
+        cout << "Eg. get_event_ids for DTC 0xAB0000:" << endl;
+        for (const auto& eid : eid_list)
         {
-            std::cout << "Eg. get_event_id_list ..eid: " <<  eid << std::endl;
+            cout << "  - Event ID: " << eid << endl;
         }
     }
-
+    catch (const std::exception& e)
     {
-        std::map<uint32_t, std::shared_ptr<cfg::Node>> dtc_map = cfg::get_dtc_nodes();
-        for (const auto & dtc: dtc_map)
+        cerr << "Example failed: " << e.what() << endl;
+    }
+    cout << "-------------------------------------------\n" << endl;
+
+    // Example 4: Iterate over all configured DTCs
+    try
+    {
+        cout << "--- Example: Iterate over all DTCs ---\n";
+
+        const auto& dtc_map = cfg::get_all_dtc_entries();
+        cout << "Eg. get_all_dtc_entries:" << endl;
+        for (const auto& dtc_pair : dtc_map)
         {
-            std::cout << "Eg. get_dtc_nodes .. dtc_code: " << dtc.first << ", description:" << dtc.second->get<string>("identification.description") << std::endl;
+            cout << "  - DTC Code: " << dtc_pair.first
+                 << ", Fault Type: " << dtc_pair.second.identification.fault_type << endl;
         }
     }
-
+    catch (const std::exception& e)
     {
-        std::vector<uint32_t> dtc_code_list = cfg::get_dtc_codes();
-        for (const auto & dtc_code: dtc_code_list)
-        {
-            std::cout << "Eg. get_dtc_codes .. code: " << dtc_code << std::endl;
-        }
+        cerr << "Example failed: " << e.what() << endl;
     }
+    cout << "-------------------------------------------\n" << endl;
 
+    // Example 5: Get a specific Debounce Algorithm
+    try
     {
-        cfg::Node & n = cfg::top_dtc_all<int>("identification.code", 0xAB0000);
-        std::cout << "Eg. top_dtc_all 1..snapshot_record_content: " << n.get<string>("snapshots.snapshot_record_content") << std::endl;
-    }
+        cout << "--- Example: Get Debounce Algorithm details ---\n";
+        // Debounce algorithms are stored inside the main diagConf object.
+        // We can get them via a specific getter.
+        const DebounceAlgorithm& algos = cfg::get_debounce_algorithms();
+        cout << "Eg. get_debounce_algorithms ... Counter_1 passed_threshold: "
+             << algos.counter_based.counter_passed_threshold << endl;
 
+        cout << "Eg. get_debounce_algorithms ... Time_1 failed_threshold: "
+             << algos.time_based.time_failed_threshold << endl;
+    }
+    catch (const std::exception& e)
     {
-        cfg::Node & n = cfg::top_events<int>("id", 0x0001);
-        std::cout << "Eg. top_events ..long_name: " << n.get<string>("long_name") <<std::endl;
-
-        cfg::Node & nn = cfg::top_events<int>("connected_indicator.indicator_failure_cycle_counter_threshold", 1);
-        std::cout << "Eg. top_events 3..debounce_algorithm: " << nn.get<string>("debounce_algorithm") << std::endl;
+        cerr << "Example failed: " << e.what() << endl;
     }
+    cout << "-------------------------------------------\n" << endl;
 
+    // Example 6: Get a specific Freeze Frame Entry
+    try
     {
-        cfg::Node & n = cfg::top_debounce_algorithm<string>("short_name", "Counter_1");
-        std::cout << "Eg. top_debounce_algorithm 1..name: " << n.get<string>("short_name") << std::endl;
-
-        cfg::Counter_t temp;
-        cfg::top_debounce_algorithm<string>("short_name", "Counter_1", &temp);
-        std::cout << "Eg. top_debounce_algorithm 2..counter_passed_threshold: " << temp.counter_passed_threshold << std::endl;
+        cout << "--- Example: Get a single Freeze Frame ---\n";
+        const FreezeFrameEntry& ff = cfg::get_freeze_frame_entry("lastOccurrence");
+        cout << "Eg. get_freeze_frame_entry 'lastOccurrence' ... trigger: " << ff.trigger << endl;
     }
-
+    catch (const std::exception& e)
     {
-        cfg::Timer_t temp;
-        cfg::top_debounce_algorithm<string>("short_name", "Time_1", &temp);
-        std::cout << "Eg. top_debounce_algorithm 3..time_failed_threshold: " << temp.time_failed_threshold << std::endl;
+        cerr << "Example failed: " << e.what() << endl;
     }
-
-    {
-        cfg::Custom_t temp;
-        cfg::top_debounce_algorithm<string>("short_name", "Custom", &temp);
-        std::cout << "Eg. top_debounce_algorithm 4..monitor_internal: " << temp.monitor_internal << std::endl;
-    }
-
-    {
-        cfg::Node & n = cfg::top_freeze_frames<string>("short_name", "lastOccurrence");
-        std::cout << "Eg. top_freeze_frames 1 .. trigger: " << n.get<string>("trigger") << std::endl;
-    }
-
-    {
-        cfg::Node & n = cfg::top_operation_cycle<string>("short_name", "POWER");
-        std::cout << "Eg. top_operation_cycle 1 .. type: " << n.get<string>("type") << std::endl;
-    }
-
-    {
-        cfg::Node & n = cfg::top_extended_data_records<string>("short_name", "IUMPRNumerator");
-        std::cout << "Eg. top_extended_data_records 1 .. trigger: " << n.get<string>("trigger") << std::endl;
-    }
-
+    cout << "-------------------------------------------\n" << endl;
 }
 
 COMPONENT_INIT
 {
-
 #define CFG_JSON_FILE_NAME "diag_template.yaml.json"
 
     if (access(CFG_JSON_FILE_NAME, F_OK) != 0)
@@ -126,11 +126,15 @@ COMPONENT_INIT
     }
 
     try {
+        // Initialize the configuration from the JSON file.
         cfg::diag_config_init(CFG_JSON_FILE_NAME);
-        cfg::Node & root = cfg::get_root_node();
-        examples(root);
+
+        // Run the serialization examples.
+        examples();
+
     } catch (const std::exception& e){
-        std::cerr << "Exception: " << e.what() << std::endl;
+        std::cerr << "CRITICAL FAILURE: " << e.what() << std::endl;
+        exit(EXIT_FAILURE);
     }
 
     exit(EXIT_SUCCESS);

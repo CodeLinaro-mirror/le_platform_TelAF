@@ -577,7 +577,6 @@ le_result_t taf_diagAuth_SendResp
  **
  ** @return
  **     - LE_OK -- Succeeded.
- **     - LE_BAD_PARAMETER -- Invalid msgRef or invalid service of the msgRef.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_diagAuth_ReleaseAuthExpMsg
@@ -586,7 +585,7 @@ le_result_t taf_diagAuth_ReleaseAuthExpMsg
         ///< [IN] Authentication expiry notification reference.
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------

@@ -74,7 +74,7 @@ le_result_t taf_DiagDoIPSvr::RemoveService
     taf_diagDoIP_ServiceRef_t svcRef
 )
 {
-    TAF_ERROR_IF_RET_VAL(svcRef == NULL, LE_FAULT, "svcRef is null");
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, LE_BAD_PARAMETER, "svcRef is null");
     le_msg_SessionRef_t sessionRef = taf_diagDoIP_GetClientSessionRef();
 
     le_ref_IterRef_t iterRef = le_ref_GetIterator(svcRefMap);

@@ -757,7 +757,7 @@ le_result_t taf_DTCSvr::RemoveSvc
     taf_diagDTC_ServiceRef_t svcRef
 )
 {
-    TAF_ERROR_IF_RET_VAL(svcRef == NULL, LE_FAULT, "svcRef is null");
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, LE_BAD_PARAMETER, "svcRef is null");
     le_msg_SessionRef_t sessionRef = taf_diagDTC_GetClientSessionRef();
 
     //Find DTC context one by one
@@ -1282,7 +1282,7 @@ le_result_t taf_DTCSvr::RemoveAllSvc
     taf_diagDTC_AllServiceRef_t svcRef
 )
 {
-    TAF_ERROR_IF_RET_VAL(svcRef == NULL, LE_FAULT, "svcRef is null");
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, LE_BAD_PARAMETER, "svcRef is null");
     le_msg_SessionRef_t sessionRef = taf_diagDTC_GetClientSessionRef();
 
     RemoveSessionFromAllDtcCtx(sessionRef);

@@ -2041,7 +2041,7 @@ le_result_t taf_UpdateSvr::GetVlanIdFromMsg
             if(xferExitMsgPtr == NULL)
             {
                 LE_ERROR("Can not find the rxMsgRef");
-                return LE_FAULT;
+                return LE_NOT_FOUND;
             }
             else
             {

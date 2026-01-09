@@ -240,7 +240,6 @@ FUNCTION Service GetService
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid VIN size.
- *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Internal error.
  *
  */
@@ -260,7 +259,6 @@ FUNCTION le_result_t SetVIN
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid VIN size.
- *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Internal error.
  *
  */
@@ -282,7 +280,6 @@ FUNCTION le_result_t GetVIN
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid EID size.
- *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Internal error.
  *
  */
@@ -302,7 +299,6 @@ FUNCTION le_result_t SetEID
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid EID size.
- *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Internal error.
  *
  */
@@ -324,7 +320,6 @@ FUNCTION le_result_t GetEID
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid GID size.
- *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Internal error.
  *
  */
@@ -344,7 +339,6 @@ FUNCTION le_result_t SetGID
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid GID size.
- *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Internal error.
  *
  */

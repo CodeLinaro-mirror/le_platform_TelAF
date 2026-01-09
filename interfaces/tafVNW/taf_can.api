@@ -361,7 +361,7 @@ FUNCTION CanInterface CreateCanInf
 (
     string infName[INTERFACE_NAME_MAX_LEN] IN,    ///< CAN interface name, e.g., can0, can1, etc.
     InfProtocol canInfType IN                     ///< CAN interface type.
-) = 0; 
+) = 0;
 
 //-------------------------------------------------------------------------------------------------
 
@@ -370,7 +370,7 @@ FUNCTION CanInterface CreateCanInf
  *
  * @return
  * - LE_OK -- Filter successfully set.
- * - LE_OUT_OF_RANGE -- Frame ID greater than 29 bits.
+ * - LE_BAD_PARAMETER -- Invalid canInfRef.
  * - LE_FAULT -- Failed.
  *
  * @b NOTE: The process exits if an invalid reference is passed.
@@ -390,6 +390,7 @@ FUNCTION le_result_t SetFilter
  *
  * @return
  * - LE_OK -- Local loopback successfully enabled.
+ * - LE_BAD_PARAMETER -- Invalid canInfRef.
  * - LE_FAULT -- Failed.
  *
  * @b NOTE: The process exits if an invalid reference is passed.
@@ -408,6 +409,7 @@ FUNCTION le_result_t EnableLoopback
  *
  * @return
  * - LE_OK -- Local loopback successfully disabled.
+ * - LE_BAD_PARAMETER -- Invalid canInfRef.
  * - LE_FAULT -- Failed.
  *
  * @b NOTE: The process exits if an invalid reference is passed.
@@ -426,6 +428,7 @@ FUNCTION le_result_t DisableLoopback
  *
  * @return
  * - LE_OK -- Reception of the application's own sent messages successfully enabled.
+ * - LE_BAD_PARAMETER -- Invalid canInfRef.
  * - LE_FAULT -- Failed.
  *
  * @b NOTE: The process exits if an invalid reference is passed.
@@ -444,6 +447,7 @@ FUNCTION le_result_t EnableRcvOwnMsg
  *
  * @return
  * - LE_OK -- Reception of the application's own sent messages successfully disabled.
+ * - LE_BAD_PARAMETER -- Invalid canInfRef.
  * - LE_FAULT -- Failed.
  *
  * @b NOTE: The process exits if an invalid reference is passed.
@@ -480,6 +484,7 @@ FUNCTION bool IsFdSupported
  *
  * @return
  * - LE_OK -- CAN FD frame successfully enabled.
+ * - LE_BAD_PARAMETER -- Invalid canInfRef.
  * - LE_UNSUPPORTED -- CAN FD frame not supported.
  * - LE_FAULT -- Failed.
  *
@@ -572,6 +577,7 @@ FUNCTION CanFrame CreateCanFrame
  *
  * @return
  * - LE_OK -- Data payload successfully set.
+ * - LE_BAD_PARAMETER -- Invalid frameRef.
  * - LE_FAULT -- Failed.
  *
  * @b NOTE: The process exits if an invalid reference is passed.
@@ -591,6 +597,7 @@ FUNCTION le_result_t SetPayload
  *
  * @return
  * - LE_OK -- Frame type successfully set.
+ * - LE_BAD_PARAMETER -- Invalid frameRef.
  * - LE_FAULT -- Failed.
  *
  * @b NOTE: The process exits if an invalid reference is passed.
@@ -610,6 +617,7 @@ FUNCTION le_result_t SetFrameType
  *
  * @return
  * - LE_OK -- CAN frame successfully sent.
+ * - LE_BAD_PARAMETER -- Invalid frameRef.
  * - LE_FAULT -- Failed.
  *
  * @b NOTE: The process exits if an invalid reference is passed.
@@ -628,6 +636,7 @@ FUNCTION le_result_t SendFrame
  *
  * @return
  * - LE_OK -- Created CAN interface successfully deleted.
+ * - LE_BAD_PARAMETER -- Invalid canInfRef.
  * - LE_FAULT -- Failed.
  *
  * @b NOTE: The process exits if an invalid reference is passed.
@@ -646,6 +655,7 @@ FUNCTION le_result_t DeleteCanInf
  *
  * @return
  * - LE_OK -- Created CAN frame successfully deleted.
+ * - LE_BAD_PARAMETER -- Invalid frameRef.
  * - LE_FAULT -- Failed.
  *
  * @b NOTE: The process exits if an invalid reference is passed.

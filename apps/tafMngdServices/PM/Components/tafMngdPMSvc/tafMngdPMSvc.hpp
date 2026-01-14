@@ -29,10 +29,9 @@
 #define INFO_REPORT_MASK_BUB 1
 #define AUTHORIZE_ALL_STAY_AWAKE_REASON 0xFFFFFFFF
 #define TAF_MNGDPM_PROCNAME_LEN 30
+
 #define WAKE_SOURCE_ACQUIRED 1
 #define WAKE_SOURCE_NOT_ACQUIRED 0
-#define WAKE_SOURCE_IGNORED 2
-#define WAKE_SOURCE_PENDING 3
 
 #define MAIN_THREAD_KICK_INTERVAL 13
 #define MONITOR_MAIN_THREAD_LOOP 0
@@ -366,7 +365,8 @@ class tafMngdPMSvc: public ITafSvc
 
         //authorize stayawake reason
         static std::bitset<32> stayAwakeReasonMask;
-        bool IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stayAwakeReason);
+        static std::bitset<32> previousStayAwakeReasonMask;
+        bool IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stayAwakeReason, std::bitset<32> mask);
         void RefreshWakeSources();
         static le_result_t ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
         le_result_t AcquireWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);

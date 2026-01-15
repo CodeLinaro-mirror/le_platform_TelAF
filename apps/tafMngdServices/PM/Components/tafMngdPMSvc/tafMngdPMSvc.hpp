@@ -36,13 +36,25 @@
 #define MAIN_THREAD_KICK_INTERVAL 13
 #define MONITOR_MAIN_THREAD_LOOP 0
 
+#define TAF_MNGDPM_MACHINE_NAME_LEN 32
+#define TAF_MNGDPM_STATE_UNKNOWN 0
+#define TAF_MNGDPM_STATE_RESUME 1
+#define TAF_MNGDPM_STATE_SUSPEND 2
+#define TAF_MNGDPM_STATE_SHUTDOWN 3
+#define TAF_MNGDPM_STATE_RESTART 4
+#define TAF_MNGDPM_STATE_RESTARTING 5
+#define TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE 6
+#define TAF_MNGDPM_STATE_SUSPENDING 7
+#define TAF_MNGDPM_STATE_SHUTTING_DOWN 8
+#define TAF_MNGDPM_STATE_WAKING_UP 9
+
 namespace tafsvc {
 
 typedef struct
 {
-    taf_mngdPm_Nad_t nad;
+    uint8_t nad;
     char vmName[TAF_MNGDPM_MACHINE_NAME_LEN];
-    taf_mngdPm_State_t state;
+    uint8_t state;
 }taf_mngdPm_vmState_t;
 
 typedef struct
@@ -125,8 +137,8 @@ typedef struct
 
 typedef struct
 {
-    taf_mngdPm_State_t currentState;
-    taf_mngdPm_State_t prevState;
+    uint8_t currentState;
+    uint8_t prevState;
 }taf_stateMachine_t;
 
 typedef struct
@@ -232,7 +244,7 @@ class tafMngdPMSvc: public ITafSvc
         static tafMngdPMSvc &GetInstance();
         static le_result_t ParseJsonConfig(std::string configPath);
         static le_result_t ParseJsonConfiguration(std::string configPath);
-        static const char* TafStateToString(taf_mngdPm_State_t tafState);
+        static const char* TafStateToString(uint8_t tafState);
         static void OnClientConnection(le_msg_SessionRef_t sessionRef, void *ctxPtr);
         static void OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ctxPtr);
         static bool IsClientValid();
@@ -264,10 +276,9 @@ class tafMngdPMSvc: public ITafSvc
 
         static le_result_t AcquireWakeLock();
         static le_result_t ReleaseWakeLock();
-        static void SetModemWakeupSource(taf_mngdPm_WakeupType_t wakeupType);
 
-        static le_result_t RequestStateChange(taf_mngdPm_State_t requestedState);
-        static void ProcessStateChange(taf_mngdPm_State_t toState);
+        static le_result_t RequestStateChange(uint8_t requestedState);
+        static void ProcessStateChange(uint8_t toState);
 
         static void StateLayeredHandler(void* reportPtr, void* layerHandlerFunc);
 
@@ -297,7 +308,6 @@ class tafMngdPMSvc: public ITafSvc
         static taf_mngdPm_TargetedPowerMode_t targetedPowerMode;
         static taf_mngdPm_RestartCb_t restartCB;
         static taf_mngdPm_ShutdownCb_t shutdownCB;
-        static std::vector<taf_mngdPm_WakeupSourceCtxt_t> wsWhiteList;
         static uint8_t wsCount;
         static taf_powerMode_t powerMode;
         static taf_stateMachine_t stateMachine;
@@ -312,7 +322,6 @@ class tafMngdPMSvc: public ITafSvc
         static taf_mngdPm_Client_t mngdPmClientInfo;
 
         // resources to manage state change handler
-        static le_event_Id_t stateChange;
         static taf_mngdPm_WakeupVehicleCb_t wakeupVehicleCB;
         static le_timer_Ref_t wakeupVehicleTimerRef;
 
@@ -341,7 +350,7 @@ class tafMngdPMSvc: public ITafSvc
         static void ProcessCachedAwakeReqs();
 
         static void SendAckToPms(taf_mngdPm_NodePowerState_t state, taf_pm_ClientAck_t ackType);
-        bool IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, taf_mngdPm_State_t tafState);
+        bool IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, uint8_t tafState);
         bool IsConfiguredBitMask(taf_mngdPm_NodePowerState_t state, taf_mngdPm_NodePowerStateChangeBitMask_t stateMask);
         static taf_mngdPm_SessionNode_t* To_taf_mngdPm_SessionNode_t(void *c);
 

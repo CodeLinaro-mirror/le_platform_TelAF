@@ -353,47 +353,6 @@ le_result_t taf_mngdPm_WakeupVehicleReqAsync(int32_t reason,
 }
 
 /**
- * Sets the Modem wakeupSource type.
- */
-le_result_t taf_mngdPm_SetModemWakeupSource (
-        uint32_t wakeupSource)
-{
-    LE_INFO("taf_mngdPm_SetModemWakeupSource");
-    if(tafMngdPMSvc::IsClientValid() == false)
-    {
-        LE_ERROR("Invalid client");
-        return LE_UNSUPPORTED;
-    }
-
-    taf_mngdPm_WakeupType_t wakeupType;
-    if((wakeupSource & (1)) != 0)
-    {
-        LE_INFO("wakeupType is SMS");
-        wakeupType = TAF_MNGDPM_SMS;
-        tafMngdPMSvc::SetModemWakeupSource(wakeupType);
-    }
-    if((wakeupSource & (1 << 1)) != 0)
-    {
-        LE_INFO("wakeupType is VOICE_CALL");
-        wakeupType = TAF_MNGDPM_VOICE_CALL;
-        tafMngdPMSvc::SetModemWakeupSource(wakeupType);
-    }
-    if((wakeupSource & (1 << 2)) != 0)
-    {
-        LE_INFO("wakeupType is MCU_VHAL");
-        wakeupType = TAF_MNGDPM_MCU_VHAL;
-        tafMngdPMSvc::SetModemWakeupSource(wakeupType);
-    }
-    else if(wakeupSource > 7)
-    {
-        LE_ERROR("Invalid wakeupType!");
-        return LE_BAD_PARAMETER;
-    }
-
-    return LE_OK;
-}
-
-/**
  * Creates the node wakeupSource reference.
  */
 taf_mngdPm_wsRef_t taf_mngdPm_NewNodeWakeupSource( uint8_t pmNodeId,
@@ -407,61 +366,35 @@ taf_mngdPm_wsRef_t taf_mngdPm_NewNodeWakeupSource( uint8_t pmNodeId,
     }
 
     auto &mpms = tafMngdPMSvc::GetInstance();
-    bool isWsWhitelisted = false;
-    if(wakeupType == TAF_MNGDPM_APP_STAYAWAKE)
+
+    if(pmNodeId == 1)
     {
-        isWsWhitelisted = true;
-    }
-    else
-    {
-        for(auto &client : mpms.wsWhiteList)
+        LE_INFO("RPC NewNodeWakeupSource");
+        auto &rpcPm = tafMngdRpcPm::GetInstance();
+        taf_mngdPm_wsRef_t wsRef = rpcPm.NewRpcNodeWakeupSource(pmNodeId, wakeupType);
+        if(wsRef) {
+            LE_INFO("NewRpcNodeWakeupSource triggered from MPMS");
+            return wsRef;
+        }
+        else
         {
-            if((client.wakeupType == wakeupType) &&
-                    (client.sessionRef == taf_mngdPm_GetClientSessionRef()))
-            {
-                LE_INFO("wakeupType:%d found in wsWhiteList", wakeupType);
-                isWsWhitelisted = true;
-                break;
-            }
+            LE_ERROR("Failed RPC StayAwakeNode!");
+            return NULL;
         }
     }
-    if(isWsWhitelisted)
-    {
-        isWsWhitelisted = false;
+    taf_nodeWsRefCtx_t * wsCtxPtr =
+            (taf_nodeWsRefCtx_t *)le_mem_ForceAlloc(mpms.nodeWsRefPool);
+    wsCtxPtr->wsRef = (taf_mngdPm_wsRef_t)le_ref_CreateRef(
+            mpms.nodeWsRefMap, wsCtxPtr);
+    wsCtxPtr->vhalTag = strdup(vhalTag);
+    wsCtxPtr->pmNodeId = pmNodeId;
+    wsCtxPtr->wakeupType = wakeupType;
+    wsCtxPtr->sessionRef = taf_mngdPm_GetClientSessionRef();
+    wsCtxPtr->link = LE_DLS_LINK_INIT;
+    wsCtxPtr->isAcquiredLock= false;
 
-        if(pmNodeId == 1)
-        {
-            LE_INFO("RPC NewNodeWakeupSource");
-            auto &rpcPm = tafMngdRpcPm::GetInstance();
-            taf_mngdPm_wsRef_t wsRef = rpcPm.NewRpcNodeWakeupSource(pmNodeId, wakeupType);
-            if(wsRef) {
-                LE_INFO("NewRpcNodeWakeupSource triggered from MPMS");
-                return wsRef;
-            }
-            else
-            {
-                LE_ERROR("Failed RPC StayAwakeNode!");
-                return NULL;
-            }
-        }
-        taf_nodeWsRefCtx_t * wsCtxPtr =
-                (taf_nodeWsRefCtx_t *)le_mem_ForceAlloc(mpms.nodeWsRefPool);
-        wsCtxPtr->wsRef = (taf_mngdPm_wsRef_t)le_ref_CreateRef(
-                mpms.nodeWsRefMap, wsCtxPtr);
-        wsCtxPtr->vhalTag = strdup(vhalTag);
-        wsCtxPtr->pmNodeId = pmNodeId;
-        wsCtxPtr->wakeupType = wakeupType;
-        wsCtxPtr->sessionRef = taf_mngdPm_GetClientSessionRef();
-        wsCtxPtr->link = LE_DLS_LINK_INIT;
-        wsCtxPtr->isAcquiredLock= false;
-
-        le_dls_Queue(&(mpms.nodeWsRefList), &wsCtxPtr->link);
-        return wsCtxPtr->wsRef;
-    }
-    else {
-        LE_ERROR("wakeupType:%d not found in wsWhiteList", wakeupType);
-        return NULL;
-    }
+    le_dls_Queue(&(mpms.nodeWsRefList), &wsCtxPtr->link);
+    return wsCtxPtr->wsRef;
 }
 
 /**
@@ -951,39 +884,6 @@ le_result_t taf_mngdPm_RestartNode (uint8_t pmNodeId)
     }
 
     return res;
-}
-
-/**
- * Adds the client to StateChangeHandler.
- */
-taf_mngdPm_StateChangeHandlerRef_t taf_mngdPm_AddStateChangeHandler
-(
-    taf_mngdPm_StateChangeHandlerFunc_t handlerFuncPtr,
-    void* contextPtr
-)
-{
-    LE_INFO("taf_mngdPm_AddStateChangeHandler");
-    if(tafMngdPMSvc::IsClientValid() == false)
-    {
-        LE_ERROR("Invalid client for the sessionRef:%p", taf_mngdPm_GetClientSessionRef());
-        return NULL;
-    }
-
-    auto &mpms = tafMngdPMSvc::GetInstance();
-    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("MPMSStateChangeHandler",
-        mpms.stateChange, tafMngdPMSvc::StateLayeredHandler, (void*)handlerFuncPtr);
-    le_event_SetContextPtr(handlerRef, contextPtr);
-    return (taf_mngdPm_StateChangeHandlerRef_t)handlerRef;
-}
-
-/**
- * Removes the client from StateChangeHandler.
- */
-void taf_mngdPm_RemoveStateChangeHandler(taf_mngdPm_StateChangeHandlerRef_t handlerRef)
-{
-    LE_INFO("taf_mngdPm_RemoveStateChangeHandler");
-
-    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
 /**
@@ -1636,8 +1536,6 @@ COMPONENT_INIT
         LE_FATAL("Failed to create client hashmap");
     }
 
-    mpms.stateChange = le_event_CreateId("stateChange", sizeof(taf_mngdPm_StateInd_t));
-
     mpms.nodePowerStateChange = le_event_CreateId("nodePowerStateChange", sizeof(taf_mngdPm_NodePowerStateChange_t));
     le_event_AddHandler("tafNodePowerStateChange event", mpms.nodePowerStateChange, mpms.NodePowerStateChanged);
     mpms.nodePowerStateRefPool = le_mem_CreatePool("nodePowerStateRef", sizeof(taf_NodePowerStateRef_t));
@@ -1716,7 +1614,7 @@ COMPONENT_INIT
         {
             taf_mngdPm_vmState_t *vmStatePtr = (taf_mngdPm_vmState_t*)le_mem_ForceAlloc(mpms.vmStatePool);
             memset(vmStatePtr, 0, sizeof(taf_mngdPm_vmState_t));
-            vmStatePtr->nad = TAF_MNGDPM_NAD1;
+            vmStatePtr->nad = NODE_PRIMARY_NAD;
             memset(vmStatePtr->vmName, 0, sizeof(vmStatePtr->vmName));
             le_utf8_Copy(vmStatePtr->vmName, name, TAF_MNGDPM_MACHINE_NAME_LEN, NULL);
             vmStatePtr->state = TAF_MNGDPM_STATE_RESUME;

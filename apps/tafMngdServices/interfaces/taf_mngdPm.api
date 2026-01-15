@@ -128,24 +128,6 @@
  * for the wake up event by taf_mngdPm_AddNodeModemAwakeHandler(),
  * the wake up event will be sent to the clients with node ID and wake up reason.
  *
- * @section taf_mngdPm_SetModemWakeupSource Configure the allowed Modem wakeup source type
- *
- * @b NOTE: This section is obsolete and will be removed soon.
- *
- * The API of taf_mngdPm_SetModemWakeupSource() is used to configure the allowed Modem wakeup
- * source type.
- * The input parameter is taken as the bitmap to set to the service.
- * The service takes the union of multiple API calls to set the allowed wakeup sources.
- * Bit 0 is for SMS, bit 1 is for incoming call, bit 2 is for MCU_VHAL.
- * @verbatim
-
-    void SetModemWakeupSource()
-    {
-        le_result_t result = taf_mngdPm_SetModemWakeupSource(uint32_t wakeupSource);
-        if(result == LE_OK)
-            LE_INFO("taf_mngdPm_SetModemWakeupSource set successfully");
-    }
-   @endverbatim
  *
  * @section taf_mngdPm_CreateWakeupSource Acquire a wake source
  *
@@ -219,36 +201,6 @@
 
 API_VERSION = 1;
 SERVING_VERSION = 1;
-
-
-/**
- * Maximum string length for the Virtual Machine name.
- */
-DEFINE MACHINE_NAME_LEN = 32;
-
-/*
- * ENUM for NADs.
- */
-ENUM Nad{
-    NAD1
-};
-
-/**
- * System power states.
- */
-ENUM State
-{
-    STATE_UNKNOWN,                  ///< Power state is unknown.
-    STATE_RESUME,                   ///< Power state is resume.
-    STATE_SUSPEND,                  ///< Power state is suspend.
-    STATE_SHUTDOWN,                 ///< Power state is shutdown.
-    STATE_RESTART,                  ///< Power state is restart.
-    STATE_RESTARTING,                ///< Power state is restarting.
-    STATE_RELEASING_WAKE_SOURCE,    ///< Power state is releasing wake source.
-    STATE_SUSPENDING,               ///< Power state is suspending.
-    STATE_SHUTTING_DOWN,            ///< Power state is shutting down.
-    STATE_WAKING_UP                 ///< Power state is waking up.
-};
 
 /**
  * Targeted power modes.
@@ -587,37 +539,6 @@ HANDLER AsyncWakeupVehicleReqHandler
 );
 
 /**
- * State indication structure.
- */
-STRUCT StateInd
-{
-    State state;    ///< Power state.
-};
-
-/**
- * Handler for state change.
- *
- * @instaging
- *
- * @param[in] stateInd   The system state indication.
- * @param[in] contextPtr Context pointer.
- */
-HANDLER StateChangeHandler
-(
-    StateInd stateInd IN  ///< The system state indication.
-);
-
-/**
- * State change event.
- *
- * @instaging
- */
-EVENT StateChange
-(
-    StateChangeHandler handler  ///< The state change handler.
-) =(0,1);
-
-/**
  * Handler for information report.
  *
  * @instaging
@@ -791,25 +712,6 @@ FUNCTION ws NewNodeWakeupSource (
     WakeupType  wakeupType IN,       ///< The wakeup type given.
     string vhalTag[WSREF_MAXLEN] IN  ///< The HAL tag information.
 ) =12;
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Sets the allowed Modem wakeup source type.
- * Currently the SMS, incoming call, and MCU_VHAL sources are supported to be set.
- *
- * @b NOTE: This API will be replaced by SetNodeModemWakeupSel soon.
- *
- * @instaging
- * @return
- *     - LE_OK             Successfully sent the request.
- *     - LE_BAD_PARAMETER  Invalid wakeupSource type.
- *     - LE_FAULT          Failed to send the request.
- */
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t SetModemWakeupSource (
-    uint32 wakeupSource IN       ///< The allowed wakeup sources bit map.
-                                 ///< Bit 0 is for SMS, bit 1 is for incoming call, bit 2 is for MCU_VHAL.
-) =13;
 
 //--------------------------------------------------------------------------------------------------
 /**

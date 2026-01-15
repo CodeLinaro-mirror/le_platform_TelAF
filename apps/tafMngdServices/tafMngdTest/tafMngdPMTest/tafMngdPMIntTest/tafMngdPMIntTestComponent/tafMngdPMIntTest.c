@@ -2705,6 +2705,43 @@ void NotifyVhalOnClientDisconnectionForReleaseWS()
     }
 }
 
+static void TestGetCurrentPowerStateFromPrimaryNad()
+{
+    taf_mngdPm_NodePowerState_t pwrState = TAF_MNGDPM_NODE_STATE_RESUME;
+
+    le_result_t result =
+        taf_mngdPm_GetNodePowerState(
+            0, &pwrState);
+
+    if (result != LE_OK)
+    {
+        printf("/get.current.state -> error: %s\n",
+               LE_RESULT_TXT(result));
+        exit(EXIT_FAILURE);
+    }
+
+    switch (pwrState)
+    {
+        case TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE:
+        printf("/get.current.state -> SHUTDOWN\n");
+        break;
+
+        case TAF_MNGDPM_NODE_STATE_RESTART_PREPARE:
+        printf("/get.current.state -> RESTART\n");
+        break;
+
+        case TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE:
+        printf("/get.current.state -> SUSPEND\n");
+        break;
+
+        case TAF_MNGDPM_NODE_STATE_RESUME:
+        printf("/get.current.state -> RESUME\n");
+        break;
+    }
+
+    exit(EXIT_SUCCESS);
+}
+
 COMPONENT_INIT
 {
     const char* testType = "";
@@ -2935,6 +2972,10 @@ COMPONENT_INIT
         else if(strcmp(testType, "TestPmvhalStayAwakeAfterMpmsSuspendTrigger") == 0)
         {
             TestPmvhalStayAwakeAfterMpmsSuspendTrigger();
+        }
+        else if(strcmp(testType, "get.current.state") == 0)
+        {
+            TestGetCurrentPowerStateFromPrimaryNad();
         }
         else
         {

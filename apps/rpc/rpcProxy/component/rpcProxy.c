@@ -526,7 +526,7 @@ static void DataInit
 COMPONENT_INIT
 {
     DataInit();
-    LE_INFO("Loading configuration starts ...");
+    LE_INFO("Loading configuration ...");
     rpcProxyConfig_LoadConfiguration(TAF_RPC_DEFAULT_CONFIG_FILE,
         (RpcConfigCallbackFunc_t)RpcConfigHandler);
 }

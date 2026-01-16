@@ -2405,9 +2405,10 @@ le_result_t taf_EventSvr::StoreAndReportEventUdsStatus
 
     TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, LE_FAULT, "eventCtxPtr is NULL");
 
-    LE_INFO("Database:Store and report eventId:%d, status:0x%x", eventCtxPtr->eventId,
+    LE_INFO("Database:Store and report eventId name:%s,status:0x%x", eventCtxPtr->eventName,
             eventCtxPtr->eventUdsStatus);
-    result = taf_DataAccess_SetEventStatus(eventCtxPtr->eventId, eventCtxPtr->eventUdsStatus);
+    result = taf_DataAccess_SetEventStatusByName(eventCtxPtr->eventName,
+            eventCtxPtr->eventUdsStatus);
     if(result != LE_OK)
     {
         LE_CRIT("Can't store data into database, EventId:%d, status:0x%x",
@@ -2964,8 +2965,18 @@ void taf_EventSvr::InitEventContext
 #endif
     eventCtxPtr->fdcTriggerFlag = false;
     eventCtxPtr->eventFaultStatus = TAF_DIAGEVENT_UNKNOWN;
+
+    std::string eventName = cfg::get_event_name(eventId);
+    if(eventName.empty() || eventName.length() >= TAF_EVENT_NAME_MAX_LEN)
+    {
+        LE_FATAL("eventName is null or length is too long for eventId:%d", eventId);
+    }
+    le_utf8_Copy(eventCtxPtr->eventName, eventName.c_str(), TAF_EVENT_NAME_MAX_LEN, NULL);
+    LE_INFO("eventName=%s", eventCtxPtr->eventName);
+
     //get event UDS status from database
-    eventCtxPtr->eventUdsStatus = taf_DataAccess_GetEventStatus(eventId);
+    eventCtxPtr->eventUdsStatus = taf_DataAccess_GetEventStatusByName(eventCtxPtr->eventName);
+
     LE_INFO("Database: Get EventId:%d, event UDS status in DB:0x%x", eventId,
             eventCtxPtr->eventUdsStatus);
     eventCtxPtr->svcRef = NULL;
@@ -3199,7 +3210,9 @@ void taf_EventSvr::ClearDTCAndEventData
         //The data is already cleared in database, need to store it
         LE_DEBUG("Database:Store and report eventId:%d, status:0x%x", eventCtxPtr->eventId,
                 eventCtxPtr->eventUdsStatus);
-        result = taf_DataAccess_SetEventStatus(eventCtxPtr->eventId, eventCtxPtr->eventUdsStatus);
+        result = taf_DataAccess_SetEventStatusByName(eventCtxPtr->eventName,
+                eventCtxPtr->eventUdsStatus);
+
         if(result != LE_OK)
         {
             LE_CRIT("Can't store data into database, EventId:%d, status:0x%x",

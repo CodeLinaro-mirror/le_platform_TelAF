@@ -49,6 +49,8 @@ static DIDEntry did_entries[] = {
     {0xF0D0, 3, {0x17, 0x34, 0x51}, false},
     {0xF0D2, 6, {0x17, 0x34, 0x51, 0x68, 0x85, 0x10}, false},
     {0xF401, 1, {0x17}, false},
+    {0xA0A0, 1, {0x02}, false},
+    {0xA0A2, 1, {0x03}, false},
 };
 static const size_t num_did_entries = sizeof(did_entries) / sizeof(DIDEntry);
 

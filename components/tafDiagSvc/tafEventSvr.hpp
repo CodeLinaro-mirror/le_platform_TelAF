@@ -30,6 +30,8 @@ using namespace tafsvc::cfg;
 #define FEATURE_A_PROGRAMMING_SESSION 0x2
 #define FEATURE_A_FOTA_SESSION 0x42
 #define FAULT_CODE_DATA_BYTES 32
+#define TAF_EVENT_NAME_MAX_LEN 64
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Diag Event Server Service Class
@@ -153,6 +155,7 @@ using namespace tafsvc::cfg;
         typedef struct
         {
             uint16_t eventId;
+            char eventName[TAF_EVENT_NAME_MAX_LEN];
             le_event_Id_t udsStatusEventId;// event for UDS status notification
             le_event_Id_t enableCondStateEventId;// event for Enable Condition state notification
             uint32_t dtcCode;

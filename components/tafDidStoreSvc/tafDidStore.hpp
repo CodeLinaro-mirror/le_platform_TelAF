@@ -35,6 +35,8 @@
 #define DID_LEN  2
 
 #define TAF_REQ_OUT_OF_RANGE 0x31
+#define TAF_CONDITION_NOT_CORRECT 0x22
+#define TAF_GENERAL_PROGRAMMING_FAILURE 0x72
 
 // Semaphore wait time
 #define SEM_TIME_TO_WAIT 5
@@ -76,11 +78,22 @@ typedef struct
 {
     taf_diagDidStore_DataIdChangeHandlerRef_t handlerRef; ///< Own reference.
     taf_diagDidStore_ServiceRef_t svcRef;                 ///< Service reference.
-    uint16_t did;                                         ///< Data identifier.
+    le_dls_List_t dataIdList;                             ///< Data ID list.
     taf_diagDidStore_DataIdChangeHandlerFunc_t func;      ///< Handler function.
     void* ctxPtr;                                         ///< Handler context.
     le_dls_Link_t link;                                   ///< Link to the Rx message list.
 }taf_DIDStorgNotifyHandler_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * DID list to notify on change.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_dls_Link_t link;
+    uint16_t      dataId;
+}taf_DataID_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -153,6 +166,12 @@ class taf_diagDidStore: public ITafSvc
                     taf_diagDidStore_ServiceRef_t svcRef, uint16_t dataId,
                         taf_diagDidStore_DataIdChangeHandlerFunc_t handlerPtr, void* contextPtr);
             void RemoveDataIdChangeHandler(taf_diagDidStore_DataIdChangeHandlerRef_t handlerRef);
+            taf_diagDidStore_DIDChangeHandlerRef_t GetDIDHandlerRef(
+                    taf_diagDidStore_ServiceRef_t svcRef);
+            le_result_t AddDIDToHandler(taf_diagDidStore_DIDChangeHandlerRef_t handlerRef,
+                    uint16_t dataId);
+            le_result_t RemoveDIDFromHandler(taf_diagDidStore_DIDChangeHandlerRef_t handlerRef,
+                    uint16_t dataId);
 
             le_result_t ParseDidStoreJsonConfig(const char* configPathPtr);
             std::vector<tafDidStore_Config_t> dataIdStoreAccessCfg;
@@ -203,6 +222,7 @@ class taf_diagDidStore: public ITafSvc
 
             le_mem_PoolRef_t MsgDIDStorgHandlerPool;
             le_ref_MapRef_t MsgDIDStorgHandlerRefMap;
+            le_mem_PoolRef_t dataIdPool;
 
             le_mem_PoolRef_t WriteRequestPool;
             le_mem_PoolRef_t ReadRequestPool;

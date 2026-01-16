@@ -988,6 +988,23 @@ le_result_t taf_DiagSvr::Resume
     // Resume diag service to receive UDS requests.
     return taf_uds_SetData(&addrInfo, &diagMsg, TAF_UDS_DATA_TYPE_DIAG_RESUME);
 }
+
+le_result_t taf_DiagSvr::Shutdown
+(
+    taf_diag_ServiceRef_t svcRef
+        ///< [IN] Service reference.
+)
+{
+    TAF_ERROR_IF_RET_VAL(svcRef == NULL, LE_BAD_PARAMETER, "Null ptr(svcRef)");
+
+    taf_DiagSvc_t* servicePtr = (taf_DiagSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
+
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "svcRef invalid");
+
+    return taf_uds_Stop();
+
+}
+
 //-------------------------------------------------------------------------------------------------
 /**
  * Remove the created service and release the alloted memory.

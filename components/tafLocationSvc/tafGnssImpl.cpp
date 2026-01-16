@@ -5363,7 +5363,7 @@ le_result_t taf_locGnss::SetNmeaSentences
                     nmeaType |= TAF_PA_LOCATION_GIGSV;
                     LE_DEBUG("SetNmeaSentences ->GIGSV");
                 }
-                LE_DEBUG("SetNmeaSentences nmeaMask mask is : %" PRIu64 "", nmeaMask);
+                LE_DEBUG("SetNmeaSentences nmeaMask mask is : %" PRIu32 "", nmeaType);
 
                 typedef struct{
                     pa_result_t result;
@@ -5373,7 +5373,7 @@ le_result_t taf_locGnss::SetNmeaSentences
                     resPtr->result = result;
                 };
                 taf_SelfTestResult_t resCallback = {};
-                pa_result_t res = taf_pa_location_configureNmeaTypes((taf_pa_location_NmeaSentenceType_t)nmeaMask,cb1,(std::any)&resCallback);
+                pa_result_t res = taf_pa_location_configureNmeaTypes((taf_pa_location_NmeaSentenceType_t)nmeaType,cb1,(std::any)&resCallback);
                 if(res == PA_OK){
                     if(resCallback.result == PA_OK)
                     {

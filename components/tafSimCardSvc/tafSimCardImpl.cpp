@@ -141,9 +141,14 @@ void tafSubscriptionListener:: onSubscriptionInfoChanged
     }
     sim_iccid_event_t simIccidEvent;
     simIccidEvent.simId = (taf_sim_Id_t)simPtr->simId;
-    simIccidEvent.ICCID = simPtr->ICCID;
+    le_utf8_Copy(simIccidEvent.ICCID, simPtr->ICCID, sizeof(simIccidEvent.ICCID), NULL);
+
+    LE_DEBUG("simIccidEvent simId: %d, ICCID: %s", simIccidEvent.simId, simIccidEvent.ICCID);
+
     le_event_Report(sim.IccidChangeEventId, &simIccidEvent, sizeof(simIccidEvent));
-    if(!sim.IsPsEventInProgress) {
+
+    if(!sim.IsPsEventInProgress)
+    {
 
         sim.IsPsEventInProgress = true;
         sim.CheckAndSendProfileSwitchEvent();
@@ -940,7 +945,7 @@ void taf_sim::FirstLayerIccidChangeHandler(void* reportPtr,
     taf_sim_IccidChangeHandlerFunc_t clientHandlerFunc =
         (taf_sim_IccidChangeHandlerFunc_t)secondLayerHandlerFunc;
 
-    clientHandlerFunc(simEventPtr->simId, (simEventPtr->ICCID).c_str(), le_event_GetContextPtr());
+    clientHandlerFunc(simEventPtr->simId, simEventPtr->ICCID, le_event_GetContextPtr());
 }
 
 taf_sim_info_t* taf_sim::GetSimContext(taf_sim_Id_t simId) {

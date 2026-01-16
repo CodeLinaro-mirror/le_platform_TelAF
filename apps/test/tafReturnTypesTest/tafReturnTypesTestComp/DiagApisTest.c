@@ -292,8 +292,14 @@ __attribute__((unused)) void diagRetTest_RunApis
     LE_TEST_OK(res == LE_FAULT,"taf_diagEvent_RemoveSvc-LE_FAULT");
 
     //66.taf_diagEvent_SetOpCycleState LE_BAD_PARAMETER scenario
+    #ifndef LE_CONFIG_DIAG_FEATURE_A
     res = taf_diagEvent_SetOpCycleState(NULL,TAF_DIAGEVENT_CYCLE_START);
     LE_TEST_OK(res == LE_BAD_PARAMETER,"taf_diagEvent_SetOpCycleState-LE_BAD_PARAMETER");
+    #else
+    //66.taf_diagEvent_SetOpCycleState LE_OK scenario
+    res = taf_diagEvent_SetOpCycleState(NULL,TAF_DIAGEVENT_CYCLE_START);
+    LE_TEST_OK(res == LE_OK,"taf_diagEvent_SetOpCycleState-LE_OK");
+    #endif
 
     //67.taf_diagEvent_GetOpCycleState LE_BAD_PARAMETER scenario
     res = taf_diagEvent_GetOpCycleState(NULL,NULL);

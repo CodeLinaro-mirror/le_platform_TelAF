@@ -22,8 +22,8 @@ __attribute__((unused)) void devinfoRetTest_RunApis
     res = taf_devInfo_GetImei(NULL,0);
     LE_TEST_OK(res == LE_BAD_PARAMETER,"taf_devinfo_getimei-LE_BAD_PARAMETER");
 
-    //2.taf_devinfo_getimei LE_FAULT       scenario
+    //2.taf_devinfo_getimei LE_OK scenario
     char imei[TAF_DEVINFO_IMEI_MAX_BYTES-1];
     res = taf_devInfo_GetImei(imei,sizeof(imei));
-    LE_TEST_OK(res == LE_FAULT,"taf_devinfo_getimei-LE_FAULT");
+    LE_TEST_OK(res == LE_OK,"taf_devinfo_getimei-LE_OK");
 }

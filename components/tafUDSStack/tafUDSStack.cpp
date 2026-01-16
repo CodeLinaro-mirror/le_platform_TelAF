@@ -194,6 +194,4 @@ void taf_uds_GetVlanIdList
 COMPONENT_INIT
 {
     LE_INFO("UDS component init once start...");
-
-    LE_INFO("UDS component init end...");
 }

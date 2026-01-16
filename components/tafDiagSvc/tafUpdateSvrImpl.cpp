@@ -63,17 +63,17 @@ void taf_UpdateSvr::Init
 
     // Create the event and add event handler for RequestFileTransfer (0x38).
     FileXferEvent = le_event_CreateIdWithRefCounting("UpdateSvc RequestFileTransfer Event");
-    FileXferEventHandlerRef = le_event_AddHandler("UpdateSvc RequestFileTransfer Event Handler",
+    FileXferEventHandlerRef = le_event_AddHandler("ReqFileXferEvtHandler",
             FileXferEvent, taf_UpdateSvr::RxFileXferEventHandler);
 
     // Create the event and add event handler for TransferData (0x36).
     XferDataEvent = le_event_CreateIdWithRefCounting("UpdateSvc TransferData Event");
-    XferDataEventHandlerRef = le_event_AddHandler("UpdateSvc TransferData Event Handler",
+    XferDataEventHandlerRef = le_event_AddHandler("XferDataEvtHandler",
             XferDataEvent, taf_UpdateSvr::RxXferDataEventHandler);
 
     // Create the event and add event handler for RequestTransferExit (0x37).
     XferExitEvent = le_event_CreateIdWithRefCounting("UpdateSvc TransferData Event");
-    XferExitEventHandlerRef = le_event_AddHandler("UpdateSvc TransferData Event Handler",
+    XferExitEventHandlerRef = le_event_AddHandler("XferExitEvtHandler",
             XferExitEvent, taf_UpdateSvr::RxXferExitEventHandler);
 
     // Create the event ID for NRC notification.

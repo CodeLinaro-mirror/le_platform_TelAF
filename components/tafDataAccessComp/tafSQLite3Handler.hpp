@@ -216,7 +216,6 @@ namespace dataAccess{
 
                 if (!statement.ExecuteRowStep())
                 {
-                    LE_WARN("Can not find a result, The key is not exist.");
                     return LE_NOT_FOUND;
                 }
 

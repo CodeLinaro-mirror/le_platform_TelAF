@@ -45,7 +45,6 @@ le_result_t SQLite3DbUtil::Open
 {
     if (mDbPtr != nullptr)
     {
-        LE_WARN("DB is open for %s, can not open for %s", mDbName.c_str(), dbNamePtr);
         return LE_IO_ERROR;
     }
 

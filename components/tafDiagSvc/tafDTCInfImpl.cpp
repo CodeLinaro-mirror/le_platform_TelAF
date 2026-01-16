@@ -62,7 +62,8 @@ void taf_DTCInf::UDSMsgHandler
 
                 if (msgLen != NO_OF_DTC_BY_STATUS_MASK_REQ_LEN)
                 {
-                    LE_DEBUG("Requested DTC message length is incorrect!");
+                    LE_WARN("DTC message length is incorrect, send NRC %x",
+                            INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
                     errCode = INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
                     SendNRCResp(sid, addrPtr, errCode);
 
@@ -73,7 +74,8 @@ void taf_DTCInf::UDSMsgHandler
                 result = GetNumOfDtcByStatusMask(dtcStatusMask, addrPtr->vlanId);
                 if(result != LE_OK)
                 {
-                    LE_ERROR("Error while getting data for no of dtc by status mask!");
+                    LE_WARN("Error while getting data for no of dtc by status mask, send NRC %x",
+                            REQ_OUT_OF_RANGE);
                     errCode = REQ_OUT_OF_RANGE;
                     SendNRCResp(sid, addrPtr, errCode);
                     return;
@@ -87,7 +89,8 @@ void taf_DTCInf::UDSMsgHandler
 
                 if (msgLen != DTC_BY_STATUS_MASK_REQ_LEN)
                 {
-                    LE_DEBUG("Requested DTC message length is incorrect!");
+                    LE_WARN("DTC message length is incorrect, send NRC %x",
+                            INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
                     errCode = INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
                     SendNRCResp(sid, addrPtr, errCode);
 
@@ -99,7 +102,8 @@ void taf_DTCInf::UDSMsgHandler
                 result = GetDtcByStatusMask(statusMask, addrPtr->vlanId);
                 if(result != LE_OK)
                 {
-                    LE_ERROR("Error while getting data for dtc for status mask!");
+                    LE_WARN("Error while getting data for dtc for status mask, send NRC %x",
+                            REQ_OUT_OF_RANGE);
                     errCode = REQ_OUT_OF_RANGE;
                     SendNRCResp(sid, addrPtr, errCode);
                     return;
@@ -113,7 +117,8 @@ void taf_DTCInf::UDSMsgHandler
 
                 if (msgLen != DTC_SNAPSHOT_ID_REQ_LEN)
                 {
-                    LE_DEBUG("Requested DTC message length is incorrect!");
+                    LE_WARN("DTC message length is incorrect, send NRC %x",
+                            INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
                     errCode = INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
                     SendNRCResp(sid, addrPtr, errCode);
 
@@ -123,7 +128,8 @@ void taf_DTCInf::UDSMsgHandler
                 result = GetDtcSnapshotID(addrPtr->vlanId);
                 if(result != LE_OK)
                 {
-                    LE_ERROR("Error while getting data for dtc snapshot ID!");
+                    LE_WARN("Error while getting data for dtc snapshot ID, send NRC %x",
+                            REQ_OUT_OF_RANGE);
                     errCode = REQ_OUT_OF_RANGE;
                     SendNRCResp(sid, addrPtr, errCode);
                     return;
@@ -136,7 +142,8 @@ void taf_DTCInf::UDSMsgHandler
 
                 if (msgLen != DTC_SNAPSHOT_REC_BY_DTC_NUM_REQ_LEN)
                 {
-                    LE_DEBUG("Requested DTC message length is incorrect!");
+                    LE_WARN("DTC message length is incorrect, send NRC %x",
+                            INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
                     errCode = INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
                     SendNRCResp(sid, addrPtr, errCode);
 
@@ -153,7 +160,7 @@ void taf_DTCInf::UDSMsgHandler
                 }
                 else
                 {
-                    LE_ERROR("Result is %d", result);
+                    LE_WARN("Result is %d, send NRC %x", result, REQ_OUT_OF_RANGE);
                     errCode = REQ_OUT_OF_RANGE;
                     SendNRCResp(sid, addrPtr, errCode);
                     return;
@@ -166,7 +173,8 @@ void taf_DTCInf::UDSMsgHandler
 
                 if (msgLen != DTC_EXT_DATA_REC_BY_DTC_NO_REQ_LEN)
                 {
-                    LE_DEBUG("Requested DTC message length is incorrect!");
+                    LE_WARN("DTC message length is incorrect, send NRC %x",
+                            INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
                     errCode = INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
                     SendNRCResp(sid, addrPtr, errCode);
 
@@ -183,7 +191,7 @@ void taf_DTCInf::UDSMsgHandler
                 }
                 else
                 {
-                    LE_ERROR("Result is %d", result);
+                    LE_WARN("Result is %d, send NRC %x", result, REQ_OUT_OF_RANGE);
                     errCode = REQ_OUT_OF_RANGE;
                     SendNRCResp(sid, addrPtr, errCode);
                     return;
@@ -197,7 +205,8 @@ void taf_DTCInf::UDSMsgHandler
 
                 if (msgLen != SUPPORTED_DTC_REQ_LEN)
                 {
-                    LE_DEBUG("Requested DTC message length is incorrect!");
+                    LE_WARN("DTC message length is incorrect, send NRC %x",
+                            INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
                     errCode = INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
                     SendNRCResp(sid, addrPtr, errCode);
 
@@ -207,7 +216,8 @@ void taf_DTCInf::UDSMsgHandler
                 result = GetSupportedDtc(addrPtr->vlanId);
                 if(result != LE_OK)
                 {
-                    LE_ERROR("Error while getting data for dtc report supported DTC!");
+                    LE_WARN("Error while getting data for dtc report supported DTC, send NRC %x",
+                            REQ_OUT_OF_RANGE);
                     errCode = REQ_OUT_OF_RANGE;
                     SendNRCResp(sid, addrPtr, errCode);
                     return;
@@ -221,7 +231,8 @@ void taf_DTCInf::UDSMsgHandler
 
                 if (msgLen != DTC_FAULT_DETECTION_COUNTER_REQ_LEN)
                 {
-                    LE_DEBUG("Requested DTC message length is incorrect!");
+                    LE_WARN("DTC message length is incorrect, send NRC %x",
+                            INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
                     errCode = INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
                     SendNRCResp(sid, addrPtr, errCode);
 
@@ -231,7 +242,8 @@ void taf_DTCInf::UDSMsgHandler
                 result = GetFaultDetCounter(addrPtr->vlanId);
                 if(result != LE_OK)
                 {
-                    LE_ERROR("Error while getting data for fault detection counter!");
+                    LE_WARN("Error while getting data for fault detection counter, send NRC %x",
+                            REQ_OUT_OF_RANGE);
                     errCode = REQ_OUT_OF_RANGE;
                     SendNRCResp(sid, addrPtr, errCode);
                     return;
@@ -241,7 +253,8 @@ void taf_DTCInf::UDSMsgHandler
 
             default:
             {
-                LE_DEBUG("Requested DTC subfunction type is not supported");
+                LE_WARN("Requested DTC subfunction type is not supported, send NRC %x",
+                        TAF_DIAG_SUBFUNCTION_NOT_SUPPORTED);
                 errCode = TAF_DIAG_SUBFUNCTION_NOT_SUPPORTED;
                 SendNRCResp(sid, addrPtr, errCode);
 
@@ -255,7 +268,8 @@ void taf_DTCInf::UDSMsgHandler
 
         if (msgLen < CLEAR_DTC_INFO_REQ_MIN_LEN)
         {
-            LE_DEBUG("Requested DTC message length is incorrect!");
+            LE_WARN("DTC message length is incorrect, send NRC %x",
+                    INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
             errCode = INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
             SendNRCResp(sid, addrPtr, errCode);
 
@@ -268,7 +282,7 @@ void taf_DTCInf::UDSMsgHandler
 
         if (result == LE_UNAVAILABLE)
         {
-            LE_DEBUG("conditionsNotCorrect!");
+            LE_WARN("conditionsNotCorrect, send NRC %x", CONDITIONS_NOT_CORRECT);
             errCode = CONDITIONS_NOT_CORRECT;
             SendNRCResp(sid, addrPtr, errCode);
 
@@ -276,7 +290,7 @@ void taf_DTCInf::UDSMsgHandler
         }
         else if(result == LE_UNSUPPORTED)
         {
-            LE_DEBUG("requestOutOfRange!");
+            LE_WARN("requestOutOfRange, send NRC %x", REQ_OUT_OF_RANGE);
             errCode = REQ_OUT_OF_RANGE;
             SendNRCResp(sid, addrPtr, errCode);
 
@@ -284,7 +298,7 @@ void taf_DTCInf::UDSMsgHandler
         }
         else if(result == LE_IO_ERROR)
         {
-            LE_DEBUG("requestOutOfRange!");
+            LE_WARN("send NRC %x", GENERAL_PROGRAMMING_FAILURE);
             errCode = GENERAL_PROGRAMMING_FAILURE;
             SendNRCResp(sid, addrPtr, errCode);
 
@@ -293,7 +307,7 @@ void taf_DTCInf::UDSMsgHandler
     }
     else
     {
-        LE_DEBUG("Service(0x%x) is invalid", sid);
+        LE_WARN("Service(0x%x) is invalid, send NRC %x", sid, TAF_DIAG_SERVICE_NOT_SUPPORTED);
         errCode = TAF_DIAG_SERVICE_NOT_SUPPORTED;  // ServiceNotSupported
         SendNRCResp(sid, addrPtr, errCode);
 
@@ -322,8 +336,6 @@ le_result_t taf_DTCInf::GetNumOfDtcByStatusMask
     uint16_t vlanId
 )
 {
-    LE_DEBUG("GetNumOfDtcByStatusMask");
-
     le_result_t result;
     bool isSesTypeConfig = false;
 
@@ -336,7 +348,6 @@ le_result_t taf_DTCInf::GetNumOfDtcByStatusMask
         LE_ERROR("GetCurrentSesType function return type is incorrect!");
         return result;
     }
-    LE_DEBUG("Current session is %x", currentSesType);
 
     // Get the DTCStatusAvailabilityMask.
 #ifdef LE_CONFIG_DIAG_FEATURE_A
@@ -412,8 +423,6 @@ le_result_t taf_DTCInf::GetDtcByStatusMask
     uint16_t vlanId
 )
 {
-    LE_DEBUG("GetDtcByStatusMask");
-
     le_result_t result;
     bool isSesTypeConfig = false;
 
@@ -426,7 +435,6 @@ le_result_t taf_DTCInf::GetDtcByStatusMask
         LE_ERROR("GetCurrentSesType function return type is incorrect!");
         return result;
     }
-    LE_DEBUG("Current session is %x", currentSesType);
 
     taf_DataAccess_DTCStatusRec_t dtcStatusRec;
     result = taf_DataAccess_GetDtcByStatusMask(statusMask, &dtcStatusRec);
@@ -503,8 +511,6 @@ le_result_t taf_DTCInf::GetDtcSnapshotID
     uint16_t vlanId
 )
 {
-    LE_DEBUG("GetDtcSnapshotID");
-
     le_result_t result;
     bool isSesTypeConfig = false;
 
@@ -517,7 +523,6 @@ le_result_t taf_DTCInf::GetDtcSnapshotID
         LE_ERROR("GetCurrentSesType function return type is incorrect!");
         return result;
     }
-    LE_DEBUG("Current session is %x", currentSesType);
 
     taf_DataAccess_SnapshotInfoRec_t snapshotInfoRec;
     result = taf_DataAccess_GetSnapshotIdentification(&snapshotInfoRec);
@@ -591,8 +596,6 @@ le_result_t taf_DTCInf::GetDtcSnapshotRecordByDTCNum
     uint16_t vlanId
 )
 {
-    LE_DEBUG("GetDtcSnapshotRecordByDTCNum");
-
     le_result_t result;
     bool isSesTypeConfig = false;
 
@@ -605,7 +608,6 @@ le_result_t taf_DTCInf::GetDtcSnapshotRecordByDTCNum
         LE_ERROR("GetCurrentSesType function return type is incorrect!");
         return result;
     }
-    LE_DEBUG("Current session is %x", currentSesType);
 
 #ifdef LE_CONFIG_DIAG_FEATURE_A
     // Check the current session type is same as config session type for dtc.
@@ -647,11 +649,9 @@ le_result_t taf_DTCInf::GetDtcSnapshotRecordByDTCNum
             if (snapshotDataPtr != NULL)
             {
                 respBuf[respBufLen] = snapshotDataPtr->recNumber;
-                LE_DEBUG("DTCSnapshotRecordNumber is %x", snapshotDataPtr->recNumber);
                 respBufLen = respBufLen + 1;
 
                 respBuf[respBufLen] = snapshotDataPtr->recDidSize;
-                LE_DEBUG("DTCSnapshotRecordNumberOfIdentifiers is %x", snapshotDataPtr->recDidSize);
                 respBufLen = respBufLen + 1;
 
                 for (int i =0; i<snapshotDataPtr->recDidSize; i++)
@@ -689,8 +689,6 @@ le_result_t taf_DTCInf::GetExtDataRecordByDTCNum
     uint16_t vlanId
 )
 {
-    LE_DEBUG("GetExtDataRecordByDTCNum");
-
     le_result_t result;
     bool isSesTypeConfig = false;
 
@@ -703,7 +701,6 @@ le_result_t taf_DTCInf::GetExtDataRecordByDTCNum
         LE_ERROR("GetCurrentSesType function return type is incorrect!");
         return result;
     }
-    LE_DEBUG("Current session is %x", currentSesType);
 
 #ifdef LE_CONFIG_DIAG_FEATURE_A
     // Check the current session type is same as config session type for dtc.
@@ -746,13 +743,10 @@ le_result_t taf_DTCInf::GetExtDataRecordByDTCNum
             if (extDataPtr != NULL)
             {
                 respBuf[respBufLen] = extDataPtr->recNumber;
-                LE_DEBUG("DTCExtDataRecordNumber is %x",extDataPtr->recNumber);
                 respBufLen = respBufLen + 1;
 
                 memcpy(respBuf + respBufLen, extDataPtr->extData, extDataPtr->extDataSize);
                 respBufLen = respBufLen + extDataPtr->extDataSize;
-
-                LE_DEBUG("DTCExtDataRecord length is %d", extDataPtr->extDataSize);
 
                 // Release memory for extDataPtr
                 le_mem_Release((void*)extDataPtr);
@@ -776,8 +770,6 @@ le_result_t taf_DTCInf::GetSupportedDtc
     uint16_t vlanId
 )
 {
-    LE_DEBUG("GetSupportedDtc");
-
     le_result_t result;
     bool isSesTypeConfig = false;
 
@@ -790,7 +782,6 @@ le_result_t taf_DTCInf::GetSupportedDtc
         LE_ERROR("GetCurrentSesType function return type is incorrect!");
         return result;
     }
-    LE_DEBUG("Current session is %x", currentSesType);
 
     taf_DataAccess_DTCStatusRec_t dtcStatusRec;
     result = taf_DataAccess_GetSupportedDtc(&dtcStatusRec);
@@ -867,8 +858,6 @@ le_result_t taf_DTCInf::GetFaultDetCounter
     uint16_t vlanId
 )
 {
-    LE_DEBUG("GetFaultDetCounter");
-
     le_result_t result;
     bool isSesTypeConfig = false;
 
@@ -881,7 +870,6 @@ le_result_t taf_DTCInf::GetFaultDetCounter
         LE_ERROR("GetCurrentSesType function return type is incorrect!");
         return result;
     }
-    LE_DEBUG("Current session is %x", currentSesType);
 
     auto &diagEvent = taf_EventSvr::GetInstance();
     le_dls_List_t FDCList = LE_DLS_LIST_INIT;
@@ -943,8 +931,6 @@ le_result_t taf_DTCInf::GetClearDTCResp
     uint32_t grpOfDTC
 )
 {
-    LE_DEBUG("GetClearDTCResp");
-
     le_result_t result;
     auto &diagEvent = taf_EventSvr::GetInstance();
 
@@ -987,8 +973,6 @@ le_result_t taf_DTCInf::SendDTCResp
     size_t dataSize
 )
 {
-    LE_DEBUG("SendDTCResp");
-
     le_result_t ret;
 
     // Call UDS function to send the response message.
@@ -1040,8 +1024,6 @@ le_result_t taf_DTCInf::SendNRCResp
     uint8_t errCode
 )
 {
-    LE_DEBUG("SendNRCResp");
-
     TAF_ERROR_IF_RET_VAL(addrInfoPtr == NULL, LE_BAD_PARAMETER, "Invalid addrInfoPtr");
 
     // Call UDS function to send the response message.
@@ -1070,8 +1052,6 @@ bool taf_DTCInf::IsDTCCurrentSesTypeConfig
     uint8_t currentSesType
 )
 {
-    LE_DEBUG("IsDTCCurrentSesTypeConfig");
-
     // Check DTC is supported in current active session or not.
     try
     {
@@ -1103,7 +1083,7 @@ bool taf_DTCInf::IsDTCCurrentSesTypeConfig
 #ifdef LE_CONFIG_DIAG_FEATURE_A
 uint8_t taf_DTCInf::GetAvailableStatusMaskByCurrentSession(uint8_t currentSesType)
 {
-    LE_INFO("current sess=0x%x", currentSesType);
+    LE_DEBUG("current sess=0x%x", currentSesType);
     if ((uint8_t)currentSesType == FEATURE_A_PROGRAMMING_SESSION ||
             (uint8_t)currentSesType == FEATURE_A_FOTA_SESSION)
         return FEATURE_A_REPROGRAMMING_DTC_AVAILABILITY_MASK;
@@ -1121,8 +1101,6 @@ void taf_DTCInf::Init
 (
 )
 {
-    LE_INFO("DTC service Init!");
-
     auto& backend = taf_DiagBackend::GetInstance();
 
     // Register for ReadDTCInformation service (0x19)
@@ -1130,7 +1108,5 @@ void taf_DTCInf::Init
 
     // Register for ClearDiagnosticInformation service (0x14)
     backend.RegisterUdsService(reqClearDTCSvcId, this);
-
-    LE_INFO("Diag DTC Service started!");
+    LE_DEBUG("Diag DTC interface Service completed!");
 }
-

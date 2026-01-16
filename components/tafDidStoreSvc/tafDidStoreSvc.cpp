@@ -33,7 +33,6 @@ taf_diagDidStore_ServiceRef_t taf_diagDidStore_GetService
     void
 )
 {
-    LE_DEBUG("taf_diagDidStore_GetService");
     auto &didStore = taf_diagDidStore::GetInstance();
     return didStore.GetService();
 }
@@ -61,7 +60,6 @@ le_result_t taf_diagDidStore_Read
         ///< [INOUT]
 )
 {
-    LE_DEBUG("taf_diagDataIDStor_Read");
     auto &didStore = taf_diagDidStore::GetInstance();
 
     taf_DidStore_t* servicePtr = (taf_DidStore_t*)le_ref_Lookup(didStore.SvcRefMap, svcRef);
@@ -113,7 +111,6 @@ le_result_t taf_diagDidStore_Write
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagDataIDStor_Write");
     auto &didStore = taf_diagDidStore::GetInstance();
 
     taf_DidStore_t* servicePtr = (taf_DidStore_t*)le_ref_Lookup(didStore.SvcRefMap, svcRef);
@@ -160,7 +157,6 @@ taf_diagDidStore_DataIdChangeHandlerRef_t taf_diagDidStore_AddDataIdChangeHandle
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagDidStore_AddDataIdChangeHandler");
     auto &didStore = taf_diagDidStore::GetInstance();
     return didStore.AddDataIdChangeHandler(svcRef, dataId, handlerPtr, contextPtr);
 }
@@ -175,7 +171,6 @@ void taf_diagDidStore_RemoveDataIdChangeHandler
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagDidStore_RemoveDataIdChangeHandler");
     auto &didStore = taf_diagDidStore::GetInstance();
     return didStore.RemoveDataIdChangeHandler(handlerRef);
 }
@@ -197,7 +192,6 @@ taf_diagDidStore_DIDChangeHandlerRef_t taf_diagDidStore_GetDIDHandlerRef
         ///< [IN] Service reference.
 )
 {
-    LE_DEBUG("taf_diagDidStore_GetDIDHandlerRef");
     auto &didStore = taf_diagDidStore::GetInstance();
     return didStore.GetDIDHandlerRef(svcRef);
 }
@@ -222,7 +216,6 @@ le_result_t taf_diagDidStore_AddDIDToHandler
         ///< [IN] Data identifier.
 )
 {
-    LE_DEBUG("taf_diagDidStore_AddDIDToHandler");
     auto &didStore = taf_diagDidStore::GetInstance();
     return didStore.AddDIDToHandler(handlerRef, dataId);
 }
@@ -246,7 +239,6 @@ le_result_t taf_diagDidStore_RemoveDIDFromHandler
         ///< [IN] Data identifier.
 )
 {
-    LE_DEBUG("taf_diagDidStore_RemoveDIDFromHandler");
     auto &didStore = taf_diagDidStore::GetInstance();
     return didStore.RemoveDIDFromHandler(handlerRef, dataId);
 }
@@ -259,5 +251,5 @@ COMPONENT_INIT
     LE_INFO("TelAF DID Storage Service init Started...");
     auto &didStore = taf_diagDidStore::GetInstance();
     didStore.Init();
-    LE_INFO("TelAF DID Storage Service init completed...");
+    LE_DEBUG("TelAF DID Storage Service init completed...");
 }

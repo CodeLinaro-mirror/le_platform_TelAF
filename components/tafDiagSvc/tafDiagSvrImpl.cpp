@@ -38,8 +38,6 @@ le_result_t taf_DiagSvr::SetEnableCondition
     bool conditionFulfilled
 )
 {
-    LE_DEBUG("SetEnableCondition!");
-
     auto &diag = taf_DiagSvr::GetInstance();
     bool isEnableIdAvailable = false;
 
@@ -54,7 +52,6 @@ le_result_t taf_DiagSvr::SetEnableCondition
 
         if (enableCtxPtr->enableConditionID == enableConditionID)
         {
-            LE_DEBUG("Get enableConditionID %p by id %d", enableCtxPtr, enableConditionID);
             enableCtxPtr->conditionFulfilled = conditionFulfilled;
             isEnableIdAvailable = true;
             break;
@@ -91,8 +88,6 @@ bool taf_DiagSvr::GetEnableConditionStatus
     uint8_t enableConditionID
 )
 {
-    LE_DEBUG("GetEnableConditionStatus!");
-
     le_dls_Link_t* linkPtr = NULL;
 
     linkPtr = le_dls_Peek(&enableStatusList);
@@ -104,7 +99,6 @@ bool taf_DiagSvr::GetEnableConditionStatus
 
         if (enableCtxPtr->enableConditionID == enableConditionID)
         {
-            LE_DEBUG("Get enableConditionID %p by id %d", enableCtxPtr, enableConditionID);
             return enableCtxPtr->conditionFulfilled;
         }
     }
@@ -137,7 +131,6 @@ taf_diag_ServiceRef_t taf_DiagSvr::GetService
 
         // Attach the service to the client.
         servicePtr->sessionRef = taf_diag_GetClientSessionRef();
-        LE_INFO("GetService servicePtr->sessionRef: %p", servicePtr->sessionRef);
 
         // Init the service Rx Handler.
         servicePtr->testerHandlerRef = NULL;
@@ -149,12 +142,9 @@ taf_diag_ServiceRef_t taf_DiagSvr::GetService
         servicePtr->svcRef = (taf_diag_ServiceRef_t)le_ref_CreateRef(SvcRefMap, servicePtr);
 
         servicePtr->targetVlanId = 0;
-
-        LE_INFO("svcRef %p of client %p is created",
-                servicePtr->svcRef, servicePtr->sessionRef);
     }
 
-    LE_INFO("Get serviceRef %p for Diag service.", servicePtr->svcRef);
+    LE_DEBUG("Get serviceRef %p for Diag service.", servicePtr->svcRef);
     return servicePtr->svcRef;
 }
 
@@ -169,8 +159,7 @@ taf_DiagSvc_t* taf_DiagSvr::GetServiceObj
     le_msg_SessionRef_t sessionRef
 )
 {
-    LE_DEBUG("find the service object!");
-    LE_INFO("GetServiceObj sessionRef: %p", sessionRef);
+    LE_DEBUG("GetServiceObj sessionRef: %p", sessionRef);
 
     le_ref_IterRef_t iterRef = le_ref_GetIterator(SvcRefMap);
 
@@ -191,7 +180,6 @@ taf_DiagSvc_t* taf_DiagSvr::GetServiceObj
     uint16_t vlanId
 )
 {
-    LE_DEBUG("Find the service object for vlan(0x%x)!", vlanId);
     bool isFound = false;
     le_ref_IterRef_t iterRef = le_ref_GetIterator(SvcRefMap);
 
@@ -217,6 +205,7 @@ taf_DiagSvc_t* taf_DiagSvr::GetServiceObj
                 {
                     // Match.
                     isFound = true;
+                    LE_DEBUG("Service object for vlan(x%0x) found", vlanId);
                     break;
                 }
                 linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
@@ -264,7 +253,6 @@ le_result_t taf_DiagSvr::SetVlanId
         taf_DiagVlanIdNode_t *vlan = CONTAINER_OF(linkPtr, taf_DiagVlanIdNode_t, link);
         if (vlan != NULL && vlan->vlanId == vlanId)
         {
-            LE_INFO("The Vlan id(0x%x) was already set for ref%p", vlanId, svcRef);
             return LE_OK;
         }
         linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
@@ -273,7 +261,7 @@ le_result_t taf_DiagSvr::SetVlanId
     taf_DiagVlanIdNode_t *vlanPtr = (taf_DiagVlanIdNode_t *)le_mem_ForceAlloc(VlanPool);
     if (vlanPtr == NULL)
     {
-        LE_INFO("Failed to allocate memory.");
+        LE_ERROR("Failed to allocate memory.");
         return LE_NO_MEMORY;
     }
 
@@ -295,8 +283,6 @@ le_result_t taf_DiagSvr::SelectTargetVlanID
     uint16_t vlanId
 )
 {
-    LE_DEBUG("SelectTargetVlanID");
-
     taf_DiagSvc_t* servicePtr = (taf_DiagSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
     TAF_ERROR_IF_RET_VAL(vlanId == 0, LE_BAD_PARAMETER, "Invalid vlan Id");
@@ -349,8 +335,8 @@ void taf_DiagSvr::UDSMsgHandler
     {
         if (msgPtr[1] != msgPtr[2])
         {
-            LE_INFO("previous state: %d, current state :%d",msgPtr[1], msgPtr[2]);
-            LE_INFO("DiagSvc VlanId = %d",addrPtr->vlanId);
+            LE_DEBUG("DiagSvc VlanId = %d, previous state: %d and current state: %d",
+                    addrPtr->vlanId, msgPtr[1], msgPtr[2]);
             taf_RxTesterStateMsg_t* rxStatePtr = NULL;
 
             rxStatePtr = (taf_RxTesterStateMsg_t*)le_mem_ForceAlloc(RxMsgPool);
@@ -361,8 +347,7 @@ void taf_DiagSvr::UDSMsgHandler
             rxStatePtr->currentTesterState = (taf_diag_State_t)msgPtr[2];
             rxStatePtr->rxStateRef = (taf_diag_TesterStateRef_t)le_ref_CreateRef(RxTesterStateRefMap,
                     rxStatePtr);
-
-            LE_DEBUG("Receive message(%p) and current testert state: 0x%x)", rxStatePtr->rxStateRef,
+            LE_INFO("Receive message(%p) and current testert state: 0x%x)", rxStatePtr->rxStateRef,
                     rxStatePtr->currentTesterState);
 
             // Report the request message to message handler in service layer.
@@ -396,13 +381,10 @@ void taf_DiagSvr::CancelFileXferMsgHandler
     void*                      userPtr         ///< [IN] User-defined pointer.
 )
 {
-    LE_DEBUG("CancelFileXferMsgHandler vlanId =%d", vlanId);
-    //auto &diag = taf_DiagSvr::GetInstance();
-
     taf_CancelFileXferHandler_t *cancelFileXferCbPtr = FindCancelFileXferCb(vlanId);
     if(cancelFileXferCbPtr != NULL && cancelFileXferCbPtr->func != NULL)
     {
-        LE_INFO("vlanId = %d in the list", cancelFileXferCbPtr->vlanId);
+        LE_DEBUG("vlanId = %d in the list", cancelFileXferCbPtr->vlanId);
         cancelFileXferCbPtr->func(cancelFileXferCbPtr->svcRef, cancelFileXferCbPtr->vlanId, result,
                 cancelFileXferCbPtr->ctxPtr );
         DeleteCancelFileXferCb(vlanId, cancelFileXferCbPtr->func);
@@ -451,8 +433,6 @@ taf_diag_TesterStateHandlerRef_t taf_DiagSvr::AddTesterStateHandler
     // Attach handler to service.
     servicePtr->testerHandlerRef = handlerObjPtr->handlerRef;
 
-    LE_INFO("TesterState: Registered Tester state change Handler");
-
     return handlerObjPtr->handlerRef;
 }
 
@@ -472,8 +452,6 @@ void taf_DiagSvr::TesterStateEventHandler
 
     taf_RxTesterStateMsg_t* rxStatePtr = (taf_RxTesterStateMsg_t*)reportPtr;
     TAF_ERROR_IF_RET_NIL(rxStatePtr == NULL, "rxStatePtr is Null");
-
-    LE_DEBUG("VlanID: %d",rxStatePtr->addrInfo.vlanId);
 
     // Notify the repective callbackFuncPtr
     taf_DiagSvc_t* servicePtr = NULL;
@@ -500,7 +478,7 @@ void taf_DiagSvr::TesterStateEventHandler
             servicePtr->testerHandlerRef);
     if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
     {
-        LE_INFO("Did not register handler for tester state notfication.");
+        LE_WARN("Did not register handler for tester state notfication.");
         return;
     }
 
@@ -508,7 +486,7 @@ void taf_DiagSvr::TesterStateEventHandler
     handlerObjPtr->func(rxStatePtr->rxStateRef, rxStatePtr->addrInfo.vlanId,
             rxStatePtr->currentTesterState, handlerObjPtr->ctxPtr);
 
-    LE_INFO("Release the received tester state message ptr");
+    LE_DEBUG("Release the received tester state message ptr");
     le_ref_DeleteRef(diag.RxTesterStateRefMap, rxStatePtr->rxStateRef);
     le_mem_Release(rxStatePtr);
 
@@ -520,7 +498,6 @@ le_result_t taf_DiagSvr::ReleaseTesterStateMsg
     taf_diag_TesterStateRef_t stateRef
 )
 {
-    LE_INFO("ReleaseTesterStateMsg");
     return LE_OK;
 }
 
@@ -582,7 +559,6 @@ void taf_DiagSvr::ClearVlanList
     taf_DiagSvc_t* servicePtr
 )
 {
-    LE_DEBUG("ClearVlanList");
     TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
 
     // Clear the vlan id list.
@@ -592,7 +568,6 @@ void taf_DiagSvr::ClearVlanList
         taf_DiagVlanIdNode_t *vlanPtr = CONTAINER_OF(linkPtr, taf_DiagVlanIdNode_t, link);
         if (vlanPtr != NULL)
         {
-            LE_DEBUG("Release vlan node(id=0x%x)", vlanPtr->vlanId);
             le_mem_Release(vlanPtr);
         }
 
@@ -614,7 +589,6 @@ void taf_DiagSvr::ClearCancelFileXferCbList
 )
 {
     uint16_t vlanId = 0;
-    LE_INFO("ClearCancelFileXferCbList");
     TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
 
     // Clear callback function with vlanId 0.
@@ -623,10 +597,9 @@ void taf_DiagSvr::ClearCancelFileXferCbList
         vlanId = 0;
         taf_CancelFileXferHandler_t *cancelFileXferCbPtr =
                 FindCancelFileXferCb(servicePtr->svcRef, vlanId);
-        LE_INFO("SvcRef:%p, vlanId = %d", servicePtr->svcRef, vlanId);
         if(cancelFileXferCbPtr != NULL && cancelFileXferCbPtr->func != NULL)
         {
-            LE_INFO("Found callback for SvcRef:%p, vlanId = %d in the list, Delete it",
+            LE_DEBUG("Found callback for SvcRef:%p, vlanId = %d in the list, Delete it",
                     servicePtr->svcRef, vlanId);
             DeleteCancelFileXferCb(vlanId, cancelFileXferCbPtr->func);
             return;
@@ -643,7 +616,6 @@ void taf_DiagSvr::ClearCancelFileXferCbList
         {
             taf_CancelFileXferHandler_t *cancelFileXferCbPtr =
                     FindCancelFileXferCb(servicePtr->svcRef, vlanPtr->vlanId);
-            LE_INFO("SvcRef:%p, vlanId = %d", servicePtr->svcRef, vlanPtr->vlanId);
             if(cancelFileXferCbPtr != NULL && cancelFileXferCbPtr->func != NULL)
             {
                 LE_INFO("Found callback for SvcRef:%p, vlanId = %d in the list, Delete it",
@@ -675,14 +647,12 @@ le_result_t taf_DiagSvr::GetIfNameByVlanIdAndStateList
             "fileXferStateListPtr is null");
     TAF_ERROR_IF_RET_VAL(ifNamePtr == NULL, LE_NOT_POSSIBLE, "ifNamePtr is null");
 
-    LE_INFO("link number = %d", (int)le_dls_NumLinks(fileXferStateListPtr));
     if(le_dls_NumLinks(fileXferStateListPtr) <= 0)
     {
         LE_ERROR("Empty list");
         return LE_NOT_FOUND;
     }
 
-    LE_INFO("VLAN ID =%d", vlanId);
     linkPtr = le_dls_Peek(fileXferStateListPtr);
     while (linkPtr)
     {
@@ -693,11 +663,10 @@ le_result_t taf_DiagSvr::GetIfNameByVlanIdAndStateList
 
         if (fileXferStatePtr != NULL)
         {
-            LE_DEBUG("VLAN ID =%d", fileXferStatePtr->vlanId);
             //Find the first one
             if (vlanId == fileXferStatePtr->vlanId)
             {
-                LE_INFO("Found Vlan ID =%d, ifname =%s", fileXferStatePtr->vlanId,
+                LE_DEBUG("Found Vlan ID =%d, ifname =%s", fileXferStatePtr->vlanId,
                         fileXferStatePtr->ifName);
                 le_utf8_Copy(ifNamePtr, fileXferStatePtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
                 return LE_OK;
@@ -786,12 +755,12 @@ void taf_DiagSvr::CancelFileXferAsync
 
     if( result != LE_OK)
     {
-        LE_INFO("No FileXferState is active");
+        LE_DEBUG("No FileXferState is active");
         callbackFuncPtr(svcRef, addrInfo.vlanId, result, contextPtr);
         return;
     }
 
-    LE_INFO("Call uds interface function to cancel file xfer for ifName=%s", ifName);
+    LE_DEBUG("Call uds interface function to cancel file xfer for ifName=%s", ifName);
     taf_uds_DiagMsg_t diagMsg;
     uint8_t state = 0x1;
 
@@ -845,7 +814,6 @@ void taf_DiagSvr::DeleteCancelFileXferCb
         handlerLinkPtr = le_dls_PeekNext(&cancelFileXferCbList, handlerLinkPtr);
         if (cancelFileXferCb->func == callbackFuncPtr && cancelFileXferCb->vlanId == vlanId)
         {
-            LE_INFO("Delete handler for vlanId(%d) successfully", vlanId);
             le_dls_Remove(&cancelFileXferCbList, &cancelFileXferCb->link);
             le_mem_Release(cancelFileXferCb);
             break;
@@ -874,7 +842,6 @@ taf_CancelFileXferHandler_t* taf_DiagSvr::FindCancelFileXferCb
         cancelFileXferCb = CONTAINER_OF(handlerLinkPtr, taf_CancelFileXferHandler_t, link);
         if (cancelFileXferCb->vlanId == vlanId)
         {
-            LE_INFO("Found CancelFileXferCb for vlanId(%d)", vlanId);
             le_mutex_Unlock(cancelFileXferListCbMtx);
             return cancelFileXferCb;
         }
@@ -905,8 +872,6 @@ taf_CancelFileXferHandler_t* taf_DiagSvr::FindCancelFileXferCb
         cancelFileXferCb = CONTAINER_OF(handlerLinkPtr, taf_CancelFileXferHandler_t, link);
         if (cancelFileXferCb->vlanId == vlanId && cancelFileXferCb->svcRef == svcRef)
         {
-            LE_INFO("Found CancelFileXferCb for serviceRef reference %p, vlanId(%d)",
-                     cancelFileXferCb->svcRef, vlanId);
             le_mutex_Unlock(cancelFileXferListCbMtx);
             return cancelFileXferCb;
         }
@@ -947,7 +912,7 @@ le_result_t taf_DiagSvr::AddCancelFileXferCb
     le_mutex_Lock(cancelFileXferListCbMtx);
     le_dls_Queue(&cancelFileXferCbList, &cancelFileXferCb->link);
     le_mutex_Unlock(cancelFileXferListCbMtx);
-    LE_INFO("Add handler for svcRef:%p, vlanId(%d) successfully", svcRef, vlanId);
+
     return LE_OK;
 }
 
@@ -1082,8 +1047,6 @@ void taf_DiagSvr::Init
     void
 )
 {
-    LE_INFO("taf_DiagSvr Init!");
-
     cancelFileXferListCbMtx = le_mutex_CreateNonRecursive("cancelFileXferListCbMtx");
     // Create memory pools.
     EnableMemPool = le_mem_CreatePool("EnableConditionMemPool", sizeof(taf_DiagEnableStatus_t));
@@ -1112,4 +1075,6 @@ void taf_DiagSvr::Init
     auto& backend = taf_DiagBackend::GetInstance();
     backend.RegisterUdsService(stateChangeId, this);
     backend.RegisterUdsService(cancelFileXferRetId, this);
+
+    LE_DEBUG("taf_DiagSvr Init completed!");
 }

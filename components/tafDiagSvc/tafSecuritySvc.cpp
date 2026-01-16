@@ -35,7 +35,6 @@ taf_diagSecurity_ServiceRef_t taf_diagSecurity_GetService
     void
 )
 {
-    LE_DEBUG("taf_diagSecurity_GetService");
     auto &security = taf_SecuritySvr::GetInstance();
     return security.GetService();
 }
@@ -62,7 +61,6 @@ le_result_t taf_diagSecurity_SetVlanId
         ///< [IN] VLAN ID
 )
 {
-    LE_DEBUG("taf_diagSecurity_SetVlanId, vlan id is 0x%x", vlanId);
     auto &security = taf_SecuritySvr::GetInstance();
 
     return security.SetVlanId(svcRef, vlanId);
@@ -85,7 +83,6 @@ taf_diagSecurity_RxSesTypeCheckHandlerRef_t taf_diagSecurity_AddRxSesTypeCheckHa
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagSecurity_AddRxSesTypeCheckHandler");
     auto &security = taf_SecuritySvr::GetInstance();
     return security.AddRxSesTypeCheckHandler(svcRef, handlerPtr, contextPtr);
 }
@@ -101,7 +98,6 @@ void taf_diagSecurity_RemoveRxSesTypeCheckHandler
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagSecurity_RemoveRxSesTypeCheckHandler");
     auto &security = taf_SecuritySvr::GetInstance();
     return security.RemoveRxSesTypeCheckHandler(handlerRef);
 }
@@ -129,7 +125,6 @@ le_result_t taf_diagSecurity_SendSesTypeCheckResp
         ///< [IN] Error code type.
 )
 {
-    LE_DEBUG("taf_diagSecurity_SendSesTypeCheckResp");
     auto &security = taf_SecuritySvr::GetInstance();
     return security.SendSesTypeCheckResp(rxSesTypeRef, errCode);
 }
@@ -151,7 +146,6 @@ taf_diagSecurity_SesChangeHandlerRef_t taf_diagSecurity_AddSesChangeHandler
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagSecurity_AddSesChangeHandler");
     auto &security = taf_SecuritySvr::GetInstance();
     return security.AddSesChangeHandler(svcRef, handlerPtr, contextPtr);
 }
@@ -167,7 +161,6 @@ void taf_diagSecurity_RemoveSesChangeHandler
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagSecurity_RemoveSesChangeHandler");
     auto &security = taf_SecuritySvr::GetInstance();
     return security.RemoveSesChangeHandler(handlerRef);
 }
@@ -192,7 +185,6 @@ le_result_t taf_diagSecurity_SelectTargetVlanID
         ///< [IN] VLAN ID.
 )
 {
-    LE_DEBUG("taf_diagSecurity_SelectTargetVlanID");
     auto &security = taf_SecuritySvr::GetInstance();
     return security.SelectTargetVlanID(svcRef, vlanId);
 }
@@ -217,7 +209,6 @@ le_result_t taf_diagSecurity_GetCurrentSesType
         ///< [OUT] current session type.
 )
 {
-    LE_DEBUG("taf_diagSecurity_GetCurrentSesType");
     auto &security = taf_SecuritySvr::GetInstance();
     return security.GetCurrentSesType(svcRef, currentTypePtr);
 }
@@ -239,7 +230,6 @@ le_result_t taf_diagSecurity_ReleaseSesChangeMsg
         ///< [IN] Session change reference.
 )
 {
-    LE_DEBUG("taf_diagSecurity_ReleaseSesChangeMsg");
     auto &security = taf_SecuritySvr::GetInstance();
     return security.ReleaseSesChangeMsg(sesChangeRef);
 }
@@ -258,7 +248,6 @@ taf_diagSecurity_RxSecAccessMsgHandlerRef_t taf_diagSecurity_AddRxSecAccessMsgHa
     void* contextPtr
 )
 {
-    LE_DEBUG("taf_diagSecurity_AddRxSecAccessMsgHandler");
     auto &security = taf_SecuritySvr::GetInstance();
     return security.AddRxSecAccessMsgHandler(svcRef, handlerPtr, contextPtr);
 }
@@ -273,7 +262,6 @@ void taf_diagSecurity_RemoveRxSecAccessMsgHandler
     taf_diagSecurity_RxSecAccessMsgHandlerRef_t handlerRef
 )
 {
-    LE_DEBUG("taf_diagSecurity_RemoveRxSecAccessMsgHandler");
     auto &security = taf_SecuritySvr::GetInstance();
     return security.RemoveRxSecAccessMsgHandler(handlerRef);
 }
@@ -296,7 +284,6 @@ le_result_t taf_diagSecurity_GetSecAccessPayloadLen
     uint16_t* payloadLenPtr
 )
 {
-    LE_DEBUG("taf_diagSecurity_GetSecAccessPayloadLen");
     auto &security = taf_SecuritySvr::GetInstance();
     return security.GetSecAccessPayloadLen(rxMsgRef, payloadLenPtr);
 }
@@ -321,7 +308,6 @@ le_result_t taf_diagSecurity_GetSecAccessPayload
     size_t* payloadSizePtr
 )
 {
-    LE_DEBUG("taf_diagSecurity_GetSecAccessPayload");
     auto &security = taf_SecuritySvr::GetInstance();
     return security.GetSecAccessPayload(rxMsgRef, payloadPtr, payloadSizePtr);
 }
@@ -348,7 +334,6 @@ le_result_t taf_diagSecurity_SendSecAccessResp
     size_t dataSize
 )
 {
-    LE_DEBUG("taf_diagSecurity_SendSecAccessResp");
     auto &security = taf_SecuritySvr::GetInstance();
     return security.SendSecAccessResp(rxMsgRef, errCode, dataPtr, dataSize);
 }
@@ -373,7 +358,6 @@ le_result_t taf_diagSecurity_GetVlanIdFromMsg
         ///< [OUT] VLAN ID.
 )
 {
-    LE_DEBUG("taf_diagSecurity_GetService");
     auto &security = taf_SecuritySvr::GetInstance();
 
     return security.GetVlanIdFromMsg(rxMsgRef, vlanIdPtr);
@@ -394,7 +378,6 @@ le_result_t taf_diagSecurity_RemoveSvc
     taf_diagSecurity_ServiceRef_t svcRef
 )
 {
-    LE_DEBUG("taf_diagSecurity_RemoveSvc");
     auto &security = taf_SecuritySvr::GetInstance();
     return security.RemoveSvc(svcRef);
 }

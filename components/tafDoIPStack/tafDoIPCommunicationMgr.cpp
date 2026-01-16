@@ -271,7 +271,6 @@ taf_doip_Result_t CommunicationMgr::GetIpAddrWithAnnounceWaitMech
     {
         if(GetLocalIPAddr(af, ifname, ip, size) == TAF_DOIP_RESULT_OK)
         {
-            LE_INFO("Get IP address for interface %s successfully", ifname.c_str());
             return TAF_DOIP_RESULT_OK;
         }
 
@@ -520,7 +519,7 @@ taf_doip_Result_t CommunicationMgr::SessionStop
 (
 )
 {
-    LE_INFO("Enter CommunicationMgr::SessionStop-state%d.\n", state);
+    LE_DEBUG("Enter CommunicationMgr::SessionStop-state%d.\n", state);
 
     if (state != TAF_DOIP_STATE_START
         && state != TAF_DOIP_STATE_RUNNING)
@@ -1867,8 +1866,6 @@ taf_doip_Result_t CommunicationMgr::CreateSpecIPv4Socket
         goto errOut;
     }
 
-    LE_INFO("Get IPv4-%s\n", localIp[index]);
-
     tcpDataSockRef[index] = le_socket_Create(NULL, tcpDataPort, localIp[index], TCP_TYPE);
     if (tcpDataSockRef[index] == NULL)
     {
@@ -2221,7 +2218,7 @@ void CommunicationMgr::shutdownTimerHandler
     le_timer_Ref_t timerRef
 )
 {
-    LE_INFO("shutdownTimerHandler");
+    LE_DEBUG("shutdownTimerHandler");
     auto&   cmMgr = CommunicationMgr::GetInstance();
     cmMgr.connectionMgrPtr->DeleteAllConnection();
 }
@@ -2242,7 +2239,7 @@ taf_doip_Result_t CommunicationMgr::SessionDeInit()
 
     auto&   cmMgr = CommunicationMgr::GetInstance();
 
-    LE_INFO("ShutdownAllConnection");
+    LE_DEBUG("ShutdownAllConnection");
     cmMgr.connectionMgrPtr->ShutdownAllConnection();
 
     le_timer_SetHandler(shutdownTimerRef, shutdownTimerHandler);
@@ -2278,7 +2275,7 @@ void CommunicationMgr::Init
 (
 )
 {
-    LE_INFO("DoIP communication manager init...\n");
+    LE_DEBUG("DoIP communication manager init...\n");
 
     udsThrRef = le_thread_Create("UdsThread", UdsHandleThread, NULL);
     le_thread_SetStackSize(udsThrRef, TAF_DOIP_THREAD_STACK_SIZE);
@@ -2298,7 +2295,7 @@ void CommunicationMgr::Init
     auto& vehicleDisovery = VehicleDiscovery::GetInstance();
     vehicleDisovery.Init();
 
-    LE_INFO("DoIP communication manager ok...\n");
+    LE_DEBUG("DoIP communication manager ok...\n");
 
     return;
 }

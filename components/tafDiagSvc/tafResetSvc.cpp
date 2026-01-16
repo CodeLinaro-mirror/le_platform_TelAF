@@ -34,7 +34,6 @@ taf_diagReset_ServiceRef_t taf_diagReset_GetService
     uint8_t resetType
 )
 {
-    LE_DEBUG("taf_diagReset_GetService");
     auto &reset = taf_ResetSvr::GetInstance();
     return reset.GetService(resetType);
 }
@@ -61,7 +60,6 @@ le_result_t taf_diagReset_SetVlanId
         ///< [IN] VLAN ID
 )
 {
-    LE_DEBUG("taf_diagReset_GetService");
     auto &reset = taf_ResetSvr::GetInstance();
 
     return reset.SetVlanId(svcRef, vlanId);
@@ -81,7 +79,6 @@ taf_diagReset_RxMsgHandlerRef_t taf_diagReset_AddRxMsgHandler
     void* contextPtr
 )
 {
-    LE_DEBUG("taf_diagReset_AddRxMsgHandler");
     auto &reset = taf_ResetSvr::GetInstance();
     return reset.AddRxMsgHandler(svcRef, handlerPtr, contextPtr);
 }
@@ -96,7 +93,6 @@ void taf_diagReset_RemoveRxMsgHandler
     taf_diagReset_RxMsgHandlerRef_t handlerRef
 )
 {
-    LE_DEBUG("taf_diagReset_RemoveRxMsgHandler");
     auto &reset = taf_ResetSvr::GetInstance();
     return reset.RemoveRxMsgHandler(handlerRef);
 }
@@ -121,7 +117,6 @@ le_result_t taf_diagReset_GetVlanIdFromMsg
         ///< [OUT] VLAN ID.
 )
 {
-    LE_DEBUG("taf_diagReset_GetService");
     auto &reset = taf_ResetSvr::GetInstance();
 
     return reset.GetVlanIdFromMsg(rxMsgRef, vlanIdPtr);
@@ -145,7 +140,6 @@ le_result_t taf_diagReset_SendResp
     uint8_t errCode
 )
 {
-    LE_DEBUG("taf_diagReset_SendResp");
     auto &reset = taf_ResetSvr::GetInstance();
     return reset.SendResp(rxMsgRef, errCode);
 }
@@ -165,7 +159,6 @@ le_result_t taf_diagReset_RemoveSvc
     taf_diagReset_ServiceRef_t svcRef
 )
 {
-    LE_DEBUG("taf_diagReset_RemoveSvc");
     auto &reset = taf_ResetSvr::GetInstance();
     return reset.RemoveSvc(svcRef);
 }

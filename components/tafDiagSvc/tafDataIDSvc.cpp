@@ -34,7 +34,6 @@ taf_diagDataID_ServiceRef_t taf_diagDataID_GetService
 (
 )
 {
-    LE_DEBUG("taf_diagDataID_GetService");
     auto &did = taf_DataIDSvr::GetInstance();
     return did.GetService();
 }
@@ -81,7 +80,6 @@ taf_diagDataID_RxReadDIDMsgHandlerRef_t taf_diagDataID_AddRxReadDIDMsgHandler
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagDataID_AddRxReadDIDMsgHandler");
     auto &did = taf_DataIDSvr::GetInstance();
     return did.AddRxReadDIDMsgHandler(svcRef, handlerPtr, contextPtr);
 }
@@ -97,7 +95,6 @@ void taf_diagDataID_RemoveRxReadDIDMsgHandler
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagRWDID_RemoveRxReadDIDMsgHandler");
     auto &did = taf_DataIDSvr::GetInstance();
     return did.RemoveRxReadDIDMsgHandler(handlerRef);
 }
@@ -129,7 +126,6 @@ le_result_t taf_diagDataID_SendReadDIDResp
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagDataID_SendReadDIDResp");
     auto &did = taf_DataIDSvr::GetInstance();
     return did.SendReadDIDResp(rxMsgRef, errCode, dataPtr, dataSize);
 }
@@ -151,7 +147,6 @@ taf_diagDataID_RxWriteDIDMsgHandlerRef_t taf_diagDataID_AddRxWriteDIDMsgHandler
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagDataID_AddRxWriteDIDMsgHandler");
     auto &did = taf_DataIDSvr::GetInstance();
     return did.AddRxWriteDIDMsgHandler(svcRef, handlerPtr, contextPtr);
 }
@@ -167,7 +162,6 @@ void taf_diagDataID_RemoveRxWriteDIDMsgHandler
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagDataID_RemoveRxWriteDIDMsgHandler");
     auto &did = taf_DataIDSvr::GetInstance();
     return did.RemoveRxWriteDIDMsgHandler(handlerRef);
 }
@@ -195,7 +189,6 @@ le_result_t taf_diagDataID_GetWriteDataRecord
         ///< [INOUT]
 )
 {
-    LE_DEBUG("taf_diagDataID_GetWriteDataRecord");
     auto &did = taf_DataIDSvr::GetInstance();
     return did.GetWriteDataRecord(rxMsgRef, dataRecordPtr, dataRecordSizePtr);
 }
@@ -225,7 +218,6 @@ le_result_t taf_diagDataID_SendWriteDIDResp
         ///< [IN] data identifier.
 )
 {
-    LE_DEBUG("taf_diagDataID_SendWriteDIDResp");
     auto &did = taf_DataIDSvr::GetInstance();
     return did.SendWriteDIDResp(rxMsgRef, errCode, dataId);
 }
@@ -250,7 +242,6 @@ le_result_t taf_diagDataID_GetVlanIdFromMsg
         ///< [OUT] VLAN ID.
 )
 {
-    LE_DEBUG("taf_diagDataID_GetVlanIdFromMsg");
     auto &did = taf_DataIDSvr::GetInstance();
     return did.GetVlanIdFromMsg(rxMsgRef, vlanIdPtr);
 }
@@ -270,7 +261,6 @@ le_result_t taf_diagDataID_RemoveSvc
         ///< [IN] Service reference.
 )
 {
-    LE_DEBUG("taf_diagDataID_RemoveSvc");
     auto &did = taf_DataIDSvr::GetInstance();
     return did.RemoveSvc(svcRef);
 }

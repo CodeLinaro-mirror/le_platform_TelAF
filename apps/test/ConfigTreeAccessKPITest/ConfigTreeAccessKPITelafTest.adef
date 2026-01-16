@@ -1,0 +1,31 @@
+sandboxed:false
+username:telaf
+start: manual
+
+requires:
+{
+    configTree:
+    {
+        [rw] .
+    }
+}
+
+executables:
+{
+    ConfigTreeAccessKPITelafTest = ( ConfigTreeAccessKPITestComp )
+}
+
+processes:
+{
+    run:
+    {
+        (ConfigTreeAccessKPITelafTest)
+    }
+}
+
+bindings:
+{
+    ConfigTreeAccessKPITelafTest.ConfigTreeAccessKPITestComp.le_cfg -> <tafcore>.le_cfg
+    ConfigTreeAccessKPITelafTest.ConfigTreeAccessKPITestComp.le_cfgAdmin -> <tafcore>.le_cfgAdmin
+}
+

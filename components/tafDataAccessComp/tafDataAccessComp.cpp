@@ -269,6 +269,26 @@ le_result_t taf_DataAccess_SetEventStatus
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Set event status by event name and save it in storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_SetEventStatusByName
+(
+    const char *eventName,  ///< [IN]
+    uint8_t status          ///< [IN]
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.SetEventStatusByName(eventName, status);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Get event status from storage media.
  *
  * @return
@@ -283,6 +303,24 @@ uint8_t taf_DataAccess_GetEventStatus
     auto &demHandler = DemDataHandler::GetInstance();
 
     return demHandler.GetEventStatus(eventId);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get event status from storage media by event name.
+ *
+ * @return
+ *  - The status of the event. If not exist, will return 0.
+ */
+//-------------------------------------------------------------------------------------------------
+uint8_t taf_DataAccess_GetEventStatusByName
+(
+    const char *eventName   ///< [IN]
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.GetEventStatusByName(eventName);
 }
 
 //-------------------------------------------------------------------------------------------------

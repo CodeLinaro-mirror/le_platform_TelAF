@@ -49,7 +49,7 @@ void DemDataHandler::Init
     tafDtcDao.Init(DEM_DATABASE_NAME, DEM_DB_VERSION);
 
     auto &tafEventDao = EventEntityDao::GetInstance();
-    tafEventDao.Init(DEM_DATABASE_NAME);
+    tafEventDao.Init(DEM_DATABASE_NAME, DEM_DB_VERSION);
 
     auto &tafSnapshotDao = SnapshotEntityDao::GetInstance();
     tafSnapshotDao.Init(DEM_DATABASE_NAME);
@@ -75,6 +75,8 @@ le_result_t DemDataHandler::Load
 (
 )
 {
+    le_result_t ret;
+
     // Get configuration from diagConfig module.
     try
     {
@@ -146,8 +148,22 @@ le_result_t DemDataHandler::Load
     }
 
     auto &tafDtcDao = DtcEntityDao::GetInstance();
+    ret = tafDtcDao.Load();
+    if (ret != LE_OK)
+    {
+        LE_ERROR("Failed to load data into DTC table");
+        return ret;
+    }
 
-    return tafDtcDao.Load();
+    auto &tafEventDao = EventEntityDao::GetInstance();
+    ret = tafEventDao.Load();
+    if (ret != LE_OK)
+    {
+        LE_ERROR("Failed to load data into event table");
+        return ret;
+    }
+
+    return LE_OK;
 }
 
 le_result_t DemDataHandler::GetNumOfDtcByStatusMask
@@ -454,6 +470,31 @@ le_result_t DemDataHandler::SetEventStatus
     return LE_OK;
 }
 
+le_result_t DemDataHandler::SetEventStatusByName
+(
+    const char *eventName,
+    uint8_t status
+)
+{
+    uint32_t dtc = 0;
+    le_result_t ret;
+
+    auto &tafEventDao = EventEntityDao::GetInstance();
+
+    ret = tafEventDao.WriteStatusAndDtcByEventName(eventName,
+                                                static_cast<int32_t>(status),
+                                                static_cast<int32_t>(dtc));
+    if (ret != LE_OK)
+    {
+        LE_ERROR("Failed to set event name(%s) with status0x%x in EVENT DAO. ret=%d",
+            eventName, status, (int32_t)ret);
+        return ret;
+    }
+
+    return LE_OK;
+
+}
+
 uint8_t DemDataHandler::GetEventStatus
 (
     uint16_t eventId
@@ -463,6 +504,16 @@ uint8_t DemDataHandler::GetEventStatus
 
     return static_cast<uint8_t>(tafEventDao.ReadEventStatusByEventId
             (static_cast<int32_t>(eventId)));
+}
+
+uint8_t DemDataHandler::GetEventStatusByName
+(
+    const char *eventName
+)
+{
+    auto &tafEventDao = EventEntityDao::GetInstance();
+
+    return static_cast<uint8_t>(tafEventDao.ReadEventStatusByName(eventName));
 }
 
 le_result_t DemDataHandler::SetDTCStatus

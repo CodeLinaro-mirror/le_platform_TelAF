@@ -33,10 +33,10 @@
  *
  * @section c_taf_diagDidStore_server_API Server-service APIs
  *
- * A diag DataID storage service reference should be got using taf_diagDidStore_GetService(). Use
+ * Get a diag DataID storage service reference using the taf_diagDidStore_GetService() API. Use
  * the returned reference for subsequent operations.
  *
- * The following example illustrates how to set up a diag DataID storage server-service-instance.
+ * The following example illustrates how to set up a diag DataID storage server service instance.
  *
  * @code
    taf_diagDidStore_ServiceRef_t svcRef;    // Service reference
@@ -50,11 +50,11 @@
  * - taf_diagDidStore_Write() -- Writes the data record to given DID.
  *
  * An application must call taf_diagDidStore_AddDataIdChangeHandler() first to register a handler
- * for a DataID to get the change notification. To receive notifications for additional DataID, an
+ * for a DataID to get change notifications. To receive notifications for additional DataIDs, an
  * application should call taf_diagDidStore_GetDIDHandlerRef() to retrieve the handler reference.
  * It can then use taf_diagDidStore_AddDIDToHandler() or taf_diagDidStore_RemoveDIDFromHandler()
- * by passing the handler reference along with the desired DataID. If a change occurs in any of
- * registered DataID, the service triggers the same handler and provides the updated value for the
+ * by passing the handler reference with the desired DataID. If a change occurs in any registered
+ * DataID, the service triggers the same handler and provides the updated value for the
  * corresponding DataID.
  *
  * @code
@@ -126,7 +126,7 @@ REFERENCE Service;
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Reference to the DID change handler.
+ * Reference to the Data ID change handler.
  */
 //-------------------------------------------------------------------------------------------------
 REFERENCE DIDChangeHandler;
@@ -149,7 +149,7 @@ FUNCTION Service GetService
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Reads the data record of the DID.
+ * Reads the data record of the Data ID.
  *
  * @note The process exits if an invalid reference is passed.
  *
@@ -171,7 +171,7 @@ FUNCTION le_result_t Read
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Writes the data record to given DID.
+ * Writes the data record to given Data ID.
  *
  * @note The process exits if an invalid reference is passed.
  *
@@ -193,7 +193,7 @@ FUNCTION le_result_t Write
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Handler for a DID change notification.
+ * Handler for a Data ID change notification.
  *
  * @instaging
  *
@@ -210,7 +210,7 @@ HANDLER DataIdChangeHandler
 
 //-------------------------------------------------------------------------------------------------
 /**
- * This event provides information about the DID change notification.
+ * This event provides information about the Data ID change notification.
  *
  * @instaging
  */
@@ -224,7 +224,7 @@ EVENT DataIdChange
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets the reference of a DID change handler.
+ * Gets the reference of a Data ID change handler.
  *
  * @instaging
  *
@@ -241,7 +241,7 @@ FUNCTION DIDChangeHandler GetDIDHandlerRef
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Adds the DID to handler for change notification.
+ * Adds the Data ID to the specified handler for change notifications.
  *
  * @instaging
  *
@@ -249,7 +249,6 @@ FUNCTION DIDChangeHandler GetDIDHandlerRef
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid handlerRef.
  *     - LE_DUPLICATE -- Data identifier already added.
- *     - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -261,7 +260,7 @@ FUNCTION le_result_t AddDIDToHandler
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Removes the DID from handler.
+ * Removes the Data ID from the specified handler.
  *
  * @instaging
  *

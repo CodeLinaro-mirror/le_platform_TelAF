@@ -721,12 +721,8 @@ taf_locGnss_CapabilityChangeHandlerRef_t taf_locGnss_AddCapabilityChangeHandler
  void* contextPtr
 )
 {
-    le_event_HandlerRef_t handlerRef;
     auto &gnss = taf_locGnss::GetInstance();
-    handlerRef = (le_event_HandlerRef_t)gnss.AddCapabilityHandler(handlerPtr, contextPtr);
-    le_event_SetContextPtr(handlerRef, contextPtr);
-
-    return (taf_locGnss_CapabilityChangeHandlerRef_t)(handlerRef);
+    return (taf_locGnss_CapabilityChangeHandlerRef_t)gnss.AddCapabilityHandler(handlerPtr, contextPtr);
 }
 
 /**
@@ -758,12 +754,8 @@ taf_locGnss_NmeaHandlerRef_t taf_locGnss_AddNmeaHandler
  void* contextPtr
 )
 {
-    le_event_HandlerRef_t handlerRef;
     auto &gnss = taf_locGnss::GetInstance();
-    handlerRef = (le_event_HandlerRef_t)gnss.AddNmeaHandler(handlerPtr, contextPtr);
-    le_event_SetContextPtr(handlerRef, contextPtr);
-
-    return (taf_locGnss_NmeaHandlerRef_t)(handlerRef);
+    return (taf_locGnss_NmeaHandlerRef_t)gnss.AddNmeaHandler(handlerPtr, contextPtr);
 }
 
 /**

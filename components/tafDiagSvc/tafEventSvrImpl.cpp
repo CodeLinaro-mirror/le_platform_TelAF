@@ -3241,12 +3241,7 @@ le_result_t taf_EventSvr::ClearAllDtc
         return result;
     }
 
-    if(clientType == TAF_DIAGDTC_DTOOL)
-    {
-        le_event_QueueFunctionToThread(mainThrRef, ClearAllDTCAndEventData,
-                (void*)(intptr_t)clientType, NULL);
-    }
-    else if(clientType == TAF_DIAGDTC_APP)
+    if(clientType == TAF_DIAGDTC_DTOOL || clientType == TAF_DIAGDTC_APP)
     {
         ClearAllDTCAndEventData((void*)(intptr_t)clientType, NULL);
     }
@@ -3296,11 +3291,7 @@ le_result_t taf_EventSvr::ClearSingleDtc
         return result;
     }
 
-    if(clientType == TAF_DIAGDTC_DTOOL)
-    {
-        le_event_QueueFunctionToThread(mainThrRef, ClearDTCAndEventData, dtcCtxPtr, NULL);
-    }
-    else if(clientType == TAF_DIAGDTC_APP)
+    if(clientType == TAF_DIAGDTC_DTOOL || clientType == TAF_DIAGDTC_APP)
     {
         ClearDTCAndEventData(dtcCtxPtr, NULL);
     }

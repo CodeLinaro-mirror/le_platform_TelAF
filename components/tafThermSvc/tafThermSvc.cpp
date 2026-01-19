@@ -13,7 +13,6 @@
 #include <unistd.h>
 
 using namespace tafsvc;
-using namespace telux::therm;
 
 COMPONENT_INIT
 {
@@ -449,7 +448,7 @@ le_result_t taf_therm_GetThermalZoneType(
 
 ======================================================================*/
 le_result_t taf_therm_GetThermalZoneCurrentTemp(
-         taf_therm_ThermalZoneRef_t listRef, uint32_t* currTemp)
+         taf_therm_ThermalZoneRef_t listRef, int32_t* currTemp)
 {
     TAF_ERROR_IF_RET_VAL(currTemp == NULL, LE_BAD_PARAMETER, "currTemp is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
@@ -472,7 +471,7 @@ le_result_t taf_therm_GetThermalZoneCurrentTemp(
 
 ======================================================================*/
 le_result_t taf_therm_GetThermalZonePassiveTemp(
-         taf_therm_ThermalZoneRef_t listRef, uint32_t* passiveTemp)
+         taf_therm_ThermalZoneRef_t listRef, int32_t* passiveTemp)
 {
     TAF_ERROR_IF_RET_VAL(passiveTemp == NULL, LE_BAD_PARAMETER, "passiveTemp is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
@@ -565,7 +564,7 @@ le_result_t taf_therm_GetTripPointType(
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_therm_GetTripPointThreshold(taf_therm_TripPointRef_t listRef, uint32_t* threshold)
+le_result_t taf_therm_GetTripPointThreshold(taf_therm_TripPointRef_t listRef, int32_t* threshold)
 {
     TAF_ERROR_IF_RET_VAL(threshold == NULL, LE_BAD_PARAMETER, "threshold is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
@@ -588,7 +587,7 @@ le_result_t taf_therm_GetTripPointThreshold(taf_therm_TripPointRef_t listRef, ui
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_therm_GetTripPointHysterisis(taf_therm_TripPointRef_t listRef,uint32_t* hysterisis)
+le_result_t taf_therm_GetTripPointHysterisis(taf_therm_TripPointRef_t listRef,int32_t* hysterisis)
 {
     TAF_ERROR_IF_RET_VAL(hysterisis == NULL, LE_BAD_PARAMETER, "hysterisis is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
@@ -879,7 +878,7 @@ le_result_t taf_therm_GetBoundTripPointType(
 
 ======================================================================*/
 le_result_t taf_therm_GetBoundTripPointThreshold(
-        taf_therm_TripPointRef_t listRef, uint32_t* boundThreshold)
+        taf_therm_TripPointRef_t listRef, int32_t* boundThreshold)
 {
     TAF_ERROR_IF_RET_VAL(boundThreshold == NULL, LE_BAD_PARAMETER, "boundThreshold is NULL");
     auto& tafTherm = taf_Therm::GetInstance();
@@ -902,7 +901,7 @@ le_result_t taf_therm_GetBoundTripPointThreshold(
 
 ======================================================================*/
 le_result_t taf_therm_GetBoundTripPointHysterisis(
-        taf_therm_TripPointRef_t listRef, uint32_t* boundHysterisis)
+        taf_therm_TripPointRef_t listRef, int32_t* boundHysterisis)
 {
     TAF_ERROR_IF_RET_VAL(boundHysterisis == NULL, LE_BAD_PARAMETER, "boundHysterisis is NULL");
     auto& tafTherm = taf_Therm::GetInstance();

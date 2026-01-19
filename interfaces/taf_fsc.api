@@ -139,8 +139,14 @@ REFERENCE Storage;
  * Gets the FS-Crypt storage object reference, including initialization for the FS-Crypt directory.
  *
  * @return
- *     - Storage -- The FS-Crypt storage object reference.
- *     - NULL -- Failure in process.
+ *     - Storage -- The FS-Crypt storage object reference when succeeded.
+ *     - NULL    -- Failure in process.
+ *
+ * The detailed status is reported in the 'result' output parameter:
+ *     - LE_OK            -- Succeeded.
+ *     - LE_NOT_PERMITTED -- Operation not permitted (for example, insufficient permission on the directory).
+ *     - LE_NOT_FOUND     -- The specified directory or required key material could not be found/created.
+ *     - LE_FAULT         -- Other internal error in process.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Storage GetStorageRef

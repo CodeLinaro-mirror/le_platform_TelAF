@@ -334,6 +334,9 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
         for (auto locationInfo : locationEngineInfo) {
             taf_locGnss_PositionSample_t* LocationData =
                     (taf_locGnss_PositionSample_t*)le_mem_ForceAlloc(gnss.PositionSamplePoolRef);
+
+            memset(LocationData, 0, sizeof(taf_locGnss_PositionSample_t));
+
             double locData;
             LocationData->clientSessionRefPtr = &clientRequestPtr->sessionRef;
             LocationData->latitudeValid = true;

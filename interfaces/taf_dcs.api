@@ -993,12 +993,14 @@ STRUCT RoamingStatusInd
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed
  *  - LE_NOT_FOUND -- Parameter is invalid or couldn't create the data call.
  *  - LE_OUT_OF_RANGE -- PDP type is unknown.
  *  - LE_DUPLICATE -- If the data session is already connected for the given profile.
  *  - LE_IN_PROGRESS -- The profile is in use and a data call is in progress.
  *  - LE_TIMEOUT -- Timed out when attempting to make the data call.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
+ *  - LE_TERMINATED -- Data call was terminated.
  *  - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1076,7 +1078,7 @@ FUNCTION StopSessionAsync
  *
  * @return
  *  - LE_OK -- Succeeded.
- *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_POSSIBLE -- Invalid status.
  *  - LE_NOT_FOUND -- Cannot find the interface name.
  */
@@ -1220,7 +1222,7 @@ EVENT HwAccelerationState
  *
  * @return
  *  - LE_OK -- Succeeded.
- *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_TIMEOUT -- Response timed out.
  *  - LE_FAULT -- Failed.
  */
@@ -1239,6 +1241,7 @@ FUNCTION le_result_t GetRoamingStatus
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
@@ -1255,6 +1258,7 @@ FUNCTION le_result_t GetIPv4Address
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
@@ -1271,6 +1275,7 @@ FUNCTION le_result_t GetIPv4GatewayAddress
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
@@ -1288,6 +1293,7 @@ FUNCTION le_result_t GetIPv4DNSAddresses
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
@@ -1304,6 +1310,7 @@ FUNCTION le_result_t GetIPv6Address
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
@@ -1320,6 +1327,7 @@ FUNCTION le_result_t GetIPv6GatewayAddress
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
@@ -1337,6 +1345,7 @@ FUNCTION le_result_t GetIPv6DNSAddresses
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
@@ -1381,6 +1390,7 @@ FUNCTION bool IsIPv6
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  *  - LE_UNAVAILABLE  -- Data call is not active.
@@ -1439,7 +1449,7 @@ HANDLER ProfileListHandler
  *
  * @return
  *  - LE_OK -- Succeeded.
- *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_FAULT -- Failed.
  */
 FUNCTION le_result_t GetProfileList
@@ -1453,7 +1463,7 @@ FUNCTION le_result_t GetProfileList
  *
  * @return
  *  - LE_OK -- Succeeded.
- *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_FAULT -- Failed.
  */
 FUNCTION le_result_t GetProfileListEx
@@ -1483,7 +1493,7 @@ FUNCTION uint32 GetDefaultProfileIndex
  *
  * @return
  *  - LE_OK -- Succeeded.
- *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1538,6 +1548,7 @@ FUNCTION le_result_t SetDefaultProfileIndexEx
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1595,7 +1606,8 @@ FUNCTION Profile GetProfileEx
  *
  * @return
  *  - LE_OK -- Succeeded.
- *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
+ *  - LE_NOT_FOUND -- Profile reference was not found.
  *  - LE_DUPLICATE -- Profile already created.
  *  - Others -- Failed.
  */
@@ -1612,7 +1624,7 @@ FUNCTION le_result_t CreateProfile
  *
  * @return
  *  - LE_OK -- Succeeded.
- *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Profile reference was not found.
  *  - LE_BUSY -- Profile connection state is not DISCONNECTED. App should stop data and then delete
  *               the profile.
@@ -1664,7 +1676,7 @@ FUNCTION le_result_t GetProfileId
  *
  * @return
  *  - LE_OK -- Succeeded.
- *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Profile reference was not found.
  *  - LE_FAULT -- Failed.
  */
@@ -1713,6 +1725,7 @@ FUNCTION le_result_t GetAPN
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Profile reference was not found.
  *  - LE_FAULT -- Failed.
  */
@@ -1729,6 +1742,7 @@ FUNCTION le_result_t SetProfileName
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Failed.
  *  - LE_OVERFLOW -- Apn size is smaller than APN_NAME_MAX_BYTES.
  */
@@ -1745,6 +1759,7 @@ FUNCTION le_result_t GetProfileName
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Profile reference was not found.
  *  - LE_FAULT -- Failed.
  */
@@ -1761,6 +1776,7 @@ FUNCTION le_result_t SetTechPreference
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Profile reference was not found.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1776,6 +1792,7 @@ FUNCTION le_result_t GetTechPreference
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1791,6 +1808,7 @@ FUNCTION le_result_t SetApnTypes
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1806,6 +1824,7 @@ FUNCTION le_result_t GetApnTypes
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Profile reference was not found.
  *  - LE_FAULT -- Failed.
  */
@@ -1838,6 +1857,7 @@ FUNCTION Pdp GetPDP
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Could not retrieve the profile information.
  *  - LE_FAULT -- Failed.
  */
@@ -1856,6 +1876,7 @@ FUNCTION le_result_t SetAuthentication
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_OUT_OF_RANGE -- The size of username or password is invalid.
  *  - LE_NOT_FOUND -- Failed.
  */
@@ -1874,7 +1895,7 @@ FUNCTION le_result_t GetAuthentication
  *
  * @return
  *  - LE_OK -- Succeeded.
- *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1890,7 +1911,7 @@ FUNCTION le_result_t GetProfileIdByInterfaceName
  *
  * @return
  *  - LE_OK -- Succeeded.
- *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1906,6 +1927,7 @@ FUNCTION le_result_t GetPhoneIdByInterfaceName
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
@@ -1922,6 +1944,7 @@ FUNCTION le_result_t GetIPv6SubnetMask
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  */
@@ -1941,6 +1964,7 @@ FUNCTION le_result_t GetIPv4SubnetMask
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not created.
  *  - LE_UNAVAILABLE  -- Data profile is not throttled.
@@ -1960,6 +1984,7 @@ FUNCTION le_result_t GetAPNThrottledStatus
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not created.
  *  - LE_UNAVAILABLE  -- Data profile is not throttled.
@@ -2022,6 +2047,7 @@ FUNCTION le_result_t GetCallEndReason
  *
  * @return
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_FAULT -- Failed.
  *  - LE_NOT_POSSIBLE -- Data profile is not yet created.
  *  - LE_OVERFLOW -- IOCTL interface name is smaller than profile interface name.
@@ -2041,7 +2067,7 @@ FUNCTION le_result_t GetMtu
  * @instaging
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- QOS flow not found.
  *  - LE_OK -- Succeeded.
  */
@@ -2059,7 +2085,7 @@ FUNCTION le_result_t GetQosId
  * @instaging
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- QOS flow not found.
  *  - LE_OK -- Succeeded.
  */
@@ -2077,7 +2103,7 @@ FUNCTION le_result_t GetQosParameterMask
  * @instaging
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  *  - LE_NOT_FOUND -- QOS flow not found.
  *  - LE_OK -- Succeeded.
  */

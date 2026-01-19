@@ -785,7 +785,7 @@ ENUM BackhaulType
     BH_ETH = 0,///< Ethernet backhaul.
     BH_USB,    ///< USB backhaul.
     BH_WLAN,   ///< WLAN backhaul.
-    BH_WWAN,   ///< WWAN backhaul with default profile ID.
+    BH_WWAN,   ///< WWAN backhaul.
     BH_BLE,    ///< Bluetooth backhaul.
     BH_MAX     ///< Maximum supported.
 };

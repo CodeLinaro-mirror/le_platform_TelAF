@@ -1,8 +1,8 @@
 /**
-* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
-* SPDX-License-Identifier: BSD-3-Clause-Clear
-**/
-//--------------------------------------------------------------------------------------------------
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ **/
+//------------------------------------------------------------------------------------------------
 /**
  * @page c_tafwlansta Wireless LAN Station Management Service
  *
@@ -10,10 +10,17 @@
  *
  * <HR>
  *
- * Wireless LAN(WLAN) Station(STA) Management Service provides APIs for applications to manage
- * station that allow the WLAN device to connect to WLAN access points. Before a WLAN
- * STA can be started, the WLAN device should be properly configured using the WLAN Management
- * Service's APIs.
+ * The wireless LAN (WLAN) station (STA) management service provides APIs for
+ * applications to manage WLAN stations that connect to wireless access points. This service
+ * enables devices to act as WLAN clients, connecting to existing wireless networks and
+ * accessing network resources.
+ *
+ * The service supports advanced features including access point scanning, multiple security
+ * modes (WPA/WPA2/WPA3), automatic IP configuration, connection state monitoring, and
+ * router and bridge modes for network integration.
+ *
+ * @b NOTE: Before using this service, the WLAN device management service must be
+ * initialized and configured a mode that includes STA functionality.
  *
  * @section taf_wlansta_binding IPC interfaces binding
  *
@@ -26,6 +33,703 @@
        clientExe.clientComponent.taf_wlanSta -> tafWlanSvc.taf_wlanSta
    }
    @endverbatim
+ *
+ * @section c_taf_wlan_sta_basic_setup Set up a basic station
+ *
+ * The following example demonstrates how to set up a basic WLAN STA:
+ *
+ * @code
+ *
+   // First, ensure WLAN device is configured for STA mode
+   le_result_t result = taf_wlan_TurnOn(NULL);
+   if (result != LE_OK) {
+       LE_ERROR("Failed to turn on WLAN device");
+       return result;
+   }
+ *
+   result = taf_wlan_SetMode(NULL, TAF_WLAN_MODE_STA);
+   if (result != LE_OK) {
+       LE_ERROR("Failed to set STA mode");
+       return result;
+   }
+ *
+   // Get STA interface information
+   taf_wlan_APIntfInfo_t apIntf[TAF_WLAN_MAX_NUM_AP];
+   taf_wlan_STAIntfInfo_t staIntf[TAF_WLAN_MAX_NUM_STA];
+   size_t apIntfSize = TAF_WLAN_MAX_NUM_AP;
+   size_t staIntfSize = TAF_WLAN_MAX_NUM_STA;
+ *
+   result = taf_wlan_GetIntfInfo(NULL, apIntf, &apIntfSize, staIntf, &staIntfSize);
+   if (result != LE_OK || staIntfSize == 0) {
+       LE_ERROR("No STA interfaces available");
+       return LE_FAULT;
+   }
+ *
+   // Get STA reference
+   taf_wlanSta_WlanSTARef_t staRef = taf_wlanSta_GetWlanSTA(staIntf[0].id,
+                                                            staIntf[0].IntfName);
+   if (staRef == NULL) {
+       LE_ERROR("Failed to get STA reference");
+       return LE_FAULT;
+   }
+ *
+   LE_INFO("STA reference obtained for interface: %s", staIntf[0].IntfName);
+ *
+   @endcode
+ *
+ * @section c_taf_wlan_sta_scanning Scan for available access points
+ *
+ * Before connecting to an access point, scan for available networks:
+ *
+ * @code
+ *
+   static le_sem_Ref_t scanSemRef = NULL;
+   static taf_wlanSta_EventHandlerRef_t staEventHandlerRef = NULL;
+ *
+   // Station event handler
+   static void StationEventHandler(
+       taf_wlanSta_WlanSTARef_t wlanSTARef,
+       taf_wlanSta_State_t staState,
+       void* contextPtr
+   )
+   {
+       switch (staState) {
+           case TAF_WLANSTA_STATE_SCAN_STARTED:
+               LE_INFO("AP scan started");
+               break;
+           case TAF_WLANSTA_STATE_SCAN_COMPLETED:
+               LE_INFO("AP scan completed");
+               le_sem_Post(scanSemRef);
+               break;
+           case TAF_WLANSTA_STATE_SCAN_FAILED:
+               LE_ERROR("AP scan failed");
+               le_sem_Post(scanSemRef);
+               break;
+           default:
+               LE_INFO("Station state changed: %d", staState);
+               break;
+       }
+   }
+ *
+   le_result_t ScanForAccessPoints(taf_wlanSta_WlanSTARef_t staRef)
+   {
+       le_result_t result;
+ *
+       // Create semaphore for scan synchronization
+       scanSemRef = le_sem_Create("ScanSem", 0);
+ *
+       // Register for station events
+       staEventHandlerRef = taf_wlanSta_AddEventHandler(staRef, StationEventHandler, NULL);
+       if (staEventHandlerRef == NULL) {
+           LE_ERROR("Failed to register station event handler");
+           return LE_FAULT;
+       }
+ *
+       // Start AP scan
+       result = taf_wlanSta_DoAPScan(staRef);
+       if (result != LE_OK) {
+           LE_ERROR("Failed to start AP scan: %d", result);
+           return result;
+       }
+ *
+       // Wait for scan completion
+       le_sem_Wait(scanSemRef);
+ *
+       // Get scan results
+       uint16_t numAPs = 0;
+       size_t apInfoSize = TAF_WLANSTA_MAX_APSCAN_RESULT_NUM;
+       taf_wlanSta_APInfo_t apInfo[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM];
+ *
+       result = taf_wlanSta_GetAPScanResults(staRef, &numAPs, apInfo, &apInfoSize);
+       if (result == LE_OK) {
+           LE_INFO("Found %d access points:", numAPs);
+           for (size_t i = 0; i < numAPs && i < apInfoSize; i++) {
+               LE_INFO("  AP %zu:", i + 1);
+               LE_INFO("    SSID: %s", apInfo[i].SSID);
+               LE_INFO("    BSSID: %s", apInfo[i].BSSID);
+               LE_INFO("    Signal: %d dBm", apInfo[i].SignalLevel);
+               LE_INFO("    Frequency: %d MHz", apInfo[i].Frequency);
+               LE_INFO("    Security: %d", apInfo[i].secMode);
+           }
+       }
+ *
+       return result;
+   }
+ *
+   @endcode
+ *
+ * @section c_taf_wlan_sta_connection Connect to an access point
+ *
+ * @subsection c_taf_wlan_sta_connect_secure Connect to a secure access point
+ *
+ * Connect to a WPA2-PSK secured access point:
+ *
+ * @code
+ *
+   static std::promise<taf_wlanSta_State_t> connectPromise;
+ *
+   static void ConnectionEventHandler(
+       taf_wlanSta_WlanSTARef_t wlanSTARef,
+       taf_wlanSta_State_t staState,
+       void* contextPtr
+   )
+   {
+       switch (staState) {
+           case TAF_WLANSTA_STATE_CONNECTING:
+               LE_INFO("Connecting to access point...");
+               break;
+           case TAF_WLANSTA_STATE_CONNECTED:
+               LE_INFO("Successfully connected to access point");
+               connectPromise.set_value(TAF_WLANSTA_STATE_CONNECTED);
+               break;
+           case TAF_WLANSTA_STATE_ASSOCIATION_FAILED:
+               LE_ERROR("Failed to associate with access point");
+               connectPromise.set_value(TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
+               break;
+           case TAF_WLANSTA_STATE_IP_ASSIGNMENT_FAILED:
+               LE_ERROR("Failed to get IP address via DHCP");
+               connectPromise.set_value(TAF_WLANSTA_STATE_IP_ASSIGNMENT_FAILED);
+               break;
+           default:
+               break;
+       }
+   }
+ *
+   le_result_t ConnectToSecureAP(taf_wlanSta_WlanSTARef_t staRef,
+                                 const char* ssid,
+                                 const char* password)
+   {
+       le_result_t result;
+ *
+       // Find the target AP in scan results
+       uint16_t numAPs = 0;
+       size_t apInfoSize = TAF_WLANSTA_MAX_APSCAN_RESULT_NUM;
+       taf_wlanSta_APInfo_t apInfo[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM];
+       taf_wlanSta_APInfo_t targetAP;
+       bool apFound = false;
+ *
+       result = taf_wlanSta_GetAPScanResults(staRef, &numAPs, apInfo, &apInfoSize);
+       if (result != LE_OK) {
+           LE_ERROR("Failed to get scan results");
+           return result;
+       }
+ *
+       // Search for target SSID
+       for (size_t i = 0; i < numAPs && i < apInfoSize; i++) {
+           if (strcmp(apInfo[i].SSID, ssid) == 0) {
+               targetAP = apInfo[i];
+               apFound = true;
+               LE_INFO("Found target AP: %s", ssid);
+               break;
+           }
+       }
+ *
+       if (!apFound) {
+           LE_ERROR("Target AP '%s' not found in scan results", ssid);
+           return LE_NOT_FOUND;
+       }
+ *
+       // Set WPA2 PSK if required
+       if (targetAP.secAuthMethod == TAF_WLAN_SEC_AUTH_METHOD_PSK) {
+           result = taf_wlanSta_SetWpa2Psk(staRef, &targetAP, password);
+           if (result != LE_OK) {
+               LE_ERROR("Failed to set WPA2 PSK: %d", result);
+               return result;
+           }
+           LE_INFO("WPA2 PSK configured for AP: %s", ssid);
+       }
+ *
+       // Register connection event handler
+       taf_wlanSta_EventHandlerRef_t eventHandlerRef =
+           taf_wlanSta_AddEventHandler(staRef, ConnectionEventHandler, NULL);
+ *
+       // Connect to the access point
+       connectPromise = std::promise<taf_wlanSta_State_t>();
+       result = taf_wlanSta_Connect(staRef, &targetAP);
+       if (result != LE_OK) {
+           LE_ERROR("Failed to initiate connection: %d", result);
+           return result;
+       }
+ *
+       // Wait for connection result (timeout after 60 seconds)
+       auto future = connectPromise.get_future();
+       auto status = future.wait_for(std::chrono::seconds(60));
+ *
+       if (status == std::future_status::ready) {
+           taf_wlanSta_State_t connectionState = future.get();
+           if (connectionState == TAF_WLANSTA_STATE_CONNECTED) {
+               LE_INFO("Successfully connected to %s", ssid);
+               result = LE_OK;
+           } else {
+               LE_ERROR("Connection failed with state: %d", connectionState);
+               result = LE_FAULT;
+           }
+       } else {
+           LE_ERROR("Connection timeout");
+           result = LE_TIMEOUT;
+       }
+ *
+       // Cleanup event handler
+       if (eventHandlerRef) {
+           taf_wlanSta_RemoveEventHandler(eventHandlerRef);
+       }
+ *
+       return result;
+   }
+ *
+   @endcode
+ *
+ * @section c_taf_wlan_sta_ip_configuration Manage IP configurations
+ *
+ * @subsection c_taf_wlan_sta_dynamic_ip Configure dynamic IPs (DHCP)
+ *
+ * Configure the station to use DHCP for automatic IP assignment:
+ *
+ * @code
+ *
+   le_result_t ConfigureDynamicIP(taf_wlanSta_WlanSTARef_t staRef)
+   {
+       taf_wlanSta_IPConfig_t ipConfig = {0}; // Not used for dynamic IP
+ *
+       le_result_t result = taf_wlanSta_SetIPConfig(staRef, TAF_WLANSTA_IPTYPE_DYNAMIC,
+                                                    &ipConfig);
+       if (result != LE_OK) {
+           LE_ERROR("Failed to set dynamic IP configuration: %d", result);
+           return result;
+       }
+ *
+       LE_INFO("Station configured for dynamic IP (DHCP)");
+       return LE_OK;
+   }
+ *
+   @endcode
+ *
+ * @subsection c_taf_wlan_sta_static_ip Configure static IPs
+ *
+ * Configure the station with static IP settings:
+ *
+ * @code
+ *
+   le_result_t ConfigureStaticIP(taf_wlanSta_WlanSTARef_t staRef)
+   {
+       taf_wlanSta_IPConfig_t ipConfig;
+       memset(&ipConfig, 0, sizeof(ipConfig));
+ *
+       // Set static IP configuration
+       strncpy(ipConfig.IPv4Addr, "192.168.1.100", sizeof(ipConfig.IPv4Addr) - 1);
+       strncpy(ipConfig.GWAddr, "192.168.1.1", sizeof(ipConfig.GWAddr) - 1);
+       strncpy(ipConfig.DNSAddr, "8.8.8.8", sizeof(ipConfig.DNSAddr) - 1);
+       strncpy(ipConfig.NetMask, "255.255.255.0", sizeof(ipConfig.NetMask) - 1);
+ *
+       le_result_t result = taf_wlanSta_SetIPConfig(staRef, TAF_WLANSTA_IPTYPE_STATIC,
+                                                    &ipConfig);
+       if (result != LE_OK) {
+           LE_ERROR("Failed to set static IP configuration: %d", result);
+           return result;
+       }
+ *
+       LE_INFO("Station configured with static IP:");
+       LE_INFO("  IP Address: %s", ipConfig.IPv4Addr);
+       LE_INFO("  Gateway: %s", ipConfig.GWAddr);
+       LE_INFO("  DNS: %s", ipConfig.DNSAddr);
+       LE_INFO("  Netmask: %s", ipConfig.NetMask);
+ *
+       return LE_OK;
+   }
+ *
+   @endcode
+ *
+ * @section c_taf_wlan_sta_connection_management Manage connections
+ *
+ * @subsection c_taf_wlan_sta_complete_workflow Complete connection workflow
+ *
+ * The following example demonstrates a complete station connection workflow:
+ *
+ * @code
+ *
+   typedef struct {
+       taf_wlanSta_WlanSTARef_t staRef;
+       taf_wlanSta_EventHandlerRef_t eventHandlerRef;
+       le_sem_Ref_t scanSemRef;
+       le_sem_Ref_t connectSemRef;
+       taf_wlanSta_State_t lastState;
+   } STAContext_t;
+ *
+   static STAContext_t staContext = {0};
+ *
+   static void StationEventHandler(
+       taf_wlanSta_WlanSTARef_t wlanSTARef,
+       taf_wlanSta_State_t staState,
+       void* contextPtr
+   )
+   {
+       STAContext_t* ctx = (STAContext_t*)contextPtr;
+       ctx->lastState = staState;
+ *
+       switch (staState) {
+           case TAF_WLANSTA_STATE_SCAN_STARTED:
+               LE_INFO("Access point scan started");
+               break;
+           case TAF_WLANSTA_STATE_SCAN_COMPLETED:
+               LE_INFO("Access point scan completed");
+               le_sem_Post(ctx->scanSemRef);
+               break;
+           case TAF_WLANSTA_STATE_SCAN_FAILED:
+               LE_ERROR("Access point scan failed");
+               le_sem_Post(ctx->scanSemRef);
+               break;
+           case TAF_WLANSTA_STATE_CONNECTING:
+               LE_INFO("Connecting to access point...");
+               break;
+           case TAF_WLANSTA_STATE_CONNECTED:
+               LE_INFO("Successfully connected to access point");
+               le_sem_Post(ctx->connectSemRef);
+               break;
+           case TAF_WLANSTA_STATE_DISCONNECTED:
+               LE_INFO("Disconnected from access point");
+               le_sem_Post(ctx->connectSemRef);
+               break;
+           case TAF_WLANSTA_STATE_ASSOCIATION_FAILED:
+               LE_ERROR("Failed to associate with access point");
+               le_sem_Post(ctx->connectSemRef);
+               break;
+           case TAF_WLANSTA_STATE_IP_ASSIGNMENT_FAILED:
+               LE_ERROR("Failed to get IP address via DHCP");
+               le_sem_Post(ctx->connectSemRef);
+               break;
+           default:
+               LE_INFO("Unknown station state: %d", staState);
+               break;
+       }
+   }
+ *
+   le_result_t ConnectToWiFiNetwork(const char* ssid, const char* password)
+   {
+       le_result_t result;
+ *
+       // Initialize WLAN device for STA mode
+       result = taf_wlan_TurnOn(NULL);
+       if (result != LE_OK) {
+           LE_ERROR("Failed to turn on WLAN device");
+           return result;
+       }
+ *
+       result = taf_wlan_SetMode(NULL, TAF_WLAN_MODE_STA);
+       if (result != LE_OK) {
+           LE_ERROR("Failed to set STA mode");
+           return result;
+       }
+ *
+       // Get STA interface
+       taf_wlan_APIntfInfo_t apIntf[TAF_WLAN_MAX_NUM_AP];
+       taf_wlan_STAIntfInfo_t staIntf[TAF_WLAN_MAX_NUM_STA];
+       size_t apIntfSize = TAF_WLAN_MAX_NUM_AP;
+       size_t staIntfSize = TAF_WLAN_MAX_NUM_STA;
+ *
+       result = taf_wlan_GetIntfInfo(NULL, apIntf, &apIntfSize, staIntf, &staIntfSize);
+       if (result != LE_OK || staIntfSize == 0) {
+           LE_ERROR("No STA interfaces available");
+           return LE_FAULT;
+       }
+ *
+       // Get STA reference
+       staContext.staRef = taf_wlanSta_GetWlanSTA(staIntf[0].id, staIntf[0].IntfName);
+       if (staContext.staRef == NULL) {
+           LE_ERROR("Failed to get STA reference");
+           return LE_FAULT;
+       }
+ *
+       // Create semaphores
+       staContext.scanSemRef = le_sem_Create("ScanSem", 0);
+       staContext.connectSemRef = le_sem_Create("ConnectSem", 0);
+ *
+       // Register event handler
+       staContext.eventHandlerRef = taf_wlanSta_AddEventHandler(staContext.staRef,
+                                                                StationEventHandler,
+                                                                &staContext);
+ *
+       // Start the station
+       result = taf_wlanSta_Start(staContext.staRef);
+       if (result != LE_OK) {
+           LE_ERROR("Failed to start station: %d", result);
+           return result;
+       }
+ *
+       // Configure for dynamic IP
+       taf_wlanSta_IPConfig_t ipConfig = {0};
+       result = taf_wlanSta_SetIPConfig(staContext.staRef, TAF_WLANSTA_IPTYPE_DYNAMIC,
+                                        &ipConfig);
+       if (result != LE_OK) {
+           LE_ERROR("Failed to set IP configuration: %d", result);
+           return result;
+       }
+ *
+       // Scan for access points
+       result = taf_wlanSta_DoAPScan(staContext.staRef);
+       if (result != LE_OK) {
+           LE_ERROR("Failed to start scan: %d", result);
+           return result;
+       }
+ *
+       // Wait for scan completion
+       le_sem_Wait(staContext.scanSemRef);
+       if (staContext.lastState != TAF_WLANSTA_STATE_SCAN_COMPLETED) {
+           LE_ERROR("Scan did not complete successfully");
+           return LE_FAULT;
+       }
+ *
+       // Get scan results and find target AP
+       uint16_t numAPs = 0;
+       size_t apInfoSize = TAF_WLANSTA_MAX_APSCAN_RESULT_NUM;
+       taf_wlanSta_APInfo_t apInfo[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM];
+       taf_wlanSta_APInfo_t targetAP;
+       bool apFound = false;
+ *
+       result = taf_wlanSta_GetAPScanResults(staContext.staRef, &numAPs, apInfo, &apInfoSize);
+       if (result != LE_OK) {
+           LE_ERROR("Failed to get scan results");
+           return result;
+       }
+ *
+       for (size_t i = 0; i < numAPs && i < apInfoSize; i++) {
+           if (strcmp(apInfo[i].SSID, ssid) == 0) {
+               targetAP = apInfo[i];
+               apFound = true;
+               break;
+           }
+       }
+ *
+       if (!apFound) {
+           LE_ERROR("Target AP '%s' not found", ssid);
+           return LE_NOT_FOUND;
+       }
+ *
+       // Set password for secure connection
+       if (targetAP.secAuthMethod == TAF_WLAN_SEC_AUTH_METHOD_PSK) {
+           result = taf_wlanSta_SetWpa2Psk(staContext.staRef, &targetAP, password);
+           if (result != LE_OK) {
+               LE_ERROR("Failed to set WPA2 PSK: %d", result);
+               return result;
+           }
+       }
+ *
+       // Connect to the access point
+       result = taf_wlanSta_Connect(staContext.staRef, &targetAP);
+       if (result != LE_OK) {
+           LE_ERROR("Failed to initiate connection: %d", result);
+           return result;
+       }
+ *
+       // Wait for connection result
+       le_sem_Wait(staContext.connectSemRef);
+       if (staContext.lastState == TAF_WLANSTA_STATE_CONNECTED) {
+           LE_INFO("Successfully connected to %s", ssid);
+
+           // Get connection status
+           taf_wlanSta_State_t state;
+           char intfName[TAF_NET_INTERFACE_NAME_MAX_LEN];
+           char ipv4Addr[TAF_NET_IPV4_ADDR_MAX_LEN];
+           char ipv6Addr[TAF_NET_IPV6_ADDR_MAX_LEN];
+           char macAddr[TAF_NET_MAC_ADDR_MAX_LEN];
+ *
+           result = taf_wlanSta_GetStatus(staContext.staRef, &state, intfName,
+                                          sizeof(intfName), ipv4Addr, sizeof(ipv4Addr),
+                                          ipv6Addr, sizeof(ipv6Addr), macAddr,
+                                          sizeof(macAddr));
+           if (result == LE_OK) {
+               LE_INFO("Connection details:");
+               LE_INFO("  Interface: %s", intfName);
+               LE_INFO("  IPv4 Address: %s", ipv4Addr);
+               LE_INFO("  MAC Address: %s", macAddr);
+           }
+
+           return LE_OK;
+       } else {
+           LE_ERROR("Connection failed or timed out");
+           return LE_FAULT;
+       }
+   }
+ *
+   @endcode
+ *
+ * @section c_taf_wlan_sta_mode_management Manage station modes
+ *
+ * Configure the station to operate in router or bridge mode:
+ *
+ * @code
+ *
+   le_result_t ConfigureStationMode(taf_wlanSta_WlanSTARef_t staRef, bool useRouterMode)
+   {
+       taf_wlanSta_Mode_t mode = useRouterMode ? TAF_WLANSTA_MODE_ROUTER :
+                                                 TAF_WLANSTA_MODE_BRIDGE;
+ *
+       le_result_t result = taf_wlanSta_SetMode(staRef, mode);
+       if (result != LE_OK) {
+           LE_ERROR("Failed to set station mode: %d", result);
+           return result;
+       }
+ *
+       // Verify the mode was set
+       taf_wlanSta_Mode_t currentMode;
+       result = taf_wlanSta_GetMode(staRef, &currentMode);
+       if (result == LE_OK) {
+           const char* modeStr = (currentMode == TAF_WLANSTA_MODE_ROUTER) ?
+                                 "Router" : "Bridge";
+           LE_INFO("Station mode set to: %s", modeStr);
+       }
+ *
+       return result;
+   }
+ *
+   @endcode
+ *
+ * @section c_taf_wlan_sta_disconnect Manage disconnections
+ *
+ * Properly disconnect from an access point:
+ *
+ * @code
+ *
+   le_result_t DisconnectFromAP(taf_wlanSta_WlanSTARef_t staRef, const char* ssid)
+   {
+       le_result_t result;
+ *
+       // Get current scan results to find the AP info
+       uint16_t numAPs = 0;
+       size_t apInfoSize = TAF_WLANSTA_MAX_APSCAN_RESULT_NUM;
+       taf_wlanSta_APInfo_t apInfo[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM];
+       taf_wlanSta_APInfo_t targetAP;
+       bool apFound = false;
+ *
+       result = taf_wlanSta_GetAPScanResults(staRef, &numAPs, apInfo, &apInfoSize);
+       if (result == LE_OK) {
+           for (size_t i = 0; i < numAPs && i < apInfoSize; i++) {
+               if (strcmp(apInfo[i].SSID, ssid) == 0) {
+                   targetAP = apInfo[i];
+                   apFound = true;
+                   break;
+               }
+           }
+       }
+ *
+       if (!apFound) {
+           LE_WARN("Target AP '%s' not found in scan results, using current connection", ssid);
+           // For disconnect, we can still proceed without exact AP info
+           memset(&targetAP, 0, sizeof(targetAP));
+           strncpy(targetAP.SSID, ssid, sizeof(targetAP.SSID) - 1);
+       }
+ *
+       // Disconnect from the access point
+       result = taf_wlanSta_Disconnect(staRef, &targetAP);
+       if (result != LE_OK) {
+           LE_ERROR("Failed to disconnect from AP: %d", result);
+           return result;
+       }
+ *
+       LE_INFO("Disconnection initiated for AP: %s", ssid);
+       return LE_OK;
+   }
+ *
+   @endcode
+ *
+ * @section c_taf_wlan_sta_status_monitoring Monitor station and connection status
+ *
+ * Monitor station status and connection information:
+ *
+ * @code
+ *
+   void MonitorStationStatus(taf_wlanSta_WlanSTARef_t staRef)
+   {
+       taf_wlanSta_State_t state;
+       char intfName[TAF_NET_INTERFACE_NAME_MAX_LEN];
+       char ipv4Addr[TAF_NET_IPV4_ADDR_MAX_LEN];
+       char ipv6Addr[TAF_NET_IPV6_ADDR_MAX_LEN];
+       char macAddr[TAF_NET_MAC_ADDR_MAX_LEN];
+ *
+       le_result_t result = taf_wlanSta_GetStatus(staRef, &state, intfName, sizeof(intfName),
+                                                  ipv4Addr, sizeof(ipv4Addr), ipv6Addr,
+                                                  sizeof(ipv6Addr), macAddr, sizeof(macAddr));
+ *
+       if (result == LE_OK) {
+           LE_INFO("Station Status:");
+
+           // Print state
+           switch (state) {
+               case TAF_WLANSTA_STATE_UNKNOWN:
+                   LE_INFO("  State: UNKNOWN");
+                   break;
+               case TAF_WLANSTA_STATE_CONNECTING:
+                   LE_INFO("  State: CONNECTING");
+                   break;
+               case TAF_WLANSTA_STATE_CONNECTED:
+                   LE_INFO("  State: CONNECTED");
+                   break;
+               case TAF_WLANSTA_STATE_DISCONNECTED:
+                   LE_INFO("  State: DISCONNECTED");
+                   break;
+               case TAF_WLANSTA_STATE_ASSOCIATION_FAILED:
+                   LE_INFO("  State: ASSOCIATION_FAILED");
+                   break;
+               case TAF_WLANSTA_STATE_IP_ASSIGNMENT_FAILED:
+                   LE_INFO("  State: IP_ASSIGNMENT_FAILED");
+                   break;
+               default:
+                   LE_INFO("  State: %d", state);
+                   break;
+           }
+ *
+           LE_INFO("  Interface: %s", intfName);
+           LE_INFO("  IPv4 Address: %s", ipv4Addr);
+           LE_INFO("  IPv6 Address: %s", ipv6Addr);
+           LE_INFO("  MAC Address: %s", macAddr);
+ *
+           // Get IP configuration details
+           taf_wlanSta_IPType_t ipType;
+           taf_wlanSta_IPConfig_t staticConfig;
+           result = taf_wlanSta_GetIPConfig(staRef, &ipType, &staticConfig);
+           if (result == LE_OK) {
+               LE_INFO("  IP Type: %s", (ipType == TAF_WLANSTA_IPTYPE_DYNAMIC) ?
+                                       "Dynamic (DHCP)" : "Static");
+               if (ipType == TAF_WLANSTA_IPTYPE_STATIC) {
+                   LE_INFO("  Static Config:");
+                   LE_INFO("    IP: %s", staticConfig.IPv4Addr);
+                   LE_INFO("    Gateway: %s", staticConfig.GWAddr);
+                   LE_INFO("    DNS: %s", staticConfig.DNSAddr);
+                   LE_INFO("    Netmask: %s", staticConfig.NetMask);
+               }
+           }
+       } else {
+           LE_ERROR("Failed to get station status: %d", result);
+       }
+   }
+ *
+   @endcode
+ *
+ * @section taf_wlansta_usage_flow Typical application call flow
+ *
+ * @rstblock
+ * - **Station connection workflow**
+ *
+ *   1. Initialize WLAN device and set STA mode.
+ *
+ *   #. Get STA interface information and obtain STA reference.
+ *
+ *   #. Register event handler for connection state monitoring.
+ *
+ *   #. Start the station and configure IP settings.
+ *
+ *   #. Scan for available access points.
+ *
+ *   #. Set authentication credentials for target AP.
+ *
+ *   #. Connect to the target access point.
+ *
+ *   #. Monitor connection status and handle events.
+ *
+ *   #. Disconnect and cleanup when done.
+ *
+ * @endrst
+ *
+ * <HR>
  *
  */
 //--------------------------------------------------------------------------------------------------

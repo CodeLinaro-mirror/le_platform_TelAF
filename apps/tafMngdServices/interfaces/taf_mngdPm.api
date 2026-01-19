@@ -1023,3 +1023,16 @@ FUNCTION le_result_t DeleteWakeupSource
 (
     ws wsRef IN     ///< The wakesource reference ID given.
 ) =27;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the node power state.
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNodePowerState
+(
+    uint8 pmNodeId IN,
+    NodePowerState state OUT ///< Node power state.
+) =28;
+

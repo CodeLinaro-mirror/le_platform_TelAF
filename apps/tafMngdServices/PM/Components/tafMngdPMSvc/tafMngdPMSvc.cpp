@@ -1526,6 +1526,81 @@ le_result_t taf_mngdPm_DeleteWakeupSource(taf_mngdPm_wsRef_t wsRef)
     return res;
 }
 
+/**
+ * Get node power state
+ */
+le_result_t taf_mngdPm_GetNodePowerState
+(
+    uint8_t pmNodeId,
+    taf_mngdPm_NodePowerState_t * state
+)
+{
+#define NODE_PRIMARY_NAD  0
+#define NODE_REMOTE_NAD   1
+#define NODE_INDEX_MAX    NODE_REMOTE_NAD
+
+    if (state == NULL)
+    {
+        LE_ERROR("Bad parameter for a:state");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (pmNodeId > NODE_INDEX_MAX)
+    {
+        LE_ERROR("Bad parameter for a:pmNodeId");
+        return LE_BAD_PARAMETER;
+    }
+
+    taf_pm_State_t pmsPwrState;
+
+    if (pmNodeId == NODE_REMOTE_NAD)
+    {
+        pmsPwrState = taf_rpcPm_GetPowerState();
+    }
+    else if (pmNodeId == NODE_PRIMARY_NAD)
+    {
+        pmsPwrState = taf_pm_GetPowerState();
+    }
+    else
+    {
+        return LE_UNSUPPORTED;
+    }
+
+    switch (pmsPwrState)
+    {
+        case TAF_PM_STATE_RESUME:
+        {
+            *state = TAF_MNGDPM_NODE_STATE_RESUME;
+        }
+        break;
+
+        case TAF_PM_STATE_SUSPEND:
+        {
+            *state = TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE;
+        }
+        break;
+
+        case TAF_PM_STATE_SHUTDOWN:
+        {
+            *state = TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE;
+        }
+        break;
+
+        case TAF_PM_STATE_RESTART:
+        {
+            *state = TAF_MNGDPM_NODE_STATE_RESTART_PREPARE;
+        }
+        break;
+
+        default:
+        {
+            return LE_FAULT;
+        }
+    }
+
+    return LE_OK;
+}
+
 COMPONENT_INIT
 {
     LE_INFO("tafMngdPMSvc COMPONENT init...");

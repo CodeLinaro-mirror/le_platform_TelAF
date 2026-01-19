@@ -464,11 +464,11 @@ FUNCTION le_result_t RemoveSvc
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Shuts down diag service.
+ * Shuts down the diag service.
  *
  * @instaging
  *
- * @b NOTE: The API is only used in restart scenarios. After it is called, the diag service stops
+ * @b NOTE: Only use this API in restart scenarios. After it is called, the diag service stops
  * working and TCP communication must be re-established once the system restarts.
  *
  * @result

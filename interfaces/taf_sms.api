@@ -233,8 +233,8 @@
  *
  * - taf_sms_ActivateCellBroadcast() -- Activates cell broadcast.
  * - taf_sms_DeactivateCellBroadcast() -- Deactivates cell broadcast.
- * - taf_sms_AddCellBroadcastIds() -- Add cell broadcast message range of identifier.
- * - taf_sms_GetSmsCenterAddress() -- Remove cell broadcast range of message identifiers.
+ * - taf_sms_AddCellBroadcastIds() -- Adds a range of broadcast message identifiers to receive broadcast messages for the specified phone ID.
+ * - taf_sms_RemoveCellBroadcastIds() -- Removes a range of broadcast message identifiers from the current ranges for the specified phone ID.
  *
  * @section taf_sms_usage_flow Typical application call flow
  *

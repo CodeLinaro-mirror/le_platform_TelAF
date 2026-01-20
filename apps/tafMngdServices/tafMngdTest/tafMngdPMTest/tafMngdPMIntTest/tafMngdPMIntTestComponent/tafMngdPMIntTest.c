@@ -239,32 +239,6 @@ void RestartCallback(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rs
     }
 }
 
-static int SetModemWakeupSource(const char* wakeupSource)
-{
-
-    // Convert string to uint32_t
-    uint32_t uintResult = (uint32_t)strtoul(wakeupSource, NULL, 10);
-    // Check for conversion errors
-    if (uintResult > UINT32_MAX) {
-        fprintf(stderr, "Value out of range.\n");
-        exit(EXIT_FAILURE);
-    }
-    // Print the result
-    LE_INFO("String: %s\nConverted to uint32_t: %u\n", wakeupSource, uintResult);
-
-    le_result_t res = LE_FAULT;
-    res = taf_mngdPm_SetModemWakeupSource(uintResult);
-    if(res == LE_OK) {
-       LE_INFO("taf_mngdPm_SetModemWakeupSource is success");
-        return 1;
-    }
-    else
-    {
-        LE_ERROR("SetModemWakeupSource request failed");
-        return 0;
-    }
-}
-
 static void RebootSystemWithReason()
 {
     LE_INFO("----RebootSystem test----" );
@@ -1414,29 +1388,14 @@ static void* TestNodeWakeSource(void* ctxPtr)
 
     while(input != -1)
     {
-        printf("Choose the TestNodeWakeSource Test Case\n -1.Exit\n 1.SetModemWakeupSource\n "
-                "2.NewNodeWakeupSource\n 3.ResumeSystem\n 4.SuspendSystem\n ");
+        printf("Choose the TestNodeWakeSource Test Case\n -1.Exit\n 1.NewNodeWakeupSource\n "
+                "2.ResumeSystem\n 3.SuspendSystem\n ");
         if(fgets(buffer, sizeof(buffer), stdin))
             LE_INFO("Value read successfully");
         buffer[strcspn(buffer, "\n")] = '\0';
         input = atoi(buffer);
         LE_INFO("input: %d", input);
         if(input == 1)
-        {
-            printf("Enter WakeupType for SetModemWakeupSource\n -1.Exit\n 1.SMS \n 2.VOICE_CALL \n 3.SMS,VOICE_CALL \n "
-                    "4.MCU_VHAL \n 5.SMS,MCU_VHAL \n 6.VOICE_CALL,MCU_VHAL \n 7.SMS,VOICE_CALL,MCU_VHAL \n");
-            char wakeuptype[100];
-            if(fgets(wakeuptype, sizeof(wakeuptype), stdin))
-                LE_INFO("Value read successfully");
-            wakeuptype[strcspn(wakeuptype, "\n")] = '\0';
-            int entry = atoi(wakeuptype);
-            if(entry == -1)
-                continue;
-            int res = SetModemWakeupSource(wakeuptype);
-            if(res == LE_OK)
-                printf("'SetModemWakeupSource for wakeuptype %s is set'\n", wakeuptype);
-        }
-        if(input == 2)
         {
             char NodeId[100];
             printf("Enter NODE_ID\n -1.Exit\n 0.PVM\n 1.RPC\n");
@@ -1466,7 +1425,7 @@ static void* TestNodeWakeSource(void* ctxPtr)
             printf("NewNodeWakeupSource wakeuptype is %d for NODE_ID %d\n", wakeuptype, NODE_ID);
            }
         }
-        if(input == 3)
+        if(input == 2)
         {
             char StayAwakeNode[100];
             printf("Enter NODE_ID\n -1.Exit\n 0.PVM\n 1.RPC\n");
@@ -1499,7 +1458,7 @@ static void* TestNodeWakeSource(void* ctxPtr)
                     printf("'wsRef is null for Rpc, Call NewNodeWakeupSource'\n");
             }
         }
-        if(input == 4)
+        if(input == 3)
         {
             char RelaxNode[100];
             printf("Enter NODE_ID\n -1.Exit\n 0.PVM\n 1.RPC\n");
@@ -1678,9 +1637,8 @@ static void* connect_service(void* ctxPtr)
 void* ThreadFunction(void* threadID) {
 
     taf_mngdPm_ConnectService();
-    le_result_t res = taf_mngdPm_SetModemWakeupSource(1);
-    if(res == LE_OK)
-        printf("SetModemWakeupSource for wakeuptype SMS is set\n");
+    le_result_t res;
+
     wsRef = taf_mngdPm_NewNodeWakeupSource(0, 1, wsTag);
     if(wsRef)
         printf("NewNodeWakeupSource ref is created for\n");
@@ -2784,7 +2742,6 @@ COMPONENT_INIT
         }
         else if(strcmp(testType, "KeepAwakeThenRestartSystem") == 0)
         {
-            status = SetModemWakeupSource("1"); // whitelist SMS wakeup type
             status = KeepAwakeThenRestartSystem();
             exit(status);
         }
@@ -2823,17 +2780,6 @@ COMPONENT_INIT
         {
             if(testPar)
                 GracefulSysSuspend(atoi(testPar));
-            else {
-                printf("Enter NODE_ID");
-                exit(EXIT_FAILURE);
-            }
-        }
-        else if(strcmp(testType, "SetModemWakeupSource") == 0)
-        {
-            if(testPar) {
-                status = SetModemWakeupSource(testPar);
-                exit(status);
-            }
             else {
                 printf("Enter NODE_ID");
                 exit(EXIT_FAILURE);

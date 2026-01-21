@@ -341,7 +341,8 @@ namespace tafsvc {
             void EventDataStartConnectionTest(uint8_t dataId);
             void EventDataPeriodicConnectivityTest(uint8_t dataId);
             bool DataConnectivityTest_URL(std::string url, std::string interfaceName);
-            bool DataConnectivityTest_IPv4(std::string ipv4, std::string interfaceName);
+            bool DataConnectivityTest_IPv4(std::string ipv4);
+            bool DataConnectivityTest_Ping(std::string addr, std::string interfaceName);
 
             // L1 Connectivity Recovery
             void EventL1ConnRecoverySchedule(uint8_t dataId);

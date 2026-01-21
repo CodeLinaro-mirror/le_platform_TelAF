@@ -68,8 +68,7 @@ commands:
 bindings:
 {
     <telaf>.DeviceManager -> <tafcore>.DeviceManager
-    <tafcore>.DeviceManagerTool -> <tafcore>.DeviceManagerTool
-    <root>.DeviceManagerTool -> <tafcore>.DeviceManagerTool
+    <telaf>.DeviceManagerTool -> <tafcore>.DeviceManagerTool
     <telaf>.sdirTool -> <tafcore>.sdirTool
     <telaf>.le_cfg -> <tafcore>.le_cfg
     <telaf>.le_appInfo -> <tafcore>.le_appInfo

@@ -8,9 +8,7 @@ capability:
 {
         CAP_WAKE_ALARM
         CAP_NET_BIND_SERVICE
-        CAP_BLOCK_SUSPEND
         CAP_SYS_BOOT
-
 #if ${LE_CONFIG_TEST_COVERAGE} = y
         CAP_DAC_READ_SEARCH
         CAP_DAC_OVERRIDE

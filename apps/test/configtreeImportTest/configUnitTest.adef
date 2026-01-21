@@ -1,3 +1,4 @@
+username: telaf
 maxThreads: 600
 start: manual
 sandboxed: true
@@ -15,7 +16,6 @@ capability:
     CAP_WAKE_ALARM
     CAP_FOWNER
     CAP_SYS_ADMIN
-    CAP_BLOCK_SUSPEND
     CAP_DAC_READ_SEARCH
     CAP_DAC_OVERRIDE
 }

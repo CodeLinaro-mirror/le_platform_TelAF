@@ -1504,6 +1504,13 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
             {
                 LE_INFO("StopData timedout. Monitor DataState Events");
             }
+            else if (result == LE_NOT_FOUND)
+            {
+                dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED;
+                LE_INFO("Data session has been removed internally.");
+                ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
+                return LE_OK;
+            }
             else
             {
                 dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED;

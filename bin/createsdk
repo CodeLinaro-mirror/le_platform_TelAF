@@ -41,13 +41,6 @@ TELAF_ROOT="${TELAF_DIR}/telaf"
 TELAF_INTERFACES="${TELAF_ROOT}/interfaces"
 LEGATO_ROOT="${TELAF_DIR}/legato/legato-af"
 
-if command -v python3 >/dev/null 2>&1; then
-    echo "Python3 detected, using src ifgenPython3"
-    IFGEN_SRC_DIR="${S}/legato/legato-af/framework/tools/ifgen/ifgenPython3"
-else
-    echo "Python3 not found, fallback to src ifgenPython2"
-    IFGEN_SRC_DIR="${S}/legato/legato-af/framework/tools/ifgen/ifgenPython2"
-fi
 
 echo "Staging ..."
 install -d "${D}"
@@ -103,11 +96,11 @@ install ${S}/legato/legato-af/interfaces/watchdog/*.api ${LEGATO_ROOT}/interface
 install ${S}/legato/legato-af/interfaces/logDaemon/*.api ${LEGATO_ROOT}/interfaces/logDaemon/
 install ${S}/legato/legato-af/framework/tools/scripts/* ${LEGATO_ROOT}/framework/tools/scripts/
 install ${S}/legato/legato-af/framework/tools/autocomplete/* ${LEGATO_ROOT}/framework/tools/autocomplete/
-install ${IFGEN_SRC_DIR}/*.py ${LEGATO_ROOT}/framework/tools/ifgen/
-install ${IFGEN_SRC_DIR}/ifgen ${LEGATO_ROOT}/framework/tools/ifgen/ifgen
-install ${IFGEN_SRC_DIR}/langC/*.py ${LEGATO_ROOT}/framework/tools/ifgen/langC/
-install ${IFGEN_SRC_DIR}/antlr3/*.py ${LEGATO_ROOT}/framework/tools/ifgen/antlr3/
-install ${IFGEN_SRC_DIR}/langC/templates/* ${LEGATO_ROOT}/framework/tools/ifgen/langC/templates/
+install ${S}/legato/legato-af/framework/tools/ifgen/*.py ${LEGATO_ROOT}/framework/tools/ifgen/
+install ${S}/legato/legato-af/framework/tools/ifgen/ifgen ${LEGATO_ROOT}/framework/tools/ifgen/ifgen
+install ${S}/legato/legato-af/framework/tools/ifgen/langC/*.py ${LEGATO_ROOT}/framework/tools/ifgen/langC/
+install ${S}/legato/legato-af/framework/tools/ifgen/antlr3/*.py ${LEGATO_ROOT}/framework/tools/ifgen/antlr3/
+install ${S}/legato/legato-af/framework/tools/ifgen/langC/templates/* ${LEGATO_ROOT}/framework/tools/ifgen/langC/templates/
 ln -srf ${LEGATO_ROOT}/framework/tools/scripts/legs ${LEGATO_ROOT}/bin/legs
 ln -srf ${LEGATO_ROOT}/framework/tools/scripts/findtoolchain ${LEGATO_ROOT}/bin/findtoolchain
 ln -srf ${LEGATO_ROOT}/framework/tools/scripts/configlegatoenv ${LEGATO_ROOT}/bin/configlegatoenv

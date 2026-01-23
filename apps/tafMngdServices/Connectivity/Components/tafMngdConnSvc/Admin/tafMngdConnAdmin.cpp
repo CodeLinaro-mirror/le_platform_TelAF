@@ -3263,7 +3263,8 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
             //If manually started the data successfully. Set reconnection flag to true.
             dataCtxPtr->needReConn = true;
         }
-        else if(!ipv4add.empty() && DataConnectivityTest_IPv4(ipv4add , interfaceName))
+        else if(!ipv4add.empty() && DataConnectivityTest_IPv4(ipv4add) &&
+            DataConnectivityTest_Ping(ipv4add , interfaceName))
         {
             //connection is created.
             dataCtxPtr->adminState = MCS_DATA_CONNECTED_ACTIVE;
@@ -3289,7 +3290,7 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
     {
         // Set data start connection test in progress to true
         dataCtxPtr->isDStartConnTestInProgress = true;
-        if(DataConnectivityTest_IPv4(ipv4add , interfaceName))
+        if(DataConnectivityTest_IPv4(ipv4add) && DataConnectivityTest_Ping(ipv4add , interfaceName))
         {
             //connection is created.
             dataCtxPtr->adminState = MCS_DATA_CONNECTED_ACTIVE;
@@ -3411,9 +3412,9 @@ bool tafMngdConnAdmin::DataConnectivityTest_URL(std::string url, std::string int
         return true;
     }
 #else
-    if (DataConnectivityTest_IPv4(URL, interfaceName))
+    if (DataConnectivityTest_Ping(URL, interfaceName))
     {
-        LE_INFO("DataConnectivityTest_URL IPv4 passed ");
+        LE_INFO("DataConnectivityTest_URL URL passed ");
         return true;
     }
 #endif
@@ -3424,28 +3425,8 @@ bool tafMngdConnAdmin::DataConnectivityTest_URL(std::string url, std::string int
     return false;
 }
 
-bool tafMngdConnAdmin::DataConnectivityTest_IPv4(std::string ipv4, std::string interfaceName)
+bool tafMngdConnAdmin::DataConnectivityTest_IPv4(std::string ipv4)
 {
-    //Enable LE_CONFIG_DEBUG to get the output of ping in logs
-    LE_INFO("DataConnectivityTest_IPv4 entered for interface %s", interfaceName.c_str());
-
-    // Validate interface name (prevent invalid or unsafe values)
-    if (interfaceName.empty())
-    {
-        LE_ERROR("Interface name is empty");
-        LE_INFO("DataConnectivityTest_IPv4 failed for interface %s", interfaceName.c_str());
-        return false;
-    }
-
-    // Allow only common network interface characters: letters, digits, underscore, hyphen, dot
-    std::regex interfacePattern("^[A-Za-z0-9_.-]+$");
-    if (!std::regex_match(interfaceName, interfacePattern))
-    {
-        LE_ERROR("Invalid interface name: %s", interfaceName.c_str());
-        LE_INFO("DataConnectivityTest_IPv4 failed for interface %s", interfaceName.c_str());
-        return false;
-    }
-
     // Validate IPv4 format before attempting ping
     std::regex ipv4Pattern(
         "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}"
@@ -3455,15 +3436,21 @@ bool tafMngdConnAdmin::DataConnectivityTest_IPv4(std::string ipv4, std::string i
     if (!std::regex_match(ipv4, ipv4Pattern))
     {
         LE_ERROR("Invalid IPv4 address format: %s", ipv4.c_str());
-        LE_INFO("DataConnectivityTest_IPv4 failed for interface %s", interfaceName.c_str());
         return false;
     }
 
+    return true;
+}
+
+bool tafMngdConnAdmin::DataConnectivityTest_Ping(std::string addr, std::string interfaceName)
+{
+    //Enable LE_CONFIG_DEBUG to get the output of ping in logs
+    LE_INFO("DataConnectivityTest_Ping entered for interface %s",interfaceName.c_str());
 #if LE_CONFIG_DEBUG
-        std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+ ipv4;
+        std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+ addr;
         //5 is the number of ping pockets
 #else
-        std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+  ipv4
+        std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+  addr
                                   + " 1> /dev/null 2> /dev/null";
 #endif
     LE_DEBUG("%s", pingCommand.c_str());
@@ -3472,12 +3459,12 @@ bool tafMngdConnAdmin::DataConnectivityTest_IPv4(std::string ipv4, std::string i
     if (result == 0)
     {
         // connection is created.
-        LE_INFO("DataConnectivityTest_IPv4 passed for interface %s", interfaceName.c_str());
+        LE_INFO("DataConnectivityTest_Ping passed for interface %s", interfaceName.c_str());
         return true;
     }
     else
     {
-        LE_INFO("DataConnectivityTest_IPv4 failed for interface %s",interfaceName.c_str());
+        LE_INFO("DataConnectivityTest_Ping failed for interface %s",interfaceName.c_str());
         return false;
     }
     return false;

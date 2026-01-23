@@ -262,5 +262,47 @@ print("Exp      <7f 19 12>")
 
 uds("19 99")
 print("Exp      <7f 19 12>")
+
+print("-------Test for 0x29--------")
+
+uds("1001")
+
+uds("29")
+print("Exp      <7f 29 13>")
+
+uds("29 02 00 00 00")
+print("Exp      <7f 29 12>")
+uds("29 05 00 00")
+print("Exp      <7f 29 12>")
+uds("29 06 00 00 00")
+print("Exp      <7f 29 12>")
+uds("29 07 00 00 00")
+print("Exp      <7f 29 12>")
+
+uds("29 00 00")
+print("Exp      <7f 29 13>")
+
+uds("29 01 00")
+print("Exp      <7f 29 13>")
+uds("29 01 01 02")
+print("Exp      <7f 29 13>")
+uds("29 01 01 02 03 04 ")
+print("Exp      <7f 29 13>")
+uds("29 01 01 02 03 04 05")
+print("Exp      <7f 29 13>")
+
+uds("29 03 00")
+print("Exp      <7f 29 13>")
+uds("29 03 01 02 03 04 ")
+print("Exp      <7f 29 13>")
+
+uds("29 04 00")
+print("Exp      <7f 29 13>")
+uds("29 04 01 02 03 04 ")
+print("Exp      <7f 29 13>")
+
+uds("29 08 00")
+print("Exp      <7f 29 13>")
+
 print("-------End test-------")
 

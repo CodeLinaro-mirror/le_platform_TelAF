@@ -3,7 +3,7 @@ provides:
 {
     api:
     {
-        taf_imuSensor.api
+        taf_imuSensor.api [async]
     }
 }
 

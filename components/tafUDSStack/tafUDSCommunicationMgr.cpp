@@ -2941,10 +2941,11 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
             controlStateSize = node.get<uint16_t>("request.control_option_record.did_size");
             LE_DEBUG("Configured byteSize : %d", controlStateSize);
 
-            //Check control state size.
-            if(recvDataLen < controlStateSize + UDS_IOCBID_REQ_MIN_LEN)
+            // Check the total length.
+            uint16_t ctrlEnableMaskRecordSize = cfg::get_ioctrl_en_mask_record_size(dataId);
+            if(recvDataLen != controlStateSize + ctrlEnableMaskRecordSize + UDS_IOCBID_REQ_MIN_LEN)
             {
-                LE_WARN("The received length is less than required.");
+                LE_WARN("The received length mismatches the length configured.");
                 //UDS_0x2F_NRC_13
                 return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
             }

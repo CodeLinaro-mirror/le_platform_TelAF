@@ -543,6 +543,13 @@ EXPORT_SYM size_t get_routine_record_size(std::string recordName)
     return 0;
 }
 
+EXPORT_SYM uint16_t get_ioctrl_en_mask_record_size(uint16_t ioctrldid)
+{
+    NEED_INITED();
+
+    return 0;
+}
+
 class DynamicBitArray {
 private:
     std::vector<uint8_t> data;

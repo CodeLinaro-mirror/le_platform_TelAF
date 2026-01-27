@@ -23,3 +23,23 @@ IO_all:
         IO:
           security: false
           security_level: []
+  0x9007:
+    identifier: 0x9007
+    mnemonic: Sample_IO2
+    description: |-
+      Sample IO2
+    execution_conditions: |-
+      - Conditions to execute this IO control
+    request:
+      control_option_record:
+        io_control_parameter: [ 0x00, 0x03 ]         # Byte 4 (Mandatory)(0x00: ReturnControlToECU, 0x03: ShortTermAdjustment)
+        did_size: 1
+    diagnostic_session:
+      default_session:
+        IO:
+          security: false
+          security_level: []
+      programming_session:
+        IO:
+          security: false
+          security_level: []

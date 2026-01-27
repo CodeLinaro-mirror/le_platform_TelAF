@@ -269,6 +269,8 @@ EXPORT_SYM std::string get_routine_record(uint16_t rid, uint8_t subFunc);
 
 EXPORT_SYM size_t get_routine_record_size(std::string recordName);
 
+EXPORT_SYM uint16_t get_ioctrl_en_mask_record_size(uint16_t ioctrldid);
+
 EXPORT_SYM bool validate_base_record(const uint8_t* dataRecord, size_t recordLength, const std::string nodeName);
 
 template <typename T>

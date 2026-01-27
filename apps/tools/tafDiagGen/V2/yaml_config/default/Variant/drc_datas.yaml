@@ -145,3 +145,14 @@ datas:
       min: 0
       max: 100
       feature: Ecall
+
+  IO_Control_LCD:
+    mnemonic: IO_Control_LCD
+    description: IO_Control
+    functional_definition:
+      data_type: Numeric
+      value_type: uint8
+      bit_size: 8
+      min: 0
+      max: 100
+      feature: Test

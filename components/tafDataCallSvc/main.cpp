@@ -41,6 +41,7 @@ static void DcsSigTermEventHandler
     // Call deinit function to cleanup
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
     tafDcsSvc.Deinit();
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -49,6 +50,7 @@ COMPONENT_INIT
     LE_INFO("Data Call Service Component Init");
 
     // Setup signal event handler.
+    le_sig_Block(SIGTERM);
     le_sig_SetEventHandler(SIGTERM, DcsSigTermEventHandler);
 
     // Check if the PA service is initialized.
@@ -64,16 +66,15 @@ COMPONENT_INIT
     const char *kpi_file = "/sys/kernel/boot_kpi/kpi_values";
     const char *kpi_marker = "L - TelAF data call service is ready";
     FILE *file = fopen(kpi_file, "w");
-    if (file == NULL)
+    if (file != NULL)
     {
+        if (fwrite(kpi_marker, sizeof(char), strlen(kpi_marker), file) != strlen(kpi_marker))
+            LE_ERROR("failed to write %s to %s", kpi_marker, kpi_file);
+
+        fclose(file);
+    }
+    else
         LE_ERROR("%s does not exist", kpi_file);
-        return;
-    }
-    if (fwrite(kpi_marker, sizeof(char), strlen(kpi_marker), file) != strlen(kpi_marker))
-    {
-        LE_ERROR("failed to write %s to %s", kpi_marker, kpi_file);
-    }
-    fclose(file);
 
     // Complete the initialization of DCS profile manager in the background and return from here.
     le_event_QueueFunction(DeferredDCSInitFunc, nullptr, nullptr);

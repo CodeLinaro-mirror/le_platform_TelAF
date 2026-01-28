@@ -27,8 +27,6 @@ void ProtocolParser::PackGenericHeader
     uint32_t payloadLen
 )
 {
-    LE_DEBUG("PackGenericHeader!");
-
     if (headerPtr == NULL)
     {
         LE_ERROR("headerPtr is null!");
@@ -134,8 +132,6 @@ void ProtocolParser::RoutingActivationRes
     uint32_t reserved
 )
 {
-    LE_DEBUG("RoutingActivationRes!");
-
     if (linkPtr == NULL)
     {
         LE_ERROR("linkPtr is null!");
@@ -176,8 +172,6 @@ void ProtocolParser::AliveCheckReq
     taf_doipLink_t *linkPtr
 )
 {
-    LE_DEBUG("AliveCheckReq!");
-
     if (linkPtr == NULL)
     {
         LE_ERROR("linkPtr is null!");
@@ -203,8 +197,6 @@ void ProtocolParser::AliveCheckRes
     uint16_t equipLA
 )
 {
-    LE_DEBUG("AliveCheckRes!");
-
     if (linkPtr == NULL)
     {
         LE_ERROR("linkPtr is null!");
@@ -235,8 +227,6 @@ void ProtocolParser::DiagPowerModeRes
     uint8_t powerMode
 )
 {
-    LE_DEBUG("DiagPowerModeRes!");
-
     if (linkPtr == NULL)
     {
         LE_ERROR("linkPtr is null!");
@@ -270,8 +260,6 @@ void ProtocolParser::DoIPEntityStatusRes
     uint32_t maxDataSize
 )
 {
-    LE_DEBUG("DoIPEntityStatusRes!");
-
     if (linkPtr == NULL)
     {
         LE_ERROR("linkPtr is null!");
@@ -311,8 +299,6 @@ void ProtocolParser::HeaderNegativeACK
     taf_doipHeaderNACKCode_t headerNACKCode
 )
 {
-    LE_DEBUG("HeaderNegativeACK!");
-
     if (linkPtr == NULL)
     {
         LE_ERROR("linkPtr is null!");
@@ -351,8 +337,6 @@ void ProtocolParser::DiagNegativeACK
     taf_doipDiagNACKCode_t diagNACKCode
 )
 {
-    LE_DEBUG("DiagNegativeACK!");
-
     if (linkPtr == NULL)
     {
         LE_ERROR("linkPtr is null!");
@@ -400,8 +384,6 @@ void ProtocolParser::DiagPositiveACK
     uint16_t equipLA
 )
 {
-    LE_DEBUG("DiagPositiveACK!");
-
     if (linkPtr == NULL)
     {
         LE_ERROR("linkPtr is null!");
@@ -619,8 +601,6 @@ void ProtocolParser::UnpackHeaderStruct
     taf_doipHeader_t *headerPtr
 )
 {
-    LE_DEBUG("UnpackHeaderStruct!");
-
     if (dataPtr == NULL)
     {
         LE_ERROR("dataPtr is null!");
@@ -690,15 +670,21 @@ taf_doip_Result_t VehicleDiscovery::VehicleDiscoveryAnnounce
 
     if (waitTimerRef != NULL)
     {
-        LE_DEBUG("call vehicle Announce Handler!");
-        uint32_t waitTime = le_rand_GetNumBetween(MIN_ANNOUNCE_WAIT_TIME, MAX_ANNOUNCE_WAIT_TIME);
-        le_timer_SetMsInterval(waitTimerRef , waitTime);
-        le_timer_SetRepeat(waitTimerRef , 1);
-        le_timer_SetHandler(waitTimerRef , VehicleAnnounceTimerHandler);
-        le_timer_SetWakeup(waitTimerRef, false);
-        le_timer_Start(waitTimerRef);
-        LE_DEBUG("Announcement remaining time: %d", le_timer_GetMsTimeRemaining(waitTimerRef));
-        LE_DEBUG("called VehicleAnnounceTimerHandler!");
+        //If announceWait is configured, send first announce directly.
+        if(vehicleMgr.GetAnnounceWait())
+        {
+            VehicleAnnounceTimerHandler(waitTimerRef);
+        }
+        else
+        {
+            uint32_t waitTime = le_rand_GetNumBetween(MIN_ANNOUNCE_WAIT_TIME,
+                    MAX_ANNOUNCE_WAIT_TIME);
+            le_timer_SetMsInterval(waitTimerRef , waitTime);
+            le_timer_SetRepeat(waitTimerRef , 1);
+            le_timer_SetHandler(waitTimerRef , VehicleAnnounceTimerHandler);
+            le_timer_SetWakeup(waitTimerRef, false);
+            le_timer_Start(waitTimerRef);
+        }
     }
     else
     {
@@ -713,7 +699,7 @@ void VehicleDiscovery::VehicleAnnounceTimerHandler
     le_timer_Ref_t timerRef
 )
 {
-    LE_INFO("VehicleAnnounceTimerHandler!");
+    LE_DEBUG("VehicleAnnounceTimerHandler!");
 
     auto &vehicleMgr = VehicleManager::GetInstance();
     auto &parser = ProtocolParser::GetInstance();
@@ -740,7 +726,6 @@ void VehicleDiscovery::VehicleAnnounceTimerHandler
     }
 
     vehicleDis.announceCount++;
-    LE_INFO("%d Announcement completed", vehicleDis.announceCount);
 
     if (vehicleDis.announceCount < vehicleDis.maxAnnounceCount)
     {
@@ -749,11 +734,10 @@ void VehicleDiscovery::VehicleAnnounceTimerHandler
         le_timer_SetMsInterval(timerRef , announceIntTime);
         le_timer_SetHandler(timerRef, VehicleAnnounceTimerHandler);
         le_timer_Start(timerRef);
-        LE_INFO("Announcement remaining time: %d", le_timer_GetMsTimeRemaining(timerRef));
+        LE_DEBUG("Announcement remaining time: %d", le_timer_GetMsTimeRemaining(timerRef));
     }
     else if (vehicleDis.announceCount == vehicleDis.maxAnnounceCount)
     {
-        LE_INFO("Vehicle discovery message announced!");
         vehicleDis.announceCount = 0;
         le_timer_Stop(timerRef);
         le_timer_Delete(timerRef);

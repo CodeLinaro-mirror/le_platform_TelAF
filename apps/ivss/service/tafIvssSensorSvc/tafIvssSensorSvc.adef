@@ -1,0 +1,45 @@
+maxThreads: 600
+sandboxed: false
+
+start: manual
+
+username: telaf
+
+capability:
+{
+    CAP_WAKE_ALARM
+    CAP_NET_RAW
+    CAP_IPC_LOCK
+    CAP_SYS_NICE
+    CAP_SYS_RESOURCE
+    CAP_NET_ADMIN
+#if ${LE_CONFIG_TEST_COVERAGE} = y
+    CAP_DAC_READ_SEARCH
+    CAP_DAC_OVERRIDE
+#endif
+}
+
+executables:
+{
+    tafIvssSensorSvc = ( sensorSvc )
+}
+
+processes:
+{
+    envVars:
+    {
+        VSOMEIP_CONFIGURATION = vsomeipRef.json
+        COMMONAPI_CONFIG = commonapiRef.ini
+    }
+
+    run:
+    {
+        ( tafIvssSensorSvc )
+    }
+    maxFileBytes: 8192K
+}
+
+bindings:
+{
+    tafIvssSensorSvc.sensorSvc.taf_imuSensor -> tafImuSensorSvc.taf_imuSensor
+}

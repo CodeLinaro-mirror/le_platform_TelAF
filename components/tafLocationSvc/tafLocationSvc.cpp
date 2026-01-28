@@ -915,7 +915,6 @@ le_result_t taf_locGnss_GetAcquisitionRate
 
 /**
 * FUNCTION     : GetTtff
-* DESCRIPTION  : Get the TTFF in milliseconds
 * DEPENDECY    :
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_BUSY LE_NOT_PERMITTED LE_FAULT on failed with reason

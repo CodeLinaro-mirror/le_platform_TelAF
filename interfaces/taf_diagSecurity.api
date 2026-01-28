@@ -354,7 +354,8 @@ FUNCTION Service GetService
  *
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef or vlanId is 0.
+ *     - LE_NO_MEMORY -- Memory not allocated.
  *     - LE_UNSUPPORTED -- VLAN ID is unknown.
  *
  * @b NOTE: The process exits if an invalid reference is passed.

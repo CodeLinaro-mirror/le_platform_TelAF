@@ -1,0 +1,22 @@
+sandboxed:false
+start: manual
+
+executables:
+{
+    ConfigTreeAccessKPIRootTest = ( ConfigTreeAccessKPITestComp )
+}
+
+processes:
+{
+    run:
+    {
+        (ConfigTreeAccessKPIRootTest)
+    }
+}
+
+bindings:
+{
+    ConfigTreeAccessKPIRootTest.ConfigTreeAccessKPITestComp.le_cfg -> <tafcore>.le_cfg
+    ConfigTreeAccessKPIRootTest.ConfigTreeAccessKPITestComp.le_cfgAdmin -> <tafcore>.le_cfgAdmin
+}
+

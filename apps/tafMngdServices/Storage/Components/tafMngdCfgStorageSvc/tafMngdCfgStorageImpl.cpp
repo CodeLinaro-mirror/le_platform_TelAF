@@ -447,9 +447,12 @@ le_result_t tafMngdStorageSvc::Activate(taf_mngdStorCfg_ConfigRef_t configRef)
     }
     LE_INFO("successfully sync the file to path %s",renamePath);
 
-    if(SetActivatedConfigHash() != LE_OK)
+    result =  SetActivatedConfigHash();
+    if(result != LE_OK)
     {
-        LE_ERROR("Failed to store hash data for the activated config file");
+        LE_ERROR("Failed to store hash data for the activated config file, err: %d", result);
+        LockStorage();
+        return result;
     }
 
     //Clear Config Tree

@@ -98,11 +98,13 @@ void tafMngdConnAdmin::Init(void)
     //Create the event handle thread
     StateMachineEventThreadRef = le_thread_Create("MngdEvtThread", StateMachineEventThreadFunc,
                                                   (void *)semRef);
+    le_thread_SetJoinable(StateMachineEventThreadRef);
     le_thread_Start(StateMachineEventThreadRef);
     le_sem_Wait(semRef);
 
     //Create the callback handle thread
     tafMngd_event_thread = le_thread_Create("MngdCbThread",  callback_thread_func,  (void*)semRef);
+    le_thread_SetJoinable(tafMngd_event_thread);
     le_thread_Start (tafMngd_event_thread);
     le_sem_Wait(semRef);
 
@@ -159,6 +161,41 @@ void tafMngdConnAdmin::Init(void)
     {
         LE_FATAL("Failed to create connected client hashmap");
     }
+}
+
+void tafMngdConnAdmin::Deinit(void)
+{
+    auto &data = tafMngdConnData::GetInstance();
+    data.Deinit();
+
+    if (StateMachineEventThreadRef)
+    {
+        LE_DEBUG("Stopping StateMachineEventThreadRef");
+        le_thread_Cancel(StateMachineEventThreadRef);
+        le_thread_Join(StateMachineEventThreadRef, NULL);
+        StateMachineEventThreadRef = NULL;
+    }
+    if (tafMngd_event_thread)
+    {
+        LE_DEBUG("Stopping tafMngd_event_thread");
+        le_thread_Cancel(tafMngd_event_thread);
+        le_thread_Join(tafMngd_event_thread, NULL);
+        tafMngd_event_thread = NULL;
+    }
+
+    LE_DEBUG("Delete DataCtxMutex");
+    le_mutex_Delete(DataCtxMutex);
+    DataCtxMutex = NULL;
+
+    LE_DEBUG("Release objects from DataCtxList");
+    le_dls_Link_t *linkPtr = le_dls_Peek(&DataCtxList);
+    while (linkPtr)
+    {
+        void *dataCtxPtr = CONTAINER_OF(linkPtr, mcs_DataCtx_t, link);
+        linkPtr = le_dls_PeekNext(&DataCtxList, linkPtr);
+        le_mem_Release(dataCtxPtr);
+    }
+    LE_INFO("tafMngdConnAdmin::Deinit done");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -308,12 +345,36 @@ void tafMngdConnAdmin::OnClientDisconnect(le_msg_SessionRef_t sessionRef, void *
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Callback thread destructor.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::callback_thread_destructor(void *contextPtr)
+{
+    auto &data = tafMngdConnData::GetInstance();
+    data.UnregisterEvents();
+    taf_dcs_DisconnectService();
+
+    auto &radio = tafMngdConnRadio::GetInstance();
+    radio.UnregisterEvents ();
+    taf_radio_DisconnectService();
+
+    auto &sim = tafMngdConnSim::GetInstance();
+    sim.UnregisterEvents ();
+    taf_sim_DisconnectService();
+    LE_DEBUG("Disconnect done");
+}
+//--------------------------------------------------------------------------------------------------
+/**
  * Callback thread function.
  */
 //--------------------------------------------------------------------------------------------------
 void *tafMngdConnAdmin::callback_thread_func(void *contextPtr)
 {
     LE_DEBUG("MngdCbThread Entry");
+
+    // Add a destructor
+    le_thread_AddDestructor(callback_thread_destructor, NULL);
+
     le_sem_Ref_t semRef = (le_sem_Ref_t)contextPtr;
 
     auto &data = tafMngdConnData::GetInstance();
@@ -1443,6 +1504,13 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
             {
                 LE_INFO("StopData timedout. Monitor DataState Events");
             }
+            else if (result == LE_NOT_FOUND)
+            {
+                dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED;
+                LE_INFO("Data session has been removed internally.");
+                ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
+                return LE_OK;
+            }
             else
             {
                 dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED;
@@ -1876,6 +1944,23 @@ void tafMngdConnAdmin::EventDataDisconnected(uint8_t dataId)
 }
 
 /*===================================End Event process functions.=================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ * StateMachineEvtThread Destructor
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::StateMachineEvtThreadDestructorFunc(void *contextPtr)
+{
+    LE_INFO("Disconnect from services");
+    taf_radio_DisconnectService();
+    taf_dcs_DisconnectService();
+    taf_sim_DisconnectService();
+#ifndef LE_CONFIG_TARGET_SIMULATION
+    taf_net_DisconnectService();
+    taf_mngdPm_DisconnectService();
+    taf_ecall_DisconnectService();
+#endif
+}
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1884,6 +1969,9 @@ void tafMngdConnAdmin::EventDataDisconnected(uint8_t dataId)
 //--------------------------------------------------------------------------------------------------
 void *tafMngdConnAdmin::StateMachineEventThreadFunc(void *contextPtr)
 {
+    // Add a destructor
+    le_thread_AddDestructor(StateMachineEvtThreadDestructorFunc, NULL);
+
     le_sem_Ref_t semRef = (le_sem_Ref_t)contextPtr;
 
     auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
@@ -2283,6 +2371,7 @@ tafMngdConnAdmin::CreateDataCtx(
     dataCtxPtr->isConnectivityRecoveryScheduled = false;
     dataCtxPtr->wasL1ConnectivityRecoveryDone = false;
     dataCtxPtr->isDStartConnTestInProgress = false;
+    dataCtxPtr->link = LE_DLS_LINK_INIT;
 
     if(conn_test_url != NULL)
     {
@@ -3174,7 +3263,8 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
             //If manually started the data successfully. Set reconnection flag to true.
             dataCtxPtr->needReConn = true;
         }
-        else if(!ipv4add.empty() && DataConnectivityTest_IPv4(ipv4add , interfaceName))
+        else if(!ipv4add.empty() && DataConnectivityTest_IPv4(ipv4add) &&
+            DataConnectivityTest_Ping(ipv4add , interfaceName))
         {
             //connection is created.
             dataCtxPtr->adminState = MCS_DATA_CONNECTED_ACTIVE;
@@ -3200,7 +3290,7 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
     {
         // Set data start connection test in progress to true
         dataCtxPtr->isDStartConnTestInProgress = true;
-        if(DataConnectivityTest_IPv4(ipv4add , interfaceName))
+        if(DataConnectivityTest_IPv4(ipv4add) && DataConnectivityTest_Ping(ipv4add , interfaceName))
         {
             //connection is created.
             dataCtxPtr->adminState = MCS_DATA_CONNECTED_ACTIVE;
@@ -3322,9 +3412,9 @@ bool tafMngdConnAdmin::DataConnectivityTest_URL(std::string url, std::string int
         return true;
     }
 #else
-    if (DataConnectivityTest_IPv4(URL, interfaceName))
+    if (DataConnectivityTest_Ping(URL, interfaceName))
     {
-        LE_INFO("DataConnectivityTest_URL IPv4 passed ");
+        LE_INFO("DataConnectivityTest_URL URL passed ");
         return true;
     }
 #endif
@@ -3335,15 +3425,32 @@ bool tafMngdConnAdmin::DataConnectivityTest_URL(std::string url, std::string int
     return false;
 }
 
-bool tafMngdConnAdmin::DataConnectivityTest_IPv4(std::string ipv4, std::string interfaceName)
+bool tafMngdConnAdmin::DataConnectivityTest_IPv4(std::string ipv4)
+{
+    // Validate IPv4 format before attempting ping
+    std::regex ipv4Pattern(
+        "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}"
+        "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+    );
+
+    if (!std::regex_match(ipv4, ipv4Pattern))
+    {
+        LE_ERROR("Invalid IPv4 address format: %s", ipv4.c_str());
+        return false;
+    }
+
+    return true;
+}
+
+bool tafMngdConnAdmin::DataConnectivityTest_Ping(std::string addr, std::string interfaceName)
 {
     //Enable LE_CONFIG_DEBUG to get the output of ping in logs
-    LE_INFO("DataConnectivityTest_IPv4 entered for interface %s",interfaceName.c_str());
+    LE_INFO("DataConnectivityTest_Ping entered for interface %s",interfaceName.c_str());
 #if LE_CONFIG_DEBUG
-        std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+ ipv4;
+        std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+ addr;
         //5 is the number of ping pockets
 #else
-        std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+  ipv4
+        std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+  addr
                                   + " 1> /dev/null 2> /dev/null";
 #endif
     LE_DEBUG("%s", pingCommand.c_str());
@@ -3352,12 +3459,12 @@ bool tafMngdConnAdmin::DataConnectivityTest_IPv4(std::string ipv4, std::string i
     if (result == 0)
     {
         // connection is created.
-        LE_INFO("DataConnectivityTest_IPv4 passed for interface %s", interfaceName.c_str());
+        LE_INFO("DataConnectivityTest_Ping passed for interface %s", interfaceName.c_str());
         return true;
     }
     else
     {
-        LE_INFO("DataConnectivityTest_IPv4 failed for interface %s",interfaceName.c_str());
+        LE_INFO("DataConnectivityTest_Ping failed for interface %s",interfaceName.c_str());
         return false;
     }
     return false;

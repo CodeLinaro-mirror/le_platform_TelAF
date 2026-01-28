@@ -45,7 +45,6 @@ le_result_t SQLite3DbUtil::Open
 {
     if (mDbPtr != nullptr)
     {
-        LE_WARN("DB is open for %s, can not open for %s", mDbName.c_str(), dbNamePtr);
         return LE_IO_ERROR;
     }
 
@@ -92,6 +91,11 @@ le_result_t SQLite3DbUtil::Close
         LE_ERROR("Close DB(%s) error: %s, ret=%d", mDbName.c_str(), sqlite3_errmsg(mDbPtr), ret);
         return LE_IO_ERROR;
     }
+    else
+    {
+        LE_INFO("Close DB successful");
+    }
+
     mDbPtr = nullptr;
 
     return LE_OK;

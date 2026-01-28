@@ -39,7 +39,7 @@ namespace uds{
     #define MAX_INTERFACE_NAME_LEN 30
     #define TESTER_STATE_CHANGE_DATA_SIZE 3
     #define MAX_TIMER_NAME_LEN 50
-    #define UDS_INDICATION_DATA_LEN_MAX 255
+    #define UDS_INDICATION_DATA_LEN_MAX 16
     #define TESTER_STATE_CHANGE_TIMER 5000 // Tester state timer
     #define CANCEL_FILE_TRANSFER_IND_LEN 2
     #define MAX_FILE_TRANSFER_STATE_MTX_NAME_LEN 30
@@ -323,18 +323,14 @@ namespace uds{
     // UDS notification message ID
     typedef enum
     {
+        UDS_SERVICE_MSG_INDICATION_ID = 0x0, //Supported service indication, used in internal event.
+        SET_STATE_AND_CANCEL_FILE_TRANSFER_RESULT = 0xFA, // Used in internal event.
         UPDATE_SERVICE_NRC_STATUS = 0xFB,
         CANCEL_FILE_TRANSFER_RESULT = 0xFC,
         TESTER_STATE_MSG_ID = 0xFD,
         AUTHENTICATION_EXPIRATION_MSG_ID = 0xFE,
         SESSION_CHANGE_MSG_ID = 0xFF
-    }taf_UDSIndicationMsg_t;
-
-    typedef enum
-    {
-        TAF_CANCEL_FILEXFER_START,
-        TAF_CANCEL_FILEXFER_END,
-    } taf_UDSCancelFileXferEvent_t;
+    }taf_UDSIndMsg_type_t;
 
     typedef struct
     {
@@ -351,19 +347,23 @@ namespace uds{
         void*                                safeRef;
     }taf_UDSIndicationHandler_t;
 
-    // Internal cancelFileXfer event.
+    class UdsCommunicationMgr;
+
+    // Internal indication message event.
     typedef struct
     {
-        taf_UDSCancelFileXferEvent_t event;
-        char ifName[MAX_INTERFACE_NAME_LEN];
-    } cancelFileXferEvent_t;
+        UdsCommunicationMgr*                 udsCmMgr;
+        taf_UDSIndMsg_type_t                 indMsgType;
+        uint8_t                              dataIndBuf[UDS_INDICATION_DATA_LEN_MAX];
+        uint16_t                             dataLen;
+    } taf_UDSIndMsg_t;
 
     // Vlan Id list for CancelFileXfer.
     typedef struct
     {
-        uint16_t vlanId;
-        char ifName[MAX_INTERFACE_NAME_LEN];
-        le_dls_Link_t  link;
+        uint16_t                             vlanId;
+        char                                 ifName[MAX_INTERFACE_NAME_LEN];
+        le_dls_Link_t                        link;
     }taf_CancelFileXferReq_t;
 
     // ENUM for session type.
@@ -398,6 +398,7 @@ namespace uds{
             static void InitInstances(le_dls_List_t* interfaceList);
             static void InitAuthData(le_dls_List_t* interfaceList);
             static le_result_t UdsStart(const char* configPathPtr);
+            static le_result_t UdsStop();
 
             static void GetFileXferActiveStateList(le_dls_List_t* fileXferStateListPtr);
             static void GetVlanIdList(le_dls_List_t* vlanIDListPtr);
@@ -416,14 +417,15 @@ namespace uds{
             le_result_t SetNRC(uint8_t sid, uint8_t errorCode);
             le_result_t SendNRC(uint8_t sid, uint8_t errorCode, taf_doip_AddrInfo_t*  addrInfoPtr);
             void SendData(taf_doip_AddrInfo_t*  addrInfoPtr);
-            le_result_t CheckAndSendInd(uint8_t sid, taf_doip_AddrInfo_t* addrInfoPtr,
-                    taf_doip_DiagMsg_t* diagMsgPtr);
+            le_result_t CheckAndSendInd(uint8_t sid, taf_doip_AddrInfo_t* addrInfoPtr);
 
             static void P2StarTimeoutHandler(le_timer_Ref_t timerRef);
             static void S3TimeoutHandler(le_timer_Ref_t timerRef);
             static void AuthTimeoutHandler(le_timer_Ref_t timerRef);
             static void AuthDelayTimeoutHandler(le_timer_Ref_t timerRef);
+        #ifdef LE_CONFIG_DIAG_FEATURE_A
             static void TesterStateTimeoutHandler(le_timer_Ref_t timerRef);
+        #endif
             static le_ref_MapRef_t udsHandlerRefMap;
             static taf_UDSIndicationHandler_t udsIndicationHandler;
 
@@ -448,17 +450,19 @@ namespace uds{
             le_timer_Ref_t s3TimerRef;
             le_timer_Ref_t authTimerRef;
             le_timer_Ref_t authDelayTimerRef;
+        #ifdef LE_CONFIG_DIAG_FEATURE_A
             le_timer_Ref_t testerStateTimerRef;
-            taf_SessionType_t SessionType = DEFAULT_SESSION;
             taf_TesterState_t PreviousState = OFF;
+        #endif
+            taf_SessionType_t SessionType = DEFAULT_SESSION;
+
             uint64_t currentRoleVal = 0;
             taf_UDSAuthState_t authState = AUTH_STATE_UNKNOWN;
             // update status parameter.
-            bool isXferActive = false;
+            std::atomic<bool> isXferActive = {false};
 
             static le_event_Id_t cancelFileXferEvId;
             static le_dls_List_t cancelFileXferReqList;
-            static le_mutex_Ref_t cancelFileXferListMutex;
         private:
             // Indicate recevied service message to Diag service if necessary.
             le_result_t IndicateSessionCtrlReq(taf_doip_AddrInfo_t* addrInfoPtr,
@@ -494,6 +498,10 @@ namespace uds{
 
         #ifdef LE_CONFIG_DIAG_FEATURE_A
             void IndicateNrcStatus(const char* ifName, uint8_t sid, uint8_t nrc);
+            // Tester present state change notification.
+            static void IndicateTesterStateChange(const char* ifName,
+                        taf_TesterState_t currentState);
+            void CheckAndRestartTesterStateTimer();
         #endif
 
             // Internally check and Respond UDS message to uds client (through DoIP stack).
@@ -519,7 +527,6 @@ namespace uds{
             le_result_t ReqFileXferResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
 
-            static void IndicateWhenChangingToDefault(const char* ifName);
             le_result_t ReadDTCInfoResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
             le_result_t ClearDiagInfoResp(uint8_t serviceId, uint8_t err);
@@ -532,7 +539,6 @@ namespace uds{
             void UdsTimerEventReport(taf_UDSTimer_EventType_t timerEvent, uint32_t interval,
                         const char* ifName);
             void CheckAndRestartS3Timer(uint8_t serviceId);
-            void CheckAndRestartTesterStateTimer();
             bool IsSessTypeMatched(cfg::Node& node);
             bool IsSecurityAccessMatched(cfg::Node& node);
             bool IsAuthRoleMatched(taf_UDSReqSvcID_t serviceType, cfg::Node& node);
@@ -560,31 +566,26 @@ namespace uds{
             bool IsSubFuncAuthCheckOK(uint8_t sid, uint8_t subFunc);
             bool PrecheckForSwitchingSession(uint8_t originalSession, uint8_t targetedSession);
 
-            //Internal cancelFileXfer event handler
-            static void cancelFileXferHandler(void* reqPtr);
+            //CancelFileXfer
             void CheckAndSendCancelFileXferEvent();
             static le_result_t addCancelFileXferReqInList(uint16_t vlanId, const char* ifName);
             static bool IsCancelFileXferReqInList(uint16_t vlanId);
+            // Store authentication data.
             void StoreAttCntToTree();
             void StoreDelayTimeToTree();
 
+            //Send indication to diag service in UDS indication thread.
+            static void IndMsgHandler(void* reqPtr);
+
             //session change parameter.
             taf_doip_AddrInfo_t addrInfo;
-            uint8_t sesChangeBuf[UDS_SESSION_CHANGE_DATA_SIZE];
-            uint8_t dataIndBuf[UDS_INDICATION_DATA_LEN_MAX];
-            uint8_t cancelFileXferBuf[CANCEL_FILE_TRANSFER_IND_LEN];
+
             taf_UDSReqAuthSubFunc_t authPreSucReq = AUTH_SUBFUNC_UNKNOWN;
             uint8_t authAttCnt = 0;
             uint16_t authDelayTime = 60; // 1 minute
 
             //Semphore counter
             uint32_t mainSemCnt = 0;
-
-            // Tester present state change notification.
-            static void IndicateTesterStateChange(const char* ifName,
-                    taf_TesterState_t currentState);
-            uint8_t testerStateChangeBuf[TESTER_STATE_CHANGE_DATA_SIZE];
-            taf_doip_DiagMsg_t stateChangeMsg;
 
             static taf_doip_Ref_t  DoipEntityRef;
             static taf_doip_DiagIndicationHandlerRef_t IndicationRef;
@@ -597,10 +598,8 @@ namespace uds{
 
             static std::map<std::string, UdsCommunicationMgr*> instances;
             static std::mutex mutex_instance;
-            le_mutex_Ref_t fileXferStateMutex;
-            taf_doip_DiagMsg_t sesChangeMsg;
-            taf_doip_DiagMsg_t dataIndMsg;
-            taf_doip_DiagMsg_t cancelFileXferMsg;
+
+            static le_event_Id_t udsIndMsgEventId;
     };
 }
 }

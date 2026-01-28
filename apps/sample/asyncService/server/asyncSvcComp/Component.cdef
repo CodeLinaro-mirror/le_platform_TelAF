@@ -1,0 +1,13 @@
+sources:
+{
+    asyncSvc.c
+}
+
+provides:
+{
+    api:
+    {
+        asyncSvcDemo = mySvcDemo.api [async]
+    }
+}
+

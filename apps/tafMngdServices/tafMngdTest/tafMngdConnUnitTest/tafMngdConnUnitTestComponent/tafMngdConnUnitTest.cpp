@@ -181,14 +181,14 @@ static void* UnitTestThread(void* contextPtr)
         result = futResult1.get();
         LE_TEST_OK(result == LE_OK, "StartDataRetry_Complete");
         LE_TEST_INFO("StartDataRetry_Complete Result: %d", result);
+
+        result=taf_mngdConn_StopData(dataRef);
+        LE_TEST_OK(result == LE_OK || result == LE_TIMEOUT, "Data_Stop");
+        LE_TEST_INFO("Data_Stop Result: %d", result);
     } else if (status1 == std::future_status::timeout) {
         // Timeout occurred
         LE_TEST_INFO("Timeout occurred in StartDataRetry Result: %d", result);
     }
-
-    result=taf_mngdConn_StopData(dataRef);
-    LE_TEST_OK(result == LE_OK || result == LE_TIMEOUT, "Data_Stop");
-    LE_TEST_INFO("Data_Stop Result: %d", result);
 
     taf_mngdConn_RemoveDataStateHandler(StartDataHandlerRef);
 

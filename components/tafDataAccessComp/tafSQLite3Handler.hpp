@@ -66,27 +66,26 @@ namespace dataAccess{
             {
                 if (mpInsertStatement != nullptr)
                 {
-                    (void) std::move(mpInsertStatement);
+                    mpInsertStatement.reset();
                 }
 
                 if (mpInsOrRepStatement != nullptr)
                 {
-                    (void) std::move(mpInsOrRepStatement);
+                    mpInsOrRepStatement.reset();
                 }
 
                 if (mpUpdateStatement != nullptr)
                 {
-                    (void) std::move(mpUpdateStatement);
+                    mpUpdateStatement.reset();
                 }
 
                 if (mpDeleteStatement != nullptr)
                 {
-                    (void) std::move(mpDeleteStatement);
+                    mpDeleteStatement.reset();
                 }
 
-                // This function is only called when the component exit.
-                // Wait 3s to ensure the db statement is finalized.
-                le_thread_Sleep(3);
+                // Ensure all statements are properly finalized before closing
+                // No sleep needed as reset() should handle proper cleanup
 
                 if (mDb.IsOpen())
                 {
@@ -217,7 +216,6 @@ namespace dataAccess{
 
                 if (!statement.ExecuteRowStep())
                 {
-                    LE_WARN("Can not find a result, The key is not exist.");
                     return LE_NOT_FOUND;
                 }
 

@@ -81,6 +81,7 @@ namespace doip{
             taf_doip_Result_t Start();
 
              // Stop all running timers. Stop to receive message from socket.
+            taf_doip_Result_t Shutdown();
             taf_doip_Result_t Stop();
 
             void SetLogicalSourceAddr(uint16_t sa);

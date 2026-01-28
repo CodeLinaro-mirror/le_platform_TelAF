@@ -22,7 +22,7 @@ DECLARE_SAFE_CALL();
 /**
  * To convert TafState to string
  */
-const char* tafMngdPMSvc::TafStateToString(taf_mngdPm_State_t tafState)
+const char* tafMngdPMSvc::TafStateToString(uint8_t tafState)
 {
     const char *state;
     switch(tafState)
@@ -582,19 +582,6 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
             ++it;
         }
     }
-    //clear Wake Source filter
-    for(auto it = mpms.wsWhiteList.begin(); it != mpms.wsWhiteList.end(); )
-    {
-        if(it->sessionRef == sessionRef)
-        {
-            LE_INFO("Client with sessionRef %p", it->sessionRef);
-            it = mpms.wsWhiteList.erase(it);
-        }
-        else
-        {
-            ++it;
-        }
-    }
 
     //Clear system WsReflist
     le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.wsRefList));
@@ -704,7 +691,7 @@ bool tafMngdPMSvc::IsClientValid()
  */
 void tafMngdPMSvc::StateChangeHandler(taf_pm_State_t state, void* contextPtr)
 {
-    LE_INFO("State change triggered for %s\n", TafStateToString((taf_mngdPm_State_t)state));
+    LE_INFO("State change triggered for %s\n", TafStateToString((uint8_t)state));
 
     // Update the VMs data on receiving state change caused by any other sources like SMS, CAN
     le_hashmap_It_Ref_t hashIter = (le_hashmap_It_Ref_t)le_hashmap_GetIterator(vmStateHashmap);
@@ -712,7 +699,7 @@ void tafMngdPMSvc::StateChangeHandler(taf_pm_State_t state, void* contextPtr)
     {
         taf_mngdPm_vmState_t *vmStatePtr = (taf_mngdPm_vmState_t*)le_hashmap_GetValue(hashIter);
         if(vmStatePtr) {
-            vmStatePtr->state = (taf_mngdPm_State_t)state;
+            vmStatePtr->state = (uint8_t)state;
         }
     }
 }
@@ -825,26 +812,46 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
         else if(powerMode.isShutDown)
         {
             powerMode.isShutDown = false;
-            LE_DEBUG("Send shutdownReqAsync %d", HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF);
-            (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF, tafMngdPMSvc::NodeStateChangeReqRespCB);
+            if(stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN){
+                LE_DEBUG("Send shutdownReqAsync %d", HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF);
+                (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF, tafMngdPMSvc::NodeStateChangeReqRespCB);
+            } else{
+                LE_DEBUG("Invalid state: %s for system restart, skipping vhal notification",
+                    TafStateToString(stateMachine.currentState));
+            }
         }
         else if(powerMode.isRestart)
         {
             powerMode.isRestart = false;
-            LE_DEBUG("Send RestartReqAsync %d", HAL_PM_RESTART_MODE_NAD_REBOOT);
-            (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_NAD_REBOOT, tafMngdPMSvc::NodeStateChangeReqRespCB);
+            if(stateMachine.currentState == TAF_MNGDPM_STATE_RESTART){
+                LE_DEBUG("Send RestartReqAsync %d", HAL_PM_RESTART_MODE_NAD_REBOOT);
+                (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_NAD_REBOOT, tafMngdPMSvc::NodeStateChangeReqRespCB);
+            } else{
+                LE_DEBUG("Invalid state: %s for system reboot, skipping vhal notification",
+                    TafStateToString(stateMachine.currentState));
+            }
         }
         else if(powerMode.isSuspend)
         {
             powerMode.isSuspend = false;
-            LE_DEBUG("Send SuspendReqAsync %d", HAL_PM_SUSPEND_MODE_FULL);
-            (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SUSPEND, HAL_PM_SUSPEND_MODE_FULL, tafMngdPMSvc::NodeStateChangeReqRespCB);
+            if(stateMachine.currentState == TAF_MNGDPM_STATE_SUSPEND){
+                LE_DEBUG("Send SuspendReqAsync %d", HAL_PM_SUSPEND_MODE_FULL);
+                (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SUSPEND, HAL_PM_SUSPEND_MODE_FULL, tafMngdPMSvc::NodeStateChangeReqRespCB);
+            } else{
+                LE_DEBUG("Invalid state: %s for system suspend, skipping vhal notification",
+                    TafStateToString(stateMachine.currentState));
+            }
         }
         else if(powerMode.isForceful)
         {
-            LE_INFO("nodeStateChangeReqAsync triggered to VHAL on forceful shutdown");
             powerMode.isForceful = false;
-            (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN, HAL_PM_SHUTDOWN_MODE_NORMAL, tafMngdPMSvc::NodeStateChangeReqRespCB);
+            if(stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN){
+                LE_DEBUG("nodeStateChangeReqAsync triggered to VHAL on forceful shutdown");
+                (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN, HAL_PM_SHUTDOWN_MODE_NORMAL, tafMngdPMSvc::NodeStateChangeReqRespCB);
+            } else{
+            LE_DEBUG("Invalid state: %s for forceful shutdown, skipping vhal notification",
+                TafStateToString(stateMachine.currentState));
+            }
         }
         // Process the cached awake requests
         ProcessCachedAwakeReqs();
@@ -882,14 +889,14 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
         ProcessStateChange(TAF_MNGDPM_STATE_RESTART);
         if(powerMode.isRestart)
         {
-             powerStateChange.state = TAF_MNGDPM_NODE_STATE_RESTART_PREPARE;
-             le_event_Report(nodePowerStateChange, &powerStateChange, sizeof(taf_mngdPm_NodePowerStateChange_t));
-             if(pmInf && pmInf->nodeStateChangeNotification)
-             {
-                 LE_DEBUG("Send state change notification %d", HAL_PM_NODE_STATE_RESTART);
-                 (*(pmInf->nodeStateChangeNotification))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_RESTART,
-                         NULL);
-             }
+            powerStateChange.state = TAF_MNGDPM_NODE_STATE_RESTART_PREPARE;
+            le_event_Report(nodePowerStateChange, &powerStateChange, sizeof(taf_mngdPm_NodePowerStateChange_t));
+            if(pmInf && pmInf->nodeStateChangeNotification)
+            {
+                LE_DEBUG("Send state change notification %d", HAL_PM_NODE_STATE_RESTART);
+                (*(pmInf->nodeStateChangeNotification))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_RESTART,
+                        NULL);
+            }
         }
     }
     else if(state == TAF_PM_STATE_RESUME)
@@ -1400,32 +1407,9 @@ le_result_t tafMngdPMSvc::ReleaseWakeLock()
 }
 
 /**
- * Set modem wake up source
- */
-void tafMngdPMSvc::SetModemWakeupSource(taf_mngdPm_WakeupType_t wakeupType)
-{
-    LE_INFO("SetModemWakeupSource");
-    //check if same wakeupSource exists
-    auto &mpms = tafMngdPMSvc::GetInstance();
-    if(wsWhiteList.size() > 0)
-    {
-        for(auto &client : mpms.wsWhiteList)
-        {
-            if((client.wakeupType == wakeupType) && (client.sessionRef == taf_mngdPm_GetClientSessionRef()))
-            {
-                LE_INFO("wakeupType already in wsWhiteList");
-                return;
-            }
-        }
-    }
-    LE_INFO("SetModemWakeupSource type %d for session Reference: %p", wakeupType,taf_mngdPm_GetClientSessionRef());
-    mpms.wsWhiteList.push_back({wakeupType, taf_mngdPm_GetClientSessionRef()});
-}
-
-/**
  * Request MPMS state change condition check
  */
-le_result_t tafMngdPMSvc::RequestStateChange(taf_mngdPm_State_t requestedState)
+le_result_t tafMngdPMSvc::RequestStateChange(uint8_t requestedState)
 {
     LE_INFO("current state %s", TafStateToString(stateMachine.currentState));
     LE_INFO("requested state %s", TafStateToString(requestedState));
@@ -1491,7 +1475,7 @@ le_result_t tafMngdPMSvc::RequestStateChange(taf_mngdPm_State_t requestedState)
 /**
  * Process MPMS state change
  */
-void tafMngdPMSvc::ProcessStateChange(taf_mngdPm_State_t toState)
+void tafMngdPMSvc::ProcessStateChange(uint8_t toState)
 {
     LE_INFO("current state %s", TafStateToString(stateMachine.currentState));
 
@@ -1514,29 +1498,9 @@ void tafMngdPMSvc::ProcessStateChange(taf_mngdPm_State_t toState)
     {
         stateMachine.prevState = stateMachine.currentState;
         stateMachine.currentState = toState;
-
-        taf_mngdPm_StateInd_t stateInd;
-        stateInd.state = toState;
-
-        le_event_Report(stateChange, &stateInd, sizeof(taf_mngdPm_StateInd_t));
     }
 
     LE_INFO("change to state %s", TafStateToString(toState));
-}
-
-/**
- * State change layered handler function
- */
-void tafMngdPMSvc::StateLayeredHandler(void* reportPtr, void* layerHandlerFunc)
-{
-    TAF_ERROR_IF_RET_NIL(reportPtr == nullptr, "Null ptr(reportPtr)");
-
-    TAF_ERROR_IF_RET_NIL(layerHandlerFunc == nullptr, "Null ptr(layerHandlerFunc)");
-
-    taf_mngdPm_StateChangeHandlerFunc_t handlerFunc =
-        (taf_mngdPm_StateChangeHandlerFunc_t)layerHandlerFunc;
-
-    handlerFunc((taf_mngdPm_StateInd_t*)reportPtr, le_event_GetContextPtr());
 }
 
 void tafMngdPMSvc::DeleteNodePowerStateRefs()
@@ -1548,7 +1512,7 @@ void tafMngdPMSvc::DeleteNodePowerStateRefs()
     }
 }
 
-bool tafMngdPMSvc::IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, taf_mngdPm_State_t tafState)
+bool tafMngdPMSvc::IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, uint8_t tafState)
 {
     LE_INFO("IsSameAsCurrentState");
     if((nodeState == TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE) && (tafState == TAF_MNGDPM_STATE_SHUTDOWN))
@@ -1948,7 +1912,6 @@ taf_pm_WakeupSourceRef_t tafMngdPMSvc::ws = nullptr;
 taf_mngdPm_TargetedPowerMode_t tafMngdPMSvc::targetedPowerMode = TAF_MNGDPM_RESUME;
 taf_mngdPm_RestartCb_t tafMngdPMSvc::restartCB;
 taf_mngdPm_ShutdownCb_t tafMngdPMSvc::shutdownCB;
-std::vector<taf_mngdPm_WakeupSourceCtxt_t> tafMngdPMSvc::wsWhiteList;
 
 uint8_t tafMngdPMSvc::wsCount = 0;
 taf_powerMode_t tafMngdPMSvc::powerMode{};
@@ -1962,7 +1925,6 @@ taf_mngdPm_RequestedWakeupVehicle_t tafMngdPMSvc::wakeupModePtr;
 taf_mngdPm_RequestedState_t tafMngdPMSvc::statePtr;
 taf_mngdPm_Client_t tafMngdPMSvc::mngdPmClientInfo;
 
-le_event_Id_t tafMngdPMSvc::stateChange;
 taf_mngdPm_WakeupVehicleCb_t tafMngdPMSvc::wakeupVehicleCB;
 
 le_mem_PoolRef_t tafMngdPMSvc::infoReportHandlerPool;

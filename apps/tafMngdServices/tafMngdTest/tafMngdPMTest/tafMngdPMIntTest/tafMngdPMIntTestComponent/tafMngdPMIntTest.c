@@ -127,16 +127,20 @@ static void PrintUsage ()
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestRefreshAuthorizedWsCases\n"
         "------------To Test stayawake request during shutdown-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ForcedSystemShutdownAndResume\n"
-        "------------To Test delete wakeup source if not acquired-----------\n"
         "------------To test waking up vehicle when releasing WS-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- WakeupVehicleWhenReleasingWsTest\n"
+        "------------To test vehicle wakeup when system is waking up-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- WakeupVehicleWhenWakingUpTest\n"
+        "------------To Test delete wakeup source if not acquired-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- DeleteWsIfNotAcquired\n"
         "------------To Test rejecting deletion of wakeup source if acquired-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShouldNotDeleteWsIfAcquired\n"
         "------------To Test rejecting deletion of wakeup source if ignored-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShouldNotDeleteWsIfIgnored\n"
         "------------To Test PMVHAL notification on client disconnection-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- NotifyVhalOnClientDisconnectionForReleaseWS\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- NotifyVhalOnClientDisconnectionForReleaseWS\n"
+        "------------To Test PMVHAL stayawake after while suspending through MPMS-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestPmvhalStayAwakeAfterMpmsSuspendTrigger\n");
 }
 
 void NodePowerStateChangeHandlerCB(
@@ -232,32 +236,6 @@ void RestartCallback(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rs
     {
         LE_INFO("----RestartSystem failed----");
         exit(EXIT_FAILURE);
-    }
-}
-
-static int SetModemWakeupSource(const char* wakeupSource)
-{
-
-    // Convert string to uint32_t
-    uint32_t uintResult = (uint32_t)strtoul(wakeupSource, NULL, 10);
-    // Check for conversion errors
-    if (uintResult > UINT32_MAX) {
-        fprintf(stderr, "Value out of range.\n");
-        exit(EXIT_FAILURE);
-    }
-    // Print the result
-    LE_INFO("String: %s\nConverted to uint32_t: %u\n", wakeupSource, uintResult);
-
-    le_result_t res = LE_FAULT;
-    res = taf_mngdPm_SetModemWakeupSource(uintResult);
-    if(res == LE_OK) {
-       LE_INFO("taf_mngdPm_SetModemWakeupSource is success");
-        return 1;
-    }
-    else
-    {
-        LE_ERROR("SetModemWakeupSource request failed");
-        return 0;
     }
 }
 
@@ -1410,29 +1388,14 @@ static void* TestNodeWakeSource(void* ctxPtr)
 
     while(input != -1)
     {
-        printf("Choose the TestNodeWakeSource Test Case\n -1.Exit\n 1.SetModemWakeupSource\n "
-                "2.NewNodeWakeupSource\n 3.ResumeSystem\n 4.SuspendSystem\n ");
+        printf("Choose the TestNodeWakeSource Test Case\n -1.Exit\n 1.NewNodeWakeupSource\n "
+                "2.ResumeSystem\n 3.SuspendSystem\n ");
         if(fgets(buffer, sizeof(buffer), stdin))
             LE_INFO("Value read successfully");
         buffer[strcspn(buffer, "\n")] = '\0';
         input = atoi(buffer);
         LE_INFO("input: %d", input);
         if(input == 1)
-        {
-            printf("Enter WakeupType for SetModemWakeupSource\n -1.Exit\n 1.SMS \n 2.VOICE_CALL \n 3.SMS,VOICE_CALL \n "
-                    "4.MCU_VHAL \n 5.SMS,MCU_VHAL \n 6.VOICE_CALL,MCU_VHAL \n 7.SMS,VOICE_CALL,MCU_VHAL \n");
-            char wakeuptype[100];
-            if(fgets(wakeuptype, sizeof(wakeuptype), stdin))
-                LE_INFO("Value read successfully");
-            wakeuptype[strcspn(wakeuptype, "\n")] = '\0';
-            int entry = atoi(wakeuptype);
-            if(entry == -1)
-                continue;
-            int res = SetModemWakeupSource(wakeuptype);
-            if(res == LE_OK)
-                printf("'SetModemWakeupSource for wakeuptype %s is set'\n", wakeuptype);
-        }
-        if(input == 2)
         {
             char NodeId[100];
             printf("Enter NODE_ID\n -1.Exit\n 0.PVM\n 1.RPC\n");
@@ -1462,7 +1425,7 @@ static void* TestNodeWakeSource(void* ctxPtr)
             printf("NewNodeWakeupSource wakeuptype is %d for NODE_ID %d\n", wakeuptype, NODE_ID);
            }
         }
-        if(input == 3)
+        if(input == 2)
         {
             char StayAwakeNode[100];
             printf("Enter NODE_ID\n -1.Exit\n 0.PVM\n 1.RPC\n");
@@ -1495,7 +1458,7 @@ static void* TestNodeWakeSource(void* ctxPtr)
                     printf("'wsRef is null for Rpc, Call NewNodeWakeupSource'\n");
             }
         }
-        if(input == 4)
+        if(input == 3)
         {
             char RelaxNode[100];
             printf("Enter NODE_ID\n -1.Exit\n 0.PVM\n 1.RPC\n");
@@ -1674,9 +1637,8 @@ static void* connect_service(void* ctxPtr)
 void* ThreadFunction(void* threadID) {
 
     taf_mngdPm_ConnectService();
-    le_result_t res = taf_mngdPm_SetModemWakeupSource(1);
-    if(res == LE_OK)
-        printf("SetModemWakeupSource for wakeuptype SMS is set\n");
+    le_result_t res;
+
     wsRef = taf_mngdPm_NewNodeWakeupSource(0, 1, wsTag);
     if(wsRef)
         printf("NewNodeWakeupSource ref is created for\n");
@@ -2516,6 +2478,37 @@ void WakeupVehicleWhenReleasingWsTest()
     }
 }
 
+void WakeupVehicleWhenWakingUpTest()
+{
+    LE_INFO("----WakeupVehicleWhenWakingUpTest----");
+    // CreateWS test 0
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL;
+    taf_mngdPm_wsRef_t wsRefAuthorized = NULL;
+    // Authorized the reason for bit0
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+    if(res == LE_OK) {
+        printf("'AuthorizeStayAwakeReason for bitmask %d is set'\n", TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+        wsRefAuthorized = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized) {
+            printf("Created wakeupsource ref for reason %d\n", reason);
+        }
+
+        if(wsRefAuthorized != NULL) {
+            res = taf_mngdPm_StayAwake(wsRefAuthorized);
+            if(res == LE_OK) {
+                printf("'Resumed system with wsRefAuthorized'\n");
+                int status = WakeupVehicle();
+                LE_INFO("'WakeupVehicle status:%d'",status);
+                exit(status);
+            }
+        }
+    }
+    else{
+        printf("Failed to create wakeupsource ref for authorized reason %d\n", reason);
+        exit(EXIT_FAILURE);
+    }
+}
+
 void ShouldNotDeleteWsIfIgnored()
 {
     LE_INFO("ShouldNotDeleteWsIfIgnored");
@@ -2569,6 +2562,59 @@ void ShouldNotDeleteWsIfIgnored()
 
 }
 
+void NodePowerStateChangeHandler(
+    uint8_t pmNodeId,
+    taf_mngdPm_nodePowerStateRef_t nodePowerStateRef,
+    taf_mngdPm_NodePowerState_t state,
+    void *contextPtr)
+{
+    if (state == TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE)
+    {
+        printf("Received SUSPEND state (%d). "
+               "Intentionally NOT sending ACK to test timeout.\\n",
+               state);
+        // IMPORTANT: do NOT call taf_mngdPm_SendNodePowerStateChangeAck here
+        // for this test, so that the MPMS timer expires.
+    }
+}
+
+void TestPmvhalStayAwakeAfterMpmsSuspendTrigger()
+{
+    LE_INFO("TestPmvhalStayAwakeAfterMpmsSuspendTrigger");
+    int reason = TAF_MNGDPM_STAY_AWAKE_REASON_VEH_NETWORK;
+    le_result_t res = LE_FAULT;
+    taf_mngdPm_NodePowerStateChangeHandlerRef_t ref =
+        taf_mngdPm_AddNodePowerStateChangeHandler(NodePowerStateChangeHandler,
+        NULL, 0, TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE);
+    if(ref)
+    {
+        LE_INFO("AddNodePowerStateChangeHandler is success for TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE");
+    }
+
+    // Authorized the reason for bit0
+    res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VEH_NETWORK);
+    if(res == LE_OK) {
+        taf_mngdPm_wsRef_t wsRefAuthorized = taf_mngdPm_CreateWakeupSource(reason, TAF_MNGDPM_WS_OPT_DEFAULT, wsTag);
+        if(wsRefAuthorized) {
+            printf("Created wakeupsource ref for wsRefUnauthorized reason %d\n", reason);
+            if(wsRefAuthorized != NULL) {
+                res = taf_mngdPm_StayAwake(wsRefAuthorized);
+                if(res == LE_OK) {
+                    printf("'Resumed system with wsRefAuthorized'\n");
+                    res = taf_mngdPm_Relax(wsRefAuthorized);
+                    if(res == LE_OK) {
+                        printf("'Suspended system with wsRefAuthorized'\n");
+                    }
+                }
+            }
+        }
+        else{
+            printf("Failed to create wakeupsource ref for authorized reason %d\n", reason);
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
 void NotifyVhalOnClientDisconnectionForReleaseWS()
 {
     LE_INFO("--NotifyVhalOnClientDisconnectionForReleaseWS--");
@@ -2617,6 +2663,43 @@ void NotifyVhalOnClientDisconnectionForReleaseWS()
     }
 }
 
+static void TestGetCurrentPowerStateFromPrimaryNad()
+{
+    taf_mngdPm_NodePowerState_t pwrState = TAF_MNGDPM_NODE_STATE_RESUME;
+
+    le_result_t result =
+        taf_mngdPm_GetNodePowerState(
+            0, &pwrState);
+
+    if (result != LE_OK)
+    {
+        printf("/get.current.state -> error: %s\n",
+               LE_RESULT_TXT(result));
+        exit(EXIT_FAILURE);
+    }
+
+    switch (pwrState)
+    {
+        case TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE:
+        printf("/get.current.state -> SHUTDOWN\n");
+        break;
+
+        case TAF_MNGDPM_NODE_STATE_RESTART_PREPARE:
+        printf("/get.current.state -> RESTART\n");
+        break;
+
+        case TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE:
+        printf("/get.current.state -> SUSPEND\n");
+        break;
+
+        case TAF_MNGDPM_NODE_STATE_RESUME:
+        printf("/get.current.state -> RESUME\n");
+        break;
+    }
+
+    exit(EXIT_SUCCESS);
+}
+
 COMPONENT_INIT
 {
     const char* testType = "";
@@ -2659,7 +2742,6 @@ COMPONENT_INIT
         }
         else if(strcmp(testType, "KeepAwakeThenRestartSystem") == 0)
         {
-            status = SetModemWakeupSource("1"); // whitelist SMS wakeup type
             status = KeepAwakeThenRestartSystem();
             exit(status);
         }
@@ -2698,17 +2780,6 @@ COMPONENT_INIT
         {
             if(testPar)
                 GracefulSysSuspend(atoi(testPar));
-            else {
-                printf("Enter NODE_ID");
-                exit(EXIT_FAILURE);
-            }
-        }
-        else if(strcmp(testType, "SetModemWakeupSource") == 0)
-        {
-            if(testPar) {
-                status = SetModemWakeupSource(testPar);
-                exit(status);
-            }
             else {
                 printf("Enter NODE_ID");
                 exit(EXIT_FAILURE);
@@ -2832,6 +2903,10 @@ COMPONENT_INIT
         {
             WakeupVehicleWhenReleasingWsTest();
         }
+        else if(strcmp(testType, "WakeupVehicleWhenWakingUpTest") == 0)
+        {
+            WakeupVehicleWhenWakingUpTest();
+        }
         else if(strcmp(testType, "ShouldNotDeleteWsIfIgnored") == 0)
         {
             ShouldNotDeleteWsIfIgnored();
@@ -2839,6 +2914,14 @@ COMPONENT_INIT
         else if(strcmp(testType, "NotifyVhalOnClientDisconnectionForReleaseWS") == 0)
         {
             NotifyVhalOnClientDisconnectionForReleaseWS();
+        }
+        else if(strcmp(testType, "TestPmvhalStayAwakeAfterMpmsSuspendTrigger") == 0)
+        {
+            TestPmvhalStayAwakeAfterMpmsSuspendTrigger();
+        }
+        else if(strcmp(testType, "get.current.state") == 0)
+        {
+            TestGetCurrentPowerStateFromPrimaryNad();
         }
         else
         {

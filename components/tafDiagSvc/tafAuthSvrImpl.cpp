@@ -60,12 +60,9 @@ taf_diagAuth_ServiceRef_t taf_AuthSvr::GetService
         // Create a Safe Reference for this service object
         servicePtr->svcRef = (taf_diagAuth_ServiceRef_t)le_ref_CreateRef(SvcRefMap,
                 servicePtr);
-
-        LE_DEBUG("svcRef %p of client %p is created for authentication",
-                servicePtr->svcRef, servicePtr->sessionRef);
     }
 
-    LE_INFO("Get serviceRef %p for Diag Authentication service.", servicePtr->svcRef);
+    LE_DEBUG("Get serviceRef %p for Diag Authentication service.", servicePtr->svcRef);
 
     return servicePtr->svcRef;
 }
@@ -81,8 +78,6 @@ taf_AuthSvc_t* taf_AuthSvr::GetServiceObj
     le_msg_SessionRef_t sessionRef
 )
 {
-    LE_DEBUG("Find the service object!");
-
     le_ref_IterRef_t iterRef = le_ref_GetIterator(SvcRefMap);
 
     while (le_ref_NextNode(iterRef) == LE_OK)
@@ -102,7 +97,6 @@ taf_AuthSvc_t* taf_AuthSvr::GetServiceObj
     uint16_t vlanId
 )
 {
-    LE_DEBUG("Find the service object for vlan(0x%x)!", vlanId);
     bool isFound = false;
     le_ref_IterRef_t iterRef = le_ref_GetIterator(SvcRefMap);
 
@@ -128,6 +122,7 @@ taf_AuthSvc_t* taf_AuthSvr::GetServiceObj
                 {
                     // Match.
                     isFound = true;
+                    LE_DEBUG("Service object for vlan(0x%x) found!", vlanId);
                     break;
                 }
                 linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
@@ -155,6 +150,7 @@ void taf_AuthSvr::AuthSvcMsgHandler
     size_t msgLen
 )
 {
+    LE_DEBUG("AuthSvcMsgHandler");
     uint8_t errCode = 0;
     uint16_t msgPos = 1;  // Skip sid
     uint8_t subFunc = msgPtr[msgPos] & 0x7F;
@@ -164,7 +160,8 @@ void taf_AuthSvr::AuthSvcMsgHandler
         subFunc != TAF_DIAGAUTH_TRANSMIT_CERT &&
         subFunc != TAF_DIAGAUTH_CONFIG_AUTH)
     {
-        LE_DEBUG("Sunfunction(0x%x) is invalid", subFunc);
+        LE_WARN("Sunfunction(0x%x) is invalid, send NRC %x", subFunc,
+                TAF_DIAG_SUBFUNCTION_NOT_SUPPORTED);
         errCode = TAF_DIAG_SUBFUNCTION_NOT_SUPPORTED; // SubfunctionNotSupported
         SendNRCResp(reqAuthSvcId, addrPtr, errCode);
         return;
@@ -192,7 +189,8 @@ void taf_AuthSvr::AuthSvcMsgHandler
         msgPos += 2;
         if (tmpPtr->certLen > TAF_DIAGAUTH_MAX_CERT_SIZE)
         {
-            LE_WARN("Certificate size is 0x%x, out of range", tmpPtr->certLen);
+            LE_WARN("Certificate size is 0x%x, out of range, send NRC %x", tmpPtr->certLen,
+                    TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
             errCode = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
             SendNRCResp(reqAuthSvcId, addrPtr, errCode);
 
@@ -212,7 +210,8 @@ void taf_AuthSvr::AuthSvcMsgHandler
         msgPos += 2;
         if (tmpPtr->challengeLen > TAF_DIAGAUTH_MAX_CHALLENGE_SIZE)
         {
-            LE_WARN("Challenge size is 0x%x, out of range", tmpPtr->challengeLen);
+            LE_WARN("Challenge size is 0x%x, out of range, send NRC %x", tmpPtr->challengeLen,
+                    TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
             errCode = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
             SendNRCResp(reqAuthSvcId, addrPtr, errCode);
 
@@ -236,7 +235,8 @@ void taf_AuthSvr::AuthSvcMsgHandler
         msgPos += 2;
         if (tmpPtr->POWNLen > TAF_DIAGAUTH_MAX_POWN_SIZE)
         {
-            LE_WARN("POWN size is 0x%x, out of range", tmpPtr->POWNLen);
+            LE_WARN("POWN size is 0x%x, out of range, send NRC %x", tmpPtr->POWNLen,
+                    TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
             errCode = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
             SendNRCResp(reqAuthSvcId, addrPtr, errCode);
 
@@ -256,7 +256,8 @@ void taf_AuthSvr::AuthSvcMsgHandler
         msgPos += 2;
         if (tmpPtr->publicKeyLen > TAF_DIAGAUTH_MAX_PUBIC_KEY_SIZE)
         {
-            LE_WARN("POWN size is 0x%x, out of range", tmpPtr->publicKeyLen);
+            LE_WARN("POWN size is 0x%x, out of range, send NRC %x", tmpPtr->publicKeyLen,
+                    TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
             errCode = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
             SendNRCResp(reqAuthSvcId, addrPtr, errCode);
 
@@ -283,7 +284,8 @@ void taf_AuthSvr::AuthSvcMsgHandler
         msgPos += 2;
         if (tmpPtr->certLen > TAF_DIAGAUTH_MAX_CERT_SIZE)
         {
-            LE_WARN("Certificate size is 0x%x, out of range", tmpPtr->certLen);
+            LE_WARN("Certificate size is 0x%x, out of range, send NRC %x", tmpPtr->certLen,
+                    TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
             errCode = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
             SendNRCResp(reqAuthSvcId, addrPtr, errCode);
 
@@ -329,8 +331,6 @@ void taf_AuthSvr::AuthNotifyMsgHandler
         | ((uint64_t)msgPtr[msgPos + 4] << 24) | ((uint64_t)msgPtr[msgPos + 5] << 16)
         | ((uint64_t)msgPtr[msgPos + 6] << 8) | ((uint64_t)msgPtr[msgPos + 7]);
 
-    LE_DEBUG("Notify role Id is %" PRIu64, authNotifyMsg.roleId);
-
     memcpy(&authNotifyMsg.addrInfo, addrPtr, sizeof(taf_uds_AddrInfo_t));
 
     le_event_Report(AuthNotifyEvent, &authNotifyMsg, sizeof(authNotifyMsg));
@@ -366,7 +366,7 @@ void taf_AuthSvr::UDSMsgHandler
     }
     else
     {
-        LE_DEBUG("Service(0x%x) is invalid", sid);
+        LE_WARN("Service(0x%x) is invalid, send NRC %x", sid, TAF_DIAG_SERVICE_NOT_SUPPORTED);
         errCode = TAF_DIAG_SERVICE_NOT_SUPPORTED; // ServiceNotSupported
         SendNRCResp(sid, addrPtr, errCode);
         return;
@@ -408,8 +408,6 @@ taf_diagAuth_RxMsgHandlerRef_t taf_AuthSvr::AddRxMsgHandler
 
     // Attach handler to service.
     svcPtr->rxHandlerRef = handlerObjPtr->handlerRef;
-
-    LE_INFO("Authentication: Registered Rx Handler");
 
     return handlerObjPtr->handlerRef;
 }
@@ -495,8 +493,6 @@ taf_diagAuth_AuthStateExpHandlerRef_t taf_AuthSvr::AddAuthExpHandler
 
     // Attach handler to service.
     svcPtr->expHandlerRef = handlerObjPtr->handlerRef;
-
-    LE_INFO("Authentication: Registered auth expiry Handler");
 
     return handlerObjPtr->handlerRef;
 }
@@ -1218,8 +1214,6 @@ le_result_t taf_AuthSvr::SendNRCResp
     uint8_t errCode
 )
 {
-    LE_DEBUG("Authentication service SendNRCResp");
-
     TAF_ERROR_IF_RET_VAL(addrInfoPtr == NULL, LE_BAD_PARAMETER, "Invalid addrInfoPtr");
 
     taf_uds_AddrInfo_t addrInfo;
@@ -1288,7 +1282,6 @@ void taf_AuthSvr::ClearMsgList
     taf_AuthSvc_t* servicePtr
 )
 {
-    LE_DEBUG("ClearMsgList");
     TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
 
     // Clear the UDS Rx message of IOCtrl list.
@@ -1298,7 +1291,6 @@ void taf_AuthSvr::ClearMsgList
         taf_AuthRxMsg_t* rxMsgPtr = CONTAINER_OF(linkPtr, taf_AuthRxMsg_t, link);
         if (rxMsgPtr != NULL)
         {
-            LE_DEBUG("Release ReqMsg(ref=%p)", rxMsgPtr->rxMsgRef);
             // Free the message
             le_ref_DeleteRef(RxMsgRefMap, rxMsgPtr->rxMsgRef);
             le_mem_Release(rxMsgPtr);
@@ -1321,7 +1313,6 @@ void taf_AuthSvr::ClearVlanList
     taf_AuthSvc_t* servicePtr
 )
 {
-    LE_DEBUG("ClearVlanList");
     TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
 
     // Clear the vlan id list.
@@ -1331,7 +1322,6 @@ void taf_AuthSvr::ClearVlanList
         taf_AuthVlanIdNode_t *vlanPtr = CONTAINER_OF(linkPtr, taf_AuthVlanIdNode_t, link);
         if (vlanPtr != NULL)
         {
-            LE_DEBUG("Release vlan node(id=0x%x)", vlanPtr->vlanId);
             le_mem_Release(vlanPtr);
         }
 
@@ -1369,10 +1359,11 @@ void taf_AuthSvr::RxAuthEventHandler
     if (svcPtr == NULL)
     {
 #ifndef LE_CONFIG_DIAG_VSTACK
-        LE_WARN("Not found registered Authentication service for this request(vlan:0x%x)!",
-            rxMsgPtr->addrInfo.vlanId);
+        LE_WARN("Not found registered Auth service for this request(vlan:%x), send NRC %x",
+            rxMsgPtr->addrInfo.vlanId, TAF_DIAG_BUSY_REPEAT_REQUEST);
 #else
-        LE_WARN("Not found registered Authentication service for this request!");
+        LE_WARN("Not found registered Auth service for this request, send NRC %x",
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
 #endif
         // UDS_0x29_NRC_21: service pointer is null
         authIns.SendNRCResp(authIns.reqAuthSvcId, &(rxMsgPtr->addrInfo),
@@ -1384,7 +1375,8 @@ void taf_AuthSvr::RxAuthEventHandler
 
     if (svcPtr->rxHandlerRef == NULL)
     {
-        LE_WARN("Did not register handler for Authentication service.");
+        LE_WARN("Did not register handler for Authentication service, send NRC %x",
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         // UDS_0x29_NRC_21: handler is not registered
         authIns.SendNRCResp(authIns.reqAuthSvcId, &(rxMsgPtr->addrInfo),
                 TAF_DIAG_BUSY_REPEAT_REQUEST);
@@ -1398,7 +1390,8 @@ void taf_AuthSvr::RxAuthEventHandler
             le_ref_Lookup(authIns.ReqHandlerRefMap, svcPtr->rxHandlerRef);
     if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
     {
-        LE_ERROR("Can not find Authentication RxMsg handler object!");
+        LE_WARN("Can not find Authentication RxMsg handler object, send NRC %x",
+                TAF_DIAG_BUSY_REPEAT_REQUEST);
         // UDS_0x29_NRC_21: handler is null
         authIns.SendNRCResp(authIns.reqAuthSvcId, &(rxMsgPtr->addrInfo),
                 TAF_DIAG_BUSY_REPEAT_REQUEST);
@@ -1455,7 +1448,7 @@ void taf_AuthSvr::AuthNotifyEventHandler
             servicePtr->expHandlerRef);
     if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
     {
-        LE_INFO("Did not register handler for auth notfication.");
+        LE_WARN("Did not register handler for auth notfication.");
         return;
     }
 
@@ -1477,8 +1470,6 @@ void taf_AuthSvr::OnClientDisconnection
     void *contextPtr
 )
 {
-    LE_DEBUG("OnClientDisconnection");
-
     auto &authIns = taf_AuthSvr::GetInstance();
     le_ref_IterRef_t iterRef = le_ref_GetIterator(authIns.SvcRefMap);
 
@@ -1531,7 +1522,7 @@ le_result_t taf_AuthSvr::SetVlanId
             taf_AuthVlanIdNode_t, link);
         if (vlan != NULL && vlan->vlanId == vlanId)
         {
-            LE_INFO("The Vlan id(0x%x) is set for ref%p", vlanId, svcRef);
+            LE_DEBUG("The Vlan id(0x%x) is set for ref%p", vlanId, svcRef);
             return LE_OK;
         }
         linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
@@ -1541,7 +1532,7 @@ le_result_t taf_AuthSvr::SetVlanId
         le_mem_ForceAlloc(vlanPool);
     if (vlanPtr == NULL)
     {
-        LE_INFO("Failed to allocate memory.");
+        LE_ERROR("Failed to allocate memory.");
         return LE_NO_MEMORY;
     }
 
@@ -1595,8 +1586,6 @@ void taf_AuthSvr::Init
     void
 )
 {
-    LE_INFO("taf_AuthSvr Init!");
-
     // Create memory pools.
     SvcPool = le_mem_CreatePool("AuthSvcPool", sizeof(taf_AuthSvc_t));
     RxMsgPool = le_mem_CreatePool("AuthRxMsgPool", sizeof(taf_AuthRxMsg_t));
@@ -1631,5 +1620,5 @@ void taf_AuthSvr::Init
     backend.RegisterUdsService(reqAuthSvcId, this);
     backend.RegisterUdsService(authNotifyId, this);
 
-    LE_INFO("Diag Authentication Service started!");
+    LE_DEBUG("taf_AuthSvr Init completed!");
 }

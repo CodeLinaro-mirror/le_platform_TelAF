@@ -1,0 +1,21 @@
+requires:
+{
+    api:
+    {
+        le_cfg.api
+        le_cfgAdmin.api
+    }
+}
+
+bundles:
+{
+    file:
+    {
+        [rw] configKPITest-100.json /data/
+    }
+}
+
+sources:
+{
+    ConfigTestDefault.c
+}

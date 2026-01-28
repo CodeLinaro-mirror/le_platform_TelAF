@@ -24,12 +24,27 @@ le_sem_Ref_t tafMngdConnData::semRef = NULL;
 
 void tafMngdConnData::Init(void)
 {
-    LE_INFO("tafMngdConnData: init");
     semRef = le_sem_Create("SmThreadSem", 0);
     dataThreadRef = le_thread_Create("DataSessionThread",
                                                DataThreadHandler,  (void*)semRef);
+    le_thread_SetJoinable(dataThreadRef);
     le_thread_Start (dataThreadRef);
     le_sem_Wait(semRef);
+    le_sem_Delete(semRef);
+    semRef = NULL;
+    LE_DEBUG("tafMngdConnData::Init Done");
+}
+
+void tafMngdConnData::Deinit(void)
+{
+    if (dataThreadRef)
+    {
+        LE_DEBUG("Stopping dataThreadRef");
+        le_thread_Cancel(dataThreadRef);
+        le_thread_Join(dataThreadRef, NULL);
+        dataThreadRef = NULL;
+    }
+    LE_DEBUG("tafMngdConnData::Deinit Done");
 }
 
 tafMngdConnData &tafMngdConnData::GetInstance()
@@ -130,6 +145,32 @@ void tafMngdConnData::SessionStateChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Unregister data connection event handler.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnData::UnregisterEvents()
+{
+    // Iterate through the map and remove all session state handlers
+    for (auto& entry : sessionStateHandlerMap_)
+    {
+        auto& key = entry.first;
+        auto& handlerRef = entry.second;
+
+        if (handlerRef != NULL)
+        {
+            taf_dcs_RemoveSessionStateHandler(handlerRef);
+            LE_DEBUG("Unregistered session state handler for phoneId %d, profileId %d",
+                    key.first, key.second);
+        }
+    }
+
+    // Clear the map
+    sessionStateHandlerMap_.clear();
+    LE_DEBUG("All data event callbacks have been unregistered");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Register data connection event handler.
  */
 //--------------------------------------------------------------------------------------------------
@@ -162,14 +203,21 @@ void tafMngdConnData::RegisterEvents()
                 continue;
             }
 
-            SessionStateHandlerRef =
+            taf_dcs_SessionStateHandlerRef_t handlerRef =
                         taf_dcs_AddSessionStateHandler(profileRef, SessionStateChangeHandler, NULL);
 
-            if (SessionStateHandlerRef == NULL)
+            if (handlerRef == NULL)
             {
-                LE_ERROR("Adding session state handler failed");
+                LE_ERROR("Adding session state handler failed for phoneId %d, profileId %d",
+                         phoneId, profileInfoPtr->index);
                 continue;
             }
+
+            // Store the handler in the map with (phoneId, profileId) as key
+            auto key = std::make_pair(phoneId, profileInfoPtr->index);
+            sessionStateHandlerMap_[key] = handlerRef;
+            LE_INFO("Registered session state handler for phoneId %d, profileId %d",
+                    phoneId, profileInfoPtr->index);
         }
     }
 
@@ -291,12 +339,26 @@ le_result_t tafMngdConnData::Startdata(uint8_t phoneId, uint32_t profileId, uint
 
 //--------------------------------------------------------------------------------------------------
 /**
- * DataStartSession event handler.
+ * Datasession thread destructor.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnData::DataThreadDestructor(void *contextPtr)
+{
+    LE_DEBUG("Disconnect from DCS");
+    taf_dcs_DisconnectService();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Datasession thread handler.
  */
 //--------------------------------------------------------------------------------------------------
 void *tafMngdConnData::DataThreadHandler(void *contextPtr)
 {
     LE_DEBUG("DataThreadHandler Entry");
+
+    le_thread_AddDestructor(DataThreadDestructor, NULL);
+
     le_sem_Ref_t semRef = (le_sem_Ref_t)contextPtr;
 
     taf_dcs_ConnectService();

@@ -531,9 +531,11 @@ static le_result_t SetApnTypeMask()
 static le_result_t SetPDP(taf_dcs_ProfileRef_t ProfileRef)
 {
     le_result_t result = LE_OK;
-    int intInput = 0;
+    int intInput = 9;
     std::cout << "Packet Data Protocol(PDP) type: " << std::endl;
-    std::cout << 0 << "-" << "skip setting PDP" << std::endl;
+    std::cout << 9 << "-" << "skip setting PDP" << std::endl;
+    std::cout << TAF_DCS_PDP_UNKNOWN << "-"
+              << tafDCSHelper::IpFamilyTypeToString(TAF_DCS_PDP_UNKNOWN) << std::endl;
     std::cout << TAF_DCS_PDP_IPV4 << "-"
               << tafDCSHelper::IpFamilyTypeToString(TAF_DCS_PDP_IPV4) << std::endl;
     std::cout << TAF_DCS_PDP_IPV6 << "-"
@@ -545,7 +547,7 @@ static le_result_t SetPDP(taf_dcs_ProfileRef_t ProfileRef)
     std::cin >> intInput;
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-    if (0 != intInput)
+    if (9 != intInput)
     {
         result = taf_dcs_SetPDP(ProfileRef, static_cast<taf_dcs_Pdp_t>(intInput));
         if (LE_OK != result)
@@ -558,6 +560,7 @@ static le_result_t SetPDP(taf_dcs_ProfileRef_t ProfileRef)
                         tafDCSHelper::IpFamilyTypeToString(static_cast<taf_dcs_Pdp_t>(intInput)));
         }
     }
+    else
     {
         LE_TEST_INFO("Skipped setting PDP");
     }

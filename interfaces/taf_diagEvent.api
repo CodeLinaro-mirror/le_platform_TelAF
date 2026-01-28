@@ -565,8 +565,7 @@ FUNCTION le_result_t GetOpCycleIdByRef
  * @instaging
  * @return
  *  - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Invalid reference.
- *  - LE_FAULT -- Failed.
+ *  - LE_BAD_PARAMETER -- Invalid reference.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RemoveOpCycle

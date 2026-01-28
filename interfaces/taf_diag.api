@@ -295,8 +295,9 @@ FUNCTION Service GetService
  * @instaging
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_NOT_FOUND -- Reference not found.
- *     - LE_UNSUPPORTED -- VLAN ID is unsupported.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef or vlanId is 0.
+ *     - LE_NO_MEMORY -- Memory not allocated.
+ *     - LE_UNSUPPORTED -- VLAN ID is unknown.
  *
  */
 //--------------------------------------------------------------------------------------------------
@@ -345,7 +346,6 @@ EVENT TesterState
  * @instaging
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Invalid stateRef or invalid service of the stateRef.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ReleaseTesterStateMsg
@@ -460,4 +460,25 @@ FUNCTION le_result_t Resume
 FUNCTION le_result_t RemoveSvc
 (
     Service svcRef  IN    ///< Service reference.
-) =11;
+) = 11;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Shuts down the diag service.
+ *
+ * @instaging
+ *
+ * @b NOTE: Only use this API in restart scenarios. After it is called, the diag service stops
+ * working and TCP communication must be re-established once the system restarts.
+ *
+ * @result
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Shutdown
+(
+    Service svcRef                          IN  ///< Service reference.
+) = 12;

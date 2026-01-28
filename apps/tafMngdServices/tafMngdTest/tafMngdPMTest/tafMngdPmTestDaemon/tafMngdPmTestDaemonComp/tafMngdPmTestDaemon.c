@@ -8,6 +8,7 @@
 
 static taf_mpms_test_MpmsTestRef_t MpmsTestInstance;
 static le_ref_MapRef_t MpmsTestInstanceMap;
+static taf_mngdPm_wsRef_t wsRef;
 
 #define MAX_LOG_LENGTH 512
 
@@ -55,6 +56,30 @@ static void LogToConsole(const char *format, ...)
     }
 }
 
+static le_result_t AcquireWakeSource()
+{
+    le_result_t res = taf_mngdPm_StayAwake(wsRef);
+    if(res == LE_OK) {
+        LE_TEST_OK(res == LE_OK, "wake source acquired successfully");
+    } else {
+        LE_ERROR("Failed to acquire the wake source");
+    }
+
+    return res;
+}
+
+static le_result_t ReleaseWakeSource()
+{
+    le_result_t res = taf_mngdPm_Relax(wsRef);
+    if(res == LE_OK) {
+        LE_TEST_OK(res == LE_OK, "wake source released successfully");
+    } else {
+        LE_ERROR("Failed to release the wake source");
+    }
+
+    return res;
+}
+
 void CallbackHandler
 (
     taf_mngdPm_NodeModemAwakeEventRef_t ref,
@@ -66,6 +91,9 @@ void CallbackHandler
     LE_UNUSED(ref);
     LE_UNUSED(contextPtr);
 
+    le_result_t rst = AcquireWakeSource();
+    LE_INFO("Acquired Wake source %s", LE_RESULT_TXT(rst));
+
     LogToConsole("-> [TelAF] MPMS Test Daemon Wakeup Monitor\n");
     LE_INFO("-> [TelAF] MPMS Test Daemon Wakeup Monitor\n");
 
@@ -73,7 +101,7 @@ void CallbackHandler
     LE_INFO("bitmask: 0x%04x", wsBitmask);
 
     taf_mngdPm_NodeModemWsBitMask_t bitset;
-    le_result_t rst = taf_mngdPm_GetNodeModemAwakeReason(0, &bitset);
+    rst = taf_mngdPm_GetNodeModemAwakeReason(0, &bitset);
 
     if (rst == LE_OK)
     {
@@ -270,6 +298,20 @@ le_result_t taf_mpms_test_QueryLastWakeupReason
     return QueryLastWakeupReason(bitset);
 }
 
+le_result_t taf_mpms_test_RelaxWakeSource
+(
+    taf_mpms_test_MpmsTestRef_t ref
+)
+{
+    if (ref == NULL || ref != MpmsTestInstance)
+    {
+        LE_ERROR("Bad reference");
+        return LE_FAULT;
+    }
+
+    return ReleaseWakeSource();
+}
+
 // ------------------- API -------------------
 
 COMPONENT_INIT
@@ -282,6 +324,15 @@ COMPONENT_INIT
     MpmsTestInstance =
         (taf_mpms_test_MpmsTestRef_t)
             le_ref_CreateRef(MpmsTestInstanceMap, &Instance);
+
+    wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL,
+                                            TAF_MNGDPM_WS_OPT_DEFAULT,
+                                                  "testDaemonWs");
+    if(wsRef != NULL) {
+        LE_TEST_OK(wsRef != NULL, "wakeup source created successfully");
+    } else {
+        LE_ERROR("Failed to create thewakeup source");
+    }
 
     LE_INFO("mpms test daemon up");
 }

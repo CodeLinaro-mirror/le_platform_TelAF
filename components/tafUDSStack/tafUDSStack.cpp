@@ -162,6 +162,15 @@ le_result_t taf_uds_Start
     return UdsCommunicationMgr::UdsStart(configPathPtr);
 }
 
+le_result_t taf_uds_Stop
+(
+)
+{
+    LE_DEBUG("taf_uds_Stop");
+
+    return UdsCommunicationMgr::UdsStop();
+}
+
 void taf_uds_GetFileXferActiveStateList
 (
     le_dls_List_t* fileXferStateListPtr
@@ -185,6 +194,4 @@ void taf_uds_GetVlanIdList
 COMPONENT_INIT
 {
     LE_INFO("UDS component init once start...");
-
-    LE_INFO("UDS component init end...");
 }

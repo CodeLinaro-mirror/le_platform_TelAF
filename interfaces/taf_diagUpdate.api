@@ -212,9 +212,8 @@
  *
  * After getting the service reference, an application can call taf_diagUpdate_AddNrcStatusHandler()
  * to register a handler for NRC status for diag update service. Once an NRC (excluding 0x21 and
- * 0x78) is sent, the handler will be called with the status message, Vlan ID, service ID, and NRC
- * passed as input parameters. Finally call taf_diagUpdate_ReleaseNrcStatusMsg() to release the NRC
- * status message if it's used to get other information.
+ * 0x78) is sent, the handler will be called with the status message, VLAN ID, service ID, and NRC
+ * passed as input parameters. Currently the statusRef is not used and kept for future.
  *
  * @code
    // NRC status handler function.
@@ -239,19 +238,12 @@
    // To remove the handler function when it is not needed.
    taf_diagUpdate_RemoveNrcStatusHandler(DiagNrcStatusRef);
 
-   // To release the NRC status msg after getting the NRC status notification.
-   le_result_t result = taf_diagUpdate_ReleaseNrcStatusMsg(statusRef);
-   if (result != LE_OK)
-   {
-      LE_ERROR("Fail to release msg.");
-      return result;
-   }
   @endcode
  *
  * The following APIs are provided for NRC notification.
  *
  * - taf_diagUpdate_AddNrcStatusHandler() -- Adds a handler function for NRC status.
- * - taf_diagUpdate_RemoveNrcStatusHandler() -- Removes a handler function for NRC status
+ * - taf_diagUpdate_RemoveNrcStatusHandler() -- Removes a handler function for NRC status.
  * - taf_diagUpdate_ReleaseNrcStatusMsg() -- Releases an NRC status notification message.
  *
  * The following APIs are provided for service reference.
@@ -435,7 +427,8 @@ FUNCTION Service GetService
  *
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef or vlanId is 0.
+ *     - LE_NO_MEMORY -- Memory not allocated.
  *     - LE_UNSUPPORTED -- VLAN ID is unknown.
  *
  * @b NOTE: The process exits if an invalid reference is passed.
@@ -859,6 +852,7 @@ EVENT NrcStatus
  * Releases an NRC status notification message.
  *
  * @instaging
+ *
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid stateRef or invalid service of the statusRef.
@@ -868,4 +862,3 @@ FUNCTION le_result_t ReleaseNrcStatusMsg
 (
     NrcStatus statusRef  IN    ///< Tester state reference.
 ) = 26;
-

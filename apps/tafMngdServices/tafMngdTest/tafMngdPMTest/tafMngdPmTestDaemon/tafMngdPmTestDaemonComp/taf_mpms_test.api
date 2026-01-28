@@ -40,3 +40,8 @@ FUNCTION le_result_t QueryLastWakeupReason
     MpmsTest ref IN,
     uint32 bitmask OUT
 ) = 5;
+
+FUNCTION le_result_t RelaxWakeSource
+(
+    MpmsTest ref IN
+) = 6;

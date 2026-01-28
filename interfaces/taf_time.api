@@ -608,8 +608,8 @@ EVENT TimeValueChange
  *
  * @instaging
  * @return
- *  - LE_OK -- Succeeded.
- *  - LE_FAULT -- Something went wrong.
+ *  - NULL -- Time source reference not found.
+ *  - taf_time_TimeRef_t -- Time object reference.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Time GetTimeRef
@@ -625,6 +625,7 @@ FUNCTION Time GetTimeRef
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_FAULT -- Something went wrong.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetTime
@@ -646,7 +647,6 @@ FUNCTION le_result_t GetTime
  * @return
  *  - LE_FAULT -- Something went wrong.
  *  - LE_UNAVAILABLE -- This reference time is currently not unavailable.
- *  - LE_UNSUPPORTED -- Not supported for current time source.
  *  - LE_OK -- Succeeded.
  *
  */
@@ -670,7 +670,6 @@ FUNCTION le_result_t GetRefSystemTime
  * @return
  *  - LE_FAULT -- Something went wrong.
  *  - LE_UNAVAILABLE -- This reference time is currently not unavailable.
- *  - LE_UNSUPPORTED -- Not supported for current time source.
  *  - LE_OK -- Succeeded.
  *
  */
@@ -687,8 +686,8 @@ FUNCTION le_result_t GetRefGptpTime
  *
  * @instaging
  * @return
- *     - LE_OK -- Succeeded.
- *     - LE_FAULT -- Something went wrong.
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER --At least one bad parameter was passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ReleaseTimeRef
@@ -755,6 +754,7 @@ FUNCTION Source GetSourceRef
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_FAULT -- Something went wrong.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetFailedLoops
@@ -839,6 +839,7 @@ EVENT TimeSourceStatus
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_FAULT -- Something went wrong.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetTimeZone
@@ -864,6 +865,7 @@ FUNCTION le_result_t GetTimeZone
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_FAULT -- Something went wrong.
+ *  - LE_BAD_PARAMETER -- At least one bad parameter was passed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetTimeDayAdj

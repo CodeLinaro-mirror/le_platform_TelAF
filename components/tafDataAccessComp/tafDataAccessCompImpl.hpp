@@ -34,7 +34,7 @@ namespace dataAccess{
     #define DEM_RECORD_DATA_TYPICAL_SIZE    6
     #define DEM_RECORD_DATA_TYPICAL_BYTES   4
 
-    constexpr int DEM_DB_VERSION = 1;
+    constexpr int DEM_DB_VERSION = 2;
 
     typedef enum {
         ExtendData_OccurenceCounter = 0,
@@ -75,7 +75,9 @@ namespace dataAccess{
                     taf_DataAccess_ExtDataRec_t *extDataRecPtr);
             le_result_t GetFaultDetCounter(taf_DataAccess_FDCInfoRec_t *fdcInfoRecPtr);
             le_result_t SetEventStatus(uint16_t eventId, uint8_t status);
+            le_result_t SetEventStatusByName(const char *eventName, uint8_t status);
             uint8_t GetEventStatus(uint16_t eventId);
+            uint8_t GetEventStatusByName(const char *eventName);
             le_result_t SetDTCStatus(uint32_t dtc, uint8_t status, uint8_t occurrenceCounter);
             uint8_t GetDTCStatus(uint32_t dtc);
             uint8_t GetDTCOccurrenceCounter(uint32_t dtc);

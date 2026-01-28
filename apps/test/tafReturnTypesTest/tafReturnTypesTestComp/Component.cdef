@@ -1,0 +1,101 @@
+sources:
+{
+    main.c
+    LocationApisTest.c
+    AudioApisTest.c
+    ECallApisTest.c
+    SimApisTest.c
+    KeyStoreApisTest.c
+    SmsApisTest.c
+    GpioApisTest.c
+    PMApisTest.c
+    RadioApisTest.c
+    UpdateApisTest.c
+    VoicecallApisTest.c
+    CanApisTest.c
+    SensorApisTest.c
+    FSCryptApisTest.c
+    MRCApisTest.c
+    HMSApisTest.c
+    ThermalApisTest.c
+    TimeApisTest.c
+    WlanApisTest.c
+    RSimApisTest.c
+    VerInfoApisTest.c
+    SomeIPGWApisTest.c
+    FlashAccessApisTest.c
+    NetApisTest.c
+    DcsApisTest.c
+    DevInfoApisTest.c
+    DiagApisTest.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_locGnss.api
+        taf_locPos.api
+        taf_locPosCtrl.api
+        taf_audio.api
+        taf_audioVendor.api
+        taf_ecall.api
+        taf_sim.api
+        taf_ks.api
+        taf_sms.api
+        taf_gpio.api
+        taf_pm.api
+        taf_radio.api
+        taf_update.api
+        taf_voicecall.api
+        tafVNW/taf_can.api
+        taf_fwupdate.api
+        taf_imuSensor.api
+        taf_fsc.api
+        taf_mrc.api
+        taf_hms.api
+        taf_therm.api
+        taf_time.api
+        taf_wlan.api
+        taf_wlanAp.api
+        taf_wlanSta.api
+        taf_simRsim.api
+        taf_simRsp.api
+        taf_simSap.api
+        taf_verInfo.api
+        someipGW/taf_someipClnt.api
+        someipGW/taf_someipSvr.api
+        taf_flash.api
+        taf_net.api
+        taf_dcs.api
+        taf_devInfo.api
+        taf_diag.api
+        taf_diagAuth.api
+        taf_diagDataID.api
+        taf_diagDoIP.api
+        taf_diagDTC.api
+        taf_diagEvent.api
+        taf_diagIOCtrl.api
+        taf_diagReset.api
+        taf_diagRoutineCtrl.api
+        taf_diagSecurity.api
+        taf_diagUpdate.api
+        taf_mdc.api
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}
+
+ldflags:
+{
+    -lssl
+    -lcrypto
+}
+
+cflags:
+{
+    -I${LEGATO_ROOT}/framework/liblegato
+}

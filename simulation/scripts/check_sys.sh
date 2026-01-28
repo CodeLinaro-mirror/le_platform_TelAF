@@ -9,11 +9,11 @@ function check_system_version ()
 {
     RESULT=0
 
-    if [ "$OS_VERSION" = "22.04" ] || [ "$OS_VERSION" = "20.04" ] || [ "$OS_VERSION" = "18.04" ]
+    if [ "$OS_VERSION" = "22.04" ]
     then
         printf "%-30s ... %-20s ... [OK]\n" "Checking system version" "$OS_VERSION"
     else
-        printf "%-30s ... %-20s ... [NOK] <-- anyone in [18.04, 20.04, 22.04]\n" "Checking system version" "$OS_VERSION"
+        printf "%-30s ... %-20s ... [NOK] Unsupported Ubuntu Version. Ubuntu 22.04 is required for the build\n" "Checking system version" "$OS_VERSION"
         RESULT=1
     fi
     return $RESULT
@@ -116,15 +116,11 @@ total_packages_checking="
     fakeroot
     file
     libcap-dev
+    python2
 "
 
-if [ $OS_VERSION = "20.04" ]; then
-    total_packages_checking+=" python2"
-elif [ $OS_VERSION = "22.04" ]; then
-    total_packages_checking+=" python2"
-else # = 18.04
-    total_packages_checking+=" python"
-fi
+
+
 
 
 if ! check_system_version ; then

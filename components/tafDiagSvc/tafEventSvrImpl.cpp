@@ -516,8 +516,6 @@ le_result_t taf_EventSvr::SetEventEnableStatus
     uint8_t enableConditionID
 )
 {
-    LE_DEBUG("SetEventEnableStatus");
-
     le_dls_Link_t* linkPtr = NULL;
 
     // Diag service instance
@@ -531,11 +529,9 @@ le_result_t taf_EventSvr::SetEventEnableStatus
         linkPtr = le_dls_PeekNext(&EventCtxList, linkPtr);
 
         // Check Enable condition
-        LE_DEBUG("Check enable condition for event Id 0x%x", eventCtxPtr->eventId);
         bool enableStatus = false; // Default enable status.
         try
         {
-            LE_DEBUG("Enable condition status check");
             cfg::Node & eventNode = cfg::get_event_node(eventCtxPtr->eventId);
             cfg::Node & enableNode = eventNode.get_child("data_enable_condition");
 
@@ -545,7 +541,6 @@ le_result_t taf_EventSvr::SetEventEnableStatus
                 std::string enableOperation = enable.first;
                 if (enableOperation == "and")
                 {
-                    LE_INFO("Check enable condition status based on AND operation");
                     cfg::Node & optNodeList = enableNode.get_child("and");
                     enableStatus = true;
 
@@ -572,19 +567,17 @@ le_result_t taf_EventSvr::SetEventEnableStatus
                     for (const auto & optNode: optNodeList)
                     {
                         uint8_t enableId = optNode.second.get_value<uint8_t>();
-                        LE_DEBUG("Enable condition id = 0x%x", enableId);
 
                         if (!diag.GetEnableConditionStatus(enableId))
                         {
                             enableStatus = false;
-                            LE_INFO("enable id %d status is false", enableId);
+                            LE_DEBUG("enable id %d status is false", enableId);
                             break;
                         }
                     }
                 }
                 else if (enableOperation == "or")
                 {
-                    LE_INFO("Check enable condition status based on OR operation");
                     cfg::Node & optNodeList = enableNode.get_child("or");
                     enableStatus = false;
 
@@ -610,7 +603,6 @@ le_result_t taf_EventSvr::SetEventEnableStatus
                     for (const auto & optNode: optNodeList)
                     {
                         uint8_t enableId = optNode.second.get_value<uint8_t>();
-                        LE_DEBUG("Enable condition id = 0x%x", enableId);
 
                         if(diag.GetEnableConditionStatus(enableId))
                         {
@@ -2245,13 +2237,10 @@ le_result_t taf_EventSvr::AddSessionToEventCtx
 
         if (sessionRefPtr->sessionRef == sessionRef)
         {
-            LE_DEBUG("Session(%p) has been added to eventctx eventId %d", sessionRef,
-                    eventCtxPtr->eventId);
             return LE_DUPLICATE;
         }
     }
 
-    LE_DEBUG("add session %p for event id %d", sessionRef, eventCtxPtr->eventId );
     taf_diagEvent_SessionRef_t* newSessionRefPtr =
             (taf_diagEvent_SessionRef_t *)le_mem_ForceAlloc(SessionRefPool);
 
@@ -2286,7 +2275,6 @@ le_result_t taf_EventSvr::RemoveSessionFromEventCtx
 
         if (sessionRefPtr->sessionRef == sessionRef)
         {
-            LE_DEBUG("remove ref(%p) from eventId(%d)", sessionRef, eventCtxPtr->eventId);
             le_dls_Remove(&(eventCtxPtr->sessionRefList), &(sessionRefPtr->link));
             le_mem_Release(sessionRefPtr);
             return LE_OK;
@@ -2405,9 +2393,10 @@ le_result_t taf_EventSvr::StoreAndReportEventUdsStatus
 
     TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, LE_FAULT, "eventCtxPtr is NULL");
 
-    LE_INFO("Database:Store and report eventId:%d, status:0x%x", eventCtxPtr->eventId,
+    LE_DEBUG("Database:Store and report event name:%s,status:0x%x", eventCtxPtr->eventName,
             eventCtxPtr->eventUdsStatus);
-    result = taf_DataAccess_SetEventStatus(eventCtxPtr->eventId, eventCtxPtr->eventUdsStatus);
+    result = taf_DataAccess_SetEventStatusByName(eventCtxPtr->eventName,
+            eventCtxPtr->eventUdsStatus);
     if(result != LE_OK)
     {
         LE_CRIT("Can't store data into database, EventId:%d, status:0x%x",
@@ -2493,7 +2482,7 @@ le_result_t taf_EventSvr::StoreAndReportDTCStatus
     TAF_ERROR_IF_RET_VAL(dtcCtxPtr == NULL, LE_FAULT, "dtcCtxPtr is NULL");
     //Store data
 
-    LE_INFO("Database:Store DTC code:0x%x, status:0x%x, occurrence counter:%d",
+    LE_DEBUG("Database:Store DTC code:0x%x, status:0x%x, occurrence counter:%d",
             dtcCtxPtr->dtcCode, dtcCtxPtr->dtcStatus, dtcCtxPtr->occurrenceCounter);
     result = taf_DataAccess_SetDTCStatus(dtcCtxPtr->dtcCode, dtcCtxPtr->dtcStatus,
             dtcCtxPtr->occurrenceCounter);
@@ -2559,7 +2548,6 @@ void taf_EventSvr::ReportClearDtcStatus
     taf_diagEvent_DtcCtx_t* dtcCtxPtr
 )
 {
-    LE_DEBUG("ReportClearDtcStatus!!");
     auto &diagDTC = taf_DTCSvr::GetInstance();
 
     TAF_ERROR_IF_RET_NIL(dtcCtxPtr == NULL, "Null pointer");
@@ -2579,7 +2567,6 @@ void taf_EventSvr::ReportClearAllDtcStatus
     taf_diagDTC_ReqClientType_t clientType
 )
 {
-    LE_DEBUG("ReportClearAllDtcStatus!!");
     auto &diagDTC = taf_DTCSvr::GetInstance();
 
     diagDTC.ReportClearAllDTCStatus(clientType);
@@ -2718,8 +2705,6 @@ void taf_EventSvr::InitEventContext
     TAF_ERROR_IF_RET_NIL(eventCtxPtr == NULL, "cannot alloc eventCtxPtr");
 
     memset(eventCtxPtr, 0, sizeof(taf_diagEvent_EventCtx_t));
-    LE_INFO("create context for event id %d", eventId);
-
     eventCtxPtr->sessionRefList = LE_DLS_LIST_INIT;
 
     //Create event id for diag event
@@ -2733,7 +2718,6 @@ void taf_EventSvr::InitEventContext
 
     std::string operationCycle = event.second->get<string>("operation_cycle");
     eventCtxPtr->operationCycleId = uint8_t(cfg::s_to_operation_cycle_type(operationCycle));
-    LE_INFO("operation cycle id : %d", eventCtxPtr->operationCycleId);
 
 #ifdef LE_CONFIG_DIAG_FEATURE_A
     eventCtxPtr->eventEnableStatus = true;
@@ -2745,10 +2729,8 @@ void taf_EventSvr::InitEventContext
 
     //get debounce config
     std::string debounceAlgorism = event.second->get<string>("debounce_algorithm");
-    LE_INFO(" debounce algorism : %s",debounceAlgorism.c_str());
 
     cfg::Node & node = cfg::top_debounce_algorithm<string>("short_name", debounceAlgorism.c_str());
-    LE_INFO("debounce_type : %s", node.get<string>("base").c_str());
 
     if(node.get<string>("base") == "Counter")
     {
@@ -2760,12 +2742,10 @@ void taf_EventSvr::InitEventContext
 
         if(counterDebounce.debounce_behavior == "reset")
         {
-            LE_INFO("debounce_behavior : RESET");
             eventCtxPtr->debounceBehavior_ = TAF_DIAGEVENT_DEBOUNCE_RESET;
         }
         else
         {
-            LE_INFO("debounce_behavior : FREEZE");
             eventCtxPtr->debounceBehavior_ = TAF_DIAGEVENT_DEBOUNCE_FREEZE;
         }
 
@@ -2853,7 +2833,7 @@ void taf_EventSvr::InitEventContext
         float ratio = (float)MAX_FAULT_DETECTION_COUNTER/eventCtxPtr->debounceCounterBasedConfig.
                 failedThreshold;
         eventCtxPtr->debounceCounter = faultDetectionCounter/ratio;
-        LE_INFO("fdc=%d, debouncecounter=%d", faultDetectionCounter, eventCtxPtr->debounceCounter);
+        LE_DEBUG("fdc=%d, debouncecounter=%d", faultDetectionCounter, eventCtxPtr->debounceCounter);
 #endif
     }
     else if(node.get<string>("base") == "Timer")
@@ -2869,17 +2849,14 @@ void taf_EventSvr::InitEventContext
 
         if(timeDebounce.debounce_behavior == "reset")
         {
-            LE_INFO("debounce_behavior : RESET");
             eventCtxPtr->debounceBehavior_ = TAF_DIAGEVENT_DEBOUNCE_RESET;
         }
         else
         {
-            LE_INFO("debounce_behavior : FREEZE");
             eventCtxPtr->debounceBehavior_ = TAF_DIAGEVENT_DEBOUNCE_FREEZE;
         }
 
         timeFailedThreshold = timeDebounce.time_failed_threshold;
-        LE_INFO("timeFailedThreshold : %f", timeFailedThreshold);
         //Check the value range
         if((timeFailedThreshold < MIN_TIME_BASED_PARAM_VALUE) ||
                 (timeFailedThreshold > MAX_TIME_BASED_PARAM_VALUE))
@@ -2888,7 +2865,6 @@ void taf_EventSvr::InitEventContext
         }
         //Change to milli second
         eventCtxPtr->debounceTimeBasedConfig.failedThreshold = timeFailedThreshold * 1000;
-        LE_INFO("failedThreshold : %d", eventCtxPtr->debounceTimeBasedConfig.failedThreshold);
 
         timePassedThreshold = timeDebounce.time_passed_threshold;
         //Check the value range
@@ -2899,10 +2875,8 @@ void taf_EventSvr::InitEventContext
         }
         //Change to milli second
         eventCtxPtr->debounceTimeBasedConfig.passedThreshold = timePassedThreshold * 1000;
-        LE_INFO("passedThreshold : %d", eventCtxPtr->debounceTimeBasedConfig.passedThreshold);
 
         fdcThreshold = timeDebounce.time_fdc_threshold;
-        LE_INFO("fdcThreshold : %f", fdcThreshold);
         //Check the value range
         if((fdcThreshold < MIN_TIME_BASED_PARAM_VALUE) ||
                 (fdcThreshold > MAX_TIME_BASED_PARAM_VALUE))
@@ -2911,7 +2885,6 @@ void taf_EventSvr::InitEventContext
         }
         //Change to milli second
         eventCtxPtr->debounceTimeBasedConfig.fdcThreshold = fdcThreshold * 1000;
-        LE_INFO("fdcThreshold : %d", eventCtxPtr->debounceTimeBasedConfig.fdcThreshold);
 
         eventCtxPtr->timerType = TAF_DIAGEVENT_TIMER_UNKNOWN;
 
@@ -2951,11 +2924,6 @@ void taf_EventSvr::InitEventContext
     if(eventCtxPtr->dtcCtxPtr == NULL)
     {
         eventCtxPtr->dtcCtxPtr = InitDtcContext(eventCtxPtr->dtcCode, eventCtxPtr->eventId);
-        LE_INFO("Create dtc context by dtc code=0x%x", eventCtxPtr->dtcCode);
-    }
-    else
-    {
-        LE_INFO("Dtc CTX already created");
     }
 
     eventCtxPtr->failureCounter = 0;
@@ -2964,9 +2932,18 @@ void taf_EventSvr::InitEventContext
 #endif
     eventCtxPtr->fdcTriggerFlag = false;
     eventCtxPtr->eventFaultStatus = TAF_DIAGEVENT_UNKNOWN;
+
+    std::string eventName = cfg::get_event_name(eventId);
+    if(eventName.empty() || eventName.length() >= TAF_EVENT_NAME_MAX_LEN)
+    {
+        LE_FATAL("eventName is null or length is too long for eventId:%d", eventId);
+    }
+    le_utf8_Copy(eventCtxPtr->eventName, eventName.c_str(), TAF_EVENT_NAME_MAX_LEN, NULL);
+
     //get event UDS status from database
-    eventCtxPtr->eventUdsStatus = taf_DataAccess_GetEventStatus(eventId);
-    LE_INFO("Database: Get EventId:%d, event UDS status in DB:0x%x", eventId,
+    eventCtxPtr->eventUdsStatus = taf_DataAccess_GetEventStatusByName(eventCtxPtr->eventName);
+
+    LE_DEBUG("Database: Get eventName:%s, event UDS status in DB:0x%x", eventCtxPtr->eventName,
             eventCtxPtr->eventUdsStatus);
     eventCtxPtr->svcRef = NULL;
     eventCtxPtr->link = LE_DLS_LINK_INIT;
@@ -2998,7 +2975,6 @@ void taf_EventSvr::InitEventIdListForDtc
     eventIdInfoPtr = (taf_DiagEvent_EventIdInfo_t *)le_mem_ForceAlloc(diagEvent.EventIdPool);
     TAF_ERROR_IF_RET_NIL(eventIdInfoPtr == NULL, "cannot alloc eventIdInfoPtr");
 
-    LE_INFO("Init event list for DTC code:0x%x, eventId:%d", dtcCtxPtr->dtcCode, eventId);
     memset(eventIdInfoPtr, 0, sizeof(taf_DiagEvent_EventIdInfo_t));
 
     eventIdInfoPtr->eventId = eventId;
@@ -3032,20 +3008,20 @@ taf_diagEvent_DtcCtx_t* taf_EventSvr::InitDtcContext
 
     //get DTC status from database
     dtcCtxPtr->dtcStatus = taf_DataAccess_GetDTCStatus(dtcCode);
-    LE_INFO("Database: get DTC code:0x%x, DTC status in DB:0x%x", dtcCode, dtcCtxPtr->dtcStatus);
+    LE_DEBUG("Database: get DTC code:0x%x, DTC status in DB:0x%x", dtcCode, dtcCtxPtr->dtcStatus);
     //get occurrence counter from database
     dtcCtxPtr->occurrenceCounter = taf_DataAccess_GetDTCOccurrenceCounter(dtcCode);
-    LE_INFO("Database: get DTC code:0x%x, occurrence counter in DB:0x%x", dtcCode,
+    LE_DEBUG("Database: get DTC code:0x%x, occurrence counter in DB:0x%x", dtcCode,
             dtcCtxPtr->occurrenceCounter);
 
     //Get activation status from database
     dtcCtxPtr->activationStatus = taf_DataAccess_GetDTCActivation(dtcCode);
-    LE_INFO("Database: get DTC code:0x%x, activation status in DB:0x%x", dtcCode,
+    LE_DEBUG("Database: get DTC code:0x%x, activation status in DB:0x%x", dtcCode,
             dtcCtxPtr->activationStatus);
 
     //Get suppression status from database
     dtcCtxPtr->suppressionStatus = taf_DataAccess_GetDTCSuppression(dtcCode);
-    LE_INFO("Database: get DTC code:0x%x, suppression status in DB:0x%x", dtcCode,
+    LE_DEBUG("Database: get DTC code:0x%x, suppression status in DB:0x%x", dtcCode,
             dtcCtxPtr->suppressionStatus);
 
     //Get occurrenceCounterProcessing
@@ -3058,13 +3034,10 @@ taf_diagEvent_DtcCtx_t* taf_EventSvr::InitDtcContext
 
     if(commonProps.occurrence_counter_processing == "TEST-FAILED-BIT")
     {
-        LE_INFO("occurrence_counter_processing : TEST-FAILED-BIT");
         dtcCtxPtr->occurrenceCounterProcessing = TAF_DIAGEVENT_PROCESS_OCCCTR_TF;
     }
     else
     {
-        LE_INFO("occurrence_counter_processing : %s",
-                commonProps.occurrence_counter_processing.c_str());
         dtcCtxPtr->occurrenceCounterProcessing = TAF_DIAGEVENT_PROCESS_OCCCTR_CDTC;
     }
 
@@ -3096,7 +3069,6 @@ taf_diagEvent_DtcCtx_t* taf_EventSvr::InitDtcContext
         LE_ERROR("Exception: %s", e.what());
         dtcCtxPtr->dtcType = TAF_DIAGEVENT_UNKNOWN_DTC;
     }
-    LE_INFO("----dtc code=0x%x, dtc type=%d", dtcCode, dtcCtxPtr->dtcType);
 #endif
     dtcCtxPtr->link = LE_DLS_LINK_INIT;
     dtcCtxPtr->dtcEventIdList = LE_DLS_LIST_INIT;
@@ -3130,7 +3102,6 @@ void taf_EventSvr::ClearDTCAndEventData
 
     TAF_ERROR_IF_RET_NIL(dtcCtxPtr == NULL, "dtcCtxPtr is NULL");
 
-    LE_DEBUG("Clear DTC, code = 0x%x", dtcCtxPtr->dtcCode);
     //Clear DTC data in memory
     oldDtcStatus = dtcCtxPtr->dtcStatus;
 
@@ -3191,7 +3162,7 @@ void taf_EventSvr::ClearDTCAndEventData
 #endif
         if (eventCtxPtr->eventUdsStatus != oldEventStatus)
         {
-            LE_INFO("Event status changed, event Id = %d", eventCtxPtr->eventId);
+            LE_DEBUG("Event status changed, event Id = %d", eventCtxPtr->eventId);
             diagEvent.ReportEventUdsStatus(eventCtxPtr);
         }
 
@@ -3199,7 +3170,9 @@ void taf_EventSvr::ClearDTCAndEventData
         //The data is already cleared in database, need to store it
         LE_DEBUG("Database:Store and report eventId:%d, status:0x%x", eventCtxPtr->eventId,
                 eventCtxPtr->eventUdsStatus);
-        result = taf_DataAccess_SetEventStatus(eventCtxPtr->eventId, eventCtxPtr->eventUdsStatus);
+        result = taf_DataAccess_SetEventStatusByName(eventCtxPtr->eventName,
+                eventCtxPtr->eventUdsStatus);
+
         if(result != LE_OK)
         {
             LE_CRIT("Can't store data into database, EventId:%d, status:0x%x",
@@ -3310,7 +3283,7 @@ le_result_t taf_EventSvr::ClearSingleDtc
     //Check if DTC is suppressed
     if(dtcCtxPtr->suppressionStatus == true)
     {
-        LE_INFO("DTC code:0x%x is suppressed", dtcCode);
+        LE_WARN("DTC code:0x%x is suppressed", dtcCode);
         return LE_UNAVAILABLE;
     }
 
@@ -3503,7 +3476,7 @@ le_result_t taf_EventSvr::GetFaultDetectionCounter
     //Check if DTC is suppressed
     if(dtcCtxPtr->suppressionStatus == true)
     {
-        LE_INFO("DTC code:0x%x is suppressed", dtcCtxPtr->dtcCode);
+        LE_ERROR("DTC code:0x%x is suppressed", dtcCtxPtr->dtcCode);
         return LE_FAULT;
     }
 
@@ -4010,7 +3983,6 @@ void taf_EventSvr::OnClientDisconnection
 )
 {
     auto& diagEvent = taf_EventSvr::GetInstance();
-    LE_DEBUG(" Client %p disconnected", sessionRef);
     TAF_ERROR_IF_RET_NIL(sessionRef == NULL, "sessionRef is nullptr!");
 
     //Find event context one by one
@@ -4022,14 +3994,12 @@ void taf_EventSvr::OnClientDisconnection
         if (eventCtxPtr != NULL)
         {
             //Remove client session reference from event session reference list
-            if( diagEvent.RemoveSessionFromEventCtx(eventCtxPtr, sessionRef) == LE_OK)
-                LE_DEBUG("remove client session from context, event id %d", eventCtxPtr->eventId);
+            diagEvent.RemoveSessionFromEventCtx(eventCtxPtr, sessionRef);
 
             //If session number of links is 0, release event service reference.
             if( le_dls_NumLinks(&eventCtxPtr->sessionRefList)  == 0)
             {
                 // Clear service object
-                LE_INFO(" clear event id %d reference", eventCtxPtr->eventId);
                 le_ref_DeleteRef(diagEvent.SvcRefMap, (void*)eventCtxPtr->svcRef);
                 eventCtxPtr->svcRef = NULL;
             }
@@ -4046,15 +4016,12 @@ void taf_EventSvr::OnClientDisconnection
         if (opCycleCtxPtr != NULL)
         {
             //Remove client session reference from oc session reference list
-            if( diagEvent.RemoveSessionFromOperCycleCtx(opCycleCtxPtr, sessionRef) == LE_OK)
-                LE_DEBUG("Remove client session from context, OC id %d",
-                        opCycleCtxPtr->operCycleId);
+            diagEvent.RemoveSessionFromOperCycleCtx(opCycleCtxPtr, sessionRef);
 
             //If session number of links is 0, release operation cycle reference.
             if( le_dls_NumLinks(&opCycleCtxPtr->sessionRefList)  == 0)
             {
                 // Clear service object
-                LE_INFO("Clear operation cycle id %d reference", opCycleCtxPtr->operCycleId);
                 le_ref_DeleteRef(diagEvent.OperCycleRefMap, (void*)opCycleCtxPtr->operCycleRef);
                 opCycleCtxPtr->operCycleRef = NULL;
             }
@@ -4070,7 +4037,6 @@ void taf_EventSvr::InitOperCycleContext()
 
     //Get maxNumOfOperCycle from config module
     maxNumOfOperCycle = cfg::get_operation_cycle_count();
-    LE_DEBUG("max number of oper cycle:%d", maxNumOfOperCycle);
 
     for(int i=0; i < maxNumOfOperCycle; i++)
     {
@@ -4079,7 +4045,6 @@ void taf_EventSvr::InitOperCycleContext()
         TAF_ERROR_IF_RET_NIL(operCycleCtxPtr == NULL, "cannot alloc operCycleCtxPtr");
         memset(operCycleCtxPtr, 0, sizeof(taf_diagEvent_OperCycleCtx_t));
 
-        LE_INFO("create context for operation cycle ID : %d", i);
         operCycleCtxPtr->operCycleId = i;
         operCycleCtxPtr->state = TAF_DIAGEVENT_CYCLE_STOP;
 
@@ -4108,10 +4073,11 @@ void taf_EventSvr::EventConfiguration(cfg::Node & node)
 
     std::map<uint32_t, std::shared_ptr<cfg::Node>> dtc_map = cfg::get_dtc_nodes();
 
+    LE_DEBUG("Init %" PRIu64 " DTC codes", dtc_map.size());
+
     for (const auto & dtc: dtc_map)
     {
         dtcCode= dtc.first;
-        LE_INFO("dtc code=0x%x",dtcCode);
 
         if((dtcCode & 0xff000000) != 0)
         {
@@ -4203,6 +4169,5 @@ void taf_EventSvr::Init
         LE_FATAL("Exception: %s", e.what() );
     }
 
-    LE_INFO("Diag Event Service started!");
 }
 

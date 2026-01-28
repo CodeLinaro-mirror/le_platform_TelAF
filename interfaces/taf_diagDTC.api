@@ -363,7 +363,6 @@ FUNCTION le_result_t GetFaultDetectionCounter
  *     - LE_BAD_PARAMETER -- Invalid svcRef.
  *     - LE_UNAVAILABLE -- DTC is suppressed.
  *     - LE_UNSUPPORTED -- DTC is not configured.
- *     - LE_FAULT -- Failed.
  *
  */
 //--------------------------------------------------------------------------------------------------
@@ -401,7 +400,6 @@ FUNCTION le_result_t SetActivationStatus
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid svcRef.
- *     - LE_UNAVAILABLE -- DTC is suppressed.
  *     - LE_UNSUPPORTED -- DTC is not configured.
  *
  */

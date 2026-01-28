@@ -227,10 +227,8 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
 
             FROM_VERSION_STR=`cat $MOUNTPOINT_TELAF/.check_done`
 
-            if [ "$FROM_VERSION_STR" != "from 18.04" ] \
-            && [ "$FROM_VERSION_STR" != "from 20.04" ] \
-            && [ "$FROM_VERSION_STR" != "from 22.04" ]; then
-                echo "Exist .check_done, but [$FROM_VERSION_STR], not in [18.04, 20.04, 22.04], please rebuild your tarball."
+            if [ "$FROM_VERSION_STR" != "from 22.04" ]; then
+                echo "Exit .check_done, but [$FROM_VERSION_STR], not 22.04, please rebuild your tarball."
                 exit 1
             fi
 

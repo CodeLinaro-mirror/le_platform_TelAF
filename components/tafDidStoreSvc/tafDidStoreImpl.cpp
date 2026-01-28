@@ -51,7 +51,7 @@ taf_diagDidStore_ServiceRef_t taf_diagDidStore::GetService
 (
 )
 {
-    LE_INFO("Gets the DataIDStor service!");
+    LE_DEBUG("Gets the DataIDStor service!");
     le_msg_SessionRef_t sessionRef = taf_diagDidStore_GetClientSessionRef();
     if (!sessionRef)
     {
@@ -90,8 +90,6 @@ taf_DidStore_t* taf_diagDidStore::GetServiceObj
     le_msg_SessionRef_t sessionRef
 )
 {
-    LE_DEBUG("find the service object!");
-
     auto &didStore = taf_diagDidStore::GetInstance();
     le_ref_IterRef_t iterRef = le_ref_GetIterator(didStore.SvcRefMap);
 
@@ -100,7 +98,7 @@ taf_DidStore_t* taf_diagDidStore::GetServiceObj
         taf_DidStore_t* servicePtr = (taf_DidStore_t *)le_ref_GetValue(iterRef);
         if ((servicePtr != NULL) && (servicePtr->sessionRef == sessionRef))
         {
-            LE_INFO("Found existing svcRef %p for client session %p", servicePtr->svcRef,
+            LE_DEBUG("Found existing svcRef %p for client session %p", servicePtr->svcRef,
                     servicePtr->sessionRef);
             return servicePtr;
         }
@@ -119,7 +117,7 @@ le_result_t taf_diagDidStore::ParseDidStoreJsonConfig
     const char* configPathPtr
 )
 {
-    LE_INFO("ParseDidStoreJsonConfig");
+    LE_DEBUG("ParseDidStoreJsonConfig");
 
     if (configPathPtr == NULL)
     {
@@ -147,7 +145,6 @@ le_result_t taf_diagDidStore::ParseDidStoreJsonConfig
 
             // App name
             std::string appName = item.second.get<std::string>("AppName");
-            LE_DEBUG("App name is %s", appName.c_str());
             snprintf(didConfigStore.AppName, LIMIT_MAX_APP_NAME_LEN, "%s", appName.c_str());
 
             // Write DID accessible list
@@ -213,8 +210,6 @@ le_result_t taf_diagDidStore::GetAppNameBySessionRef
         return LE_FAULT;
     }
 
-    LE_INFO("PID : %d", pid);
-
     // Get the app name from the pid.
     if (le_appInfo_GetName(pid, appPath, sizeof(appPath)) != LE_OK)
     {
@@ -240,7 +235,6 @@ le_result_t taf_diagDidStore::GetAppNameBySessionRef
     }
 
     snprintf(appNameStr, appNameSize, "%s", namePtr);
-    LE_INFO("Get appName: %s", appNameStr);
 
     return LE_OK;
 }
@@ -256,8 +250,6 @@ bool taf_diagDidStore::IsReadAppAccessible
     const char* appName
 )
 {
-    LE_DEBUG("IsReadAppAccessible");
-
     for (const auto& didStore : dataIdStoreAccessCfg)
     {
         if (std::strcmp(didStore.AppName, appName) == 0)
@@ -266,7 +258,7 @@ bool taf_diagDidStore::IsReadAppAccessible
             {
                 if (readDID == dataId)
                 {
-                    LE_INFO("dataId %x is in the access list of app %s", dataId, appName);
+                    LE_DEBUG("dataId %x is in the access list of app %s", dataId, appName);
                     return true;
                 }
             }
@@ -288,8 +280,6 @@ bool taf_diagDidStore::IsWriteAppAccessible
     const char* appName
 )
 {
-    LE_DEBUG("IsWriteAppAccessible");
-
     for (const auto& didStore : dataIdStoreAccessCfg)
     {
         if (std::strcmp(didStore.AppName, appName) == 0)
@@ -298,7 +288,7 @@ bool taf_diagDidStore::IsWriteAppAccessible
             {
                 if (writeDID == dataId)
                 {
-                    LE_INFO("dataId %x is in the access list of app %s", dataId, appName);
+                    LE_DEBUG("dataId %x is in the access list of app %s", dataId, appName);
                     return true;
                 }
             }
@@ -323,59 +313,61 @@ void taf_diagDidStore::didReadCb
     void* contextPtr
 )
 {
-    LE_DEBUG("didReadCb!");
-
     auto &didStore = taf_diagDidStore::GetInstance();
 
     // Store the read result in the client-specific structure
     didStore.readStrg.readDID = dataID;
+    ReadWriteRequest_t* requestPtr = NULL;
+
+    // Check the result.
+    if (result != 0)
+    {
+        LE_ERROR("Read DID error code : %x", result);
+        if (result != TAF_CONDITION_NOT_CORRECT && result != TAF_REQ_OUT_OF_RANGE)
+        {
+            didStore.readStrg.result = TAF_CONDITION_NOT_CORRECT;
+        }
+        else
+        {
+            didStore.readStrg.result = result;
+        }
+        goto semPostOut;
+    }
 
     if (contextPtr == NULL)
     {
         LE_ERROR("contextPtr is NULL");
-        didStore.readStrg.result = LE_FAULT;
-        if (read_semaphore != NULL)
-        {
-            le_sem_Post(read_semaphore); // Signal client-specific semaphore
-        }
-        return;
+        didStore.readStrg.result = TAF_CONDITION_NOT_CORRECT;
+        goto semPostOut;
     }
 
-    ReadWriteRequest_t* requestPtr =
-            (ReadWriteRequest_t*)le_ref_Lookup(didStore.ReadDIDRefMap, contextPtr);
+    requestPtr =(ReadWriteRequest_t*)le_ref_Lookup(didStore.ReadDIDRefMap, contextPtr);
     if (requestPtr == NULL)
     {
         LE_ERROR("Invalid requestPtr");
-        didStore.readStrg.result = LE_FAULT;
-        if (read_semaphore != NULL)
-        {
-            le_sem_Post(read_semaphore); // Signal client-specific semaphore
-        }
-        return;
+        didStore.readStrg.result = TAF_CONDITION_NOT_CORRECT;
+        goto semPostOut;
     }
 
     if (dataRecPtr == NULL || len == 0 || len > sizeof(didStore.readStrg.didData))
     {
         LE_ERROR("Invalid read response: dataID %u, len %zu", dataID, len);
-        didStore.readStrg.result = TAF_REQ_OUT_OF_RANGE;
-        if (read_semaphore != NULL)
-        {
-            le_sem_Post(read_semaphore); // Signal client-specific semaphore
-        }
-        return;
+        didStore.readStrg.result = TAF_CONDITION_NOT_CORRECT;
+        goto semPostOut;
     }
 
     // Copy data to the client-specific structure
     memcpy(didStore.readStrg.didData, dataRecPtr, len);
     didStore.readStrg.didDataLen = len;
     didStore.readStrg.result = result;
+    goto semPostOut;
 
+semPostOut:
     // Signal the client-specific semaphore
     if (read_semaphore != NULL)
     {
         le_sem_Post(read_semaphore);
     }
-
     return;
 }
 
@@ -391,8 +383,6 @@ le_result_t taf_diagDidStore::Read
     size_t* dataRecordSizePtr
 )
 {
-    LE_DEBUG("Read! DataID: 0x%04X", dataId);
-
     // Check if dataRecordPtr or dataRecordSizePtr is NULL
     if(dataRecordPtr == NULL || dataRecordSizePtr == NULL)
     {
@@ -437,6 +427,7 @@ le_result_t taf_diagDidStore::Read
         le_sem_Delete(read_semaphore);
         read_semaphore = NULL;
         isReadDIDLock.store(false);
+        readStrg.result = TAF_DIAGDATAID_READ_DID_CONDITIONS_NOT_CORRECT;
 
         le_ref_DeleteRef(ReadDIDRefMap, requestPtr->readDIDRef);
         le_mem_Release(requestPtr);
@@ -462,7 +453,6 @@ le_result_t taf_diagDidStore::Read
     // Copy the read data to the caller's buffer
     memcpy(dataRecordPtr, readStrg.didData, readStrg.didDataLen);
     *dataRecordSizePtr = readStrg.didDataLen;
-    LE_DEBUG("Successfully read from DID 0x%04X, length: %zu", dataId, *dataRecordSizePtr);
 
     return LE_OK;
 }
@@ -479,45 +469,50 @@ void taf_diagDidStore::didWriteCb
     void* contextPtr
 )
 {
-    LE_DEBUG("didWriteCb!");
     auto &didStore = taf_diagDidStore::GetInstance();
+    ReadWriteRequest_t* requestPtr = NULL;
+
+    // Check the result.
+    if (result != 0)
+    {
+        LE_ERROR("Write DID error code : %x", result);
+        if (result != TAF_CONDITION_NOT_CORRECT && result != TAF_REQ_OUT_OF_RANGE
+                && result != TAF_GENERAL_PROGRAMMING_FAILURE)
+        {
+            didStore.writeDIDPIResult = TAF_CONDITION_NOT_CORRECT;
+        }
+        else
+        {
+            didStore.writeDIDPIResult = result;
+        }
+        goto semPostOut;
+    }
 
     if (contextPtr == NULL)
     {
         LE_ERROR("contextPtr is NULL");
-        didStore.writeDIDPIResult = LE_FAULT;
-        if (write_semaphore != NULL)
-        {
-            le_sem_Post(write_semaphore);
-        }
-
-        return;
+        didStore.writeDIDPIResult = TAF_CONDITION_NOT_CORRECT;
+        goto semPostOut;
     }
 
-    ReadWriteRequest_t* requestPtr = (ReadWriteRequest_t*)le_ref_Lookup(didStore.WriteDIDRefMap,
-            contextPtr);
+    requestPtr = (ReadWriteRequest_t*)le_ref_Lookup(didStore.WriteDIDRefMap, contextPtr);
     if (requestPtr == NULL)
     {
         LE_ERROR("Invalid requestPtr");
-        didStore.writeDIDPIResult = LE_FAULT;
-        if (write_semaphore != NULL)
-        {
-            le_sem_Post(write_semaphore);
-        }
-
-        return;
+        didStore.writeDIDPIResult = TAF_CONDITION_NOT_CORRECT;
+        goto semPostOut;
     }
 
     // Store the result in the client-specific structure
     didStore.writeDIDPIResult = result;
-    LE_DEBUG("Write operation for DataID %u completed with result %d", dataID, result);
+    goto semPostOut;
 
+semPostOut:
     // Signal the client-specific semaphore
     if (write_semaphore != NULL)
     {
         le_sem_Post(write_semaphore);
     }
-
     return;
 }
 
@@ -536,8 +531,6 @@ le_result_t taf_diagDidStore::Write
         ///< [IN]
 )
 {
-    LE_DEBUG("Write DataID: 0x%04X", dataId);
-
     // Prepare a write request
     ReadWriteRequest_t* requestPtr = (ReadWriteRequest_t*)le_mem_ForceAlloc(WriteRequestPool);
 
@@ -575,6 +568,7 @@ le_result_t taf_diagDidStore::Write
         le_sem_Delete(write_semaphore);
         write_semaphore = NULL;
         isWriteDIDLock.store(false);
+        writeDIDPIResult = TAF_DIAGDATAID_WRITE_DID_CONDITIONS_NOT_CORRECT;
 
         le_ref_DeleteRef(WriteDIDRefMap, requestPtr->writeDIDRef);
         le_mem_Release(requestPtr);
@@ -605,7 +599,6 @@ void taf_diagDidStore::HandleReadWriteReq
     void* param2Ptr
 )
 {
-    LE_DEBUG("HandleReadWriteReq!");
     auto &didStore = taf_diagDidStore::GetInstance();
 
     ReadWriteRequest_t* reqPtr = (ReadWriteRequest_t*)(param1Ptr);
@@ -631,7 +624,7 @@ void taf_diagDidStore::HandleReadWriteReq
                 if (result != LE_OK)
                 {
                     LE_ERROR("Fail to get from DID Storage Plugin");
-                    didStore.readStrg.result = result;
+                    didStore.readStrg.result = TAF_DIAGDATAID_READ_DID_CONDITIONS_NOT_CORRECT;
                 }
             }
 
@@ -655,8 +648,8 @@ void taf_diagDidStore::HandleReadWriteReq
                                         (void *)reqPtr->writeDIDRef);
                 if (result != LE_OK)
                 {
-                    LE_ERROR("Fail to get from DID Storage Plugin");
-                    didStore.writeDIDPIResult = result;
+                    LE_ERROR("Fail to set to DID Storage Plugin");
+                    didStore.writeDIDPIResult = TAF_DIAGDATAID_WRITE_DID_CONDITIONS_NOT_CORRECT;
                 }
             }
 
@@ -688,7 +681,11 @@ static void* WriteThreadMain
     le_event_RunLoop();
 }
 
-
+//-------------------------------------------------------------------------------------------------
+/**
+ * Plugin Callabck notification on DID change.
+ */
+//-------------------------------------------------------------------------------------------------
 void taf_diagDidStore::DidMsgPluginCB
 (
     uint16_t dataID,
@@ -696,24 +693,49 @@ void taf_diagDidStore::DidMsgPluginCB
     size_t len
 )
 {
-    LE_DEBUG("DidMsgPluginCB!");
+    if (value == NULL || len == 0){
+        LE_ERROR("Received value is NULL!");
+        return;
+    }
+    bool isDIDAvailable = false;
 
     le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(didStorageNotifyList));
     while (linkHandlerPtr)
     {
-        taf_DIDStorgNotifyHandler_t * handlerCtxPtr =
+        taf_DIDStorgNotifyHandler_t* handlerCtxPtr =
                 CONTAINER_OF(linkHandlerPtr, taf_DIDStorgNotifyHandler_t, link);
         linkHandlerPtr = le_dls_PeekPrev(&(didStorageNotifyList), linkHandlerPtr);
-        if (handlerCtxPtr->func && (handlerCtxPtr->did == dataID))
+        if (handlerCtxPtr && handlerCtxPtr->func)
         {
-            LE_INFO("Notifying to clients");
-            handlerCtxPtr->func(dataID, value, len, handlerCtxPtr->ctxPtr);
+            le_dls_Link_t* linkDataIdPtr = le_dls_PeekTail(&(handlerCtxPtr->dataIdList));
+            while (linkDataIdPtr)
+            {
+                taf_DataID_t* dataIdPtr = CONTAINER_OF(linkDataIdPtr, taf_DataID_t, link);
+                linkDataIdPtr = le_dls_PeekPrev(&(handlerCtxPtr->dataIdList), linkDataIdPtr);
+                if (dataIdPtr != NULL && dataIdPtr->dataId == dataID)
+                {
+                    LE_DEBUG("Notify DataID %x as changed", dataIdPtr->dataId);
+                    isDIDAvailable = true;
+                    handlerCtxPtr->func(dataID, value, len, handlerCtxPtr->ctxPtr);
+                }
+            }
         }
     }
 
+    if(!isDIDAvailable)
+    {
+        LE_DEBUG("Remove data change notification for DID %x", dataID);
+        auto &didStore = taf_diagDidStore::GetInstance();
+        didStore.didStorInf->diagDIDRemoveDataChangeNotification(dataID);
+    }
+    return;
 }
 
-
+//-------------------------------------------------------------------------------------------------
+/**
+ * Add a handler for DID change notification.
+ */
+//-------------------------------------------------------------------------------------------------
 taf_diagDidStore_DataIdChangeHandlerRef_t taf_diagDidStore::AddDataIdChangeHandler
 (
     taf_diagDidStore_ServiceRef_t svcRef,
@@ -725,8 +747,6 @@ taf_diagDidStore_DataIdChangeHandlerRef_t taf_diagDidStore::AddDataIdChangeHandl
         ///< [IN]
 )
 {
-    LE_DEBUG("AddDataIdChangeHandler!");
-
     taf_DidStore_t* servicePtr = (taf_DidStore_t*)le_ref_Lookup(SvcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, NULL, "Invalid service reference provided");
 
@@ -738,27 +758,175 @@ taf_diagDidStore_DataIdChangeHandlerRef_t taf_diagDidStore::AddDataIdChangeHandl
         return NULL;
     }
 
+    // Add the DID to plugin change notification list
+    if(didStorInf)
+    {
+        le_result_t res = didStorInf->diagDIDAddDataChangeNotification(dataId);
+        if (res == LE_FAULT)
+        {
+            LE_ERROR("DID %x not registered to plugin, error with return %d",dataId, res);
+            return NULL;
+        }
+    }
+    else
+    {
+        LE_ERROR("Plugin not initialized");
+        return NULL;
+    }
+
     taf_DIDStorgNotifyHandler_t* handlerObjPtr = NULL;
     handlerObjPtr = (taf_DIDStorgNotifyHandler_t*)le_mem_ForceAlloc(MsgDIDStorgHandlerPool);
     memset(handlerObjPtr, 0, sizeof(taf_DIDStorgNotifyHandler_t));
 
     // Initialize the Handler object.
     handlerObjPtr->svcRef     = svcRef;
-    handlerObjPtr->did = dataId;
     handlerObjPtr->func       = handlerPtr;
     handlerObjPtr->ctxPtr     = contextPtr;
     handlerObjPtr->handlerRef = (taf_diagDidStore_DataIdChangeHandlerRef_t)le_ref_CreateRef(
             MsgDIDStorgHandlerRefMap, handlerObjPtr);
     handlerObjPtr->link = LE_DLS_LINK_INIT;
+
+    // Add DataID to the list
+    taf_DataID_t* dataIdPtr = (taf_DataID_t *)le_mem_ForceAlloc(dataIdPool);
+    memset(dataIdPtr, 0, sizeof(taf_DataID_t));
+
+    dataIdPtr->dataId = dataId;
+    dataIdPtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&handlerObjPtr->dataIdList, &dataIdPtr->link);
+
     // Attach handler to service.
     servicePtr->msgDIDStorgHandlerRef = handlerObjPtr->handlerRef;
-
-    LE_INFO("DID Msg: Registered Handler");
 
     le_dls_Queue(&(didStorageNotifyList),&handlerObjPtr->link);
     return handlerObjPtr->handlerRef;
 }
 
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference of a DID change handler.
+ */
+//-------------------------------------------------------------------------------------------------
+taf_diagDidStore_DIDChangeHandlerRef_t taf_diagDidStore::GetDIDHandlerRef
+(
+    taf_diagDidStore_ServiceRef_t svcRef
+        ///< [IN] Service reference.
+)
+{
+    LE_DEBUG("GetDIDHandlerRef!");
+
+    taf_DidStore_t* servicePtr = (taf_DidStore_t*)le_ref_Lookup(SvcRefMap, svcRef);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, NULL, "Invalid service reference");
+
+    return (taf_diagDidStore_DIDChangeHandlerRef_t)servicePtr->msgDIDStorgHandlerRef;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Adds the DID to handler for change notification.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_diagDidStore::AddDIDToHandler
+(
+    taf_diagDidStore_DIDChangeHandlerRef_t handlerRef,
+        ///< [IN] Handler reference.
+    uint16_t dataId
+        ///< [IN] Data identifier.
+)
+{
+    LE_DEBUG("AddDIDToHandler!");
+    TAF_ERROR_IF_RET_VAL(handlerRef == NULL, LE_BAD_PARAMETER, "Invalid handlerRef");
+
+    taf_DIDStorgNotifyHandler_t* handlerObjPtr = NULL;
+    handlerObjPtr = (taf_DIDStorgNotifyHandler_t*)le_ref_Lookup(MsgDIDStorgHandlerRefMap,
+            (taf_diagDidStore_DataIdChangeHandlerRef_t)handlerRef);
+    TAF_ERROR_IF_RET_VAL(handlerObjPtr == NULL, LE_BAD_PARAMETER, "Invalid handlerObjPtr");
+
+    // Check DataID was already added before or not
+    le_dls_Link_t* linkPtr = NULL;
+    linkPtr = le_dls_Peek(&handlerObjPtr->dataIdList);
+    while (linkPtr)
+    {
+        taf_DataID_t* dataIdPtr = CONTAINER_OF(linkPtr, taf_DataID_t, link);
+        if (dataIdPtr != NULL && dataIdPtr->dataId == dataId)
+        {
+            return LE_DUPLICATE;
+        }
+        linkPtr = le_dls_PeekNext(&handlerObjPtr->dataIdList, linkPtr);
+    }
+
+    // Add the DID to plugin change notification list
+    if(didStorInf)
+    {
+        le_result_t res = didStorInf->diagDIDAddDataChangeNotification(dataId);
+        if (res == LE_FAULT)
+        {
+            LE_ERROR("DID %x not registered to plugin, error with return %d",dataId, res);
+            return LE_FAULT;
+        }
+    }
+    else
+    {
+        LE_ERROR("Plugin not initialized");
+        return LE_FAULT;
+    }
+
+    // Add DataID to the list
+    taf_DataID_t* dataIdPtr = (taf_DataID_t *)le_mem_ForceAlloc(dataIdPool);
+    memset(dataIdPtr, 0, sizeof(taf_DataID_t));
+
+    dataIdPtr->dataId = dataId;
+    dataIdPtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&handlerObjPtr->dataIdList, &dataIdPtr->link);
+    LE_DEBUG("DataID (0x%x) added", dataIdPtr->dataId);
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Removes DID from handler.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_diagDidStore::RemoveDIDFromHandler
+(
+    taf_diagDidStore_DIDChangeHandlerRef_t handlerRef,
+        ///< [IN] Handler reference.
+    uint16_t dataId
+        ///< [IN] Data identifier.
+)
+{
+    TAF_ERROR_IF_RET_VAL(handlerRef == NULL, LE_BAD_PARAMETER, "Invalid handlerRef");
+
+    taf_DIDStorgNotifyHandler_t* handlerObjPtr = NULL;
+    handlerObjPtr = (taf_DIDStorgNotifyHandler_t*)le_ref_Lookup(MsgDIDStorgHandlerRefMap,
+            (taf_diagDidStore_DataIdChangeHandlerRef_t)handlerRef);
+    TAF_ERROR_IF_RET_VAL(handlerObjPtr == NULL, LE_BAD_PARAMETER, "Invalid handlerObjPtr");
+
+    // Remove the requested DataID from the list.
+    le_dls_Link_t* linkPtr = NULL;
+    linkPtr = le_dls_Peek(&handlerObjPtr->dataIdList);
+    while (linkPtr)
+    {
+        taf_DataID_t* dataIdPtr = CONTAINER_OF(linkPtr, taf_DataID_t, link);
+        if (dataIdPtr != NULL && dataIdPtr->dataId == dataId)
+        {
+            // Release the dataIdPtr
+            le_dls_Remove(&handlerObjPtr->dataIdList, &dataIdPtr->link);
+            le_mem_Release(dataIdPtr);
+            return LE_OK;
+        }
+        linkPtr = le_dls_PeekNext(&handlerObjPtr->dataIdList, linkPtr);
+    }
+
+    LE_DEBUG("DataID (0x%x) not found", dataId);
+    return LE_NOT_FOUND;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_diagDataIDStor_MsgNotify'
+ */
+//--------------------------------------------------------------------------------------------------
 void taf_diagDidStore::RemoveDataIdChangeHandler
 (
     taf_diagDidStore_DataIdChangeHandlerRef_t handlerRef
@@ -775,6 +943,20 @@ void taf_diagDidStore::RemoveDataIdChangeHandler
     handlerObjPtr = (taf_DIDStorgNotifyHandler_t*)le_ref_Lookup(MsgDIDStorgHandlerRefMap,
             handlerRef);
     TAF_ERROR_IF_RET_NIL(handlerObjPtr == NULL, "Invalid handlerObjPtr");
+
+    // Release all the dataId list.
+    le_dls_Link_t* linkPtr = NULL;
+    linkPtr = le_dls_Pop(&handlerObjPtr->dataIdList);
+    while (linkPtr)
+    {
+        taf_DataID_t* dataIdPtr = CONTAINER_OF(linkPtr, taf_DataID_t, link);
+        if (dataIdPtr != NULL)
+        {
+            // Release the dataIdPtr
+            le_mem_Release(dataIdPtr);
+        }
+        linkPtr = le_dls_Pop(&handlerObjPtr->dataIdList);
+    }
 
     servicePtr = (taf_DidStore_t*)le_ref_Lookup(SvcRefMap, handlerObjPtr->svcRef);
     if (servicePtr == NULL)
@@ -845,9 +1027,9 @@ void taf_diagDidStore::readDataIDMsgHandler
 
     for( int i=0; i< (int)dataIdSize; i++)
     {
-        LE_DEBUG("Reading for requested DataID!");
         if(sendBufLen + DID_LEN > TAF_DIAGDATAID_MAX_READ_DID_PAYLOAD_SIZE)
         {
+            LE_WARN("Send NRC %x to readDID req!", TAF_DIAGDATAID_READ_DID_RESPONSE_TOO_LONG);
             if(taf_diagDataID_SendReadDIDResp( rxMsgRef,
                     TAF_DIAGDATAID_READ_DID_RESPONSE_TOO_LONG, NULL, 0 ) != LE_OK)
             {
@@ -860,11 +1042,14 @@ void taf_diagDidStore::readDataIDMsgHandler
         ret = didStore.Read(dataIdPtr[i], sendBuf, &sendBufLen);
         if (ret == LE_OK)
         {
-            LE_DEBUG("Requested DataID is read!");
             if (totalBufLen + sendBufLen + DID_LEN > TAF_DIAGDATAID_MAX_READ_DID_PAYLOAD_SIZE)
             {
-                result = taf_diagDataID_SendReadDIDResp( rxMsgRef,
-                        TAF_DIAGDATAID_READ_DID_RESPONSE_TOO_LONG, NULL, 0);
+                LE_WARN("Send NRC %x to readDID req!", TAF_DIAGDATAID_READ_DID_RESPONSE_TOO_LONG);
+                if(taf_diagDataID_SendReadDIDResp( rxMsgRef,
+                    TAF_DIAGDATAID_READ_DID_RESPONSE_TOO_LONG, NULL, 0 ) != LE_OK)
+                {
+                    LE_ERROR("Send response error");
+                }
                 return;
             }
 
@@ -880,13 +1065,12 @@ void taf_diagDidStore::readDataIDMsgHandler
 
     if ( totalBufLen == 0 )
     {
-        LE_DEBUG("Sending NRC to readDID req!");
+        LE_WARN("Send NRC %x to readDID req!", didStore.readStrg.result);
         result = taf_diagDataID_SendReadDIDResp( rxMsgRef,
-                TAF_REQ_OUT_OF_RANGE, NULL, 0);
+                didStore.readStrg.result, NULL, 0);
     }
     else
     {
-        LE_DEBUG("Sending positive response for readDID req!");
         result = taf_diagDataID_SendReadDIDResp( rxMsgRef,
                 TAF_DIAGDATAID_READ_DID_NO_ERROR, totalBuf, totalBufLen);
     }
@@ -931,14 +1115,13 @@ void taf_diagDidStore::writeDataIDMsgHandler
     ret = didStore.Write(dataId, recordData, dataLen);
     if (ret != LE_OK)
     {
-        LE_DEBUG("Sending NRC for writeDID req!");
+        LE_WARN("Send NRC %x for writeDID req!", didStore.writeDIDPIResult);
         // send NRC
-        result = taf_diagDataID_SendWriteDIDResp( rxMsgRef,
-                TAF_REQ_OUT_OF_RANGE, dataId);
+        result = taf_diagDataID_SendWriteDIDResp(rxMsgRef,
+                didStore.writeDIDPIResult, dataId);
     }
     else
     {
-        LE_DEBUG("Sending NRC for writeDID req!");
         result = taf_diagDataID_SendWriteDIDResp( rxMsgRef,
                 TAF_DIAGDATAID_WRITE_DID_NO_ERROR, dataId);
     }
@@ -988,15 +1171,10 @@ void taf_diagDidStore::OnClientDisconnection
                     CONTAINER_OF(linkHandlerPtr, taf_DIDStorgNotifyHandler_t, link);
                 if (handlerCtxPtr != NULL && handlerCtxPtr->svcRef == servicePtr->svcRef)
                 {
-                    // Print the address before removal
-                    LE_DEBUG("Removing handler object at address: %p", handlerCtxPtr);
                     // Remove the handler from the list and release memory
                     le_dls_Remove(&(didStorageNotifyList), &handlerCtxPtr->link);
                     le_mem_Release(handlerCtxPtr);
                     handlerCtxPtr = NULL; // Set the pointer to NULL after release
-
-                    // Print the address after removal
-                    LE_DEBUG("Handler object at address: %p removed", handlerCtxPtr);
                 }
                 else
                 {
@@ -1233,7 +1411,7 @@ void taf_diagDidStore::GetSvcReady(void *p1, void *p2)
     le_timer_SetWakeup(retryTimer, false);
     le_timer_SetMsInterval(retryTimer, RETRY_TIMER_INTERVAL);
     le_timer_Start(retryTimer);
-    LE_INFO("Retry timer start ...");
+    LE_DEBUG("Retry timer start ...");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1246,8 +1424,6 @@ void taf_diagDidStore::Init
     void
 )
 {
-    LE_INFO("taf_diagDidStore Init!");
-
     // parse json configuration
     le_result_t result = ParseDidStoreJsonConfig(DEFAULT_DID_STORE_CONFIG_PATH);
     if(result != LE_OK){
@@ -1263,6 +1439,7 @@ void taf_diagDidStore::Init
         sizeof(taf_DIDStorgNotifyHandler_t));
     MsgDIDStorgHandlerRefMap = le_ref_CreateMap("MsgDIDStorgHandlerRefMap",
         DEFAULT_DID_HANDLER_REF_CNT);
+    dataIdPool = le_mem_CreatePool("DataIDPool", sizeof(taf_DataID_t));
 
     //Read DID Plugin thread
     ReadRequestPool = le_mem_CreatePool("Read plugin Request", sizeof(ReadWriteRequest_t));
@@ -1283,6 +1460,4 @@ void taf_diagDidStore::Init
 
     evtReady = le_event_CreateId("readyEvt", sizeof(taf_didStore_ReadyEvtType_t));
     le_event_AddHandler("readyEvtHdlr", evtReady, ReadyEvtHandler);
-
-    LE_INFO("taf_diagDidStore Init completed!");
 }

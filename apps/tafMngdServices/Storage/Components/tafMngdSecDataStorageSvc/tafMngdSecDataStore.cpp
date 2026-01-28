@@ -375,9 +375,33 @@ void tafMngdStorageSvc::LoadAllSharedAppData
 
             while ((data_entry = readdir(data_dir)) != nullptr)
             {
+                // Check if the entry is a regular file
                 if (data_entry->d_type == DT_REG)
                 {
-                    LoadSecDataRefForDataSharedKey(namespace_entry->d_name, data_entry->d_name);
+                    const char* filename = data_entry->d_name;
+                    const char* temp_ext = SECURE_DATA_TEMP_EXTENSION;
+                    size_t len = strlen(filename);
+                    size_t ext_len = strlen(temp_ext);
+
+                    // If the file has a .temp extension
+                    if (len >= ext_len && strcmp(filename + len - ext_len, temp_ext) == 0)
+                    {
+                        // Construct the full path to the file for deletion
+                        std::string full_path = std::string(namespace_path) + "/" + filename;
+
+                        // Attempt to remove the .temp file
+                        if (remove(full_path.c_str()) != 0)
+                        {
+                            // Print error message if deletion fails
+                            LE_ERROR("Failed to remove temp file: %s", full_path.c_str());
+                        }
+
+                        // Skip further processing for this file
+                        continue;
+                    }
+
+                    // Load secure data reference for non-temp files
+                    LoadSecDataRefForDataSharedKey(namespace_entry->d_name, filename);
                 }
             }
 

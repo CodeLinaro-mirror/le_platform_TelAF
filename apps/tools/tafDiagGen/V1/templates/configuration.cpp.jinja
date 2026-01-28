@@ -128,6 +128,36 @@ EXPORT_SYM std::map<uint16_t, std::shared_ptr<Node>> get_event_nodes(uint32_t dt
     return ev_map;
 }
 
+EXPORT_SYM std::string get_event_name(uint16_t event_id)
+{
+    return std::to_string(event_id);
+}
+
+EXPORT_SYM std::vector<std::pair<uint16_t, std::string>> get_event_idNames()
+{
+    NEED_INITED();
+
+    Node & dtcs = root.get_child("dtc_all");
+
+    std::vector<std::pair<uint16_t, std::string>> eid_list;
+    uint16_t ev_id = 0;
+    std::string evName;
+
+    for (auto & dtc: dtcs)
+    {
+        Node & evl = dtc.second.get_child("events");
+
+        for (auto & ev : evl)
+        {
+            ev_id = (uint16_t) std::stoi(ev.second.get_value<std::string>());
+            evName = get_event_name(ev_id);
+            eid_list.emplace_back(ev_id, evName);
+        }
+    }
+
+    return eid_list;
+}
+
 EXPORT_SYM std::vector<uint16_t> get_event_ids(uint32_t dtc_code)
 {
     NEED_INITED();
@@ -337,12 +367,13 @@ EXPORT_SYM bool validate_base_record(const uint8_t* dataRecord, size_t recordLen
     return false;
 }
 
-}
-}
-
-COMPONENT_INIT
+EXPORT_SYM void init()
 {
     LE_INFO("Diagnostic Configuration Inited (v:%s, t:%s)",
             tafDiagGen_tool_version,
             tafDiagGen_tool_timestamp);
 }
+
+}
+}
+

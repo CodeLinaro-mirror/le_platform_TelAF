@@ -232,38 +232,6 @@ namespace tafsvc {
     }
     taf_locGnss_PositionSample_t;
 
-    typedef struct taf_locGnss_PositionHandler
-    {
-        taf_locGnss_PositionHandlerRef_t handlerRef;
-        taf_locGnss_PositionHandlerFunc_t handlerFuncPtr;
-        void*                         handlerContextPtr;
-        le_msg_SessionRef_t           sessionRef;
-        le_dls_Link_t                 next;
-    }
-    taf_locGnss_PositionHandler_t;
-
-    typedef struct
-    {
-        taf_locGnss_LocCapabilityType_t locCapability;
-    }
-    CapabilityChangeEvent_t;
-
-    typedef struct
-    {
-        uint64_t timestamp;
-        char nmeaMask[TAF_LOCGNSS_NMEA_STRING_MAX];
-    }
-    NmeaInfoEvent_t;
-
-    typedef struct
-    {
-        taf_locGnss_SampleRef_t             positionSampleRef;
-        taf_locGnss_PositionSample_t*       positionSampleNodePtr;
-        le_msg_SessionRef_t             sessionRef;
-        le_dls_Link_t                   next;
-    }
-    taf_locGnss_PositionSampleRequest_t;
-
     typedef struct taf_locGnss_GnssMeasurementsClock
     {
         taf_locGnss_GnssMeasurementsClockValidityType_t valid;
@@ -323,7 +291,17 @@ namespace tafsvc {
         le_msg_SessionRef_t*          clientSessionRefPtr;
      }taf_locGnss_GnssMeasurements_t;
 
-     typedef struct taf_locGnss_MeasurementHandler
+    typedef struct taf_locGnss_PositionHandler
+    {
+        taf_locGnss_PositionHandlerRef_t handlerRef;
+        taf_locGnss_PositionHandlerFunc_t handlerFuncPtr;
+        void*                         handlerContextPtr;
+        le_msg_SessionRef_t           sessionRef;
+        le_dls_Link_t                 next;
+    }
+    taf_locGnss_PositionHandler_t;
+
+    typedef struct taf_locGnss_MeasurementHandler
     {
         taf_locGnss_MeasurementHandlerRef_t handlerRef;
         taf_locGnss_MeasurementHandlerFunc_t handlerFuncPtr;
@@ -332,6 +310,28 @@ namespace tafsvc {
         le_dls_Link_t                 next;
     }
     taf_locGnss_MeasurementHandler_t;
+
+    typedef struct
+    {
+        taf_locGnss_LocCapabilityType_t locCapability;
+    }
+    CapabilityChangeEvent_t;
+
+    typedef struct
+    {
+        uint64_t timestamp;
+        char nmeaMask[TAF_LOCGNSS_NMEA_STRING_MAX];
+    }
+    NmeaInfoEvent_t;
+
+    typedef struct
+    {
+        taf_locGnss_SampleRef_t             positionSampleRef;
+        taf_locGnss_PositionSample_t*       positionSampleNodePtr;
+        le_msg_SessionRef_t             sessionRef;
+        le_dls_Link_t                   next;
+    }
+    taf_locGnss_PositionSampleRequest_t;
 
     typedef struct
     {
@@ -581,6 +581,7 @@ namespace tafsvc {
             le_result_t GetGptpTime(taf_locGnss_SampleRef_t positionSampleRef,uint64_t* gPtpTime,uint64_t* gPtpTimeUnc);
             le_result_t GetLeapSecondsUncertainty(taf_locGnss_SampleRef_t positionSampleRef,uint8_t* leapSecondsUncPtr);
             le_result_t SetNmeaConfig(const taf_locGnss_NmeaBitMask_t nmea);
+
             taf_locGnss_NmeaBitMask_t GetNmeaConfig();
             void CleanUp(taf_locGnss_Client_t*);
 

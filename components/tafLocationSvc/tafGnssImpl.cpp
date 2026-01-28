@@ -124,7 +124,6 @@ void Handler::onGnssSVInfo(taf_pa_location_LocationId clientId, const std::vecto
     clientRequestPtr->mTotalSVTracked = 0;
     memset(&clientRequestPtr->mSatInfo, 0, sizeof(clientRequestPtr->mSatInfo));
     for(auto svInfo : GnssSVInfo) {
-
         if(i >= TAF_LOCGNSS_SV_INFO_MAX_LEN)
         {
             LE_WARN("SvInfo overflows");
@@ -2018,6 +2017,7 @@ void taf_locGnss::GnssPositionHandler
         if(posHandlerPtr == NULL) {
             return;
         }
+
         posSampleReqPtr = (taf_locGnss_PositionSampleRequest_t*)le_mem_ForceAlloc(gnss.PositionSampleRequestPoolRef);
         memset(posSampleReqPtr, 0, sizeof(taf_locGnss_PositionSampleRequest_t));
 
@@ -2037,7 +2037,7 @@ void taf_locGnss::GnssPositionHandler
         posSampleReqPtr->positionSampleRef =
            (taf_locGnss_SampleRef_t)le_ref_CreateRef(gnss.PositionSampleMap, posSampleReqPtr);
 
-        LE_DEBUG("Report sampleRef %p to the corresponding handler (handlerPtr %p)",
+        LE_INFO("Report sampleRef %p to the corresponding handler (handlerPtr %p)",
             posSampleReqPtr->positionSampleRef, posHandlerPtr->handlerFuncPtr);
 
         posHandlerPtr->handlerFuncPtr(posSampleReqPtr->positionSampleRef,
@@ -2118,7 +2118,7 @@ void taf_locGnss::GnssPositionExHandler
         extendPosSampleReqPtr->magneticDeviation = currentPosPtr->magneticDeviation;
 
         if (extendPosHandlerPtr->sessionRef != *currentPosPtr->clientSessionRefPtr) {
-            LE_DEBUG("GnssPositionExHandler session ref does not match! ReqPtr.sessionRef: %p, Sample.sessionRef: %p", extendPosHandlerPtr->sessionRef, *currentPosPtr->clientSessionRefPtr);
+            LE_ERROR("GnssPositionExHandler session ref does not match! ReqPtr.sessionRef: %p, Sample.sessionRef: %p", extendPosHandlerPtr->sessionRef, *currentPosPtr->clientSessionRefPtr);
             continue;
         }
 
@@ -3202,7 +3202,7 @@ taf_locGnss_PositionExHandlerRef_t taf_locGnss::AddPositionExHandler
     PositionHandlerExPtr->handlerContextPtr = contextPtr;
     PositionHandlerExPtr->sessionRef = taf_locGnss_GetClientSessionRef();
 
-    LE_DEBUG("AddPositionExHandler() sessionRef: %p", PositionHandlerExPtr->sessionRef);
+    LE_INFO("AddPositionExHandler() sessionRef: %p", PositionHandlerExPtr->sessionRef);
 
     taf_locGnss_Client_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();
@@ -3213,7 +3213,7 @@ taf_locGnss_PositionExHandlerRef_t taf_locGnss::AddPositionExHandler
 
     NumOfPositionExHandlers++;
 
-    LE_DEBUG("Created PositionHandlerExRef(%p) for PositionHandlerExPtr(%p) (totalCnt=0x%x).",
+    LE_INFO("Created PositionHandlerExRef(%p) for PositionHandlerExPtr(%p) (totalCnt=0x%x).",
         PositionHandlerExPtr->handlerRef, PositionHandlerExPtr, NumOfPositionExHandlers);
 
     return PositionHandlerExPtr->handlerRef;
@@ -3234,7 +3234,7 @@ taf_locGnss_MeasurementHandlerRef_t taf_locGnss::AddMeasurementHandler
     measHandlerPtr->handlerContextPtr = contextPtr;
     measHandlerPtr->sessionRef = taf_locGnss_GetClientSessionRef();
 
-    LE_DEBUG("AddMeasurementHandler() sessionRef: %p", measHandlerPtr->sessionRef);
+    LE_INFO("AddMeasurementHandler() sessionRef: %p", measHandlerPtr->sessionRef);
 
     taf_locGnss_Client_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();
@@ -3245,7 +3245,7 @@ taf_locGnss_MeasurementHandlerRef_t taf_locGnss::AddMeasurementHandler
 
     NumOfMeasurementHandlers++;
 
-    LE_DEBUG("Created measHandlerPtrRef(%p) for measHandlerPtr(%p) (totalCnt=0x%x).",
+    LE_INFO("Created measHandlerPtrRef(%p) for measHandlerPtr(%p) (totalCnt=0x%x).",
         measHandlerPtr->handlerRef, measHandlerPtr, NumOfMeasurementHandlers);
 
     return measHandlerPtr->handlerRef;;
@@ -5363,7 +5363,7 @@ le_result_t taf_locGnss::SetNmeaSentences
                     nmeaType |= TAF_PA_LOCATION_GIGSV;
                     LE_DEBUG("SetNmeaSentences ->GIGSV");
                 }
-                LE_DEBUG("SetNmeaSentences nmeaMask mask is : %" PRIu64 "", nmeaMask);
+                LE_DEBUG("SetNmeaSentences nmeaMask mask is : %" PRIu32 "", nmeaType);
 
                 typedef struct{
                     pa_result_t result;
@@ -5373,7 +5373,7 @@ le_result_t taf_locGnss::SetNmeaSentences
                     resPtr->result = result;
                 };
                 taf_SelfTestResult_t resCallback = {};
-                pa_result_t res = taf_pa_location_configureNmeaTypes((taf_pa_location_NmeaSentenceType_t)nmeaMask,cb1,(std::any)&resCallback);
+                pa_result_t res = taf_pa_location_configureNmeaTypes((taf_pa_location_NmeaSentenceType_t)nmeaType,cb1,(std::any)&resCallback);
                 if(res == PA_OK){
                     if(resCallback.result == PA_OK)
                     {
@@ -7843,6 +7843,7 @@ le_result_t taf_locGnss::GetClockValidityMask(taf_locGnss_MeasSampleRef_t measSa
         LE_ERROR("measSampleReqPtr is NULL");
         return LE_FAULT;
     }
+
     LE_INFO("measSampleReqPtr->measSampleNodePtr->clock.valid: %d",(int)measSampleReqPtr->measSampleNodePtr->clock.valid);
 
     *clockValidityMaskPtr = measSampleReqPtr->measSampleNodePtr->clock.valid;
@@ -7982,8 +7983,8 @@ void taf_locGnss::RemovePositionHandler
     taf_locGnss_PositionHandlerRef_t handlerRef
 )
 {
-	auto &gnss = taf_locGnss::GetInstance();
-
+    LE_INFO("RemovePositionHandler!!");
+    auto &gnss = taf_locGnss::GetInstance();
     taf_locGnss_PositionHandler_t* positionHandlerPtr =
         (taf_locGnss_PositionHandler_t*)le_ref_Lookup(gnss.PositionHandlerRefMap, handlerRef);
 

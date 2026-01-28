@@ -29,9 +29,14 @@ namespace taf{
 namespace doip{
     #define TAF_DOIP_MAX_ENTITY_NUM         1
     #define TAF_DOIP_MAX_USER_HANDLER_NUM   10
+    #define TAF_DOIP_CLOSE_SOCKET_INTERVAL  5000
 
     #define TAF_DOIP_MDS_DEFAULT            4096
     #define TAF_DOIP_SA_DEFAULT             0x201
+
+    #define TAF_DOIP_MAX_GET_IP_WAIT_TIME   5*1000 // 5000 miliseconds
+    #define MAX_CUSTOMIZED_ANNOUNCE_WAIT_TIME 10 // 10 miliseconds
+    #define TIME_CONSUMED_BY_CODE_EXECUTION  2 // Time consumed by code execution
 
     #define VLAN_PROC_PATH  "/proc/net/vlan/config"
 
@@ -139,6 +144,13 @@ namespace doip{
         char                ifName[TAF_DOIP_INTERFACE_NAME_MAX_LEN];
     }taf_doip_Status_t;
 
+    typedef struct
+    {
+        in_addr_t  ipv4_s_addr;
+        in_addr_t  ipv4_mask_s_addr;
+        char       localIp[TAF_DOIP_IP_ADDR_MAX_LEN];;
+    }taf_doip_IPInfo_t;
+
     class CommunicationMgr {
         public:
             static CommunicationMgr &GetInstance();
@@ -205,6 +217,8 @@ namespace doip{
 
             le_mutex_Ref_t doipSessionRefMutex;
 
+            le_timer_Ref_t shutdownTimerRef;
+
             taf_doipSession_t*  FindDoipSession(uint16_t sa);
             taf_doip_PowerMode_t QueryPowerMode();
             taf_doip_UserConfirmResult_t ConfirmRoutingActivation(uint16_t sa, uint16_t ta);
@@ -213,9 +227,14 @@ namespace doip{
             // If not set vlan, this function will return 0.
             uint16_t GetVlanId(const char *ifacePtr);
         private:
-            taf_doip_Result_t GetLocalIPv4Addr(std::string& ifname, char *ip, socklen_t size);
-            taf_doip_Result_t GetLocalIPv6Addr(std::string& ifname, char *ip, socklen_t size);
-            taf_doip_Result_t GetLocalIPAddr(int af, std::string& ifname, char *ip, socklen_t size);
+            taf_doip_Result_t GetLocalIPv4Addr(std::string& ifname, taf_doip_IPInfo_t* ipInfo,
+                    socklen_t size);
+            taf_doip_Result_t GetLocalIPv6Addr(std::string& ifname, taf_doip_IPInfo_t* ipInfo,
+                    socklen_t size);
+            taf_doip_Result_t GetLocalIPAddr(int af, std::string& ifname, taf_doip_IPInfo_t* ipInfo,
+                    socklen_t size);
+            taf_doip_Result_t GetIpAddrWithAnnounceWaitMech(int af, std::string& ifname,
+                    taf_doip_IPInfo_t* ipInfo, socklen_t size);
 
             taf_doip_Result_t RecvUdpData(le_socket_Ref_t sockRef);
             taf_doip_Result_t CheckDoipHeaderOverUdp(taf_doipHeader_t& header, char* ipPtr,
@@ -235,6 +254,8 @@ namespace doip{
             static void RequestUdsMessage(void* param1Ptr, void* param2Ptr);
             static void ConfirmUserMessage(void* param1Ptr, void* param2Ptr);
             static void IndicateConnectionEvent(void* param1Ptr, void* param2Ptr);
+
+            static void shutdownTimerHandler( le_timer_Ref_t timerRef);
 
             void RespondHeaderNegativeACK(const char* ipPtr, uint16_t port,
                     taf_doipHeaderNACKCode_t nackCode);
@@ -257,7 +278,7 @@ namespace doip{
             //uint16_t sa;     // Source logical address.
             //uint32_t authenInfo;
             //char multiAddr[TAF_DOIP_IP_ADDR_MAX_LEN];
-            char localIp[MAX_INF_NUM][TAF_DOIP_IP_ADDR_MAX_LEN];
+            taf_doip_IPInfo_t localIpInfo[MAX_INF_NUM];
 
             taf_doipState_t state = TAF_DOIP_STATE_FINAL;
 

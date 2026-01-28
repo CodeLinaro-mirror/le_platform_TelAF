@@ -24,6 +24,14 @@
             "id" : "0x0202"
         },
         {
+            "name" : "ivssLocationSvc",
+            "id" : "0x0203"
+        },
+        {
+            "name" : "ivssSensorSvc",
+            "id" : "0x0204"
+        },
+        {
             "name" : "location-fidl-service",
             "id" : "0x301"
         },
@@ -62,6 +70,18 @@
         },
         {
             "service" : "0xED83",
+            "instance" : "0x0001",
+            "reliable" : { "port" : "30509", "enable-magic-cookies" : "false" },
+            "unreliable" : "31000"
+        },
+        {
+            "service" : "0xED84",
+            "instance" : "0x0001",
+            "reliable" : { "port" : "30509", "enable-magic-cookies" : "false" },
+            "unreliable" : "31000"
+        },
+        {
+            "service" : "0xED85",
             "instance" : "0x0001",
             "reliable" : { "port" : "30509", "enable-magic-cookies" : "false" },
             "unreliable" : "31000"

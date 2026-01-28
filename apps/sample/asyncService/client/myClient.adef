@@ -1,0 +1,20 @@
+sandboxed: false
+start: manual
+executables:
+{
+    myClient = (clientComp)
+}
+
+processes:
+{
+    run:
+    {
+        (myClient)
+    }
+}
+
+bindings:
+{
+    myClient.clientComp.asyncSvcDemo -> myAsyncSvc.asyncSvcDemo
+    myClient.clientComp.syncSvcDemo -> mySyncSvc.syncSvcDemo
+}

@@ -254,6 +254,21 @@ LE_SHARED le_result_t taf_DataAccess_SetEventStatus
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Set event status by event name and save it in storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_SetEventStatusByName
+(
+    const char *eventName,  ///< [IN]
+    uint8_t status          ///< [IN]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Get event status from storage media.
  *
  * @return
@@ -263,6 +278,19 @@ LE_SHARED le_result_t taf_DataAccess_SetEventStatus
 LE_SHARED uint8_t taf_DataAccess_GetEventStatus
 (
     uint16_t eventId     ///< [IN]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get event status from storage media by event name.
+ *
+ * @return
+ *  - The status of the event. If not exist, will return 0.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED uint8_t taf_DataAccess_GetEventStatusByName
+(
+    const char *eventName   ///< [IN]
 );
 
 //-------------------------------------------------------------------------------------------------

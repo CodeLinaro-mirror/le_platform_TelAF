@@ -62,7 +62,7 @@ CommunicationMgr::CommunicationMgr()
     {
         tcpDataSockRef[i] = NULL;
         udpEquipSockRef[i] = NULL;
-        memset(localIp[i], 0, TAF_DOIP_IP_ADDR_MAX_LEN);
+        memset(&localIpInfo[i], 0, sizeof(taf_doip_IPInfo_t));
     }
     udpDiscoverSockRef = NULL;
 }
@@ -101,10 +101,10 @@ std::shared_ptr<ConnectionManager> CommunicationMgr::GetConnectionMgr
 =================================================================================================*/
 taf_doip_Result_t CommunicationMgr::GetLocalIPAddr
 (
-    int             af,
-    std::string&    ifname,
-    char            *ip,
-    socklen_t       size
+    int                     af,
+    std::string&            ifname,
+    taf_doip_IPInfo_t*      ipInfo,
+    socklen_t               size
 )
 {
     struct ifaddrs  *ifaPtr, *tmpPtr;
@@ -112,7 +112,7 @@ taf_doip_Result_t CommunicationMgr::GetLocalIPAddr
     LE_DEBUG("Enter GetLocalIPAddr, family address is %d, iface is %s",
         af, ifname.c_str());
 
-    if (ip == NULL || (af != AF_INET && af != AF_INET6))
+    if (ipInfo == NULL || (af != AF_INET && af != AF_INET6))
     {
         LE_ERROR("Parameter error!\n");
         return TAF_DOIP_RESULT_PARAM_ERROR;
@@ -152,7 +152,7 @@ taf_doip_Result_t CommunicationMgr::GetLocalIPAddr
 
             if (IN6_IS_ADDR_LINKLOCAL(&addr6))
             {
-                if (inet_ntop(af, &addr6, ip, size) == NULL)
+                if (inet_ntop(af, &addr6, ipInfo->localIp, size) == NULL)
                 {
                     LE_ERROR("Can not get IPv6 address.\n");
                     freeifaddrs(ifaPtr);
@@ -164,25 +164,29 @@ taf_doip_Result_t CommunicationMgr::GetLocalIPAddr
         else
         {
             struct in_addr addr;
+            struct in_addr netmaskAddr;
             addr = (((struct sockaddr_in *)(tmpPtr->ifa_addr))->sin_addr);
+            netmaskAddr = (((struct sockaddr_in *)(tmpPtr->ifa_netmask))->sin_addr);
 
-            if (inet_ntop(af, &addr, ip, size) == NULL)
+            if (inet_ntop(af, &addr, ipInfo->localIp, size) == NULL)
             {
                 LE_ERROR("Can not get IPv4 address for %s.", ifname.c_str());
                 freeifaddrs(ifaPtr);
                 return TAF_DOIP_RESULT_ERROR;
             }
+            ipInfo->ipv4_s_addr = addr.s_addr;
+            ipInfo->ipv4_mask_s_addr = netmaskAddr.s_addr;
             break;
         }
     }
 
-    LE_DEBUG("IP is %s\n", ip);
+    LE_DEBUG("IP is %s\n", ipInfo->localIp);
 
     freeifaddrs(ifaPtr);
 
     if (tmpPtr == NULL)
     {
-        LE_ERROR("Can't find interface %s\n", ifname.c_str());
+        LE_DEBUG("Can't find interface %s\n", ifname.c_str());
         return TAF_DOIP_RESULT_ERROR;
     }
 
@@ -199,12 +203,21 @@ taf_doip_Result_t CommunicationMgr::GetLocalIPAddr
 =================================================================================================*/
 taf_doip_Result_t CommunicationMgr::GetLocalIPv6Addr
 (
-    std::string&    ifname,
-    char            *ip,
-    socklen_t       size
+    std::string&             ifname,
+    taf_doip_IPInfo_t*       ipInfo,
+    socklen_t                size
 )
 {
-    return GetLocalIPAddr(AF_INET6, ifname, ip, size);
+    auto&   vehicleMgr = VehicleManager::GetInstance();
+
+    //If announceWait is configured, run announcement mechanisam to get IP address.
+    if ( vehicleMgr.GetAnnounceWait() )
+    {
+        LE_DEBUG("Run Announcement wait mechanisam to get IP address");
+        return GetIpAddrWithAnnounceWaitMech(AF_INET6, ifname, ipInfo, size);
+    }
+
+    return GetLocalIPAddr(AF_INET6, ifname, ipInfo, size);
 }
 
 /*=================================================================================================
@@ -217,12 +230,66 @@ taf_doip_Result_t CommunicationMgr::GetLocalIPv6Addr
 =================================================================================================*/
 taf_doip_Result_t CommunicationMgr::GetLocalIPv4Addr
 (
-    std::string&    ifname,
-    char*           ip,
-    socklen_t       size
+    std::string&            ifname,
+    taf_doip_IPInfo_t*      ipInfo,
+    socklen_t               size
 )
 {
-    return GetLocalIPAddr(AF_INET, ifname, ip, size);
+    auto&   vehicleMgr = VehicleManager::GetInstance();
+
+    //If announceWait is configured, run announcement mechanisam to get IP address.
+    if ( vehicleMgr.GetAnnounceWait() )
+    {
+        LE_DEBUG("Run Announcement wait mechanisam to get IP address");
+        return GetIpAddrWithAnnounceWaitMech(AF_INET, ifname, ipInfo, size);
+    }
+
+    return GetLocalIPAddr(AF_INET, ifname, ipInfo, size);
+}
+
+/*=================================================================================================
+ FUNCTION        CommunicationMgr::GetIpAddrWithAnnounceWaitMech
+ DESCRIPTION     Run announcement mechanisam to get IP address.
+ PARAMETERS      [IN] af: IP address family
+                 [IN] ifname: interface name reference
+                 [OUT] ip: IPv4 address buffer.
+                 [IN] size: IP address buffer length
+ RETURN VALUE    taf_doip_Result_t: Result of geting local IP address
+=================================================================================================*/
+taf_doip_Result_t CommunicationMgr::GetIpAddrWithAnnounceWaitMech
+(
+    int                     af,
+    std::string&            ifname,
+    taf_doip_IPInfo_t*      ipInfo,
+    socklen_t               size
+)
+{
+    if (ipInfo == NULL || (af != AF_INET && af != AF_INET6))
+    {
+        LE_ERROR("Parameter error!\n");
+        return TAF_DOIP_RESULT_PARAM_ERROR;
+    }
+
+    uint16_t getIpWaitTime = 0;
+    while(getIpWaitTime <= TAF_DOIP_MAX_GET_IP_WAIT_TIME)
+    {
+        if(GetLocalIPAddr(af, ifname, ipInfo, size) == TAF_DOIP_RESULT_OK)
+        {
+            return TAF_DOIP_RESULT_OK;
+        }
+
+        // Get a random time less than 10 miliseconds.
+        uint8_t waitTime = le_rand_GetNumBetween(0, MAX_CUSTOMIZED_ANNOUNCE_WAIT_TIME);
+        usleep(waitTime * 1000);
+
+        // Increase getIpWaitTime with sleep time and the time consumed by code execution
+        getIpWaitTime = getIpWaitTime + waitTime + TIME_CONSUMED_BY_CODE_EXECUTION;
+    }
+
+    LE_FATAL("Could not get ip address for interface %s", ifname.c_str());
+
+    return TAF_DOIP_RESULT_ERROR;
+
 }
 
 /*=================================================================================================
@@ -382,7 +449,7 @@ taf_doip_Result_t CommunicationMgr::SessionStart
 (
 )
 {
-    LE_INFO("Enter CommunicationMgr::SessionStart-state%d.\n", state);
+    LE_DEBUG("Enter CommunicationMgr::SessionStart-state%d.\n", state);
 
     if (state == TAF_DOIP_STATE_START
         || state == TAF_DOIP_STATE_RUNNING)
@@ -441,7 +508,7 @@ taf_doip_Result_t CommunicationMgr::SessionStart
     }
 
     state = TAF_DOIP_STATE_RUNNING;
-    LE_INFO("DoIP session start success.!");
+    LE_DEBUG("DoIP session start success.!");
 
     return TAF_DOIP_RESULT_OK;
 }
@@ -456,7 +523,7 @@ taf_doip_Result_t CommunicationMgr::SessionStop
 (
 )
 {
-    LE_INFO("Enter CommunicationMgr::SessionStop-state%d.\n", state);
+    LE_DEBUG("Enter CommunicationMgr::SessionStop-state%d.\n", state);
 
     if (state != TAF_DOIP_STATE_START
         && state != TAF_DOIP_STATE_RUNNING)
@@ -819,17 +886,10 @@ taf_doip_Result_t CommunicationMgr::RecvUdpData
         return TAF_DOIP_RESULT_NETWORK_ERROR;
     }
 
-    // Debug
-    LE_DEBUG("UDP data info from socket%p(%s:%d):", sockRef, remoteIp, remotePort);
-    for (size_t i = 0; i < received; i++)
-    {
-        LE_DEBUG("0x%x", udpDataBuffer[i]);
-    }
-
     // Filter local annoucement message.
     for (int i = 0; i < MAX_INF_NUM; ++i)
     {
-        if (strcmp(remoteIp, localIp[i]) == 0)
+        if (strcmp(remoteIp, localIpInfo[i].localIp) == 0)
         {
             return TAF_DOIP_RESULT_OK;
         }
@@ -1677,44 +1737,24 @@ taf_doip_Result_t CommunicationMgr::GetLocalIPv4FromSource
     char *local
 )
 {
-    struct ifaddrs *interfaces = NULL;
-    struct ifaddrs *addr = NULL;
-    taf_doip_Result_t result = TAF_DOIP_RESULT_ERROR;
-
-    int ret = getifaddrs(&interfaces);
-    if (ret != 0)
+    if (srcAddrPtr == NULL || local == NULL)
     {
-        LE_ERROR("Failed to get interface addresses");
-        return TAF_DOIP_RESULT_ERROR;
+        LE_ERROR("Invalid parameters: srcAddrPtr or local is NULL");
+        return TAF_DOIP_RESULT_PARAM_ERROR;
     }
 
-    for (addr = interfaces; addr != NULL; addr = addr->ifa_next)
+    for (int i = 0; i < MAX_INF_NUM; ++i)
     {
-        if (addr->ifa_addr == NULL || addr->ifa_addr->sa_family != AF_INET)
+        if ((srcAddrPtr->sin_addr.s_addr & localIpInfo[i].ipv4_mask_s_addr) ==
+            (localIpInfo[i].ipv4_s_addr & localIpInfo[i].ipv4_mask_s_addr))
         {
-            continue;
-        }
-
-        struct sockaddr_in *ipAddr = (struct sockaddr_in *)addr->ifa_addr;
-        struct sockaddr_in *netMask = (struct sockaddr_in *)addr->ifa_netmask;
-
-        if ((addr->ifa_flags & IFF_UP) && (addr->ifa_flags & IFF_RUNNING) && netMask != NULL)
-        {
-            // Check the address.
-            if ((srcAddrPtr->sin_addr.s_addr & netMask->sin_addr.s_addr) ==
-                (ipAddr->sin_addr.s_addr & netMask->sin_addr.s_addr))
-            {
-                LE_DEBUG("Interface : %s\n", addr->ifa_name);
-                inet_ntop(AF_INET, &(ipAddr->sin_addr), local, TAF_DOIP_IPV4_ADDR_MAX_LEN);
-                result = TAF_DOIP_RESULT_OK;
-                goto out;
-            }
+            le_utf8_Copy(local, localIpInfo[i].localIp, TAF_DOIP_IP_ADDR_MAX_LEN, NULL);
+            LE_DEBUG("local ip=%s", local);
+            return TAF_DOIP_RESULT_OK;
         }
     }
 
-out:
-    freeifaddrs(interfaces);
-    return result;
+    return TAF_DOIP_RESULT_ERROR;
 }
 
 taf_doip_Result_t CommunicationMgr::GetLocalIPv6FromSource
@@ -1795,7 +1835,7 @@ taf_doip_Result_t CommunicationMgr::CreateSpecIPv4Socket
 
     std::string ifNameStr;
     ifNameStr.assign(ifNamePtr);
-    if (GetLocalIPv4Addr(ifNameStr, localIp[index], TAF_DOIP_IPV4_ADDR_MAX_LEN)
+    if (GetLocalIPv4Addr(ifNameStr, &localIpInfo[index], TAF_DOIP_IPV4_ADDR_MAX_LEN)
         != TAF_DOIP_RESULT_OK)
     {
         LE_ERROR("Can not get local IPv4 address.\n");
@@ -1803,9 +1843,8 @@ taf_doip_Result_t CommunicationMgr::CreateSpecIPv4Socket
         goto errOut;
     }
 
-    LE_INFO("Get IPv4-%s\n", localIp[index]);
-
-    tcpDataSockRef[index] = le_socket_Create(NULL, tcpDataPort, localIp[index], TCP_TYPE);
+    tcpDataSockRef[index] = le_socket_Create(NULL, tcpDataPort, localIpInfo[index].localIp,
+            TCP_TYPE);
     if (tcpDataSockRef[index] == NULL)
     {
         LE_ERROR("Failed to create tcp socket reference.\n");
@@ -1813,7 +1852,8 @@ taf_doip_Result_t CommunicationMgr::CreateSpecIPv4Socket
         goto errOut;
     }
 
-    udpEquipSockRef[index] = le_socket_Create(NULL, udpDiscoveryPort, localIp[index], UDP_TYPE);
+    udpEquipSockRef[index] = le_socket_Create(NULL, udpDiscoveryPort, localIpInfo[index].localIp,
+            UDP_TYPE);
     if (udpEquipSockRef[index] == NULL)
     {
         LE_ERROR("Failed to create udp socket reference.\n");
@@ -1879,16 +1919,17 @@ taf_doip_Result_t CommunicationMgr::CreateSpecIPv6Socket
 
     std::string ifNameStr;
     ifNameStr.assign(ifNamePtr);
-    if (GetLocalIPv6Addr(ifNameStr, localIp[index], TAF_DOIP_IPV6_ADDR_MAX_LEN)
+    if (GetLocalIPv6Addr(ifNameStr, &localIpInfo[index], TAF_DOIP_IPV6_ADDR_MAX_LEN)
         != TAF_DOIP_RESULT_OK)
     {
         LE_ERROR("Can not get local IPv6 address.\n");
         goto errOut;
     }
 
-    LE_DEBUG("Get IPv6-%s\n", localIp[index]);
+    LE_DEBUG("Get IPv6-%s\n", localIpInfo[index].localIp);
 
-    tcpDataSockRef[index] = le_socket_Create(NULL, tcpDataPort, localIp[index], TCP_TYPE);
+    tcpDataSockRef[index] = le_socket_Create(NULL, tcpDataPort, localIpInfo[index].localIp,
+            TCP_TYPE);
     if (tcpDataSockRef[index] == NULL)
     {
         LE_ERROR("Failed to create tcp socket reference.\n");
@@ -2152,6 +2193,16 @@ taf_doip_Result_t CommunicationMgr::SessionInit
     return TAF_DOIP_RESULT_OK;
 }
 
+void CommunicationMgr::shutdownTimerHandler
+(
+    le_timer_Ref_t timerRef
+)
+{
+    LE_INFO("shutdownTimerHandler");
+    auto&   cmMgr = CommunicationMgr::GetInstance();
+    cmMgr.connectionMgrPtr->DeleteAllConnection();
+}
+
 /*=================================================================================================
  FUNCTION        CommunicationMgr::SessionDeinit
  DESCRIPTION     Deinitialization of DoIP session resource
@@ -2165,6 +2216,16 @@ taf_doip_Result_t CommunicationMgr::SessionDeInit()
     {
         SessionStop();
     }
+
+    auto&   cmMgr = CommunicationMgr::GetInstance();
+
+    LE_INFO("ShutdownAllConnection");
+    cmMgr.connectionMgrPtr->ShutdownAllConnection();
+
+    le_timer_SetHandler(shutdownTimerRef, shutdownTimerHandler);
+    le_timer_SetWakeup(shutdownTimerRef, false);
+    le_timer_SetMsInterval(shutdownTimerRef, TAF_DOIP_CLOSE_SOCKET_INTERVAL);
+    le_timer_Start(shutdownTimerRef);
 
     le_socket_Delete(udpDiscoverSockRef);
     udpDiscoverSockRef = NULL;
@@ -2194,7 +2255,7 @@ void CommunicationMgr::Init
 (
 )
 {
-    LE_INFO("DoIP communication manager init...\n");
+    LE_DEBUG("DoIP communication manager init...\n");
 
     udsThrRef = le_thread_Create("UdsThread", UdsHandleThread, NULL);
     le_thread_SetStackSize(udsThrRef, TAF_DOIP_THREAD_STACK_SIZE);
@@ -2208,11 +2269,13 @@ void CommunicationMgr::Init
     doipHandlerRefMap = le_ref_CreateMap("DoipHandlerRefMap", TAF_DOIP_MAX_USER_HANDLER_NUM);
     doipSessionRefMutex = le_mutex_CreateRecursive("DoipSessionRefMutex");
 
+    shutdownTimerRef = le_timer_Create("shutdownTimer");
+
     // Initialized vehicle deiscovery.
     auto& vehicleDisovery = VehicleDiscovery::GetInstance();
     vehicleDisovery.Init();
 
-    LE_INFO("DoIP communication manager ok...\n");
+    LE_DEBUG("DoIP communication manager ok...\n");
 
     return;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -33,7 +33,6 @@ taf_diagDidStore_ServiceRef_t taf_diagDidStore_GetService
     void
 )
 {
-    LE_DEBUG("taf_diagDidStore_GetService");
     auto &didStore = taf_diagDidStore::GetInstance();
     return didStore.GetService();
 }
@@ -61,7 +60,6 @@ le_result_t taf_diagDidStore_Read
         ///< [INOUT]
 )
 {
-    LE_DEBUG("taf_diagDataIDStor_Read");
     auto &didStore = taf_diagDidStore::GetInstance();
 
     taf_DidStore_t* servicePtr = (taf_DidStore_t*)le_ref_Lookup(didStore.SvcRefMap, svcRef);
@@ -113,7 +111,6 @@ le_result_t taf_diagDidStore_Write
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagDataIDStor_Write");
     auto &didStore = taf_diagDidStore::GetInstance();
 
     taf_DidStore_t* servicePtr = (taf_DidStore_t*)le_ref_Lookup(didStore.SvcRefMap, svcRef);
@@ -160,7 +157,6 @@ taf_diagDidStore_DataIdChangeHandlerRef_t taf_diagDidStore_AddDataIdChangeHandle
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagDidStore_AddDataIdChangeHandler");
     auto &didStore = taf_diagDidStore::GetInstance();
     return didStore.AddDataIdChangeHandler(svcRef, dataId, handlerPtr, contextPtr);
 }
@@ -175,9 +171,76 @@ void taf_diagDidStore_RemoveDataIdChangeHandler
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagDidStore_RemoveDataIdChangeHandler");
     auto &didStore = taf_diagDidStore::GetInstance();
     return didStore.RemoveDataIdChangeHandler(handlerRef);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference of a DID change handler.
+ *
+ * @instaging
+ * @return
+ *     - Reference to the DID change handler.
+ *     - NULL if errors.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+taf_diagDidStore_DIDChangeHandlerRef_t taf_diagDidStore_GetDIDHandlerRef
+(
+    taf_diagDidStore_ServiceRef_t svcRef
+        ///< [IN] Service reference.
+)
+{
+    auto &didStore = taf_diagDidStore::GetInstance();
+    return didStore.GetDIDHandlerRef(svcRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add data id to handler for change notification.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid handlerRef.
+ *     - LE_DUPLICATE -- Data identifier already added.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagDidStore_AddDIDToHandler
+(
+    taf_diagDidStore_DIDChangeHandlerRef_t handlerRef,
+        ///< [IN] Handler reference.
+    uint16_t dataId
+        ///< [IN] Data identifier.
+)
+{
+    auto &didStore = taf_diagDidStore::GetInstance();
+    return didStore.AddDIDToHandler(handlerRef, dataId);
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove data id from handler.
+ *
+ * @instaging
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid handlerRef.
+ *     - LE_NOT_FOUND -- Data identifier not found.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagDidStore_RemoveDIDFromHandler
+(
+    taf_diagDidStore_DIDChangeHandlerRef_t handlerRef,
+        ///< [IN] Handler reference.
+    uint16_t dataId
+        ///< [IN] Data identifier.
+)
+{
+    auto &didStore = taf_diagDidStore::GetInstance();
+    return didStore.RemoveDIDFromHandler(handlerRef, dataId);
 }
 
 /**
@@ -188,5 +251,5 @@ COMPONENT_INIT
     LE_INFO("TelAF DID Storage Service init Started...");
     auto &didStore = taf_diagDidStore::GetInstance();
     didStore.Init();
-    LE_INFO("TelAF DID Storage Service init completed...");
+    LE_DEBUG("TelAF DID Storage Service init completed...");
 }

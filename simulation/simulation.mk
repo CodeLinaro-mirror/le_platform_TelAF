@@ -112,7 +112,7 @@ SIMULATION_DEPS += \
   $(SIMULATION_COMMON_API_DEPS_$(TELAF_SIMULATION_ENABLE_CAPI))
 
 # Common options for C++
-MKTOOLS_FLAGS_SIMULATION_EX += -X -std=c++11 -X -lstdc++
+MKTOOLS_FLAGS_SIMULATION_EX += -X -std=c++17 -X -lstdc++
 
 # Suppress the boost warning output
 MKTOOLS_FLAGS_SIMULATION_EX += -X -DBOOST_BIND_GLOBAL_PLACEHOLDERS
@@ -259,8 +259,6 @@ simula-help:
 	@echo "  >> simula-action supported list as follows"
 	@echo "    - List & Switch simulation container distro system versions (default Ubuntu18.04)"
 	@echo "      + simula-list                    -- List all system distro versions simulation supported."
-	@echo "      + simula-distro-1804             -- Switch the system distro version to Ubuntu18.04"
-	@echo "      + simula-distro-2004             -- Switch the system distro version to Ubuntu20.04"
 	@echo
 	@echo "    - Compile your simulation project on your HOST or CONTAINER"
 	@echo "      + simula | simulac  | simula-c   -- Incrementally compile simulation open source code on HOST"
@@ -315,24 +313,11 @@ simula-up-develop-for-c:
 simula-list simula-list-distro:
 	$Q echo "TelAF Simulation support list:"
 	$Q echo -n "  [1] ubuntu22.04"; if [ "$(get_which_one)" = "2204" ]; then echo " <--" ; else echo ; fi
-	$Q echo -n "  [2] ubuntu20.04"; if [ "$(get_which_one)" = "2004" ]; then echo " <--" ; else echo ; fi
-	$Q echo -n "  [3] ubuntu18.04"; if [ "$(get_which_one)" = "1804" ]; then echo " <--" ; else echo ; fi
-	$Q if [ "$(get_which_one)" != "1804" ] \
-	   && [ "$(get_which_one)" != "2004" ] \
-	   && [ "$(get_which_one)" != "2204" ]; then \
-	      echo -n "  [x] ubuntu$(which_one_point_version)"; echo " <-- (unknown version)" ; fi
+	$Q if [ "$(get_which_one)" != "2204" ]; then \
+	      echo -n "  [x] ubuntu$(which_one_point_version)"; echo " <-- (unsupported version)" ; fi
 
-simula-distro-1804:
-	$Q echo -n "1804" > $(which_one)
-	$Q echo "Switch container OS version to --> 18.04"
-	$Q echo
-	$Q $(MAKE) --no-print-directory simula-list
 
-simula-distro-2004:
-	$Q echo -n "2004" > $(which_one)
-	$Q echo "Switch container OS version to --> 20.04"
-	$Q echo
-	$Q $(MAKE) --no-print-directory simula-list
+
 
 simula-distro-2204:
 	$Q echo -n "2204" > $(which_one)

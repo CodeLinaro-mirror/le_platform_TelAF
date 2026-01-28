@@ -35,7 +35,6 @@ taf_diagIOCtrl_ServiceRef_t taf_diagIOCtrl_GetService
         ///< [IN] Data identifier.
 )
 {
-    LE_DEBUG("taf_diagIOCtrl_GetService");
     auto &ioCtrl = taf_IOCtrlSvr::GetInstance();
     return ioCtrl.GetService(dataId);
 }
@@ -62,7 +61,6 @@ le_result_t taf_diagIOCtrl_SetVlanId
         ///< [IN] VLAN ID.
 )
 {
-    LE_DEBUG("taf_diagIOCtrl_SetVlanId");
     auto &ioCtrl = taf_IOCtrlSvr::GetInstance();
     return ioCtrl.SetVlanId(svcRef, vlanId);
 }
@@ -84,7 +82,6 @@ taf_diagIOCtrl_RxMsgHandlerRef_t taf_diagIOCtrl_AddRxMsgHandler
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagIOCtrl_AddRxMsgHandler");
     auto &ioCtrl = taf_IOCtrlSvr::GetInstance();
     return ioCtrl.AddRxMsgHandler(svcRef, handlerPtr, contextPtr);
 }
@@ -100,7 +97,6 @@ void taf_diagIOCtrl_RemoveRxMsgHandler
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagIOCtrl_RemoveRxMsgHandler");
     auto &ioCtrl = taf_IOCtrlSvr::GetInstance();
     return ioCtrl.RemoveRxMsgHandler(handlerRef);
 }
@@ -127,7 +123,6 @@ le_result_t taf_diagIOCtrl_GetCtrlState
         ///< [INOUT]
 )
 {
-    LE_DEBUG("taf_diagIOCtrl_GetCtrlState");
     auto &ioCtrl = taf_IOCtrlSvr::GetInstance();
     return ioCtrl.GetCtrlState(rxMsgRef, controlStatePtr, controlStateSizePtr);
 }
@@ -154,7 +149,6 @@ le_result_t taf_diagIOCtrl_GetCtrlEnableMaskRecd
         ///< [INOUT]
 )
 {
-    LE_DEBUG("taf_diagIOCtrl_GetCtrlEnableMaskRecd");
     auto &ioCtrl = taf_IOCtrlSvr::GetInstance();
     return ioCtrl.GetCtrlEnableMaskRecd(rxMsgRef, maskRecordPtr, maskRecordSizePtr);
 }
@@ -179,7 +173,6 @@ le_result_t taf_diagIOCtrl_GetVlanIdFromMsg
         ///< [OUT] VLAN ID.
 )
 {
-    LE_DEBUG("taf_diagIOCtrl_GetVlanIdFromMsg");
     auto &ioCtrl = taf_IOCtrlSvr::GetInstance();
     return ioCtrl.GetVlanIdFromMsg(rxMsgRef, vlanIdPtr);
 }
@@ -211,7 +204,6 @@ le_result_t taf_diagIOCtrl_SendResp
         ///< [IN]
 )
 {
-    LE_DEBUG("taf_diagIOCtrl_SendResp");
     auto &ioCtrl = taf_IOCtrlSvr::GetInstance();
     return ioCtrl.SendResp(rxMsgRef, errCode, dataPtr, dataSize);
 }
@@ -231,7 +223,6 @@ le_result_t taf_diagIOCtrl_RemoveSvc
         ///< [IN] Service reference.
 )
 {
-    LE_DEBUG("taf_diagIOCtrl_RemoveSvc");
     auto &ioCtrl = taf_IOCtrlSvr::GetInstance();
     return ioCtrl.RemoveSvc(svcRef);
 }

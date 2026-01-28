@@ -1,0 +1,30 @@
+start: manual
+
+requires:
+{
+    configTree:
+    {
+        [rw] .
+    }
+}
+
+
+executables:
+{
+    ConfigTreeAccessKPIAppDefaultTest = ( ConfigTreeAccessKPITestDefaultComp )
+}
+
+processes:
+{
+    run:
+    {
+        (ConfigTreeAccessKPIAppDefaultTest)
+    }
+}
+
+bindings:
+{
+    ConfigTreeAccessKPIAppDefaultTest.ConfigTreeAccessKPITestDefaultComp.le_cfg -> <tafcore>.le_cfg
+    ConfigTreeAccessKPIAppDefaultTest.ConfigTreeAccessKPITestDefaultComp.le_cfgAdmin -> <tafcore>.le_cfgAdmin
+}
+

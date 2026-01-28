@@ -195,7 +195,8 @@ FUNCTION Service GetService
  * @instaging
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef or vlanId is 0.
+ *     - LE_NO_MEMORY -- Memory not allocated.
  *     - LE_UNSUPPORTED -- VLAN ID is unknown.
  *
  */

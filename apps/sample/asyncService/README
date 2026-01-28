@@ -1,0 +1,26 @@
+# This sample demonstrades the difference of async server and sync server, and how the client app works with them.
+
+# The SYNC server app contains 2 threads - service main thread and event producer thread.
+# The event producer thread generates event every 1s and forwards the events to service main thread which publishes event to client app.
+# The service main thread also recieves the client request, handles the request and sends back the response to client app.
+
+# The ASYNC server app contains 3 threads - service main thread, worker thread and event producer thread.
+# The event producer thread generates event every 1s and forwards the events to service main thread which publishes event to client app.
+# The service main thread also recieves the client request but forwards the request to worker thread to handle.
+# Once the request handler is done in worker thread, it forwards the response to service main thread and eventually sends back to client app.
+
+# The client app contains 2 threads - client main thread and event receiver thread.
+# The event receiver thread receives events from both SYNC server and ASYNC server.
+# The client main thread Continuously send request and get response from both SYNC server and ASYNC server.
+# It takes 4 seconds to handle the request on ASYNC server and SYNC server.
+
+# The client app receives events from ASYNC server in regular 1s interval since the ASYNC server main thread always works in unblocked mode.
+# The client app does not receive events from SYNC server in regular 1s interval since the SYNC server main thread will block the event publishing when processing time-consuming requests.
+
+
+# To build telaf image containing the test apps for sa525m, run:
+
+source set_af_env.sh sa525m
+export SDEF_TO_USE=${TELAF_ROOT}/apps/sample/asyncService/sa525m.sdef
+build-distclean-af; build-sa525m-af
+

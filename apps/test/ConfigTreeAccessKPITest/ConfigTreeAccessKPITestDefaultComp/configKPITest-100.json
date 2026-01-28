@@ -1,0 +1,3107 @@
+{
+    "name": "sample",
+    "type": "stem",
+    "children":
+    [
+        {
+          "name": "0",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "1",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "2",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "3",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "4",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "5",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "6",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "7",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "8",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "9",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "10",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "11",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "12",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "13",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "14",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "15",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "16",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "17",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "18",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "19",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "20",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "21",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "22",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "23",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "24",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "25",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "26",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "27",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "28",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "29",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "30",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "31",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "32",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "33",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "34",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "35",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "36",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "37",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "38",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "39",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "40",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "41",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "42",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "43",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "44",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "45",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "46",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "47",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "48",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "49",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "50",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "51",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "52",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "53",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "54",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "55",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "56",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "57",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "58",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "59",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "60",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "61",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "62",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "63",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "64",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "65",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "66",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "67",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "68",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "69",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "70",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "71",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "72",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "73",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "74",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "75",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "76",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "77",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "78",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "79",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "80",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "81",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "82",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "83",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "84",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "85",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "86",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "87",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "88",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "89",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "90",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "91",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "92",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "93",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "94",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "95",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "96",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "97",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "98",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        },
+        {
+          "name": "99",
+          "type": "stem",
+          "children": [
+            {
+              "name": "aBoolValue",
+              "type": "bool",
+              "value": true
+            },
+            {
+              "name": "aSecondBoolValue",
+              "type": "bool",
+              "value": false
+            },
+            {
+              "name": "aStringValue",
+              "type": "string",
+              "value": "Something \"wicked\" this way comes!"
+            },
+            {
+              "name": "anIntVal",
+              "type": "int",
+              "value": 1024
+            },
+            {
+              "name": "aFloatVal",
+              "type": "float",
+              "value": 10.24
+            }
+          ]
+        }
+      ]
+}

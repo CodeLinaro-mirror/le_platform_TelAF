@@ -99,7 +99,7 @@ install ${S}/legato/legato-af/framework/tools/autocomplete/* ${LEGATO_ROOT}/fram
 install ${S}/legato/legato-af/framework/tools/ifgen/*.py ${LEGATO_ROOT}/framework/tools/ifgen/
 install ${S}/legato/legato-af/framework/tools/ifgen/ifgen ${LEGATO_ROOT}/framework/tools/ifgen/ifgen
 install ${S}/legato/legato-af/framework/tools/ifgen/langC/*.py ${LEGATO_ROOT}/framework/tools/ifgen/langC/
-install ${S}/legato/legato-af/framework/tools/ifgen/antlr3/* ${LEGATO_ROOT}/framework/tools/ifgen/antlr3/
+install ${S}/legato/legato-af/framework/tools/ifgen/antlr3/*.py ${LEGATO_ROOT}/framework/tools/ifgen/antlr3/
 install ${S}/legato/legato-af/framework/tools/ifgen/langC/templates/* ${LEGATO_ROOT}/framework/tools/ifgen/langC/templates/
 ln -srf ${LEGATO_ROOT}/framework/tools/scripts/legs ${LEGATO_ROOT}/bin/legs
 ln -srf ${LEGATO_ROOT}/framework/tools/scripts/findtoolchain ${LEGATO_ROOT}/bin/findtoolchain

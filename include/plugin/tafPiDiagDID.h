@@ -31,7 +31,10 @@ typedef void (*INIT)(void);
  * @param    dataID      DID
  * @param    value       Value of the DID
  * @param    len         Length of the DID value
- * @param    result      Returned error code of getting DID value
+ * @param    result      Returned error code of getting DID value as following
+ *                       0x00 : No Error
+ *                       0x22 : Condition not correct
+ *                       0x31 : Request out of range
  * @param    ctxPtr      context pointer
  *
  * @return void
@@ -73,7 +76,11 @@ typedef le_result_t (*TAF_PI_DIAGDID_GETASYNC)
  *
  * @instaging
  * @param    dataID     DID
- * @param    result     Returned error code of setting DID value
+ * @param    result     Returned error code of setting DID value as following
+ *                      0x00 : No Error
+ *                      0x22 : Condition not correct
+ *                      0x31 : Request out of range
+ *                      0x72 : General programming failure
  * @param    ctxPtr     Context pointer
  *
  * @return void
@@ -133,8 +140,8 @@ typedef void (*TAF_PI_DIAGDID_DATACHANGECALLBACK)
 //--------------------------------------------------------------------------------------------------
 /**
  * Add data change handler to hal module.
- * (To specify by default, no DID changes will be notified until service calls this API to add the
- * DID in the whitelist.)
+ * (The DID change will not be notify, if service has not whitelisted the DID using
+ * TAF_PI_DIAGDID_ADDDATACHANGENOTIFICATION API.)
  *
  * @instaging
  * @param    callback    Callback function pointer for notification
@@ -154,7 +161,9 @@ typedef le_result_t (*TAF_PI_DIAGDID_ADDDATACHANGEHANDLER)
  * @instaging
  * @param    dataID     Specified DID that is added for notification
  * @return
- *      result for adding the DID for notification
+ *     - LE_OK -- Succeeded.
+ *     - LE_DUPLICATE -- Data identifier already added.
+ *     - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 typedef le_result_t (*TAF_PI_DIAGDID_ADDDATACHANGENOTIFICATION)

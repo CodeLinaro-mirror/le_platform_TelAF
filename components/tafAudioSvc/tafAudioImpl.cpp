@@ -76,7 +76,6 @@ taf_Audio &taf_Audio::GetInstance()
 void taf_Audio::BuBStatusCB(int32_t status, void *contextptr)
 {
     LE_INFO("BuBStatusCB %d", status);
-    auto &audio = taf_Audio::GetInstance();
     auto &audioVhal = taf_AudioVhal::GetInstance();
     TAF_ERROR_IF_RET_NIL(!audioVhal.isAudioDrvAvailable(), "Audio driver is not installed!");
     hal_audio_bubStatus_t bubStatus = HAL_AUDIO_BUB_STATUS_NOT_IN_USE;
@@ -84,12 +83,9 @@ void taf_Audio::BuBStatusCB(int32_t status, void *contextptr)
     {
         bubStatus = HAL_AUDIO_BUB_STATUS_IN_USE;
     }
-    // Send Bub status to VHAL if any route is active
-    if(audio.mIsPlaying || audio.mIsRecording || audio.mCallStarted)
-    {
-        audioVhal.CtlReportBubStatus(bubStatus);
-        LE_INFO("CtlReportBubStatus bubStatus %d", bubStatus);
-    }
+    // Send Bub status to audio VHAL
+    audioVhal.CtlReportBubStatus(bubStatus);
+    LE_INFO("CtlReportBubStatus bubStatus %d", bubStatus);
 }
 
 /**
@@ -107,40 +103,123 @@ void taf_Audio::AdvertiseAndRegisterHandler()
 /**
  * Load Audio VHAL until retry count reaches the maximum value.
  */
-void taf_Audio::RetryHandler(le_timer_Ref_t timerRef)
+void taf_Audio::VhalRetryHandler(le_timer_Ref_t timerRef)
 {
     auto &audioVhal = taf_AudioVhal::GetInstance();
     auto &audio = taf_Audio::GetInstance();
     uint32_t expiryCount = le_timer_GetExpiryCount(timerRef);
     LE_INFO("expiryCount = %d", expiryCount);
-    if(expiryCount < MAX_NUM_OF_ATTEMPTS)
+    if (expiryCount < MAX_NUM_OF_VHAL_LOAD_ATTEMPTS)
     {
         // Load Audio VHAL. IF failed to load Audio VHAL, try again later.
-        if(!audioVhal.isVhalLoaded)
+        if(!audioVhal.isAudioDrvAvailable())
         {
             le_result_t res = audioVhal.LoadDriver();
             if(res == LE_OK){
                 LE_INFO("Audio VHAL loaded successfully, advertise the service.");
                 // Loaded VHAL successfully. Delete the timer.
                 le_timer_Delete(timerRef);
+                audio.vhalRetryTimer = nullptr;
                 audio.AdvertiseAndRegisterHandler();
             }
         }
-
         return;
     }
-
-    if(!audioVhal.isVhalLoaded)
+    if(!audioVhal.isAudioDrvAvailable())
     {
         //Load Audio VHAL timeout, continue without Audio VHAL module.
         LE_ERROR("Failed to load Audio VHAL module after all retry attempts!");
     }
-
     le_timer_Delete(timerRef);
+    audio.vhalRetryTimer = nullptr;
     // Advertise service after max retries to load VHAL, service to continue without VHAL.
     LE_INFO("Advertise services after max tries to load VHAL, service to continue without VHAL");
     audio.AdvertiseAndRegisterHandler();
     audioVhal.AdvertiseVendorService();
+
+}
+
+/*
+ * Try to connect to MPMS for 3 times with 1 sec interval.
+ */
+void taf_Audio::MpmsConnectHandler(le_timer_Ref_t timerRef)
+{
+    auto &audio = taf_Audio::GetInstance();
+    uint32_t expiryCount = le_timer_GetExpiryCount(timerRef);
+    le_result_t result = taf_mngdPm_TryConnectService();
+    LE_INFO("MPMS retry attempt %d/3", expiryCount);
+    if (result == LE_OK)
+    {
+        LE_INFO("Successfully connected to MPMS");
+        audio.bubHandlerRef = taf_mngdPm_AddInfoReportHandler(
+            TAF_MNGDPM_INFO_REPORT_BIT_MASK_BUB_STATUS, audio.BuBStatusCB, nullptr);
+        if (audio.bubHandlerRef == nullptr)
+        {
+            LE_ERROR("Failed to register for BuB status");
+        }
+        // Register disconnect handler for future disconnections
+        taf_mngdPm_SetNonExitServerDisconnectHandler(MpmsDisconnectHandler, nullptr);
+        // Delete the timers
+        le_timer_Delete(audio.mpmsRetryTimer);
+        audio.mpmsRetryTimer = nullptr;
+        audio.mpmsTimerRepeat = 0;
+        if (audio.mpmsDelayTimer)
+        {
+            le_timer_Delete(audio.mpmsDelayTimer);
+            audio.mpmsDelayTimer = nullptr;
+        }
+    }
+    else if (expiryCount == MAX_NUM_OF_MPMS_CONN_ATTEMPTS
+            && audio.mpmsTimerRepeat < MAX_NUM_OF_MPMS_TIMER_REPEAT)
+    {
+        LE_INFO("Stop timer and start after 32secs");
+        le_timer_Stop(audio.mpmsRetryTimer);
+        if (audio.mpmsDelayTimer == nullptr)
+        {
+            audio.mpmsDelayTimer = le_timer_Create("mpmsDelayTimer");
+            if (audio.mpmsDelayTimer == nullptr)
+            {
+                LE_ERROR("Failed to create MPMS retry timer");
+                return;
+            }
+            le_timer_SetHandler(audio.mpmsDelayTimer, MpmsDelayHandler);
+            le_timer_SetWakeup(audio.mpmsDelayTimer, false);
+            // Try again for 3 times after 32 secs interval
+            le_timer_SetMsInterval(audio.mpmsDelayTimer, MPMS_DELAY_TIMER_INTERVAL);
+        }
+        le_timer_Start(audio.mpmsDelayTimer);
+        audio.mpmsTimerRepeat++;
+    }
+    else if (expiryCount >= MAX_NUM_OF_MPMS_CONN_ATTEMPTS
+            && audio.mpmsTimerRepeat > MAX_NUM_OF_MPMS_TIMER_REPEAT)
+    {
+        LE_ERROR("Failed to connect to MPMS after maximum retries");
+        le_timer_Stop(audio.mpmsRetryTimer);
+        le_timer_Delete(audio.mpmsRetryTimer);
+        audio.mpmsRetryTimer = nullptr;
+        audio.mpmsTimerRepeat = 0;
+        if (audio.mpmsDelayTimer)
+        {
+            le_timer_Delete(audio.mpmsDelayTimer);
+            audio.mpmsDelayTimer = nullptr;
+        }
+    }
+    else
+    {
+        LE_INFO("Retrying MPMS connection...");
+    }
+    return;
+}
+
+/*
+ * Start MPMS connect timer again after 32secs.
+ */
+void taf_Audio::MpmsDelayHandler(le_timer_Ref_t timerRef)
+{
+    LE_INFO("Stop delay timer and start retry timer");
+    auto &audio = taf_Audio::GetInstance();
+    le_timer_Stop(timerRef);
+    audio.StartMpmsRetryTimer();
 }
 
 void taf_Audio::Init(void)
@@ -162,6 +241,9 @@ void taf_Audio::Init(void)
         LE_INFO("Elapsed Time for Audio Subsystems to ready : %f", elapsedTime.count());
     }
 
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, taf_Audio::TafSigTermEventHandler);
+
     // Load audio VHAL driver
     auto &audioVhal = taf_AudioVhal::GetInstance();
     res = audioVhal.LoadDriver();
@@ -177,19 +259,19 @@ void taf_Audio::Init(void)
     else // Failed to load the driver.
     {
         // Start one timer for the retry-action
-        le_timer_Ref_t retryTimer = le_timer_Create("retry-timer-audiovhal");
+        vhalRetryTimer = le_timer_Create("retry-timer-audiovhal");
 
-        if (retryTimer == NULL)
+        if (vhalRetryTimer == NULL)
         {
             LE_ERROR("Failed to le_timer_Create for the retry-timer");
             return;
         }
 
-        le_timer_SetRepeat(retryTimer, MAX_NUM_OF_ATTEMPTS);
-        le_timer_SetHandler(retryTimer, RetryHandler);
-        le_timer_SetWakeup(retryTimer, false);
-        le_timer_SetMsInterval(retryTimer, RETRY_TIMER_INTERVAL);
-        le_timer_Start(retryTimer);
+        le_timer_SetRepeat(vhalRetryTimer, MAX_NUM_OF_VHAL_LOAD_ATTEMPTS);
+        le_timer_SetHandler(vhalRetryTimer, VhalRetryHandler);
+        le_timer_SetWakeup(vhalRetryTimer, false);
+        le_timer_SetMsInterval(vhalRetryTimer, VHAL_RETRY_TIMER_INTERVAL);
+        le_timer_Start(vhalRetryTimer);
         LE_INFO("Retry timer for loading Audio VHAL start ...");
     }
 
@@ -218,8 +300,10 @@ void taf_Audio::Init(void)
     HashMapList = LE_DLS_LIST_INIT;
 
     le_sem_Ref_t mEventRegSemRef = le_sem_Create("mEventRegSemRef", 0);
-    le_thread_Start(le_thread_Create("RegisterBufferEventThread", RegisterBufferEvent,
-            mEventRegSemRef));
+    bufferHandlingThreadRef = le_thread_Create("RegisterBufferEventThread", RegisterBufferEvent,
+            mEventRegSemRef);
+    le_thread_SetJoinable(bufferHandlingThreadRef);
+    le_thread_Start(bufferHandlingThreadRef);
     le_sem_Wait(mEventRegSemRef);
     le_sem_Delete(mEventRegSemRef);
 
@@ -250,17 +334,19 @@ void taf_Audio::Init(void)
 
     if(result == LE_OK)
     {
-        mIsMpmsReady = true;
         bubHandlerRef = taf_mngdPm_AddInfoReportHandler(TAF_MNGDPM_INFO_REPORT_BIT_MASK_BUB_STATUS,
                 BuBStatusCB, NULL);
         if(bubHandlerRef == NULL)
         {
             LE_ERROR("Failed to register for BuB status");
         }
+        // Register disconnect handler for future disconnections
+        taf_mngdPm_SetNonExitServerDisconnectHandler(MpmsDisconnectHandler, nullptr);
     }
     else
     {
         LE_ERROR("Failed to connect to MPMS with result %d", result);
+        StartMpmsRetryTimer();
     }
 }
 
@@ -2795,48 +2881,6 @@ le_result_t taf_Audio::setVhalRouteStatus(taf_audio_Mode_t mode, bool status)
             }
         }
     }
-    // Set VHAL BuB status after opening the route,
-    // not required to set BuB status after closing the route as driver will be turned off.
-    if( audioVhal.isAudioDrvAvailable() && res == LE_OK && status )
-    {
-        int32_t status;
-        le_result_t mpmsRes;
-        if(!mIsMpmsReady)
-        {
-            mpmsRes = taf_mngdPm_TryConnectService();
-            if(mpmsRes == LE_OK)
-            {
-                mIsMpmsReady = true;
-                bubHandlerRef = taf_mngdPm_AddInfoReportHandler(
-                        TAF_MNGDPM_INFO_REPORT_BIT_MASK_BUB_STATUS, BuBStatusCB, NULL);
-                if(bubHandlerRef == NULL)
-                {
-                    LE_ERROR("Failed to register for BuB status");
-                }
-            }
-            else
-            {
-                LE_ERROR("Failed to connect to MPMS with result %d", mpmsRes);
-            }
-        }
-        if (mIsMpmsReady)
-        {
-            mpmsRes = taf_mngdPm_GetInfoReport(TAF_MNGDPM_INFO_REPORT_BUB, &status);
-            if ( mpmsRes == LE_OK )
-            {
-                if( status ==  TAF_MNGDPM_BUB_STATUS_NOT_IN_USE)
-                {
-                    LE_DEBUG("BUB_STATUS_NOT_IN_USE");
-                    audioVhal.CtlReportBubStatus(HAL_AUDIO_BUB_STATUS_NOT_IN_USE);
-                }
-                else if ( status == TAF_MNGDPM_BUB_STATUS_IN_USE )
-                {
-                    LE_DEBUG("BUB_STATUS_IN_USE");
-                    audioVhal.CtlReportBubStatus(HAL_AUDIO_BUB_STATUS_IN_USE);
-                }
-            }
-        }
-    }
     return res;
 }
 
@@ -3808,4 +3852,102 @@ le_result_t taf_Audio::StopSignallingDtmf(uint32_t slotId) {
     }
     mDtmfStartedTx = false;
     return LE_OK;
+}
+
+void taf_Audio::StartMpmsRetryTimer()
+{
+    if (mpmsRetryTimer == nullptr)
+    {
+        mpmsRetryTimer = le_timer_Create("mpmsRetryTimer");
+        if (mpmsRetryTimer == nullptr)
+        {
+            LE_ERROR("Failed to create MPMS retry timer");
+            return;
+        }
+        le_timer_SetHandler(mpmsRetryTimer, MpmsConnectHandler);
+        le_timer_SetWakeup(mpmsRetryTimer, false);
+        le_timer_SetMsInterval(mpmsRetryTimer, MPMS_CONN_RETRY_TIMER_INTERVAL);// 1 sec interval
+    }
+    le_timer_SetRepeat(mpmsRetryTimer, MAX_NUM_OF_MPMS_CONN_ATTEMPTS);
+    le_timer_Start(mpmsRetryTimer);
+    LE_INFO("MPMS retry timer started with 3 retries at 1-second intervals");
+}
+
+void taf_Audio::MpmsDisconnectHandler(void* contextPtr)
+{
+    auto &audio = taf_Audio::GetInstance();
+    LE_WARN("Disconnected from MPMS service, attempting to reconnect...");
+
+    // Start the retry timer
+    audio.StartMpmsRetryTimer();
+}
+
+void taf_Audio::TafSigTermEventHandler(int tafSigNum)
+{
+    LE_INFO("TafSigTermEventHandler signal : %d", tafSigNum);
+    auto &audio = taf_Audio::GetInstance();
+    audio.CleanUpBeforeExit();
+    exit(EXIT_SUCCESS);
+}
+
+void taf_Audio::CleanUpBeforeExit()
+{
+    if(mDtmfStarted)
+    {
+        StopDtmf(dtmfDataRx.streamRef);
+    }
+    if(mDtmfStartedTx)
+    {
+        StopSignallingDtmf(dtmfDataTx.slotId);
+    }
+
+    // Stop active recordings
+    le_ref_IterRef_t iteratorRef;
+    iteratorRef = le_ref_GetIterator(StreamRefMap);
+    while (le_ref_NextNode(iteratorRef) == LE_OK)
+    {
+        taf_audio_Stream_t* audioStreamPtr =
+                (taf_audio_Stream_t*) le_ref_GetValue(iteratorRef);
+        if ( audioStreamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE )
+        {
+            StopAudio(audioStreamPtr);
+            DeleteAudioStream(audioStreamPtr);
+        }
+    }
+
+    if (bufferHandlingThreadRef)
+    {
+        le_thread_Cancel(bufferHandlingThreadRef);
+        le_thread_Join(bufferHandlingThreadRef, NULL);
+    }
+
+    // Stop and delete timers if active
+    if (vhalRetryTimer)
+    {
+        le_timer_Stop(vhalRetryTimer);
+        le_timer_Delete(vhalRetryTimer);
+        vhalRetryTimer = nullptr;
+    }
+    if (mpmsRetryTimer)
+    {
+        le_timer_Stop(mpmsRetryTimer);
+        le_timer_Delete(mpmsRetryTimer);
+        mpmsRetryTimer = nullptr;
+    }
+    if (mpmsDelayTimer)
+    {
+        le_timer_Stop(mpmsDelayTimer);
+        le_timer_Delete(mpmsDelayTimer);
+        mpmsDelayTimer = nullptr;
+    }
+
+    // Close file handles if open
+    if (mFile) {
+        fclose(mFile);
+        mFile = nullptr;
+    }
+    if (mRxFile) {
+        fclose(mRxFile);
+        mRxFile = nullptr;
+    }
 }

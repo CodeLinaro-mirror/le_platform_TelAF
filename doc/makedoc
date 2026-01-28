@@ -1,0 +1,52 @@
+#!/bin/bash
+
+#=============================================================================
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+#=============================================================================
+
+
+
+export DOC_SRC=$TELAF_ROOT/doc
+echo Step 1 Start generating interface header files for telAF...
+mkdir -p $DOC_SRC/_doxygen_sources
+mkdir -p $DOC_SRC/_logs
+mkdir -p $DOC_SRC/_build
+mkdir -p $DOC_SRC/_generated_rst
+
+for apifile in `find $TELAF_ROOT/interfaces/ -type f ! -path "$TELAF_ROOT/interfaces/staging/*" -name "*.api"`
+do
+{
+    echo "generating header files for $apifile"
+    ifgen $apifile --gen-interface --gen-common-interface --gen-messages --import-dir $LEGATO_ROOT/interfaces --import-dir $LEGATO_ROOT/framework/include --import-dir $TELAF_ROOT/interfaces/ --output-dir $DOC_SRC/_doxygen_sources
+}&
+done
+
+for mngdapifile in `find $TELAF_ROOT/apps/tafMngdServices/interfaces/ -type f ! -path "$TELAF_ROOT/apps/tafMngdServices/interfaces/staging/*" -name "*.api"`
+do
+{
+    echo "generating header files for $mngdapifile"
+    ifgen $mngdapifile --gen-interface --gen-common-interface --gen-messages --import-dir $LEGATO_ROOT/interfaces --import-dir $LEGATO_ROOT/framework/include --import-dir $TELAF_ROOT/interfaces/ --output-dir $DOC_SRC/_doxygen_sources
+}&
+done
+
+echo "generating header files for core daemons..."
+ifgen $LEGATO_ROOT/interfaces/le_cfg.api --gen-interface --gen-common-interface --gen-messages --import-dir $LEGATO_ROOT/interfaces --import-dir $LEGATO_ROOT/framework/include --output-dir $DOC_SRC/_doxygen_sources
+ifgen $LEGATO_ROOT/interfaces/le_cfgAdmin.api --gen-interface --gen-common-interface --gen-messages --import-dir $LEGATO_ROOT/interfaces --import-dir $LEGATO_ROOT/framework/include --output-dir $DOC_SRC/_doxygen_sources
+ifgen $LEGATO_ROOT/interfaces/le_appCtrl.api --gen-interface --gen-common-interface --gen-messages --import-dir $LEGATO_ROOT/interfaces --import-dir $LEGATO_ROOT/framework/include --output-dir $DOC_SRC/_doxygen_sources
+ifgen $LEGATO_ROOT/interfaces/le_appInfo.api --gen-interface --gen-common-interface --gen-messages --import-dir $LEGATO_ROOT/interfaces --import-dir $LEGATO_ROOT/framework/include --output-dir $DOC_SRC/_doxygen_sources
+ifgen $LEGATO_ROOT/interfaces/le_framework.api --gen-interface --gen-common-interface --gen-messages --import-dir $LEGATO_ROOT/interfaces --import-dir $LEGATO_ROOT/framework/include --output-dir $DOC_SRC/_doxygen_sources
+ifgen $LEGATO_ROOT/interfaces/le_appCtrl.api --gen-interface --gen-common-interface --gen-messages --import-dir $LEGATO_ROOT/interfaces --import-dir $LEGATO_ROOT/framework/include --output-dir $DOC_SRC/_doxygen_sources
+ifgen $LEGATO_ROOT/interfaces/supervisor/le_kernelModule.api --gen-interface --gen-common-interface --gen-messages --import-dir $LEGATO_ROOT/interfaces --import-dir $LEGATO_ROOT/framework/include --output-dir $DOC_SRC/_doxygen_sources
+ifgen $LEGATO_ROOT/interfaces/le_update.api --gen-interface --gen-common-interface --gen-messages --import-dir $LEGATO_ROOT/interfaces --import-dir $LEGATO_ROOT/framework/include --output-dir $DOC_SRC/_doxygen_sources
+ifgen $LEGATO_ROOT/interfaces/le_updateCtrl.api --gen-interface --gen-common-interface --gen-messages --import-dir $LEGATO_ROOT/interfaces --import-dir $LEGATO_ROOT/framework/include --output-dir $DOC_SRC/_doxygen_sources
+ifgen $LEGATO_ROOT/interfaces/le_instStat.api --gen-interface --gen-common-interface --gen-messages --import-dir $LEGATO_ROOT/interfaces --import-dir $LEGATO_ROOT/framework/include --output-dir $DOC_SRC/_doxygen_sources
+ifgen $LEGATO_ROOT/interfaces/le_wdog.api --gen-interface --gen-common-interface --gen-messages --import-dir $LEGATO_ROOT/interfaces --import-dir $LEGATO_ROOT/framework/include --output-dir $DOC_SRC/_doxygen_sources
+wait
+echo Done with the interface geneartion!
+
+
+echo Step 2 Copy framework include headers...
+cp -r $LEGATO_ROOT/framework/include  $DOC_SRC/_doxygen_sources
+cp -r $TELAF_ROOT/include  $DOC_SRC/_doxygen_sources
+echo Done with the api sources geneartion!

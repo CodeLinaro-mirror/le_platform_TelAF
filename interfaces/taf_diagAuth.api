@@ -392,7 +392,8 @@ FUNCTION Service GetService
  * @instaging
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef or vlanId is 0.
+ *     - LE_NO_MEMORY -- Memory not allocated.
  *     - LE_UNSUPPORTED -- VLAN ID is unknown.
  *
  */
@@ -475,8 +476,9 @@ EVENT AuthStateExp
  * @instaging
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef or commConf.
  *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_OUT_OF_RANGE -- VERIFY_CERT_UNI subfunction is not available.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -498,6 +500,7 @@ FUNCTION le_result_t GetCommConf
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_OUT_OF_RANGE -- VERIFY_CERT_UNI or TRANSMIT_CERT subfunction is not available.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -509,7 +512,7 @@ FUNCTION le_result_t GetCertSize
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets the size of client certificate of the Rx VERIFY_CERT_UNI/VERIFY_CERT_BI/TRANSMIT_CERT
+ * Gets the size of client certificate of the Rx VERIFY_CERT_UNI/TRANSMIT_CERT
  * Authentication message.
  *
  * @b NOTE: The process exits if an invalid reference is passed.
@@ -519,6 +522,8 @@ FUNCTION le_result_t GetCertSize
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_OUT_OF_RANGE -- VERIFY_CERT_UNI or TRANSMIT_CERT subfunction is not available.
+ *     - LE_OVERFLOW -- Insufficient certificate buffer size.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -530,8 +535,7 @@ FUNCTION le_result_t GetCert
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets the size of client challenge of the Rx VERIFY_CERT_UNI/VERIFY_CERT_BI
- * Authentication message.
+ * Gets the size of client challenge of the Rx VERIFY_CERT_UNI Authentication message.
  *
  * @b NOTE: The process exits if an invalid reference is passed.
  *
@@ -540,6 +544,7 @@ FUNCTION le_result_t GetCert
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_OUT_OF_RANGE -- VERIFY_CERT_UNI subfunction is not available.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -551,8 +556,7 @@ FUNCTION le_result_t GetChallengeSize
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets the data of client challenge of the Rx VERIFY_CERT_UNI/VERIFY_CERT_BI/
- * Authentication message.
+ * Gets the data of client challenge of the Rx VERIFY_CERT_UNI Authentication message.
  *
  * @b NOTE: The process exits if an invalid reference is passed.
  *
@@ -561,6 +565,8 @@ FUNCTION le_result_t GetChallengeSize
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_OUT_OF_RANGE -- VERIFY_CERT_UNI subfunction is not available.
+ *     - LE_OVERFLOW -- Insufficient challenge buffer size.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetChallenge
@@ -581,6 +587,7 @@ FUNCTION le_result_t GetChallenge
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_OUT_OF_RANGE -- PROOF_OF_OWNERSHIP subfunction is not available.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetPOWNSize
@@ -601,6 +608,8 @@ FUNCTION le_result_t GetPOWNSize
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_OUT_OF_RANGE -- PROOF_OF_OWNERSHIP subfunction is not available.
+ *     - LE_OVERFLOW -- Insufficient proof buffer size.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -622,6 +631,7 @@ FUNCTION le_result_t GetPOWN
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_OUT_OF_RANGE -- PROOF_OF_OWNERSHIP subfunction is not available.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -643,6 +653,8 @@ FUNCTION le_result_t GetPublicKeySize
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_OUT_OF_RANGE -- PROOF_OF_OWNERSHIP subfunction is not available.
+ *     - LE_OVERFLOW -- Insufficient PublicKey buffer size.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -663,6 +675,7 @@ FUNCTION le_result_t GetPublicKey
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_OUT_OF_RANGE -- PROOF_OF_OWNERSHIP subfunction is not available.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -684,6 +697,7 @@ FUNCTION le_result_t SetRole
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_OUT_OF_RANGE -- TRANSMIT_CERT subfunction is not available.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -724,6 +738,7 @@ FUNCTION le_result_t GetVlanIdFromMsg
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_OUT_OF_RANGE -- VERIFY_CERT_UNI subfunction is not available.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -745,6 +760,8 @@ FUNCTION le_result_t SetChallenge
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_OUT_OF_RANGE -- VERIFY_CERT_UNI subfunction is not available.
+ *     - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -766,6 +783,7 @@ FUNCTION le_result_t SetPublicKey
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
  *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_OUT_OF_RANGE -- PROOF_OF_OWNERSHIP subfunction is not available.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -806,7 +824,6 @@ FUNCTION le_result_t SendResp
  * @instaging
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Invalid msgRef or invalid service of the msgRef.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ReleaseAuthExpMsg

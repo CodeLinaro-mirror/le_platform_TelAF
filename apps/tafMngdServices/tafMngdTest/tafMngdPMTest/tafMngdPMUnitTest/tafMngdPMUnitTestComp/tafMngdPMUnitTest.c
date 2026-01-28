@@ -15,7 +15,6 @@ static le_sem_Ref_t semRef = NULL, queueSemRef = NULL;
 static le_thread_Ref_t threadRef = NULL;
 taf_pm_StateChangeHandlerRef_t handlerRef;
 taf_pm_StateChangeExHandlerRef_t handlerExRef;
-taf_mngdPm_StateChangeHandlerRef_t mpmsHanlerRef;
 le_clk_Time_t Timeout = { 3 , 0 };
 int status = EXIT_SUCCESS;
 const char* vHalTag = "vehichle_on";
@@ -63,22 +62,6 @@ static void PrintUsage
     exit(EXIT_SUCCESS);
 }
 
-static char * StateToString(taf_mngdPm_State_t *state)
-{
-    switch (*state)
-    {
-        case TAF_MNGDPM_STATE_RESUME:
-            return "RESUME";
-        case TAF_MNGDPM_STATE_SUSPEND:
-            return "SUSPEND";
-        case TAF_MNGDPM_STATE_SHUTDOWN:
-            return "SHUTDOWN";
-        default:
-            LE_ERROR("unknown state");
-            return "UNKNOWN";
-    }
-}
-
 //Function to convert taf state to string
 char* tafStateToString(taf_pm_State_t tafState)
 {
@@ -123,53 +106,6 @@ void TestStateChangeExHandler(taf_pm_PowerStateRef_t powerStateRef,
     }
 }
 
-// function called on MPMS power state change
-void TestMPMSStateChangeHandler(taf_mngdPm_StateInd_t* indication, void* contextPtr)
-{
-    taf_mngdPm_State_t state;
-    switch(indication->state)
-    {
-        case TAF_MNGDPM_STATE_RESUME:
-            state = TAF_MNGDPM_STATE_RESUME;
-            LE_TEST_INFO("MPMS state change to %s\n", StateToString(&state));
-            printf("\nMPMS state change to %s\n", "TAF_MNGDPM_STATE_RESUME");
-            break;
-
-        case TAF_MNGDPM_STATE_SUSPEND:
-            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGDPM_STATE_SUSPEND");
-            printf("\nMPMS state change to %s\n", "TAF_MNGDPM_STATE_SUSPEND");
-            break;
-
-        case TAF_MNGDPM_STATE_SHUTDOWN:
-            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGDPM_STATE_SHUTDOWN");
-            printf("\nMPMS state change to %s\n", "TAF_MNGDPM_STATE_SHUTDOWN");
-            break;
-
-        case TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE:
-            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE");
-            printf("\nMPMS state change to %s\n", "TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE");
-            break;
-
-        case TAF_MNGDPM_STATE_SUSPENDING:
-            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGDPM_STATE_SUSPENDING");
-            printf("\nMPMS state change to %s\n", "TAF_MNGDPM_STATE_SUSPENDING");
-            break;
-
-        case TAF_MNGDPM_STATE_SHUTTING_DOWN:
-            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGDPM_STATE_SHUTTING_DOWN");
-            printf("\nMPMS state change to %s\n", "TAF_MNGDPM_STATE_SHUTTING_DOWN");
-            break;
-
-        case TAF_MNGDPM_STATE_WAKING_UP:
-            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGDPM_STATE_WAKING_UP");
-            printf("\nMPMS state change to %s\n", "TAF_MNGDPM_STATE_WAKING_UP");
-            break;
-
-        default:
-            break;
-    }
-}
-
 static void* test_stateChangeHandler(void* ctxPtr)
 {
     taf_pm_ConnectService();
@@ -183,39 +119,8 @@ static void* test_stateChangeHandler(void* ctxPtr)
     handlerExRef = taf_pm_AddStateChangeExHandler(TestStateChangeExHandler, NULL);
     LE_TEST_OK(handlerExRef != NULL,"Register state change handler is successfull");
 
-    LE_TEST_INFO("Testing taf_mngdPm_AddStateChangeHandler on valid handler reference");
-    mpmsHanlerRef = taf_mngdPm_AddStateChangeHandler(
-                    (taf_mngdPm_StateChangeHandlerFunc_t)TestMPMSStateChangeHandler,
-                    NULL);
-    LE_TEST_OK(handlerExRef != NULL,"Register MPMS state change handler is successfull");
-
     le_sem_Post(semRef);
     le_event_RunLoop();
-}
-
-le_result_t SetModemWakeupSource(const char* wakeupSource)
-{
-
-    // Convert string to uint32_t
-    uint32_t uintResult = (uint32_t)strtoul(wakeupSource, NULL, 10);
-    // Check for conversion errors
-    if (uintResult > UINT32_MAX) {
-        fprintf(stderr, "Value out of range.\n");
-        exit(EXIT_FAILURE);
-    }
-    // Print the result
-    printf("String: %s\nConverted to uint32_t: %u\n", wakeupSource, uintResult);
-
-    le_result_t res = LE_FAULT;
-    res = taf_mngdPm_SetModemWakeupSource(uintResult);
-    if(res == LE_OK) {
-        return res;
-    }
-    else
-    {
-        LE_ERROR("SetModemWakeupSource request failed");
-        return res;
-    }
 }
 
 le_result_t SuspendSystem(const char* wakeuptype)
@@ -306,75 +211,6 @@ le_result_t ResumeSystem(const char* wakeuptype)
         return res;
    }
    return res;
-}
-
-static le_result_t TestSMSWakeupType()
-{
-    le_result_t res = LE_FAULT;
-    LE_INFO("TestSMSWakeupType");
-    LE_TEST_INFO("To test SMS as newnode wakeuptype!");
-    res = SetModemWakeupSource("1");
-    LE_TEST_OK(res==LE_OK, "Test SMS as newnode wakeuptype! - Pass");
-    if(res != LE_OK)
-        return res;
-
-    LE_TEST_INFO("To test ResumeSystem when SMS as wakeuptype!");
-    res = ResumeSystem("1");
-    LE_TEST_OK(res==LE_OK, "Test ResumeSystem when SMS as wakeuptype! - Pass");
-    if(res != LE_OK)
-        return res;
-    le_sem_WaitWithTimeOut(semRef, Timeout);
-
-    LE_TEST_INFO("To test SuspendSystem when SMS as wakeuptype!");
-    res = SuspendSystem("1");
-    LE_TEST_OK(res==LE_OK, "Test SuspendSystem when SMS as wakeuptype! - Pass");
-    return res;
-}
-
-static le_result_t TestVoiceCallWakeupType()
-{
-    le_result_t res = LE_FAULT;
-    LE_INFO("TestVoiceCallWakeupType");
-    LE_TEST_INFO("To test VOICE_CALL as newnode wakeuptype!");
-    res = SetModemWakeupSource("2");
-    LE_TEST_OK(res==LE_OK, "Test VOICE_CALL as newnode wakeuptype! - Pass");
-    if(res != LE_OK)
-        return res;
-
-    LE_TEST_INFO("To test ResumeSystem when VOICE_CALL as wakeuptype!");
-    res = ResumeSystem("2");
-    LE_TEST_OK(res==LE_OK, "Test ResumeSystem when VOICE_CALL as wakeuptype! - Pass");
-    if(res != LE_OK)
-        return res;
-    le_sem_WaitWithTimeOut(semRef, Timeout);
-
-    LE_TEST_INFO("To test SuspendSystem when VOICE_CALL as wakeuptype!");
-    res = SuspendSystem("2");
-    LE_TEST_OK(res==LE_OK, "Test SuspendSystem when VOICE_CALL as wakeuptype! - Pass");
-    return res;
-}
-
-static le_result_t TestMcuVhalWakeupType()
-{
-    le_result_t res = LE_FAULT;
-    LE_INFO("TestMcuVhalWakeupType");
-    LE_TEST_INFO("To test MCU_VHAL as newnode wakeuptype!");
-    res = SetModemWakeupSource("4");
-    LE_TEST_OK(res==LE_OK, "Test MCU_VHAL as newnode wakeuptype! - Pass");
-    if(res != LE_OK)
-        return res;
-
-    LE_TEST_INFO("To test ResumeSystem when MCU_VHAL as wakeuptype!");
-    res = ResumeSystem("3");
-    LE_TEST_OK(res==LE_OK, "Test ResumeSystem when MCU_VHAL as wakeuptype! - Pass");
-    if(res != LE_OK)
-        return res;
-    le_sem_WaitWithTimeOut(semRef, Timeout);
-
-    LE_TEST_INFO("To test SuspendSystem when MCU_VHAL as wakeuptype!");
-    res = SuspendSystem("3");
-    LE_TEST_OK(res==LE_OK, "Test SuspendSystem when MCU_VHAL as wakeuptype! - Pass");
-    return res;
 }
 
 void NodePowerStateChangeHandlerCB(
@@ -570,7 +406,6 @@ static int WakeupVehicle()
 static int TestMngdPMUnitTest()
 {
     LE_INFO("TestMngdPMUnitTest start");
-    le_result_t res;
     if(threadRef == NULL)
     {
         threadRef = le_thread_Create("state_trigger_thread",
@@ -578,26 +413,7 @@ static int TestMngdPMUnitTest()
         le_thread_Start(threadRef);
         le_sem_Wait(semRef);
     }
-    res = TestSMSWakeupType();
-    if(res != LE_OK)
-    {
-        LE_ERROR("TestSMSWakeupType failed");
-        return EXIT_FAILURE;
-    }
-    le_sem_WaitWithTimeOut(semRef, Timeout);
-    res = TestVoiceCallWakeupType();
-    if(res != LE_OK)
-    {
-        LE_ERROR("TestVoiceCallWakeupType failed");
-        return EXIT_FAILURE;
-    }
-    le_sem_WaitWithTimeOut(semRef, Timeout);
-    res = TestMcuVhalWakeupType();
-    if(res != LE_OK)
-    {
-        LE_ERROR("TestMcuVhalWakeupType failed");
-        return EXIT_FAILURE;
-    }
+
     le_sem_WaitWithTimeOut(semRef, Timeout);
 
     LE_INFO("====All tests are passed=====");

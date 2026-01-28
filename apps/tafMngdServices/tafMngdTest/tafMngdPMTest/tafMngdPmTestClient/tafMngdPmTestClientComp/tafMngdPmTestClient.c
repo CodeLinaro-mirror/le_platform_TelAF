@@ -140,6 +140,13 @@ static void BitmaskValueHandler
     bitmaskFromCmd = bitmaskStr;
 }
 
+static void RelaxWakeSource
+(
+)
+{
+    taf_mpms_test_RelaxWakeSource(MpmsTestDaemonRef);
+}
+
 static void ActionHandler
 (
     const char* command
@@ -172,6 +179,10 @@ static void ActionHandler
     else if (strcmp(command, "query.wakeup.reason") == 0)
     {
         ActionFn = QueryWakeupReason;
+    }
+    else if (strcmp(command, "relax.wake.source") == 0)
+    {
+        ActionFn = RelaxWakeSource;
     }
     else
     {

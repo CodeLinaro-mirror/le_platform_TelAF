@@ -236,6 +236,12 @@ namespace tafsvc {
       telux::common::ErrorCode errcode;
    } tafSmsErrorCode_t;
 
+   typedef struct
+   {
+      taf_sms_MsgRef_t msgRef;
+      telux::common::ErrorCode errcode;
+   } tafSmsSendStatus_t;
+
    class taf_Sms : public ITafSvc {
    public:
       void Init(void);
@@ -294,6 +300,7 @@ namespace tafsvc {
       le_mem_PoolRef_t MsgRefNodePool = NULL;    // Memory Pool for message references
       le_mem_PoolRef_t HandlerNodePool = NULL;   // Memory Pool for sessions context
       le_mem_PoolRef_t SessionNodePool = NULL;   // Memory Pool for sessions context
+      le_mem_PoolRef_t SmsSendStatusPool = NULL; // Memory Pool for SMS send status
 
       le_dls_List_t  SessionList;
 
@@ -346,7 +353,7 @@ namespace tafsvc {
          static void ProcessSendMessage(void* context);
 
          // handler for the sending status
-         static void ProcessSendingStateEvent(void* context);
+         static void ProcessSendingStateEvent(void* reportPtr);
 
          static void CloseSessionEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
 

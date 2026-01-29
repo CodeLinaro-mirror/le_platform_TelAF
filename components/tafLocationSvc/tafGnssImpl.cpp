@@ -7708,6 +7708,7 @@ le_result_t taf_locGnss::GetXtraStatus
     }
     return result;
 }
+
 le_result_t taf_locGnss::GetGnssData
 (
     taf_locGnss_SampleRef_t positionSampleRef,
@@ -7897,6 +7898,149 @@ le_result_t taf_locGnss::GetMeasurementsData(taf_locGnss_MeasSampleRef_t measSam
     }
 
     return result;
+}
+
+le_result_t taf_locGnss::InjectMerkleData
+(
+    const char* merkleTreeFilePath
+)
+{
+    le_result_t result = LE_FAULT;
+    taf_locGnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    if (merkleTreeFilePath == NULL || merkleTreeFilePath[0] == '\0') {
+        LE_ERROR("merkleTreeFilePath path is null/empty");
+        return LE_BAD_PARAMETER;
+    }
+
+    std::ifstream configFileStream;
+    std::string merkleTreeStr = "";
+
+    switch (clientRequestPtr->GnssState)
+    {
+        case TAF_LOCGNSS_STATE_DISABLED:
+        case TAF_LOCGNSS_STATE_UNINITIALIZED:
+        {
+             LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
+             result = LE_NOT_PERMITTED;
+        }
+        break;
+        case TAF_LOCGNSS_STATE_READY:
+        case TAF_LOCGNSS_STATE_ACTIVE:
+        {
+            typedef struct{
+                pa_result_t result;
+            }taf_SelfTestResult_t;
+            auto cb = [](pa_result_t result, std::any context) {
+                taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
+                resPtr->result = result;
+            };
+            taf_SelfTestResult_t resCallback = {};
+
+            configFileStream.open(merkleTreeFilePath);
+            if (configFileStream.is_open()) {
+                std::string line;
+                while (std::getline(configFileStream, line)) {
+                    merkleTreeStr += line;
+                }
+                configFileStream.close();
+            }
+            else {
+                LE_ERROR("Failed to open the file");
+                return LE_FAULT;
+            }
+
+            if (merkleTreeStr.empty()) {
+                LE_ERROR("Merkle tree data is empty after reading file");
+                return LE_FAULT;
+            }
+
+            LE_DEBUG("InjectMerkleTreeInformation merkleTreeStr size : %zu bytes",merkleTreeStr.size());
+
+            pa_result_t res = taf_pa_location_injectMerkleTreeInformation(merkleTreeStr,cb,(std::any)&resCallback);
+            if(res == PA_OK){
+                if(resCallback.result == PA_OK)
+                {
+                    LE_INFO("InjectMerkleTreeInformation success!!");
+                    return LE_OK;
+                }
+            }
+            else
+            {
+                LE_ERROR("InjectMerkleTreeInformation is failed");
+                result = LE_FAULT;
+            }
+        }
+        break;
+        default:
+        {
+            result = LE_FAULT;
+            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
+        }
+        break;
+    }
+
+   return result;
+}
+
+le_result_t taf_locGnss::ConfigureOsnma
+(
+    bool galOsnma
+)
+{
+    le_result_t result = LE_FAULT;
+    taf_locGnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
+    {
+        case TAF_LOCGNSS_STATE_ACTIVE:
+        case TAF_LOCGNSS_STATE_DISABLED:
+        case TAF_LOCGNSS_STATE_UNINITIALIZED:
+        {
+             LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
+             result = LE_NOT_PERMITTED;
+        }
+        break;
+        case TAF_LOCGNSS_STATE_READY:
+        {
+            typedef struct{
+                pa_result_t result;
+            }taf_SelfTestResult_t;
+            auto cb = [](pa_result_t result, std::any context) {
+                taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
+                resPtr->result = result;
+            };
+            taf_SelfTestResult_t resCallback = {};
+            pa_result_t res = taf_pa_location_configureOsnma(galOsnma,cb,(std::any)&resCallback);
+            if(res == PA_OK){
+                if(resCallback.result == PA_OK)
+                {
+                    LE_INFO("ConfigureOsnma status PASS for: %d",galOsnma);
+                    return LE_OK;
+                }
+            }
+            else
+            {
+                LE_ERROR("ConfigureOsnma is failed");
+                result = LE_FAULT;
+            }
+        }
+        break;
+        default:
+        {
+            result = LE_FAULT;
+            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
+        }
+        break;
+    }
+
+   return result;
 }
 
 void taf_locGnss::ReleaseMeasSampleRef
@@ -8872,7 +9016,7 @@ le_result_t taf_locGnss::SetDRConfigValidity(taf_locGnss_DRConfigValidityType_t 
 
     TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
 
- // Check the GNSS device state
+// Check the GNSS device state
     switch (clientRequestPtr->GnssState)
     {
         case TAF_LOCGNSS_STATE_READY:

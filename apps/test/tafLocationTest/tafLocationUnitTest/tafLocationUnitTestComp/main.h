@@ -36,3 +36,6 @@
 
 #define DEFAULT_ACQUISITION_RATE 100 //100msec
 
+
+#define MERKLE_XML_PATH "/etc/OSNMA_MerkleTree.xml"
+

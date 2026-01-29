@@ -169,6 +169,8 @@ static void TafSigTermEventHandler(int tafSigNum)
 
     gpio.isDrvPresent = false;
     gpio.gpioInf = nullptr;
+
+    exit(EXIT_SUCCESS);
 }
 
 COMPONENT_INIT

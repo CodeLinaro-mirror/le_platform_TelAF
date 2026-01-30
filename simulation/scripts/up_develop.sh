@@ -4,9 +4,9 @@
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 current_dir=$(dirname "$0")
-simulation_base=$(realpath ${current_dir}/..)
-simulation_workstation=${current_dir}/../workstation
-project_root=$(realpath ${current_dir}/../../../)
+simulation_base=$(realpath ${SIMULATION_HOME})
+simulation_workstation=$(realpath ${SIMULATION_WORKDIR})
+project_root=$(realpath ${TELAF_ROOT}/..)
 
 i_shell=FALSE
 v_verbose=FALSE

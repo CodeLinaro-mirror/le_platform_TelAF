@@ -537,8 +537,8 @@ EVENT CoolingLevelChangeEvent
 * Gets the list of available thermal zones.
 *
 * @return
- *  - NULL                            No thermal zone information found.
- *  - taf_therm_ThermalZoneListRef    The thermal zone list object reference.
+ *  - NULL -- No thermal zone information found.
+ *  - taf_therm_ThermalZoneListRef -- The thermal zone list object reference.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION ThermalZoneList GetThermalZonesList
@@ -550,10 +550,10 @@ FUNCTION ThermalZoneList GetThermalZonesList
 * Gets the list size of available thermal zones.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
-* - LE_NOT_FOUND       Not found.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
+* - LE_NOT_FOUND -- Not found.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t  GetThermalZonesListSize
@@ -569,8 +569,8 @@ FUNCTION le_result_t  GetThermalZonesListSize
  * thermal zones retrieved with taf_therm_GetThermalZonesList().
  *
  * @return
- *  - NULL                          No thermal zone information found.
- *  - taf_therm_ThermalZoneRef      The thermal zone object reference.
+ *  - NULL -- No thermal zone information found.
+ *  - taf_therm_ThermalZoneRef -- The thermal zone object reference.
  */
 //------------------------------------------------------------------------------------------------
 FUNCTION ThermalZone GetFirstThermalZone
@@ -585,8 +585,8 @@ FUNCTION ThermalZone GetFirstThermalZone
  * thermal zones retrieved with taf_therm_GetThermalZonesList().
  *
  * @return
- *  - NULL                          No thermal zone information found.
- *  - taf_therm_ThermalZoneRef      The thermal zone object reference.
+ *  - NULL -- No thermal zone information found.
+ *  - taf_therm_ThermalZoneRef -- The thermal zone object reference.
  */
 //------------------------------------------------------------------------------------------------
 FUNCTION ThermalZone GetNextThermalZone
@@ -601,8 +601,8 @@ FUNCTION ThermalZone GetNextThermalZone
  * retrieved with taf_therm_GetFirstThermalZone() or taf_therm_GetNextThermalZone().
  *
  * @return
- *  - NULL                          No trip point information found.
- *  - taf_therm_TripPointRef        The trip point object reference.
+ *  - NULL -- No trip point information found.
+ *  - taf_therm_TripPointRef -- The trip point object reference.
  */
 //------------------------------------------------------------------------------------------------
 FUNCTION TripPoint GetFirstTripPoint
@@ -617,8 +617,8 @@ FUNCTION TripPoint GetFirstTripPoint
  * retrieved with taf_therm_GetFirstThermalZone() or taf_therm_GetNextThermalZone().
  *
  * @return
- *  - NULL                         No trip point information found.
- *  - taf_therm_TripPointRef       The trip point object reference.
+ *  - NULL -- No trip point information found.
+ *  - taf_therm_TripPointRef -- The trip point object reference.
  */
 //------------------------------------------------------------------------------------------------
 FUNCTION TripPoint GetNextTripPoint
@@ -632,8 +632,8 @@ FUNCTION TripPoint GetNextTripPoint
  * retrieved with taf_therm_GetFirstThermalZone() or taf_therm_GetNextThermalZone().
  *
  * @return
- *  - NULL                                No bound cooling device information found.
- *  - taf_therm_BoundCoolingDeviceRef     The bound cooling device object reference.
+ *  - NULL -- No bound cooling device information found.
+ *  - taf_therm_BoundCoolingDeviceRef -- The bound cooling device object reference.
  */
 //------------------------------------------------------------------------------------------------
 FUNCTION BoundCoolingDevice GetFirstBoundCDev
@@ -648,8 +648,8 @@ FUNCTION BoundCoolingDevice GetFirstBoundCDev
  * retrieved with taf_therm_GetFirstThermalZone() or taf_therm_GetNextThermalZone().
  *
  * @return
- *  - NULL                                    No bound cooling device information found.
- *  - taf_therm_BoundCoolingDeviceRef         The bound cooling device object reference.
+ *  - NULL -- No bound cooling device information found.
+ *  - taf_therm_BoundCoolingDeviceRef -- The bound cooling device object reference.
  */
 //------------------------------------------------------------------------------------------------
 FUNCTION BoundCoolingDevice GetNextBoundCDev
@@ -662,8 +662,8 @@ FUNCTION BoundCoolingDevice GetNextBoundCDev
 * Retrieves a reference of the first trip point for the given bound cooling device.
 *
 * @return
-*  - NULL                          No bound trip point information found.
-*  - taf_therm_TripPointRef        The bound trip point object reference.
+*  - NULL -- No bound trip point information found.
+*  - taf_therm_TripPointRef -- The bound trip point object reference.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION TripPoint GetFirstBoundTripPoint
@@ -677,8 +677,8 @@ FUNCTION TripPoint GetFirstBoundTripPoint
 * Retrieves a reference of the next trip point for the given bound cooling device.
 *
 * @return
-*  - NULL                             No bound trip point information found.
-*  - taf_therm_TripPointRef           The bound trip point object reference.
+*  - NULL -- No bound trip point information found.
+*  - taf_therm_TripPointRef -- The bound trip point object reference.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION TripPoint GetNextBoundTripPoint
@@ -692,9 +692,9 @@ FUNCTION TripPoint GetNextBoundTripPoint
 * Retrieves the thermal zone ID for the given zone reference.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetThermalZoneID
@@ -709,9 +709,9 @@ FUNCTION le_result_t GetThermalZoneID
 * Retrieves the thermal zone type.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetThermalZoneType
@@ -725,9 +725,9 @@ FUNCTION le_result_t GetThermalZoneType
 * Retrieves the thermal zone current temperature.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetThermalZoneCurrentTemp
@@ -742,9 +742,9 @@ FUNCTION le_result_t GetThermalZoneCurrentTemp
 * Retrieves the thermal zone passive temperature.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetThermalZonePassiveTemp
@@ -760,10 +760,10 @@ FUNCTION le_result_t GetThermalZonePassiveTemp
 * Retrieves the trip point list size.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
-* - LE_NOT_FOUND       Not found.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
+* - LE_NOT_FOUND -- Not found.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetTripPointListSize
@@ -777,10 +777,10 @@ FUNCTION le_result_t GetTripPointListSize
 * Retrieves the bound cooling device list size.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
-* - LE_NOT_FOUND       Not found.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
+* - LE_NOT_FOUND -- Not found.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetBoundCoolingDeviceListSize
@@ -794,9 +794,9 @@ FUNCTION le_result_t GetBoundCoolingDeviceListSize
 * Retrieves the trip point type.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetTripPointType
@@ -811,9 +811,9 @@ FUNCTION le_result_t GetTripPointType
 * Retrieves the trip point threshold.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetTripPointThreshold
@@ -828,9 +828,9 @@ FUNCTION le_result_t GetTripPointThreshold
 * Retrieves the trip point hysteresis.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetTripPointHysterisis
@@ -845,9 +845,9 @@ FUNCTION le_result_t GetTripPointHysterisis
 * Retrieves the trip point trip ID.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 *
 * @b NOTE:
 * This is supported only on SA525M.
@@ -865,9 +865,9 @@ FUNCTION le_result_t GetTripPointTripID
 * Retrieves the thermal zone ID associated with the given trip point.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 *
 * @b NOTE:
 * This is supported only on SA525M.
@@ -885,9 +885,9 @@ FUNCTION le_result_t GetTripPointThermalZoneID
 * Retrieves the bound cooling device's cooling ID.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetBoundCoolingId
@@ -902,10 +902,10 @@ FUNCTION le_result_t GetBoundCoolingId
 * Retrieves the bound cooling device trip point list size.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
-* - LE_NOT_FOUND       Not found.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
+* - LE_NOT_FOUND -- Not found.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetBoundTripPointListSize
@@ -921,9 +921,9 @@ FUNCTION le_result_t GetBoundTripPointListSize
 * Retrieves the bound cooling device's trip point type.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetBoundTripPointType
@@ -937,9 +937,9 @@ FUNCTION le_result_t GetBoundTripPointType
 * Retrieves the bound cooling device's trip point threshold.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetBoundTripPointThreshold
@@ -955,9 +955,9 @@ FUNCTION le_result_t GetBoundTripPointThreshold
 * Retrieves the bound cooling device's trip point hysteresis.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetBoundTripPointHysterisis
@@ -972,9 +972,9 @@ FUNCTION le_result_t GetBoundTripPointHysterisis
 * Retrieves the bound trip point trip ID.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 *
 * @b NOTE: This is supported only on SA525M.
 */
@@ -991,9 +991,9 @@ FUNCTION le_result_t GetBoundTripPointTripID
 * Retrieves the thermal zone ID that the bound trip point is associated with.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 *
 * @b NOTE: This is supported only on SA525M.
 */
@@ -1027,8 +1027,8 @@ FUNCTION le_result_t DeleteThermalZoneList
 * Gets the list of available cooling devices.
 *
 * @return
-* - NULL                               No cooling device information found.
-* - taf_therm_CoolingDeviceListeRef    The cooling device object reference.
+* - NULL -- No cooling device information found.
+* - taf_therm_CoolingDeviceListeRef -- The cooling device object reference.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION CoolingDeviceList GetCoolingDeviceList
@@ -1040,9 +1040,9 @@ FUNCTION CoolingDeviceList GetCoolingDeviceList
 * Gets the list size of available cooling devices.
 *
 * @return
-* - LE_FAULT         Failed.
-* - LE_OK            Succeeded.
-* - LE_NOT_FOUND     Not found.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_NOT_FOUND -- Not found.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCoolingDeviceListSize
@@ -1058,8 +1058,8 @@ FUNCTION le_result_t GetCoolingDeviceListSize
  * cooling device retrieved with taf_therm_GetCoolingDeviceList().
  *
  * @return
- *  - NULL                          No cooling device information found.
- *  - taf_therm_CoolingDeviceRef    The cooling device object reference.
+ *  - NULL -- No cooling device information found.
+ *  - taf_therm_CoolingDeviceRef -- The cooling device object reference.
  */
 //------------------------------------------------------------------------------------------------
 FUNCTION CoolingDevice GetFirstCoolingDevice
@@ -1074,8 +1074,8 @@ FUNCTION CoolingDevice GetFirstCoolingDevice
  * cooling devices retrieved with taf_therm_GetCoolingDeviceList().
  *
  * @return
- *  - NULL                          No cooling device information found.
- *  - taf_therm_CoolingDeviceRef    The cooling device object reference.
+ *  - NULL -- No cooling device information found.
+ *  - taf_therm_CoolingDeviceRef -- The cooling device object reference.
  */
 //------------------------------------------------------------------------------------------------
 FUNCTION CoolingDevice GetNextCoolingDevice
@@ -1088,9 +1088,9 @@ FUNCTION CoolingDevice GetNextCoolingDevice
 * Retrieves the cooling device's cooling ID.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCDevID
@@ -1105,9 +1105,9 @@ FUNCTION le_result_t GetCDevID
 * Retrieves the cooling device description.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCDevDescription
@@ -1123,9 +1123,9 @@ FUNCTION le_result_t GetCDevDescription
 * Retrieves the cooling device's maximum cooling level.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCDevMaxCoolingLevel
@@ -1140,9 +1140,9 @@ FUNCTION le_result_t GetCDevMaxCoolingLevel
 * Retrieves the cooling device's current cooling level.
 *
 * @return
-* - LE_FAULT           Failed.
-* - LE_OK              Succeeded.
-* - LE_BAD_PARAMETER   At least one bad parameter was passed.
+* - LE_FAULT -- Failed.
+* - LE_OK -- Succeeded.
+* - LE_BAD_PARAMETER -- At least one bad parameter was passed.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCDevCurrentCoolingLevel
@@ -1172,8 +1172,8 @@ FUNCTION le_result_t DeleteCoolingDeviceList
 * Retrieves the thermal zone information of the given name.
 *
 * @return
-*  - NULL                           No thermal zone information found.
-*  - taf_therm_ThermalZoneRef       The thermal zone object reference.
+*  - NULL -- No thermal zone information found.
+*  - taf_therm_ThermalZoneRef -- The thermal zone object reference.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION ThermalZone GetThermalZoneByName
@@ -1186,8 +1186,8 @@ FUNCTION ThermalZone GetThermalZoneByName
 * Retrieves the information of the specific cooling device with the given name.
 *
 * @return
-*  - NULL                             No cooling device information found.
-*  - taf_therm_CoolingDeviceRef       The cooling device object reference.
+*  - NULL -- No cooling device information found.
+*  - taf_therm_CoolingDeviceRef -- The cooling device object reference.
 */
 //------------------------------------------------------------------------------------------------
 FUNCTION CoolingDevice GetCoolingDeviceByName
@@ -1200,8 +1200,8 @@ FUNCTION CoolingDevice GetCoolingDeviceByName
  * Releases the trip event sample reference.
  *
  * @return
- * - LE_BAD_PARAMETER      Invalid reference passed.
- * - LE_OK                 Succeeded.
+ * - LE_BAD_PARAMETER -- Invalid reference passed.
+ * - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ReleaseTripEventRef
@@ -1214,8 +1214,8 @@ FUNCTION le_result_t ReleaseTripEventRef
  * Releases the cooling device sample reference.
  *
   * @return
- * - LE_BAD_PARAMETER      Invalid reference passed.
- * - LE_OK                 Succeeded.
+ * - LE_BAD_PARAMETER -- Invalid reference passed.
+ * - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ReleaseCoolingDeviceRef
@@ -1228,8 +1228,8 @@ FUNCTION le_result_t ReleaseCoolingDeviceRef
  * Releases the thermal zone reference.
  *
   * @return
- * - LE_BAD_PARAMETER      Invalid reference passed.
- * - LE_OK                 Succeeded.
+ * - LE_BAD_PARAMETER -- Invalid reference passed.
+ * - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ReleaseThermalZoneRef

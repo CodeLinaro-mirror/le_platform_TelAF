@@ -803,20 +803,22 @@ le_result_t taf_update_CancelInstall
     switch (sessPtr->sessType)
     {
         case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
-            if (state != TAF_UPDATE_INSTALLING && state != TAF_UPDATE_INSTALL_PAUSED)
+            switch (state)
             {
-                LE_ERROR("Invalid cancel operation.");
-                return LE_FAULT;
-            }
-            else
-            {
-                LE_INFO("Cancel NAD update.");
-                tafFwUpdate.SetCancelAction(TAF_UPDATE_INSTALLING, true);
-
-                if (state == TAF_UPDATE_INSTALL_PAUSED)
-                {
+                case TAF_UPDATE_IDLE:
+                    LE_INFO("Cancel post installation while in the idle state.");
+                    return tafFwUpdate.CancelPostInstall();
+                case TAF_UPDATE_INSTALL_PAUSED:
+                    LE_INFO("Cancel the installation while in the paused state.");
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_IDLE);
-                }
+                    break;
+                case TAF_UPDATE_INSTALLING:
+                    LE_INFO("Cancel the installation while in the installing state.");
+                    tafFwUpdate.SetCancelAction(TAF_UPDATE_INSTALLING, true);
+                    break;
+                default:
+                    LE_ERROR("Invalid state %d to cancel the installation.", state);
+                    return LE_FAULT;
             }
             break;
         default:

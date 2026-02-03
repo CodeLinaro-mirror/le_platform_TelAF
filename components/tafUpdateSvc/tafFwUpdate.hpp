@@ -35,7 +35,6 @@
 
 #define TAF_FWUPDATE_INSTALL_CONTEXT "install_context"
 #define TAF_FWUPDATE_INSTALL_IMGAE_NODE "install_context/image/%s"
-#define TAF_FWUPDATE_POST_HOOK "/legato/systems/current/bin/install-hook"
 #define TAF_FWUPDATE_POST_SCRIPT_PATH_LEN 128
 
 #define TAF_FWUPDATE_ACTIVATE_CONTEXT "activate_context"
@@ -168,7 +167,9 @@ namespace tafsvc {
         void StartSync(void);
         void InstallFirmware(const char* filePath);
         le_result_t GetPostScript(taf_update_State_t state, char* scriptPath, size_t pathLen);
+        le_result_t GetCancelPostScript(taf_update_State_t state, char* scriptPath, size_t pathLen);
         le_result_t PostProcess(taf_update_State_t state);
+        le_result_t CancelPostInstall(void);
 
         le_result_t CalFileHash (const char* filePath, uint32_t* calSize, uint8_t* hash,
             unsigned int* hashLen);

@@ -8,6 +8,6 @@ requires:
     api:
     {
         taf_someipClnt.api
-        printer = rpcPrinter.api
+        tafRpcPrinter = rpcPrinter.api
     }
 }

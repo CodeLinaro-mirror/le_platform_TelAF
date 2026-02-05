@@ -4,6 +4,7 @@ sandboxed: false
 start: manual
 
 username: telaf
+startGroup: 22
 
 capability:
 {
@@ -41,6 +42,7 @@ processes:
 
     maxCoreDumpFileBytes: 100000K
     maxFileBytes: 100000K
+    faultAction: restart
 }
 
 bindings:

@@ -1870,7 +1870,9 @@ void tafMngdPMSvc::StateChangeAckTimerHandler(le_timer_Ref_t timerRef)
             //Getting the current client data from mngdPmClientInfo
             sessionNodePtr = mpms.To_taf_mngdPm_SessionNode_t(le_hashmap_Get(mpms.mngdPmClientInfo.clients,
                     client.sessionRef));
-            LE_WARN("client %s not acknowledged for state change", sessionNodePtr->name);
+            LE_WARN("client %d/%s not acknowledged for state change",
+                    sessionNodePtr->procId,
+                    sessionNodePtr->name);
         }
     }
     mpms.clientSize = 0;

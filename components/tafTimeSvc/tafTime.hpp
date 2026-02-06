@@ -397,25 +397,25 @@ struct ValidityParams
             // Print the details of all source in time sources configuration
             void printSourceDetails() const {
                 for (const Source& item : source) {
-                    LE_INFO("Name: %s, priority: %d, setTimeFlag: %d, ToleranceMillsec: %ld, "
-                        "SetTimeCounter: %ld\n",
+                    LE_INFO("Name: %s, priority: %d, SetTime: %d, ToleranceMillsec: %ld, "
+                        "SetTimeCounter: %ld",
                         item.sourceName.c_str(), item.priority, item.setSystemTime,
                         item.toleranceMillsec, item.setTimeCounter);
                 }
                 if (pollingInterval) {
-                    LE_INFO("PollingInterval: %ld\n", pollingInterval);
+                    LE_DEBUG("PollingInterval: %ld\n", pollingInterval);
                 }
                 LE_INFO("allowOverrideAfterFail: %" PRId64 "\n", allowOverrideAfterFail);
 
                 for (auto item : validClientList) {
-                    LE_INFO("Client: %s\n", item.c_str());
+                    LE_DEBUG("Client: %s\n", item.c_str());
                 }
                 if(!gptpDeviceName.empty())
                 {
                     LE_INFO("GptpDeviceName %s\n", gptpDeviceName.c_str());
                 }
 
-                LE_INFO("Time source size: %zu\n", source.size());
+                LE_DEBUG("Time source size: %zu\n", source.size());
             }
         };
 
@@ -445,7 +445,6 @@ struct ValidityParams
                 int64_t rtcDeltaMsec = 0;
 
                 const char* SourceAttrToStr(taf_Time_SrcAttr_t sourceConf);
-                const char* SourceNameIndexToStr(taf_time_TimeSources_t sourceName);
                 taf_time_TimeSources_t SourceNameStrToIndex(const char* typeNamePtr);
 
                 le_result_t ReadSourceConf(TimeSources& serviceCfg,
@@ -456,22 +455,9 @@ struct ValidityParams
                                                                           const char* filePathPtr);
                 void DeleteNotSupportedSource(TimeSources& serviceCfg);
 
-                taf_time_TimeSpec_t taf_time_Sub(taf_time_TimeSpec_t timeA,
-                                                                        taf_time_TimeSpec_t timeB);
-                taf_time_TimeSpec_t taf_time_Add(taf_time_TimeSpec_t timeA,
-                                                                        taf_time_TimeSpec_t timeB);
-                bool TimeGreaterThan(taf_time_TimeSpec_t timeA,taf_time_TimeSpec_t timeB);
-
-                le_result_t ReadWriteDeltaTime(taf_time_TimeSpec_t* timeValPtr,
-                         taf_time_TimeSpec_t* deltaTimeDataPtr, taf_TimeReadWrite_t ReadWriteType);
-
-                le_result_t UpdateLocalTimeCache(taf_time_TimeSpec_t newTime,
-                   taf_time_TimeSources_t sourceName, taf_time_TimeSpec_t* deltaTimeDataBufferPtr);
-
                 le_result_t GetTimeFromLocalCache(taf_time_TimeSpec_t* timeValPtr,
                          taf_time_TimeSpec_t* deltaTimeDataPtr, taf_time_TimeSources_t sourceName);
 
-                le_result_t GetBootTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetRtcTime(taf_time_TimeSpec_t* timeValPtr, bool isAllowGetInternalRTCTime);
                 le_result_t GetGnssTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetExSetTimeStatus(void);
@@ -634,7 +620,6 @@ struct ValidityParams
                 void UpdateFailedLoops(taf_time_TimeSources_t sourceIndex,
                     taf_TimeFailLoopAction_t action);
 
-                void InitializeSystemTimeAttr(void);
                 bool IsSourceValid(taf_time_SourceRef_t sourceRef);
 
                 void UpdateSystemTimeRefInfo(taf_time_TimeSpec_t timeVal,

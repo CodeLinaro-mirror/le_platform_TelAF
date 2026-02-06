@@ -38,10 +38,47 @@ le_result_t RtcAsyncBaseDataIntStatus = LE_UNAVAILABLE;
 
 le_result_t MssConnectStatusMainThread = LE_FAULT;
 
+le_thread_Ref_t SyncTimeThreadRef = NULL;
+
 taf_time_setRTCCb_t tafsvc::taf_Time::setRTCCBtoClient;
 taf_time_getRTCCb_t tafsvc::taf_Time::getRTCCBtoClient;
 
 pthread_mutex_t ProtectlocalTime_mutex;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Global variables to avoid 'pure virtual method called' crash issue during shut down.
+ * This happens when the external callback reach after "~taf_Time()" exit.
+ */
+//--------------------------------------------------------------------------------------------------
+le_thread_Ref_t mainThreadRef = NULL;
+taf_time_TimeSpec_t* GnssDeltaTime = NULL;
+GnssEvent_t* GnssEvent = NULL;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get time service instance for client class.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_Time &taf_Time::GetInstance()
+{
+    static taf_Time instance;
+    return instance;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Helper function to stop a timer.
+ */
+//--------------------------------------------------------------------------------------------------
+static inline void _StopTimerIfRunning(le_timer_Ref_t& ref)
+{
+    if (ref != nullptr)
+    {
+        le_timer_Stop(ref);
+        ref = nullptr;
+    }
+}
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -333,7 +370,51 @@ le_result_t UpdateLocalTimeCache
 }
 
 //--------------------------------------------------------------------------------------------------
- /**
+/**
+ * Update the availablility for a time source.
+ */
+//--------------------------------------------------------------------------------------------------
+void SourceAvailaUpdate(bool newAvailable, taf_time_TimeSources_t sourceIndex)
+{
+    taf_Time& tafTime = taf_Time::GetInstance();
+    //bool previousAvailablility = (tafTime.PrevSrcAvailabiltyMap >> sourceIndex) & 1;
+
+    taf_SourceInf_t* sourcePtr = tafTime.SearchSourceMap(sourceIndex);
+    TAF_ERROR_IF_RET_NIL(sourcePtr == NULL, "Source reference not found");
+
+      if (sourcePtr->isAvailable != newAvailable)
+      {
+        sourcePtr->isAvailable = newAvailable;
+
+        SourceStatusChange_Event_t evt;
+        evt.sourcePtr = sourcePtr;
+        evt.status = sourcePtr->isAvailable;
+        evt.eventType = TAF_TIME_STATUS_EVENT_AVAILABILITY;
+        le_event_Report(tafTime.timeSourceStatusEventId, &evt, sizeof(evt));
+      }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Update the validity for a time source.
+ */
+//--------------------------------------------------------------------------------------------------
+void SourceValidityUpdate(bool validity, taf_time_TimeSources_t sourceId)
+{
+    taf_Time& tafTime = taf_Time::GetInstance();
+
+    taf_SourceInf_t* sourcePtr = tafTime.SearchSourceMap(sourceId);
+    TAF_ERROR_IF_RET_NIL(sourcePtr == NULL, "Source reference not found");
+
+    if(validity != sourcePtr->sourceValidity)
+    {
+      sourcePtr->sourceValidity = validity;
+      tafTime.ReportValidityChange(sourcePtr);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Wrapper the network time information for later update.
  */
 //--------------------------------------------------------------------------------------------------
@@ -362,8 +443,9 @@ void Network1RespPAHandler
     tafTime.NetworkUpdateInfo1.sourceId = TAF_TIME_SRC_NAME_NETWORK;
     tafTime.NetworkUpdateInfo1.error = (le_result_t)error;
     tafTime.NetworkUpdateInfo1.info = info;
+    tafTime.NetworkUpdateInfo1.slotId = slotId;
 
-    le_event_QueueFunctionToThread(tafTime.mainThreadRef,
+    le_event_QueueFunctionToThread(mainThreadRef,
         (le_event_DeferredFunc_t)NetworkTimeResponseUpdateHandler,
         &tafTime.NetworkUpdateInfo1, NULL);
 
@@ -385,26 +467,27 @@ void Network2RespPAHandler
     tafTime.NetworkUpdateInfo2.sourceId = TAF_TIME_SRC_NAME_NETWORK2;
     tafTime.NetworkUpdateInfo2.error = (le_result_t)error;
     tafTime.NetworkUpdateInfo2.info = info;
+    tafTime.NetworkUpdateInfo2.slotId = slotId;
 
-    le_event_QueueFunctionToThread(tafTime.mainThreadRef,
+    le_event_QueueFunctionToThread(mainThreadRef,
         (le_event_DeferredFunc_t)NetworkTimeResponseUpdateHandler,
         &tafTime.NetworkUpdateInfo2, NULL);
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Listener for network time changes.
+ * Update the network time info from handler.
  */
 //--------------------------------------------------------------------------------------------------
-void NetworkTimeChangePAHandler
-(
-    taf_time_NetTimeInfo_t info, ///< [IN] Network time information.
-    int slotId
-)
+void NetworkTimeChangeHandlerInfoUpdate(void* param)
+
 {
-    taf_time_TimeSpec_t timeVal = {0};
-    taf_time_TimeSources_t sourceId;
-    le_result_t result = LE_OK;
+    NetworkInfoUpdateArgs_t* handleData = (NetworkInfoUpdateArgs_t*) param;
+    if (handleData == NULL)
+    {
+        LE_ERROR("handleData pointer is NULL");
+        return;
+    }
 
     if (InitNetwork1Status != LE_OK && InitNetwork2Status != LE_OK)
     {
@@ -417,8 +500,14 @@ void NetworkTimeChangePAHandler
 
     auto &tafTime = taf_Time::GetInstance();
 
+    taf_time_NetTimeInfo_t info = handleData->info;
+    int slotId = handleData->slotId;
+
+    taf_time_TimeSpec_t timeVal = {0};
+    taf_time_TimeSources_t sourceId;
+
     LE_DEBUG("slotId %d, NITZ:%s\n", slotId, info.nitzTime);
-    result = tafTime.ConvertNetworkTimeToSec(info, &timeVal);
+    le_result_t result = tafTime.ConvertNetworkTimeToSec(info, &timeVal);
     if (slotId == NETWORK_SLOT_1)
     {
         sourceId = TAF_TIME_SRC_NAME_NETWORK;
@@ -445,12 +534,60 @@ void NetworkTimeChangePAHandler
     tafTime.ReportTimeValueChange(sourceId, timeVal, &info);
 }
 
-void onGnssUtcTimeUpdateHandler(void* param)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Callback handler from PA-OSS layer
+ */
+//--------------------------------------------------------------------------------------------------
+void OnNetworkTimeChangePAHandler
+(
+    taf_time_NetTimeInfo_t info, ///< [IN] Network time information.
+    int slotId
+)
 {
+    auto &tafTime = taf_Time::GetInstance();
+
+    tafTime.NetworkHandlerInfo.info = info;
+    tafTime.NetworkHandlerInfo.slotId = slotId;
+
+    le_event_QueueFunctionToThread(mainThreadRef,
+        (le_event_DeferredFunc_t)NetworkTimeChangeHandlerInfoUpdate,
+        &tafTime.NetworkHandlerInfo, NULL);
+}
+
+void GnssUtcTimeUpdateHandler(void* param)
+{
+    // In this main thread also need to check if the GNSS is disabled or not
+    if (InitGnssTimeStatus != LE_OK)
+    {
+        LE_ERROR("Flag 'InitGnssTimeStatus' was disabled, exit.");
+        return;
+    }
+
     taf_time_TimeSources_t sourceId = TAF_TIME_SRC_NAME_GNSS;
     auto &tafTime = taf_Time::GetInstance();
-    le_result_t* status = (le_result_t*) param;
-    tafTime.SourceStatusUpdate(*status, sourceId);
+    GnssEvent_t* gEvt = (GnssEvent_t*) param;
+    if (gEvt == NULL)
+    {
+        LE_ERROR("gEvt pointer is NULL");
+        return;
+    }
+
+    if(gEvt->status == LE_OK)
+    {
+        UpdateLocalTimeCache(gEvt->timeVal, TAF_TIME_SRC_NAME_GNSS, GnssDeltaTime);
+
+        // Currently, the validity of GNSS will be set true if receive time successfully.
+        // Set both validity and availability to true, clean the failed loops.
+        tafTime.SourceStatusUpdate(LE_OK, true, sourceId);
+        tafTime.ReportTimeValueChange(TAF_TIME_SRC_NAME_GNSS, gEvt->timeVal, NULL);
+        tafTime.DeregGnssTimeListener();
+    }
+    else
+    {
+        // Update the availability to false.
+        tafTime.SourceStatusUpdate(LE_FAULT, false, sourceId);
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -458,63 +595,44 @@ void onGnssUtcTimeUpdateHandler(void* param)
  * GNSS UTC time notification for local GNSS time update.
  */
 //--------------------------------------------------------------------------------------------------
-void GnssUtcTimeUpdatePAHandler
+void OnGnssUtcTimeUpdatePAHandler
 (
     const uint64_t utc
 )
 {
-    taf_time_TimeSpec_t timeVal;
-
+    // This is a callback from external and not working in time service thread, to avoid 'pure
+    // virtual method called' crash issue during shut down, don't use the destructor of
+    // "taf_Time::" in this function. The issue happens when the external callback reach after
+    // "~taf_Time()" exit.
     if (InitGnssTimeStatus != LE_OK)
     {
-        // This is used to avoid 'pure virtual method called' crash issue during shut down.
-        // 1. Don't use the destructor of "taf_Time::".
-        // 2. Need to exit at once before sending another event to event loop.
+        // Here need to exit at once if the GNSS was disabled.
         LE_DEBUG("Flag 'InitGnssTimeStatus' was disabled, do nothing.");
         return;
     }
 
-    auto &tafTime = taf_Time::GetInstance();
-    le_result_t status;
-    if (utc == 0)
+    memset(GnssEvent, 0, sizeof(GnssEvent_t));
+    if(utc > 0)
     {
-       if(GnssErrStatusUpdateFlag == true)
-       {
-           GnssErrStatusUpdateFlag = false;
-           status = LE_FAULT;
-            le_event_QueueFunctionToThread(tafTime.mainThreadRef,
-                (le_event_DeferredFunc_t)onGnssUtcTimeUpdateHandler, &status, NULL);
+        GnssEvent->status = LE_OK;
+        GnssEvent->timeVal.sec = (utc / 1000);
+        GnssEvent->timeVal.nanosec = (utc % 1000)*1000*1000;
+        GnssErrStatusUpdateFlag = true;
+        le_event_QueueFunctionToThread(mainThreadRef,
+             (le_event_DeferredFunc_t)GnssUtcTimeUpdateHandler, GnssEvent, NULL);
+    }
+    else
+    {
+        GnssEvent->status = LE_FAULT;
+        if(GnssErrStatusUpdateFlag == true)
+        {
+            GnssErrStatusUpdateFlag = false;
+            le_event_QueueFunctionToThread(mainThreadRef,
+                 (le_event_DeferredFunc_t)GnssUtcTimeUpdateHandler, GnssEvent, NULL);
         }
     }
-
-    else if(utc > 0)
-    {
-        status = LE_OK;
-        le_event_QueueFunctionToThread(tafTime.mainThreadRef,
-            (le_event_DeferredFunc_t)onGnssUtcTimeUpdateHandler,&status, NULL);
-        tafTime.UpdateFailedLoops(TAF_TIME_SRC_NAME_GNSS, FAIL_LOOP_NUM_CLEAN);
-        timeVal.sec = (utc / 1000);
-        timeVal.nanosec = (utc % 1000)*1000*1000;
-
-        LE_DEBUG("Received gnss UTC time: %" PRIu64 "\n", timeVal.sec);
-        UpdateLocalTimeCache(timeVal, TAF_TIME_SRC_NAME_GNSS, tafTime.GnssDeltaTime);
-        tafTime.ReportTimeValueChange(TAF_TIME_SRC_NAME_GNSS, timeVal, NULL);
-        tafTime.DeregGnssTimeListener();
-        GnssErrStatusUpdateFlag = true;
-
-    }
 }
 
-//--------------------------------------------------------------------------------------------------
-/**
- * Get time service instance for client class.
- */
-//--------------------------------------------------------------------------------------------------
-taf_Time &taf_Time::GetInstance()
-{
-    static taf_Time instance;
-    return instance;
-}
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1003,6 +1121,9 @@ le_result_t taf_Time::GetRtcTime
             }
             timeValPtr->sec = obj.sec;
             timeValPtr->nanosec = obj.nanosec;
+
+            // Set the availability to true and clean the failed loops for RTC available case.
+            SourceStatusUpdate(LE_OK, false, TAF_TIME_SRC_NAME_RTC);
         }
         else
         {
@@ -1032,7 +1153,9 @@ le_result_t taf_Time::GetExSetTimeStatus(void)
         //Clear the flag here, and it needs to be set 'true' through API
         //'setSystemTime' by external function
         SetTimeSt->externalSetTime = false;
-        SourceStatusUpdate(LE_FAULT, TAF_TIME_SRC_NAME_EX_APP);
+
+        // Update the availability to false for ExAPP fail case.
+        SourceStatusUpdate(LE_FAULT, false, TAF_TIME_SRC_NAME_EX_APP);
         return LE_OK;
     }
     return LE_TIMEOUT;
@@ -1220,14 +1343,10 @@ taf_time_TimeRef_t taf_Time::GetTimeRef
     taf_time_TimeSources_t sourceId  ///< Time source ID.
 )
 {
-     if ( !(sourceId >= TAF_TIME_SRC_NAME_RTC && sourceId < TAF_TIME_SRC_NAME_UNKNOWN)
-        || (sourceId == TAF_TIME_SRC_NAME_EX_APP))
+     if (sourceId == TAF_TIME_SRC_NAME_EX_APP)
     {
-        if((sourceId != TAF_TIME_SRC_NAME_SYSTEM))
-        {
-            LE_ERROR("Not supported time source ID.");
-            return NULL;
-        }
+        LE_ERROR("Not supported time source ID.");
+        return NULL;
     }
 
     if (!TimeSourceConf.IsSourceExist(SourceNameIndexToStr(sourceId)) &&
@@ -1437,10 +1556,11 @@ taf_time_TimeValueChangeHandlerRef_t taf_Time::AddTimeValueChangeHandler
 )
 {
     le_msg_SessionRef_t sessionRef = taf_time_GetClientSessionRef();
-    if ( !(sourceId >= TAF_TIME_SRC_NAME_RTC && sourceId < TAF_TIME_SRC_NAME_UNKNOWN)
-        || (sourceId == TAF_TIME_SRC_NAME_EX_APP))
+    if ((sourceId != TAF_TIME_SRC_NAME_NETWORK)
+        && (sourceId != TAF_TIME_SRC_NAME_NETWORK2)
+        && (sourceId != TAF_TIME_SRC_NAME_GNSS))
     {
-        LE_ERROR("Not supported time source ID.");
+        LE_ERROR("Not supported time source: %s", SourceNameIndexToStr(sourceId));
         return NULL;
     }
 
@@ -1582,7 +1702,8 @@ le_result_t taf_Time::CreateRefTimeForHandler
         tsrEventPrt->dateTimeInf.dayOfWeek = info->dayOfWeek;
         tsrEventPrt->dateTimeInf.timeZone = info->timeZone;
         tsrEventPrt->dateTimeInf.dstAdj = info->dstAdj;
-        le_utf8_Copy(tsrEventPrt->dateTimeInf.nitzTime, info->nitzTime, NITZ_STR_BUF_MAX, NULL);
+        le_utf8_Copy(tsrEventPrt->dateTimeInf.nitzTime, info->nitzTime,
+                                                   NITZ_STR_BUF_MAX, NULL);
     }
 
     tsrEventPrt->dateTimeInf.sourceValidity = true;
@@ -1881,11 +2002,12 @@ void taf_Time::UpdateSystemTimeRefInfo
 
         TimeSourceChangeNotify(LatestTimeSourceInfo->systemSourceId, timeSource);
         LatestTimeSourceInfo->systemSourceId = timeSource;
-
-        //Current time source was successfully set to system. Re-set the Override number to allow
-        //lower priority time source to set system time when 'AllowOverrideAfterFail' drop to '0'.
-        AllowOverrideAfterFail = TimeSourceConf.allowOverrideAfterFail;
     }
+
+    //Current time source was successfully set to system. Re-set the Override number to allow
+    //lower priority time source to set system time when 'AllowOverrideAfterFail' drop to '0'.
+    AllowOverrideAfterFail = TimeSourceConf.allowOverrideAfterFail;
+
     LatestTimeSourceInfo->failedLoops = 0;
     LatestTimeSourceInfo->isAvailable = true;
 
@@ -1973,9 +2095,6 @@ le_result_t taf_Time::SetSystemTime
         LE_ERROR("Position of %s was not found", SourceNameIndexToStr(timeSource));
         return LE_NOT_FOUND;
     }
-
-    UpdateFailedLoops(timeSource, FAIL_LOOP_NUM_CLEAN);
-    SourceStatusUpdate(LE_OK, timeSource);
 
     le_result_t result = SetRealTime(timeVal, timeSource);
     if (result != LE_OK)
@@ -2157,7 +2276,12 @@ void RtcTrustTimeUpdateHandler(void)
 }
 
 //--------------------------------------------------------------------------------------------------
-le_result_t UpdateValidityInRam
+/**
+ *  Update the time source's validity in ram, and assign it's validity to system if the system is
+ *  using this time source.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t SyncValidityInRam
 (
     taf_time_TimeSources_t sourceId,
     bool newValidity
@@ -2239,7 +2363,7 @@ le_result_t UpdateTimeAndValidity
        SourceNameIndexToStr(sourcePtr->sourceId), sourcePtr->sourceValidity,
                                               validity, LatestTimeSourceInfo->sourceValidity);
 
-    result = UpdateValidityInRam(sourceId, validity);
+    result = SyncValidityInRam(sourceId, validity);
     if (result != LE_OK)
     {
         return result;
@@ -2249,14 +2373,17 @@ le_result_t UpdateTimeAndValidity
     {
         // If the input was from 'external', that means a new status is comming from external,
         // otherwise the status is from RAM (old data). Since the validity already successfully
-        // updated, set the "isSyncedWithSetCmd" to 'true'.
+        // updated, mark the "isSyncedWithSetCmd" to 'true'.
         sourcePtr->isSyncedWithSetCmd = true;
+
+        // Set the availability to true and clean the failed loops for this external time source.
+        tafTime.SourceStatusUpdate(LE_OK, false, sourceId);
     }
 
     if (sourceId != TAF_TIME_SRC_NAME_RTC
         && RtcAsyncBaseDataIntStatus == LE_OK)
     {
-        le_event_QueueFunctionToThread(tafTime.mainThreadRef,
+        le_event_QueueFunctionToThread(mainThreadRef,
         (le_event_DeferredFunc_t)RtcTrustTimeUpdateHandler, NULL, NULL);
     }
 
@@ -2400,61 +2527,34 @@ void taf_Time::TimeSourceChangeNotify
     le_event_ReportWithRefCounting(timeSourceChangeId, (void*)statusPtr);
 }
 
-void taf_Time::SourceStatusUpdate(le_result_t result, taf_time_TimeSources_t sourceIndex)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Update availability, validity and clean the failed loops for a time source.
+ *
+ * IMPORTANT NOTE:
+ * Currently, the validity of NETWORK and GNSS will be set to 'true' if successfully receive the
+ * time from its callback function and wont be set to 'false'.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Time::SourceStatusUpdate(
+    le_result_t result,
+    bool updateValidity,
+    taf_time_TimeSources_t sourceIndex
+)
 {
-    taf_Time& tafTime = taf_Time::GetInstance();
-    bool previousAvailablility = (tafTime.PrevSrcAvailabiltyMap >> sourceIndex) & 1;
-    taf_SourceInf_t* sourcePtr = tafTime.SearchSourceMap(sourceIndex);
-    TAF_ERROR_IF_RET_NIL(sourcePtr == NULL, "Source reference not found");
-    bool oldValidity = sourcePtr->sourceValidity;
+    bool status = (result == LE_OK)? true:false;
+    SourceAvailaUpdate(status, sourceIndex);
 
-      if (result == LE_OK)
-      {
-          sourcePtr->isAvailable = true;
-          tafTime.PrevSrcAvailabiltyMap = tafTime.PrevSrcAvailabiltyMap | (1 << sourceIndex);
-          if
-          (
-              sourcePtr->sourceId != TAF_TIME_SRC_NAME_RTC &&
-              sourcePtr->sourceId != TAF_TIME_SRC_NAME_EX_APP
-          )
-          {
-              sourcePtr->sourceValidity = true;
-          }
-      }
-      else
-      {
-          sourcePtr->isAvailable = false;
-          tafTime.PrevSrcAvailabiltyMap = tafTime.PrevSrcAvailabiltyMap & (~(1 << sourceIndex));
-          if
-          (
-              sourcePtr->sourceId != TAF_TIME_SRC_NAME_RTC &&
-              sourcePtr->sourceId != TAF_TIME_SRC_NAME_EX_APP
-          )
-          {
-              sourcePtr->sourceValidity = false;
-          }
-      }
+    if (result == LE_OK)
+    {
+        // Only clean the failed loops when the time source is LE_OK/reachable.
+        UpdateFailedLoops(sourceIndex, FAIL_LOOP_NUM_CLEAN);
+    }
 
-      if (previousAvailablility != sourcePtr->isAvailable)
-      {
-        SourceStatusChange_Event_t evt;
-        evt.sourcePtr = sourcePtr;
-        evt.status = sourcePtr->isAvailable;
-        evt.eventType = TAF_TIME_STATUS_EVENT_AVAILABILITY;
-        le_event_Report(timeSourceStatusEventId, &evt, sizeof(evt));
-      }
-
-      if (sourcePtr->sourceId != TAF_TIME_SRC_NAME_RTC &&
-        sourcePtr->sourceId != TAF_TIME_SRC_NAME_EX_APP)
-      {
-        // The ExAPP's validity was designed by "SetTrustTime" API.
-        // The RTC's validity was designed by system time's time source.
-
-          if(oldValidity != sourcePtr->sourceValidity)
-          {
-            ReportValidityChange(sourcePtr);
-          }
-      }
+    if (updateValidity)
+    {
+        SourceValidityUpdate(status, sourceIndex);
+    }
 }
 
 void taf_Time::ReportValidityChange(taf_SourceInf_t* sourcePtr)
@@ -2712,7 +2812,7 @@ void SyncRtcTrustInfoWithMSSHandler
             if (LatestTimeSourceInfo->systemSourceId == TAF_TIME_SRC_NAME_RTC
                 || LatestTimeSourceInfo->systemSourceId == TAF_TIME_SRC_NAME_UNKNOWN)
             {
-                result = UpdateValidityInRam(rtcSrcPtr->sourceId, mssStoragedValidity);
+                result = SyncValidityInRam(rtcSrcPtr->sourceId, mssStoragedValidity);
                 if (LE_OK == result)
                 {
                     rtcSrcPtr->isSyncedWithStorage = true;
@@ -2848,6 +2948,14 @@ void InitTimeSource(void)
     // 6. Init RTC time source base data.
     RtcAsyncBaseDataIntStatus = tafTime.InitAsyncRtcBaseData();
 
+    if (GnssBaseDataIntStatus == LE_OK
+        || NetworkBaseDataIntStatus == LE_OK)
+    {
+        // Create the event and add event handler.
+        tafTime.RefTimeEventId = le_event_CreateId("RefTimeEventId", sizeof(TS_Event_t));
+        tafTime.RefTimeEventHandlerRef = le_event_AddHandler("RefTimeEventHandlerRef",
+                                   tafTime.RefTimeEventId, EventTimeValueChangeHandler);
+    }
 }
 
 void taf_Time::ReleasePtpDevice(void)
@@ -2883,36 +2991,40 @@ void taf_Time::RegisterPtpDevice(void)
     }
 }
 
+void StopSyncTimeTasksThread(void)
+{
+    auto& tafTime = taf_Time::GetInstance();
+    LE_INFO("StopSyncTimeTasksThread: stopping ...");
+
+    _StopTimerIfRunning(tafTime.syncTimeTimerRef);
+
+    le_thread_Exit(nullptr);
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Signal handler for SIGTERM to clear up the resource.
  */
 //--------------------------------------------------------------------------------------------------
-static void TafSigTermEventHandler
-(
-    int sigNum
-)
+static void TafSigTermEventHandler(int sigNum)
 {
-    auto &tafTime = taf_Time::GetInstance();
+    taf_Time& tafTime = taf_Time::GetInstance();
 
     LE_INFO("TafSigTermEventHandler :%d", sigNum);
 
-    tafTime.ReleasePtpDevice();
-
-    if (tafTime.syncTimeTimerRef)
+    // Phase-1: sub-thread resource cleanup
+    if (SyncTimeThreadRef != NULL)
     {
-        le_timer_Stop(tafTime.syncTimeTimerRef);
+        le_event_QueueFunctionToThread(SyncTimeThreadRef,
+            (le_event_DeferredFunc_t)StopSyncTimeTasksThread, NULL, NULL);
+        le_thread_Join(SyncTimeThreadRef, NULL);
+        SyncTimeThreadRef = NULL;
+        LE_INFO("TafSigTermEventHandler: SyncTimeTasksThread joined");
     }
 
-    if (tafTime.sysTimeUdTimerRef)
-    {
-        le_timer_Stop(tafTime.sysTimeUdTimerRef);
-    }
-
-    if (tafTime.syncSecStorageRef)
-    {
-        le_timer_Stop(tafTime.syncSecStorageRef);
-    }
+    // Phase-2: main-thread resource cleanup
+    _StopTimerIfRunning(tafTime.sysTimeUdTimerRef);
+    _StopTimerIfRunning(tafTime.syncSecStorageRef);
 
     if (InitNetwork1Status == LE_OK)
     {
@@ -2935,26 +3047,14 @@ static void TafSigTermEventHandler
     if (MssConnectStatusMainThread == LE_OK)
     {
         MssConnectStatusMainThread = LE_UNAVAILABLE;
-        taf_mngdStorSecData_DisconnectService();
+        (void)taf_mngdStorSecData_DisconnectService();
     }
-}
 
-void DeferSigTermToMainThread(void* param)
-{
-    int* sigNum = (int*) param;
-    TafSigTermEventHandler(*sigNum);
-}
+    tafTime.ReleasePtpDevice();
 
-static void TafSigTermEventHandlerForSyncTimeTh
-(
-    int sigNum
-)
-{
-    auto &tafTime = taf_Time::GetInstance();
-    tafTime.sigTermSignalNum = sigNum;
-    LE_INFO("TafSigTermEventHandlerForSyncTimeTh :%d", tafTime.sigTermSignalNum);
-    le_event_QueueFunctionToThread(tafTime.mainThreadRef,
-        (le_event_DeferredFunc_t)DeferSigTermToMainThread,&tafTime.sigTermSignalNum, NULL);
+    LE_INFO("TafSigTermEventHandler: shutdown completed");
+
+    exit(0);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2967,9 +3067,6 @@ static void TafSigTermEventHandlerForSyncTimeTh
 //--------------------------------------------------------------------------------------------------
 void *taf_Time::SyncTimeTasks(void* contextPtr)
 {
-     // Setup signal's event handler.
-     le_sig_SetEventHandler(SIGTERM, TafSigTermEventHandlerForSyncTimeTh);
-
     le_result_t regNetworkTimeStatus = LE_UNAVAILABLE;
     long int interval;
 
@@ -3018,7 +3115,7 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
         le_timer_Start(tafTime.syncTimeTimerRef);
     }
 
-    le_event_QueueFunctionToThread(tafTime.mainThreadRef,
+    le_event_QueueFunctionToThread(mainThreadRef,
         (le_event_DeferredFunc_t)AdvertiseTimeService,NULL, NULL);
     le_event_RunLoop();
 
@@ -3111,8 +3208,7 @@ le_result_t taf_Time::DeregGnssTimeListener(void)
 
 void taf_Time::SyncTimeTimerHandler(le_timer_Ref_t timerRef)
 {
-
-    taf_Time& tafTime = taf_Time::GetInstance();
+    auto &tafTime = taf_Time::GetInstance();
 
     if (RtcAsyncBaseDataIntStatus == LE_OK)
     {
@@ -3214,7 +3310,6 @@ void taf_Time::StoreDateTimeInfo
     taf_time_TimeSources_t sourceId
 )
 {
-    LE_DEBUG("sourceId %d, NITZ:%s\n", sourceId, info.nitzTime);
     taf_TimeNetTimeInfo_t* netInfoPtr = SearchNetTimeInfList(sourceId);
     // Create a source object if it doesn't exist in the list.
     if (netInfoPtr == NULL)
@@ -3233,7 +3328,8 @@ void taf_Time::StoreDateTimeInfo
     netInfoPtr->timeInfo.dayOfWeek = info.dayOfWeek;
     netInfoPtr->timeInfo.dstAdj = info.dstAdj;
     netInfoPtr->timeInfo.timeZone = info.timeZone;
-    le_utf8_Copy(netInfoPtr->timeInfo.nitzTime, info.nitzTime, NITZ_STR_BUF_MAX, NULL);
+    le_utf8_Copy(netInfoPtr->timeInfo.nitzTime, info.nitzTime,
+                                                       NITZ_STR_BUF_MAX, NULL);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -3254,9 +3350,9 @@ void taf_Time::NetworkTimeResponseUpdate
 
     if (error != LE_OK)
     {
-        LE_ERROR("Request %s, Error(%d)",
-                                  SourceNameIndexToStr(sourceId), (int)error);
-        SourceStatusUpdate(LE_FAULT, sourceId);
+        LE_ERROR("Request %s, Error(%d)", SourceNameIndexToStr(sourceId), (int)error);
+        // Update the availability to false for NETWORK fail case.
+        SourceStatusUpdate(LE_FAULT, false, sourceId);
         return;
     }
 
@@ -3269,7 +3365,6 @@ void taf_Time::NetworkTimeResponseUpdate
     result = ConvertNetworkTimeToSec(info, &timeVal);
     if (LE_OK == result)
     {
-        UpdateFailedLoops(sourceId, FAIL_LOOP_NUM_CLEAN);
         if(sourceId == TAF_TIME_SRC_NAME_NETWORK)
         {
             UpdateLocalTimeCache(timeVal, sourceId, NetworkDeltaTime);
@@ -3278,7 +3373,9 @@ void taf_Time::NetworkTimeResponseUpdate
         {
             UpdateLocalTimeCache(timeVal, sourceId, NetworkDeltaTime2);
         }
-        SourceStatusUpdate(result, sourceId);
+        // Currently, the validity of NETWORK will be set to true if receive time successfully.
+        // Set both validity and availability to true, and clean the failed loops.
+        SourceStatusUpdate(LE_OK, true, sourceId);
     }
 
     StoreDateTimeInfo(info, sourceId);
@@ -3350,14 +3447,10 @@ le_result_t taf_Time::InitNetworkBaseData(void)
     }
 
     netTimeInfoPool = le_mem_CreatePool("netTimeInfoPool", sizeof(taf_TimeNetTimeInfo_t));
-    netTimeInfoRefMap = le_ref_CreateMap("netTimeInfoRefMap", NETWORK_PHONE_NUM_MAX);
+    netTimeInfoRefMap = le_ref_CreateMap("netTimeInfoRefMap", NETWORK_SLOT_NUM_MAX);
 
     TsrEventPool = le_mem_CreatePool("TsrEventPool", sizeof(TimeSourceRef_Event_t));
     TsrEventMap = le_ref_CreateMap("TsrEventMap", DEFAULT_TSR_EVENT_CNT);
-    // Create the event and add event handler.
-    RefTimeEventId = le_event_CreateId("RefTimeEventId", sizeof(TS_Event_t));
-    RefTimeEventHandlerRef = le_event_AddHandler("RefTimeEventHandlerRef",
-                                    RefTimeEventId, EventTimeValueChangeHandler);
     return LE_OK;
 }
 
@@ -3417,7 +3510,7 @@ le_result_t taf_Time::InitNetworkTime(void)
     // Register network time change callback functions in PA layer.
     if (InitNetwork1Status == LE_OK || InitNetwork2Status == LE_OK)
     {
-        pa_result = taf_pa_time_RegNetworkTimeChangeHandler(NetworkTimeChangePAHandler);
+        pa_result = taf_pa_time_RegNetworkTimeChangeHandler(OnNetworkTimeChangePAHandler);
         if (pa_result != PA_OK)
         {
             // This failure will only impact the network change notification.
@@ -3446,7 +3539,7 @@ le_result_t taf_Time::InitGnssTime(void)
     }
 
     // Register callback functions in PA layer.
-    pa_result= taf_pa_time_RegGnssUtcTimeUpdateHandler(GnssUtcTimeUpdatePAHandler);
+    pa_result= taf_pa_time_RegGnssUtcTimeUpdateHandler(OnGnssUtcTimeUpdatePAHandler);
     if (pa_result != PA_OK)
     {
         LE_ERROR("RegGnssUtcTimeUpdateHandler failed");
@@ -3479,6 +3572,9 @@ le_result_t taf_Time::InitGnssBaseData(void)
         LE_WARN("Clean GNSS delta time failed");
     }
 
+    GnssEventPool = le_mem_CreatePool("TimeSvc GnssEventPool ", sizeof(GnssEvent_t));
+    GnssEvent = (GnssEvent_t *)le_mem_ForceAlloc(GnssEventPool);
+
     return result;
 }
 
@@ -3507,12 +3603,11 @@ le_result_t taf_Time::InitAsyncRtcBaseData(void)
         return LE_UNAVAILABLE;
     }
 
-    le_result_t result;
     RtcAsyncDeltaTimePool = le_mem_CreatePool("RtcAsyncDeltaTimePtr", sizeof(taf_time_TimeSpec_t));
     RtcAsyncDeltaTimePtr = (taf_time_TimeSpec_t *)le_mem_ForceAlloc(RtcAsyncDeltaTimePool);
 
     memset(RtcAsyncDeltaTimePtr, 0, sizeof(taf_time_TimeSpec_t));
-    result = ReadWriteDeltaTime(RtcAsyncDeltaTimePtr, 0, TAF_TIME_DATA_CLEAN);
+    le_result_t result = ReadWriteDeltaTime(RtcAsyncDeltaTimePtr, 0, TAF_TIME_DATA_CLEAN);
     if (result != LE_OK)
     {
         LE_ERROR("Clean RTC delta time failed");
@@ -3665,21 +3760,23 @@ void getRtcTimeRespCbEvtHandler(const struct TimeSpec& timeVal, le_result_t resp
     if (time.getRTCCBtoClient.getRTCCallbackFunc)
     {
         time.getRTCCBtoClient.getRTCCallbackFunc(&rtcTime, response,
-                                            time.getRTCCBtoClient.getRTCCtxPtr);
+                                                              time.getRTCCBtoClient.getRTCCtxPtr);
     }
 
     // This is part is for time service internal use.
     if (response != LE_OK || rtcTime.sec == 0)
     {
-        time.SourceStatusUpdate(LE_FAULT, sourceId);
+        // Set the availability to false for RTC callback fail case.
+        time.SourceStatusUpdate(LE_FAULT, false, sourceId);
         LE_ERROR("Response for getting RTC time is NOT OK %d, time is: %" PRIu64 "",
         response, rtcTime.sec);
         return;
     }
 
     UpdateLocalTimeCache(rtcTime, sourceId, time.RtcAsyncDeltaTimePtr);
-    time.UpdateFailedLoops(sourceId, FAIL_LOOP_NUM_CLEAN);
-    time.SourceStatusUpdate(response, sourceId);
+
+    // Set the availability to true and clean the failed loops for RTC available case.
+    time.SourceStatusUpdate(LE_OK, false, sourceId);
 
     if (initFlag)
     {
@@ -3727,7 +3824,7 @@ void setRtcTrustTimeRespCbEvtHandler(le_result_t response)
 
     // The validity in RAM for RTC can be updated only when RTC time was set successfully,
     // in this case, both the RTC time and validity read by client are matched.
-    UpdateValidityInRam(rtcPtr->sourceId, LatestTimeSourceInfo->sourceValidity);
+    SyncValidityInRam(rtcPtr->sourceId, LatestTimeSourceInfo->sourceValidity);
 
     // Update the validity to MSS for RTC if not
     if (rtcPtr->isSyncedWithStorage == false)
@@ -4467,9 +4564,11 @@ void taf_Time::Init(void)
     }
 
     InitTimeSource();
+
     // 3. Create thread for runtime sync time.
-    le_thread_Ref_t threadRunTimeSyncRef = le_thread_Create("SyncTimeThread", SyncTimeTasks, NULL);
-    le_thread_Start(threadRunTimeSyncRef);
+    SyncTimeThreadRef = le_thread_Create("SyncTimeThread", SyncTimeTasks, NULL);
+    le_thread_SetJoinable(SyncTimeThreadRef);
+    le_thread_Start(SyncTimeThreadRef);
 
     // 4. Add power state change handle.
     taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);

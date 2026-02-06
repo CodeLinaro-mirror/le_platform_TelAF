@@ -235,6 +235,12 @@ typedef struct
     taf_DateTimeInf_t dateTimeInf;                ///< Date time information.
 }TimeSourceRef_Event_t;
 
+typedef struct
+{
+    taf_time_TimeSpec_t timeVal;
+    le_result_t         status;
+} GnssEvent_t;
+
 typedef enum
 {
     RTC_SET_TIME_CB,
@@ -272,6 +278,7 @@ struct NetworkInfoUpdateArgs_t
 {
     taf_time_TimeSources_t sourceId; ///< Time source ID.
     taf_time_NetTimeInfo_t info;     ///< [IN] Network time information.
+    int slotId;
     le_result_t error;               ///< [IN] Error code.
 };
 
@@ -535,12 +542,15 @@ struct ValidityParams
                                                                   taf_time_TimeSpec_t* timeValPtr);
 
                 le_result_t InitGnssBaseData(void);
+
                 le_result_t InitNetworkBaseData(void);
 
                 le_result_t InitGnssTime(void);
                 le_result_t InitNetworkTime(void);
 
                 le_result_t InitAsyncRtcBaseData(void);
+
+                le_result_t InitNetworkManager(void);
 
                 taf_time_TimeValueChangeHandlerRef_t AddTimeValueChangeHandler(
                              taf_time_TimeSources_t sourceId,
@@ -566,9 +576,8 @@ struct ValidityParams
                 le_mem_PoolRef_t SetTimeStatusPool = NULL;
                 le_mem_PoolRef_t timeSourceChangePool = NULL;
 
-                taf_time_TimeSpec_t* GnssDeltaTime = NULL;
                 le_mem_PoolRef_t GnssDeltaTimePool = NULL;
-
+                le_mem_PoolRef_t GnssEventPool = NULL;
 
                 le_ref_MapRef_t TimeRefMap;
                 le_mem_PoolRef_t TimePool = NULL;
@@ -629,7 +638,7 @@ struct ValidityParams
                     int64_t* loopIntervalSec);
                 bool IsAvailable(taf_time_SourceRef_t sourceRef);
                 le_result_t GetSystemTimeSourceID(taf_time_TimeSources_t* timeSource);
-                void SourceStatusUpdate(le_result_t result,taf_time_TimeSources_t sourceIndex);
+                void SourceStatusUpdate(le_result_t, bool, taf_time_TimeSources_t);
                 le_result_t ReleaseSourceRef(taf_time_SourceRef_t SrcRef);
                 void RemoveTimeSourceStatusHandler(taf_time_TimeSourceStatusHandlerRef_t handlerRef);
 
@@ -656,16 +665,14 @@ struct ValidityParams
                 void ReleasePtpDevice(void);
                 void RegisterPtpDevice(void);
 
-                uint64_t PrevSrcAvailabiltyMap = 0x0;
                 struct SetTimeStatus* SetTimeSt = NULL;
-                NetworkInfoUpdateArgs_t NetworkUpdateInfo1 = {};
-                NetworkInfoUpdateArgs_t NetworkUpdateInfo2 = {};
-                le_thread_Ref_t mainThreadRef = NULL;
+                NetworkInfoUpdateArgs_t NetworkUpdateInfo1  = {};
+                NetworkInfoUpdateArgs_t NetworkUpdateInfo2  = {};
+                NetworkInfoUpdateArgs_t NetworkHandlerInfo  = {};
                 int sigTermSignalNum = -1;
 
             private:
                 int64_t AllowOverrideAfterFail = -1;
-                pthread_mutex_t ProtectlocalTime_mutex;
                 taf_gptpTime_Ref_t gptpTimeRef = NULL;
         };
     }

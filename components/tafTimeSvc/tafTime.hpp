@@ -235,6 +235,19 @@ typedef struct
     taf_DateTimeInf_t dateTimeInf;                ///< Date time information.
 }TimeSourceRef_Event_t;
 
+typedef enum
+{
+    RTC_SET_TIME_CB,
+    RTC_GET_TIME_CB
+} RtcCallbackType_t;
+
+typedef struct
+{
+    RtcCallbackType_t cbType;
+    le_result_t       status;
+    struct TimeSpec   timeVal;   ///< MUST be set for RTC_GET_TIME_CB
+} RtcEvent_t;
+
 typedef struct
 {
     le_msg_SessionRef_t sessionRef;
@@ -527,6 +540,8 @@ struct ValidityParams
                 le_result_t InitGnssTime(void);
                 le_result_t InitNetworkTime(void);
 
+                le_result_t InitAsyncRtcBaseData(void);
+
                 taf_time_TimeValueChangeHandlerRef_t AddTimeValueChangeHandler(
                              taf_time_TimeSources_t sourceId,
                              taf_time_TimeValueChangeHandlerFunc_t handlerPtr, void* contextPtr);
@@ -577,6 +592,10 @@ struct ValidityParams
                 le_ref_MapRef_t TsrEventMap;
                 le_mem_PoolRef_t TsrEventPool;
 
+                taf_time_TimeSpec_t* RtcAsyncDeltaTimePtr = NULL;
+                le_mem_PoolRef_t RtcAsyncDeltaTimePool = NULL;
+
+                le_event_Id_t RtcEvtHandlerId;
                 time_Inf_t* timeInf = nullptr;
                 bool isDrvPresent = false;
                 static taf_time_getRTCCb_t getRTCCBtoClient;
@@ -584,6 +603,10 @@ struct ValidityParams
                 static void getRtcTimeRespCB(struct TimeSpec timeVal, le_result_t result);
                 static void setRtcTimeRespCB(le_result_t result);
                 static void setRtcTrustTimeRespCB(le_result_t result);
+                static void setRtcTimeRespCbEvtHandler(const struct TimeSpec& timeVal,
+                                                                   le_result_t response);
+                void InitAsyncRtcEvtHandler(void);
+                static void RtcCbEventHandler(void* context);
 
                 using SetRtcHalCb = void (*)(le_result_t);
                 le_result_t SetRtcTimeReqAsync(const taf_time_TimeSpec_t* timeValPtr,

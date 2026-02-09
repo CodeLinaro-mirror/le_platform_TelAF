@@ -595,60 +595,6 @@ void taf_sim::Init(void)
         LE_FATAL("Fail to init card subsystem");
     }
 
-    telux::common::ServiceStatus simProfileMgrStatus = telux::common::ServiceStatus::SERVICE_UNAVAILABLE;
-    LE_INFO("Sim profile subsystem is not ready, waiting for it to be ready...");
-    std::promise<telux::common::ServiceStatus> simProfileMgrProm ;
-    simProfileManager = phoneFactory.getSimProfileManager([&](telux::common::ServiceStatus status) {
-        LE_INFO("Getting status:%d from sim profile manager", (int)status);
-        try{
-            if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-            {
-                simProfileMgrProm.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
-            }
-            else {
-                simProfileMgrProm.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
-            }
-        }
-        catch (const std::future_error &e) {
-            LE_ERROR("Future error in simProfile subsystem: %s", e.what());
-        }
-        catch (const std::exception& e)
-        {
-            LE_ERROR("Exception in simProfileManger callback: %s", e.what());
-        }
-    });
-
-    if(!simProfileManager)
-    {
-        LE_FATAL("Failed to get simProfileManager");
-    }
-
-    std::future<telux::common::ServiceStatus> simProfileInitFuture = simProfileMgrProm.get_future();
-    std::future_status simProfilewaitStatus = simProfileInitFuture.wait_for(std::chrono::seconds(
-        TAF_SIM_SUBSYSTEM_TIMEOUT));
-    if (std::future_status::timeout == simProfilewaitStatus)
-    {
-        LE_FATAL ("Timeout waiting for sim profile susbsytem");
-    }
-    else
-    {
-        try{
-            simProfileMgrStatus = simProfileInitFuture.get();
-        }
-        catch (const std::exception& e)
-        {
-            LE_ERROR("Exception in simProfileManger callback: %s", e.what());
-        }
-    }
-    if (simProfileMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-    {
-        LE_INFO("Sim profile subsystem is ready.");
-    }
-    else
-    {
-        LE_FATAL("Fail to init sim profile subsystem");
-    }
-
     telux::common::ServiceStatus multiSimMgrStatus = telux::common::ServiceStatus::SERVICE_UNAVAILABLE;
     LE_INFO("Multi sim subsystem is not ready, waiting for it to be ready...");
     std::promise<telux::common::ServiceStatus> multiSimMgrProm;
@@ -2387,131 +2333,8 @@ le_result_t taf_sim::Reset(taf_sim_Id_t simId)
 }
 
 le_result_t taf_sim::IsEmergencyCallSubscriptionSelected(taf_sim_Id_t simId, bool* isEs){
-    *isEs = false;
-    if(selectSimSlot(simId) != LE_OK){
-        LE_INFO("Invalid sim identifier given");
-        return LE_BAD_PARAMETER;
-    }
-    auto profileSyncPromise = std::make_shared<std::promise<le_result_t>>();
-    auto responseCb = [profileSyncPromise](const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles, telux::common::ErrorCode errorCode) {
-        le_result_t result = LE_FAULT;
-        auto &sim = taf_sim::GetInstance();
-        if (errorCode == telux::common::ErrorCode::SUCCESS) {
-            if (profiles.size() == 0) {
-                LE_INFO("Profiles List is empty");
-                result = LE_FAULT;
-            }
-            else {
-                bool active = false;
-                for (auto &profile : profiles) {
-                    if (profile && profile->getType() == telux::tel::ProfileType::EMERGENCY) {
-                        active |= profile->isActive();
-                        sim.isEcs = profile->isActive();
-                        result = LE_OK;
-                        break;
-                    }
-                }
-            }
-        }
-        else {
-            LE_INFO("Profile list retrieval failed with errorCode : %d", static_cast<int>(errorCode));
-            result = LE_FAULT;
-        }
-        try {
-
-            profileSyncPromise->set_value(result);
-        }
-        catch (const std::future_error &e) {
-            LE_ERROR("Promise already satisfied or broken: %s", e.what());
-        }
-    };
-    telux::common::Status status = simProfileManager->requestProfileList((SlotId)slot, responseCb);
-    if(status == telux::common::Status::SUCCESS){
-        LE_INFO("Request profile list sent successfully");
-        std::chrono::seconds span(DEFAULT_TIMEOUT_IN_SECONDS);
-        std::future<le_result_t> futureResult = profileSyncPromise->get_future();
-        std::future_status waitStatus = futureResult.wait_for(span);
-        if(std::future_status::timeout == waitStatus){
-            LE_INFO("Unable to read profile list");
-            return LE_NOT_FOUND;
-        }
-        le_result_t result = futureResult.get();
-        if(result == LE_OK){
-            *isEs = isEcs;
-            return LE_OK;
-        }
-        if(result  == LE_NOT_FOUND)
-        {
-            LE_INFO("Unable to determine active profile");
-            return LE_NOT_FOUND;
-        }
-    }
-    LE_INFO("isEmergencyProfileSelected failed ");
-    return LE_FAULT;
-}
-
-le_result_t taf_sim::profileListCallbackEm
-(
-    const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles,
-    telux::common::ErrorCode error,
-    SlotId simId
-)
-{
-    if(error != telux::common::ErrorCode::SUCCESS){
-        LE_ERROR("Failed to retrieve profile list with error %d", (int)error);
-    }
-    LE_INFO("Retrieving Profile list successful");
-    int emergencyProfileId = -1;
-    for(auto profile: profiles){
-        if(profile->getType() == telux::tel::ProfileType::EMERGENCY){
-            emergencyProfileId = profile->getProfileId();
-        }
-    }
-    if(emergencyProfileId == -1){
-        LE_INFO("EMERGENCY profile not found");
-        return LE_FAULT;
-    }
-    LE_INFO("EMERGENCY Profile found");
-    auto promisePtr = std::make_shared<std::promise<telux::common::ErrorCode>>();
-    auto swapResponseCb = [promisePtr](telux::common::ErrorCode error){
-    try {
-        promisePtr->set_value(error);
-    }
-    catch (const std::future_error &e) {
-        LE_ERROR("Promise already satisfied or broken: %s", e.what());
-    }
-    };
-
-    auto status = simProfileManager->setProfile((SlotId)slot,
-            emergencyProfileId,
-            true,
-            swapResponseCb
-            );
-    if(status == Status::SUCCESS){
-        try {
-            auto future = promisePtr->get_future();
-            std::chrono::seconds span(DEFAULT_TIMEOUT_IN_SECONDS);
-            std::future_status waitStatus = future.wait_for(span);
-            if(std::future_status::timeout == waitStatus){
-                LE_ERROR("Timeout waiting for setProfile response");
-                return LE_TIMEOUT;
-            }
-            telux::common::ErrorCode error =future.get();
-            LE_INFO("error: %d", (int)error);
-            if(error == ErrorCode::SUCCESS) {
-                return LE_OK;
-            }
-        }
-        catch (const std::exception &e) {
-            LE_ERROR("Exception while getting future result: %s", e.what());
-            return LE_FAULT;
-        }
-    }
-    else {
-        LE_ERROR("Failed for setProfile response");
-    }
-    LE_INFO("status : %d", (int)status);
-    return LE_FAULT;
+    LE_INFO("IsEmergencyCallSubscriptionSelected not implememted");
+    return LE_NOT_IMPLEMENTED;
 }
 
 le_result_t taf_sim::LocalSwapToEmergencyCallSubscription
@@ -2520,97 +2343,8 @@ le_result_t taf_sim::LocalSwapToEmergencyCallSubscription
     taf_sim_Manufacturer_t manufacturer
 )
 {
-    std::promise<telux::common::ErrorCode> q;
-    le_result_t r;
-
-    if (manufacturer == TAF_SIM_MORPHO || manufacturer == TAF_SIM_VALID
-            || manufacturer >= TAF_SIM_MANUFACTURER_MAX) {
-        LE_ERROR("The manufacturer MORPHO and VALID are not supported.");
-        return LE_UNSUPPORTED;
-    }
-
-    if(selectSimSlot(simId)!=LE_OK){
-        return LE_BAD_PARAMETER;
-    }
-    auto respCb = [&](const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles,
-                      telux::common::ErrorCode errorcode){
-                      r=profileListCallbackEm(profiles,
-                                              errorcode,
-                                              (SlotId)slot);};
-    auto status = simProfileManager->requestProfileList((SlotId)slot, respCb);
-    if(status != Status::SUCCESS){
-        return LE_FAULT;
-    }
-    le_result_t r_rs=SetPower(simId, LE_OFF);
-    if(r_rs != LE_OK)
-        return LE_FAULT;
-    r_rs = SetPower(simId, LE_ON);
-    if(r_rs != LE_OK)
-        return LE_FAULT;
-    return r;
+    return LE_NOT_IMPLEMENTED;
 }
-le_result_t taf_sim::profileListCallbackCo
-(
-    const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles,
-    telux::common::ErrorCode error, SlotId simId)
-{
-    if(error != telux::common::ErrorCode::SUCCESS){
-        LE_ERROR("Failed to retrieve profile list with error %d", (int)error);
-    }
-    LE_INFO("Retrieving Profile list successful");
-    int regularProfileId = -1;
-    for(auto profile: profiles){
-        if(profile->getType() == telux::tel::ProfileType::REGULAR){
-            regularProfileId = profile->getProfileId();
-        }
-    }
-    if(regularProfileId == -1){
-        LE_INFO("REGULAR profile not found");
-        return LE_FAULT;
-    }
-
-    auto promisePtr = std::make_shared<std::promise<telux::common::ErrorCode>>();
-    auto swapResponseCb = [promisePtr](telux::common::ErrorCode error){
-        try {
-            promisePtr->set_value(error);
-        }
-        catch (const std::future_error &e) {
-            LE_ERROR("Promise error: %s", e.what());
-       }
-    };
-    auto status = simProfileManager->setProfile((SlotId)slot, regularProfileId, true, swapResponseCb);
-    if(status != telux::common::Status::SUCCESS){
-        LE_ERROR("Failed to send setProfile request");
-        return LE_FAULT;
-    }
-    try
-    {
-        auto future = promisePtr->get_future();
-        std::chrono::seconds span(DEFAULT_TIMEOUT_IN_SECONDS);
-        std::future_status waitStatus = future.wait_for(span);
-        if(std::future_status::timeout == waitStatus){
-           LE_ERROR("Timeout waiting for setProfile response");
-            return LE_TIMEOUT;
-        }
-        auto result = future.get();
-        if(result == telux::common::ErrorCode::SUCCESS){
-            return LE_OK;
-        }
-        else {
-            LE_ERROR("setProfile callback returned error: %d", (int)result);
-            return LE_FAULT;
-        }
-    }
-    catch (const std::future_error &e) {
-        LE_ERROR("Future error while waiting for setProfile response: %s", e.what());
-        return LE_FAULT;
-    }
-    catch (const std::exception &e) {
-         LE_ERROR("Exception while getting future result: %s", e.what());
-    }
-    return LE_FAULT;
-}
-
 
 le_result_t taf_sim::LocalSwapToCommercialCallSubscription
 (
@@ -2618,30 +2352,7 @@ le_result_t taf_sim::LocalSwapToCommercialCallSubscription
     taf_sim_Manufacturer_t manufacturer
 )
 {
-    std::promise<telux::common::ErrorCode> q;
-    le_result_t r;
-    if (manufacturer == TAF_SIM_MORPHO || manufacturer == TAF_SIM_VALID
-            || manufacturer >= TAF_SIM_MANUFACTURER_MAX) {
-        LE_ERROR("The manufacturer MORPHO and VALID are not supported.");
-        return LE_UNSUPPORTED;
-    }
-    if(selectSimSlot(simId)!=LE_OK){
-        return LE_BAD_PARAMETER;
-    }
-    auto respCb = [&](const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles,
-                      telux::common::ErrorCode errorcode)
-                    {r=profileListCallbackCo(profiles, errorcode, (SlotId)slot);};
-    auto status = simProfileManager->requestProfileList((SlotId)slot, respCb);
-    if(status != Status::SUCCESS){
-        return LE_FAULT;
-    }
-    le_result_t r_rs=SetPower(simId, LE_OFF);
-    if(r_rs != LE_OK)
-        return LE_FAULT;
-    r_rs = SetPower(simId, LE_ON);
-    if(r_rs != LE_OK)
-        return LE_FAULT;
-    return r;
+    return LE_NOT_IMPLEMENTED;
 }
 
 taf_sim_FPLMNListRef_t taf_sim::CreateInternalFPLMNList

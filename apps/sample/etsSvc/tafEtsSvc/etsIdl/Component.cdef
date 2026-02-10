@@ -1,0 +1,24 @@
+externalBuild:
+{
+    "capicxx-core-gen -sk $TELAF_ROOT/apps/sample/etsSvc/fidl/EtsSvc/ets.fidl"
+    "capicxx-core-gen -sk $TELAF_ROOT/apps/sample/etsSvc/fidl/EtsSvc/ets.fdepl"
+    "capicxx-someip-gen $TELAF_ROOT/apps/sample/etsSvc/fidl/EtsSvc/ets.fdepl"
+
+    "bash $TELAF_ROOT/apps/sample/etsSvc/common/make.sh ETS"
+}
+
+bundles:
+{
+    file:
+    {
+        $BUILDDIR/build/libETS-someip.so   /lib/
+    }
+}
+
+provides:
+{
+    headerDir:
+    {
+        $BUILDDIR/src-gen
+    }
+}

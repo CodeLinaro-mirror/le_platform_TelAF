@@ -86,6 +86,7 @@ apps:
     $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestDaemon/tafMngdPmTestDaemon.adef
     $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestClient/tafMngdPmTestClient.adef
     $TELAF_ROOT/apps/test/tafDoIPStackUnitTest/tafDoIPStackUnitTest
+    $TELAF_ROOT/apps/sample/etsSvc/tafEtsSvc/tafEtsSvc
 }
 
 interfaceSearch:

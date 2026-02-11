@@ -19,7 +19,6 @@ le_result_t taf_uds_SendDiagResp
     uint8_t err                                ///< [IN] Error code.
 )
 {
-    LE_DEBUG("taf_uds_SendDiagResp");
 
     if(addrInfoPtr == NULL)
     {
@@ -27,7 +26,7 @@ le_result_t taf_uds_SendDiagResp
         return LE_BAD_PARAMETER;
     }
 
-    LE_DEBUG("ifName=%s", addrInfoPtr->ifName);
+    LE_DEBUG("SendDiagResp: ifName=%s, serviceId=%d, err=%d", addrInfoPtr->ifName, serviceId, err);
     auto udsCmMgr = UdsCommunicationMgr::GetInstance(addrInfoPtr->ifName);
     if(udsCmMgr == NULL)
     {
@@ -57,7 +56,6 @@ le_result_t taf_uds_SetData
     taf_uds_DataType_t dataType                   ///< [IN] Data type.
 )
 {
-    LE_DEBUG("taf_uds_SetData");
 
     if(addrInfoPtr == NULL || diagMsgPtr == NULL || diagMsgPtr->dataPtr == NULL)
     {
@@ -96,7 +94,6 @@ taf_uds_DiagIndicationHandlerRef_t taf_uds_AddDiagIndicationHandler
     void*                                userPtr                 ///< [IN] User-defined pointer.
 )
 {
-    LE_DEBUG("taf_uds_AddDiagIndicationHandler");
 
     void* handlerRef;
 
@@ -136,8 +133,6 @@ void taf_uds_RemoveDiagIndicationHandler
     taf_uds_DiagIndicationHandlerRef_t handerRef   ///< [IN] The handler reference.
 )
 {
-    LE_DEBUG("taf_uds_RemoveDiagIndicationHandler");
-
 
     taf_UDSIndicationHandler_t* handlerPtr =
             (taf_UDSIndicationHandler_t*)le_ref_Lookup(UdsCommunicationMgr::udsHandlerRefMap,
@@ -166,7 +161,6 @@ le_result_t taf_uds_Stop
 (
 )
 {
-    LE_DEBUG("taf_uds_Stop");
 
     return UdsCommunicationMgr::UdsStop();
 }
@@ -176,7 +170,6 @@ void taf_uds_GetFileXferActiveStateList
     le_dls_List_t* fileXferStateListPtr
 )
 {
-    LE_DEBUG("taf_uds_GetFileXferActiveState");
 
     return UdsCommunicationMgr::GetFileXferActiveStateList(fileXferStateListPtr);
 }
@@ -186,12 +179,11 @@ void taf_uds_GetVlanIdList
     le_dls_List_t* vlanIDListPtr
 )
 {
-    LE_DEBUG("taf_uds_GetVlanIdList");
 
     return UdsCommunicationMgr::GetVlanIdList(vlanIDListPtr);
 }
 
 COMPONENT_INIT
 {
-    LE_INFO("UDS component init once start...");
+    LE_DEBUG("UDS component init once start...");
 }

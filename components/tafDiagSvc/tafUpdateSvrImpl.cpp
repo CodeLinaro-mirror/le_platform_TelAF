@@ -692,6 +692,9 @@ taf_diagUpdate_RxFileXferMsgHandlerRef_t taf_UpdateSvr::AddRxFileXferReqHandler
     // Attach the Rx Handler to the service.
     svcPtr->fileXferRef = handlerCtxPtr->handlerRef;
 
+    LE_DEBUG("Created handlerRef(%p) for Service reference %p.",
+            handlerCtxPtr->handlerRef, svcPtr->svcRef);
+
     return handlerCtxPtr->handlerRef;
 }
 
@@ -769,6 +772,9 @@ taf_diagUpdate_RxXferDataMsgHandlerRef_t taf_UpdateSvr::AddRxXferDataReqHandler
     // Attach the Rx Handler to the service.
     svcPtr->xferDataRef = handlerCtxPtr->handlerRef;
 
+    LE_DEBUG("Created handlerRef(%p) for Service reference %p.",
+            handlerCtxPtr->handlerRef, svcPtr->svcRef);
+
     return handlerCtxPtr->handlerRef;
 }
 
@@ -845,6 +851,9 @@ taf_diagUpdate_RxXferExitMsgHandlerRef_t taf_UpdateSvr::AddRxXferExitReqHandler
 
     // Attach the Rx Handler to the service.
     svcPtr->xferExitRef = handlerCtxPtr->handlerRef;
+
+    LE_DEBUG("Created handlerRef(%p) for Service reference %p.",
+            handlerCtxPtr->handlerRef, svcPtr->svcRef);
 
     return handlerCtxPtr->handlerRef;
 }

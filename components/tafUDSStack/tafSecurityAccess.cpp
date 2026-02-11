@@ -194,7 +194,7 @@ void TryToCreateStorageFromTree(AO_SecurityAccess_t *self)
 
     if (le_cfg_NodeExists(iteratorRef, nodePath))
     {
-        LE_INFO("Tree for security_access already exists. if:%s", self->ifname);
+        LE_DEBUG("Tree for security_access already exists. if:%s", self->ifname);
 
         /* FIXME: Now, if we want to update the configuration from YAML to configTree
          *        use the target-tool 'config' to delete the 'tafDiagSvc:' subTree,
@@ -873,7 +873,7 @@ static void CaptureIgnoreEvent
     MEvent_t const *ev
 )
 {
-    LE_INFO("Ignore event: %s ?", to_EventString(ev->sig));
+    LE_DEBUG("Ignore event: %s ?", to_EventString(ev->sig));
 }
 
 /* Dispatch the task to the Diag-Application */
@@ -1455,7 +1455,7 @@ void SecurityAccess_Init(void * u, void * p)
     /* Be used in UDS Manager Thread */
     le_cfg_ConnectService();
 
-    LE_INFO("[%s] Done", __FUNCTION__);
+    LE_DEBUG("[%s] Done", __FUNCTION__);
 }
 
 void SecurityAccess_CreateActiveObject(void * mgr_, void * ifname)
@@ -1493,7 +1493,7 @@ void SecurityAccess_CreateActiveObject(void * mgr_, void * ifname)
     /* Trigger the initial stage */
     MFsm_init((MFsm_t *)mgr->mSecurityAccess, (MEvent_t*)0);
 
-    LE_INFO("[%s] -> if-name: %s /AO created", __FUNCTION__, (char *)ifname);
+    LE_DEBUG("[%s] -> if-name: %s /AO created", __FUNCTION__, (char *)ifname);
 }
 
 void SecurityAccess_StartWorker(void * u, void *p)

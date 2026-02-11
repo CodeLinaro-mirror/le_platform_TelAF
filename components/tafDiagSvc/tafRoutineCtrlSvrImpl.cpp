@@ -701,7 +701,7 @@ taf_diagRoutineCtrl_RxMsgHandlerRef_t taf_RoutinCtrlSvr::AddRxReqMsgHandler
     // Attach handler to service.
     servicePtr->rxHandlerRef = (taf_diagRoutineCtrl_RxMsgHandlerRef_t)handlerObjPtr->safeRef;
 
-    LE_INFO("Routine control: Registered Rx Handler for identifier0x%x",
+    LE_DEBUG("Routine control: Registered Rx Handler for identifier0x%x",
         servicePtr->identifier);
 
     return (taf_diagRoutineCtrl_RxMsgHandlerRef_t)handlerObjPtr->safeRef;

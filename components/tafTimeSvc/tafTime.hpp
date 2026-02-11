@@ -78,8 +78,11 @@
  * Macro definition for network time.
  */
 //-------------------------------------------------------------------------------------------------
-#define DEFAULT_SIM_SLOT_ID        1
-#define DEFAULT_PHONE_NUM_MAX      2
+#define NETWORK_SLOT_1             1
+#define NETWORK_SLOT_2             2
+#define NETWORK_SLOT_NUM_MAX       2
+#define DEFAULT_PHONE_ID           1
+
 #define NITZ_STR_BUF_MAX           60
 #define DEFAULT_TSR_EVENT_CNT      16
 #define DEFAULT_TSR_HANDLER_CNT    TAF_TIME_SRC_NAME_UNKNOWN
@@ -278,6 +281,12 @@ typedef struct
     void* ref;                                    ///< own reference.
     taf_DateTimeInf_t dateTimeInf;                ///< Date time information.
 }TimeSourceRef_Event_t;
+
+typedef struct
+{
+    taf_time_TimeSpec_t timeVal;
+    le_result_t         status;
+} GnssEvent_t;
 
 typedef enum
 {
@@ -484,7 +493,7 @@ struct ValidityParams
         class taf_TimeServingSystemListener : public telux::tel::IServingSystemListener
         {
             public:
-                uint8_t phone = DEFAULT_SIM_SLOT_ID;
+                uint8_t phone = DEFAULT_PHONE_ID;
                 taf_TimeServingSystemListener(uint8_t phone);
                 void onNetworkTimeChanged(telux::tel::NetworkTimeInfo info) override;
         };
@@ -515,7 +524,6 @@ struct ValidityParams
                 int64_t rtcDeltaMsec = 0;
 
                 const char* SourceAttrToStr(taf_Time_SrcAttr_t sourceConf);
-                const char* SourceNameIndexToStr(taf_time_TimeSources_t sourceName);
                 taf_time_TimeSources_t SourceNameStrToIndex(const char* typeNamePtr);
 
                 le_result_t ReadSourceConf(TimeSources& serviceCfg,
@@ -526,22 +534,9 @@ struct ValidityParams
                                                                           const char* filePathPtr);
                 void DeleteNotSupportedSource(TimeSources& serviceCfg);
 
-                taf_time_TimeSpec_t taf_time_Sub(taf_time_TimeSpec_t timeA,
-                                                                        taf_time_TimeSpec_t timeB);
-                taf_time_TimeSpec_t taf_time_Add(taf_time_TimeSpec_t timeA,
-                                                                        taf_time_TimeSpec_t timeB);
-                bool TimeGreaterThan(taf_time_TimeSpec_t timeA,taf_time_TimeSpec_t timeB);
-
-                le_result_t ReadWriteDeltaTime(taf_time_TimeSpec_t* timeValPtr,
-                         taf_time_TimeSpec_t* deltaTimeDataPtr, taf_TimeReadWrite_t ReadWriteType);
-
-                le_result_t UpdateLocalTimeCache(taf_time_TimeSpec_t newTime,
-                   taf_time_TimeSources_t sourceName, taf_time_TimeSpec_t* deltaTimeDataBufferPtr);
-
                 le_result_t GetTimeFromLocalCache(taf_time_TimeSpec_t* timeValPtr,
                          taf_time_TimeSpec_t* deltaTimeDataPtr, taf_time_TimeSources_t sourceName);
 
-                le_result_t GetBootTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetRtcTime(taf_time_TimeSpec_t* timeValPtr, bool isAllowGetInternalRTCTime);
                 le_result_t GetGnssTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetExSetTimeStatus(void);
@@ -600,10 +595,7 @@ struct ValidityParams
                 static void RequestNetworkTime(void);
                 void NetworkTimeResponseUpdate(uint8_t phoneId,
                     telux::tel::NetworkTimeInfo info, telux::common::ErrorCode error);
-                static void SyncNetworkTimeResponse(telux::tel::NetworkTimeInfo info,
-                                                                   telux::common::ErrorCode error);
-                static void SyncNetworkTimeResponse2(telux::tel::NetworkTimeInfo info,
-                                                                   telux::common::ErrorCode error);
+
                 le_result_t ConvertDateTimeToSec(struct tm dateTime,
                                                                   taf_time_TimeSpec_t* timeValPtr);
 
@@ -645,9 +637,8 @@ struct ValidityParams
                 le_mem_PoolRef_t SetTimeStatusPool = NULL;
                 le_mem_PoolRef_t timeSourceChangePool = NULL;
 
-                taf_time_TimeSpec_t* GnssDeltaTime = NULL;
                 le_mem_PoolRef_t GnssDeltaTimePool = NULL;
-
+                le_mem_PoolRef_t GnssEventPool = NULL;
 
                 le_ref_MapRef_t TimeRefMap;
                 le_mem_PoolRef_t TimePool = NULL;
@@ -686,8 +677,6 @@ struct ValidityParams
                 static taf_time_getRTCCb_t getRTCCBtoClient;
                 static taf_time_setRTCCb_t setRTCCBtoClient;
                 static void getRtcTimeRespCB(struct TimeSpec timeVal, le_result_t result);
-                static void getRtcTimeRespCbEvtHandler(const struct TimeSpec& timeVal,
-                                                                    le_result_t response);
 
                 static void setRtcTimeRespCB(le_result_t result);
                 static void setRtcTrustTimeRespCB(le_result_t result);
@@ -717,7 +706,7 @@ struct ValidityParams
                     int64_t* loopIntervalSec);
                 bool IsAvailable(taf_time_SourceRef_t sourceRef);
                 le_result_t GetSystemTimeSourceID(taf_time_TimeSources_t* timeSource);
-                void SourceStatusUpdate(le_result_t result,taf_time_TimeSources_t sourceIndex);
+                void SourceStatusUpdate(le_result_t, bool, taf_time_TimeSources_t);
                 le_result_t ReleaseSourceRef(taf_time_SourceRef_t SrcRef);
                 void RemoveTimeSourceStatusHandler(taf_time_TimeSourceStatusHandlerRef_t handlerRef);
 
@@ -728,7 +717,6 @@ struct ValidityParams
                 void UpdateFailedLoops(taf_time_TimeSources_t sourceIndex,
                     taf_TimeFailLoopAction_t action);
 
-                void InitializeSystemTimeAttr(void);
                 bool IsSourceValid(taf_time_SourceRef_t sourceRef);
 
                 void UpdateSystemTimeRefInfo(taf_time_TimeSpec_t timeVal,
@@ -742,11 +730,10 @@ struct ValidityParams
                 void ReleasePtpDevice(void);
                 void RegisterPtpDevice(void);
 
-                uint64_t PrevSrcAvailabiltyMap = 0x0;
                 struct SetTimeStatus* SetTimeSt = NULL;
-                NetworkInfoUpdateArgs_t NetworkUpdateInfo1 = {};
-                NetworkInfoUpdateArgs_t NetworkUpdateInfo2 = {};
-                le_thread_Ref_t mainThreadRef = NULL;
+                NetworkInfoUpdateArgs_t NetworkUpdateInfo1  = {};
+                NetworkInfoUpdateArgs_t NetworkUpdateInfo2  = {};
+                NetworkInfoUpdateArgs_t NetworkHandlerInfo  = {};
                 int sigTermSignalNum = -1;
 
             private:
@@ -754,7 +741,6 @@ struct ValidityParams
                 std::shared_ptr<ITimeManager> timeManager;
                 TimeTypeMask SupportTimeMask;
                 int64_t AllowOverrideAfterFail = -1;
-                pthread_mutex_t ProtectlocalTime_mutex;
                 taf_gptpTime_Ref_t gptpTimeRef = NULL;
         };
     }

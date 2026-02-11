@@ -20,7 +20,7 @@ DECLARE_SAFE_CALL();
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add handler for time source status change registration.
+ * Register a handler to be notified when the system time source changes.
  *
  * @return
  *  - taf_time_AddTimeSourceChangeHandlerRef_t Handler reference.
@@ -30,7 +30,7 @@ DECLARE_SAFE_CALL();
 taf_time_TimeSourceChangeHandlerRef_t taf_time_AddTimeSourceChangeHandler
 (
     taf_time_TimeSourceChangeHandlerFunc_t handlerPtr,
-        ///< [IN] Handler function for time source status change registration.
+        ///< [IN] Handler function for system time source status change registration.
     void* contextPtr
         ///< [IN] Handler context.
 )

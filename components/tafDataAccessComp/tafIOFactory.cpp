@@ -54,7 +54,7 @@ void IOFactory::Init
     else if((sb.st_mode & S_IFMT) == S_IFDIR)
     {
         // assume the sub dir was created as well. do nothing
-        LE_INFO("The DEM database dir was found!");
+        LE_DEBUG("The DEM database dir was found!");
     }
     else
     {

@@ -35,7 +35,6 @@ taf_diagReset_ServiceRef_t taf_ResetSvr::GetService
     uint8_t resetType
 )
 {
-    LE_DEBUG("Gets the Reset Service");
 
     // Reset type check. Exception if can't get node from config file.
     if (resetType != TAF_DIAGRESET_ALL_RESET)
@@ -43,7 +42,7 @@ taf_diagReset_ServiceRef_t taf_ResetSvr::GetService
         try
         {
             cfg::Node node = cfg::top_reset_all<int>("sub_function_identifier", resetType);
-            LE_INFO("Reset type 0x%x is supported", resetType);
+            LE_DEBUG("Reset type 0x%x is supported", resetType);
         }
         catch (const std::exception& e)
         {
@@ -315,7 +314,6 @@ taf_diagReset_RxMsgHandlerRef_t taf_ResetSvr::AddRxMsgHandler
     void* contextPtr
 )
 {
-    LE_DEBUG("AddRxMsgHandler");
 
     taf_ResetSvc_t* servicePtr = (taf_ResetSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, NULL, "Invalid service reference provided");
@@ -343,6 +341,7 @@ taf_diagReset_RxMsgHandlerRef_t taf_ResetSvr::AddRxMsgHandler
     // Attach handler to service.
     servicePtr->handlerRef = handlerObjPtr->handlerRef;
 
+    LE_DEBUG("ECU Reset: Registered Handler for resetType %d", servicePtr->resetType);
     return handlerObjPtr->handlerRef;
 }
 

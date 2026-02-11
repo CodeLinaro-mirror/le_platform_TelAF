@@ -122,8 +122,7 @@ COMPONENT_INIT
     }
 
     { /* Output all information tafDiagGen tool generated */
-        LE_INFO("%s", tafDiagGen_tool_json_md5);
-        LE_INFO("%s", tafDiagGen_tool_evid_h_md5);
+        LE_INFO("%s, %s", tafDiagGen_tool_json_md5, tafDiagGen_tool_evid_h_md5);
     }
 
     uint8_t json_md5_runtime[MD5_DIGEST_LENGTH];

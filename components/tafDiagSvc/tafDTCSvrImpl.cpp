@@ -1397,8 +1397,6 @@ void taf_DTCSvr::InitDtcCtx
     //Get suppression status from database
     dtcCtxPtr->suppressionStatus = taf_DataAccess_GetDTCSuppression(dtcCode);
 
-    LE_DEBUG("DTC code:0x%x, suppression status in DB:0x%x", dtcCode, dtcCtxPtr->suppressionStatus);
-
     dtcCtxPtr->link = LE_DLS_LINK_INIT;
 
     // add this DTC context to list

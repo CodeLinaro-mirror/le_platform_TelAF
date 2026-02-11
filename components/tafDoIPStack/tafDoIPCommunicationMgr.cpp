@@ -275,6 +275,7 @@ taf_doip_Result_t CommunicationMgr::GetIpAddrWithAnnounceWaitMech
     {
         if(GetLocalIPAddr(af, ifname, ipInfo, size) == TAF_DOIP_RESULT_OK)
         {
+            LE_INFO("Get IP address for interface %s successfully", ifname.c_str());
             return TAF_DOIP_RESULT_OK;
         }
 

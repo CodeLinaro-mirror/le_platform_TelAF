@@ -291,8 +291,6 @@ class tafMngdPMSvc: public ITafSvc
         static le_mem_PoolRef_t vmStatePool;
         static le_hashmap_Ref_t vmStateHashmap;
 
-        //cached awake requests ws reference set
-        static std::unordered_set<taf_mngdPm_wsRef_t>  wsCachedReqsRefSet;
 
         // VHAL-held wake source state
         static int8_t vhalWsState;
@@ -357,8 +355,6 @@ class tafMngdPMSvc: public ITafSvc
         std::vector<taf_mngdPm_NodePowerStateChangeCtxt_t>regClientrecrd;
         static int8_t ackClientrecrdSize;
         static int8_t clientSize;
-
-        static void ProcessCachedAwakeReqs();
 
         static void SendAckToPms(taf_mngdPm_NodePowerState_t state, taf_pm_ClientAck_t ackType);
         bool IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, taf_mngdPm_State_t tafState);

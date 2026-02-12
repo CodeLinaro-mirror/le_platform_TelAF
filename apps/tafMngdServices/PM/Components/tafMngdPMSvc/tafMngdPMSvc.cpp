@@ -796,14 +796,6 @@ le_result_t taf_mngdPm_StayAwake(taf_mngdPm_wsRef_t wsRef)
                  return LE_DUPLICATE;
             }
 
-            if(mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SUSPENDING && (mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason)))
-            {
-                LE_INFO("Cache system awake request for %s and wsReason:%d in suspending state", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
-                mpms.wsCachedReqsRefSet.insert(wsRefCtxPtr->wsRef);
-
-                return LE_OK;
-            }
-
             if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason))
             {
                 LE_INFO("stayAwakeReason:%d is in authorized stayAwakeReasonList", wsRefCtxPtr->reason);

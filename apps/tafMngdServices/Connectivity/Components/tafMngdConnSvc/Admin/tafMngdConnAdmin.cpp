@@ -1768,10 +1768,10 @@ le_result_t tafMngdConnAdmin::EventNetworkUnregState(uint8_t phoneId)
                 default:
                     break;
             }
-            // Update service state and report DISCONNECTED event
-            LE_INFO("Report data disconnected event");
+            // Update service state and report OUT_OF_SERVICE event
+            LE_INFO("Report data out of service event");
             dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_NW_NOT_REGISTERED;
-            ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
+            ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED_OUT_OF_SERVICE);
         }
     }
     le_mutex_Unlock(DataCtxMutex);
@@ -3301,8 +3301,6 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
         else
         {
             // Connectiontest failed.
-            LE_INFO("DataStartConnectionTest failed for dataID: %d", dataId);
-            dataCtxPtr->adminState = MCS_DATA_START_CONNECTIONTEST_FAILED;
             LE_INFO("DataStartConnectionTest failed. Stopping the data and retrying.");
             dataCtxPtr->adminState = MCS_DATA_CONNECTED_INACTIVE_RETRYING;
             stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
@@ -4467,6 +4465,8 @@ const char *tafMngdConnAdmin::DataStateToString(taf_mngdConn_DataState_t state)
             return "TAF_MNGDCONN_DATA_CONNECTION_STALLED";
         case TAF_MNGDCONN_DATA_CONNECTION_FAILED:
             return "TAF_MNGDCONN_DATA_CONNECTION_FAILED";
+        case TAF_MNGDCONN_DATA_DISCONNECTED_OUT_OF_SERVICE:
+            return "TAF_MNGDCONN_DATA_DISCONNECTED_OUT_OF_SERVICE";
         default:
             LE_ERROR("unknown status: %d", state);
             break;

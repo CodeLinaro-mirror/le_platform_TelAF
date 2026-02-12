@@ -939,10 +939,14 @@ REFERENCE Data;
  */
 //--------------------------------------------------------------------------------------------------
 ENUM DataState{
-    DATA_DISCONNECTED,      ///< Transition state to CONNECTED or FAILED.
-    DATA_CONNECTED,         ///< Data connected state.
-    DATA_CONNECTION_FAILED, ///< The service is not able to reconnect data even after retries.
-    DATA_CONNECTION_STALLED ///< Transition state to CONNECTED or DISCONNECTED.
+    DATA_DISCONNECTED,               ///< Transition state to CONNECTED or FAILED.
+    DATA_CONNECTED,                  ///< Data connected state.
+    DATA_CONNECTION_FAILED,          ///< The service is not able to reconnect data even after
+                                     ///  retries.
+    DATA_CONNECTION_STALLED,         ///< Transition state to CONNECTED or DISCONNECTED.
+    DATA_DISCONNECTED_OUT_OF_SERVICE ///< NAD is not registered to the network but maintains data
+                                     ///  connection context. Applications will not be able to send
+                                     ///  or receive data in this state.
 };
 
 //--------------------------------------------------------------------------------------------------

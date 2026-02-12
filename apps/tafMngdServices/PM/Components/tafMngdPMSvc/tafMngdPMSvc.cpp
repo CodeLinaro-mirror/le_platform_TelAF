@@ -654,6 +654,7 @@ taf_mngdPm_StayAwakeReasonBitMask_t stayAwakeReasonBitMask
 {
     LE_INFO("taf_mngdPm_AuthorizeStayAwakeReason %u", stayAwakeReasonBitMask);
     auto &mpms = tafMngdPMSvc::GetInstance();
+    mpms.previousStayAwakeReasonMask = mpms.stayAwakeReasonMask;
     mpms.stayAwakeReasonMask.reset();
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL)) != 0)
     {
@@ -790,16 +791,24 @@ le_result_t taf_mngdPm_StayAwake(taf_mngdPm_wsRef_t wsRef)
         {
             LE_INFO("wsRef is valid in wsRefList for %s with StayAwakeReason:%d, WsState:%d ",wsRefCtxPtr->wsTag, wsRefCtxPtr->reason, wsRefCtxPtr->wakeSourceState);
             //check if already a wakelock acquired
-            if(wsRefCtxPtr->wakeSourceState)
+            if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_ACQUIRED)
             {
                  LE_INFO("WakeLock is already acquired for %s with StayAwakeReason:%d, WsState:%d", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason,wsRefCtxPtr->wakeSourceState);
                  return LE_DUPLICATE;
             }
 
-            if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason))
+            if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason, mpms.stayAwakeReasonMask))
             {
                 LE_INFO("stayAwakeReason:%d is in authorized stayAwakeReasonList", wsRefCtxPtr->reason);
                 res = mpms.AcquireWakeSource(wsRefCtxPtr);
+                if (res == LE_OK)
+                {
+                    wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_ACQUIRED;
+                }
+                else
+                {
+                    // Keep the current state
+                }
             }
             else
             {
@@ -812,7 +821,7 @@ le_result_t taf_mngdPm_StayAwake(taf_mngdPm_wsRef_t wsRef)
                 }
                 else
                 {
-                    wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_IGNORED;
+                    wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_ACQUIRED;
                     LE_INFO("StayAwake: unauthorized Wake Source State: %d, current system state: %d",wsRefCtxPtr->wakeSourceState, mpms.stateMachine.currentState);
                     return LE_OK;
                 }
@@ -848,29 +857,34 @@ le_result_t taf_mngdPm_Relax(taf_mngdPm_wsRef_t wsRef)
                 wsRefCtxPtr->sessionRef == taf_mngdPm_GetClientSessionRef())
         {
             LE_INFO("wsRef is valid in wsRefList for %s with StayAwakeReason:%d, WsState:%d ",wsRefCtxPtr->wsTag, wsRefCtxPtr->reason, wsRefCtxPtr->wakeSourceState);
-            if(wsRefCtxPtr->wakeSourceState)
-            {
-                if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason))
-                {
-                    LE_INFO("Authorized StayAwakeReason:%d for relax, releasing the wakeup source!", wsRefCtxPtr->reason);
-                    res = mpms.ReleaseWakeSource(wsRefCtxPtr);
-                }
-                else
-                {
-                    if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_IGNORED)
-                    {
-                        LE_INFO("Unauthorized StayAwakeReason:%d for relax, wake source state set from WAKE_SOURCE_IGNORED to WAKE_SOURCE_NOT_ACQUIRED ", wsRefCtxPtr->reason);
-                        wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
-                        LE_INFO("Relax: unauthorized Wake Source State: %d, current system state: %d",wsRefCtxPtr->wakeSourceState, mpms.stateMachine.currentState);
-                    }
-                    return LE_OK;
-                }
-            }
-            else
+
+            if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_NOT_ACQUIRED)
             {
                 LE_ERROR("The wake source for %s is not acquired for satyawakereason:%d.", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
                 return LE_UNAVAILABLE;
             }
+
+            if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason, mpms.stayAwakeReasonMask))
+            {
+                LE_INFO("Authorized StayAwakeReason:%d for relax, releasing the wakeup source!", wsRefCtxPtr->reason);
+                res = mpms.ReleaseWakeSource(wsRefCtxPtr);
+                if (res == LE_OK)
+                {
+                    wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
+                }
+                else
+                {
+                    // error, keeping the state
+                }
+            }
+            else
+            {
+                LE_INFO("Unauthorized StayAwakeReason:%d for relax", wsRefCtxPtr->reason);
+                wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
+                LE_INFO("Relax: unauthorized Wake Source State: %d, current system state: %d",wsRefCtxPtr->wakeSourceState, mpms.stateMachine.currentState);
+                return LE_OK;
+            }
+
             break;
         }
     }
@@ -1578,8 +1592,7 @@ le_result_t taf_mngdPm_DeleteWakeupSource(taf_mngdPm_wsRef_t wsRef)
                 LE_INFO("Deletion Complete!!!");
                 return LE_OK;
             }
-            else if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_IGNORED ||
-                wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_ACQUIRED)
+            else if (wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_ACQUIRED)
             {
                 LE_WARN("WS of wsTag:%s for client with sessionRef %p is already in use, deletion not permitted", wsRefCtxPtr->wsTag, wsRefCtxPtr->sessionRef);
                 return LE_NOT_PERMITTED;
@@ -1629,6 +1642,16 @@ COMPONENT_INIT
     {
         LE_FATAL("Failed to create client hashmap");
     }
+
+    // Ensure the initial state to be "RESUME"
+    mpms.stateMachine.currentState = TAF_MNGDPM_STATE_RESUME;
+
+    mpms.ws = taf_pm_NewWakeupSource(WAKELOCK_WITHOUT_REF, "mpms");
+    if (mpms.ws == nullptr)
+    {
+        LE_FATAL("Can't create PMS wake source for MPMS");
+    }
+    LE_INFO("PMS wake source has been setup");
 
     mpms.stateChange = le_event_CreateId("stateChange", sizeof(taf_mngdPm_StateInd_t));
 
@@ -1723,8 +1746,6 @@ COMPONENT_INIT
     mpms.handlerRef = taf_pm_AddStateChangeHandler(tafMngdPMSvc::StateChangeHandler, NULL);
     if (mpms.handlerRef)
         LE_INFO("Register state change handler is successfull");
-
-    mpms.stateMachine.currentState = TAF_MNGDPM_STATE_RESUME;
 
     mpms.handlerExRef = taf_pm_AddStateChangeExHandler(tafMngdPMSvc::StateChangeExHandler, NULL);
     if (mpms.handlerExRef)

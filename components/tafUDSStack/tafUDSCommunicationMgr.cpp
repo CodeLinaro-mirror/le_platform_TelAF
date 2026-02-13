@@ -3139,16 +3139,16 @@ le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
     const uint8_t* dataRecPtr = recvBuf + UDS_ROUTINE_CTRL_REQ_MIN_LEN;
     size_t dataRecLen = recvDataLen - UDS_ROUTINE_CTRL_REQ_MIN_LEN;
 
+    if (!IsTotalLengthCheckValid(rid, subFunc, dataRecLen))
+    {
+        LE_DEBUG("Subfunction0x%x RID0x%x Total Lenth check is invalid.",
+            subFunc, rid);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
     if (dataRecLen > 0)
     {
-        if (!IsTotalLengthCheckValid(rid, subFunc, dataRecLen))
-        {
-            LE_DEBUG("Subfunction0x%x RID0x%x Total Lenth check is invalid.",
-                subFunc, rid);
-            *isInternalHandle = true;
-            return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
-        }
-
         if (!IsControlOptionRecordValid(rid, subFunc, dataRecPtr, dataRecLen))
         {
             LE_DEBUG("Subfunction 0x%x RID: 0x%x Option Record is not valid.",
@@ -3159,7 +3159,7 @@ le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
     }
     else
     {
-        LE_WARN("Control Option Record not found. Skip check!!");
+        LE_WARN("Control Option Record not found. Skip record valid check!!");
     }
 
     //Will send the indication to the diag service
@@ -6225,8 +6225,12 @@ bool UdsCommunicationMgr::IsTotalLengthCheckValid
     else
     {
         //If data record is empty in yaml but present in UDS request, send NRC 0x13.
-        LE_DEBUG("The Option record config of Subfunction 0x%x RID: 0x%x is empty.", subFunc, rid);
-        return false;
+        if(dataRecLen > 0)
+        {
+            LE_DEBUG("The Option record config of Subfunction 0x%x RID: 0x%x is empty.", subFunc,
+                rid);
+            return false;
+        }
     }
 #endif
     return true;

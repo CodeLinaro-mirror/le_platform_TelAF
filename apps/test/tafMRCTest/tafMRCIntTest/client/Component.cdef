@@ -1,12 +1,12 @@
 sources:
 {
-    tafMRCIntTest.c
+    main.c
 }
 
 requires:
 {
     api:
     {
-        taf_mrc.api
+        tafMRCIntTest.api
     }
 }

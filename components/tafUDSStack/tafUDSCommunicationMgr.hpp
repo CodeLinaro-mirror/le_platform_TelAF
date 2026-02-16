@@ -140,6 +140,10 @@ namespace uds{
     #define UDS_ROUTINE_CTRL_REQ_MIN_LEN 4
     #define UDS_ROUTINE_CTRL_RESP_MIN_LEN 4
 
+    // TransferData service (0x34)
+    #define UDS_REQ_DOWNLOAD_BASE_LEN 3  // SID+ dataFormateID+ addrLenFormateID(0x00 as min value)
+    #define UDS_RESP_DOWNLOAD_BASE_LEN 2 // Resp SID + lengthFormatId(0x00 as min value)
+
     // TransferData service (0x36)
     #define UDS_REQ_XFER_DATA_BASE_LEN 2
     #define UDS_RESP_XFER_DATA_BASE_LEN 2
@@ -266,6 +270,7 @@ namespace uds{
         WRITE_DID_REQUEST_ID = 0x2E,
         INPUT_OUTPUT_CONTROL_REQUEST_ID = 0x2F,
         ROUTINE_CONTROL_REQUEST_ID = 0x31,
+        REQUEST_DOWNLOAD_REQUEST_ID = 0x34,
         TRANSFER_DATA_REQUEST_ID = 0x36,
         REQUEST_TRANSFER_EXIT_REQUEST_ID = 0x37,
         REQUEST_FILE_TRANSFER_REQUEST_ID = 0x38,
@@ -481,6 +486,8 @@ namespace uds{
                     bool* isInternalHandle);    // InputOutputControlByIdentifier service (0x2F).
             le_result_t IndicateRoutinrCtrlReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // RoutineControl service (0x31).
+            le_result_t IndicateRxReqDwnldReq(taf_doip_AddrInfo_t* addrInfoPtr,
+                    bool* isInternalHandle);    // RequestDownload service (0x34).
             le_result_t IndicateRxFileXferReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // RequestFileTransfer service (0x38).
             le_result_t IndicateRxXferDataReq(taf_doip_AddrInfo_t* addrInfoPtr,
@@ -520,6 +527,8 @@ namespace uds{
             le_result_t IOCBIDResp(uint8_t serviceId, const uint8_t* dataPtr, uint16_t dataSize,
                     uint8_t err);
             le_result_t RoutineCtrlResp(uint8_t serviceId, const uint8_t* dataPtr,
+                    uint16_t dataSize, uint8_t err);
+            le_result_t ReqDwnldResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
             le_result_t XferDataResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);

@@ -105,7 +105,7 @@ services_all:
       0x03:
         supported: true
   0x34:
-    supported: false
+    supported: true
   0x35:
     supported: false
   0x36:

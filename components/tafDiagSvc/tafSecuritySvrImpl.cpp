@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -205,11 +205,7 @@ void taf_SecuritySvr::UDSMsgHandler
                 sesChangePtr->previousSesType, sesChangePtr->currentSesType);
 
 #ifndef LE_CONFIG_DIAG_VSTACK
-        if ((sesChangePtr->previousSesType == TAF_DIAGSECURITY_PROGRAMMING ||
-                sesChangePtr->previousSesType == TAF_DIAGSECURITY_FOTA ||
-                        sesChangePtr->previousSesType
-                                == TAF_DIAGSECURITY_DOWNLOADED_ENUMLATION_SESSION)
-                                        &&  sesChangePtr->currentSesType  == 0x01)
+        if (sesChangePtr->currentSesType  == 0x01)
         {
             taf_UpdateSvr::GetInstance().programmingInterrupt(addrPtr->vlanId);
         }

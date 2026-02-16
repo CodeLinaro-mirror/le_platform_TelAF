@@ -42,11 +42,12 @@ typedef struct
     le_dls_List_t reqFileXferMsgList;
     le_dls_List_t xferDataMsgList;
     le_dls_List_t reqXferExitMsgList;
-    taf_diagUpdate_RxFileXferMsgHandlerRef_t fileXferRef; ///< Rx Msg Handler of RequestFileTransfer.
+    le_dls_List_t reqDwnldMsgList;
+    taf_diagUpdate_RxFileXferMsgHandlerRef_t fileXferRef; ///< Rx Msg Handler of ReqFileTransfer.
     taf_diagUpdate_RxXferDataMsgHandlerRef_t xferDataRef; ///< Rx Msg Handler of TransferData.
-    taf_diagUpdate_RxXferExitMsgHandlerRef_t xferExitRef; ///< Rx Msg Handler of RequestTransferExit.
-
-    tafDiagUpdateState_t state;                        ///< Update session state machine.
+    taf_diagUpdate_RxXferExitMsgHandlerRef_t xferExitRef; ///< Rx Msg Handler of ReqTransferExit.
+    taf_diagUpdate_RxDwnldMsgHandlerRef_t ReqDwnldRef;    ///< Rx Msg Handler of ReqtDownload.
+    tafDiagUpdateState_t state;                           ///< Update session state machine.
     le_dls_List_t supportedVlanList;
 }taf_UpdateSvc_t;
 
@@ -134,11 +135,43 @@ typedef struct
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
-    taf_diagUpdate_ServiceRef_t svcRef;                     ///< Service reference.
-    taf_diagUpdate_RxXferExitMsgHandlerFunc_t func;         ///< Handler function.
-    void* context;                                          ///< Handler context.
-    taf_diagUpdate_RxXferExitMsgHandlerRef_t handlerRef;    ///< own reference.
+    taf_diagUpdate_ServiceRef_t svcRef;                   ///< Service reference.
+    taf_diagUpdate_RxXferExitMsgHandlerFunc_t func;       ///< Handler function.
+    void* context;                                        ///< Handler context.
+    taf_diagUpdate_RxXferExitMsgHandlerRef_t handlerRef;  ///< own reference.
 }taf_XferExitHandler_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Diag update service Rx message for RequestDownload.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_dls_Link_t link;
+    taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef;              ///< Own reference.
+    taf_uds_AddrInfo_t addrInfo;                          ///< Address information(SA/TA).
+    uint8_t serviceId;                                    ///< Service Identifier.
+    uint8_t reqDwnldDataFormatID;                         ///< Data format ID.
+    uint8_t addrAndLenFormatID;                           ///< addressAndLengthFormatID.
+    uint8_t memAddrParamLen;                              ///< Memory address parameter length.
+    uint8_t memAddr[TAF_DIAGUPDATE_MAX_MEM_ADDR_LENGTH];  ///< Memory address.
+    uint8_t memSizeParamLen;                              ///< Memory size parameter length.
+    uint8_t memSize[TAF_DIAGUPDATE_MAX_MEM_SIZE];         ///< Memory size.
+}taf_ReqDwnldRxMsg_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Diag update RequestDownload service handler structure.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_diagUpdate_ServiceRef_t svcRef;                  ///< Service reference.
+    taf_diagUpdate_RxDwnldMsgHandlerFunc_t func;         ///< Handler function.
+    void* context;                                       ///< Handler context.
+    taf_diagUpdate_RxDwnldMsgHandlerRef_t handlerRef;    ///< own reference.
+}taf_ReqDwnldHandler_t;
 
 typedef struct
 {
@@ -183,6 +216,7 @@ namespace tafsvc
             void UDSMsgHandler(const taf_uds_AddrInfo_t* addrPtr,
                 uint8_t sid, uint8_t* msgPtr, size_t msgLen) override;
 
+            /* Request File Transfer (0x38) */
             static void RxFileXferEventHandler(void* reportPtr);
             taf_diagUpdate_RxFileXferMsgHandlerRef_t AddRxFileXferReqHandler(
                 taf_diagUpdate_ServiceRef_t svcRef, taf_diagUpdate_RxFileXferMsgHandlerFunc_t
@@ -208,6 +242,7 @@ namespace tafsvc
                 taf_diagUpdate_FileXferErrorCode_t errCode);
             le_result_t ReleaseRxFileXferMsg(taf_diagUpdate_RxFileXferMsgRef_t rxMsgRef);
 
+            /* Data Transfer (0x36) */
             static void RxXferDataEventHandler(void* reportPtr);
             taf_diagUpdate_RxXferDataMsgHandlerRef_t AddRxXferDataReqHandler(
                 taf_diagUpdate_ServiceRef_t svcRef, taf_diagUpdate_RxXferDataMsgHandlerFunc_t
@@ -223,6 +258,7 @@ namespace tafsvc
                 taf_diagUpdate_XferDataErrorCode_t errCode, const uint8_t* dataPtr, size_t dataSize);
             le_result_t ReleaseRxXferDataMsg(taf_diagUpdate_RxXferDataMsgRef_t rxMsgRef);
 
+            /* Request File Transfer Exit (0x37) */
             static void RxXferExitEventHandler(void* reportPtr);
             taf_diagUpdate_RxXferExitMsgHandlerRef_t AddRxXferExitReqHandler(
                 taf_diagUpdate_ServiceRef_t svcRef, taf_diagUpdate_RxXferExitMsgHandlerFunc_t
@@ -236,6 +272,26 @@ namespace tafsvc
                 taf_diagUpdate_XferExitErrorCode_t errCode, const uint8_t* dataPtr, size_t dataSize);
             le_result_t ReleaseRxXferExitMsg(taf_diagUpdate_RxXferExitMsgRef_t rxMsgRef);
 
+            /* Request Download (0x34) */
+            static void RxReqDwnldEventHandler(void* reportPtr);
+            taf_diagUpdate_RxDwnldMsgHandlerRef_t AddRxDwnldMsgHandler(
+                taf_diagUpdate_ServiceRef_t svcRef,
+                    taf_diagUpdate_RxDwnldMsgHandlerFunc_t handlerPtr, void* contextPtr);
+            void RemoveRxDwnldMsgHandler(taf_diagUpdate_RxDwnldMsgHandlerRef_t handlerRef);
+            le_result_t GetReqDwnldDataFormatID(taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef,
+                uint8_t* dataFormatIDPtr);
+            le_result_t GetMemAddrParamLen(taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef,
+                uint8_t* memAddrParamLenPtr);
+            le_result_t GetMemAddr(taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef, uint8_t* memAddrPtr,
+                size_t* memAddrSizePtr);
+            le_result_t GetMemSizeParamLen(taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef,
+                uint8_t* memSizeParamLenPtr);
+            le_result_t GetMemSize(taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef, uint8_t* memSizePtr,
+                size_t* memSizeSizePtr);
+            le_result_t SendReqDwnldResp(taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef,
+                taf_diagUpdate_ReqDwnldErrorCode_t errCode);
+
+            // General function
             le_result_t RemoveUpdateSvc(taf_diagUpdate_ServiceRef_t svcRef);
             void programmingInterrupt(uint16_t vlanId);
             le_result_t SetVlanId(taf_diagUpdate_ServiceRef_t svcRef, uint16_t vlanId);
@@ -243,7 +299,6 @@ namespace tafsvc
 
             static void FirstLayerNrcStatusHandler(void* reportPtr, void* secondLayerHandlerFunc);
             le_result_t ReleaseNrcStatusMsg(taf_diagUpdate_NrcStatusRef_t statusRef);
-
             //Event for NRC
             le_event_Id_t NrcEventId;
 
@@ -263,8 +318,10 @@ namespace tafsvc
             void ClearFileXferMsgList(taf_UpdateSvc_t* svcPtr);
             void ClearXferDataMsgList(taf_UpdateSvc_t* svcPtr);
             void ClearXferExitMsgList(taf_UpdateSvc_t* svcPtr);
+            void ClearReqDwnldMsgList(taf_UpdateSvc_t* svcPtr);
             void ClearVlanList(taf_UpdateSvc_t* svcPtr);
 
+            const uint8_t reqDwnldSvcId = 0x34;
             const uint8_t reqFileXferSvcId = 0x38;
             const uint8_t fileDataXferSvcId = 0x36;
             const uint8_t fileXferExitSvcId = 0x37;
@@ -281,6 +338,8 @@ namespace tafsvc
             le_mem_PoolRef_t RxXferDataMsgPool;
             le_ref_MapRef_t RxXferExitMsgRefMap;
             le_mem_PoolRef_t RxXferExitMsgPool;
+            le_ref_MapRef_t RxReqDwnldMsgRefMap;
+            le_mem_PoolRef_t RxReqDwnldMsgPool;
 
             // Rx message handler object.
             le_ref_MapRef_t RxFileXferHandlerRefMap;
@@ -289,6 +348,8 @@ namespace tafsvc
             le_mem_PoolRef_t RxXferDataHandlerPool;
             le_ref_MapRef_t RxXferExitHandlerRefMap;
             le_mem_PoolRef_t RxXferExitHandlerPool;
+            le_ref_MapRef_t RxReqDwnldHandlerRefMap;
+            le_mem_PoolRef_t RxReqDwnldHandlerPool;
             le_mem_PoolRef_t vlanPool;
 
             //Event for service
@@ -298,6 +359,8 @@ namespace tafsvc
             le_event_HandlerRef_t XferDataEventHandlerRef;
             le_event_Id_t XferExitEvent;
             le_event_HandlerRef_t XferExitEventHandlerRef;
+            le_event_Id_t ReqDwnldEvent;
+            le_event_HandlerRef_t ReqDwnldEventHandlerRef;
 
             // NRC status resource
             le_mem_PoolRef_t NrcStatusMsgPool;

@@ -38,11 +38,14 @@ void taf_UpdateSvr::Init
     RxFileXferMsgRefMap = le_ref_CreateMap("Server RxFileXferMsgRefMap", DEFAULT_RXMSG_REF_CNT);
     RxXferDataMsgRefMap = le_ref_CreateMap("Server RxXferDataMsgRefMap", DEFAULT_RXMSG_REF_CNT);
     RxXferExitMsgRefMap = le_ref_CreateMap("Server RxXferExitMsgRefMap", DEFAULT_RXMSG_REF_CNT);
+    RxReqDwnldMsgRefMap = le_ref_CreateMap("Server RxReqDwnldMsgRefMap", DEFAULT_RXMSG_REF_CNT);
     RxFileXferHandlerRefMap = le_ref_CreateMap("Server RxFileXferHandlerRefMap",
             DEFAULT_RXHANDLER_REF_CNT);
     RxXferDataHandlerRefMap = le_ref_CreateMap("Server RxXferDataHandlerRefMap",
             DEFAULT_RXHANDLER_REF_CNT);
     RxXferExitHandlerRefMap = le_ref_CreateMap("Server RxXferExitHandlerRefMap",
+            DEFAULT_RXHANDLER_REF_CNT);
+    RxReqDwnldHandlerRefMap = le_ref_CreateMap("Server RxReqDwnldHandlerRefMap",
             DEFAULT_RXHANDLER_REF_CNT);
     RxNrcStatusRefMap = le_ref_CreateMap("RxNrcStatusRefMap", DEFAULT_RXMSG_REF_CNT);
 
@@ -51,6 +54,7 @@ void taf_UpdateSvr::Init
     RxFileXferMsgPool = le_mem_CreatePool("Server RxFileXferMsgPool", sizeof(taf_FileXferRxMsg_t));
     RxXferDataMsgPool = le_mem_CreatePool("Server RxXferDataMsgPool", sizeof(taf_XferDataRxMsg_t));
     RxXferExitMsgPool = le_mem_CreatePool("Server RxXferExitMsgPool", sizeof(taf_XferExitRxMsg_t));
+    RxReqDwnldMsgPool = le_mem_CreatePool("Server RxReqDwnldMsgPool", sizeof(taf_ReqDwnldRxMsg_t));
     vlanPool = le_mem_CreatePool("DiagUpdateVlanPool", sizeof(taf_UpdateVlanIdNode_t));
     NrcStatusMsgPool = le_mem_CreatePool("NrcStatusMsgPool", sizeof(taf_UpdateNrcStatusMsg_t));
 
@@ -60,6 +64,8 @@ void taf_UpdateSvr::Init
             sizeof(taf_XferDataHandler_t));
     RxXferExitHandlerPool = le_mem_CreatePool("Server RxXferExitHandlerPool",
             sizeof(taf_XferExitHandler_t));
+    RxReqDwnldHandlerPool = le_mem_CreatePool("Server RxReqDwnldHandlerPool",
+            sizeof(taf_ReqDwnldHandler_t));
 
     // Create the event and add event handler for RequestFileTransfer (0x38).
     FileXferEvent = le_event_CreateIdWithRefCounting("UpdateSvc RequestFileTransfer Event");
@@ -76,6 +82,11 @@ void taf_UpdateSvr::Init
     XferExitEventHandlerRef = le_event_AddHandler("XferExitEvtHandler",
             XferExitEvent, taf_UpdateSvr::RxXferExitEventHandler);
 
+    // Create the event and add event handler for RequestTransferExit (0x37).
+    ReqDwnldEvent = le_event_CreateIdWithRefCounting("UpdateSvc RequestDownload Event");
+    ReqDwnldEventHandlerRef = le_event_AddHandler("ReqDwnldEventHandler",
+            ReqDwnldEvent, taf_UpdateSvr::RxReqDwnldEventHandler);
+
     // Create the event ID for NRC notification.
     NrcEventId = le_event_CreateIdWithRefCounting("NRC Event");
 
@@ -88,6 +99,7 @@ void taf_UpdateSvr::Init
     backend.RegisterUdsService(reqFileXferSvcId, this);
     backend.RegisterUdsService(fileDataXferSvcId, this);
     backend.RegisterUdsService(fileXferExitSvcId, this);
+    backend.RegisterUdsService(reqDwnldSvcId, this);
     backend.RegisterUdsService(nrcStatusMsgId, this);
 
     LE_DEBUG("taf_DiagUpdateSvr Init completed!");
@@ -130,11 +142,13 @@ taf_diagUpdate_ServiceRef_t taf_UpdateSvr::CreateUpdateSvc
         svcPtr->fileXferRef = NULL;
         svcPtr->xferDataRef = NULL;
         svcPtr->xferExitRef = NULL;
+        svcPtr->ReqDwnldRef = NULL;
 
         // Init update message list.
         svcPtr->reqFileXferMsgList  = LE_DLS_LIST_INIT;
         svcPtr->xferDataMsgList     = LE_DLS_LIST_INIT;
         svcPtr->reqXferExitMsgList  = LE_DLS_LIST_INIT;
+        svcPtr->reqDwnldMsgList     = LE_DLS_LIST_INIT;
 
         // Attach the service to the client.
         svcPtr->sessionRef = taf_diagUpdate_GetClientSessionRef();
@@ -243,6 +257,7 @@ le_result_t taf_UpdateSvr::RemoveUpdateSvc
     ClearFileXferMsgList(svcPtr);
     ClearXferDataMsgList(svcPtr);
     ClearXferExitMsgList(svcPtr);
+    ClearReqDwnldMsgList(svcPtr);
     ClearVlanList(svcPtr);
 
     // Clear the registered handler
@@ -262,6 +277,12 @@ le_result_t taf_UpdateSvr::RemoveUpdateSvc
     {
         RemoveRxXferExitReqHandler(svcPtr->xferExitRef);
         svcPtr->xferExitRef = NULL;
+    }
+
+    if (svcPtr->ReqDwnldRef != NULL)
+    {
+        RemoveRxDwnldMsgHandler(svcPtr->ReqDwnldRef);
+        svcPtr->ReqDwnldRef = NULL;
     }
 
     // Clear service object
@@ -337,6 +358,28 @@ void taf_UpdateSvr::ClearXferExitMsgList
     }
 }
 
+void taf_UpdateSvr::ClearReqDwnldMsgList
+(
+    taf_UpdateSvc_t* svcPtr
+)
+{
+    // Clear the UDS Rx message of RequestDownload list.
+    le_dls_Link_t* linkPtr = le_dls_Pop(&svcPtr->reqDwnldMsgList);
+    while (linkPtr != NULL)
+    {
+        taf_ReqDwnldRxMsg_t* msgPtr = CONTAINER_OF(linkPtr, taf_ReqDwnldRxMsg_t, link);
+        if (msgPtr != NULL)
+        {
+            // Free the message
+            le_ref_DeleteRef(RxReqDwnldMsgRefMap, msgPtr->rxMsgRef);
+            le_mem_Release(msgPtr);
+        }
+
+        // Process next node.
+        linkPtr = le_dls_Pop(&svcPtr->reqDwnldMsgList);
+    }
+}
+
 void taf_UpdateSvr::ClearVlanList
 (
     taf_UpdateSvc_t* svcPtr
@@ -384,14 +427,6 @@ void taf_UpdateSvr::UDSMsgHandler
         uint16_t fileNameLen;
 
         moo = msgPtr[dataPtrPos];
-        if (moo == 0 || moo > TAF_DIAG_UPDATE_RESUME_FILE)
-        {
-            LE_DEBUG("Mode of operation(0x%x) is out of range", moo);
-            // UDS_0x38_NRC_31: Invalid Moop
-            nrc = TAF_DIAG_REQUEST_OUT_OF_RANGE;
-            goto errOut;
-        }
-
         dataPtrPos += 1;
 
         fileNameLen = ntohs(*((uint16_t*)(msgPtr + dataPtrPos)));
@@ -579,6 +614,47 @@ void taf_UpdateSvr::UDSMsgHandler
 
         // Report the request message to message handler in service layer.
         le_event_ReportWithRefCounting(XferExitEvent, rxXferExitMsgPtr);
+    }
+    else if (sid == reqDwnldSvcId)  // RequestDownload service of UDS.
+    {
+        // Create the incoming Rx message from UDS stack.
+        taf_ReqDwnldRxMsg_t* rxReqDwnldMsgPtr =
+                (taf_ReqDwnldRxMsg_t*)le_mem_ForceAlloc(RxReqDwnldMsgPool);
+        memset(rxReqDwnldMsgPtr, 0, sizeof(taf_ReqDwnldRxMsg_t));
+
+        // Fill message fields.
+        rxReqDwnldMsgPtr->serviceId = sid;
+        rxReqDwnldMsgPtr->reqDwnldDataFormatID = msgPtr[dataPtrPos];
+        dataPtrPos += 1;
+        rxReqDwnldMsgPtr->addrAndLenFormatID = msgPtr[dataPtrPos];
+        dataPtrPos += 1;
+        rxReqDwnldMsgPtr->memAddrParamLen = rxReqDwnldMsgPtr->addrAndLenFormatID & 0x0F;
+        rxReqDwnldMsgPtr->memSizeParamLen = (rxReqDwnldMsgPtr->addrAndLenFormatID >> 4) & 0x0F;
+
+        if ((msgLen-dataPtrPos)
+                != (rxReqDwnldMsgPtr->memAddrParamLen + rxReqDwnldMsgPtr->memSizeParamLen))
+        {
+            LE_WARN("Message length is not correct, send NRC %x",
+                TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+            // UDS_0x37_NRC_13: Block parameter record is overflow
+            nrc = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
+            goto errOut;
+        }
+
+        // Copy memory address
+        memcpy(rxReqDwnldMsgPtr->memAddr, msgPtr + dataPtrPos, rxReqDwnldMsgPtr->memAddrParamLen);
+        dataPtrPos += rxReqDwnldMsgPtr->memAddrParamLen;
+        // Copy memory size
+        memcpy(rxReqDwnldMsgPtr->memSize, msgPtr + dataPtrPos, rxReqDwnldMsgPtr->memSizeParamLen);
+        dataPtrPos += rxReqDwnldMsgPtr->memSizeParamLen;
+
+        memcpy(&rxReqDwnldMsgPtr->addrInfo, addrPtr, sizeof(taf_uds_AddrInfo_t));
+        rxReqDwnldMsgPtr->link = LE_DLS_LINK_INIT;
+        rxReqDwnldMsgPtr->rxMsgRef = (taf_diagUpdate_RxDwnldMsgRef_t)
+            le_ref_CreateRef(RxReqDwnldMsgRefMap, rxReqDwnldMsgPtr);
+
+        // Report the request message to message handler in service layer.
+        le_event_ReportWithRefCounting(ReqDwnldEvent, rxReqDwnldMsgPtr);
     }
     else if (sid == nrcStatusMsgId)  // NRC status notification.
     {
@@ -964,12 +1040,6 @@ void taf_UpdateSvr::RxFileXferEventHandler
         goto errOut;
     }
 
-    // Add the message in service message list and notify to application.
-    msgPtr->link = LE_DLS_LINK_INIT;
-    le_dls_Queue(&svcPtr->reqFileXferMsgList, &msgPtr->link);
-
-    handlerCtxPtr->func(msgPtr->rxMsgRef, msgPtr->operationType, handlerCtxPtr->context);
-
     // Update update service state if download or upload request is received.
     if (msgPtr->operationType == TAF_DIAG_UPDATE_ADD_FILE
         || msgPtr->operationType == TAF_DIAG_UPDATE_REPLACE_FILE
@@ -983,12 +1053,18 @@ void taf_UpdateSvr::RxFileXferEventHandler
         }
         else
         {
-            LE_WARN("Trsnsfer is in progress");
+            LE_WARN("Trsnsfer is in progress, state : %d", svcPtr->state);
             // UDS_0x38_NRC_22: Transfer is in progress
             nrc = TAF_DIAG_CONDITION_NOT_CORRECT;
             goto errOut;
         }
     }
+
+    // Add the message in service message list and notify to application.
+    msgPtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&svcPtr->reqFileXferMsgList, &msgPtr->link);
+
+    handlerCtxPtr->func(msgPtr->rxMsgRef, msgPtr->operationType, handlerCtxPtr->context);
 
     return;
 errOut:
@@ -2041,26 +2117,36 @@ le_result_t taf_UpdateSvr::GetVlanIdFromMsg
             le_ref_Lookup(RxFileXferMsgRefMap, rxMsgRef);
     if (fileXferMsgPtr == NULL)
     {
-        taf_XferDataRxMsg_t* xferDataMsgPtr = (taf_XferDataRxMsg_t*)
-                le_ref_Lookup(RxXferDataMsgRefMap, rxMsgRef);
-        if (xferDataMsgPtr == NULL)
+        taf_ReqDwnldRxMsg_t* reqDwnldMsgPtr = (taf_ReqDwnldRxMsg_t*)
+                le_ref_Lookup(RxReqDwnldMsgRefMap, rxMsgRef);
+        if(reqDwnldMsgPtr == NULL)
         {
-            taf_XferExitRxMsg_t* xferExitMsgPtr = (taf_XferExitRxMsg_t*)
-                    le_ref_Lookup(RxXferExitMsgRefMap, rxMsgRef);
-            if(xferExitMsgPtr == NULL)
+            taf_XferDataRxMsg_t* xferDataMsgPtr = (taf_XferDataRxMsg_t*)
+                    le_ref_Lookup(RxXferDataMsgRefMap, rxMsgRef);
+            if (xferDataMsgPtr == NULL)
             {
-                LE_ERROR("Can not find the rxMsgRef");
-                return LE_NOT_FOUND;
+                taf_XferExitRxMsg_t* xferExitMsgPtr = (taf_XferExitRxMsg_t*)
+                        le_ref_Lookup(RxXferExitMsgRefMap, rxMsgRef);
+                if(xferExitMsgPtr == NULL)
+                {
+                    LE_ERROR("Can not find the rxMsgRef");
+                    return LE_NOT_FOUND;
+                }
+                else
+                {
+                    *vlanIdPtr = xferExitMsgPtr->addrInfo.vlanId;
+                    return LE_OK;
+                }
             }
             else
             {
-                *vlanIdPtr = xferExitMsgPtr->addrInfo.vlanId;
+                *vlanIdPtr = xferDataMsgPtr->addrInfo.vlanId;
                 return LE_OK;
             }
         }
         else
         {
-            *vlanIdPtr = xferDataMsgPtr->addrInfo.vlanId;
+            *vlanIdPtr = reqDwnldMsgPtr->addrInfo.vlanId;
             return LE_OK;
         }
     }
@@ -2073,4 +2159,386 @@ le_result_t taf_UpdateSvr::GetVlanIdFromMsg
 #else
     return LE_NOT_IMPLEMENTED;
 #endif
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_diagUpdate_RxDwnldMsg'
+ */
+//-------------------------------------------------------------------------------------------------
+taf_diagUpdate_RxDwnldMsgHandlerRef_t taf_UpdateSvr::AddRxDwnldMsgHandler
+(
+    taf_diagUpdate_ServiceRef_t svcRef,
+    taf_diagUpdate_RxDwnldMsgHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    // Search the service in the list.
+    taf_UpdateSvc_t* svcPtr = (taf_UpdateSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
+    if ((svcPtr == NULL) || (handlerPtr == NULL))
+    {
+        LE_ERROR("Bad parameters");
+        return NULL;
+    }
+
+    // Check if a Rx Handler for the service is already registered.
+    if (svcPtr->ReqDwnldRef != NULL)
+    {
+        LE_ERROR("Rx Handler for svcRef %p is already registered.", svcPtr->svcRef);
+        return NULL;
+    }
+
+    // Create and set the Rx Handler.
+    taf_ReqDwnldHandler_t* handlerCtxPtr =
+            (taf_ReqDwnldHandler_t*)le_mem_ForceAlloc(RxReqDwnldHandlerPool);
+    memset(handlerCtxPtr, 0, sizeof(taf_ReqDwnldHandler_t));
+
+    // Init the fields.
+    handlerCtxPtr->svcRef = svcRef;
+    handlerCtxPtr->func = handlerPtr;
+    handlerCtxPtr->context = contextPtr;
+    handlerCtxPtr->handlerRef = (taf_diagUpdate_RxDwnldMsgHandlerRef_t)
+            le_ref_CreateRef(RxReqDwnldHandlerRefMap, handlerCtxPtr);
+
+    // Attach the Rx Handler to the service.
+    svcPtr->ReqDwnldRef = handlerCtxPtr->handlerRef;
+
+    return handlerCtxPtr->handlerRef;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_diagUpdate_RxDwnldMsg'
+ */
+//-------------------------------------------------------------------------------------------------
+void taf_UpdateSvr::RemoveRxDwnldMsgHandler
+(
+    taf_diagUpdate_RxDwnldMsgHandlerRef_t handlerRef
+)
+{
+    taf_UpdateSvc_t* svcPtr;
+    taf_ReqDwnldHandler_t* handlerCtxPtr;
+
+    handlerCtxPtr = (taf_ReqDwnldHandler_t*)le_ref_Lookup(RxReqDwnldHandlerRefMap, handlerRef);
+    if (handlerCtxPtr == NULL)
+    {
+        LE_ERROR("Invalid reference");
+        return;
+    }
+
+    svcPtr = (taf_UpdateSvc_t*)le_ref_Lookup(SvcRefMap, handlerCtxPtr->svcRef);
+    if (svcPtr == NULL)
+    {
+        LE_WARN("The handler is not belong to any update service.");
+        le_ref_DeleteRef(RxReqDwnldHandlerRefMap, (void*)handlerRef);
+        le_mem_Release(handlerCtxPtr);
+        return;
+    }
+
+    // Detach the handler from service.
+    svcPtr->ReqDwnldRef = NULL;
+
+    // Clear Rx Handler resources
+    handlerCtxPtr->context    = NULL;
+    handlerCtxPtr->func       = NULL;
+    handlerCtxPtr->handlerRef = NULL;
+    handlerCtxPtr->svcRef     = NULL;
+
+    le_ref_DeleteRef(RxReqDwnldHandlerRefMap, (void*)handlerRef);
+    le_mem_Release(handlerCtxPtr);
+}
+
+void taf_UpdateSvr::RxReqDwnldEventHandler
+(
+    void* reportPtr
+)
+{
+    taf_UpdateSvr& update = taf_UpdateSvr::GetInstance();
+
+    taf_ReqDwnldRxMsg_t* msgPtr = (taf_ReqDwnldRxMsg_t*)reportPtr;
+    TAF_ERROR_IF_RET_NIL(msgPtr == NULL, "msgPtr is Null");
+
+    uint8_t nrc = 0;
+    taf_UpdateSvc_t* svcPtr = NULL;
+    taf_ReqDwnldHandler_t* handlerCtxPtr = NULL;
+
+#ifndef LE_CONFIG_DIAG_VSTACK
+    svcPtr = update.FindSvcInList(msgPtr->addrInfo.vlanId);
+#else
+    svcPtr = update.FindSvcInList((uint16_t)0);
+#endif
+    if (svcPtr == NULL)
+    {
+        LE_WARN("Not found registered update service for this request");
+        // UDS_0x34_NRC_21: Not found registered diag update svc
+        nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
+        goto errOut;
+    }
+
+    if (svcPtr->ReqDwnldRef == NULL)
+    {
+        LE_WARN("Did not register RequestDownload handler for update service");
+        // UDS_0x34_NRC_21: Bad svc ref
+        nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
+        goto errOut;
+    }
+
+    // Lookup message handler of this service
+    handlerCtxPtr = (taf_ReqDwnldHandler_t*)
+        le_ref_Lookup(update.RxReqDwnldHandlerRefMap, svcPtr->ReqDwnldRef);
+    if (handlerCtxPtr == NULL || handlerCtxPtr->func == NULL)
+    {
+        LE_WARN("Can not find RequestFileTransfer handler object!");
+        // UDS_0x34_NRC_21: Bad callback function
+        nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
+        goto errOut;
+    }
+
+    // Update the update service state if download request is received.
+    if (svcPtr->state != TAF_DIAG_UPDATE_TRANS)
+    {
+        svcPtr->state = TAF_DIAG_UPDATE_REQ;
+    }
+    else
+    {
+        LE_WARN("Trsnsfer is in progress, state :%d", svcPtr->state);
+        // UDS_0x38_NRC_22: Transfer is in progress
+        nrc = TAF_DIAG_CONDITION_NOT_CORRECT;
+        goto errOut;
+    }
+
+    // Add the message in service message list and notify to application.
+    msgPtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&svcPtr->reqDwnldMsgList, &msgPtr->link);
+
+    handlerCtxPtr->func(msgPtr->rxMsgRef, handlerCtxPtr->context);
+
+    return;
+errOut:
+    taf_uds_AddrInfo_t addrInfo;
+    addrInfo.sa = msgPtr->addrInfo.ta;
+    addrInfo.ta = msgPtr->addrInfo.sa;
+    addrInfo.taType = msgPtr->addrInfo.taType;
+#ifndef LE_CONFIG_DIAG_VSTACK
+    addrInfo.vlanId = msgPtr->addrInfo.vlanId;
+    le_utf8_Copy(addrInfo.ifName, msgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
+#endif
+    update.RspNegativeMsg(&addrInfo, msgPtr->serviceId, nrc, true);
+
+    le_ref_DeleteRef(update.RxReqDwnldMsgRefMap, msgPtr->rxMsgRef);
+    le_mem_Release(msgPtr);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the data format ID of the Rx RequestDownload message.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_UpdateSvr::GetReqDwnldDataFormatID
+(
+    taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef,
+    uint8_t* dataFormatIDPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
+    TAF_ERROR_IF_RET_VAL(dataFormatIDPtr == NULL, LE_BAD_PARAMETER, "Invalid dataFormatIDPtr");
+
+    taf_ReqDwnldRxMsg_t* msgPtr = (taf_ReqDwnldRxMsg_t*)
+        le_ref_Lookup(RxReqDwnldMsgRefMap, rxMsgRef);
+    if (msgPtr == NULL)
+    {
+        LE_ERROR("Cannot find the reqMsg");
+        return LE_NOT_FOUND;
+    }
+
+    *dataFormatIDPtr = msgPtr->reqDwnldDataFormatID;
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the length (number of bytes) of the memoryAddress parameter.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_UpdateSvr::GetMemAddrParamLen
+(
+    taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef,
+    uint8_t* memAddrParamLenPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
+    TAF_ERROR_IF_RET_VAL(memAddrParamLenPtr == NULL, LE_BAD_PARAMETER,
+        "Invalid memAddrParamLenPtr");
+
+    taf_ReqDwnldRxMsg_t* msgPtr = (taf_ReqDwnldRxMsg_t*)
+        le_ref_Lookup(RxReqDwnldMsgRefMap, rxMsgRef);
+    if (msgPtr == NULL)
+    {
+        LE_ERROR("Cannot find the reqMsg");
+        return LE_NOT_FOUND;
+    }
+
+    *memAddrParamLenPtr = msgPtr->memAddrParamLen;
+
+    return LE_OK;}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the memory address.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_UpdateSvr::GetMemAddr
+(
+    taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef,
+    uint8_t* memAddrPtr,
+    size_t* memAddrSizePtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
+    TAF_ERROR_IF_RET_VAL(memAddrPtr == NULL, LE_BAD_PARAMETER, "Invalid memAddrPtr");
+    TAF_ERROR_IF_RET_VAL(memAddrSizePtr == NULL, LE_BAD_PARAMETER, "Invalid memAddrSizePtr");
+
+    taf_ReqDwnldRxMsg_t* msgPtr = (taf_ReqDwnldRxMsg_t*)
+        le_ref_Lookup(RxReqDwnldMsgRefMap, rxMsgRef);
+    if (msgPtr == NULL)
+    {
+        LE_ERROR("Cannot find the reqMsg");
+        return LE_NOT_FOUND;
+    }
+
+    memcpy(memAddrPtr, msgPtr->memAddr, msgPtr->memAddrParamLen);
+    *memAddrSizePtr = msgPtr->memAddrParamLen;
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the length (number of bytes) of the memorySize parameter.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_UpdateSvr::GetMemSizeParamLen
+(
+    taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef,
+    uint8_t* memSizeParamLenPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
+    TAF_ERROR_IF_RET_VAL(memSizeParamLenPtr == NULL, LE_BAD_PARAMETER,
+        "Invalid memSizeParamLenPtr");
+
+    taf_ReqDwnldRxMsg_t* msgPtr = (taf_ReqDwnldRxMsg_t*)
+        le_ref_Lookup(RxReqDwnldMsgRefMap, rxMsgRef);
+    if (msgPtr == NULL)
+    {
+        LE_ERROR("Cannot find the reqMsg");
+        return LE_NOT_FOUND;
+    }
+
+    *memSizeParamLenPtr = msgPtr->memSizeParamLen;
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the memory size.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_UpdateSvr::GetMemSize
+(
+    taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef,
+    uint8_t* memSizePtr,
+    size_t* memSizeSizePtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
+    TAF_ERROR_IF_RET_VAL(memSizePtr == NULL, LE_BAD_PARAMETER, "Invalid memSizePtr");
+    TAF_ERROR_IF_RET_VAL(memSizeSizePtr == NULL, LE_BAD_PARAMETER, "Invalid memSizeSizePtr");
+
+    taf_ReqDwnldRxMsg_t* msgPtr = (taf_ReqDwnldRxMsg_t*)
+        le_ref_Lookup(RxReqDwnldMsgRefMap, rxMsgRef);
+    if (msgPtr == NULL)
+    {
+        LE_ERROR("Cannot find the reqMsg");
+        return LE_NOT_FOUND;
+    }
+
+    memcpy(memSizePtr, msgPtr->memSize, msgPtr->memSizeParamLen);
+    *memSizeSizePtr = msgPtr->memSizeParamLen;
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Sends a response message for the Rx RequestDownload message.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_UpdateSvr::SendReqDwnldResp
+(
+    taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef,
+    taf_diagUpdate_ReqDwnldErrorCode_t errCode
+)
+{
+    TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
+
+    taf_ReqDwnldRxMsg_t* msgPtr = (taf_ReqDwnldRxMsg_t*)
+        le_ref_Lookup(RxReqDwnldMsgRefMap, rxMsgRef);
+    if (msgPtr == NULL)
+    {
+        LE_ERROR("Cannot find the reqMsg");
+        return LE_NOT_FOUND;
+    }
+
+    le_result_t ret;
+
+    // Get the service.
+#ifndef LE_CONFIG_DIAG_VSTACK
+    taf_UpdateSvc_t* svcPtr = FindSvcInList(msgPtr->addrInfo.vlanId);
+#else
+    taf_UpdateSvc_t* svcPtr = FindSvcInList((uint16_t)0);
+#endif
+    if (svcPtr == NULL)
+    {
+        LE_ERROR("Not found registered update service for this request");
+        return LE_NOT_FOUND;
+    }
+
+    taf_uds_AddrInfo_t addrInfo;
+    addrInfo.sa = msgPtr->addrInfo.ta;
+    addrInfo.ta = msgPtr->addrInfo.sa;
+    addrInfo.taType = msgPtr->addrInfo.taType;
+#ifndef LE_CONFIG_DIAG_VSTACK
+    addrInfo.vlanId = msgPtr->addrInfo.vlanId;
+    le_utf8_Copy(addrInfo.ifName, msgPtr->addrInfo.ifName, MAX_INTERFACE_NAME_LEN, NULL);
+#endif
+    if (errCode == TAF_DIAGUPDATE_REQ_DWNLD_NO_ERROR)
+    {
+        ret = RspPositiveMsg(&addrInfo, msgPtr->serviceId, NULL, 0);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to respond positive message for RequestDownload(%d)", ret);
+            return ret;
+        }
+    }
+    else
+    {
+        ret = RspNegativeMsg(&addrInfo, msgPtr->serviceId, (uint8_t)errCode, false);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to respond negative message for RequestDownload(%d)", ret);
+            return ret;
+        }
+    }
+
+    // Remove the message from service message list.
+    le_dls_Remove(&svcPtr->reqDwnldMsgList, &msgPtr->link);
+
+    // Free the message
+    le_ref_DeleteRef(RxReqDwnldMsgRefMap, msgPtr->rxMsgRef);
+    le_mem_Release(msgPtr);
+
+    return LE_OK;
 }

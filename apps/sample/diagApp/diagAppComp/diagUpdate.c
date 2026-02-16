@@ -24,6 +24,9 @@ static uint8_t recordedSeqCounter = 0;
 static uint32_t recordedTargetFileSize = 0;
 static uint32_t uploadedTargetTotal = 0;
 
+static const char* DOWNLOAD_FILE_PATH = "/data/images/req_download.zip";
+static int ReqDwnldOrReqfileXferType = -1; // -1 = Neither 0x34 nor 0x38, 1 = 0x38 and 0 = 0x34
+static uint32_t downloadFileSize = 0;
 
 static le_sem_Ref_t semRef;
 
@@ -36,6 +39,15 @@ static le_sem_Ref_t semRef;
             LE_ERROR(formatString, ##__VA_ARGS__); \
             return; \
         } \
+    } while(0)
+
+#define DIAG_34_RESPONSE(errCode) \
+    do { \
+          _ERROR_IF_RET_NIL( \
+            (taf_diagUpdate_SendReqDwnldResp(rxMsgRef, errCode) != LE_OK), \
+            "Failed to send response"); \
+         if ((int)errCode != (int)TAF_DIAGUPDATE_REQ_DWNLD_NO_ERROR) \
+            return; \
     } while(0)
 
 #define DIAG_38_RESPONSE(errCode) \
@@ -76,6 +88,7 @@ static le_sem_Ref_t semRef;
 
 // Diag Update
 static taf_diagUpdate_ServiceRef_t DiagUpdateSvcRef = NULL;
+static taf_diagUpdate_RxDwnldMsgHandlerRef_t DiagReqDwnldMsgRef = NULL;
 static taf_diagUpdate_RxFileXferMsgHandlerRef_t DiagFileXferMsgRef = NULL;
 static taf_diagUpdate_RxXferDataMsgHandlerRef_t DiagXferDataMsgRef = NULL;
 static taf_diagUpdate_RxXferExitMsgHandlerRef_t DiagXferExitMsgRef = NULL;
@@ -209,6 +222,87 @@ void diagRFT_DeactivateProgramming(void)
     uploadedTargetTotal = 0;
 }
 
+// Callback function for Request download message
+static void reqDwnldMsgHandler
+(
+    taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef,
+    void* contextPtr
+)
+{
+    LE_INFO("reqDwnldMsgHandler");
+
+    // Set the flag for 0x34
+    ReqDwnldOrReqfileXferType = 0;
+    le_result_t res;
+
+    size_t memAddrParamLen;
+    res = taf_diagUpdate_GetMemAddrParamLen(rxMsgRef, (uint8_t *)&memAddrParamLen);
+    if( res != LE_OK)
+    {
+        LE_WARN("Fail to get memory addr parameter length");
+        // UDS_0x34_NRC_22: API GetMemAddr
+        DIAG_34_RESPONSE(TAF_DIAGUPDATE_REQ_DWNLD_CONDITIONS_NOT_CORRECT);
+    }
+
+    uint8_t memAddr[TAF_DIAGUPDATE_MAX_MEM_ADDR_LENGTH];
+    res = taf_diagUpdate_GetMemAddr(rxMsgRef, memAddr, &memAddrParamLen);
+    if( res != LE_OK)
+    {
+        LE_WARN("Fail to get memory addr");
+        // UDS_0x34_NRC_22: API GetMemAddr
+        DIAG_34_RESPONSE(TAF_DIAGUPDATE_REQ_DWNLD_CONDITIONS_NOT_CORRECT);
+    }
+
+    LE_DEBUG("Mem addr param length: %ld", memAddrParamLen);
+    for(int i = 0; i< memAddrParamLen; i++){
+        LE_DEBUG("Mem addr: %x", memAddr[i]);
+    }
+
+    size_t memSizeParamLen;
+    res = taf_diagUpdate_GetMemSizeParamLen(rxMsgRef, (uint8_t *)&memSizeParamLen);
+    if( res != LE_OK)
+    {
+        LE_WARN("Fail to get memory size parameter length");
+        // UDS_0x34_NRC_22: API GetMemAddr
+        DIAG_34_RESPONSE(TAF_DIAGUPDATE_REQ_DWNLD_CONDITIONS_NOT_CORRECT);
+    }
+
+    uint8_t memSize[TAF_DIAGUPDATE_MAX_MEM_SIZE];
+    res = taf_diagUpdate_GetMemSize(rxMsgRef, memSize, &memSizeParamLen);
+    if( res != LE_OK)
+    {
+        LE_WARN("Fail to get memory size");
+        // UDS_0x34_NRC_22: API GetMemAddr
+        DIAG_34_RESPONSE(TAF_DIAGUPDATE_REQ_DWNLD_CONDITIONS_NOT_CORRECT);
+    }
+
+    if (memSizeParamLen <= 4){
+        for (uint8_t i = 0; i < memSizeParamLen; ++i)
+        {
+            downloadFileSize = (downloadFileSize << 8) | memSize[i];
+        }
+    }
+    else  // Handling only for size upto 4byte. Customer application shall handle as per standard.
+    {
+        LE_WARN("memSizeParamLen more than 4 byte (DiagTestApp is not handling)");
+        DIAG_34_RESPONSE(TAF_DIAGUPDATE_REQ_DWNLD_CONDITIONS_NOT_CORRECT);
+    }
+    LE_INFO("memsize parameter len: %ld and mem size: %d", memSizeParamLen, downloadFileSize);
+
+    mIncompleteFileObject = createFile(DOWNLOAD_FILE_PATH);
+    if(mIncompleteFileObject == NULL)
+    {
+        LE_WARN("Fail to create file |%s|", DOWNLOAD_FILE_PATH);
+        // UDS_0x38_NRC_31: Create Incomplete-File failed (moop: 01/03)
+        DIAG_34_RESPONSE(TAF_DIAGUPDATE_REQ_DWNLD_REQUEST_OUT_OF_RANGE);
+    }
+
+    LE_INFO("File: |%s| is created", DOWNLOAD_FILE_PATH);
+
+    DIAG_34_RESPONSE(TAF_DIAGUPDATE_REQ_DWNLD_NO_ERROR);
+    recordedSeqCounter = 0; // Reset the sequence counter
+}
+
 // Callback function for file transfer request message
 static void fileXferMsgHandler
 (
@@ -217,6 +311,9 @@ static void fileXferMsgHandler
     void* contextPtr
 )
 {
+    // Set the flag for 0x38
+    ReqDwnldOrReqfileXferType = 1;
+
     le_result_t result;
     char filePathAndName[UPDATE_FILE_PATH_LENGTH];
     size_t fileLen = UPDATE_FILE_PATH_LENGTH;
@@ -553,16 +650,182 @@ static void xferDataMsgHandler
         }
     }
 
-    if (activatedMoop == TAF_DIAGUPDATE_DELETE_FILE)
+    if (ReqDwnldOrReqfileXferType == 1)
     {
-        LE_ERROR("Data transfer in MOOP: 02 (DELETE FILE)");
-        // UDS_0x36_NRC_72: Data transfer in moop: 02
-        DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
+        if (activatedMoop == TAF_DIAGUPDATE_DELETE_FILE)
+        {
+            LE_ERROR("Data transfer in MOOP: 02 (DELETE FILE)");
+            // UDS_0x36_NRC_72: Data transfer in moop: 02
+            DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
+        }
+        // For input data actions
+        else if (activatedMoop == TAF_DIAGUPDATE_ADD_FILE
+            ||  activatedMoop == TAF_DIAGUPDATE_RESUME_FILE
+            ||  activatedMoop == TAF_DIAGUPDATE_REPLACE_FILE)
+        {
+            result = taf_diagUpdate_GetblockSeqCount( rxMsgRef, &incomingSeqCounter );
+            if (result != LE_OK)
+            {
+                LE_ERROR("API GetblockSeqCount");
+                // UDS_0x36_NRC_72: API GetblockSeqCount
+                DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
+            }
+
+            if (incomingSeqCounter != (uint8_t) (recordedSeqCounter + 1))
+            {
+                LE_ERROR("Wrong block sequence counter (i:%d != r:%d + 1)",
+                        (int)incomingSeqCounter,
+                        (int)recordedSeqCounter);
+                // UDS_0x36_NRC_73: Wrong block sequence counter
+                DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_WRONG_BLOCK_SEQUENCE_COUNTER);
+            }
+
+            result = taf_diagUpdate_GetXferDataParamRecLen( rxMsgRef, (uint16_t *)&xferDataLen);
+
+            if(result != LE_OK || xferDataLen == 0 || xferDataLen
+                > TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE)
+            {
+                LE_ERROR("Getting file len");
+                // UDS_0x36_NRC_72: API GetXferDataParamRecLen
+                DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
+            }
+
+            result = taf_diagUpdate_GetXferDataParamRec( rxMsgRef, xferData, &xferDataLen);
+
+            if(result != LE_OK)
+            {
+                LE_ERROR("Getting file name");
+                // UDS_0x36_NRC_72: API GetXferDataParamRec
+                DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
+            }
+
+            if(mIncompleteFileObject != NULL)
+            {
+                //write data into file
+                result = writeFile(xferData, xferDataLen);
+                if(result != LE_OK)
+                {
+                    LE_ERROR("Failed to write data");
+                    // UDS_0x36_NRC_72: Programming file error
+                    DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
+                }
+                else
+                {
+                    DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_NO_ERROR);
+                    ++ recordedSeqCounter; // Only update when the processing is successful
+                }
+            }
+            else
+            {
+                LE_ERROR("mIncompleteFileObject is NULL");
+                // UDS_0x36_NRC_72: Not found opened Incomplete-File
+                DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
+            }
+        }
+        // For output data actions
+        else if (activatedMoop == TAF_DIAGUPDATE_READ_FILE
+            ||  activatedMoop == TAF_DIAGUPDATE_READ_DIR)
+        {
+            result = taf_diagUpdate_GetblockSeqCount( rxMsgRef, &incomingSeqCounter );
+            if (result != LE_OK)
+            {
+                LE_ERROR("API GetblockSeqCount");
+                // UDS_0x36_NRC_72: API GetblockSeqCount
+                DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
+            }
+
+            if (incomingSeqCounter != (uint8_t)(recordedSeqCounter + 1))
+            {
+                LE_ERROR("Wrong block sequence counter (i:%d != r:%d + 1)",
+                        (int)incomingSeqCounter,
+                        (int)recordedSeqCounter);
+                // UDS_0x36_NRC_73: Wrong block sequence counter
+                DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_WRONG_BLOCK_SEQUENCE_COUNTER);
+            }
+
+            if (activatedMoop == TAF_DIAGUPDATE_READ_FILE)
+            {
+                if (mCompleteFileObject == NULL)
+                {
+                    LE_ERROR("No opened file for reading");
+                    // UDS_0x36_NRC_72: Not found opened Incomplete-File (moop: 04)
+                    DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
+                }
+
+                nbytes = fread(xferData, 1, TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE,
+                    mCompleteFileObject);
+                if (nbytes > 0)
+                {
+                    DIAG_36_RESPONSE_DATA(TAF_DIAGUPDATE_XFER_DATA_NO_ERROR, xferData, nbytes);
+                    ++ recordedSeqCounter;
+                    uploadedTargetTotal += nbytes;
+                }
+                else /* == 0, then check EOF or ERROR */
+                {
+                    if (ferror(mCompleteFileObject))
+                    {
+                        LE_ERROR("Fail to read file: %m");
+                        // UDS_0x36_NRC_22: Fail to read target file
+                        DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
+                    }
+                    else
+                    {
+                        LE_INFO("Done for reading file");
+                    }
+                }
+            }
+            else /* == TAF_DIAGUPDATE_READ_DIR */
+            {
+                if (mCompleteDirObject == NULL)
+                {
+                    LE_ERROR("No opened dir for reading");
+                    // UDS_0x36_NRC_72: Not found opened Incomplete-Dir (moop: 05)
+                    DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
+                }
+
+                errno = 0; // To check the readdir error
+                struct dirent *entry = readdir(mCompleteDirObject);
+                if (entry != NULL)
+                {
+                    // For each file name including '\0' end of string
+                    size_t fileItemLength = strlen(entry->d_name) + 1;
+
+                    if (fileItemLength > TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE)
+                    {
+                        LE_ERROR("Too long file name for reading");
+                        // UDS_0x36_NRC_72: Too long file name in target dir
+                        DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
+                    }
+
+                    memcpy(xferData, entry->d_name, fileItemLength);
+                    DIAG_36_RESPONSE_DATA(TAF_DIAGUPDATE_XFER_DATA_NO_ERROR, xferData,
+                        fileItemLength);
+                    uploadedTargetTotal += fileItemLength;
+                    ++ recordedSeqCounter;
+                }
+                else
+                {
+                    if (errno != 0)
+                    {
+                        LE_ERROR("Can NOT readdir (%m)");
+                        // UDS_0x36_NRC_72: Can NOT readdir for target dir
+                        DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
+                    }
+                    else
+                    {
+                        LE_INFO("Done for reading directory");
+                    }
+                }
+            }
+        }
+        else
+        {
+            LE_ERROR("Bad activated MOOP: 0x%02X", activatedMoop);
+            // UDS_0x36_NRC_72: Invalid moop
+            DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
+        }
     }
-    // For input data actions
-    else if (activatedMoop == TAF_DIAGUPDATE_ADD_FILE
-         ||  activatedMoop == TAF_DIAGUPDATE_RESUME_FILE
-         ||  activatedMoop == TAF_DIAGUPDATE_REPLACE_FILE)
+    else if(ReqDwnldOrReqfileXferType == 0)
     {
         result = taf_diagUpdate_GetblockSeqCount( rxMsgRef, &incomingSeqCounter );
         if (result != LE_OK)
@@ -575,15 +838,15 @@ static void xferDataMsgHandler
         if (incomingSeqCounter != (uint8_t) (recordedSeqCounter + 1))
         {
             LE_ERROR("Wrong block sequence counter (i:%d != r:%d + 1)",
-                     (int)incomingSeqCounter,
-                     (int)recordedSeqCounter);
+                    (int)incomingSeqCounter,
+                    (int)recordedSeqCounter);
             // UDS_0x36_NRC_73: Wrong block sequence counter
             DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_WRONG_BLOCK_SEQUENCE_COUNTER);
         }
 
         result = taf_diagUpdate_GetXferDataParamRecLen( rxMsgRef, (uint16_t *)&xferDataLen);
-
-        if(result != LE_OK || xferDataLen == 0 || xferDataLen > TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE)
+        if(result != LE_OK || xferDataLen == 0
+            || xferDataLen > TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE)
         {
             LE_ERROR("Getting file len");
             // UDS_0x36_NRC_72: API GetXferDataParamRecLen
@@ -591,7 +854,6 @@ static void xferDataMsgHandler
         }
 
         result = taf_diagUpdate_GetXferDataParamRec( rxMsgRef, xferData, &xferDataLen);
-
         if(result != LE_OK)
         {
             LE_ERROR("Getting file name");
@@ -612,7 +874,7 @@ static void xferDataMsgHandler
             else
             {
                 DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_NO_ERROR);
-                ++ recordedSeqCounter; // Only update when the processing is successful
+                ++recordedSeqCounter; // Only update when the processing is successful
             }
         }
         else
@@ -622,105 +884,9 @@ static void xferDataMsgHandler
             DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
         }
     }
-    // For output data actions
-    else if (activatedMoop == TAF_DIAGUPDATE_READ_FILE
-         ||  activatedMoop == TAF_DIAGUPDATE_READ_DIR)
-    {
-        result = taf_diagUpdate_GetblockSeqCount( rxMsgRef, &incomingSeqCounter );
-        if (result != LE_OK)
-        {
-            LE_ERROR("API GetblockSeqCount");
-            // UDS_0x36_NRC_72: API GetblockSeqCount
-            DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
-        }
-
-        if (incomingSeqCounter != (uint8_t)(recordedSeqCounter + 1))
-        {
-            LE_ERROR("Wrong block sequence counter (i:%d != r:%d + 1)",
-                     (int)incomingSeqCounter,
-                     (int)recordedSeqCounter);
-            // UDS_0x36_NRC_73: Wrong block sequence counter
-            DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_WRONG_BLOCK_SEQUENCE_COUNTER);
-        }
-
-        if (activatedMoop == TAF_DIAGUPDATE_READ_FILE)
-        {
-            if (mCompleteFileObject == NULL)
-            {
-                LE_ERROR("No opened file for reading");
-                // UDS_0x36_NRC_72: Not found opened Incomplete-File (moop: 04)
-                DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
-            }
-
-            nbytes = fread(xferData, 1, TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE, mCompleteFileObject);
-            if (nbytes > 0)
-            {
-                DIAG_36_RESPONSE_DATA(TAF_DIAGUPDATE_XFER_DATA_NO_ERROR, xferData, nbytes);
-                ++ recordedSeqCounter;
-                uploadedTargetTotal += nbytes;
-            }
-            else /* == 0, then check EOF or ERROR */
-            {
-                if (ferror(mCompleteFileObject))
-                {
-                    LE_ERROR("Fail to read file: %m");
-                    // UDS_0x36_NRC_22: Fail to read target file
-                    DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
-                }
-                else
-                {
-                    LE_INFO("Done for reading file");
-                }
-            }
-        }
-        else /* == TAF_DIAGUPDATE_READ_DIR */
-        {
-            if (mCompleteDirObject == NULL)
-            {
-                LE_ERROR("No opened dir for reading");
-                // UDS_0x36_NRC_72: Not found opened Incomplete-Dir (moop: 05)
-                DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
-            }
-
-            errno = 0; // To check the readdir error
-            struct dirent *entry = readdir(mCompleteDirObject);
-            if (entry != NULL)
-            {
-                // For each file name including '\0' end of string
-                size_t fileItemLength = strlen(entry->d_name) + 1;
-
-                if (fileItemLength > TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE)
-                {
-                    LE_ERROR("Too long file name for reading");
-                    // UDS_0x36_NRC_72: Too long file name in target dir
-                    DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
-                }
-
-                memcpy(xferData, entry->d_name, fileItemLength);
-                DIAG_36_RESPONSE_DATA(TAF_DIAGUPDATE_XFER_DATA_NO_ERROR, xferData, fileItemLength);
-                uploadedTargetTotal += fileItemLength;
-                ++ recordedSeqCounter;
-            }
-            else
-            {
-                if (errno != 0)
-                {
-                    LE_ERROR("Can NOT readdir (%m)");
-                    // UDS_0x36_NRC_72: Can NOT readdir for target dir
-                    DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
-                }
-                else
-                {
-                    LE_INFO("Done for reading directory");
-                }
-            }
-        }
-    }
     else
     {
-        LE_ERROR("Bad activated MOOP: 0x%02X", activatedMoop);
-        // UDS_0x36_NRC_72: Invalid moop
-        DIAG_36_RESPONSE(TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE);
+
     }
 }
 
@@ -793,73 +959,90 @@ static void xferExitMsgHandler
         DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_REQUEST_OUT_OF_RANGE);
     }
 
-    if (activatedMoop == TAF_DIAGUPDATE_DELETE_FILE)
+    if(ReqDwnldOrReqfileXferType == 1)
     {
-        LE_ERROR("Bad condition detected");
-        // UDS_0x37_NRC_72: Transfer exit in moop: 02
-        DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_GENERAL_PROGRAMMING_FAILURE);
+        if (activatedMoop == TAF_DIAGUPDATE_DELETE_FILE)
+        {
+            LE_ERROR("Bad condition detected");
+            // UDS_0x37_NRC_72: Transfer exit in moop: 02
+            DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_GENERAL_PROGRAMMING_FAILURE);
+        }
+        else if (activatedMoop == TAF_DIAGUPDATE_ADD_FILE
+            ||  activatedMoop == TAF_DIAGUPDATE_RESUME_FILE
+            ||  activatedMoop == TAF_DIAGUPDATE_REPLACE_FILE)
+        {
+            if(mIncompleteFileObject != NULL)
+            {
+                if (IsEnoughForTargetFile(mIncompleteFileObject))
+                {
+                    closeFile();
+
+                    if (rename(mIncompleteFileAndPathName, mCompleteFileAndPathName) != 0)
+                    {
+                        LE_ERROR("fail to rename: (%m)");
+                        // UDS_0x37_NRC_72: Call rename failed
+                        DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_GENERAL_PROGRAMMING_FAILURE);
+                    }
+                }
+                else
+                {
+                    LE_ERROR("Programming is not completed (moop: 01/03/06)");
+                    // UDS_0x37_NRC_24: Programming is not completed (moop: 01/03/06)
+                    DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_REQUEST_SEQUENCE_ERROR);
+                }
+            }
+        }
+        else if(activatedMoop == TAF_DIAGUPDATE_READ_FILE
+            ||  activatedMoop == TAF_DIAGUPDATE_READ_DIR)
+        {
+            if (! IsCompletedForUpload())
+            {
+                LE_ERROR("Programming is not completed (moop: 04/05)");
+                // UDS_0x37_NRC_24: Programming is not completed (moop: 04/05)
+                DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_REQUEST_SEQUENCE_ERROR);
+            }
+
+            if (activatedMoop == TAF_DIAGUPDATE_READ_FILE)
+            {
+                if (mCompleteFileObject != NULL)
+                {
+                    if (fclose(mCompleteFileObject) != 0)
+                    {
+                        LE_ERROR("fail to fclose: (%m)");
+                        // UDS_0x37_NRC_72: Call fclose failed
+                        DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_GENERAL_PROGRAMMING_FAILURE);
+                    }
+                    mCompleteFileObject = NULL;
+                }
+            }
+            else /* TAF_DIAGUPDATE_READ_DIR */
+            {
+                if (mCompleteDirObject != NULL)
+                {
+                    if (closedir(mCompleteDirObject) != 0)
+                    {
+                        LE_ERROR("fail to closedir: (%m)");
+                        // UDS_0x37_NRC_72: Call closedir failed
+                        DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_GENERAL_PROGRAMMING_FAILURE);
+                    }
+                    mCompleteDirObject = NULL;
+                }
+            }
+        }
     }
-    else if (activatedMoop == TAF_DIAGUPDATE_ADD_FILE
-         ||  activatedMoop == TAF_DIAGUPDATE_RESUME_FILE
-         ||  activatedMoop == TAF_DIAGUPDATE_REPLACE_FILE)
+    else if(ReqDwnldOrReqfileXferType == 0)
     {
         if(mIncompleteFileObject != NULL)
         {
             if (IsEnoughForTargetFile(mIncompleteFileObject))
             {
                 closeFile();
-
-                LE_INFO("Rename |%s| -> |%s|", mIncompleteFileAndPathName, mCompleteFileAndPathName);
-
-                if (rename(mIncompleteFileAndPathName, mCompleteFileAndPathName) != 0)
-                {
-                    LE_ERROR("fail to rename: (%m)");
-                    // UDS_0x37_NRC_72: Call rename failed
-                    DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_GENERAL_PROGRAMMING_FAILURE);
-                }
             }
             else
             {
                 LE_ERROR("Programming is not completed (moop: 01/03/06)");
                 // UDS_0x37_NRC_24: Programming is not completed (moop: 01/03/06)
                 DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_REQUEST_SEQUENCE_ERROR);
-            }
-        }
-    }
-    else if(activatedMoop == TAF_DIAGUPDATE_READ_FILE
-        ||  activatedMoop == TAF_DIAGUPDATE_READ_DIR)
-    {
-        if (! IsCompletedForUpload())
-        {
-            LE_ERROR("Programming is not completed (moop: 04/05)");
-            // UDS_0x37_NRC_24: Programming is not completed (moop: 04/05)
-            DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_REQUEST_SEQUENCE_ERROR);
-        }
-
-        if (activatedMoop == TAF_DIAGUPDATE_READ_FILE)
-        {
-            if (mCompleteFileObject != NULL)
-            {
-                if (fclose(mCompleteFileObject) != 0)
-                {
-                    LE_ERROR("fail to fclose: (%m)");
-                    // UDS_0x37_NRC_72: Call fclose failed
-                    DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_GENERAL_PROGRAMMING_FAILURE);
-                }
-                mCompleteFileObject = NULL;
-            }
-        }
-        else /* TAF_DIAGUPDATE_READ_DIR */
-        {
-            if (mCompleteDirObject != NULL)
-            {
-                if (closedir(mCompleteDirObject) != 0)
-                {
-                    LE_ERROR("fail to closedir: (%m)");
-                    // UDS_0x37_NRC_72: Call closedir failed
-                    DIAG_37_RESPONSE(TAF_DIAGUPDATE_XFER_EXIT_GENERAL_PROGRAMMING_FAILURE);
-                }
-                mCompleteDirObject = NULL;
             }
         }
     }
@@ -886,6 +1069,10 @@ static void* diagUpdateMsgThread(void* ctxPtr)
 {
     taf_diagUpdate_ConnectService();
 
+    DiagReqDwnldMsgRef = taf_diagUpdate_AddRxDwnldMsgHandler(
+                            DiagUpdateSvcRef,
+                            reqDwnldMsgHandler, NULL);
+
     DiagFileXferMsgRef = taf_diagUpdate_AddRxFileXferMsgHandler(
                             DiagUpdateSvcRef,
                             fileXferMsgHandler, NULL);
@@ -898,9 +1085,8 @@ static void* diagUpdateMsgThread(void* ctxPtr)
                             DiagUpdateSvcRef,
                             xferExitMsgHandler, NULL);
 
-    if (DiagFileXferMsgRef == NULL
-    ||  DiagXferDataMsgRef == NULL
-    ||  DiagXferExitMsgRef == NULL)
+    if (DiagReqDwnldMsgRef == NULL || DiagFileXferMsgRef == NULL
+        ||  DiagXferDataMsgRef == NULL ||  DiagXferExitMsgRef == NULL)
     {
         LE_ERROR("Fail to register handler for diagUpdateSvc !");
         le_sem_Post(semRef);

@@ -3201,6 +3201,59 @@ static uint32_t  ValueOfFileSize(uint8_t* buffer, uint8_t length, bool uncomp)
 }
 
 /**
+ * Check NRC and Indicate received RequestDownload (0x34) message to Diag service.
+ */
+le_result_t UdsCommunicationMgr::IndicateRxReqDwnldReq
+(
+    taf_doip_AddrInfo_t*  addrInfoPtr,
+    bool* isInternalHandle
+)
+{
+    LE_DEBUG("In %s", __FUNCTION__);
+    uint8_t ReqDwnldSid = recvBuf[0];
+
+    // Minimum length checking
+    if (recvDataLen < UDS_REQ_DOWNLOAD_BASE_LEN)
+    {
+        LE_WARN("Minimum length check failure for 0x34, send NRC %x",
+            INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        // UDS_0x34_NRC_13: Minimum length check failure
+        return SendNRC(ReqDwnldSid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    // dataFormatIdentifier
+    uint8_t dataFormatID = recvBuf[1];
+    LE_DEBUG("dataFormatID: %x", dataFormatID);
+    // addressAndLengthFormatIdentifier
+    uint8_t addrAndLenFormatID = recvBuf[2];
+    // Length (number of bytes) of the memoryAddress parameter
+    uint8_t memAddrParamLen = addrAndLenFormatID & 0x0F;
+    // Length (number of bytes) of the memorySize parameter
+    uint8_t memSizeParamLen = (addrAndLenFormatID >> 4) & 0x0F;
+
+    // Length checking
+    if ((recvDataLen - UDS_REQ_DOWNLOAD_BASE_LEN) != (memAddrParamLen + memSizeParamLen))
+    {
+        LE_WARN("Length check failure for 0x34, send NRC %x",
+            INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        // UDS_0x34_NRC_13: Minimum length check failure
+        return SendNRC(ReqDwnldSid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    // Check if in the process of downloading or uploading data
+    if (isXferActive.load())
+    {
+        LE_WARN("Bad order, transfer is in progress, send NRC %x", CONDITIONS_NOT_CORRECT);
+        // UDS_0x34_NRC_22: Transfer is in progress
+        return SendNRC(ReqDwnldSid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
+    }
+
+    //Will send the indication to the diag service
+    *isInternalHandle = false;
+    return LE_OK;
+}
+
+/**
  * Check NRC and Indicate received RequestFileTransfer (0x38) message to Diag service.
  */
 le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
@@ -3215,8 +3268,6 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
     #define RFT_MOOP recvBuf[1]
     #define LENGTH_OF_FILE_NAME (((recvBuf[2]) << 8 ) | (recvBuf[3]))
     #define LENGTH_OF_FILE_SIZE(buffer, loc) (buffer[loc])
-
-    LE_INFO("[RFT] Request for moop:[0x%02X]", RFT_MOOP);
 
     // Minimum length checking
     if (recvDataLen < RFT_MIN_LEN)
@@ -4371,6 +4422,13 @@ void UdsCommunicationMgr::DiagIndicationHandler
             ret = udsCmMgr->IndicateRoutinrCtrlReq(addrInfoPtr, &isInternalHandle);
         }
         break;
+        case REQUEST_DOWNLOAD_REQUEST_ID:  // 0x34
+        {
+            // Check NRC and then send indication to TelAf diag service if necessary for
+            // RequestDownload request msg.
+            ret = udsCmMgr->IndicateRxReqDwnldReq(addrInfoPtr, &isInternalHandle);
+        }
+        break;
         case TRANSFER_DATA_REQUEST_ID:  // 0x36
         {
             // Check NRC and then send indication to TelAf diag service if necessary for
@@ -4382,7 +4440,7 @@ void UdsCommunicationMgr::DiagIndicationHandler
         {
             // Check NRC and then send indication to TelAf diag service if necessary for
             // RequestTransferExit request msg.
-            ret = udsCmMgr->IndicateRxXferExitReq(addrInfoPtr, &isInternalHandle);
+            ret = udsCmMgr->IndicateRxXferExitReq(addrInfoPtr, &isInternalHandle); 
         }
         break;
         case REQUEST_FILE_TRANSFER_REQUEST_ID:  // 0x38
@@ -4653,6 +4711,9 @@ le_result_t UdsCommunicationMgr::SendUDSResp
         break;
         case ROUTINE_CONTROL_REQUEST_ID:
             ret = RoutineCtrlResp(serviceId, dataPtr, dataSize, err);
+        break;
+        case REQUEST_DOWNLOAD_REQUEST_ID:
+            ret = ReqDwnldResp(serviceId, dataPtr, dataSize, err);
         break;
         case TRANSFER_DATA_REQUEST_ID:
             ret = XferDataResp(serviceId, dataPtr, dataSize, err);
@@ -5585,6 +5646,56 @@ static uint8_t HowManyChars(uint16_t maxNumberOfBlock)
 
     nbytes = (nbytes + 7) / 8;
     return nbytes;
+}
+
+/**
+ * Check error code and Pack RequestDownload message to send to Diag client/tool.
+ */
+le_result_t UdsCommunicationMgr::ReqDwnldResp
+(
+    uint8_t serviceId,
+    const uint8_t* dataPtr,
+    uint16_t dataSize,
+    uint8_t err
+)
+{
+    LE_DEBUG("In  %s", __FUNCTION__);
+
+    if (POSITIVE_RESPONSE != err)
+    {
+        LE_DEBUG("Error code reported from Diag service");
+        SetNRC(serviceId, err);
+        return LE_OK;
+    }
+
+    // maxNumberOfBlockLength
+    uint16_t maxNumberOfBlockLen = UDS_DATA_SIZE - 4; // Reduce the source & target addresses.
+    // lengthFormatIdentifier
+    uint8_t nBytes = HowManyChars(maxNumberOfBlockLen);
+    uint8_t lengthFormatId = ((nBytes & 0x0F) << 4);
+
+    sendBuf[0] = serviceId + 0x40;
+    sendBuf[1] = lengthFormatId;
+
+    // Convert maxNumberOfBlockLen to big-endian storage.
+    for (uint8_t index = 0; index < sizeof(maxNumberOfBlockLen); index++)
+    {
+        uint8_t shiftBytes = sizeof(maxNumberOfBlockLen) - 1 - index;
+        uint8_t indexValue = (maxNumberOfBlockLen >> (shiftBytes * 8)) & 0xFF;
+        sendBuf[UDS_RESP_DOWNLOAD_BASE_LEN + index] = indexValue;
+    }
+
+    sendDataLen = UDS_RESP_DOWNLOAD_BASE_LEN + sizeof(maxNumberOfBlockLen);
+
+    if ( (sendDataLen + dataSize) > UDS_MAX_DATA_SIZE )
+    {
+        LE_ERROR("The send buffer is overflowing");
+        return LE_FAULT;
+    }
+
+    isXferActive.store(true);
+
+    return LE_OK;
 }
 
 /**

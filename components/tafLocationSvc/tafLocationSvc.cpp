@@ -2164,3 +2164,125 @@ le_result_t taf_locGnss_GetMeasDataValidityMask
     return gnss.GetMeasDataValidityMask(measSampleRef, measDataValidityMaskPtr,
             measDataValidityMaskSizePtr);
 }
+
+/**
+* FUNCTION     : GetNavigationSolution
+* DESCRIPTION  : This function gets navigation solution mask used to indicate solutions used in the fix.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_locGnss_GetNavigationSolution
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+        ///< [IN] Position sample reference.
+    uint32_t* navSolutionPtr
+        ///< [OUT] Navigation solution bit mask.
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetNavigationSolution(positionSampleRef, navSolutionPtr);
+}
+
+/**
+* FUNCTION     : GetDgnssStationIds
+* DESCRIPTION  : This function gets list of DGNSS station IDs providing corrections.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_locGnss_GetDgnssStationIds
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+        ///< [IN] Position sample reference.
+    uint16_t* stationIdsPtr,
+        ///< [OUT] Dgnss satellite data.
+    size_t* stationIdsSizePtr
+        ///< [INOUT]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetDgnssStationIds(positionSampleRef, stationIdsPtr,
+            stationIdsSizePtr);
+}
+
+/**
+* FUNCTION     : CreateDgnssInjectionSource
+* DESCRIPTION  : This function create a Dgnss injection source.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_NOT_PERMITTED on failed with reason
+*/
+taf_locGnss_DgnssSourceRef_t taf_locGnss_CreateDgnssSource
+(
+    taf_locGnss_DgnssFormat_t dgnssDataFormat
+        ///< [IN]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.CreateDgnssSource(dgnssDataFormat);
+}
+
+/**
+* FUNCTION     : ReleaseDgnssInjectionSource
+* DESCRIPTION  : This function release current Dgnss injection source.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_NOT_PERMITTED on failed with reason
+*/
+le_result_t taf_locGnss_ReleaseDgnssSource
+(
+    taf_locGnss_DgnssSourceRef_t sourceRef
+        ///< [IN]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.ReleaseDgnssSource(sourceRef);
+}
+
+/**
+* FUNCTION     : InjectDgnssCorrection
+* DESCRIPTION  : This function used to inject correction data.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_NOT_PERMITTED,LE_BAD_PARAMETER on failed with reason
+*/
+le_result_t taf_locGnss_InjectDgnssCorrection
+(
+    taf_locGnss_DgnssSourceRef_t sourceRef,
+        ///< [IN] Source reference created for injection.
+    const uint8_t* correctionDataPtr,
+        ///< [IN] File path used for injection.
+    size_t correctionDataSize
+        ///< [IN]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.InjectDgnssCorrection(sourceRef, correctionDataPtr, correctionDataSize);
+}
+
+taf_locGnss_DgnssStatusChangeHandlerRef_t taf_locGnss_AddDgnssStatusChangeHandler
+(
+    taf_locGnss_DgnssStatusChangeHandlerFunc_t handlerPtr,
+        ///< [IN] Injection status change handler
+    void* contextPtr
+        ///< [IN]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return (taf_locGnss_DgnssStatusChangeHandlerRef_t)gnss.AddDgnssStatusChangeHandler(handlerPtr, contextPtr);
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_locGnss_DgnssInjectionStatusChange'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locGnss_RemoveDgnssStatusChangeHandler
+(
+    taf_locGnss_DgnssStatusChangeHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.RemoveDgnssStatusChangeHandler(handlerRef);
+}

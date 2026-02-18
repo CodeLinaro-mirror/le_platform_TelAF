@@ -4,6 +4,9 @@
  */
 
 #include "main.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
 
 static le_mem_PoolRef_t DrFramePool = NULL;
 static le_mem_PoolRef_t LevArmFramePool = NULL;
@@ -1605,6 +1608,25 @@ static void PositionHandlerFunction
     {
         LE_TEST_INFO("Gptp Time(in ns) :%"PRIu64"\n",gPtpTime);
         LE_TEST_INFO("Gptp Time Uncertainty(in ns) :%"PRIu64"\n",gPtpTimeUnc);
+    }
+
+    uint32_t navSolutionMask;
+    LE_TEST_INFO("taf_locGnss_GetNavigationSolution is triggered\n");
+    result = taf_locGnss_GetNavigationSolution(positionSampleRef,&navSolutionMask);
+    LE_TEST_OK(result == LE_OK, "taf_locGnss_GetNavigationSolution-LE_OK");
+    if (result == LE_OK)
+    {
+        LE_TEST_INFO("Gptp Time(in ns) :%"PRIu32"\n",navSolutionMask);
+    }
+
+    uint16_t dgnssStationIds[TAF_LOCGNSS_SV_INFO_MAX_LEN];
+    size_t idsLen = TAF_LOCGNSS_SV_INFO_MAX_LEN;
+    result = taf_locGnss_GetDgnssStationIds(positionSampleRef, dgnssStationIds, &idsLen);
+    LE_TEST_OK(result == LE_OK, "taf_locGnss_GetDgnssStationIds-LE_OK");
+
+    if (idsLen > 0) LE_TEST_INFO("Dgnss SVs:");
+    for(size_t i = 0; i < idsLen; i++) {
+        LE_TEST_INFO(" %d", dgnssStationIds[i]);
     }
 
     LE_TEST_INFO("taf_locGnss_ReleaseSampleRef is triggered");
@@ -4995,6 +5017,158 @@ static void TestTafGnssPositionExHandler
     LE_TEST_OK(taf_locGnss_Stop() == LE_OK, "taf_locGnss_Stop-LE_OK");
 }
 
+static void DgnssStatusFunction
+(
+    taf_locGnss_DgnssSourceRef_t sourceRef,
+    taf_locGnss_DgnssStatus_t dgnssStatus,
+    void* contextPtr
+)
+{
+    LE_INFO("DGNSS Status Callback: sourceRef=%p status=%d",
+            sourceRef, dgnssStatus);
+}
+
+static void TestTafDgnssAPI
+(
+    void
+)
+{
+   le_result_t result;
+
+    taf_locGnss_DgnssSourceRef_t ref1 = NULL;
+    taf_locGnss_DgnssSourceRef_t ref2 = NULL;
+    taf_locGnss_DgnssSourceRef_t ref3 = NULL;
+
+    taf_locGnss_DgnssStatusChangeHandlerRef_t handlerRef = NULL;
+
+    taf_locGnss_DgnssFormat_t format1 =
+        TAF_LOCGNSS_DGNSS_FORMAT_RTCM_3;
+
+    taf_locGnss_DgnssFormat_t format2 =
+        TAF_LOCGNSS_DGNSS_FORMAT_3GPP_RTK_R15;
+
+    LE_INFO("===== DGNSS API TEST START =====");
+
+    handlerRef = taf_locGnss_AddDgnssStatusChangeHandler(
+                        DgnssStatusFunction,
+                        NULL);
+
+    if (handlerRef == NULL)
+    {
+        LE_ERROR("Failed to register status handler");
+        return;
+    }
+
+    LE_TEST_INFO("Status handler registered");
+
+    ref1 = taf_locGnss_CreateDgnssSource(format1);
+
+    if (ref1 == NULL)
+    {
+        LE_ERROR("Failed to create first DGNSS source");
+        return;
+    }
+
+    LE_INFO("ref1 created = %p", ref1);
+
+    ref2 = taf_locGnss_CreateDgnssSource(format1);
+
+    LE_INFO("ref2 created (same format) = %p", ref2);
+
+    if (ref1 == ref2)
+    {
+        LE_INFO("PASS: Same format returned same reference");
+    }
+    else
+    {
+        LE_ERROR("FAIL: Same format returned different reference");
+    }
+
+    ref3 = taf_locGnss_CreateDgnssSource(format2);
+
+    LE_INFO("ref3 created (different format) = %p", ref3);
+
+    if (ref3 != NULL)
+    {
+        LE_INFO("PASS: Different format created new reference");
+    }
+    else
+    {
+        LE_ERROR("FAIL: Different format did NOT create new reference");
+    }
+
+    const char* filePath = "/data/rtcmSourceFile.dat";
+
+    FILE* file = fopen(filePath, "rb");
+    if (!file)
+    {
+        LE_ERROR("Cannot open file");
+        return;
+    }
+
+    const size_t CHUNK_SIZE = 2048;
+    uint8_t buffer[CHUNK_SIZE];
+
+    size_t bytesRead;
+    size_t sequenceNumber = 0;
+
+    while ((bytesRead = fread(buffer, 1, CHUNK_SIZE, file)) > 0)
+    {
+        sequenceNumber++;
+
+        LE_INFO("Injecting chunk %zu, Size: %zu bytes",
+                sequenceNumber, bytesRead);
+
+        result = taf_locGnss_InjectDgnssCorrection(
+                    ref1,
+                    buffer,
+                    bytesRead);
+
+        if (result != LE_OK)
+        {
+            LE_ERROR("Injection failed at chunk %zu, result=%d",
+                     sequenceNumber, result);
+            fclose(file);
+            goto cleanup;
+        }
+
+        LE_INFO("Chunk %zu injected successfully", sequenceNumber);
+    }
+
+    if (ferror(file))
+    {
+        LE_ERROR("File read error occurred");
+        fclose(file);
+        goto cleanup;
+    }
+
+    fclose(file);
+
+    LE_INFO("All chunks injected successfully. Total chunks: %zu",
+            sequenceNumber);
+cleanup:
+
+    if (handlerRef)
+    {
+        taf_locGnss_RemoveDgnssStatusChangeHandler(handlerRef);
+        LE_TEST_INFO("Dgnss Status handler removed");
+    }
+
+    if (ref1)
+    {
+        result = taf_locGnss_ReleaseDgnssSource(ref1);
+        LE_INFO("Release ref1 result = %d", result);
+    }
+
+    if (ref3 && ref3 != ref1)
+    {
+        result = taf_locGnss_ReleaseDgnssSource(ref3);
+        LE_INFO("Release ref3 result = %d", result);
+    }
+
+    LE_INFO("===== DGNSS API TEST END =====");
+}
+
 COMPONENT_INIT
 {
    PositionHandlerSem = le_sem_Create("PosHandlerSem", 0);
@@ -5076,6 +5250,9 @@ COMPONENT_INIT
 
    LE_TEST_INFO("====TestTafGnssPositionExHandler====");
    TestTafGnssPositionExHandler();
+
+   LE_TEST_INFO("======== TestTafDgnss API ======");
+   TestTafDgnssAPI();
 
    LE_TEST_INFO("======== LE_TEST_EXIT  ========");
    LE_TEST_EXIT;

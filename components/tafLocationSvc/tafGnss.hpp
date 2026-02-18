@@ -47,6 +47,7 @@
 #include <mutex>
 #include <chrono>
 #include <bitset>
+#include <fstream>
 #include "tafSvcIF.hpp"
 #include "taf_pa_location.hpp"
 
@@ -66,6 +67,10 @@ const int DEFAULT_UNKNOWN = 0;
 #define TAF_LOCGNSS_NMEA_DEFAULT 0x1f8000fc0
 #define TAF_LOCGNSS_NMEA_CONFIG_DEFAULT 0
 #define TIMEOUT_SECONDS 5
+#define SBAS_STATION_ID_RANGE1_MIN 120
+#define SBAS_STATION_ID_RANGE1_MAX 158
+#define SBAS_STATION_ID_RANGE2_MIN 183
+#define SBAS_STATION_ID_RANGE2_MAX 191
 
 enum DataType
 {
@@ -228,6 +233,10 @@ namespace tafsvc {
         uint64_t gPtpTimeUnc;
         bool   leapSecondsUncValid;
         uint8_t leapSecondsUnc;
+        uint16_t dgnssStationIds[TAF_LOCGNSS_MAX_MONITOR_STATION_IDS];
+        uint8_t  dgnssStationIdsCount;
+        uint32_t navSolutionMask;
+        bool     navSolutionMaskValid;
         le_dls_Link_t   next;
     }
     taf_locGnss_PositionSample_t;
@@ -344,6 +353,29 @@ namespace tafsvc {
 
     typedef struct
     {
+        taf_locGnss_DgnssSourceRef_t sourceRef;
+        taf_locGnss_DgnssFormat_t format;
+        le_msg_SessionRef_t             sessionRef;
+    } taf_locGnss_DgnssSource_t;
+
+    typedef struct
+    {
+        taf_locGnss_DgnssStatus_t     dgnssStatus;
+        le_msg_SessionRef_t*          clientSessionRefPtr;
+    }
+    DgnssStatusEvent_t;
+
+    typedef struct taf_locGnss_DgnssStatusChangeHandler
+    {
+        taf_locGnss_DgnssStatusChangeHandlerRef_t handlerRef;
+        taf_locGnss_DgnssStatusChangeHandlerFunc_t handlerFuncPtr;
+        void*                         handlerContextPtr;
+        le_msg_SessionRef_t           sessionRef;
+        le_dls_Link_t                 next;
+    } taf_locGnss_DgnssStatusChangeHandler_t;
+
+    typedef struct
+    {
         int32_t   longitude;
         int32_t   latitude;
         int32_t   hAccuracy;
@@ -414,6 +446,8 @@ namespace tafsvc {
         std::mutex mMutex;
         le_mutex_Ref_t mGnssMutexRef;
         taf_locGnss_DRConfigValidityType_t drParamsMask;
+        taf_locGnss_DgnssSourceRef_t activeSourceRef;
+        taf_locGnss_DgnssFormat_t activeDgnssFormat;
         le_dls_Link_t               next;
     }
     taf_locGnss_Client_t;
@@ -576,6 +610,16 @@ namespace tafsvc {
             le_result_t SetNmeaConfiguration(taf_locGnss_NmeaBitMask_t nmeaMask, taf_locGnss_GeodeticDatumType_t datumType, taf_locGnss_LocEngineType_t engineType);
             le_result_t GetXtraStatus(taf_locGnss_XtraStatusParams_t* xtraParams);
             le_result_t GetGnssData(taf_locGnss_SampleRef_t positionSampleRef,taf_locGnss_GnssData_t* gnssDataPtr,size_t* maxSignalTypes);
+            le_result_t GetNavigationSolution(taf_locGnss_SampleRef_t positionSampleRef,uint32_t* navSolutionPtr);
+            le_result_t GetDgnssStationIds(taf_locGnss_SampleRef_t positionSampleRef,uint16_t* stationIdsPtr,size_t* stationIdsSizePtr);
+            le_result_t InjectDgnssCorrection(taf_locGnss_DgnssSourceRef_t sourceRef, const uint8_t* correctionDataPtr, size_t correctionDataSize);
+            taf_locGnss_DgnssSourceRef_t CreateDgnssSource(taf_locGnss_DgnssFormat_t dgnssDataFormat);
+            le_result_t ReleaseDgnssSource(taf_locGnss_DgnssSourceRef_t sourceRef);
+
+            static void DgnssStatusHandler(void* reportPtr);
+            taf_locGnss_DgnssStatusChangeHandlerRef_t AddDgnssStatusChangeHandler(
+                    taf_locGnss_DgnssStatusChangeHandlerFunc_t handlerPtr, void* contextPtr);
+            void RemoveDgnssStatusChangeHandler(taf_locGnss_DgnssStatusChangeHandlerRef_t handlerRef);
 
             le_result_t SetDRConfigValidity(taf_locGnss_DRConfigValidityType_t validMask);
             le_result_t GetGptpTime(taf_locGnss_SampleRef_t positionSampleRef,uint64_t* gPtpTime,uint64_t* gPtpTimeUnc);
@@ -635,6 +679,16 @@ namespace tafsvc {
             uint8_t mMinSvEle;
             std::mutex mtx;
 
+            tafpa::location::taf_pa_location_DgnssEventListener dgnssListener;
+            le_ref_MapRef_t DgnssSourceRefMap;
+            le_mem_PoolRef_t DgnssSourcePoolRef;
+            le_mem_PoolRef_t   DgnssStatusHandlerPoolRef;
+            le_mem_PoolRef_t DgnssStatusPoolRef;
+            le_ref_MapRef_t DgnssStatusHandlerRefMap;
+            int32_t NumOfDgnssStatusHandlers;
+            le_event_HandlerRef_t DgnssStatusHandlerRef;
+            le_event_Id_t dgnssStatusEventId;
+
         private:
             le_mem_PoolRef_t   ClientPoolRef;
             le_ref_MapRef_t PositionSampleMap;
@@ -663,6 +717,7 @@ namespace tafsvc {
 
             static void onCapabilitiesInfo(tafpa::location::taf_pa_location_LocationId clientId, const std::shared_ptr<tafpa::location::taf_pa_location_CapabilityChangeEvent_t>& capEventInfo, std::any context);
             static void onXtraStatusUpdate(tafpa::location::taf_pa_location_LocationId clientId, const std::shared_ptr<tafpa::location::taf_pa_location_XtraStatus_t>& xtraStatus, std::any context);
+            static void onDgnssStatusUpdate(const std::shared_ptr<tafpa::location::taf_pa_location_DgnssStatus_t>& dgnssStatus, std::any context);
 
     };
 }

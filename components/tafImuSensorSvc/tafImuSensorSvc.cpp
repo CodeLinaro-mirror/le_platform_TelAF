@@ -5,7 +5,6 @@
 
 #include "legato.h"
 #include "interfaces.h"
-#include <telux/sensor/SensorManager.hpp>
 #include "tafImuSensor.hpp"
 #include "tafSvcIF.hpp"
 

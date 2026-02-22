@@ -10,12 +10,11 @@
 
 using namespace tafsvc;
 
-/*======================================================================
- FUNCTION        COMPONENT_INIT
- DESCRIPTION     Update service component initialization
- PARAMETERS      void
- RETURN VALUE    void
-======================================================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ * Intialization.
+ */
+//--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
     LE_INFO("tafUpdate Service Init...\n");
@@ -43,10 +42,13 @@ COMPONENT_INIT
  * Downloads an OTA package from a cloud server.
  *
  * @note Update service will parse the download package and remove the QOTA header once the download
-         is complete.
+ *       is complete.
  */
 //--------------------------------------------------------------------------------------------------
-void taf_update_Download()
+void taf_update_Download
+(
+    void
+)
 {
     auto &tafUpdate = taf_Update::GetInstance();
 
@@ -74,9 +76,11 @@ void taf_update_Download()
  * Get download session reference.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK             The download session reference was obtained successfully.
+ *  - LE_BAD_PARAMETER  sessionRef is null.
+ *  - LE_UNSUPPORTED    The download agent plug-in is unavailable or does not support getSess().
+ *  - LE_FAULT          The internal session reference could not be found or the underlying plug-in
+ *                      getSess() call failed.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_GetDownloadSession
@@ -112,9 +116,10 @@ le_result_t taf_update_GetDownloadSession
  * Start download.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK          The download start request was queued successfully.
+ *  - LE_FAULT       sessionRef is invalid or does not refer to a download session.
+ *  - LE_UNSUPPORTED The download agent plug-in is unavailable or does not support
+ *                   startDownload().
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_StartDownload
@@ -150,9 +155,10 @@ le_result_t taf_update_StartDownload
  * Pause download.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK          The download pause request was queued successfully.
+ *  - LE_FAULT       sessionRef is invalid or does not refer to a download session.
+ *  - LE_UNSUPPORTED The download agent plug-in is unavailable or does not support the pause
+ *                   operation.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_PauseDownload
@@ -188,9 +194,10 @@ le_result_t taf_update_PauseDownload
  * Resume download.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK          The download resume request was queued successfully.
+ *  - LE_FAULT       sessionRef is invalid or does not refer to a download session.
+ *  - LE_UNSUPPORTED The download agent plug-in is unavailable or does not support
+ *                   resumeDownload().
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_ResumeDownload
@@ -226,9 +233,10 @@ le_result_t taf_update_ResumeDownload
  * Cancel download.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK          The download cancel request was queued successfully.
+ *  - LE_FAULT       sessionRef is invalid or does not refer to a download session.
+ *  - LE_UNSUPPORTED The download agent plug-in is unavailable or does not support
+ *                   cancelDownload().
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_CancelDownload
@@ -264,9 +272,9 @@ le_result_t taf_update_CancelDownload
  * Start AB Sync.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK          The synchronization start request was queued successfully.
+ *  - LE_FAULT       sessionRef is invalid.
+ *  - LE_UNSUPPORTED sessionRef does not refer to a firmware-update session.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_StartSync
@@ -300,9 +308,10 @@ le_result_t taf_update_StartSync
  * Pauses AB sync.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK          The synchronization pause flag was accepted.
+ *  - LE_FAULT       sessionRef is invalid or the current firmware-update state is not
+ *                   TAF_UPDATE_SYNCHRONIZING.
+ *  - LE_UNSUPPORTED sessionRef does not refer to a firmware-update session.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_PauseSync
@@ -345,9 +354,9 @@ le_result_t taf_update_PauseSync
  * Resumes AB Sync.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK          The synchronization resume request was queued successfully.
+ *  - LE_FAULT       sessionRef is invalid.
+ *  - LE_UNSUPPORTED sessionRef does not refer to a firmware-update session.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_ResumeSync
@@ -381,9 +390,10 @@ le_result_t taf_update_ResumeSync
  * Cancels AB Sync.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK          The synchronization cancel request was accepted.
+ *  - LE_FAULT       sessionRef is invalid or the current firmware-update state is neither
+ *                   TAF_UPDATE_SYNCHRONIZING nor TAF_UPDATE_SYNC_PAUSED.
+ *  - LE_UNSUPPORTED sessionRef does not refer to a firmware-update session.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_CancelSync
@@ -432,8 +442,12 @@ le_result_t taf_update_CancelSync
  * Get installation session reference.
  *
  * @return
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK             The installation session reference was returned successfully.
+ *  - LE_BAD_PARAMETER  sessionRef is null.
+ *  - LE_UNSUPPORTED    pkgType is unsupported, the update agent plug-in is unavailable, or the
+ *                      update agent does not support getSess().
+ *  - LE_FAULT          The internal update session could not be found or the update-agent getSess()
+ *                      call failed.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_GetInstallationSession
@@ -488,9 +502,11 @@ le_result_t taf_update_GetInstallationSession
  * Checks prerequisites for installation.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK          Pre-check completed successfully or was bypassed because the manifest does not
+ *                   exist.
+ *  - LE_FAULT       sessionRef is invalid, QOTA validation/header removal failed, or firmware
+ *                   pre-check failed.
+ *  - LE_UNSUPPORTED sessionRef does not refer to a supported pre-check session type.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_InstallPreCheck
@@ -541,8 +557,11 @@ le_result_t taf_update_InstallPreCheck
  * @note QOTA header should be removed before calling this API.
  *
  * @return
- * - LE_FAULT -- Failed.
- * - LE_OK -- Succeeded.
+ *  - LE_OK             The FOTA or SOTA install request was queued successfully.
+ *  - LE_BAD_PARAMETER  ota is not supported for app install path selection, or pkgPath does not
+ *                      use the expected application-install prefix for SOTA.
+ *  - LE_FAULT          The internal installation session could not be found.
+ *  - LE_UNSUPPORTED    The selected session type cannot be installed through this entry point.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_Install
@@ -607,10 +626,10 @@ le_result_t taf_update_Install
  * Installs update package.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
- *  - LE_UNSUPPORTED   Unsupported.
+ *  - LE_OK             On success.
+ *  - LE_FAULT          On failure.
+ *  - LE_BAD_PARAMETER  Invalid parameters.
+ *  - LE_UNSUPPORTED    Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_StartInstall
@@ -674,10 +693,10 @@ le_result_t taf_update_StartInstall
  * Pauses installation.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
- *  - LE_UNSUPPORTED   Unsupported.
+ *  - LE_OK             On success.
+ *  - LE_FAULT          On failure.
+ *  - LE_BAD_PARAMETER  Invalid parameters.
+ *  - LE_UNSUPPORTED    Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_PauseInstall
@@ -732,10 +751,10 @@ le_result_t taf_update_PauseInstall
  * Resumes installation.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
- *  - LE_UNSUPPORTED   Unsupported.
+ *  - LE_OK             On success.
+ *  - LE_FAULT          On failure.
+ *  - LE_BAD_PARAMETER  Invalid parameters.
+ *  - LE_UNSUPPORTED    Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_ResumeInstall
@@ -781,10 +800,10 @@ le_result_t taf_update_ResumeInstall
  * Cancels installation.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
- *  - LE_UNSUPPORTED   Unsupported.
+ *  - LE_OK             On success.
+ *  - LE_FAULT          On failure.
+ *  - LE_BAD_PARAMETER  Invalid parameters.
+ *  - LE_UNSUPPORTED    Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_CancelInstall

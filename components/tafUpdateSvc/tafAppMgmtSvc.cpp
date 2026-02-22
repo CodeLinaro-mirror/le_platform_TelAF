@@ -8,13 +8,18 @@
 
 using namespace tafsvc;
 
-/*======================================================================
- FUNCTION        taf_appMgmt_CreateAppList
- DESCRIPTION     Create an app list
- PARAMETERS      void
- RETURN VALUE    taf_appMgmt_AppListRef_t: App list reference
-======================================================================*/
-taf_appMgmt_AppListRef_t taf_appMgmt_CreateAppList(void)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Create a list of installed apps.
+ *
+ * @return
+ *  - Reference to the app list, or NULL if no apps are installed or an error occurs.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_appMgmt_AppListRef_t taf_appMgmt_CreateAppList
+(
+    void
+)
 {
     le_cfg_IteratorRef_t cfgIter = le_cfg_CreateReadTxn(TAF_APPMGMT_SYSTEM_APPS);
     if (le_cfg_GoToFirstChild(cfgIter) == LE_NOT_FOUND) {
@@ -80,13 +85,20 @@ taf_appMgmt_AppListRef_t taf_appMgmt_CreateAppList(void)
     return (taf_appMgmt_AppListRef_t)le_ref_CreateRef(tafAppMgmt.appListRefMap, (void*)appList);
 }
 
-/*======================================================================
- FUNCTION        taf_appMgmt_DeleteAppList
- DESCRIPTION     Delete an app list
- PARAMETERS      [IN] appListRef: App list reference
- RETURN VALUE    le_result_t: Result of deleting app list
-======================================================================*/
-le_result_t taf_appMgmt_DeleteAppList(taf_appMgmt_AppListRef_t appListRef)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Delete an app list and release all associated resources.
+ *
+ * @return
+ *  - LE_OK             The app list was deleted successfully.
+ *  - LE_BAD_PARAMETER  appListRef is null.
+ *  - LE_NOT_FOUND      appListRef does not resolve to a known app list reference.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_appMgmt_DeleteAppList
+(
+    taf_appMgmt_AppListRef_t appListRef ///< [IN] App list reference.
+)
 {
     TAF_ERROR_IF_RET_VAL(appListRef == nullptr, LE_BAD_PARAMETER,
         "Null reference(appListRef)");
@@ -117,13 +129,18 @@ le_result_t taf_appMgmt_DeleteAppList(taf_appMgmt_AppListRef_t appListRef)
     return LE_OK;
 }
 
-/*======================================================================
- FUNCTION        taf_appMgmt_GetFirstApp
- DESCRIPTION     Get reference of the first app
- PARAMETERS      [IN] appListRef: App list reference
- RETURN VALUE    le_result_t: Result of getting app reference
-======================================================================*/
-taf_appMgmt_AppRef_t taf_appMgmt_GetFirstApp(taf_appMgmt_AppListRef_t appListRef)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the first app in the app list.
+ *
+ * @return
+ *  - Reference to the first app, or NULL if the list is empty or the reference is invalid.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_appMgmt_AppRef_t taf_appMgmt_GetFirstApp
+(
+    taf_appMgmt_AppListRef_t appListRef ///< [IN] App list reference.
+)
 {
     auto &tafAppMgmt = taf_AppMgmt::GetInstance();
     taf_AppMgmtAppList_t* appListPtr = (taf_AppMgmtAppList_t*)le_ref_Lookup(tafAppMgmt.appListRefMap,
@@ -146,13 +163,18 @@ taf_appMgmt_AppRef_t taf_appMgmt_GetFirstApp(taf_appMgmt_AppListRef_t appListRef
     return (taf_appMgmt_AppRef_t)safeRefPtr->safeRef;
 }
 
-/*======================================================================
- FUNCTION        taf_appMgmt_GetNextApp
- DESCRIPTION     Get reference of next app
- PARAMETERS      [IN] appListRef: App list reference
- RETURN VALUE    le_result_t: Result of getting app reference
-======================================================================*/
-taf_appMgmt_AppRef_t taf_appMgmt_GetNextApp(taf_appMgmt_AppListRef_t appListRef)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the next app in the app list.
+ *
+ * @return
+ *  - Reference to the next app, or NULL if there are no more apps or the reference is invalid.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_appMgmt_AppRef_t taf_appMgmt_GetNextApp
+(
+    taf_appMgmt_AppListRef_t appListRef ///< [IN] App list reference.
+)
 {
     auto &tafAppMgmt = taf_AppMgmt::GetInstance();
     taf_AppMgmtAppList_t* appListPtr = (taf_AppMgmtAppList_t*)le_ref_Lookup(tafAppMgmt.appListRefMap,
@@ -178,14 +200,21 @@ taf_appMgmt_AppRef_t taf_appMgmt_GetNextApp(taf_appMgmt_AppListRef_t appListRef)
     return (taf_appMgmt_AppRef_t)safeRefPtr->safeRef;
 }
 
-/*======================================================================
- FUNCTION        taf_appMgmt_GetAppDetails
- DESCRIPTION     Get the detail information of an app
- PARAMETERS      [IN]  appInfoRef: App reference
-                 [OUT] appInfoPtr: App information
- RETURN VALUE    le_result_t: Result of getting app details
-======================================================================*/
-le_result_t taf_appMgmt_GetAppDetails(taf_appMgmt_AppRef_t appInfoRef, taf_appMgmt_AppInfo_t* appInfoPtr)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get details of an app.
+ *
+ * @return
+ *  - LE_OK             App details were retrieved successfully.
+ *  - LE_BAD_PARAMETER  appInfoRef or appInfoPtr is null.
+ *  - LE_NOT_FOUND      appInfoRef does not resolve to a known app reference.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_appMgmt_GetAppDetails
+(
+    taf_appMgmt_AppRef_t appInfoRef,  ///< [IN] App reference.
+    taf_appMgmt_AppInfo_t* appInfoPtr ///< [OUT] App info.
+)
 {
     TAF_ERROR_IF_RET_VAL(appInfoRef == nullptr, LE_BAD_PARAMETER, "Null reference(appInfoRef)");
 
@@ -206,26 +235,38 @@ le_result_t taf_appMgmt_GetAppDetails(taf_appMgmt_AppRef_t appInfoRef, taf_appMg
     return LE_OK;
 }
 
-/*======================================================================
- FUNCTION        taf_appMgmt_GetState
- DESCRIPTION     Get the app running state
- PARAMETERS      [IN] appName: App name
- RETURN VALUE    taf_appMgmt_AppState_t: Started or stopped
-======================================================================*/
-taf_appMgmt_AppState_t taf_appMgmt_GetState(const char* appName)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the current state of an app.
+ *
+ * @return
+ *  - The current state of the app.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_appMgmt_AppState_t taf_appMgmt_GetState
+(
+    const char* appName ///< [IN] App name.
+)
 {
     return (taf_appMgmt_AppState_t)le_appInfo_GetState(appName);
 }
 
-/*======================================================================
- FUNCTION        taf_appMgmt_GetVersion
- DESCRIPTION     Get the app version
- PARAMETERS      [IN] appName: App name
-                 [OUT] versionPtr: App version
-                 [IN] versionNumElements: App version length
- RETURN VALUE    le_result_t: Result of getting app version
-======================================================================*/
-le_result_t taf_appMgmt_GetVersion(const char* appName, char* versionPtr, size_t versionNumElements)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the version of an app.
+ *
+ * @return
+ *  - LE_OK             The app version was retrieved successfully.
+ *  - LE_BAD_PARAMETER  appName or versionPtr is null.
+ *  - LE_NOT_FOUND      No installed app entry matches appName.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_appMgmt_GetVersion
+(
+    const char* appName,          ///< [IN] App name.
+    char* versionPtr,             ///< [OUT] App version.
+    size_t versionNumElements     ///< [IN] App version size.
+)
 {
     TAF_ERROR_IF_RET_VAL(appName == nullptr, LE_BAD_PARAMETER, "Null ptr(appName)");
 
@@ -235,13 +276,18 @@ le_result_t taf_appMgmt_GetVersion(const char* appName, char* versionPtr, size_t
     return tafAppMgmt.GetAppVersion(appName, versionPtr, versionNumElements);
 }
 
-/*======================================================================
- FUNCTION        taf_appMgmt_Start
- DESCRIPTION     Start an app
- PARAMETERS      [IN] appName: App name
- RETURN VALUE    le_result_t: Result of starting an app
-======================================================================*/
-le_result_t taf_appMgmt_Start(const char* appName)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Start an app.
+ *
+ * @return
+ *  - LE_OK    The app start request was issued successfully.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_appMgmt_Start
+(
+    const char* appName ///< [IN] App name.
+)
 {
     auto &tafAppMgmt = taf_AppMgmt::GetInstance();
 
@@ -258,13 +304,19 @@ le_result_t taf_appMgmt_Start(const char* appName)
     return le_appCtrl_Start(appName);
 }
 
-/*======================================================================
- FUNCTION        taf_appMgmt_Stop
- DESCRIPTION     Stop an app
- PARAMETERS      [IN] appName: App name
- RETURN VALUE    le_result_t: Result of stopping an app
-======================================================================*/
-le_result_t taf_appMgmt_Stop(const char* appName)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Stop an app.
+ *
+ * @return
+ *  - LE_OK    The app was stopped successfully.
+ *  - LE_FAULT The app cannot be stopped during installation, probation or rollback.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_appMgmt_Stop
+(
+    const char* appName ///< [IN] App name.
+)
 {
     auto &tafAppMgmt = taf_AppMgmt::GetInstance();
 
@@ -278,13 +330,19 @@ le_result_t taf_appMgmt_Stop(const char* appName)
     return le_appCtrl_Stop(appName);
 }
 
-/*======================================================================
- FUNCTION        taf_appMgmt_Uninstall
- DESCRIPTION     Uninstall an app
- PARAMETERS      [IN] appName: App name
- RETURN VALUE    le_result_t: Result of removing an app
-======================================================================*/
-le_result_t taf_appMgmt_Uninstall(const char* appName)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Uninstall an app.
+ *
+ * @return
+ *  - LE_OK    The app was uninstalled successfully.
+ *  - LE_FAULT The app cannot be uninstalled during installation, probation or rollback.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_appMgmt_Uninstall
+(
+    const char* appName ///< [IN] App name.
+)
 {
     auto &tafAppMgmt = taf_AppMgmt::GetInstance();
 

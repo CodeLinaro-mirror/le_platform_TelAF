@@ -59,8 +59,8 @@ taf_AppMgmt &taf_AppMgmt::GetInstance
  * Check if app exists in config tree.
  *
  * @return
- * - true if app exists.
- * - false if app not exists.
+ *  - true  if app exists.
+ *  - false if app not exists.
  */
 //--------------------------------------------------------------------------------------------------
 bool taf_AppMgmt::IsAppExist
@@ -79,8 +79,8 @@ bool taf_AppMgmt::IsAppExist
  * Check if app is in manual start mode.
  *
  * @return
- * - true if app is in manual start mode.
- * - false if app is not in manual start mode.
+ *  - true  if app is in manual start mode.
+ *  - false if app is not in manual start mode.
  */
 //--------------------------------------------------------------------------------------------------
 bool taf_AppMgmt::IsStartManual
@@ -104,8 +104,8 @@ bool taf_AppMgmt::IsStartManual
  * Check if app is activated.
  *
  * @return
- * - true if app is activated.
- * - false if app is inactivated.
+ *  - true  if app is activated.
+ *  - false if app is inactivated.
  */
 //--------------------------------------------------------------------------------------------------
 bool taf_AppMgmt::IsActivated
@@ -140,8 +140,8 @@ bool taf_AppMgmt::IsActivated
  * Check if app is system integrated.
  *
  * @return
- * - true if app is system integrated.
- * - false if app is not system integrated.
+ *  - true  if app is system integrated.
+ *  - false if app is not system integrated.
  */
 //--------------------------------------------------------------------------------------------------
 bool taf_AppMgmt::IsSysApp
@@ -293,8 +293,8 @@ void* taf_AppMgmt::JsonParseThread
  * Get app version.
  *
  * @return
- * - LE_OK if app version is successfully retrieved.
- * - LE_FAULT if there is an error.
+ *  - LE_OK        if the stored version string for the named app is retrieved successfully.
+ *  - LE_NOT_FOUND if no installed app entry matches appName.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_AppMgmt::GetAppVersion
@@ -337,8 +337,8 @@ le_result_t taf_AppMgmt::GetAppVersion
  * contain leading zeros.
  *
  * @return
- * - true if app version is valid.
- * - false if app version is invalid.
+ *  - true  if app version is valid.
+ *  - false if app version is invalid.
  */
 //--------------------------------------------------------------------------------------------------
 bool taf_AppMgmt::IsValidVersion
@@ -369,8 +369,8 @@ bool taf_AppMgmt::IsValidVersion
  * Check if app version is valid for installation.
  *
  * @return
- * - true if app version is valid for installation.
- * - false if app version is invalid.
+ *  - true  if app version is valid for installation.
+ *  - false if app version is invalid.
  */
 //--------------------------------------------------------------------------------------------------
 bool taf_AppMgmt::IsValidToInstall
@@ -654,8 +654,8 @@ void taf_AppMgmt::InstallHandler
  * Send pipe command.
  *
  * @return
- * - LE_OK if the command is executed correctly.
- * - LE_FAULT if an error occurred while executing the command.
+ *  - LE_OK    if the command exits successfully.
+ *  - LE_FAULT if popen/pclose fails or the command exits with a non-zero status.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_AppMgmt::SendPipeCmd
@@ -682,8 +682,9 @@ le_result_t taf_AppMgmt::SendPipeCmd
  * Copy arritribute from source file or directory to destination.
  *
  * @return
- * - LE_OK if file arritributes are copied successfully.
- * - LE_FAULT if an error occurred while copying file arritributes.
+ *  - LE_OK    if all extended attributes are copied successfully.
+ *  - LE_FAULT if the attribute list cannot be read, an attribute value cannot be retrieved, or an
+ *             attribute cannot be written to the destination path.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_AppMgmt::CopyAttr
@@ -730,8 +731,9 @@ le_result_t taf_AppMgmt::CopyAttr
  * Copy directory from source path to destination path.
  *
  * @return
- * - LE_OK if directory is copied successfully.
- * - LE_FAULT if an error occurred while copying directory.
+ *  - LE_OK    if the destination directory is created and its metadata is copied successfully.
+ *  - LE_FAULT if source status lookup fails, destination creation fails, permissions/ownership cannot
+ *             be applied, or extended attributes cannot be copied.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_AppMgmt::CopyDir
@@ -792,8 +794,9 @@ le_result_t taf_AppMgmt::CopyDir
  * Copy file from source path to destination path.
  *
  * @return
- * - LE_OK if file is copied successfully.
- * - LE_FAULT if an error occurred while copying file.
+ *  - LE_OK    if the file content and metadata are copied successfully.
+ *  - LE_FAULT if source status lookup fails, either file cannot be opened/created, permissions or
+ *             ownership cannot be applied, extended attributes cannot be copied, or the content copy fails.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_AppMgmt::CopyFile
@@ -881,8 +884,9 @@ cleanup:
  * Copy realpath of symlink to destination path..
  *
  * @return
- * - LE_OK if realpath of symlink is copied successfully.
- * - LE_FAULT if an error occurred while copying realpath of symlink.
+ *  - LE_OK    if the symlink target is resolved and copied successfully.
+ *  - LE_FAULT if the symlink cannot be read, its target metadata cannot be queried, the target type
+ *             is unsupported, or the target copy operation fails.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_AppMgmt::CopySymlink
@@ -953,8 +957,9 @@ le_result_t taf_AppMgmt::CopySymlink
  * Copy files, directories and symlink recursively.
  *
  * @return
- * - LE_OK if files, directories and symlink are copied successfully
- * - LE_FAULT if an error occurred while copying files, directories or symlink.
+ *  - LE_OK    if the directory tree is copied successfully.
+ *  - LE_FAULT if the destination path cannot be built, the root or a child entry cannot be copied,
+ *             or an unexpected filesystem entry type is encountered during traversal.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_AppMgmt::RecursiveCopy
@@ -1042,8 +1047,10 @@ le_result_t taf_AppMgmt::RecursiveCopy
  * Backup app.
  *
  * @return
- * - LE_OK if successful backup for app.
- * - LE_FAULT if an error occurred while backing up an app.
+ *  - LE_OK    if the installed app content is copied, packed, annotated with metadata, and the
+ *             temporary backup directory is removed successfully.
+ *  - LE_FAULT if the app tree cannot be copied, the bundle cannot be generated, the bundle file
+ *             cannot be reopened, or the temporary backup directory cannot be cleaned up.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_AppMgmt::BackupApp
@@ -1138,6 +1145,9 @@ le_result_t taf_AppMgmt::BackupApp
 //--------------------------------------------------------------------------------------------------
 /**
  * App update handler.
+ *
+ * @note This helper has no return value. It drives app install / probation / rollback state
+ *       transitions and emits the corresponding update progress indications.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_AppMgmt::AppUpdateHandler
@@ -1267,6 +1277,9 @@ void taf_AppMgmt::AppUpdateHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Thread for app update.
+ *
+ * @note This thread has no return value. It connects the required services, registers update
+ *       handlers, and runs the event loop for app update processing.
  */
 //--------------------------------------------------------------------------------------------------
 void* taf_AppMgmt::AppUpdateThread
@@ -1296,6 +1309,9 @@ void* taf_AppMgmt::AppUpdateThread
 //--------------------------------------------------------------------------------------------------
 /**
  * Intialization.
+ *
+ * @note This helper has no return value. It initializes the app-management caches, starts the app
+ *       update and JSON parser threads, and creates the probation timer.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_AppMgmt::Init

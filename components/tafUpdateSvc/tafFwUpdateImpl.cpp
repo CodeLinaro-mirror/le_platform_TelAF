@@ -55,13 +55,18 @@ static taf_FwUpdateParition_t partitonTableInfo[] =
     {"lxcrootfs", true, "lxcrootfs.new.dat", "lxcrootfs.patch.dat"}
 };
 
-/*======================================================================
- FUNCTION        taf_FwUpdate::GetInstance
- DESCRIPTION     Get a instance of taf_FwUpdate
- PARAMETERS      void
- RETURN VALUE    taf_FwUpdate: Instance reference
-======================================================================*/
-taf_FwUpdate &taf_FwUpdate::GetInstance()
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the singleton instance of taf_FwUpdate.
+ *
+ * @return
+ *  - Reference to the singleton taf_FwUpdate instance.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_FwUpdate &taf_FwUpdate::GetInstance
+(
+    void
+)
 {
     static taf_FwUpdate instance;
     return instance;
@@ -129,6 +134,12 @@ bool taf_FwUpdate::GetUnpackDir
 //--------------------------------------------------------------------------------------------------
 /**
  * Get post script.
+ *
+ * @return
+ *  - LE_OK             The script path for the requested post-processing state was returned successfully.
+ *  - LE_BAD_PARAMETER  state does not map to a supported post-processing stage.
+ *  - LE_FAULT          The configuration file could not be loaded or parsed, or the expected JSON nodes
+ *                      for the selected post-processing hook are missing.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::GetPostScript
@@ -206,6 +217,12 @@ le_result_t taf_FwUpdate::GetPostScript
 //--------------------------------------------------------------------------------------------------
 /**
  * Get cancel post script.
+ *
+ * @return
+ *  - LE_OK             The cancel-hook script path was returned successfully.
+ *  - LE_BAD_PARAMETER  state does not map to a supported cancel-hook stage.
+ *  - LE_FAULT          The configuration file could not be loaded or parsed, or the expected JSON nodes
+ *                      for the cancel hook are missing.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::GetCancelPostScript
@@ -1066,6 +1083,14 @@ uint32_t taf_FwUpdate::GetActivationItemCount
 //--------------------------------------------------------------------------------------------------
 /**
  * Intialize partition list.
+ *
+ * @return
+ *  - LE_OK    The partition list was initialized successfully or had already been initialized.
+ *  - LE_FAULT Flash access initialization failed, /proc/mtd could not be opened, or partition
+ *             discovery could not proceed.
+ *
+ * @note This function depends on taf_pa_flash_Init(); lower-layer failure reasons depend on the
+ *       adaptor implementation.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::InitPartitionList
@@ -1376,14 +1401,20 @@ void taf_FwUpdate::UpdateProgress
     tafFwUpdate.ReportStatus(state, tafFwUpdate.percent, tafFwUpdate.error);
 }
 
-/*======================================================================
- FUNCTION        taf_FwUpdate::SendPipeCmd
- DESCRIPTION     Report FOTA result to server
- PARAMETERS      [IN] cmd: Pipe command
-                 [IN] mode: Pipe open mode.
- RETURN VALUE    le_result_t: Result of sending pipe command
-======================================================================*/
-le_result_t taf_FwUpdate::SendPipeCmd(const char* cmd, const char* mod)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Send a pipe command.
+ *
+ * @return
+ *  - LE_OK    The command was executed successfully.
+ *  - LE_FAULT popen failed or the command exited with a non-zero status.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::SendPipeCmd
+(
+    const char* cmd, ///< [IN] Pipe command.
+    const char* mod  ///< [IN] Open mode.
+)
 {
     FILE* fp = popen(cmd, mod);
     TAF_ERROR_IF_RET_VAL(fp == NULL, LE_FAULT, "popen failed.");
@@ -1455,8 +1486,9 @@ void taf_FwUpdate::GetTelafVersion
  * Get firmware version.
  *
  * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ *  - LE_OK    The firmware version string was parsed and copied successfully.
+ *  - LE_FAULT The version file could not be opened, or the expected firmware version tokens could
+ *             not be parsed from its contents.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::GetFirmwareVersion
@@ -1504,8 +1536,9 @@ le_result_t taf_FwUpdate::GetFirmwareVersion
  * Firmware installation pre-check.
  *
  * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ *  - LE_OK    Pre-check completed successfully or was bypassed by the special bypass tag.
+ *  - LE_FAULT The manifest could not be opened, current firmware information could not be obtained,
+ *             manifest version lines could not be parsed, or downgrade detection failed.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::InstallPreCheck
@@ -2610,7 +2643,12 @@ void taf_FwUpdate::InstallFirmware
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Calculate Hash of a file
+ * Calculate Hash of a file.
+ *
+ * @return
+ *  - LE_OK    The file hash was calculated successfully.
+ *  - LE_FAULT The digest context could not be created or initialized, or the source file could not
+ *             be opened.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::CalFileHash
@@ -2667,6 +2705,17 @@ le_result_t taf_FwUpdate::CalFileHash
 //--------------------------------------------------------------------------------------------------
 /**
  * Calculate Hash of a partition
+ *
+ * @return
+ *  - LE_OK    The partition hash was calculated successfully.
+ *  - LE_FAULT Partition discovery failed, the target partition could not be found, digest context
+ *             creation/initialization failed, or one of the lower-layer open/info/read/close
+ *             operations failed.
+ *
+ * @note This function depends on taf_pa_flash_OpenUbiVolume(), taf_pa_flash_ReadUbiVolume(),
+ *       taf_pa_flash_CloseUbiVolume(), taf_pa_flash_OpenMtd(), taf_pa_flash_GetMtdInfo(),
+ *       taf_pa_flash_CheckMtdGoodBlock(), taf_pa_flash_ReadMtdPage(), and taf_pa_flash_CloseMtd();
+ *       actual lower-layer failure reasons depend on the adaptor implementation.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::CalPartitionHash
@@ -3022,8 +3071,9 @@ void taf_FwUpdate::InstallPostCheck
  * Get active bank.
  *
  * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ *  - LE_OK    The active bank was parsed successfully.
+ *  - LE_FAULT The boot-slot command could not be executed, its output could not be read, or the
+ *             returned slot string was not recognized.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::GetActiveBank
@@ -3069,8 +3119,8 @@ le_result_t taf_FwUpdate::GetActiveBank
  * Set active bank.
  *
  * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ *  - LE_OK    The boot-slot switch command was issued successfully.
+ *  - LE_FAULT The bank argument is invalid or the boot-slot command could not be started.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::SetActiveBank
@@ -3104,8 +3154,15 @@ le_result_t taf_FwUpdate::SetActiveBank
  * Erase bank.
  *
  * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ *  - LE_OK    The requested inactive bank erase traversal completed successfully.
+ *  - LE_FAULT Partition discovery failed, one of the lower-layer erase operations failed, or the
+ *             lower layer rejected an open/info/erase/close request.
+ *
+ * @note This function depends on taf_pa_flash_OpenMtd(), taf_pa_flash_GetMtdInfo(),
+ *       taf_pa_flash_CheckMtdGoodBlock(), taf_pa_flash_EraseMtdBlock(),
+ *       taf_pa_flash_MarkMtdBadBlock(), taf_pa_flash_CloseMtd(), and
+ *       taf_pa_flash_EraseUbiVolume(); actual lower-layer failure reasons depend on the adaptor
+ *       implementation.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::EraseBank
@@ -3181,8 +3238,15 @@ le_result_t taf_FwUpdate::EraseBank
  * PerformBankSync.
  *
  * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ *  - LE_OK    The bank synchronization traversal completed successfully.
+ *  - LE_FAULT The active bank could not be determined, partition discovery failed, or a lower-layer
+ *             open/info/copy/close request failed while processing one of the partitions.
+ *
+ * @note This function depends on taf_pa_flash_OpenUbiVolume(), taf_pa_flash_GetUbiVolumeInfo(),
+ *       taf_pa_flash_CloseUbiVolume(), taf_pa_flash_CopyUbiVolume(), taf_pa_flash_OpenMtd(),
+ *       taf_pa_flash_GetMtdInfo(), taf_pa_flash_CheckMtdGoodBlock(), taf_pa_flash_ReadMtdPage(),
+ *       taf_pa_flash_CloseMtd(), and taf_pa_flash_CopyMtd(); actual lower-layer failure reasons
+ *       depend on the adaptor implementation.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::PerformBankSync
@@ -3295,8 +3359,9 @@ le_result_t taf_FwUpdate::PerformBankSync
  * Rollback.
  *
  * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ *  - LE_OK    The rollback bank switch request completed successfully.
+ *  - LE_FAULT The bank had not been switched yet, the active bank could not be determined, or the
+ *             service failed to select the previous bank as active.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::Rollback
@@ -3576,7 +3641,7 @@ void taf_FwUpdate::ActivateComponent
 //--------------------------------------------------------------------------------------------------
 void taf_FwUpdate::FwUpdateHandler
 (
-    void* reqPtr
+    void* reqPtr ///< [IN] Update request.
 )
 {
     taf_FwUpdateReq_t* updateReq = (taf_FwUpdateReq_t*)reqPtr;
@@ -3709,7 +3774,7 @@ void taf_FwUpdate::FwUpdateHandler
 //--------------------------------------------------------------------------------------------------
 void* taf_FwUpdate::FwUpdateThread
 (
-    void* contextPtr ///< [IN] Context
+    void* contextPtr ///< [IN] Context.
 )
 {
     le_cfg_ConnectService();
@@ -3724,6 +3789,10 @@ void* taf_FwUpdate::FwUpdateThread
 //--------------------------------------------------------------------------------------------------
 /**
  * Post process.
+ *
+ * @return
+ *  - LE_OK    Post-processing completed successfully or was skipped because no script exists.
+ *  - LE_FAULT The script path could not be obtained or the post-processing command failed.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::PostProcess
@@ -3762,6 +3831,11 @@ le_result_t taf_FwUpdate::PostProcess
 //--------------------------------------------------------------------------------------------------
 /**
  * Cancel the post installation.
+ *
+ * @return
+ *  - LE_OK    Cancel-post-install processing completed successfully or was skipped because no
+ *             script exists.
+ *  - LE_FAULT The cancel-hook script path could not be obtained or the cancel command failed.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::CancelPostInstall

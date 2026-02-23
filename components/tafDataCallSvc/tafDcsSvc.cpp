@@ -1389,3 +1389,141 @@ void taf_dcs_RemoveThrottledStatusHandler
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     return tafDcsProfileManager.SvcRemoveThrottledStatusHandler(handlerRef);
 }
+
+taf_dcs_ThroughputInfoChangeHandlerRef_t taf_dcs_AddThroughputInfoChangeHandler
+(
+    uint8_t phone,
+    taf_dcs_ThroughputInfoHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(handlerPtr == nullptr, nullptr, "handlerPtr is NULL");
+
+    auto &tafDcsSvc = TafDcsSvc::GetInstance();
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
+                         nullptr, "Service not initialized.");
+
+    auto &mgr = TafDcsProfileManager::GetInstance();
+    return mgr.SvcAddThroughputInfoChangeHandler(phone, handlerPtr, contextPtr);
+}
+
+void taf_dcs_RemoveThroughputInfoChangeHandler
+(
+    taf_dcs_ThroughputInfoChangeHandlerRef_t handlerRef
+)
+{
+    TAF_ERROR_IF_RET_NIL(handlerRef == nullptr, "handlerRef is NULL");
+    auto &mgr = TafDcsProfileManager::GetInstance();
+    mgr.SvcRemoveThroughputInfoChangeHandler(handlerRef);
+}
+
+// ============================================================================
+// Throughput API Implementations
+// ============================================================================
+
+le_result_t taf_dcs_SetThroughputReport
+(
+    uint8_t phoneId,
+    taf_dcs_LinkDirection_t direction,
+    bool enabled,
+    uint32_t interval
+)
+{
+    auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
+    return manager.SvcSetThroughputReport(phoneId, direction, enabled, interval);
+}
+
+le_result_t taf_dcs_GetLastThroughputInfoList
+(
+    uint8_t phoneId,
+    taf_dcs_ThroughputInfoListRef_t* listRefPtr
+)
+{
+    auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
+    return manager.SvcGetLastThroughputInfoList(phoneId, listRefPtr);
+}
+
+le_result_t taf_dcs_DeleteLastThroughputInfoList
+(
+    taf_dcs_ThroughputInfoListRef_t listRef
+)
+{
+    auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
+    return manager.SvcDeleteLastThroughputInfoList(listRef);
+}
+
+le_result_t taf_dcs_GetThroughputInfoCount
+(
+    taf_dcs_ThroughputInfoListRef_t listRef,
+    uint32_t* countPtr
+)
+{
+    auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
+    return manager.SvcGetThroughputInfoCount(listRef, countPtr);
+}
+
+le_result_t taf_dcs_GetThroughputInfo
+(
+    taf_dcs_ThroughputInfoListRef_t listRef,
+    uint32_t index,
+    taf_dcs_ThroughputInfoRef_t* infoRefPtr
+)
+{
+    auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
+    return manager.SvcGetThroughputInfo(listRef, index, infoRefPtr);
+}
+
+le_result_t taf_dcs_GetThroughputApnName
+(
+    taf_dcs_ThroughputInfoRef_t infoRef,
+    char* name,
+    size_t nameSize
+)
+{
+    auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
+    return manager.SvcGetThroughputApnName(infoRef, name, nameSize);
+}
+
+le_result_t taf_dcs_GetThroughputActualRate
+(
+    taf_dcs_ThroughputInfoRef_t infoRef,
+    taf_dcs_LinkDirection_t direction,
+    uint32_t* ratePtr
+)
+{
+    auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
+    return manager.SvcGetThroughputActualRate(infoRef, direction, ratePtr);
+}
+
+le_result_t taf_dcs_GetThroughputAllowedRate
+(
+    taf_dcs_ThroughputInfoRef_t infoRef,
+    taf_dcs_LinkDirection_t direction,
+    uint32_t* ratePtr
+)
+{
+    auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
+    return manager.SvcGetThroughputAllowedRate(infoRef, direction, ratePtr);
+}
+
+le_result_t taf_dcs_GetThroughputQueueSize
+(
+    taf_dcs_ThroughputInfoRef_t infoRef,
+    taf_dcs_LinkDirection_t direction,
+    uint32_t* sizePtr
+)
+{
+    auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
+    return manager.SvcGetThroughputQueueSize(infoRef, direction, sizePtr);
+}
+
+le_result_t taf_dcs_GetThroughputQuality
+(
+    taf_dcs_ThroughputInfoRef_t infoRef,
+    taf_dcs_LinkDirection_t direction,
+    taf_dcs_ThroughputQuality_t* qualityPtr
+)
+{
+    auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
+    return manager.SvcGetThroughputQuality(infoRef, direction, qualityPtr);
+}

@@ -2519,6 +2519,333 @@ bool TafDcsProfileManager::SvcIsIPv6(taf_dcs_ProfileRef_t profileRef)
     return false;
 }
 
+// Helper macros for Reference Map creation
+#define GET_THROUGHPUT_LIST_FROM_REF(ref, ptr) \
+    ptr = (TafDcsThroughputList_t*)le_ref_Lookup(getThroughputInfoListRefMap(), ref); \
+    TAF_ERROR_IF_RET_VAL(ptr == nullptr, LE_NOT_FOUND, "Invalid Throughput List Reference");
+
+#define GET_THROUGHPUT_INFO_FROM_REF(ref, ptr) \
+    ptr = (taf::pa::data::ThroughputInfo_t*)le_ref_Lookup(getThroughputInfoRefMap(), ref); \
+    TAF_ERROR_IF_RET_VAL(ptr == nullptr, LE_NOT_FOUND, "Invalid Throughput Info Reference");
+
+// Create/Get Reference Maps
+le_ref_MapRef_t TafDcsProfileManager::getThroughputInfoListRefMap() {
+    if (throughputInfoListRefMap_ == nullptr) {
+        throughputInfoListRefMap_ = le_ref_CreateMap("ThroughputListMap", 10);
+    }
+    return throughputInfoListRefMap_;
+}
+
+le_ref_MapRef_t TafDcsProfileManager::getThroughputInfoRefMap() {
+    if (throughputInfoRefMap_ == nullptr) {
+        throughputInfoRefMap_ = le_ref_CreateMap("ThroughputInfoMap", 50);
+    }
+    return throughputInfoRefMap_;
+}
+
+// SetThroughputReport
+le_result_t TafDcsProfileManager::SvcSetThroughputReport(
+    uint8_t phoneId,
+    taf_dcs_LinkDirection_t direction,
+    bool enabled,
+    uint32_t interval)
+{
+    LE_INFO("Phone: %d, Direction: %d, Enabled: %d, Interval: %d", phoneId, direction, enabled, interval);
+
+    // NOTE: Lower layers (PA/SDK) do not support filtering by direction.
+    // The direction parameter is ignored for configuration purposes.
+    // Use interval 0 to disable if enabled is false.
+
+    uint32_t effectiveInterval = 0;
+
+    if (enabled)
+    {
+        TAF_ERROR_IF_RET_VAL(0 == interval, LE_BAD_PARAMETER,
+            "interval must be > 0 when enabled is true");
+        // Logic: Round down to the nearest 100ms window (e.g., 220 -> 200)
+        effectiveInterval = (interval / 100) * 100;
+
+        // Logic: Minimum interval is 100ms. If rounding resulted in 0 or input was small, clamp to 100.
+        if (effectiveInterval < 100)
+        {
+            LE_INFO("Throughput interval %d rounded/clamped to minimum 100ms", interval);
+            effectiveInterval = 100;
+        }
+        else if (effectiveInterval != interval)
+        {
+            LE_INFO("Throughput interval %d rounded down to %dms", interval, effectiveInterval);
+        }
+    }
+    else
+    {
+        LE_INFO("Throughput report disabled, set interval to 0ms");
+        effectiveInterval = 0;
+    }
+
+    // LinkDirection parameter is ignored as the underlying PA/SDK configures this globally.
+    le_result_t result = PA_TO_LE_RESULT(taf::pa::data::SetThroughputReportInterval(
+        static_cast<taf::pa::data::PhoneId_e>(phoneId),
+        effectiveInterval
+    ));
+  
+    return result;
+}
+
+// GetLastThroughputInfoList
+le_result_t TafDcsProfileManager::SvcGetLastThroughputInfoList(
+    uint8_t phoneId,
+    taf_dcs_ThroughputInfoListRef_t* listRefPtr)
+{
+    TAF_ERROR_IF_RET_VAL(listRefPtr == nullptr, LE_BAD_PARAMETER, "listRefPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(phoneId == 0, LE_BAD_PARAMETER, "phoneId is 0");
+
+    std::vector<taf::pa::data::ThroughputInfo_t> paList;
+    le_result_t result = PA_TO_LE_RESULT(taf::pa::data::GetLastThroughputInfo(
+        static_cast<taf::pa::data::PhoneId_e>(phoneId),
+        paList
+    ));
+
+    if (result != LE_OK) return result;
+
+    // Create new list object
+    TafDcsThroughputList_t* newList = new TafDcsThroughputList_t();
+    newList->infoList = paList;
+
+    // Create Reference
+    *listRefPtr = (taf_dcs_ThroughputInfoListRef_t)le_ref_CreateRef(getThroughputInfoListRefMap(), newList);
+
+    return LE_OK;
+}
+
+// DeleteLastThroughputInfoList
+le_result_t TafDcsProfileManager::SvcDeleteLastThroughputInfoList(taf_dcs_ThroughputInfoListRef_t listRef)
+{
+    TafDcsThroughputList_t* listPtr = nullptr;
+    GET_THROUGHPUT_LIST_FROM_REF(listRef, listPtr);
+
+    // Invalidate all info refs created from this list and free their heap objects
+    for (size_t i = 0; i < listPtr->infoRefs.size(); ++i)
+    {
+        if (listPtr->infoRefs[i] != nullptr)
+        {
+            le_ref_DeleteRef(getThroughputInfoRefMap(), listPtr->infoRefs[i]);
+        }
+        delete listPtr->infoObjs[i];
+    }
+    listPtr->infoRefs.clear();
+    listPtr->infoObjs.clear();
+
+    le_ref_DeleteRef(getThroughputInfoListRefMap(), listRef);
+    delete listPtr;
+    return LE_OK;
+}
+
+// GetThroughputInfoCount
+le_result_t TafDcsProfileManager::SvcGetThroughputInfoCount(
+    taf_dcs_ThroughputInfoListRef_t listRef,
+    uint32_t* countPtr)
+{
+    TAF_ERROR_IF_RET_VAL(countPtr == nullptr, LE_BAD_PARAMETER, "countPtr is NULL");
+
+    TafDcsThroughputList_t* listPtr = nullptr;
+    GET_THROUGHPUT_LIST_FROM_REF(listRef, listPtr);
+
+    *countPtr = static_cast<uint32_t>(listPtr->infoList.size());
+    return LE_OK;
+}
+
+// GetThroughputInfo
+le_result_t TafDcsProfileManager::SvcGetThroughputInfo(
+    taf_dcs_ThroughputInfoListRef_t listRef,
+    uint32_t index,
+    taf_dcs_ThroughputInfoRef_t* infoRefPtr)
+{
+    TAF_ERROR_IF_RET_VAL(infoRefPtr == nullptr, LE_BAD_PARAMETER, "infoRefPtr is NULL");
+
+    TafDcsThroughputList_t* listPtr = nullptr;
+    GET_THROUGHPUT_LIST_FROM_REF(listRef, listPtr);
+
+    if (index >= listPtr->infoList.size())
+    {
+        return LE_OUT_OF_RANGE;
+    }
+
+    // Heap-copy the item to avoid dangling refs if list is deleted
+    auto *copy = new taf::pa::data::ThroughputInfo_t(listPtr->infoList[index]);
+
+    auto ref = (taf_dcs_ThroughputInfoRef_t)le_ref_CreateRef(getThroughputInfoRefMap(), copy);
+
+    listPtr->infoObjs.push_back(copy);
+    listPtr->infoRefs.push_back(ref);
+
+    *infoRefPtr = ref;
+    return LE_OK;
+}
+
+// GetThroughputApnName
+le_result_t TafDcsProfileManager::SvcGetThroughputApnName(
+    taf_dcs_ThroughputInfoRef_t infoRef,
+    char* name,
+    size_t nameSize)
+{
+    TAF_ERROR_IF_RET_VAL(name == nullptr, LE_BAD_PARAMETER, "name is NULL");
+    TAF_ERROR_IF_RET_VAL(nameSize == 0, LE_BAD_PARAMETER, "nameSize is 0");
+
+    taf::pa::data::ThroughputInfo_t* infoPtr = nullptr;
+    GET_THROUGHPUT_INFO_FROM_REF(infoRef, infoPtr);
+
+    // Retrieve APN from Profile ID via Profile Object
+    auto profileOpt = getProfile((uint8_t)infoPtr->phoneId, (uint32_t)infoPtr->profileId);
+    if (profileOpt.has_value()) {
+        std::string apnStr;
+        profileOpt.value().get().GetApn(apnStr);
+        return le_utf8_Copy(name, apnStr.c_str(), nameSize, nullptr);
+    }
+
+    return LE_NOT_FOUND;
+}
+
+// GetThroughputActualRate
+le_result_t TafDcsProfileManager::SvcGetThroughputActualRate(
+    taf_dcs_ThroughputInfoRef_t infoRef,
+    taf_dcs_LinkDirection_t direction,
+    uint32_t* ratePtr)
+{
+    TAF_ERROR_IF_RET_VAL(ratePtr == nullptr, LE_BAD_PARAMETER, "ratePtr is NULL");
+
+    taf::pa::data::ThroughputInfo_t* infoPtr = nullptr;
+    GET_THROUGHPUT_INFO_FROM_REF(infoRef, infoPtr);
+
+    if (direction == TAF_DCS_LINK_DIRECTION_UPLINK) {
+        *ratePtr = infoPtr->ulThroughput.throughput;
+    } else if (direction == TAF_DCS_LINK_DIRECTION_DOWNLINK) {
+        *ratePtr = infoPtr->dlThroughput.throughput;
+    } else {
+        return LE_BAD_PARAMETER;
+    }
+    return LE_OK;
+}
+
+// GetThroughputAllowedRate
+le_result_t TafDcsProfileManager::SvcGetThroughputAllowedRate(
+    taf_dcs_ThroughputInfoRef_t infoRef,
+    taf_dcs_LinkDirection_t direction,
+    uint32_t* ratePtr)
+{
+    TAF_ERROR_IF_RET_VAL(ratePtr == nullptr, LE_BAD_PARAMETER, "ratePtr is NULL");
+
+    taf::pa::data::ThroughputInfo_t* infoPtr = nullptr;
+    GET_THROUGHPUT_INFO_FROM_REF(infoRef, infoPtr);
+
+    if (direction == TAF_DCS_LINK_DIRECTION_UPLINK)
+    {
+        *ratePtr = infoPtr->ulThroughput.maxThroughput;
+        return LE_OK;
+    }
+    if (direction == TAF_DCS_LINK_DIRECTION_DOWNLINK)
+    {
+        return LE_NOT_IMPLEMENTED;
+    }
+    return LE_BAD_PARAMETER;
+}
+
+// GetThroughputQueueSize
+le_result_t TafDcsProfileManager::SvcGetThroughputQueueSize(
+    taf_dcs_ThroughputInfoRef_t infoRef,
+    taf_dcs_LinkDirection_t direction,
+    uint32_t* sizePtr)
+{
+    TAF_ERROR_IF_RET_VAL(sizePtr == nullptr, LE_BAD_PARAMETER, "sizePtr is NULL");
+
+    taf::pa::data::ThroughputInfo_t* infoPtr = nullptr;
+    GET_THROUGHPUT_INFO_FROM_REF(infoRef, infoPtr);
+
+    if (direction == TAF_DCS_LINK_DIRECTION_UPLINK)
+    {
+        *sizePtr = infoPtr->ulThroughput.maxThroughput;
+        return LE_OK;
+    }
+    if (direction == TAF_DCS_LINK_DIRECTION_DOWNLINK)
+    {
+        return LE_NOT_IMPLEMENTED;
+    }
+    return LE_BAD_PARAMETER;
+}
+
+// GetThroughputQuality
+le_result_t TafDcsProfileManager::SvcGetThroughputQuality(
+    taf_dcs_ThroughputInfoRef_t infoRef,
+    taf_dcs_LinkDirection_t direction,
+    taf_dcs_ThroughputQuality_t* qualityPtr)
+{
+    LE_UNUSED(infoRef);
+    LE_UNUSED(direction);
+    *qualityPtr = TAF_DCS_THROUGHPUT_QUALITY_UNKNOWN;
+    return LE_OK;
+}
+
+le_event_Id_t TafDcsProfileManager::getThroughputInfoEventId(uint8_t phoneId)
+{
+    std::unique_lock<std::shared_mutex> lock(throughputEvtIdByPhoneMtx_);
+
+    auto it = throughputEvtIdByPhone_.find(phoneId);
+    if (it != throughputEvtIdByPhone_.end())
+    {
+        return it->second;
+    }
+
+    std::string name = "throughputInfoChangedEventId_phone_" + std::to_string(phoneId);
+    le_event_Id_t id = le_event_CreateId(name.c_str(), sizeof(TafDcsThroughputInfoChangeEvent_t));
+    throughputEvtIdByPhone_[phoneId] = id;
+    return id;
+}
+
+/**
+ * The handler from which throughput info change events will be sent to registered clients.
+ * This is declared as static and has limited scope within this file.
+ */
+void TafDcsProfileManager::firstThroughputInfoHandler(void *reportPtr, void *clientHandlerFunc)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == nullptr, "reportPtr is NULL");
+    TAF_ERROR_IF_RET_NIL(clientHandlerFunc == nullptr, "clientHandlerFunc is NULL");
+
+    auto *evt = static_cast<TafDcsThroughputInfoChangeEvent_t *>(reportPtr);
+    auto handlerFunc =
+        reinterpret_cast<taf_dcs_ThroughputInfoHandlerFunc_t>(clientHandlerFunc);
+
+    // Signature expected by unit test:
+    // handler(phoneId, const taf_dcs_ThroughputInfoInd_t*, contextPtr)
+    handlerFunc(evt->phoneId, &evt->ind, le_event_GetContextPtr());
+}
+
+taf_dcs_ThroughputInfoChangeHandlerRef_t TafDcsProfileManager::SvcAddThroughputInfoChangeHandler(
+    uint8_t phoneId,
+    taf_dcs_ThroughputInfoHandlerFunc_t handlerPtr,
+    void *contextPtr)
+{
+    TAF_ERROR_IF_RET_VAL(handlerPtr == nullptr, nullptr, "handlerPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(phoneId == 0, nullptr, "Invalid phone id 0");
+
+    le_event_Id_t evtId = getThroughputInfoEventId(phoneId);
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler(
+        "ThroughputInfoChange",
+        evtId,
+        firstThroughputInfoHandler,
+        (void *)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+    return (taf_dcs_ThroughputInfoChangeHandlerRef_t)handlerRef;
+}
+
+void TafDcsProfileManager::SvcRemoveThroughputInfoChangeHandler(
+    taf_dcs_ThroughputInfoChangeHandlerRef_t handlerRef)
+{
+    TAF_ERROR_IF_RET_NIL(handlerRef == nullptr, "handlerRef is NULL");
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+    return;
+}
+
 /**
  * The handler from which RoamingStatus event will be sent to registered clients.
  */
@@ -3201,6 +3528,15 @@ void TafDcsProfileManager::registerInternalEventCallbacks()
         NULL, NULL
     );
 
+    // paThroughputEvtId_
+    LE_DEBUG("paThroughputEvtId_");
+    le_event_QueueFunctionToThread
+    (
+        tafDcsSvc.GetEventsThreadRef(),
+        registerPaThroughputEvtHandler,
+        NULL, NULL
+    );
+
     // Queue the function to signal the completion of all events last. This should be the LAST!
     LE_DEBUG("Queue signalEventThreadInitComplete");
     le_event_QueueFunctionToThread(
@@ -3367,6 +3703,12 @@ void TafDcsProfileManager::registerPACallbacks()
     LE_DEBUG("AddHwAccelerationChangeEventsCallback, res: %d, Id: %d", TO_INT(result),
                                                                    hwAccelerationEventsCallbackId_);
 
+    // Register the throughput info events callback
+    result = PA_TO_LE_RESULT(taf::pa::data::AddThroughputEventsCallback(
+                            tafPaThroughputEventsCb, nullptr, throughputEventsCallbackId_));
+    LE_DEBUG("AddThroughputEventsCallback, res: %d, Id: %d", TO_INT(result),
+                                                            throughputEventsCallbackId_);
+
     LE_DEBUG("PA callback registrations complete.");
 }
 
@@ -3382,6 +3724,12 @@ void TafDcsProfileManager::deregisterPACallbacks()
     qosTftEventsCallbackId_ = 0;
     taf::pa::data::RemoveHwAccelerationChangeEventsCallback(hwAccelerationEventsCallbackId_);
     hwAccelerationEventsCallbackId_ = 0;
+
+    if (throughputEventsCallbackId_ != 0)
+    {
+        taf::pa::data::RemoveThroughputEventsCallback(throughputEventsCallbackId_);
+        throughputEventsCallbackId_ = 0;
+    }
 }
 
 // Return pointer to matching phone id and profile id
@@ -3947,6 +4295,80 @@ void TafDcsProfileManager::tafPaHwAccelerationEventsCb
         sizeof(TafDcsHwAccelerationChangeEvent_t)
     );
     return;
+}
+
+void TafDcsProfileManager::tafPaThroughputEventsCb
+(
+    const std::vector<taf::pa::data::ThroughputInfo_t> &throughputInfoList,
+    std::shared_ptr<void> context
+)
+{
+    LE_UNUSED(context);
+
+    auto &mgr = TafDcsProfileManager::GetInstance();
+    auto &svc = TafDcsSvc::GetInstance();
+
+    for (const auto &paInfo : throughputInfoList)
+    {
+        TafDcsThroughputInfoChangeEvent_t evt{};
+        evt.phoneId = static_cast<uint8_t>(paInfo.phoneId);
+        evt.ind.profileId = static_cast<uint32_t>(paInfo.profileId);
+
+        // Set the phoneId
+        evt.ind.phoneId = evt.phoneId;
+
+        // Defaults
+        memset(evt.ind.apnName, 0, TAF_DCS_APN_NAME_MAX_BYTES);
+        evt.ind.ipFamily   = TAF_DCS_PDP_UNKNOWN;
+        evt.ind.techFamily = TAF_DCS_TECH_UNKNOWN;
+        evt.ind.quality    = TAF_DCS_THROUGHPUT_QUALITY_UNKNOWN;
+
+        // Map throughput data rates and queue size
+        evt.ind.actualUplinkRate   = paInfo.ulThroughput.throughput;
+        evt.ind.allowedUplinkRate  = paInfo.ulThroughput.maxThroughput;
+        evt.ind.uplinkQueueSize    = paInfo.ulThroughput.queueSize;
+        evt.ind.actualDownlinkRate = paInfo.dlThroughput.throughput;
+
+        // APN + PDP + Tech: derived from DCS profile object
+        uint32_t profileId = static_cast<uint32_t>(paInfo.profileId);
+        auto profileOpt = mgr.getProfile(static_cast<uint8_t>(paInfo.phoneId), profileId);
+
+        if (profileOpt.has_value())
+        {
+            TafDcsProfile &profile = profileOpt->get();
+
+            std::string apn;
+            if (profile.GetApn(apn) == LE_OK)
+            {
+                le_utf8_Copy(evt.ind.apnName,
+                             apn.c_str(),
+                             sizeof(evt.ind.apnName),
+                             NULL);
+            }
+
+            taf_dcs_Pdp_t pdp = TAF_DCS_PDP_UNKNOWN;
+            profile.GetPdp(pdp);
+            evt.ind.ipFamily = pdp;
+
+            taf_dcs_Tech_t tech = TAF_DCS_TECH_UNKNOWN;
+            profile.GetTech(tech);
+            evt.ind.techFamily = tech;
+
+            LE_DEBUG("Profile ID: %d, Slot: %d",
+                        TO_INT(paInfo.profileId), TO_INT(paInfo.slotId));
+
+            LE_DEBUG("TPUT FROM PA: phoneId=%u profileId=%d apn=%s ipFamily=%d techFamily=%d",
+                        evt.ind.phoneId, evt.ind.profileId, evt.ind.apnName,
+                        (int)evt.ind.ipFamily, (int)evt.ind.techFamily);
+            LE_DEBUG("PA TPUT STATS: actUL=%uKB/s allowedUL=%uKB/s ulQ=%uB actDL=%uKB/s quality=%d",
+                        evt.ind.actualUplinkRate, evt.ind.allowedUplinkRate,
+                        evt.ind.uplinkQueueSize,evt.ind.actualDownlinkRate,
+                        (int)evt.ind.quality);
+
+            // Post into DCS event thread
+            le_event_Report(svc.GetPaThroughputEvtId(), &evt, sizeof(evt));
+        }
+    }
 }
 
 /**************************************************************************************************/
@@ -4553,6 +4975,33 @@ void TafDcsProfileManager::paQosTftEvtHandler(void *reqPtr)
     // Send event to clients
     le_result_t result = tafDcsProfileManager.sendQosTftEvent(qosTftEvt);
     TAF_ERROR_IF_RET_NIL(LE_OK != result, "sendQosTftEvent failed: %d", result);
+}
+
+void TafDcsProfileManager::registerPaThroughputEvtHandler(void *param1Ptr, void *param2Ptr)
+{
+    LE_INFO("Register handler for paThroughputEvtId_");
+    LE_UNUSED(param1Ptr);
+    LE_UNUSED(param2Ptr);
+    auto &svc = TafDcsSvc::GetInstance();
+    le_event_AddHandler("paThroughputEvtId_ Hdlr", svc.GetPaThroughputEvtId(),
+                                                    paThroughputEvtHandler);
+}
+
+void TafDcsProfileManager::paThroughputEvtHandler(void *reqPtr)
+{
+    LE_DEBUG("The paThroughputEvtId_ handler");
+    TAF_ERROR_IF_RET_NIL(reqPtr == nullptr, "reqPtr is NULL");
+
+    auto *evt = static_cast<TafDcsThroughputInfoChangeEvent_t *>(reqPtr);
+    auto &mgr = TafDcsProfileManager::GetInstance();
+
+    // Dispatch ONLY to the per-phone event id as per
+    // taf_dcs.api: EVENT ThroughputInfoChange(phone,...)
+    le_event_Id_t phoneEvt = mgr.getThroughputInfoEventId(evt->phoneId);
+
+    le_event_Report(phoneEvt, evt, sizeof(*evt));
+
+    LE_DEBUG("Throughput reported to clients for phone %d", evt->phoneId);
 }
 
 void TafDcsProfileManager::signalEventThreadInitComplete(void *param1Ptr, void *param2Ptr)

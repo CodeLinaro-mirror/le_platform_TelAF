@@ -78,6 +78,9 @@ public:
     inline le_event_Id_t GetPaHwAccelerationEvtId() const { return paHwAccelerationChangeEvtId_; }
     inline le_event_Id_t GetPaQosTftEvtId() const { return paQosTftEvtId_; }
 
+    // Get throughput event id
+    inline le_event_Id_t GetPaThroughputEvtId() const { return paThroughputEvtId_; }
+
 private:
 
     // Private functions
@@ -129,6 +132,9 @@ private:
         taf::pa::data::SubsystemState_e subsystemState,
         std::shared_ptr<void>           context
     );
+
+    // Throughput indication event from PA
+    le_event_Id_t paThroughputEvtId_;
 
     // Instance
     TafDcsSvc() {};

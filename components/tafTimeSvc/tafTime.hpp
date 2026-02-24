@@ -542,12 +542,12 @@ struct ValidityParams
                                                                   taf_time_TimeSpec_t* timeValPtr);
 
                 le_result_t InitGnssBaseData(void);
+                le_result_t InitGnssTime(void);
 
+                le_result_t InitNetworkTime(void);
                 le_result_t InitNetworkBaseData(void);
 
-                le_result_t InitGnssTime(void);
-                le_result_t InitNetworkTime(void);
-
+                le_result_t RtcVhalInitStatus(void);
                 le_result_t InitAsyncRtcBaseData(void);
 
                 le_result_t InitNetworkManager(void);

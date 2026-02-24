@@ -30,6 +30,7 @@ le_result_t InitGnssManagerStatus = LE_UNAVAILABLE;
 le_result_t NetworkBaseDataIntStatus = LE_UNAVAILABLE;
 le_result_t InitNetworkManagerStatus = LE_UNAVAILABLE;
 
+le_result_t RtcVhalIntStatus = LE_UNAVAILABLE;
 le_result_t RtcAsyncBaseDataIntStatus = LE_UNAVAILABLE;
 
 le_result_t MssConnectStatusMainThread = LE_FAULT;
@@ -226,6 +227,23 @@ le_result_t GetBootTime
     timeValPtr->sec = bootTime.tv_sec;
     timeValPtr->nanosec = bootTime.tv_nsec;
     return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets delta milliseconds between input time value and system boot time.
+ */
+//--------------------------------------------------------------------------------------------------
+int64_t GetDeltaBootTime(taf_time_TimeSpec_t timeVal)
+{
+    taf_time_TimeSpec_t bootTime{};
+    if (GetBootTime(&bootTime) != LE_OK)
+    {
+        return 0;
+    }
+    int64_t deltaMsec = (timeVal.sec  * 1000LL + timeVal.nanosec  / 1000000LL)
+                      - (bootTime.sec * 1000LL + bootTime.nanosec / 1000000LL);
+    return deltaMsec;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1163,6 +1181,12 @@ le_result_t taf_Time::GetRtcTime
 
     if (isDrvPresent)
     {
+        if (RtcVhalIntStatus != LE_OK)
+        {
+            LE_ERROR("RTC vhal was not implemented");
+            return LE_FAULT;
+        }
+
         if ((*(timeInf->getRtcTimeReqAsync)) != nullptr)
         {
             result = GetTimeFromLocalCache(timeValPtr, RtcAsyncDeltaTimePtr, TAF_TIME_SRC_NAME_RTC);
@@ -1178,6 +1202,9 @@ le_result_t taf_Time::GetRtcTime
             }
             timeValPtr->sec = obj.sec;
             timeValPtr->nanosec = obj.nanosec;
+
+            // Update the RTC delta milliseconds in ram.
+            rtcDeltaMsec = GetDeltaBootTime(*timeValPtr);
 
             // Set the availability to true and clean the failed loops for RTC available case.
             SourceStatusUpdate(LE_OK, false, TAF_TIME_SRC_NAME_RTC);
@@ -1926,6 +1953,8 @@ bool taf_Time::IsThresholdSetTimeAllow
             deltaMilliSec, milliSecThreshold, SourceNameIndexToStr(timeSource));
         return false;
     }
+    LE_DEBUG("New %" PRIu64 ", Old %" PRIu64 ", Delta %" PRIu64 ", threshold: %" PRIu64 ", SRC: %s",
+    newTimeVal.sec,oldTime.sec, deltaMilliSec, milliSecThreshold, SourceNameIndexToStr(timeSource));
 
     return true;
 }
@@ -2201,6 +2230,83 @@ le_result_t syncValidityToMSS(taf_SourceInf_t* destSrcPtr, taf_SourceInf_t* newS
 
 //--------------------------------------------------------------------------------------------------
 /**
+ *  Update the time source's validity in ram, and assign it's validity to system if the system is
+ *  using this time source.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t SyncValidityInRam
+(
+    taf_time_TimeSources_t sourceId,
+    bool newValidity
+)
+{
+    auto &tafTime = taf_Time::GetInstance();
+
+    taf_SourceInf_t* sourcePtr = tafTime.SearchSourceMap(sourceId);
+    if(sourcePtr == NULL)
+    {
+        LE_ERROR("sourcePtr is NULL");
+        return LE_NOT_FOUND;
+    }
+
+    // Handle sourceId's validity
+    if (sourcePtr->sourceValidity != newValidity)
+    {
+        sourcePtr->sourceValidity = newValidity;
+        tafTime.ReportValidityChange(sourcePtr);
+    }
+
+    // Handle system time's validity
+    if (LatestTimeSourceInfo->systemSourceId == sourceId &&
+        LatestTimeSourceInfo->sourceValidity != newValidity)
+    {
+        LatestTimeSourceInfo->sourceValidity = newValidity;
+        tafTime.ReportValidityChange(LatestTimeSourceInfo);
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function is used to handle the RTC validity status in two cases:
+ * 1) As an event handler triggered by setRtcTrustTimeRespCB().
+ * 2) When invoked from other code paths that need to process RTC validity.
+ */
+//--------------------------------------------------------------------------------------------------
+void setRtcTrustTimeValidityHandler(le_result_t response)
+{
+    auto& tafTime = taf_Time::GetInstance();
+
+    if (LE_OK != response)
+    {
+        LE_ERROR("Set RTC time failed");
+        return;
+    }
+
+    taf_SourceInf_t* rtcPtr = tafTime.SearchSourceMap(TAF_TIME_SRC_NAME_RTC);
+    if (rtcPtr == NULL)
+    {
+        LE_ERROR("rtcPtr is NULL");
+        return;
+    }
+
+    LE_DEBUG("Set RTC response: %d, isSyncedWithStorage: %d",
+                                 (int)response, rtcPtr->isSyncedWithStorage);
+
+    // The validity in RAM for RTC can be updated only when RTC time was set successfully,
+    // in this case, both the RTC time and validity read by client are matched.
+    SyncValidityInRam(rtcPtr->sourceId, LatestTimeSourceInfo->sourceValidity);
+
+    // Update the validity to MSS for RTC if not
+    if (rtcPtr->isSyncedWithStorage == false)
+    {
+      syncValidityToMSS(rtcPtr, LatestTimeSourceInfo);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  *  Update both validity and time from system to RTC in a specify logic:
  *
  *  Important: Please study below logic clearly before you touch reference code.
@@ -2281,18 +2387,18 @@ void RtcTrustTimeUpdateHandler(void)
 
         if (needSetTime)
         {
-            result = tafTime.SetRtcTimeReqAsync(&systemTime, NULL, &tafTime.setRtcTrustTimeRespCB, NULL);
+            result = tafTime.SetTimeToRtc(systemTime);
             if (result != LE_OK && result != LE_UNSUPPORTED)
             {
-                LE_WARN("Async set time for RTC failed");
+                LE_WARN("Set time for RTC failed");
                 return;
             }
         }
         else
         {
-            // The time is under threshold, not needs to update, CB function "setRtcTrustTimeRespCB"
-            // won't be triggered, needs to call it here to handle validity status.
-            tafTime.setRtcTrustTimeRespCB(LE_OK);
+            // The time is under threshold, not needs to update, but needs to
+            // handle validity status.
+            setRtcTrustTimeValidityHandler(LE_OK);
         }
     }
     else// System time's validity = false:
@@ -2316,59 +2422,20 @@ void RtcTrustTimeUpdateHandler(void)
 
         if (needSetTime)
         {
-            result = tafTime.SetRtcTimeReqAsync(&systemTime, NULL, &tafTime.setRtcTrustTimeRespCB, NULL);
+            result = tafTime.SetTimeToRtc(systemTime);
             if (result != LE_OK && result != LE_UNSUPPORTED)
             {
-                LE_WARN("Async set time for RTC failed");
+                LE_WARN("Set time for RTC failed");
                 return;
             }
         }
         else
         {
-            // The time is under threshold, not needs to update, CB function "setRtcTrustTimeRespCB"
-            // won't be triggered, needs to call it here to handle validity status.
-            tafTime.setRtcTrustTimeRespCB(LE_OK);
+            // The time is under threshold, not needs to update, but needs to
+            // handle validity status.
+            setRtcTrustTimeValidityHandler(LE_OK);
         }
     }
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- *  Update the time source's validity in ram, and assign it's validity to system if the system is
- *  using this time source.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t SyncValidityInRam
-(
-    taf_time_TimeSources_t sourceId,
-    bool newValidity
-)
-{
-    auto &tafTime = taf_Time::GetInstance();
-
-    taf_SourceInf_t* sourcePtr = tafTime.SearchSourceMap(sourceId);
-    if(sourcePtr == NULL)
-    {
-        LE_ERROR("sourcePtr is NULL");
-        return LE_NOT_FOUND;
-    }
-
-    // Handle sourceId's validity
-    if (sourcePtr->sourceValidity != newValidity)
-    {
-        sourcePtr->sourceValidity = newValidity;
-        tafTime.ReportValidityChange(sourcePtr);
-    }
-
-    // Handle system time's validity
-    if (LatestTimeSourceInfo->systemSourceId == sourceId &&
-        LatestTimeSourceInfo->sourceValidity != newValidity)
-    {
-        LatestTimeSourceInfo->sourceValidity = newValidity;
-        tafTime.ReportValidityChange(LatestTimeSourceInfo);
-    }
-
-    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2438,7 +2505,7 @@ le_result_t UpdateTimeAndValidity
     }
 
     if (sourceId != TAF_TIME_SRC_NAME_RTC
-        && RtcAsyncBaseDataIntStatus == LE_OK)
+        && RtcVhalIntStatus == LE_OK)
     {
         le_event_QueueFunctionToThread(mainThreadRef,
         (le_event_DeferredFunc_t)RtcTrustTimeUpdateHandler, NULL, NULL);
@@ -2922,13 +2989,13 @@ void taf_Time::InitAsyncRtcEvtHandler(void)
  *  Attempts to sync trust info between MSS, RTC and system.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t InitAsyncRtcAndSystemTrustInfo(void)
+le_result_t InitRtcVhalAndSystemTrustInfo(void)
 {
     auto &tafTime = taf_Time::GetInstance();
     taf_SourceInf_t* rtcSrcPtr = tafTime.SearchSourceMap(TAF_TIME_SRC_NAME_RTC);
     TAF_ERROR_IF_RET_VAL(rtcSrcPtr == NULL, LE_BAD_PARAMETER, "rtcSrcPtr is NULL");
 
-    if (RtcAsyncBaseDataIntStatus != LE_OK)
+    if (RtcVhalIntStatus != LE_OK)
     {
         LE_WARN("Async RTC is not initialized");
         return LE_FAULT;
@@ -2938,6 +3005,8 @@ le_result_t InitAsyncRtcAndSystemTrustInfo(void)
     SyncRtcTrustInfoWithMSSHandler(NULL);
 
     // The MSS is often not ready on time; use a timer to retry.
+    // Since the RTC time is only used during boot, retries are limited and will stop
+    // after a predefined number of attempts.
     if (rtcSrcPtr->isSyncedWithStorage == false)
     {
         tafTime.syncSecStorageRef = le_timer_Create("syncSecStorageRef");
@@ -3003,6 +3072,7 @@ void InitTimeSource(void)
     NetworkBaseDataIntStatus = tafTime.InitNetworkBaseData();
 
     // 6. Init RTC time source base data.
+    RtcVhalIntStatus = tafTime.RtcVhalInitStatus();
     RtcAsyncBaseDataIntStatus = tafTime.InitAsyncRtcBaseData();
 
     if (GnssBaseDataIntStatus == LE_OK
@@ -3074,6 +3144,7 @@ static void TafSigTermEventHandler(int sigNum)
     {
         le_event_QueueFunctionToThread(SyncTimeThreadRef,
             (le_event_DeferredFunc_t)StopSyncTimeTasksThread, NULL, NULL);
+
         le_thread_Join(SyncTimeThreadRef, NULL);
         SyncTimeThreadRef = NULL;
         LE_INFO("TafSigTermEventHandler: SyncTimeTasksThread joined");
@@ -3105,7 +3176,7 @@ static void TafSigTermEventHandler(int sigNum)
 
     LE_INFO("TafSigTermEventHandler: shutdown completed");
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -3125,7 +3196,10 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
     taf_Time& tafTime = taf_Time::GetInstance();
 
     // The RTC time is critical for boot up time, try to sync it as quickly as possible.
-    tafTime.GetRtcTimeReqAsync(nullptr, NULL);
+    if (RtcAsyncBaseDataIntStatus == LE_OK)
+    {
+        tafTime.GetRtcTimeReqAsync(nullptr, NULL);
+    }
 
     if (NetworkBaseDataIntStatus == LE_OK)
     {
@@ -3748,10 +3822,10 @@ le_result_t taf_Time::InitGnssBaseData(void)
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Async RTC base data initialization.
+ *  Check the RTC vhal API initialization status.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_Time::InitAsyncRtcBaseData(void)
+le_result_t taf_Time::RtcVhalInitStatus(void)
 {
     if (!TimeSourceConf.IsSourceExist(SourceNameIndexToStr(TAF_TIME_SRC_NAME_RTC)))
     {
@@ -3765,9 +3839,45 @@ le_result_t taf_Time::InitAsyncRtcBaseData(void)
         return LE_UNAVAILABLE;
     }
 
-    if (*(timeInf->getRtcTimeReqAsync) == nullptr)
+    if (timeInf == nullptr)
     {
-        LE_ERROR("The async API in VHAL is not implemented");
+        LE_ERROR("timeInf pointer is nullptr");
+        return LE_FAULT;
+    }
+
+    // At least one API pair (async get/set or sync get/set) must be functional.
+    // Return an error if neither pair works.
+    if (!( (*(timeInf->setRtcTimeHAL) && *(timeInf->getRtcTimeHAL)) ||
+            (*(timeInf->setRtcTimeReqAsync) && *(timeInf->getRtcTimeReqAsync))
+          )
+       )
+    {
+        LE_ERROR("Vhal API pair was not correctly implemented");
+        return LE_UNAVAILABLE;
+    }
+
+    return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Async RTC base data initialization.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Time::InitAsyncRtcBaseData(void)
+{
+    RtcAsyncDeltaTimePtr = nullptr;
+    if (RtcVhalIntStatus != LE_OK)
+    {
+        LE_ERROR("RTC vhal initialization is not OK");
+        return LE_UNAVAILABLE;
+    }
+
+    if (*(timeInf->getRtcTimeReqAsync) == nullptr ||
+        *(timeInf->setRtcTimeReqAsync) == nullptr)
+    {
+        LE_ERROR("The vhal async API pair is not correctly implemented");
         return LE_UNAVAILABLE;
     }
 
@@ -3885,7 +3995,7 @@ void taf_Time::getRtcTimeRespCB(struct TimeSpec timeVal, le_result_t response)
 {
     taf_Time& tafTime = taf_Time::GetInstance();
     RtcEvent_t evt{};
-    evt.cbType = RTC_SYNC_CB;
+    evt.cbType = RTC_GET_TIME_CB;
     evt.status = response;
     evt.timeVal = timeVal;
     le_event_Report(tafTime.RtcEvtHandlerId, &evt, sizeof(evt));
@@ -3896,18 +4006,15 @@ void getRtcTimeRespCbEvtHandler(const struct TimeSpec& timeVal, le_result_t resp
     auto& time = taf_Time::GetInstance();
     static bool initFlag = true;
 
-    taf_time_TimeSpec_t rtcTime{}, bootTime{};
+    taf_time_TimeSpec_t rtcTime{};
     le_result_t result = LE_FAULT;
     const taf_time_TimeSources_t sourceId = TAF_TIME_SRC_NAME_RTC;
 
     rtcTime.sec = timeVal.sec;
     rtcTime.nanosec = timeVal.nanosec;
 
-    if (GetBootTime(&bootTime) == LE_OK)
-    {
-        time.rtcDeltaMsec = (rtcTime.sec  * 1000LL + rtcTime.nanosec  / 1000000LL)
-                          - (bootTime.sec * 1000LL + bootTime.nanosec / 1000000LL);
-    }
+    // Update the RTC delta milliseconds in ram.
+    time.rtcDeltaMsec = GetDeltaBootTime(rtcTime);
 
     LE_DEBUG("getRtcTimeRespCB response: %d, rtcTime.sec: %" PRIu64 ", rtcDeltaMsec: %" PRId64 "",
              response, rtcTime.sec, time.rtcDeltaMsec);
@@ -3952,49 +4059,16 @@ void getRtcTimeRespCbEvtHandler(const struct TimeSpec& timeVal, le_result_t resp
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This is a event handler triggered by 'setRtcTrustTimeRespCB' to indicate the set time status
- * of RTC.
- *
- * Note, this function was also used to handle RTC validity status.
+ * This function 'setRtcTrustTimeRespCB' is registered as the callback for SetRtcTimeReqAsync for
+ * RTC VHAL. Therefore, needs to be dispatched to the main thread to prevent potential issue.
  */
 //--------------------------------------------------------------------------------------------------
-void setRtcTrustTimeRespCbEvtHandler(le_result_t response)
-{
-    auto& tafTime = taf_Time::GetInstance();
-
-    if (LE_OK != response)
-    {
-        LE_ERROR("Set RTC time failed");
-        return;
-    }
-
-    taf_SourceInf_t* rtcPtr = tafTime.SearchSourceMap(TAF_TIME_SRC_NAME_RTC);
-    if (rtcPtr == NULL)
-    {
-        LE_ERROR("rtcPtr is NULL");
-        return;
-    }
-
-    LE_DEBUG("Set RTC response: %d, isSyncedWithStorage: %d",
-                                 (int)response, rtcPtr->isSyncedWithStorage);
-
-    // The validity in RAM for RTC can be updated only when RTC time was set successfully,
-    // in this case, both the RTC time and validity read by client are matched.
-    SyncValidityInRam(rtcPtr->sourceId, LatestTimeSourceInfo->sourceValidity);
-
-    // Update the validity to MSS for RTC if not
-    if (rtcPtr->isSyncedWithStorage == false)
-    {
-      syncValidityToMSS(rtcPtr, LatestTimeSourceInfo);
-    }
-}
-
 void taf_Time::setRtcTrustTimeRespCB(le_result_t response)
 {
     taf_Time& tafTime = taf_Time::GetInstance();
 
     RtcEvent_t evt{};
-    evt.cbType = RTC_ASYNC_CB;
+    evt.cbType = RTC_SET_TIME_CB;
     evt.status = response;
     le_event_Report(tafTime.RtcEvtHandlerId, &evt, sizeof(evt));
 }
@@ -4007,11 +4081,11 @@ void taf_Time::setRtcTrustTimeRespCB(le_result_t response)
 void taf_Time::RtcCbEventHandler(void* context)
 {
     RtcEvent_t* evt = static_cast<RtcEvent_t*>(context);
-    if (evt->cbType == RTC_ASYNC_CB)
+    if (evt->cbType == RTC_SET_TIME_CB)
     {
-        setRtcTrustTimeRespCbEvtHandler(evt->status);
+        setRtcTrustTimeValidityHandler(evt->status);
     }
-    else if (evt->cbType == RTC_SYNC_CB)
+    else if (evt->cbType == RTC_GET_TIME_CB)
     {
         getRtcTimeRespCbEvtHandler(evt->timeVal, evt->status);
     }
@@ -4073,11 +4147,8 @@ le_result_t taf_Time::GetInternalRtcTime
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Update the time to RTC device or VHAL interface.
- *
- * @return
- *     - LE_OK -- Succeeded.
- *     - LE_FAULT -- If any error occurs.
+ *  Update the time to RTC device through VHAL interface. If succes, synchronize the validity of
+ *  system time to RTC as RTC's validity in both ram and MSS.
  */
  //--------------------------------------------------------------------------------------------------
 le_result_t taf_Time::SetTimeToRtc
@@ -4085,31 +4156,33 @@ le_result_t taf_Time::SetTimeToRtc
     taf_time_TimeSpec_t timeVal
 )
 {
-    int ret = 0;
+    le_result_t result = LE_FAULT;
 
-    if (isDrvPresent)
+    if(RtcVhalIntStatus != LE_OK)
+    {
+        LE_DEBUG("RTC vhal was not initialized");
+        return LE_UNSUPPORTED;
+    }
+
+    if ((*(timeInf->setRtcTimeReqAsync)) != nullptr)
+    {
+        result = SetRtcTimeReqAsync(&timeVal, NULL, &setRtcTrustTimeRespCB, NULL);
+    }
+    else if ((*(timeInf->setRtcTimeHAL)) != nullptr)
     {
         struct TimeSpec time;
         time.sec = timeVal.sec;
         time.nanosec = timeVal.nanosec;
 
-        if ((timeInf == nullptr) || (*(timeInf->setRtcTimeHAL)) == nullptr)
-        {
-            LE_ERROR("setRtcTimeHAL not initialized");
-            return LE_FAULT;
-        }
-        ret = (*(timeInf->setRtcTimeHAL))(time);
-        if (ret < 0)
-        {
-            return LE_FAULT;
-        }
+        result = (*(timeInf->setRtcTimeHAL))(time);
+        setRtcTrustTimeValidityHandler(result);
     }
     else
     {
-        LE_DEBUG("SetTimeToRtc not supported");
-        return LE_UNSUPPORTED;
+        LE_ERROR("RTC vhal was not found");
     }
-    return LE_OK;
+
+    return result;
 }
 
 le_result_t taf_Time::GetRtcTimeReqAsync
@@ -4499,9 +4572,10 @@ bool taf_Time::IsSourceValid
         return sourcePtr->sourceValidity;
     }
 
-    if (RtcAsyncBaseDataIntStatus != LE_OK)
+    if (RtcVhalIntStatus != LE_OK)
     {
-        // TAF_TIME_SRC_NAME_RTC is not initialized, return the ram-value instead of MSS.
+        // RTC vhal was not initialized, that means, the time in RTC device cannot be
+        // accessed, return the ram-value instead of MSS (MSS is used for next boot up).
         return sourcePtr->sourceValidity;
     }
 
@@ -4735,9 +4809,9 @@ void taf_Time::Init(void)
     le_event_AddHandler("TimeSourceStatusHandlerRef",
         timeSourceStatusEventId, timeSourceStatusHandler);
 
-    // 6.Initialize async RTC and system time's validity, report the event 'timeSourceStatusEventId'
+    // 6.Initialize RTC and system time's validity, report the event 'timeSourceStatusEventId'
     // if the status get changed.
-    InitAsyncRtcAndSystemTrustInfo();
+    InitRtcVhalAndSystemTrustInfo();
 
     // 7.Start to get time from time source and set to system in loop.
     StartSetTimeForSystem();

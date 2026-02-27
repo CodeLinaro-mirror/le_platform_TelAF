@@ -239,6 +239,19 @@ void taf_Audio::Init(void)
         endTime = std::chrono::system_clock::now();
         std::chrono::duration<double> elapsedTime = endTime - startTime;
         LE_INFO("Elapsed Time for Audio Subsystems to ready : %f", elapsedTime.count());
+
+        // Register for audio subsystem state changes
+        uint16_t listenerId = 0;
+        pa_result_t stateListenerResult = AddSubsystemStateChangeListener(
+            SubsystemStateChangeCallback, nullptr, listenerId);
+
+        if (stateListenerResult == PA_OK) {
+            LE_INFO("Successfully registered for subsystem state change notifications (ID: %d)",
+                    listenerId);
+        } else {
+            LE_ERROR("Failed to register subsystem state change listener, err: %d",
+                    stateListenerResult);
+        }
     }
 
     le_sig_Block(SIGTERM);
@@ -3949,5 +3962,25 @@ void taf_Audio::CleanUpBeforeExit()
     if (mRxFile) {
         fclose(mRxFile);
         mRxFile = nullptr;
+    }
+}
+
+void taf_Audio::SubsystemStateChangeCallback(tafpa::audio::SubsystemState_e state,
+                                           std::shared_ptr<void> context)
+{
+    switch(state)
+    {
+        case SubsystemState_e::UNAVAILABLE:
+            LE_ERROR("Audio subsystem became unavailable. Exiting service...");
+            exit(EXIT_UNAVAILABLE);
+            break;
+
+        case SubsystemState_e::AVAILABLE:
+            LE_INFO("Audio subsystem is now available");
+            break;
+
+        default:
+            LE_DEBUG("Unknown audio subsystem state: %d", static_cast<int>(state));
+            break;
     }
 }

@@ -5,6 +5,7 @@
 
 
 #include <chrono>
+#include <thread>
 
 #include "tafMrc.hpp"
 
@@ -194,37 +195,26 @@ void taf_Mrc::Init(void)
     // 1. Get platform factory.
     auto &platformFactory = telux::platform::PlatformFactory::getInstance();
 
-    // 2. Prepare a callback that is invoked when the filesystem sub-system initialization is complete.
-    auto promisePtr = std::make_shared<std::promise<telux::common::ServiceStatus>>();
-    auto initCb = [promisePtr](telux::common::ServiceStatus status) {
-        try {
-            LE_INFO("Received service status: %d", (int)status);
-            promisePtr->set_value(status);
-        }
-        catch (const std::future_error& e) {
-            LE_ERROR("Future error in callback: %s", e.what());
-        }
-        catch (const std::exception& e) {
-            LE_ERROR("Exception in callback: %s", e.what());
-        }
-        catch (...) {
-            LE_ERROR("Unknown error in callback.");
-        }
-    };
-
-    // 3. Get the filesystem manager.
-    fsManager = platformFactory.getFsManager(initCb);
+    // 2. Get the filesystem manager.
+    fsManager = platformFactory.getFsManager(nullptr);
     TAF_ERROR_IF_RET_NIL(fsManager == nullptr, "Null ptr(fsManager)");
     LE_INFO("Obtained filesystem manager.");
 
-    // 4. Wait until initialization is complete.
-    std::future<telux::common::ServiceStatus> initFuture = promisePtr->get_future();
-    std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
-        TAF_MRC_SVC_READY_TIMEOUT));
-    if (std::future_status::timeout == waitStatus)
-        LE_FATAL("Timeout waiting for filysystem.");
+    // 3. Wait until initialization is complete.
+    telux::common::ServiceStatus serviceStatus = fsManager->getServiceStatus();
+    const uint8_t maxRetries = TAF_MRC_MAX_RETRY_COUNT;
+    const auto pollInterval = std::chrono::milliseconds(100); // 100ms intervals
 
-    telux::common::ServiceStatus serviceStatus = initFuture.get();
+    for (uint8_t retryCount = 0;
+        retryCount < maxRetries &&
+        serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE &&
+        serviceStatus != telux::common::ServiceStatus::SERVICE_FAILED;
+        retryCount++)
+    {
+        std::this_thread::sleep_for(pollInterval);
+        serviceStatus = fsManager->getServiceStatus();
+    }
+
     if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
         LE_FATAL("Fail to initiate Filesystem.");
 

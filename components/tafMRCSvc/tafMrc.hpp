@@ -23,6 +23,8 @@
 
 #include "tafSvcIF.hpp"
 
+#define TAF_MRC_MAX_RETRY_COUNT 50
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Timeout for service readiness, in units of milliseconds.

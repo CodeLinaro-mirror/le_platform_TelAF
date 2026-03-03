@@ -7,7 +7,6 @@ startGroup: 11
 capability:
 {
         CAP_WAKE_ALARM
-        CAP_BLOCK_SUSPEND
         CAP_SYS_TIME
         CAP_DAC_OVERRIDE
         CAP_SYS_ADMIN

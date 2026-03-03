@@ -441,7 +441,6 @@ taf_diagDataID_RxReadDIDMsgHandlerRef_t taf_DataIDSvr::AddRxReadDIDMsgHandler
     void* contextPtr
 )
 {
-    LE_DEBUG("AddRxReadDIDMsgHandler!");
 
     taf_DataIDSvc_t* servicePtr = (taf_DataIDSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, NULL, "Invalid service reference provided");
@@ -468,6 +467,8 @@ taf_diagDataID_RxReadDIDMsgHandlerRef_t taf_DataIDSvr::AddRxReadDIDMsgHandler
 
     // Attach handler to service.
     servicePtr->readDIDHandlerRef = handlerObjPtr->handlerRef;
+
+    LE_INFO("Read DID: Registered Rx Handler");
 
     return handlerObjPtr->handlerRef;
 }
@@ -689,7 +690,6 @@ taf_diagDataID_RxWriteDIDMsgHandlerRef_t taf_DataIDSvr::AddRxWriteDIDMsgHandler
     void* contextPtr
 )
 {
-    LE_DEBUG("AddRxWriteDIDMsgHandler!");
 
     taf_DataIDSvc_t* servicePtr = (taf_DataIDSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, NULL, "Invalid service reference provided");
@@ -716,6 +716,8 @@ taf_diagDataID_RxWriteDIDMsgHandlerRef_t taf_DataIDSvr::AddRxWriteDIDMsgHandler
 
     // Attach handler to service.
     servicePtr->writeDIDHandlerRef = handlerObjPtr->handlerRef;
+
+    LE_INFO("Write DID: Registered Rx Handler");
 
     return handlerObjPtr->handlerRef;
 }

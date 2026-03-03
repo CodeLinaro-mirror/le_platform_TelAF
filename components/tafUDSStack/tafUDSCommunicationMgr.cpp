@@ -214,7 +214,8 @@ void UdsCommunicationMgr::InitAuthData
         }
         else /* not existed */
         {
-            LE_INFO("Interface:%s doesn't exist in auth config tree", pair.second->interface);
+            LE_INFO("Interface:%s doesn't exist in auth config tree, init it",
+                pair.second->interface);
             le_cfg_CancelTxn(iteratorRef);
             le_cfg_IteratorRef_t wrIterRef = le_cfg_CreateWriteTxn(AUTH_CONF_DATA);
 
@@ -225,7 +226,6 @@ void UdsCommunicationMgr::InitAuthData
             le_cfg_SetInt(wrIterRef, delayTimeNodePath, udsCmMgr->authDelayTime);
 
             le_cfg_CommitTxn(wrIterRef);
-            LE_INFO("Initialize auth config tree");
         }
     }
 }
@@ -2747,7 +2747,7 @@ le_result_t UdsCommunicationMgr::IndicateAuthReq
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
-    // Check negative err code for minimum request msg length
+    // Step 0: Check negative err code for minimum request msg length
     if(recvDataLen < UDS_AUTH_INFO_REQ_MIN_LEN)
     {
         LE_WARN("recvDataLen is less than the authentication request msg minimum length.");
@@ -2757,15 +2757,7 @@ le_result_t UdsCommunicationMgr::IndicateAuthReq
 
     uint8_t subFunc = recvBuf[1] & 0x7F;
 
-    // Step 1: Subfunction length check. UDS_0x29_NRC_13
-    if(!IsAuthReqLenCorrect(subFunc))
-    {
-        LE_WARN("Length of authentication subFunction 0x%x is not correct.", subFunc);
-        *isInternalHandle = true;
-        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
-    }
-
-    // Step 2: Subfunction supported check. UDS_0x29_NRC_12
+    // Step 1: Subfunction supported check. UDS_0x29_NRC_12
     if(!IsSubFuncSupported(sid, subFunc))
     {
         LE_WARN("Requested subfunction type is not configured: 0x%x", subFunc);
@@ -2779,6 +2771,14 @@ le_result_t UdsCommunicationMgr::IndicateAuthReq
         LE_WARN("Requested subfunction type is not supported: 0x%x", subFunc);
         *isInternalHandle = true;
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr); // NRC 0x12
+    }
+
+    // Step 2: Subfunction length check. UDS_0x29_NRC_13
+    if(!IsAuthReqLenCorrect(subFunc))
+    {
+        LE_WARN("Length of authentication subFunction 0x%x is not correct.", subFunc);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // Step 3: Subfunction supported in active session check. UDS_0x29_NRC_7E
@@ -2941,10 +2941,11 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
             controlStateSize = node.get<uint16_t>("request.control_option_record.did_size");
             LE_DEBUG("Configured byteSize : %d", controlStateSize);
 
-            //Check control state size.
-            if(recvDataLen < controlStateSize + UDS_IOCBID_REQ_MIN_LEN)
+            // Check the total length.
+            uint16_t ctrlEnableMaskRecordSize = cfg::get_ioctrl_en_mask_record_size(dataId);
+            if(recvDataLen != controlStateSize + ctrlEnableMaskRecordSize + UDS_IOCBID_REQ_MIN_LEN)
             {
-                LE_WARN("The received length is less than required.");
+                LE_WARN("The received length mismatches the length configured.");
                 //UDS_0x2F_NRC_13
                 return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
             }
@@ -3138,16 +3139,16 @@ le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
     const uint8_t* dataRecPtr = recvBuf + UDS_ROUTINE_CTRL_REQ_MIN_LEN;
     size_t dataRecLen = recvDataLen - UDS_ROUTINE_CTRL_REQ_MIN_LEN;
 
+    if (!IsTotalLengthCheckValid(rid, subFunc, dataRecLen))
+    {
+        LE_DEBUG("Subfunction0x%x RID0x%x Total Lenth check is invalid.",
+            subFunc, rid);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
     if (dataRecLen > 0)
     {
-        if (!IsTotalLengthCheckValid(rid, subFunc, dataRecLen))
-        {
-            LE_DEBUG("Subfunction0x%x RID0x%x Total Lenth check is invalid.",
-                subFunc, rid);
-            *isInternalHandle = true;
-            return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
-        }
-
         if (!IsControlOptionRecordValid(rid, subFunc, dataRecPtr, dataRecLen))
         {
             LE_DEBUG("Subfunction 0x%x RID: 0x%x Option Record is not valid.",
@@ -3158,7 +3159,7 @@ le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
     }
     else
     {
-        LE_WARN("Control Option Record not found. Skip check!!");
+        LE_WARN("Control Option Record not found. Skip record valid check!!");
     }
 
     //Will send the indication to the diag service
@@ -6224,8 +6225,12 @@ bool UdsCommunicationMgr::IsTotalLengthCheckValid
     else
     {
         //If data record is empty in yaml but present in UDS request, send NRC 0x13.
-        LE_DEBUG("The Option record config of Subfunction 0x%x RID: 0x%x is empty.", subFunc, rid);
-        return false;
+        if(dataRecLen > 0)
+        {
+            LE_DEBUG("The Option record config of Subfunction 0x%x RID: 0x%x is empty.", subFunc,
+                rid);
+            return false;
+        }
     }
 #endif
     return true;

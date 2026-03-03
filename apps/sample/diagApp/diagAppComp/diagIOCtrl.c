@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -7,14 +7,16 @@
 
 //Diag IOCtrl
 static taf_diagIOCtrl_ServiceRef_t svcRef = NULL;
+static taf_diagIOCtrl_ServiceRef_t svc9007Ref = NULL;
 static taf_diagIOCtrl_RxMsgHandlerRef_t diagIOCtrlMsgRef = NULL;
+static taf_diagIOCtrl_RxMsgHandlerRef_t diagIOCtrl9007MsgRef = NULL;
 
 static le_sem_Ref_t semRef;
 
 //Control state data response.
 static const uint8_t data[] = {0x0C};
 
-// Callback function for IOCtrl request message
+// Callback function for IOCtrl request message with 0x9006
 void IOCtrlMsgHandler
 (
     taf_diagIOCtrl_RxMsgRef_t rxMsgRef,
@@ -96,12 +98,90 @@ void IOCtrlMsgHandler
     return;
 }
 
+// Callback function for IOCtrl request message with 0x9007
+void IOCtrl9007MsgHandler
+(
+    taf_diagIOCtrl_RxMsgRef_t rxMsgRef,
+    uint16_t dataId,
+    uint8_t ioCtrlParameter,
+    void* contextPtr
+)
+{
+    LE_TEST_INFO("IOCtrlMsgHandler!");
+    LE_TEST_INFO("Received dataID: 0x%x", dataId);
+    LE_TEST_INFO("Received inputOutputControlParameter: 0x%x", ioCtrlParameter);
+
+    le_result_t result;
+    const uint8_t ctrlStateData[] = {0x0B};
+
+    // Get request inputOutputControlParameter.
+    LE_TEST_INFO("inputOutputControlParameter: %x", ioCtrlParameter);
+
+    // Get request controlStatte.
+    uint8_t reqCtrlState[TAF_DIAGIOCTRL_MAX_CONTROL_RECORD_SIZE];
+    size_t reqCtrlStateSize = 0;
+    result = taf_diagIOCtrl_GetCtrlState(rxMsgRef, reqCtrlState, &reqCtrlStateSize);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Getting request control state error!");
+        // Send NRC response;
+        if (taf_diagIOCtrl_SendResp(rxMsgRef, TAF_DIAGIOCTRL_CONDITIONS_NOT_CORRECT, NULL, 0)
+                != LE_OK)
+        {
+            LE_ERROR("Send response error");
+        }
+        return;
+    }
+    else
+    {
+        LE_TEST_INFO("Received controlState size: %"PRIuS"", reqCtrlStateSize);
+        for (size_t i = 0; i<reqCtrlStateSize; i++)
+        {
+            LE_TEST_INFO("Received controlState: %x", reqCtrlState[i]);
+        }
+    }
+
+    // Send IO control service positive response.
+    //If it's shortTermAdjustment, respond with control state value
+    if(ioCtrlParameter == 3)
+    {
+        size_t dataSize = 0;
+        dataSize = sizeof(ctrlStateData);
+        result = taf_diagIOCtrl_SendResp(rxMsgRef, TAF_DIAGIOCTRL_NO_ERROR, ctrlStateData, dataSize);
+        if (result == LE_OK)
+        {
+            LE_TEST_INFO("IOControl response is sent");
+        }
+        else
+        {
+            LE_ERROR("Send response error");
+        }
+    }
+    else
+    {
+        result = taf_diagIOCtrl_SendResp(rxMsgRef, TAF_DIAGIOCTRL_NO_ERROR, NULL, 0);
+        if (result == LE_OK)
+        {
+            LE_TEST_INFO("IOControl response is sent");
+        }
+        else
+        {
+            LE_ERROR("Send response error");
+        }
+    }
+
+    return;
+}
+
 static void* diagIOCtrlMsgThread(void* ctxPtr)
 {
     taf_diagIOCtrl_ConnectService();
 
     diagIOCtrlMsgRef = taf_diagIOCtrl_AddRxMsgHandler(svcRef, IOCtrlMsgHandler, NULL);
     LE_TEST_OK(diagIOCtrlMsgRef != NULL, "Registered successfully for IOCtrlMsgHandler");
+
+    diagIOCtrl9007MsgRef = taf_diagIOCtrl_AddRxMsgHandler(svc9007Ref, IOCtrl9007MsgHandler, NULL);
+    LE_TEST_OK(diagIOCtrl9007MsgRef != NULL, "Registered successfully for IOCtrl9007MsgHandler");
 
     le_sem_Post(semRef);
     le_event_RunLoop();
@@ -117,6 +197,15 @@ le_result_t diagIOControl_Init(void)
     uint16_t dataId = 0x9006;
     //get diag IOCtrl svc reference
     svcRef = taf_diagIOCtrl_GetService(dataId);
+    if(svcRef == NULL)
+    {
+        LE_ERROR("Get IO control service error");
+        return LE_FAULT;
+    }
+
+    dataId = 0x9007;
+    //get diag IOCtrl svc reference
+    svc9007Ref = taf_diagIOCtrl_GetService(dataId);
     if(svcRef == NULL)
     {
         LE_ERROR("Get IO control service error");

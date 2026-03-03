@@ -77,6 +77,7 @@ using namespace telux::common;
 #define CFG_NODE_PREFERRED_STORAGE "prefStorage"
 
 #define LENGTH_CFG_NODE 50
+#define TIMEOUT_SECONDS 30
 
 constexpr uint8_t kSetTagWaitTime = 5;
 constexpr uint8_t kListRxMsgWaitTime = 5;

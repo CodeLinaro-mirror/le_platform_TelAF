@@ -142,6 +142,8 @@ apps:
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmWsFilterTest/tafMngdPmWsFilterTest.adef
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestDaemon/tafMngdPmTestDaemon.adef
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestClient/tafMngdPmTestClient.adef
+    // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/mpms/tafMpmsToolDaemon/tafMpmsToolDaemon.adef
+    // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/mpms/tafMpmsTool.adef
 }
 
 commands:
@@ -152,6 +154,7 @@ commands:
 #endif
     fwupdate = tools:/bin/fwupdate
     pm = tafTools:/bin/pm
+    // mpms = tafMpmsTool:/bin/mpms
     tafmodule = tafTools:/bin/tafmodule
 }
 
@@ -178,6 +181,7 @@ interfaceSearch:
     $LEGATO_ROOT/apps/sample/voiceCallApp
     // $TELAF_ROOT/apps/test/tafPMTest/tafPMIntgTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestDaemon/tafMngdPmTestDaemonComp/
+    // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/mpms/tafMpmsToolDaemon
 }
 
 cflags:

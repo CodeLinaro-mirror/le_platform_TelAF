@@ -1,0 +1,12 @@
+sources:
+{
+    mpmsToolClient.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_mpms_tool.api [manual-start]
+    }
+}

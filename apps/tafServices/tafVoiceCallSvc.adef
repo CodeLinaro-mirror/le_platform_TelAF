@@ -49,6 +49,7 @@ processes:
 
 bindings:
 {
+    tafVoiceCallSvc.tafVoiceCallSvc.taf_ecall -> tafECallSvc.taf_ecall
 }
 
 extern:

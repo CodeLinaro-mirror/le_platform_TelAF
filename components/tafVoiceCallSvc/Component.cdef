@@ -8,6 +8,11 @@ provides:
 
 requires:
 {
+    api:
+    {
+        taf_ecall.api [optional]
+    }
+
     component:
     {
         $LEGATO_ROOT/components/watchdogChain

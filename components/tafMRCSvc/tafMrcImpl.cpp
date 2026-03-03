@@ -265,7 +265,11 @@ void taf_Mrc::Init(void)
     }
 
     result = taf_prop_hms_Initialize(TAF_MRC_SVC_READY_TIMEOUT, TAF_MRC_MSG_RESP_TIMEOUT);
-    if (result != LE_OK)
+    if (result == LE_UNSUPPORTED)
+    {
+        LE_WARN("HMS platform adaptor is not implemented.");
+    }
+    else if (result != LE_OK)
     {
         paReady = false;
         LE_WARN("Fail to initialize HMS platform adaptor.");

@@ -262,6 +262,11 @@ namespace tafsvc {
             // Accessor functions
             mcs_DataCtx_t *GetDataCtx(uint8_t phoneId, uint32_t profileNumber);
             le_event_Id_t  GetStateMachineEventId();
+            static void PowerStateChangeHandler
+            (
+                taf_pm_State_t state,
+                void* contextPtr
+            );
 
         private:
 

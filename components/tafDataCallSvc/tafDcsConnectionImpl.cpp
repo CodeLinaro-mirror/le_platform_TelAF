@@ -2493,13 +2493,23 @@ le_result_t taf_DataConnection::GetIpv4Address
     TAF_ERROR_IF_RET_VAL(addrPtr == NULL, LE_NOT_FOUND, "addrPtr is null");
     taf_dcs_CallCtx_t* callCtxPtr;
     callCtxPtr = GetCallCtx(slotId, profileId);
+
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND,
                          "Cannot find call context from slotId(%d) profileId(%d)",
                          slotId, profileId);
 
-    le_utf8_Copy(addrPtr, callCtxPtr->ipv4Addr, addrSize, NULL);
+    if ((callCtxPtr->callStatus == telux::data::DataCallStatus::NET_CONNECTED) &&
+        (callCtxPtr->ipv4Status == telux::data::DataCallStatus::NET_CONNECTED))
+    {
+        le_utf8_Copy(addrPtr, callCtxPtr->ipv4Addr, addrSize, NULL);
+        return LE_OK;
+    }
 
-    return LE_OK;
+    LE_WARN("Invalid connection status, callstatus: %s, ipv4: %s",
+             taf_DCSHelper::CallStatusToString(callCtxPtr->callStatus),
+             taf_DCSHelper::CallStatusToString(callCtxPtr->ipv4Status));
+
+    return LE_UNAVAILABLE;
 }
 
 le_result_t taf_DataConnection::GetIpv4SubnetMask
@@ -2517,9 +2527,18 @@ le_result_t taf_DataConnection::GetIpv4SubnetMask
                          "Cannot find call context from slotId(%d) profileId(%d)",
                          slotId, profileId);
 
-    *mask = callCtxPtr->ipv4Mask;
+    if ((callCtxPtr->callStatus == telux::data::DataCallStatus::NET_CONNECTED) &&
+        (callCtxPtr->ipv4Status == telux::data::DataCallStatus::NET_CONNECTED))
+    {
+        *mask = callCtxPtr->ipv4Mask;
+        return LE_OK;
+    }
 
-    return LE_OK;
+    LE_WARN("Invalid connection status, callstatus: %s, ipv4: %s",
+             taf_DCSHelper::CallStatusToString(callCtxPtr->callStatus),
+             taf_DCSHelper::CallStatusToString(callCtxPtr->ipv4Status));
+
+    return LE_UNAVAILABLE;
 }
 
 le_result_t taf_DataConnection::GetIpv4Gateway
@@ -2537,9 +2556,18 @@ le_result_t taf_DataConnection::GetIpv4Gateway
                          "Cannot find call context slotId(%d) profileId(%d)",
                          slotId, profileId);
 
-    le_utf8_Copy(addrPtr, callCtxPtr->ipv4Gw, addrSize, NULL);
+    if ((callCtxPtr->callStatus == telux::data::DataCallStatus::NET_CONNECTED) &&
+        (callCtxPtr->ipv4Status == telux::data::DataCallStatus::NET_CONNECTED))
+    {
+        le_utf8_Copy(addrPtr, callCtxPtr->ipv4Gw, addrSize, NULL);
+        return LE_OK;
+    }
 
-    return LE_OK;
+    LE_WARN("Invalid connection status, callstatus: %s, ipv4: %s",
+             taf_DCSHelper::CallStatusToString(callCtxPtr->callStatus),
+             taf_DCSHelper::CallStatusToString(callCtxPtr->ipv4Status));
+
+    return LE_UNAVAILABLE;
 }
 
 le_result_t taf_DataConnection::GetIpv4Dns
@@ -2558,10 +2586,21 @@ le_result_t taf_DataConnection::GetIpv4Dns
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND,
                          "Cannot find call context slotId(%d) profileId(%d)", slotId, profileId);
 
-    le_utf8_Copy(dns1Ptr, callCtxPtr->ipv4Dns1, dns1Size, NULL);
-    le_utf8_Copy(dns2Ptr, callCtxPtr->ipv4Dns2, dns2Size, NULL);
 
-    return LE_OK;
+    if ((callCtxPtr->callStatus == telux::data::DataCallStatus::NET_CONNECTED) &&
+        (callCtxPtr->ipv4Status == telux::data::DataCallStatus::NET_CONNECTED))
+    {
+        le_utf8_Copy(dns1Ptr, callCtxPtr->ipv4Dns1, dns1Size, NULL);
+        le_utf8_Copy(dns2Ptr, callCtxPtr->ipv4Dns2, dns2Size, NULL);
+
+        return LE_OK;
+    }
+
+    LE_WARN("Invalid connection status, callstatus: %s, ipv4: %s",
+             taf_DCSHelper::CallStatusToString(callCtxPtr->callStatus),
+             taf_DCSHelper::CallStatusToString(callCtxPtr->ipv4Status));
+
+    return LE_UNAVAILABLE;
 }
 
 le_result_t taf_DataConnection::GetIpv6Address
@@ -2578,9 +2617,18 @@ le_result_t taf_DataConnection::GetIpv6Address
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND,
                          "Cannot find call context slotId(%d) profileId(%d)", slotId, profileId);
 
-    le_utf8_Copy(addrPtr, callCtxPtr->ipv6Addr, addrSize, NULL);
+    if ((callCtxPtr->callStatus == telux::data::DataCallStatus::NET_CONNECTED) &&
+        (callCtxPtr->ipv6Status == telux::data::DataCallStatus::NET_CONNECTED))
+    {
+        le_utf8_Copy(addrPtr, callCtxPtr->ipv6Addr, addrSize, NULL);
+        return LE_OK;
+    }
 
-    return LE_OK;
+    LE_WARN("Invalid connection status, callstatus: %s, ipv6: %s",
+             taf_DCSHelper::CallStatusToString(callCtxPtr->callStatus),
+             taf_DCSHelper::CallStatusToString(callCtxPtr->ipv6Status));
+
+    return LE_UNAVAILABLE;
 }
 
 le_result_t taf_DataConnection::GetIpv6SubnetMask
@@ -2597,9 +2645,18 @@ le_result_t taf_DataConnection::GetIpv6SubnetMask
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND,
                          "Cannot find call context slotId(%d) profileId(%d)", slotId, profileId);
 
-    *mask = callCtxPtr->ipv6Mask;
+    if ((callCtxPtr->callStatus == telux::data::DataCallStatus::NET_CONNECTED) &&
+        (callCtxPtr->ipv6Status == telux::data::DataCallStatus::NET_CONNECTED))
+    {
+        *mask = callCtxPtr->ipv6Mask;
+        return LE_OK;
+    }
 
-    return LE_OK;
+    LE_WARN("Invalid connection status, callstatus: %s, ipv6: %s",
+             taf_DCSHelper::CallStatusToString(callCtxPtr->callStatus),
+             taf_DCSHelper::CallStatusToString(callCtxPtr->ipv6Status));
+
+    return LE_UNAVAILABLE;
 }
 
 le_result_t taf_DataConnection::GetIpv6Gateway
@@ -2616,10 +2673,19 @@ le_result_t taf_DataConnection::GetIpv6Gateway
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND,
                          "Cannot find call context slotId(%d) profileId(%d)",
                          slotId, profileId);
+    if ((callCtxPtr->callStatus == telux::data::DataCallStatus::NET_CONNECTED) &&
+        (callCtxPtr->ipv6Status == telux::data::DataCallStatus::NET_CONNECTED))
+    {
+        le_utf8_Copy(addrPtr, callCtxPtr->ipv6Gw, addrSize, NULL);
+        return LE_OK;
+    }
 
-    le_utf8_Copy(addrPtr, callCtxPtr->ipv6Gw, addrSize, NULL);
+    LE_WARN("Invalid connection status, callstatus: %s, ipv6: %s",
+             taf_DCSHelper::CallStatusToString(callCtxPtr->callStatus),
+             taf_DCSHelper::CallStatusToString(callCtxPtr->ipv6Status));
 
-    return LE_OK;
+    return LE_UNAVAILABLE;
+
 }
 
 le_result_t taf_DataConnection::GetIpv6Dns
@@ -2639,10 +2705,20 @@ le_result_t taf_DataConnection::GetIpv6Dns
                          "Cannot find call context from slotId(%d) profileId(%d)",
                          slotId, profileId);
 
-    le_utf8_Copy(dns1Ptr, callCtxPtr->ipv6Dns1, dns1Size, NULL);
-    le_utf8_Copy(dns2Ptr, callCtxPtr->ipv6Dns2, dns2Size, NULL);
+    if ((callCtxPtr->callStatus == telux::data::DataCallStatus::NET_CONNECTED) &&
+        (callCtxPtr->ipv6Status == telux::data::DataCallStatus::NET_CONNECTED))
+    {
+        le_utf8_Copy(dns1Ptr, callCtxPtr->ipv6Dns1, dns1Size, NULL);
+        le_utf8_Copy(dns2Ptr, callCtxPtr->ipv6Dns2, dns2Size, NULL);
 
-    return LE_OK;
+        return LE_OK;
+    }
+
+    LE_WARN("Invalid connection status, callstatus: %s, ipv6: %s",
+             taf_DCSHelper::CallStatusToString(callCtxPtr->callStatus),
+             taf_DCSHelper::CallStatusToString(callCtxPtr->ipv6Status));
+
+    return LE_UNAVAILABLE;
 }
 
 le_result_t taf_DataConnection::GetMtu

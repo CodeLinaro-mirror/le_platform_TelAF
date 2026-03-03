@@ -290,15 +290,15 @@ typedef struct
 
 typedef enum
 {
-    RTC_SYNC_CB,
-    RTC_ASYNC_CB
+    RTC_SET_TIME_CB,
+    RTC_GET_TIME_CB
 } RtcCallbackType_t;
 
 typedef struct
 {
     RtcCallbackType_t cbType;
     le_result_t       status;
-    struct TimeSpec   timeVal;   ///< MUST be set for RTC_SYNC_CB
+    struct TimeSpec   timeVal;   ///< MUST be set for RTC_GET_TIME_CB
 } RtcEvent_t;
 
 typedef struct
@@ -608,6 +608,7 @@ struct ValidityParams
                 le_result_t InitGnssManager(void);
 
                 le_result_t InitNetworkBaseData(void);
+                le_result_t RtcVhalInitStatus(void);
                 le_result_t InitAsyncRtcBaseData(void);
 
                 le_result_t InitNetworkManager(void);

@@ -166,11 +166,9 @@ class taf_diagDidStore: public ITafSvc
                     taf_diagDidStore_ServiceRef_t svcRef, uint16_t dataId,
                         taf_diagDidStore_DataIdChangeHandlerFunc_t handlerPtr, void* contextPtr);
             void RemoveDataIdChangeHandler(taf_diagDidStore_DataIdChangeHandlerRef_t handlerRef);
-            taf_diagDidStore_DIDChangeHandlerRef_t GetDIDHandlerRef(
-                    taf_diagDidStore_ServiceRef_t svcRef);
-            le_result_t AddDIDToHandler(taf_diagDidStore_DIDChangeHandlerRef_t handlerRef,
+            le_result_t AddDIDToHandler(taf_diagDidStore_ServiceRef_t svcRef,
                     uint16_t dataId);
-            le_result_t RemoveDIDFromHandler(taf_diagDidStore_DIDChangeHandlerRef_t handlerRef,
+            le_result_t RemoveDIDFromHandler(taf_diagDidStore_ServiceRef_t svcRef,
                     uint16_t dataId);
 
             le_result_t ParseDidStoreJsonConfig(const char* configPathPtr);

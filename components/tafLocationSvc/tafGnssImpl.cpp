@@ -7602,7 +7602,7 @@ void taf_locGnss::RemovePositionHandler
     }
     else
     {
-        LE_ERROR("Invaild handlerRef(%p).", handlerRef);
+        LE_ERROR("HandlerRef(%p) not found in active session.", handlerRef);
     }
 }
 
@@ -7681,21 +7681,17 @@ void taf_locGnss::CloseEventHandler
     {
         taf_locGnss_PositionSampleRequest_t *positionSampleRequestPtr =
                                 (taf_locGnss_PositionSampleRequest_t*)le_ref_GetValue(iterRef);
-        if(positionSampleRequestPtr == NULL) {
-            return;
-        }
-
-        if (positionSampleRequestPtr->sessionRef == sessionRef)
-        {
-            taf_locGnss_SampleRef_t safeRef = (taf_locGnss_SampleRef_t)le_ref_GetSafeRef(iterRef);
-            LE_DEBUG("Release taf_locGnss_ReleaseSampleRef 0x%p, Session 0x%p", safeRef, sessionRef);
-
-            le_ref_DeleteRef(gnss.PositionSampleMap, safeRef);
-            le_mem_Release(positionSampleRequestPtr->positionSampleNodePtr);
-            le_mem_Release(positionSampleRequestPtr);
-        }
+        taf_locGnss_SampleRef_t safeRef = (taf_locGnss_SampleRef_t)le_ref_GetSafeRef(iterRef);
 
         result = le_ref_NextNode(iterRef);
+
+        if (positionSampleRequestPtr != NULL && positionSampleRequestPtr->sessionRef == sessionRef)
+        {
+            LE_DEBUG("Release taf_locGnss_ReleaseSampleRef 0x%p, Session 0x%p", safeRef, sessionRef);
+            le_ref_DeleteRef(gnss.PositionSampleMap, safeRef);
+            if (positionSampleRequestPtr->positionSampleNodePtr) le_mem_Release(positionSampleRequestPtr->positionSampleNodePtr);
+            le_mem_Release(positionSampleRequestPtr);
+        }
     }
 
     iterRef = le_ref_GetIterator(gnss.ClientRequestRefMap);
@@ -7703,9 +7699,11 @@ void taf_locGnss::CloseEventHandler
     while (LE_OK == result)
     {
         taf_locGnss_Client_t* gnssPtr = (taf_locGnss_Client_t*) le_ref_GetValue(iterRef);
-        LE_ASSERT(gnssPtr != NULL);
+        void* safeRefPtr = (void*)le_ref_GetSafeRef(iterRef);
 
-        if (sessionRef == gnssPtr->sessionRef)
+        result = le_ref_NextNode(iterRef);
+
+        if (gnssPtr != NULL && sessionRef == gnssPtr->sessionRef)
         {
             if (gnss.mClientRefCount > 0)
             {
@@ -7714,18 +7712,45 @@ void taf_locGnss::CloseEventHandler
                 LE_DEBUG("CloseEventHandler client count: %d",gnss.mClientRefCount);
             }
             gnss.CleanUp(gnssPtr);
-            void* safeRefPtr = (void*)le_ref_GetSafeRef(iterRef);
+
+            if (gnssPtr->PositionHandlerRefMap)
+            {
+                le_ref_IterRef_t handlerIter = le_ref_GetIterator(gnssPtr->PositionHandlerRefMap);
+                le_result_t handlerRes = le_ref_NextNode(handlerIter);
+
+                while (LE_OK == handlerRes)
+                {
+                    taf_locGnss_PositionHandler_t* handlerPtr =
+                        (taf_locGnss_PositionHandler_t*)le_ref_GetValue(handlerIter);
+
+                    void* safeRef = (void*)le_ref_GetSafeRef(handlerIter);
+                    handlerRes = le_ref_NextNode(handlerIter);
+
+                    if (handlerPtr) {
+                        LE_DEBUG("Force releasing memory for handlerRef %p, safeRef %p",
+                            handlerPtr->handlerRef, safeRef);
+
+                        if (gnss.NumOfPositionHandlers > 0) {
+                            gnss.NumOfPositionHandlers--;
+                        } else {
+                            LE_WARN("NumOfPositionHandlers already at 0, potential double cleanup");
+                        }
+
+                        le_ref_DeleteRef(gnssPtr->PositionHandlerRefMap, safeRef);
+                        le_mem_Release(handlerPtr);
+                    }
+                }
+            }
             LE_DEBUG("Release taf_locGnss_ReleaseClientRef 0x%p, Session 0x%p",
                      safeRefPtr, gnssPtr->sessionRef);
 
             gnss.ReleaseClientRef(safeRefPtr);
         }
-
-        result = le_ref_NextNode(iterRef);
     }
 }
 
-taf_locGnss::~taf_locGnss() {
+taf_locGnss::~taf_locGnss()
+{
     auto &gnss = taf_locGnss::GetInstance();
     le_ref_IterRef_t iterRef = le_ref_GetIterator(gnss.ClientRequestRefMap);
     le_result_t result = le_ref_NextNode(iterRef);
@@ -7733,21 +7758,24 @@ taf_locGnss::~taf_locGnss() {
     while (LE_OK == result)
     {
         taf_locGnss_Client_t* gnssPtr = (taf_locGnss_Client_t*) le_ref_GetValue(iterRef);
+        void* safeRefPtr = (void*)le_ref_GetSafeRef(iterRef);
+
+        result = le_ref_NextNode(iterRef);
+
         if(gnssPtr == NULL) {
-            return;
+            continue;
         }
 
         LE_DEBUG("gnssPtr %p, gnssPtr->sessionRef %p",
                  gnssPtr, gnssPtr->sessionRef);
-        if(gnssPtr->locationManager && gnssPtr->posListener) {
-            gnss.CleanUp(gnssPtr);
-            void* safeRefPtr = (void*)le_ref_GetSafeRef(iterRef);
+
+        if(gnssPtr->locationManager || gnssPtr->posListener)
+        {
+            CleanUp(gnssPtr);
             LE_DEBUG("Release taf_locGnss_ReleaseClientRef 0x%p, Session 0x%p",
                      safeRefPtr, gnssPtr->sessionRef);
-
-            gnss.ReleaseClientRef(safeRefPtr);
+            ReleaseClientRef(safeRefPtr);
         }
-        result = le_ref_NextNode(iterRef);
    }
 }
 

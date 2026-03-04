@@ -51,7 +51,7 @@ allow telaf_tafMngdConnSvc_t self:icmp_socket { create ioctl getopt read setopt 
 allow telaf_tafMngdConnSvc_t systemd_resolved_var_run_t:dir search;
 allow telaf_tafMngdConnSvc_t systemd_resolved_var_run_t:file { getattr open read };
 allow telaf_tafMngdConnSvc_t self:capability net_raw;
-allow telaf_tafMngdConnSvc_t self:process { getcap setcap };
+allow telaf_tafMngdConnSvc_t self:process { getcap setcap sigkill };
 allow telaf_tafMngdConnSvc_t self:rawip_socket { create getopt read setopt write };
 allow telaf_tafMngdConnSvc_t cert_t:dir search;
 allow telaf_tafMngdConnSvc_t cert_t:file { getattr open read };

@@ -1327,6 +1327,7 @@ RETURN VALUE   le_result_t
                   LE_NOT_FOUND: Invalid message
                   LE_BAD_PARAMETER: Invalid phone ID
                   LE_FORMAT_ERROR: Fail to encode message
+                  LE_NO_MEMORY: Fail to allocate memory
                   LE_OK: Success
 
 SIDE EFFECTS
@@ -1349,10 +1350,28 @@ le_result_t taf_sms_Send
    sms.sendingMsgRef = msgRef;
 
    result = sms.SendMessage(msgPtr);
-   msgPtr->sendStatus =
-      (result == LE_OK) ? TAF_SMS_TXSTS_SENT : TAF_SMS_TXSTS_SENDING_FAILED;
 
-   le_event_Report(sms.MsgSendCallbackEvent, &msgRef, sizeof(taf_sms_MsgRef_t));
+   tafSmsSendStatus_t* msgSendStatusPtr = (tafSmsSendStatus_t*)le_mem_ForceAlloc(sms.SmsSendStatusPool);
+   if (msgSendStatusPtr == nullptr) {
+      LE_ERROR("Failed to allocate memory for send status");
+      msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
+
+      taf_sms_CallbackResultFunc_t functionPtr = (taf_sms_CallbackResultFunc_t)(msgPtr->callBackPtr);
+      if (functionPtr) {
+         functionPtr(msgRef, TAF_SMS_TXSTS_SENDING_FAILED, msgPtr->ctxPtr);
+      }
+
+      return LE_NO_MEMORY;
+   }
+
+   msgSendStatusPtr->msgRef = msgRef;
+
+   msgSendStatusPtr->errcode =
+        (result == LE_OK)
+            ? telux::common::ErrorCode::SUCCESS
+            : telux::common::ErrorCode::GENERIC_FAILURE;
+
+   le_event_ReportWithRefCounting(sms.MsgSendCallbackEvent, msgSendStatusPtr);
 
    return result;
 }

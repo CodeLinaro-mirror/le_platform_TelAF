@@ -53,6 +53,7 @@ LE_MEM_DEFINE_STATIC_POOL(SmsReference, MAX_OF_SMS_MSG, sizeof(taf_sms_MsgNode_t
 LE_MEM_DEFINE_STATIC_POOL(Handler, MAX_SMS_SESSION, sizeof(HandlerNode_t));
 LE_MEM_DEFINE_STATIC_POOL(SessionCtx, MAX_SMS_SESSION, sizeof(SessionNode_t));
 LE_MEM_DEFINE_STATIC_POOL(MsgRef, MAX_SMS_SESSION*MAX_OF_SMS_MSG, sizeof(MsgNode_t));
+LE_MEM_DEFINE_STATIC_POOL(SmsSendStatus, MAX_OF_SMS_MSG, sizeof(tafSmsSendStatus_t));
 
 taf_Sms* taf_Handler::TafSmsPtr = NULL;
 
@@ -404,28 +405,43 @@ void taf_Handler::ProcessSendMessage(void* context)
    smsManager->sendSms(std::string(msgPtr->text), std::string(msgPtr->tel), sms.smsSentCb, sms.smsDeliveryCb);
 }
 
-void taf_Handler::ProcessSendingStateEvent(void* context)
+void taf_Handler::ProcessSendingStateEvent(void* reportPtr)
 {
    auto &sms = taf_Sms::GetInstance();
 
-   taf_sms_MsgRef_t *sendMsgRef = (taf_sms_MsgRef_t*) context;
-   TAF_ERROR_IF_RET_NIL(sendMsgRef == nullptr, "sendMsgRef is nullptr!");
+   tafSmsSendStatus_t* sendStatusMsgPtr = (tafSmsSendStatus_t*) reportPtr;
+   TAF_ERROR_IF_RET_NIL(sendStatusMsgPtr == nullptr, "sendMsgRef is nullptr!");
 
-   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(sms.MsgRefMap, *sendMsgRef);
-   TAF_ERROR_IF_RET_NIL(msgPtr == nullptr, "msgPtr is nullptr!");
+   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(sms.MsgRefMap, sendStatusMsgPtr->msgRef);
+   if(msgPtr == nullptr)
+   {
+      LE_ERROR("msgPtr is nullptr!");
+      le_mem_Release(sendStatusMsgPtr);
+      return;
+   }
 
    taf_sms_CallbackResultFunc_t functionPtr = (taf_sms_CallbackResultFunc_t)(msgPtr->callBackPtr);
+
+   if(sendStatusMsgPtr->errcode == telux::common::ErrorCode::SUCCESS) {
+      LE_INFO("onSmsSent successfully");
+      msgPtr->sendStatus = TAF_SMS_TXSTS_SENT;
+   }
+   else {
+      LE_ERROR("onSmsSent failed, err=%d", (int)sendStatusMsgPtr->errcode);
+      msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
+   }
 
    if (functionPtr)
    {
       LE_DEBUG("Sending CallBack (%p), Status %d", functionPtr, msgPtr->sendStatus);
 
-      functionPtr(*sendMsgRef, msgPtr->sendStatus, msgPtr->ctxPtr);
+      functionPtr(sendStatusMsgPtr->msgRef, msgPtr->sendStatus, msgPtr->ctxPtr);
    }
    else
    {
       LE_WARN("No CallBackFunction Found for message, status %d!!", msgPtr->sendStatus);
    }
+   le_mem_Release(sendStatusMsgPtr);
 }
 
 void taf_Handler::CloseSessionEventHandler
@@ -1752,6 +1768,10 @@ void taf_Sms::Init(void)
                                            MAX_SMS_SESSION,
                                            sizeof(SessionNode_t));
 
+   SmsSendStatusPool = le_mem_InitStaticPool(SmsSendStatus,
+                                    MAX_OF_SMS_MSG,
+                                    sizeof(tafSmsSendStatus_t));
+
    le_msg_AddServiceCloseHandler(taf_sms_GetServiceRef(), taf_Handler::CloseSessionEventHandler, NULL);
 
    MsgRefMap = le_ref_CreateMap("tafMsgRefMap", MAX_OF_SMS_MSG);
@@ -1769,7 +1789,7 @@ void taf_Sms::Init(void)
    // Handle telsdk call events
    NewMsgEvent = le_event_CreateId("tafSms Event", sizeof(newSms_t));
    MsgSendEvent = le_event_CreateId("tafSms send Event", 0);
-   MsgSendCallbackEvent = le_event_CreateId("tafSms send callback Event", sizeof(taf_sms_MsgRef_t));
+   MsgSendCallbackEvent = le_event_CreateIdWithRefCounting("tafSms send callback Event");
 
    // Add the state changed handler
    le_event_AddHandler("taf new message", NewMsgEvent, taf_Handler::ProcessNewMessage);
@@ -2102,25 +2122,20 @@ void tafSmsCallback::commandResponse(telux::common::ErrorCode error) {
 
    auto &sms = taf_Sms::GetInstance();
 
-   taf_sms_MsgRef_t tmpMsgRef = msgRef;
    le_sem_Post(sms.SmsSendSem);
 
    LE_INFO("onSmsSent error = %d\n", (int)error);
 
-   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(sms.MsgRefMap, tmpMsgRef);
-
-   TAF_ERROR_IF_RET_NIL(msgPtr == nullptr, "msgPtr is nullptr!");
-
-   if(error == telux::common::ErrorCode::SUCCESS) {
-      LE_INFO("onSmsSent successfully\n");
-      msgPtr->sendStatus = TAF_SMS_TXSTS_SENT;
-   }
-   else {
-      LE_INFO("onSmsSent failed\n");
-      msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
+   tafSmsSendStatus_t* msgSendStatusPtr = (tafSmsSendStatus_t*)le_mem_ForceAlloc(sms.SmsSendStatusPool);
+   if (msgSendStatusPtr == nullptr) {
+      LE_ERROR("Failed to allocate memory for send status, cannot report callback");
+      return;
    }
 
-   le_event_Report(sms.MsgSendCallbackEvent, &tmpMsgRef, sizeof(taf_sms_MsgRef_t));
+   msgSendStatusPtr->msgRef = msgRef;
+   msgSendStatusPtr->errcode = error;
+
+   le_event_ReportWithRefCounting(sms.MsgSendCallbackEvent, msgSendStatusPtr);
 }
 
 void tafSmsDeliveryCallback::commandResponse(telux::common::ErrorCode error) {

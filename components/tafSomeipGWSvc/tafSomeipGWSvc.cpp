@@ -10,6 +10,8 @@
 #include <net/route.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/types.h>
+#include <ifaddrs.h>
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSomeipGWSvc.hpp"
@@ -22,7 +24,10 @@
 #define VSOMEIP_APP_NAME "tafSomeipGWSvc"
 #define ROUTING_INTF_NAME_SIZE 32
 #define ROUTING_IP_ADDR_SIZE 48
-#define MAX_ADD_ROUTE_RETRIES 5
+#define MAX_ADD_ROUTE_RETRIES 10
+#define MAX_START_RETRIES 20
+#define NW_CHECK_INTERVAL_MS 500
+#define ROUTE_RETRY_INTERVAL_MS 1000
 
 using namespace tafsvc;
 
@@ -31,6 +36,7 @@ class taf_vsomeipApp
     public:
         taf_vsomeipApp(const uint8_t idx, const std::string appName, const std::string devName,
                             const std::string uniAddr, const std::string multiAddr):
+            someipThreadRef(NULL),
             app(vsomeip::runtime::get()->create_application(appName)),
             routingId(idx),
             routingName(appName),
@@ -38,7 +44,9 @@ class taf_vsomeipApp
             unicastAddr(uniAddr),
             multicastAddr(multiAddr),
             routeAdded(false),
-            addRouteRetryCount(0)
+            addRouteRetryCount(0),
+            startRetryCount(0),
+            isAppStarted(false)
         {
         };
         ~taf_vsomeipApp()
@@ -68,14 +76,62 @@ class taf_vsomeipApp
 
             return true;
         }
+        bool checkNWReady()
+        {
+            struct ifaddrs *ifaddr, *ifa;
+            char addr_buf[INET6_ADDRSTRLEN];
+
+            if (getifaddrs(&ifaddr) == -1)
+            {
+                LE_ERROR("getifaddrs.");
+                return false;
+            }
+            std::string iface = deviceName;
+            std::string ip = unicastAddr;
+
+            bool found = false;
+            for (ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next)
+            {
+                if (ifa->ifa_addr == nullptr) continue;
+                if (iface == ifa->ifa_name)
+                {
+                    int family = ifa->ifa_addr->sa_family;
+                    if (family == AF_INET)
+                    { // IPv4
+                        struct sockaddr_in *sa = (struct sockaddr_in *)ifa->ifa_addr;
+                        inet_ntop(AF_INET, &(sa->sin_addr), addr_buf, sizeof(addr_buf));
+                        if (ip == addr_buf)
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                    else if (family == AF_INET6)
+                    { // IPv6
+                        struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)ifa->ifa_addr;
+                        inet_ntop(AF_INET6, &(sa6->sin6_addr), addr_buf, sizeof(addr_buf));
+                        if (ip == addr_buf)
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            freeifaddrs(ifaddr);
+            return found;
+        }
         void start()
         {
+            isAppStarted = true;
             app->start();
         }
         void stop()
         {
             app->clear_all_handler();
             app->stop();
+            isAppStarted = false;
         }
         std::shared_ptr<vsomeip::application>& getApp()
         {
@@ -120,6 +176,15 @@ class taf_vsomeipApp
         void resetAddRouteRetryCount()
         {
             addRouteRetryCount = 0;
+        }
+        int32_t incremenStartRetryCount()
+        {
+            startRetryCount++;
+            return startRetryCount;
+        }
+        bool isStarted()
+        {
+            return isAppStarted;
         }
         void onState(vsomeip::state_type_e state)
         {
@@ -187,6 +252,8 @@ class taf_vsomeipApp
         std::string multicastAddr;
         bool routeAdded;
         int32_t addRouteRetryCount;
+        int32_t startRetryCount;
+        bool isAppStarted;
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -484,6 +551,47 @@ static void* VSOMEIPThread
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Timer handler to check if the network interface and IP address is ready for the routing manager.
+ */
+//--------------------------------------------------------------------------------------------------
+static void NWTimerHandler
+(
+    le_timer_Ref_t timerRef
+)
+{
+    taf_vsomeipApp* routePtr = static_cast<taf_vsomeipApp*>(le_timer_GetContextPtr(timerRef));
+    LE_ASSERT(routePtr != NULL);
+
+    if (routePtr->checkNWReady())
+    {
+        if (routePtr->someipThreadRef == NULL)
+        {
+            routePtr->someipThreadRef = le_thread_Create(routePtr->getRoutingName().c_str(),
+                                                         VSOMEIPThread, (void*)routePtr);
+            le_thread_Start(routePtr->someipThreadRef);
+            LE_INFO("vsomeip routing manager '%s' is ready.",
+                    routePtr->getRoutingName().c_str());
+        }
+
+        // Delete the timer.
+        le_timer_Delete(timerRef);
+    }
+    else if (routePtr->incremenStartRetryCount() <= MAX_START_RETRIES)
+    {
+        LE_WARN("vsomeip routing manager '%s' is not ready, continue to check.",
+                routePtr->getRoutingName().c_str());
+    }
+    else
+    {
+        LE_ERROR("vsomeip routing manager '%s' failed.", routePtr->getRoutingName().c_str());
+
+        // Delete the timer.
+        le_timer_Delete(timerRef);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Create and start default routing manager.
  */
 //--------------------------------------------------------------------------------------------------
@@ -505,9 +613,27 @@ static le_result_t StartDefaultRoutingManager
         if ((routePtr != NULL) && routePtr->init())
         {
             RoutingManagerTable[0] = routePtr;
-            routePtr->someipThreadRef =
-                le_thread_Create(VSOMEIP_APP_NAME, VSOMEIPThread, (void*)routePtr);
-            le_thread_Start(routePtr->someipThreadRef);
+            if (routePtr->checkNWReady())
+            {
+                routePtr->someipThreadRef =
+                    le_thread_Create(VSOMEIP_APP_NAME, VSOMEIPThread, (void*)routePtr);
+                le_thread_Start(routePtr->someipThreadRef);
+                LE_INFO("vsomeip routing manager '%s' is ready.",
+                        routePtr->getRoutingName().c_str());
+            }
+            else
+            {
+                LE_WARN("vsomeip routing manager '%s' is not ready, start checking timer.",
+                        routePtr->getRoutingName().c_str());
+
+                le_timer_Ref_t timerRef = le_timer_Create(routePtr->getRoutingName().c_str());
+                le_timer_SetMsInterval(timerRef, NW_CHECK_INTERVAL_MS);
+                le_timer_SetHandler(timerRef, NWTimerHandler);
+                le_timer_SetRepeat(timerRef, 0);
+                le_timer_SetContextPtr(timerRef, routePtr);
+                le_timer_SetWakeup(timerRef, false);
+                le_timer_Start(timerRef);
+            }
 
             return LE_OK;
         }
@@ -547,9 +673,28 @@ static void StartAdditionalRoutingManagers
         if ((routePtr != NULL) && routePtr->init())
         {
             RoutingManagerTable[idx] = routePtr;
-            routePtr->someipThreadRef =
-                le_thread_Create(appName, VSOMEIPThread, (void*)routePtr);
-            le_thread_Start(routePtr->someipThreadRef);
+
+            if (routePtr->checkNWReady())
+            {
+                routePtr->someipThreadRef =
+                    le_thread_Create(appName, VSOMEIPThread, (void*)routePtr);
+                le_thread_Start(routePtr->someipThreadRef);
+                LE_INFO("vsomeip routing manager '%s' is ready.",
+                        routePtr->getRoutingName().c_str());
+            }
+            else
+            {
+                LE_WARN("vsomeip routing manager '%s' is not ready, start checking timer.",
+                        routePtr->getRoutingName().c_str());
+
+                le_timer_Ref_t timerRef = le_timer_Create(routePtr->getRoutingName().c_str());
+                le_timer_SetMsInterval(timerRef, NW_CHECK_INTERVAL_MS);
+                le_timer_SetHandler(timerRef, NWTimerHandler);
+                le_timer_SetRepeat(timerRef, 0);
+                le_timer_SetContextPtr(timerRef, routePtr);
+                le_timer_SetWakeup(timerRef, false);
+                le_timer_Start(timerRef);
+            }
         }
     }
 }
@@ -702,10 +847,11 @@ static void AddRoutingForMulticastAddr
                 LE_WARN("Failed to add route for %s on %s initially.", multicastAddr, intfName);
 
                 le_timer_Ref_t timerRef = le_timer_Create(timerName);
-                le_timer_SetMsInterval(timerRef, 1000);
+                le_timer_SetMsInterval(timerRef, ROUTE_RETRY_INTERVAL_MS);
                 le_timer_SetHandler(timerRef, TimerHandler);
                 le_timer_SetRepeat(timerRef, MAX_ADD_ROUTE_RETRIES);
                 le_timer_SetContextPtr(timerRef, RoutingManagerTable[id]);
+                le_timer_SetWakeup(timerRef, false);
                 le_timer_Start(timerRef);
             }
         }
@@ -754,7 +900,7 @@ static void StopVsomeipApplication
 {
     for (uint8_t id = 0; id < VSOMEIP_APP_MAX_CNT; id++)
     {
-        if (RoutingManagerTable[id] != NULL)
+        if ((RoutingManagerTable[id] != NULL) && (RoutingManagerTable[id]->isStarted()))
         {
             LE_INFO("Starting to stop vsomeip application id: %u", id);
             RoutingManagerTable[id]->stop();
@@ -770,8 +916,6 @@ static void StopVsomeipApplication
     {
         LE_ERROR("Timeout occurred while waiting for vsomeip app stop semaphore");
     }
-    le_sem_Delete(VsomeipStopSem);
-
 }
 
 //--------------------------------------------------------------------------------------------------

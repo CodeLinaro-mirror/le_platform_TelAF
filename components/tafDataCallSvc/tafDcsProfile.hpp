@@ -879,7 +879,7 @@ private:
     // Promise to synchronize commands.
     std::promise<le_result_t> syncCmdPromise_;
     // Flag to check if the promise is waiting for the future or not.
-    std::atomic<bool> isSyncCmdPromiseWaiting_ = true;
+    std::atomic<bool> isSyncCmdPromiseWaiting_ = false;
     // TODO: Make this configurable
     const uint16_t syncSessionCmdTimeout_ = 60; // 60s timeout for Start and Stop session sync cmd.`
 

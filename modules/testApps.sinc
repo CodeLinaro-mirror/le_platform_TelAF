@@ -23,14 +23,12 @@ apps:
     $TELAF_ROOT/apps/test/tafSmsTest/tafSmsIntTest
     $TELAF_ROOT/apps/test/tafRSimTest/tafRSimUnitTest/tafRSimUnitTest
     $TELAF_ROOT/apps/test/tafRSimTest/tafSAPServerUnitTest/tafSAPServerUnitTest
-    $TELAF_ROOT/apps/test/tafSimTest/tafRSPUnitTest/tafRSPUnitTest
     $TELAF_ROOT/apps/sample/remoteSim/tafRSimApp
     $TELAF_ROOT/apps/sample/sapCard/tafSAPProviderApp
     $TELAF_ROOT/apps/test/tafUpdateTest/tafUpdateUnitTest
     $TELAF_ROOT/apps/test/tafUpdateTest/tafUpdateIntTest
     $TELAF_ROOT/apps/test/tafUpdateTest/tafFlashUnitTest
     $TELAF_ROOT/apps/test/tafUpdateTest/tafFlashIntTest
-    $TELAF_ROOT/apps/sample/rsp/tafRSPApp
     $TELAF_ROOT/apps/test/tafMRCTest/tafMRCUnitTest
     $TELAF_ROOT/apps/test/tafMRCTest/tafMRCIntTest
     $TELAF_ROOT/apps/test/tafECallTest/tafECallUnitTest/tafECallUnitTest

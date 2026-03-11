@@ -183,14 +183,6 @@ using namespace std;
             static void setCardLockResponseCb(int retryCount, telux::common::ErrorCode error);
 
         };
-
-        class tafSimProfileCallback {
-            public:
-            void profileListCallBack(
-                    const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles,
-                    telux::common::ErrorCode errorCode);
-        };
-
         class taf_sim :public ITafSvc {
             private:
                 le_mem_PoolRef_t FPLMNNodePool = NULL;
@@ -214,7 +206,6 @@ using namespace std;
                 std::map<int, std::shared_ptr<telux::tel::ICard>> cards;
                 std::shared_ptr<telux::tel::ISubscriptionManager> subMgr = nullptr;
                 std::shared_ptr<telux::tel::ISubscriptionListener> subscriptionListener;
-                std::shared_ptr<telux::tel::ISimProfileManager> simProfileManager = nullptr;
                 std::shared_ptr<telux::tel::IMultiSimManager> multiSimMgr = nullptr;
                 std::shared_ptr<telux::tel::IMultiSimListener> multiSimListener;
 
@@ -232,7 +223,6 @@ using namespace std;
                 int32_t mClientRefCount;
                 le_event_Id_t NewStateEventId;
                 le_event_Id_t ResponseEventId;
-                le_event_Id_t ProfileListEventId;
                 le_event_Id_t IccidChangeEventId;
                 bool EnableAutoSelection = false;
                 bool IsPsEventInProgress = false;
@@ -294,18 +284,10 @@ using namespace std;
                         uint8_t* responsePtr, size_t* responseNumElementsPtr);
                 le_result_t SetPower( taf_sim_Id_t simId, le_onoff_t powerState);
                 le_result_t Reset(taf_sim_Id_t simId);
+                void requestsSlotsStatusResponse(std::map<SlotId,telux::tel::SlotStatus> slotStatus,telux::common::ErrorCode error);
                 le_result_t IsEmergencyCallSubscriptionSelected (taf_sim_Id_t simId, bool* isEcs);
                 le_result_t LocalSwapToEmergencyCallSubscription(taf_sim_Id_t simId, taf_sim_Manufacturer_t manufacturer);
                 le_result_t LocalSwapToCommercialCallSubscription(taf_sim_Id_t simId, taf_sim_Manufacturer_t manufacturer);
-                void requestsSlotsStatusResponse(std::map<SlotId,telux::tel::SlotStatus> slotStatus,telux::common::ErrorCode error);
-                le_result_t profileListCallbackEm(
-                        const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles,
-                        telux::common::ErrorCode error,
-                        SlotId simId);
-                le_result_t profileListCallbackCo(
-                        const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles,
-                        telux::common::ErrorCode error,
-                        SlotId simId);
                 void RemoveIccidChangeHandler(taf_sim_IccidChangeHandlerRef_t);
                 taf_sim_IccidChangeHandlerRef_t AddIccidChangeHandler(taf_sim_IccidChangeHandlerFunc_t handlerPtr);
                 static void FirstLayerIccidChangeHandler(void* reportPtr, void* secondLayerHandlerFunc);

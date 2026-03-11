@@ -41,7 +41,7 @@
 #include <memory>
 #include <telux/tel/PhoneFactory.hpp>
 #include "tafSimCard.hpp"
-#include "tafRSP.hpp"
+
 
 using namespace telux::tel;
 using namespace telux::common;
@@ -62,11 +62,6 @@ COMPONENT_INIT
     auto &sim = taf_sim::GetInstance();
     sim.Init();
     LE_INFO(" Sim Card service Ready...\n");
-    LE_INFO("tafRSP Service Init...\n");
-    auto &rsp = taf_simRsp::GetInstance();
-    rsp.Init();
-    LE_INFO(" RSP service Ready...\n");
-
 }
 
 taf_sim_NewStateHandlerRef_t taf_sim_AddNewStateHandler(taf_sim_NewStateHandlerFunc_t handlerPtr,
@@ -341,8 +336,7 @@ void taf_sim_RemoveAuthenticationResponseHandler(
 le_result_t  taf_sim_GetEID( taf_sim_Id_t slotId, char* eidPtr, size_t eidLen) {
     TAF_ERROR_IF_RET_VAL(eidPtr == NULL, LE_BAD_PARAMETER, "eidPtr is NULL");
     TAF_ERROR_IF_RET_VAL(eidLen < TAF_SIM_EID_BYTES, LE_OVERFLOW, "Incorrect buffer size");
-    auto &rsp = taf_simRsp::GetInstance();
-    return rsp.GetEID(slotId, eidPtr, eidLen);
+    return LE_NOT_IMPLEMENTED;
 }
 
 le_result_t taf_sim_SetAutomaticSelection( bool enable) {

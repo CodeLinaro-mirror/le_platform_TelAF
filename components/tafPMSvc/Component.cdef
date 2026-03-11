@@ -13,11 +13,15 @@ requires:
         libComponent_taf_pa_pms.so
         libComponent_taf_pa_pmsDef.so
     }
+
+    api:
+    {
+        le_framework.api
+    }
 }
 
 cxxflags:
 {
-    -I$TELAF_ROOT/include
     -I$TELAF_PA_DEFAULT/include
 }
 

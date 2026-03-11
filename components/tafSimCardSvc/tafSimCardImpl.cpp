@@ -575,7 +575,7 @@ void taf_sim::Init(void)
         TAF_SIM_SUBSYSTEM_TIMEOUT));
     if (std::future_status::timeout == cardWaitStatus  )
     {
-        LE_FATAL("Timeout waiting for card susbsytem");
+        LE_FATAL("Timeout waiting for card susbsytem.");
     }
     else
     {
@@ -2332,28 +2332,91 @@ le_result_t taf_sim::Reset(taf_sim_Id_t simId)
     return LE_OK;
 }
 
-le_result_t taf_sim::IsEmergencyCallSubscriptionSelected(taf_sim_Id_t simId, bool* isEs){
-    LE_INFO("IsEmergencyCallSubscriptionSelected not implememted");
-    return LE_NOT_IMPLEMENTED;
-}
-
-le_result_t taf_sim::LocalSwapToEmergencyCallSubscription
+le_result_t taf_sim::MapSimIdToPaSlot
 (
     taf_sim_Id_t simId,
-    taf_sim_Manufacturer_t manufacturer
+    taf_pa_sim_SlotId_t *slotOut
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    if (!slotOut) return LE_BAD_PARAMETER;
+
+    switch (simId) {
+        case TAF_SIM_EXTERNAL_SLOT_1:
+            *slotOut = TAF_PA_SIM_SLOT_1;
+            return LE_OK;
+        case TAF_SIM_EXTERNAL_SLOT_2:
+            if (isSingleActive)
+            {
+                *slotOut = TAF_PA_SIM_SLOT_1;
+                return LE_OK;
+            } else {
+                LE_ERROR("MapSimIdToPaSlot: not supported on this slot");
+                return LE_BAD_PARAMETER;
+            }
+        default:
+            LE_ERROR("MapSimIdToPaSlot: invalid simId=%d", (int)simId);
+            return LE_BAD_PARAMETER;
+    }
 }
 
-le_result_t taf_sim::LocalSwapToCommercialCallSubscription
+bool taf_sim::FindProfileByType(taf_pa_sim_SlotId_t paSlot,
+                              taf_pa_sim_ProfileType_t wantType,
+                              taf_pa_sim_ProfileInfo_t* outInfo)
+{
+    uint8_t n = taf_pa_sim_GetProfileNum(paSlot);
+    for (uint8_t i = 0; i < n; ++i) {
+        taf_pa_sim_ProfileInfo_t info = taf_pa_sim_GetProfile(paSlot, i);
+        if (info.type == wantType) {
+            if (outInfo) {
+                *outInfo = info;
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
+le_result_t taf_sim::IsEmergencyCallSubscriptionSelected
 (
     taf_sim_Id_t simId,
-    taf_sim_Manufacturer_t manufacturer
+    bool *isEcs
 )
 {
-    return LE_NOT_IMPLEMENTED;
+    if (!isEcs)
+    {
+        LE_ERROR("IsEmergencyCallSubscriptionSelected: isEcs is NULL");
+        return LE_BAD_PARAMETER;
+    }
+
+    *isEcs = false;
+
+    if (selectSimSlot(simId) != LE_OK) {
+        LE_INFO("Selecting sim slot failed");
+        return LE_BAD_PARAMETER;
+    }
+
+    taf_pa_sim_SlotId_t paSlot;
+    if (MapSimIdToPaSlot(simId, &paSlot) != LE_OK) {
+        return LE_BAD_PARAMETER;
+    }
+
+    uint8_t profileCount = taf_pa_sim_GetProfileNum(paSlot);
+    if (profileCount == 0) {
+        LE_INFO("IsEmergencyCallSubscriptionSelected: profiles list is empty");
+        return LE_FAULT;
+    }
+
+    taf_pa_sim_ProfileInfo_t emInfo;
+    bool hasEmergency = FindProfileByType(paSlot, TAF_PA_SIM_PROFILE_TYPE_EMERGENCY, &emInfo);
+    if (!hasEmergency) {
+        LE_ERROR("IsEmergencyCallSubscriptionSelected: no EMERGENCY profile found (count=%u)", profileCount);
+        return LE_FAULT;
+    }
+    *isEcs = (emInfo.state == TAF_PA_SIM_PROFILE_STATE_ACTIVE);
+    return LE_OK;
 }
+
+
 
 taf_sim_FPLMNListRef_t taf_sim::CreateInternalFPLMNList
 (
@@ -2818,4 +2881,88 @@ bool taf_sim::IsValidMCCAndMNC(const char* mccPtr, const char* mncPtr)
     }
     LE_INFO("Valid MCC:%s and MNC:%s", mccPtr,mncPtr);
     return true;
+}
+
+le_result_t taf_sim::SwapSubscriptionInternal
+(
+    taf_sim_Id_t simId,
+    taf_sim_Manufacturer_t manufacturer,
+    bool toEmergency
+)
+{
+    if (manufacturer == TAF_SIM_MORPHO || manufacturer == TAF_SIM_VALID
+            || manufacturer >= TAF_SIM_MANUFACTURER_MAX)
+    {
+        return LE_UNSUPPORTED;
+    }
+    if (toEmergency) {
+        if (selectSimSlot(simId) != LE_OK) {
+            return LE_BAD_PARAMETER;
+        }
+    }
+
+    taf_pa_sim_SlotId_t paSlot;
+    if (MapSimIdToPaSlot(simId, &paSlot) != LE_OK) {
+        return LE_BAD_PARAMETER;
+    }
+
+    uint8_t profileCount = taf_pa_sim_GetProfileNum(paSlot);
+    if (profileCount == 0) {
+        LE_INFO("profiles list is empty");
+        return LE_FAULT;
+    }
+
+    if (profileCount != 2) {
+        LE_WARN("non-typical profileCount=%u (expected 2 for many proprietary cards)",profileCount);
+    }
+
+    taf_pa_sim_ProfileInfo_t regInfo;
+    taf_pa_sim_ProfileInfo_t emInfo;
+
+    bool hasRegular   = FindProfileByType(paSlot, TAF_PA_SIM_PROFILE_TYPE_REGULAR,   &regInfo);
+    bool hasEmergency = FindProfileByType(paSlot, TAF_PA_SIM_PROFILE_TYPE_EMERGENCY, &emInfo);
+
+    if (!hasRegular || !hasEmergency) {
+        LE_ERROR("missing required profiles (regular=%d, emergency=%d)", hasRegular, hasEmergency);
+        return LE_FAULT;
+    }
+
+    taf_pa_sim_ProfileInfo_t* targetInfo = toEmergency ? &emInfo : &regInfo;
+
+    if (targetInfo->state == TAF_PA_SIM_PROFILE_STATE_ACTIVE) {
+        LE_INFO("Target profile already active");
+        return LE_OK;
+    }
+
+    if (targetInfo->profileId == TAF_PA_SIM_PROFILE_ID_UNKNOWN) {
+        LE_ERROR("Target profileId is unknown");
+        return LE_FAULT;
+    }
+    pa_result_t paRes = taf_pa_sim_SetActiveProfile(paSlot, targetInfo->profileId);
+    if (paRes != TAF_PA_SIM_RESULT_OK) {
+        LE_ERROR("SetActiveProfile failed, paRes=%d",(int)paRes);
+        return LE_FAULT;
+    }
+    LE_INFO("SetActiveProfile requested successfully (slot=%d, profileId=%d)",(int)paSlot, (int)targetInfo->profileId);
+    return LE_OK;
+}
+
+le_result_t taf_sim::LocalSwapToEmergencyCallSubscription
+(
+    taf_sim_Id_t simId,
+    taf_sim_Manufacturer_t manufacturer
+)
+{
+    LE_INFO("LocalSwapToEmergencyCallSubscription for sim:%d", (int)simId);
+    return SwapSubscriptionInternal(simId, manufacturer, true);
+}
+
+le_result_t taf_sim::LocalSwapToCommercialCallSubscription
+(
+    taf_sim_Id_t simId,
+    taf_sim_Manufacturer_t manufacturer
+)
+{
+    LE_INFO("LocalSwapToCommercialCallSubscription for sim:%d", (int)simId);
+    return SwapSubscriptionInternal(simId, manufacturer, false);
 }

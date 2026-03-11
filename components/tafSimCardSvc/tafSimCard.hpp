@@ -288,6 +288,10 @@ using namespace std;
                 le_result_t IsEmergencyCallSubscriptionSelected (taf_sim_Id_t simId, bool* isEcs);
                 le_result_t LocalSwapToEmergencyCallSubscription(taf_sim_Id_t simId, taf_sim_Manufacturer_t manufacturer);
                 le_result_t LocalSwapToCommercialCallSubscription(taf_sim_Id_t simId, taf_sim_Manufacturer_t manufacturer);
+                le_result_t MapSimIdToPaSlot(taf_sim_Id_t simId, taf_pa_sim_SlotId_t* slotOutPtr);
+                bool FindProfileByType(taf_pa_sim_SlotId_t paSlot,
+                        taf_pa_sim_ProfileType_t wantType,
+                        taf_pa_sim_ProfileInfo_t* outInfo);
                 void RemoveIccidChangeHandler(taf_sim_IccidChangeHandlerRef_t);
                 taf_sim_IccidChangeHandlerRef_t AddIccidChangeHandler(taf_sim_IccidChangeHandlerFunc_t handlerPtr);
                 static void FirstLayerIccidChangeHandler(void* reportPtr, void* secondLayerHandlerFunc);
@@ -312,5 +316,6 @@ using namespace std;
                 le_result_t CheckRefreshAllow(taf_pa_sim_RefreshChangeInd_t* ind);
                 void ResetRefreshVote(taf_sim_Session_t* sessionPtr);
                 bool IsValidMCCAndMNC(const char* mccPtr, const char* mncPtr);
+                le_result_t SwapSubscriptionInternal(taf_sim_Id_t simId, taf_sim_Manufacturer_t manufacturer ,bool toEmergency);
         };
     }

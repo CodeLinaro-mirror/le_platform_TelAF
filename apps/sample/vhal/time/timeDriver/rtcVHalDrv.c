@@ -12,6 +12,7 @@
 #define TAF_HAL_RTC_DEV_NAME      "/dev/rtc0"
 #define TAF_HAL_FILE_NAME         "/tmp/rtc0"
 #define TAF_HAL_RTC_IS_READ_ONLY  1
+
 static TAF_HAL_GETRTCASYNCCALLBACK getRTCAsyncCallbackFunc = NULL;
 static TAF_HAL_SETRTCASYNCCALLBACK setRTCAsyncCallbackFunc = NULL;
 
@@ -31,7 +32,7 @@ typedef struct
     le_result_t responseState;
 } GetRTCRequest_t;
 
-struct timespec bootTimeOnSetRTCTime = {0,0};
+struct timespec bootTimeWhenSetRTCTime = (struct timespec){0, 0};
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -60,16 +61,16 @@ le_result_t GetBootTime
 
 static int WriteTimeToFile(struct TimeSpec timeVal)
 {
-    int fd;
-
-    if ((fd = open(TAF_HAL_FILE_NAME, O_RDWR | O_CREAT | O_SYNC, 0666)) < 0)
+    int fd = open(TAF_HAL_FILE_NAME, O_RDWR | O_CREAT | O_SYNC, 0666);
+    if (fd < 0)
     {
-        LE_ERROR("Open file %s failed\n", TAF_HAL_FILE_NAME);
+        LE_ERROR("Open file %s failed", TAF_HAL_FILE_NAME);
         return 1;
     }
-    if (write(fd, &timeVal, sizeof(struct TimeSpec)) < 0)
+    ssize_t wrote = write(fd, &timeVal, sizeof(struct TimeSpec));
+    if (wrote < 0 || wrote != (ssize_t)sizeof(struct TimeSpec))
     {
-        LE_ERROR("Writing to file %s failed\n", TAF_HAL_FILE_NAME);
+        LE_ERROR("Writing to file %s failed", TAF_HAL_FILE_NAME);
         close(fd);
         return 1;
     }
@@ -79,16 +80,16 @@ static int WriteTimeToFile(struct TimeSpec timeVal)
 
 static int ReadTimeFromFile(struct TimeSpec* timeVal)
 {
-    int fd;
-
-    if ((fd = open(TAF_HAL_FILE_NAME, O_RDONLY)) < 0)
+    int fd = open(TAF_HAL_FILE_NAME, O_RDONLY);
+    if (fd < 0)
     {
-        LE_ERROR("Open file %s failed\n", TAF_HAL_FILE_NAME);
+        LE_ERROR("Open file %s failed", TAF_HAL_FILE_NAME);
         return 1;
     }
-    if (read(fd, (struct TimeSpec*)timeVal, sizeof(struct TimeSpec)) < 0)
+    ssize_t rd = read(fd, timeVal, sizeof(struct TimeSpec));
+    if (rd < 0 || rd != (ssize_t)sizeof(struct TimeSpec))
     {
-        LE_ERROR("Read from %s failed\n", TAF_HAL_FILE_NAME);
+        LE_ERROR("Read from %s failed", TAF_HAL_FILE_NAME);
         close(fd);
         return 1;
     }
@@ -140,42 +141,40 @@ static le_result_t tal_hal_GetRtcTime(struct TimeSpec* timeVal)
 
 #ifdef TAF_HAL_RTC_IS_READ_ONLY
 
-    struct timespec presentBootTime = {0,0}, deltaBootTime = {0,0};
-    le_result_t result = GetBootTime(&presentBootTime);
-    if (result)
+    struct timespec currBootTime = {0,0};
+    le_result_t result = GetBootTime(&currBootTime);
+    if (result != LE_OK)
     {
-        LE_ERROR("Unable to read system boot time\n");
+        timeVal->sec = 0;
+        timeVal->nanosec = 0;
+        LE_ERROR("Unable to read system boot time");
+        return LE_FAULT;
     }
-    deltaBootTime.tv_sec = presentBootTime.tv_sec - bootTimeOnSetRTCTime.tv_sec;
-    deltaBootTime.tv_nsec = presentBootTime.tv_nsec - bootTimeOnSetRTCTime.tv_nsec;
 
-    struct TimeSpec timeInFile;
+    struct TimeSpec timeInFile = {0, 0};
     ret = ReadTimeFromFile(&timeInFile);
-    if (ret != 0)
+    if (ret != 0 || timeInFile.sec <= 0)
     {
-        LE_ERROR("%s, simulate read RTC time failed when reading from file\n", __func__);
+        LE_ERROR("%s, simulate read RTC time failed when reading from file", __func__);
+        timeVal->sec = 0;
+        timeVal->nanosec = 0;
         return LE_FAULT;
     }
 
-    if (timeInFile.sec < 0)
-    {
-        LE_ERROR("%s, time in file not correct\n", __func__);
-        return LE_FAULT;
-    }
-
-    LE_INFO("The RTC time is: %"PRIu64", nanosec: %"PRIu64" from RTC file\n",
-        timeInFile.sec + deltaBootTime.tv_sec, timeInFile.nanosec + deltaBootTime.tv_nsec);
-
-    timeVal->sec = timeInFile.sec + deltaBootTime.tv_sec;
+    time_t deltaSec = currBootTime.tv_sec - bootTimeWhenSetRTCTime.tv_sec;
+    if (deltaSec < 0) deltaSec = 0;
+    timeVal->sec = timeInFile.sec + (uint64_t)deltaSec;
     timeVal->nanosec = 0; //dropping the accuracy for simulation test
+
+    LE_INFO("The RTC time is: %"PRIu64", deltaSec: %"PRIu64"", timeVal->sec, deltaSec);
 
 #else
     LE_INFO("TestDrv: %s", __FUNCTION__);
-
+    time_t secs = 0;
     int fd;
     do
     {
-        fd = TEMP_FAILURE_RETRY(open(TAF_HAL_RTC_DEV_NAME, O_WRONLY));
+        fd = TEMP_FAILURE_RETRY(open(TAF_HAL_RTC_DEV_NAME, O_RDONLY | O_CLOEXEC));
         if (fd < 0)
         {
             fd = -errno;
@@ -232,7 +231,7 @@ static le_result_t tal_hal_SetRtcTime(struct TimeSpec timeVal)
      * be set. Here define "TAF_HAL_RTC_IS_READ_ONLY" to use write file
      * instead of write RTC for verifying the write logic.
      */
-    le_result_t result = GetBootTime(&bootTimeOnSetRTCTime);
+    le_result_t result = GetBootTime(&bootTimeWhenSetRTCTime);
     if (result)
     {
         LE_ERROR("Unable to read system boot time\n");
@@ -307,40 +306,38 @@ static void GetRTCRespHandler (void* context)
 
 static void ProcessGetRTCRequest(void* param1,void* param2)
 {
+    LE_UNUSED(param2);
     GetRTCRequest_t* req = (GetRTCRequest_t*)(param1);
 
-    req->responseState = LE_UNAVAILABLE;
+    req->responseState = LE_FAULT;
+
 #ifdef TAF_HAL_RTC_IS_READ_ONLY
-    int ret = 0;
-    struct TimeSpec timeInFile;
-    struct timespec presentBootTime = {0,0}, deltaBootTime = {0,0};
-    le_result_t result = GetBootTime(&presentBootTime);
-    if (result)
+    struct timespec currBootTime = {0, 0};
+    le_result_t result = GetBootTime(&currBootTime);
+    if (result != LE_OK)
     {
-        LE_ERROR("Unable to read system boot time\n");
-    }
-    deltaBootTime.tv_sec = presentBootTime.tv_sec - bootTimeOnSetRTCTime.tv_sec;
-    deltaBootTime.tv_nsec = presentBootTime.tv_nsec - bootTimeOnSetRTCTime.tv_nsec;
-
-
-    ret = ReadTimeFromFile(&timeInFile);
-    if (ret != 0)
-    {
-        timeInFile.sec = 0;
-        timeInFile.nanosec = 0;
-        LE_ERROR("%s, simulate reading async RTC time failed when openning file\n", __func__);
+        req->timeVal.sec = 0;
+        req->timeVal.nanosec = 0;
+        LE_ERROR("Unable to read system boot time");
+        return;
     }
 
-    if (timeInFile.sec <= 0)
+    struct TimeSpec timeInFile = {0, 0};
+    int ret = ReadTimeFromFile(&timeInFile);
+    if (ret != 0 || timeInFile.sec <= 0)
     {
-        LE_ERROR("%s, time in file not correct\n", __func__);
+        LE_ERROR("%s, simulate read RTC time failed when reading from file", __func__);
+        req->timeVal.sec = 0;
+        req->timeVal.nanosec = 0;
+        return;
     }
-    else
-    {
-        req->timeVal.sec = timeInFile.sec+ deltaBootTime.tv_sec;
-        req->timeVal.nanosec = 0; //dropping the accuracy for simulation test
-        req->responseState = LE_OK;
-    }
+
+    time_t deltaSec = currBootTime.tv_sec - bootTimeWhenSetRTCTime.tv_sec;
+    if (deltaSec < 0) deltaSec = 0;
+    req->timeVal.sec = timeInFile.sec + (uint64_t)deltaSec;
+    req->timeVal.nanosec = 0; //dropping the accuracy for simulation test
+    req->responseState = LE_OK;
+
 #else
     //Get the RTC value
     req->timeVal.sec = 1712345678;
@@ -350,7 +347,6 @@ static void ProcessGetRTCRequest(void* param1,void* param2)
 
     le_event_Report(GetRTCRequestEventId, (void*)req, sizeof(GetRTCRequest_t));
     le_mem_Release(req);
-    return;
 }
 
 static le_result_t taf_hal_getRtcTimeReqAsync(TAF_HAL_GETRTCASYNCCALLBACK callback)
@@ -382,7 +378,6 @@ static void ProcessSetRTCRequest(void* param1, void* param2)
     req->responseState = LE_OK;
     le_event_Report(SetRTCRequestEventId, (void*)req, sizeof(SetRTCRequest_t));
     le_mem_Release(req);
-    return;
 }
 
 static le_result_t taf_hal_setRtcTimeReqAsync(const struct TimeSpec* timeVal,
@@ -393,25 +388,21 @@ static le_result_t taf_hal_setRtcTimeReqAsync(const struct TimeSpec* timeVal,
     LE_DEBUG("VHAL received new time:  %"PRIu64".%"PRIu64" trying to update to RTC",
         timeVal->sec, timeVal->nanosec);
 #ifdef TAF_HAL_RTC_IS_READ_ONLY
-    int ret = 0;
-    le_result_t result = GetBootTime(&bootTimeOnSetRTCTime);
-    if (result)
+    le_result_t result = GetBootTime(&bootTimeWhenSetRTCTime);
+    if (result != LE_OK)
     {
-        LE_ERROR("Unable to read system boot time\n");
+        LE_ERROR("Unable to read system boot time");
     }
     /*
      * Since the RTC in QC was set to read only, so the RTC time cannot
      * be set. Here define "TAF_HAL_RTC_IS_READ_ONLY" to use write file
      * instead of write RTC Hardware device for verifying the write logic.
      */
-    ret = WriteTimeToFile(*timeVal);
+    int ret = WriteTimeToFile(*timeVal);
     if (ret != 0)
     {
         LE_ERROR("%s, simulate async set RTC failed in writing file\n", __func__);
     }
-#else
-   // Please don't set new time to RTC Hardware device in this function, set it
-   // in function "ProcessSetRTCRequest" to avoid long time response.
 #endif
 
     SetRTCRequest_t* req = (SetRTCRequest_t*)le_mem_ForceAlloc(setRTCRequestPoolRef);
@@ -421,20 +412,15 @@ static le_result_t taf_hal_setRtcTimeReqAsync(const struct TimeSpec* timeVal,
 
 static void taf_hal_Init(void)
 {
-    LE_DEBUG("TestDrv: %s", __FUNCTION__);
     GetRTCRequestPoolRef = le_mem_CreatePool("GetRTCRequest", sizeof(GetRTCRequest_t));
     GetRTCRequestEventId = le_event_CreateId("GetRTCRequestEventId", sizeof(GetRTCRequest_t));
     // Register handler for get RTC asyn response events.
-      le_event_AddHandler("GetRTCRespHandler",
-          GetRTCRequestEventId,
-          GetRTCRespHandler);
+      le_event_AddHandler("GetRTCRespHandler", GetRTCRequestEventId, GetRTCRespHandler);
 
       setRTCRequestPoolRef = le_mem_CreatePool("SetRTCRequest", sizeof(SetRTCRequest_t));
       SetRTCRequestEventId = le_event_CreateId("SetRTCRequestEventId", sizeof(SetRTCRequest_t));
       // Register handler for set RTC asyn response events.
-      le_event_AddHandler("SetRTCRespHandler",
-          SetRTCRequestEventId,
-          SetRTCRespHandler);
+      le_event_AddHandler("SetRTCRespHandler", SetRTCRequestEventId, SetRTCRespHandler);
       return;
 }
 

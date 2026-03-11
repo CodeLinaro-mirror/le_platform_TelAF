@@ -443,8 +443,13 @@ LE_SHARED time_InfoTab_t TAF_HAL_INFO_TAB = {
         .InitHAL = taf_hal_Init,
         .sleepHAL = taf_hal_Sleep,
         .wakeUpHAL = tal_hal_Wakeup,
+
+        // IMPORTANT: Do not mix asynchronous and synchronous APIs.
+        // Below synchronous API pair must be used together.
         .getRtcTimeHAL = tal_hal_GetRtcTime,
         .setRtcTimeHAL = tal_hal_SetRtcTime,
+
+        // Below asynchronous API pair must be used together.
         .getRtcTimeReqAsync = taf_hal_getRtcTimeReqAsync,
         .setRtcTimeReqAsync = taf_hal_setRtcTimeReqAsync,
     },

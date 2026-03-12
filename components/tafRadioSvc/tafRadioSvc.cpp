@@ -2184,7 +2184,7 @@ le_result_t taf_radio_GetCurrentNetworkMccMnc
                     LE_ERROR("Invalid PLMN ID.");
                 break;
             case TAF_PA_RADIO_RAT_UMTS:
-                if (info.cellLocInfo[index].gsmInfo.plmnIdValid)
+                if (info.cellLocInfo[index].umtsInfo.plmnIdValid)
                 {
                     mcc = info.cellLocInfo[index].umtsInfo.plmnId.mcc;
                     mnc = info.cellLocInfo[index].umtsInfo.plmnId.mnc;
@@ -2193,7 +2193,7 @@ le_result_t taf_radio_GetCurrentNetworkMccMnc
                     LE_ERROR("Invalid PLMN ID.");
                 break;
             case TAF_PA_RADIO_RAT_TDSCDMA:
-                if (info.cellLocInfo[index].gsmInfo.plmnIdValid)
+                if (info.cellLocInfo[index].tdscdmaInfo.plmnIdValid)
                 {
                     mcc = info.cellLocInfo[index].tdscdmaInfo.plmnId.mcc;
                     mnc = info.cellLocInfo[index].tdscdmaInfo.plmnId.mnc;
@@ -2202,7 +2202,7 @@ le_result_t taf_radio_GetCurrentNetworkMccMnc
                     LE_ERROR("Invalid PLMN ID.");
                 break;
             case TAF_PA_RADIO_RAT_LTE:
-                if (info.cellLocInfo[index].gsmInfo.plmnIdValid)
+                if (info.cellLocInfo[index].lteInfo.plmnIdValid)
                 {
                     mcc = info.cellLocInfo[index].lteInfo.plmnId.mcc;
                     mnc = info.cellLocInfo[index].lteInfo.plmnId.mnc;
@@ -2211,7 +2211,7 @@ le_result_t taf_radio_GetCurrentNetworkMccMnc
                     LE_ERROR("Invalid PLMN ID.");
                 break;
             case TAF_PA_RADIO_RAT_NR5G:
-                if (info.cellLocInfo[index].gsmInfo.plmnIdValid)
+                if (info.cellLocInfo[index].nr5gInfo.plmnIdValid)
                 {
                     mcc = info.cellLocInfo[index].nr5gInfo.plmnId.mcc;
                     mnc = info.cellLocInfo[index].nr5gInfo.plmnId.mnc;
@@ -4289,7 +4289,7 @@ le_result_t taf_radio_GetRatSvcStatus
 
     taf_pa_radio_Rat_t rat = TAF_PA_RADIO_RAT_UNKNOWN;
     pa_result_t paResult = taf_pa_radio_GetServingRat(instance, &rat);
-    if (result != 0)
+    if (paResult != 0)
     {
         LE_ERROR("Failed to get serving RAT.");
         return LE_FAULT;

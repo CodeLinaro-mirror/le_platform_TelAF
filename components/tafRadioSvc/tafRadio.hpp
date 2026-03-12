@@ -306,11 +306,6 @@ class Utility
                     bool padding
                 );
 
-                static taf_pa_common_LogLevel_t Level
-                (
-                    le_log_Level_t level
-                );
-
                 static uint32_t PhoneToInstance
                 (
                     uint8_t phone

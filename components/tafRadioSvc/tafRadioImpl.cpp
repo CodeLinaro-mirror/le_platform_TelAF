@@ -799,32 +799,6 @@ le_result_t Utility::Convert::U16ToString
     return LE_OK;
 }
 
-taf_pa_common_LogLevel_t Utility::Convert::Level
-(
-    le_log_Level_t level
-)
-{
-    switch (level)
-    {
-        case LE_LOG_DEBUG:
-            return TAF_PA_COMMON_LOG_LEVEL_DEBUG;
-        case LE_LOG_INFO:
-            return TAF_PA_COMMON_LOG_LEVEL_INFO;
-        case LE_LOG_WARN:
-            return TAF_PA_COMMON_LOG_LEVEL_WARN;
-        case LE_LOG_ERR:
-            return TAF_PA_COMMON_LOG_LEVEL_ERROR;
-        case LE_LOG_CRIT:
-            return TAF_PA_COMMON_LOG_LEVEL_CRIT;
-        case LE_LOG_EMERG:
-            return TAF_PA_COMMON_LOG_LEVEL_EMERG;
-        default:
-            LE_INFO("Unknown level %d.", level);
-    }
-
-    return TAF_PA_COMMON_LOG_LEVEL_INFO;
-}
-
 uint32_t Utility::Convert::PhoneToInstance
 (
     uint8_t phone
@@ -2241,15 +2215,6 @@ Factory& Factory::GetInstance
     return instance;
 }
 
-static void SetLogLevel
-(
-    le_timer_Ref_t timer
-)
-{
-    le_log_Level_t level = le_log_GetFilterLevel();
-    taf_pa_common_LogSetlevel(Utility::Convert::Level(level));
-}
-
 static void RequestHandler
 (
     void* contextPtr
@@ -2449,13 +2414,6 @@ COMPONENT_INIT
     taf_pm_AddStateChangeHandler(PowerStateChangeHandler, nullptr);
     if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
         RegisterIndication(ENABLE_INDICATION);
-
-    le_timer_Ref_t timer = le_timer_Create("SetLogLevel");
-    le_clk_Time_t interval = {10, 0};
-    le_timer_SetInterval(timer, interval); // Check log level after 10s.
-    le_timer_SetRepeat(timer, 1);
-    le_timer_SetHandler(timer, SetLogLevel);
-    le_timer_Start(timer);
 
     LE_INFO("Radio service is ready.");
 }

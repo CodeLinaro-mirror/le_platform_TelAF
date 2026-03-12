@@ -18,11 +18,6 @@ requires:
         libComponent_taf_pa_sim.so
         libComponent_taf_pa_simDef.so
     }
-
-    api:
-    {
-        taf_pm.api
-    }
 }
 
 cxxflags:

@@ -39,12 +39,7 @@
 #include <iostream>
 #include <string>
 #include <memory>
-#include <telux/tel/PhoneFactory.hpp>
 #include "tafSimCard.hpp"
-
-
-using namespace telux::tel;
-using namespace telux::common;
 using namespace tafsvc;
 using namespace std;
 
@@ -268,8 +263,6 @@ le_result_t taf_sim_Lock( taf_sim_Id_t slotId, taf_sim_LockType_t lockType,
                         LE_UNDERFLOW , "pin length is not enough");
     auto &sim = taf_sim::GetInstance();
     return sim.SetCardLock(slotId, lockType, pinPtr, true);
-
-    return LE_OK;
 }
 
 le_result_t taf_sim_Unlock( taf_sim_Id_t slotId, taf_sim_LockType_t lockType,

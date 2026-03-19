@@ -1362,6 +1362,10 @@ void taf_FwUpdate::UpdateProgress
             LE_INFO("Rollback failed.");
             tafFwUpdate.SetState(TAF_UPDATE_IDLE);
             break;
+        case TAF_UPDATE_CANCELLED:
+            LE_INFO("Cancelled.");
+            tafFwUpdate.SetState(TAF_UPDATE_IDLE);
+            break;
         default:
             break;
     }
@@ -2069,7 +2073,7 @@ void taf_FwUpdate::UpdateImage
             if (tafFwUpdate.GetCancelAction(TAF_UPDATE_INSTALLING))
             {
                 LE_INFO("Cancelled during update.");
-                tafFwUpdate.UpdateProgress(TAF_UPDATE_IDLE);
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
             }
             else
             {
@@ -2100,7 +2104,7 @@ void taf_FwUpdate::UpdateImage
             return;
         }
 
-        tafFwUpdate.UpdateProgress(TAF_UPDATE_IDLE);
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
         return;
     }
 
@@ -2236,7 +2240,7 @@ void taf_FwUpdate::SyncPartition
             if (tafFwUpdate.GetCancelAction(TAF_UPDATE_SYNCHRONIZING))
             {
                 LE_INFO("Cancelled during sync.");
-                tafFwUpdate.UpdateProgress(TAF_UPDATE_IDLE);
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
             }
             else
             {

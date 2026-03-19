@@ -186,6 +186,9 @@ void StateHandler(taf_update_StateInd_t* indication, taf_update_SessionRef_t ses
         case TAF_UPDATE_SYNC_FAIL:
             printf("\n\nAB Sync failed\n");
             break;
+        case TAF_UPDATE_CANCELLED:
+            printf("\n\nCancelled.\n");
+            break;
         default:
             break;
     }

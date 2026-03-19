@@ -180,7 +180,8 @@ void taf_Update::ReportDownloadStatus
 {
     auto &tafUpdate = taf_Update::GetInstance();
 
-    if (state == TAF_UPDATE_DOWNLOAD_SUCCESS || state == TAF_UPDATE_DOWNLOAD_FAIL)
+    if (state == TAF_UPDATE_DOWNLOAD_SUCCESS || state == TAF_UPDATE_DOWNLOAD_FAIL ||
+        state == TAF_UPDATE_CANCELLED)
     {
         sessPtr->state = TAF_UPDATE_IDLE;
     }
@@ -336,7 +337,7 @@ void taf_Update::DownloadHandler
                     LE_INFO("Stop download timer.");
                     le_timer_Stop(sessPtr->timerRef);
 
-                    tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_IDLE);
+                    tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_CANCELLED);
                 }
             }
             else
@@ -372,7 +373,7 @@ void taf_Update::DownloadHandler
                 }
                 else
                 {
-                    tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_IDLE);
+                    tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_CANCELLED);
                 }
             }
             else

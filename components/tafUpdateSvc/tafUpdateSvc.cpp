@@ -420,7 +420,7 @@ le_result_t taf_update_CancelSync
 
                 if (state == TAF_UPDATE_SYNC_PAUSED)
                 {
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_IDLE);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
                 }
             }
             break;
@@ -822,10 +822,17 @@ le_result_t taf_update_CancelInstall
             {
                 case TAF_UPDATE_IDLE:
                     LE_INFO("Cancel post installation while in the idle state.");
-                    return tafFwUpdate.CancelPostInstall();
+                    if (tafFwUpdate.CancelPostInstall() != LE_OK)
+                    {
+                        LE_ERROR("Failed to cancel post installation.");
+                        return LE_FAULT;
+                    }
+                    else
+                        tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
+                    break;
                 case TAF_UPDATE_INSTALL_PAUSED:
                     LE_INFO("Cancel the installation while in the paused state.");
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_IDLE);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
                     break;
                 case TAF_UPDATE_INSTALLING:
                     LE_INFO("Cancel the installation while in the installing state.");

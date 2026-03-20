@@ -321,6 +321,9 @@ void taf_Sensor::DataEventHandler(void* reportPtr){
 
         if(evtHandlerPtr->sessionRef == currentEventList->sessionRef &&
             evtHandlerPtr->sensorRef == sensorRef){
+            taf_imuSensor_DataValue_t rawData[TAF_IMUSENSOR_MAX_SUPPORTED_BATCH_COUNT] = {0};
+            taf_imuSensor_DataValue_t biasData[TAF_IMUSENSOR_MAX_SUPPORTED_BATCH_COUNT] = {0};
+
             eventInfo = (taf_SensorEventInfo_t*)le_mem_ForceAlloc(sensorMngr.tSensorEventInfoPool);
             memset(eventInfo, 0, sizeof(taf_SensorEventInfo_t));
             eventInfo->eventPtr =
@@ -329,8 +332,27 @@ void taf_Sensor::DataEventHandler(void* reportPtr){
             eventInfo->sessionRef = evtHandlerPtr->sessionRef;
             eventInfo->ref =
             (taf_imuSensor_SampleRef_t)le_ref_CreateRef(sensorMngr.tSensorEventMap,eventInfo);
-            evtHandlerPtr->handlerFuncPtr(sensorRef,
-            eventInfo->ref,evtHandlerPtr->handlerContextPtr);
+
+            size_t dataCount = currentEventList->listSize;
+            if (dataCount > TAF_IMUSENSOR_MAX_SUPPORTED_BATCH_COUNT)
+            {
+                dataCount = TAF_IMUSENSOR_MAX_SUPPORTED_BATCH_COUNT;
+            }
+
+            for (size_t i = 0; i < dataCount; ++i)
+            {
+                rawData[i].timestamp = currentEventList->eventList[i].timestamp;
+                rawData[i].x = currentEventList->eventList[i].x;
+                rawData[i].y = currentEventList->eventList[i].y;
+                rawData[i].z = currentEventList->eventList[i].z;
+                biasData[i].timestamp = currentEventList->eventList[i].timestamp;
+                biasData[i].x = currentEventList->eventList[i].xb;
+                biasData[i].y = currentEventList->eventList[i].yb;
+                biasData[i].z = currentEventList->eventList[i].zb;
+            }
+
+            evtHandlerPtr->handlerFuncPtr(eventInfo->ref,
+                rawData, dataCount, biasData, dataCount, evtHandlerPtr->handlerContextPtr);
 
             LE_DEBUG("Data reported with ref %p for sensor %p with session %p",eventInfo->ref,
                            evtHandlerPtr->sensorRef,evtHandlerPtr->sessionRef);

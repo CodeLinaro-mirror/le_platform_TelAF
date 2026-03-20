@@ -107,50 +107,126 @@ void TestAvailableSensor()
     }
     LE_INFO("===== UnitTest Completed for retrieving information about Sensors =====");
 }
-
-void TestSensorOnEventFunc(taf_imuSensor_SensorRef_t sensorRef,taf_imuSensor_SampleRef_t ref
-    ,void* contextPtr){
+void TestSensorOnEventFunc(taf_imuSensor_SampleRef_t sampleRef,
+    const taf_imuSensor_DataValue_t* rawData,  size_t rawDataCount,
+    const taf_imuSensor_DataValue_t* biasData, size_t biasDataCount,
+    void* contextPtr)
+{
     le_mutex_Lock(mSensorMutexRef);
-    char sensorName[50];
-    double sampleRate = 0;
-    uint32_t batch = 0;
-    for(int i=0;i<SENSOR_NUMS;i++){
-        if(sensorRef == configList[i].sensorRef){
-            sampleRate = configList[i].samplingRate;
-            batch = configList[i].batchCount;
-        le_result_t result = taf_imuSensor_GetName(sensorRef,sensorName,sizeof(sensorName));
-        if(result !=LE_OK){
-            LE_TEST_INFO("sensor ref not found %p", sensorRef);
-            le_mutex_Unlock(mSensorMutexRef);
-            return;
-        }
-        LE_TEST_INFO("Test onEvent Retrieval for SensorName %s",sensorName);
-        taf_imuSensor_DataValue_t rawData[TAF_IMUSENSOR_MAX_SUPPORTED_BATCH_COUNT];
-        taf_imuSensor_DataValue_t biasData[TAF_IMUSENSOR_MAX_SUPPORTED_BATCH_COUNT];
-        size_t  size = sizeof(rawData)/sizeof(taf_imuSensor_DataValue_t);
-        result = taf_imuSensor_GetRotatedData(ref,rawData,&size,biasData,&size);
-        LE_TEST_OK(result == LE_OK, "taf_imuSensor_GetRotatedData- LE_OK. Event size %zu",size);
-        result = taf_imuSensor_DeleteData(ref);
-        LE_TEST_OK(result == LE_OK, "taf_imuSensor_DeleteData- LE_OK.");
-        uint64_t eventTimeStamp = 0;
-        uint32_t count = 0;
-        float samplingRateAggregate = 0.0;
-        for(uint32_t i=0;i<size;i++){
-            float samplingRate = 0.0;
-            if (eventTimeStamp > 0) {
-                ++count;
-                // Instantaneous sampling rate, calculated between consecutive samples
-                samplingRate = 1.0 / (rawData[i].timestamp - eventTimeStamp) * 1000000000;
-            }
-            samplingRateAggregate += samplingRate;
-            eventTimeStamp = rawData[i].timestamp;
-        }
-        LE_TEST_INFO("%s [%f HZ, %d] Event [%f HZ, %"PRIu64" ns, %"PRIu64" ns]\n",sensorName,
-            sampleRate,batch,samplingRateAggregate/count,rawData[0].timestamp,
-            rawData[size-1].timestamp);
-        le_sem_Post(semRef1);
+
+    taf_imuSensor_SensorRef_t sensorRef = (taf_imuSensor_SensorRef_t)contextPtr;
+    if (sensorRef == NULL || rawData == NULL || biasData == NULL)
+    {
+        LE_TEST_INFO("Invalid callback args: sensorRef=%p raw=%p bias=%p",
+                     sensorRef, rawData, biasData);
+        le_mutex_Unlock(mSensorMutexRef);
+        return;
+    }
+
+    char sensorName[50] = {0};
+    double sampleRateCfg = 0;
+    uint32_t batchCfg = 0;
+    bool found = false;
+
+    for (int i = 0; i < SENSOR_NUMS; i++)
+    {
+        if (sensorRef == configList[i].sensorRef)
+        {
+            sampleRateCfg = configList[i].samplingRate;
+            batchCfg = configList[i].batchCount;
+            found = true;
+            break;
         }
     }
+
+    le_result_t result = taf_imuSensor_GetName(sensorRef, sensorName, sizeof(sensorName));
+    if (result != LE_OK || !found)
+    {
+        LE_TEST_INFO("sensor ref not found or config missing %p", sensorRef);
+        le_mutex_Unlock(mSensorMutexRef);
+        return;
+    }
+
+    size_t size = rawDataCount;
+    if (biasDataCount < size) size = biasDataCount;
+    if (size == 0)
+    {
+        LE_TEST_INFO("No samples in event for %s", sensorName);
+        (void)taf_imuSensor_DeleteData(sampleRef); // Free server-side sample ref
+        le_mutex_Unlock(mSensorMutexRef);
+        return;
+    }
+
+    taf_imuSensor_DataValue_t rawDataFromApi[TAF_IMUSENSOR_MAX_SUPPORTED_BATCH_COUNT];
+    taf_imuSensor_DataValue_t biasDataFromApi[TAF_IMUSENSOR_MAX_SUPPORTED_BATCH_COUNT];
+    size_t apiSize = sizeof(rawDataFromApi) / sizeof(taf_imuSensor_DataValue_t);
+    result = taf_imuSensor_GetRotatedData(sampleRef, rawDataFromApi, &apiSize,
+        biasDataFromApi, &apiSize);
+    LE_TEST_OK(result == LE_OK, "taf_imuSensor_GetRotatedData - LE_OK. Event size %zu", apiSize);
+    LE_TEST_OK(apiSize == size, "taf_imuSensor_GetRotatedData size matches callback data");
+
+    for (size_t j = 0; j < apiSize; ++j)
+    {
+        bool rawMatched = (rawDataFromApi[j].timestamp == rawData[j].timestamp) &&
+            (rawDataFromApi[j].x == rawData[j].x) &&
+            (rawDataFromApi[j].y == rawData[j].y) &&
+            (rawDataFromApi[j].z == rawData[j].z);
+        if (!rawMatched)
+        {
+            LE_TEST_INFO("RawData[%zu] mismatch: api={ts=%"PRIu64", x=%lf, y=%lf, z=%lf}, "
+                "callback={ts=%"PRIu64", x=%lf, y=%lf, z=%lf}",
+                j,
+                rawDataFromApi[j].timestamp, rawDataFromApi[j].x, rawDataFromApi[j].y,
+                rawDataFromApi[j].z,
+                rawData[j].timestamp, rawData[j].x, rawData[j].y, rawData[j].z);
+            LE_TEST_OK(false, "RawData[%zu] from GetRotatedData matches callback data", j);
+        }
+
+        bool biasMatched = (biasDataFromApi[j].timestamp == biasData[j].timestamp) &&
+            (biasDataFromApi[j].x == biasData[j].x) &&
+            (biasDataFromApi[j].y == biasData[j].y) &&
+            (biasDataFromApi[j].z == biasData[j].z);
+        if (!biasMatched)
+        {
+            LE_TEST_INFO("BiasData[%zu] mismatch: api={ts=%"PRIu64", x=%lf, y=%lf, z=%lf}, "
+                "callback={ts=%"PRIu64", x=%lf, y=%lf, z=%lf}",
+                j,
+                biasDataFromApi[j].timestamp, biasDataFromApi[j].x, biasDataFromApi[j].y,
+                biasDataFromApi[j].z,
+                biasData[j].timestamp, biasData[j].x, biasData[j].y, biasData[j].z);
+            LE_TEST_OK(false, "BiasData[%zu] from GetRotatedData matches callback data", j);
+        }
+    }
+
+    // Free the sample reference on server side (important to avoid ref-map growth)
+    result = taf_imuSensor_DeleteData(sampleRef);
+    LE_TEST_OK(result == LE_OK, "taf_imuSensor_DeleteData - LE_OK.");
+
+    uint64_t eventTimeStamp = 0;
+    uint32_t count = 0;
+    float samplingRateAggregate = 0.0f;
+
+    for (size_t i = 0; i < size; i++)
+    {
+        float samplingRate = 0.0f;
+        if (eventTimeStamp > 0)
+        {
+            ++count;
+            samplingRate = 1.0f / (rawData[i].timestamp - eventTimeStamp) * 1000000000.0f;
+        }
+        samplingRateAggregate += samplingRate;
+        eventTimeStamp = rawData[i].timestamp;
+    }
+
+    LE_TEST_INFO("%s [%f HZ, %d] Event [%f HZ, %"PRIu64" ns, %"PRIu64" ns]\n",
+                 sensorName,
+                 sampleRateCfg, batchCfg,
+                 (count > 0) ? (samplingRateAggregate / count) : 0.0f,
+                 rawData[0].timestamp,
+                 rawData[size - 1].timestamp);
+
+    le_sem_Post(semRef1);
+
     le_mutex_Unlock(mSensorMutexRef);
 }
 
@@ -181,11 +257,11 @@ static void* SensorHandler(void* ctxPtr)
 {
     taf_imuSensor_ConnectService();
     eventHandlerRef1 =
-       taf_imuSensor_AddDataHandler(sensorsArray[0],TestSensorOnEventFunc,NULL);
+       taf_imuSensor_AddDataHandler(sensorsArray[0],TestSensorOnEventFunc,sensorsArray[0]);
     LE_TEST_OK(eventHandlerRef1 != NULL, "Register AddOnEventHandler1 handler"
         " is successfull");
     eventHandlerRef2 =
-        taf_imuSensor_AddDataHandler(sensorsArray[1],TestSensorOnEventFunc,NULL);
+        taf_imuSensor_AddDataHandler(sensorsArray[1],TestSensorOnEventFunc,sensorsArray[1]);
     LE_TEST_OK(eventHandlerRef2 != NULL, "Register AddOnEventHandler2 handler"
          " is successfull");
     selfTestHandlerRef1 =

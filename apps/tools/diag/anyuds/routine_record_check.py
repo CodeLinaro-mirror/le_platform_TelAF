@@ -10,7 +10,7 @@ def algo_for_0x27(level, seed):
         key[i] += (level + i)
     return bytes(key)
 
-tcpdump_start("Routine Control Option check")
+tcpdump_start("Routine Control Option check for V2")
 
 uds("10 01")
 uds("10 03")
@@ -104,6 +104,11 @@ print("Exp      <7f 31 31>")
 # NRC 0x31 since record data is not in the range(-10, 10)
 uds("31 03 02 47 0B")
 print("Exp      <7f 31 31>")
+
+# Record length is configured 1, and there is 1 in request.
+# Positvie response since record data is in the range(-10, 10)
+uds("31 03 02 47 01")
+print("Exp      positive resp")
 
 # Record length is configured 1, and no record in request.
 # NRC 0x13 since the received length(4) mismatches the configured length(4+1)

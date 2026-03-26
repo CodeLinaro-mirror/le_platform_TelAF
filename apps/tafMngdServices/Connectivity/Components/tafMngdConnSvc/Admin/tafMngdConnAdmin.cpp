@@ -2736,6 +2736,11 @@ le_result_t tafMngdConnAdmin::InitializeStates()
                                  Policy.DataSession.DataConnection[sessionIdx].Use_Data_ID)
             continue;
 
+            // Reset connection test fields before processing each data entry so that null JSON
+            // values do not inherit stale values from a previous iteration.
+            conn_test_url[0] = '\0';
+            conn_test_ipv4Addr[0] = '\0';
+
             //Update the dataConnectionCount
             if(Configuration.Data[dataIdx].DataStartRetry.Enable)
             {

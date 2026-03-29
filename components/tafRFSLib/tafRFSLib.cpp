@@ -763,6 +763,7 @@ extern "C" LE_SHARED int taf_rfs_Open
 
     struct stat st;
     bool needRestore = false;
+    int savedErrno = 0;
 
     if (stat(filePathPtr, &st) == 0)
     {
@@ -773,10 +774,19 @@ extern "C" LE_SHARED int taf_rfs_Open
             needRestore = true;
         }
     }
-    else if (!(flags & O_CREAT))
+    else
     {
-        LE_ERROR("File does not exist and O_CREAT not specified");
-        return -1;
+        savedErrno = errno;
+        if (!(flags & O_CREAT) && savedErrno == ENOENT)
+        {
+            LE_WARN("Primary file missing (ENOENT), will restore from backup");
+            needRestore = true;
+        }
+        else if (!(flags & O_CREAT))
+        {
+            LE_ERROR("stat failed for %s: %s", filePathPtr, strerror(savedErrno));
+            return -1;
+        }
     }
 
     if (needRestore == true)

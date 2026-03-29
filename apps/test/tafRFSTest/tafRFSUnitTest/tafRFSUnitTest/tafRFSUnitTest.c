@@ -38,6 +38,7 @@ __attribute__((unused)) static void Simulate_Corrupt();
 #define OP_COPY    "copy"
 #define OP_RENAME  "rename"
 #define OP_RESTORE              "restore"
+#define OP_RESTORE_MISSING      "restore_missing"
 #define OP_BACKUP_INVALID       "backup_invalid"
 #define OP_RO_OPEN_HEALS_BACKUP "ro_open_heals_backup"
 #define OP_BACKUP_MD5_MISSING_RECOVER "backup_md5_missing_recover"
@@ -57,6 +58,7 @@ typedef enum
     COPY,
     RENAME,
     RESTORE,
+    RESTORE_MISSING,
     BACKUP_INVALID,
     RO_OPEN_HEALS_BACKUP,
     BACKUP_MD5_MISSING_RECOVER,
@@ -75,6 +77,8 @@ TestOperation_t testSequence[] = {
     WRITE,
     CORRUPT,
     RESTORE,
+    WRITE,
+    RESTORE_MISSING,
     WRITE,
     RO_OPEN_HEALS_BACKUP,
     WRITE,
@@ -266,6 +270,16 @@ __attribute__((unused)) static void Test_Restore()
     Verify_File(TEST_FILE_PATH, OP_RESTORE);
 }
 
+__attribute__((unused)) static void Test_RestoreMissing()
+{
+    int ret = unlink(TEST_FILE_PATH);
+    LE_TEST_ASSERT((ret == 0) || (errno == ENOENT),
+                   "Delete only primary file for %s",
+                   OP_RESTORE_MISSING);
+
+    Verify_File(TEST_FILE_PATH, OP_RESTORE_MISSING);
+}
+
 __attribute__((unused)) static void Test_RoOpenHealsBackup()
 {
     char fullBackupPath[512] = {0};
@@ -433,6 +447,9 @@ static void ProcessTest
         case RESTORE:
             Test_Restore();
             break;
+        case RESTORE_MISSING:
+            Test_RestoreMissing();
+            break;
         case BACKUP_INVALID:
             Test_BackupInvalidOpenFail();
             break;
@@ -464,6 +481,7 @@ static void ProcessTest
  *
  * Useful operations:
  *   restore                : primary corrupted, valid backup restores primary
+ *   restore_missing        : primary missing, valid backup restores primary
  *   backup_invalid         : primary corrupted, invalid backup makes open fail
  *   ro_open_heals_backup   : RO open + close heals backup MD5 xattr mismatch from valid primary
  *   backup_md5_missing_recover   : RO open + close heals missing backup MD5 xattr from valid primary
@@ -524,6 +542,10 @@ COMPONENT_INIT
         else if (strcmp(operation, OP_RESTORE) == 0)
         {
             requestPtr->op = RESTORE;
+        }
+        else if (strcmp(operation, OP_RESTORE_MISSING) == 0)
+        {
+            requestPtr->op = RESTORE_MISSING;
         }
         else if (strcmp(operation, OP_BACKUP_INVALID) == 0)
         {

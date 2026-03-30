@@ -2345,6 +2345,8 @@ void taf_FwUpdate::StartSync
 {
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
     tafFwUpdate.CleanupContext(TAF_UPDATE_SYNCHRONIZING);
+    tafFwUpdate.percent = 0;
+    tafFwUpdate.SetState(TAF_UPDATE_SYNCHRONIZING);
 
     taf_update_Bank_t bank = TAF_UPDATE_BANK_UNKNOWN;
     if (tafFwUpdate.GetActiveBank(&bank) != LE_OK)

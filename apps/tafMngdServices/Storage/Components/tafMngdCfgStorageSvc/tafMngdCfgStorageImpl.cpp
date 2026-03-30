@@ -1056,7 +1056,7 @@ le_result_t tafMngdStorageSvc::ImportTree(char* filePath){
 
 le_result_t tafMngdStorageSvc::GetConfigStoragePath(char* storagePtr, size_t storageSize){
     snprintf(storagePtr, storageSize, "%s%s%s", configStorage,CONFIG_FILE_NAME,".update");
-    LE_INFO("Storage Path is %s",storagePtr);
+    LE_DEBUG("Storage Path is %s",storagePtr);
     return LE_OK;
 }
 
@@ -1064,7 +1064,7 @@ le_result_t tafMngdStorageSvc::GetConfigFilePath(char* filePtr, size_t fileSize,
     tafMngdStorage_ConfigFileData_t* configPtr){
     if(configPtr == NULL) return LE_FAULT;
     snprintf(filePtr, fileSize, "%s%s",updatePath,configPtr->fileName);
-    LE_INFO("Storage Path is %s",filePtr);
+    LE_DEBUG("Storage Path is %s",filePtr);
     return LE_OK;
 }
 
@@ -1106,7 +1106,7 @@ le_result_t tafMngdStorageSvc::GetFiles(const char *path,uint32_t maxFiles)
         if(configFileData[i] != NULL){
             snprintf(configFileData[i]->fileName,
                         sizeof(configFileData[i]->fileName),"%s",d->d_name);
-            LE_INFO("Found file %s",configFileData[i]->fileName);
+            LE_DEBUG("Found file %s",configFileData[i]->fileName);
         }
         i++;
         isEmpty = false;
@@ -1132,7 +1132,7 @@ le_result_t tafMngdStorageSvc::ConvertToSingleMssJson(uint32_t maxFiles){
     for(uint32_t i=0;i<maxFiles;i++){
         tafMngdStorage_ConfigFileData_t* configFilePtr = configFileData[i];
         if(configFilePtr){
-            LE_INFO("Updating file %s",configFilePtr->fileName);
+            LE_DEBUG("Updating file %s",configFilePtr->fileName);
             //Getting Config File Path.
             char FilePath[LIMIT_MAX_PATH_BYTES] =  {0};
             result = GetConfigFilePath(FilePath,sizeof(FilePath),configFilePtr);
@@ -1175,7 +1175,7 @@ le_result_t tafMngdStorageSvc::AuthenticateFile(uint32_t maxFiles){
     for(uint32_t i=0;i<maxFiles;i++){
         tafMngdStorage_ConfigFileData_t* configFilePtr = configFileData[i];
         if(configFilePtr){
-            LE_INFO("Authenticating file %s",configFilePtr->fileName);
+            LE_DEBUG("Authenticating file %s",configFilePtr->fileName);
 
             //Getting Config File Path.
             char FilePath[LIMIT_MAX_PATH_BYTES] =  {0};
@@ -1363,7 +1363,7 @@ le_result_t tafMngdStorageSvc::GetVersion(taf_mngdStorCfg_ConfigRef_t ConfigRef,
         {
             res = LE_OK;
         }
-        LE_INFO("MajorVersion: %d MinorVersion: %d PatchVersion: %d", *MajorVersionPtr, *MinorVersionPtr, *PatchVersionPtr);
+        LE_DEBUG("MajorVersion: %d MinorVersion: %d PatchVersion: %d", *MajorVersionPtr, *MinorVersionPtr, *PatchVersionPtr);
     }
     else
     {
@@ -1394,7 +1394,7 @@ le_result_t tafMngdStorageSvc::GetType(taf_mngdStorCfg_ConfigRef_t ConfigRef,
             return LE_NOT_FOUND;
         }
         le_cfg_nodeType_t nodeType = le_cfg_GetNodeType(itrRef, nodeName);
-        LE_INFO("nodeType:%d", nodeType);
+        LE_DEBUG("nodeType:%d", nodeType);
         switch (nodeType)
         {
         case LE_CFG_TYPE_STRING:
@@ -1434,7 +1434,7 @@ le_result_t tafMngdStorageSvc::GetString(taf_mngdStorCfg_ConfigRef_t ConfigRef,
     result = le_cfg_QuickGetString(nodePathVal, nodeValue, nodeValueSize, "");
     if (result == LE_OK && strlen(nodeValue) != 0)
     {
-        LE_INFO("nodeValue:%s",nodeValue);
+        LE_DEBUG("nodeValue:%s",nodeValue);
     }
     else{
         result = LE_FAULT;
@@ -1532,7 +1532,7 @@ le_result_t tafMngdStorageSvc::GetValue(taf_mngdStorCfg_ConfigRef_t ConfigRef,
                 LE_ERROR("GetString Failed");
                 return result;
             }
-            LE_INFO("type as String value: %s", nodeValue);
+            LE_DEBUG("type as String value: %s", nodeValue);
             break;
         case TAF_MNGDSTORCFG_TYPE_BOOL:
             result = tafMngdStorageSvc::GetBool(ConfigRef, groupName, nodeName, &nodeBoolValue);
@@ -1542,7 +1542,7 @@ le_result_t tafMngdStorageSvc::GetValue(taf_mngdStorCfg_ConfigRef_t ConfigRef,
                 return result;
             }
             snprintf(nodeValue,nodeValueSize,"%s", nodeBoolValue==1 ? "true" : "false");
-            LE_INFO("type as bool value: %s", nodeValue);
+            LE_DEBUG("type as bool value: %s", nodeValue);
             break;
         case TAF_MNGDSTORCFG_TYPE_INT:
             result = tafMngdStorageSvc::GetInt(ConfigRef, groupName, nodeName, &nodeIntValue);
@@ -1552,7 +1552,7 @@ le_result_t tafMngdStorageSvc::GetValue(taf_mngdStorCfg_ConfigRef_t ConfigRef,
                 return result;
             }
             snprintf(nodeValue,nodeValueSize,"%d",nodeIntValue);
-            LE_INFO("type as Int value: %s", nodeValue);
+            LE_DEBUG("type as Int value: %s", nodeValue);
             break;
         case LE_CFG_TYPE_FLOAT:
             result = tafMngdStorageSvc::GetFloat(ConfigRef, groupName, nodeName, &nodeDoubleValue);
@@ -1562,7 +1562,7 @@ le_result_t tafMngdStorageSvc::GetValue(taf_mngdStorCfg_ConfigRef_t ConfigRef,
                return result;
             }
             snprintf(nodeValue,nodeValueSize,"%f",nodeDoubleValue);
-            LE_INFO("type as Int value: %s", nodeValue);
+            LE_DEBUG("type as float value: %s", nodeValue);
             break;
         default:
             return LE_UNAVAILABLE;
@@ -1570,7 +1570,7 @@ le_result_t tafMngdStorageSvc::GetValue(taf_mngdStorCfg_ConfigRef_t ConfigRef,
     }
     else
     {
-        LE_INFO("Failed with GetType");
+        LE_DEBUG("Failed with GetType");
     }
     return result;
 }
@@ -1587,7 +1587,7 @@ le_result_t tafMngdStorageSvc::CheckNodeExsist(const char *LE_NONNULL groupName,
     if(le_cfg_NodeExists(itrRef,groupName)){
         le_cfg_GoToNode(itrRef,groupName);
         if(le_cfg_NodeExists(itrRef,nodeName)){
-            LE_INFO("Found groupName %s and nodeName %s",groupName,nodeName);
+            LE_DEBUG("Found groupName %s and nodeName %s",groupName,nodeName);
         }
         else{
             le_cfg_CancelTxn(itrRef);

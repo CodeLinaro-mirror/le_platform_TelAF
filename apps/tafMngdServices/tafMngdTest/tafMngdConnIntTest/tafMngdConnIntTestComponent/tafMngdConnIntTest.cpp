@@ -50,8 +50,6 @@ static std::string DataStateToString(taf_mngdConn_DataState_t state)
         return "TAF_MNGDCONN_DATA_CONNECTION_STALLED";
     case TAF_MNGDCONN_DATA_CONNECTION_FAILED:
         return "TAF_MNGDCONN_DATA_CONNECTION_FAILED";
-    case TAF_MNGDCONN_DATA_DISCONNECTED_OUT_OF_SERVICE:
-        return "TAF_MNGDCONN_DATA_DISCONNECTED_OUT_OF_SERVICE";
     default:
         LE_TEST_INFO("unknown data state: %d", static_cast<int>(state));
     }

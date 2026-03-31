@@ -242,14 +242,14 @@ void tafMngdConnAdmin::PowerStateChangeHandler
 
         if ((psState == TAF_RADIO_NET_REG_STATE_HOME ||
             psState == TAF_RADIO_NET_REG_STATE_ROAMING) &&
-            dataCtxPtr->dataState == TAF_MNGDCONN_DATA_DISCONNECTED_OUT_OF_SERVICE)
+            dataCtxPtr->dataState == TAF_MNGDCONN_DATA_DISCONNECTED)
         {
             stateMachineEvt.event = MCS_EVT_NETWORK_REG_STATE;
             stateMachineEvt.phoneId = dataCtxPtr->phoneId;
             eventsToReport.push_back(stateMachineEvt);
         }
         else if (psState == TAF_RADIO_NET_REG_STATE_NONE &&
-            dataCtxPtr->dataState != TAF_MNGDCONN_DATA_DISCONNECTED_OUT_OF_SERVICE)
+            dataCtxPtr->dataState != TAF_MNGDCONN_DATA_DISCONNECTED)
         {
             stateMachineEvt.event = MCS_EVT_NETWORK_UNREG_STATE;
             stateMachineEvt.phoneId = dataCtxPtr->phoneId;
@@ -1847,10 +1847,10 @@ le_result_t tafMngdConnAdmin::EventNetworkUnregState(uint8_t phoneId)
                 default:
                     break;
             }
-            // Update service state and report OUT_OF_SERVICE event
-            LE_INFO("Report data out of service event");
+            // Update service state and report DISCONNECTED event
+            LE_INFO("Report data disconnected event");
             dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_NW_NOT_REGISTERED;
-            ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED_OUT_OF_SERVICE);
+            ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
         }
     }
     le_mutex_Unlock(DataCtxMutex);
@@ -4530,8 +4530,6 @@ const char *tafMngdConnAdmin::DataStateToString(taf_mngdConn_DataState_t state)
             return "TAF_MNGDCONN_DATA_CONNECTION_STALLED";
         case TAF_MNGDCONN_DATA_CONNECTION_FAILED:
             return "TAF_MNGDCONN_DATA_CONNECTION_FAILED";
-        case TAF_MNGDCONN_DATA_DISCONNECTED_OUT_OF_SERVICE:
-            return "TAF_MNGDCONN_DATA_DISCONNECTED_OUT_OF_SERVICE";
         default:
             LE_ERROR("unknown status: %d", state);
             break;

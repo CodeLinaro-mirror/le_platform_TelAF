@@ -779,12 +779,19 @@ bool mcs_ConfigurationParser::Validate_MCSC_Data_DSR_BackoffInterval(
     }
 
     int localInt = std::stoi(Value);
-    // Value should be valid BackoffInterval. Only 30 is supported.
-    if (localInt != TAF_MNGDCONN_MAX_DATA_START_RETRY_BACKOFF_INTERVAL)
+    // Value should be valid BackoffInterval
+    if (localInt < 1 || localInt > TAF_MNGDCONN_MAX_DATA_START_RETRY_BACKOFF_INTERVAL)
     {
         LE_WARN("Invalid BackoffInterval, %d", localInt);
         return false;
     }
+
+    if (localInt < TAF_MNGDCONN_MAX_DATA_START_RETRY_BACKOFF_INTERVAL)
+    {
+        LE_WARN("BackoffInterval:%d is less than MaxBackoffInterval:%d",
+            localInt, TAF_MNGDCONN_MAX_DATA_START_RETRY_BACKOFF_INTERVAL);
+    }
+
     // Valid value. Update Configuration.
     Configuration.Data[Index].DataStartRetry.BackoffInterval = static_cast<uint16_t>(localInt);
     return true;

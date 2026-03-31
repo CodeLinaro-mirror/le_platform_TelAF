@@ -427,8 +427,8 @@
      <td>uint16_t</td>
      <td>30</td>
      <td>30</td>
-     <td>The time in seconds to wait before the first data start retry attempt. Only 30s is
-          supported.
+     <td>The time in seconds to wait before the first data start retry attempt. Supported valid
+          range is 1-30s.
       </td>
    </tr>
    <tr>

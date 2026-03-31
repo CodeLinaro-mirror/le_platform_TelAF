@@ -284,15 +284,49 @@ static void VoiceServiceInfoHandler
     void* contextPtr
 )
 {
+    (void)contextPtr;
+
+    if (instance >= INSTANCE_MAX_COUNT)
+    {
+        LE_ERROR("Invalid instance %d.", instance);
+        return;
+    }
+
     auto& factory = Factory::GetInstance();
+    uint8_t phoneId = Utility::Convert::InstanceToPhone(instance);
 
-    taf_radio_NetRegStateInd_t* indPtr = (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(
-        factory.pools.netRegState);
+    taf_radio_NetRegState_t vState = Utility::Convert::NetRegState(&indication.info);
 
-    indPtr->phoneId = Utility::Convert::InstanceToPhone(instance);
-    indPtr->state = Utility::Convert::NetRegState(&indication.info);
+    taf_radio_NetRegState_t dState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+    if (taf_radio_GetPacketSwitchedState(&dState, phoneId) != LE_OK)
+    {
+        LE_WARN("Failed to get Data Service Info for phoneId %d", phoneId);
+    }
 
-    le_event_ReportWithRefCounting(factory.events.netRegState, (void*)indPtr);
+    taf_radio_NetRegState_t combinedState =
+        Utility::Convert::CombineNetRegState(vState, dState);
+
+    bool changed = false;
+    {
+        std::lock_guard<std::mutex> lock(factory.cache.sNetRegStateMutex[instance]);
+
+        if (combinedState != factory.cache.netRegState[instance])
+        {
+            factory.cache.netRegState[instance] = combinedState;
+            changed = true;
+        }
+    }
+
+    if (changed)
+    {
+        taf_radio_NetRegStateInd_t* indPtr =
+            (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(factory.pools.netRegState);
+
+        indPtr->phoneId = phoneId;
+        indPtr->state = combinedState;
+
+        le_event_ReportWithRefCounting(factory.events.netRegState, (void*)indPtr);
+    }
 }
 
 static void DataServiceStatusHandler
@@ -302,6 +336,8 @@ static void DataServiceStatusHandler
     void* contextPtr
 )
 {
+    (void)contextPtr;
+
     if (instance >= INSTANCE_MAX_COUNT)
     {
         LE_ERROR("Invalid instance %d.", instance);
@@ -309,37 +345,86 @@ static void DataServiceStatusHandler
     }
 
     auto& factory = Factory::GetInstance();
+    uint8_t phoneId = Utility::Convert::InstanceToPhone(instance);
+
     factory.cache.dataServiceState[instance] = indication.state;
+
     taf_radio_NetRegState_t state = TAF_RADIO_NET_REG_STATE_UNKNOWN;
     switch (indication.state)
     {
         case TAF_PA_RADIO_DATA_SERVICE_STATE_IN_SERVICE:
         {
-            taf_pa_radio_DataRoamingStatus_t status = TAF_PA_RADIO_DATA_ROAMING_STATUS_UNKNOWN;
-            pa_result_t result = taf_pa_radio_GetDataCurrRoamingStatus(instance, &status);
-            if (result == 0 && status == TAF_PA_RADIO_DATA_ROAMING_STATUS_ON)
-                state = TAF_RADIO_NET_REG_STATE_ROAMING;
-            else
-                state = TAF_RADIO_NET_REG_STATE_HOME;
+            taf_pa_radio_DataRoamingStatus_t status =
+                TAF_PA_RADIO_DATA_ROAMING_STATUS_UNKNOWN;
 
+            pa_result_t result =
+                taf_pa_radio_GetDataCurrRoamingStatus(instance, &status);
+
+            if (result == 0 &&
+                status == TAF_PA_RADIO_DATA_ROAMING_STATUS_ON)
+            {
+                state = TAF_RADIO_NET_REG_STATE_ROAMING;
+            }
+            else
+            {
+                state = TAF_RADIO_NET_REG_STATE_HOME;
+            }
             break;
         }
+
         case TAF_PA_RADIO_DATA_SERVICE_STATE_OUT_OF_SERVICE:
             state = TAF_RADIO_NET_REG_STATE_NONE;
             break;
+
         default:
             state = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+            break;
     }
 
     if (state != factory.cache.packetSwitchedState[instance])
     {
         factory.cache.packetSwitchedState[instance] = state;
 
-        taf_radio_NetRegStateInd_t* indPtr = (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(
-            factory.pools.netRegState);
-        indPtr->phoneId = Utility::Convert::InstanceToPhone(instance);
+        taf_radio_NetRegStateInd_t* indPtr =
+            (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(factory.pools.netRegState);
+
+        indPtr->phoneId = phoneId;
         indPtr->state = state;
+
         le_event_ReportWithRefCounting(factory.events.packetSwitchedState, (void*)indPtr);
+    }
+
+    taf_pa_radio_VoiceServiceInfo_t voiceInfo;
+    taf_radio_NetRegState_t vState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+
+    if (taf_pa_radio_GetVoiceServiceInfo(phoneId, &voiceInfo) == LE_OK)
+    {
+        vState = Utility::Convert::NetRegState(&voiceInfo);
+    }
+
+    taf_radio_NetRegState_t combinedState =
+        Utility::Convert::CombineNetRegState(vState, state);
+
+    bool changed = false;
+    {
+        std::lock_guard<std::mutex> lock(factory.cache.sNetRegStateMutex[instance]);
+
+        if (combinedState != factory.cache.netRegState[instance])
+        {
+            factory.cache.netRegState[instance] = combinedState;
+            changed = true;
+        }
+    }
+
+    if (changed)
+    {
+        taf_radio_NetRegStateInd_t* indPtr =
+            (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(factory.pools.netRegState);
+
+        indPtr->phoneId = phoneId;
+        indPtr->state = combinedState;
+
+        le_event_ReportWithRefCounting(factory.events.netRegState, (void*)indPtr);
     }
 }
 
@@ -1767,6 +1852,47 @@ void Utility::Convert::LteCphyCaInfo
             infoPtr->cellCount++;
         }
     }
+}
+
+taf_radio_NetRegState_t Utility::Convert::CombineNetRegState(taf_radio_NetRegState_t voiceState, taf_radio_NetRegState_t dataState)
+{
+    auto getPriorityScore = [](taf_radio_NetRegState_t state) -> int {
+        switch(state) {
+            case TAF_RADIO_NET_REG_STATE_ROAMING: return 5;
+            case TAF_RADIO_NET_REG_STATE_HOME: return 4;
+            case TAF_RADIO_NET_REG_STATE_DENIED: 
+            case TAF_RADIO_NET_REG_STATE_DENIED_AND_EMERGENCY_AVAILABLE: return 3;
+            case TAF_RADIO_NET_REG_STATE_SEARCHING:
+            case TAF_RADIO_NET_REG_STATE_SEARCHING_AND_EMERGENCY_AVAILABLE: return 2;
+            case TAF_RADIO_NET_REG_STATE_UNKNOWN:
+            case TAF_RADIO_NET_REG_STATE_UNKNOWN_AND_EMERGENCY_AVAILABLE: return 1;
+            case TAF_RADIO_NET_REG_STATE_NONE:
+            case TAF_RADIO_NET_REG_STATE_NONE_AND_EMERGENCY_AVAILABLE: return 0;
+            default: return 0;
+        }
+    };
+
+    auto hasEmergency = [](taf_radio_NetRegState_t state) -> bool {
+        return (state == TAF_RADIO_NET_REG_STATE_NONE_AND_EMERGENCY_AVAILABLE ||
+                state == TAF_RADIO_NET_REG_STATE_SEARCHING_AND_EMERGENCY_AVAILABLE ||
+                state == TAF_RADIO_NET_REG_STATE_DENIED_AND_EMERGENCY_AVAILABLE ||
+                state == TAF_RADIO_NET_REG_STATE_UNKNOWN_AND_EMERGENCY_AVAILABLE);
+    };
+
+    int vScore = getPriorityScore(voiceState);
+    int dScore = getPriorityScore(dataState);
+    int maxScore = std::max(vScore, dScore);
+
+    bool emerg = hasEmergency(voiceState) || hasEmergency(dataState);
+
+    if (maxScore == 5) return TAF_RADIO_NET_REG_STATE_ROAMING;
+    if (maxScore == 4) return TAF_RADIO_NET_REG_STATE_HOME;
+
+    if (maxScore == 3) return emerg ? TAF_RADIO_NET_REG_STATE_DENIED_AND_EMERGENCY_AVAILABLE : TAF_RADIO_NET_REG_STATE_DENIED;
+    if (maxScore == 2) return emerg ? TAF_RADIO_NET_REG_STATE_SEARCHING_AND_EMERGENCY_AVAILABLE : TAF_RADIO_NET_REG_STATE_SEARCHING;
+    if (maxScore == 1) return emerg ? TAF_RADIO_NET_REG_STATE_UNKNOWN_AND_EMERGENCY_AVAILABLE : TAF_RADIO_NET_REG_STATE_UNKNOWN;
+
+    return emerg ? TAF_RADIO_NET_REG_STATE_NONE_AND_EMERGENCY_AVAILABLE : TAF_RADIO_NET_REG_STATE_NONE;
 }
 
 void Utility::LayeredFunction::NetworkRejection

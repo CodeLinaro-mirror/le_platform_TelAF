@@ -40,6 +40,7 @@
 #include "interfaces.h"
 
 #include <string>
+#include <mutex>
 #include <map>
 
 #include "taf_pa_radio.hpp"
@@ -279,6 +280,8 @@ typedef struct
     taf_radio_ImsRef_t imsRefs[INSTANCE_MAX_COUNT];
     taf_radio_CAInfoRef_t caInfoRefs[INSTANCE_MAX_COUNT];
     taf_radio_ConnStatusRef_t connStatusRefs[INSTANCE_MAX_COUNT];
+    taf_radio_NetRegState_t netRegState[INSTANCE_MAX_COUNT];
+    std::mutex sNetRegStateMutex[INSTANCE_MAX_COUNT];
 } Cache_t;
 
 class Utility
@@ -473,6 +476,12 @@ class Utility
                 (
                     taf_pa_radio_LteCphyCaInfo_t* paInfoPtr,
                     CAInfo_t* infoPtr
+                );
+
+                static taf_radio_NetRegState_t CombineNetRegState
+                (
+                    taf_radio_NetRegState_t voiceState,
+                    taf_radio_NetRegState_t dataState
                 );
         };
 

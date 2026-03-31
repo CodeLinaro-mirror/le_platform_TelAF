@@ -76,6 +76,8 @@ typedef struct
     taf_dcs_Pdp_t                            pdp;
     char                                     apn[TAF_DCS_NAME_MAX_LEN];
     taf_dcs_ApnType_t                        apnType;
+    bool                                     isIntefaceValid;
+    char                                     interface[TAF_DCS_NAME_MAX_LEN];
     taf_dcs_Auth_t                           auth;
     char                                     authUsername[TAF_DCS_USER_NAME_MAX_LEN];
     char                                     authPassword[TAF_DCS_PASSWORD_NAME_MAX_LEN];
@@ -195,6 +197,7 @@ namespace tafsvc {
             le_result_t DeleteProfile(taf_dcs_ProfileRef_t profileRef);
             le_result_t SetApn(taf_dcs_ProfileRef_t profileRef, const char *apnPtr);
             le_result_t GetApn(taf_dcs_ProfileRef_t profileRef, char *apnPtr, size_t apnSize);
+            le_result_t SetInterface(taf_dcs_ProfileRef_t profileRef, const char *namePtr);
             le_result_t SetProfileName(taf_dcs_ProfileRef_t profileRef, const char *namePtr);
             le_result_t GetProfileName(taf_dcs_ProfileRef_t profileRef, char *namePtr,
                                                                                    size_t nameSize);

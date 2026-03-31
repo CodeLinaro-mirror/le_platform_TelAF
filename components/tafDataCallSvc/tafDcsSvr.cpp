@@ -1981,6 +1981,16 @@ void taf_dcs_RemoveHwAccelerationStateHandler
     return;
 }
 
+le_result_t taf_dcs_SetInterface
+(
+    taf_dcs_ProfileRef_t profileRef,
+    const char* namePtr
+)
+{
+    auto &dataProfile = taf_DataProfile::GetInstance();
+    return dataProfile.SetInterface(profileRef, namePtr);
+}
+
 /**
  * The init function of TelAF data connection component.
  */

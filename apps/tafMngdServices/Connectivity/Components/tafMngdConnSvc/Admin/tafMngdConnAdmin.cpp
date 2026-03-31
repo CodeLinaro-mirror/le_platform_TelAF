@@ -1222,6 +1222,19 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
         case MCS_RECOVERY_FAILED_L1:
         case MCS_RECOVERY_FAILED_L2:
         case MCS_RECOVERY_FAILED_L3:
+            for (uint32_t dataIdx = 0; dataIdx < Configuration.DataCount; dataIdx++)
+            {
+                if(Configuration.Data[dataIdx].ID == dataId &&
+                    Configuration.Data[dataIdx].Interface[0] != '\0')
+                {
+                    result = data.SetInterface(dataCtxPtr->phoneId, dataCtxPtr->profileNumber,
+                        Configuration.Data[dataIdx].Interface);
+                    if (result != LE_OK)
+                        LE_ERROR("Failed to set interface %s for profile %d.",
+                            Configuration.Data[dataIdx].Interface, dataCtxPtr->profileNumber);
+                }
+            }
+
             result = data.Startdata(dataCtxPtr->phoneId, dataCtxPtr->profileNumber,
                                     dataCtxPtr->startDataTimeout);
             if (result == LE_OK) {
@@ -3486,7 +3499,7 @@ bool tafMngdConnAdmin::DataConnectivityTest_URL(std::string url, std::string int
 {
     std::string URL = RemoveProtocol(url);
 #ifdef LE_CONFIG_TAFMNGDCONNSVC_USE_CURL
-    if (PerformCurl(URL.c_str()))
+    if (PerformCurl(URL.c_str(), interfaceName.c_str()))
     {
         LE_INFO("DataConnectivityTest_URL cURL passed ");
         return true;
@@ -4271,13 +4284,14 @@ void tafMngdConnAdmin::EventL3ConnRecoveryStart(uint8_t dataId)
  */
 //--------------------------------------------------------------------------------------------------
 #ifdef LE_CONFIG_TAFMNGDCONNSVC_USE_CURL
-bool tafMngdConnAdmin::PerformCurl(const char* URLStr)
+bool tafMngdConnAdmin::PerformCurl(const char* URLStr, const char* interfacePtr)
 {
     CURL *curl;
     CURLcode res;
     bool result;
 
     LE_INFO("curl URL: %s", URLStr);
+    LE_INFO("curl interface: %s", interfacePtr);
 
     curl_global_init(CURL_GLOBAL_DEFAULT);
 
@@ -4285,6 +4299,7 @@ bool tafMngdConnAdmin::PerformCurl(const char* URLStr)
     if (curl)
     {
         curl_easy_setopt(curl, CURLOPT_URL, URLStr);
+        curl_easy_setopt(curl, CURLOPT_INTERFACE, interfacePtr);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
         // Complete within 2s
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
@@ -4318,13 +4333,7 @@ bool tafMngdConnAdmin::PerformCurl(const char* URLStr)
 
     return result;
 }
-#else
-bool tafMngdConnAdmin::PerformCurl(const char* URLStr)
-{
-    LE_WARN("cURL is not enabled");
-    return false;
-}
-#endif // #ifdef LE_CONFIG_TAFMNGDCONNSVC_USE_CURL
+#endif
 
 //--------------------------------------------------------------------------------------------------
 /**

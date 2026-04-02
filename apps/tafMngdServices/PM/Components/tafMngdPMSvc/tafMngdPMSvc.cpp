@@ -1266,7 +1266,7 @@ le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
         }
         if(ack == TAF_MNGDPM_CLIENT_NOT_READY)
         {
-            LE_DEBUG("Received NACK from client %s", sessionNodePtr->name);
+            LE_INFO("Received NACK from client %s", sessionNodePtr->name);
             mpms.SendAckToPms(state, TAF_PM_NOT_READY);
             return LE_OK;
         }
@@ -1277,11 +1277,21 @@ le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
             {
                 if(it->sessionRef == taf_mngdPm_GetClientSessionRef())
                 {
-                    LE_INFO("Client with sessionRef %p", it->sessionRef);
-                    it->isAcked = true;
-                    break;
+                    if (it->isAcked == true)
+                    {
+                        LE_INFO("Client %p already acked, ignore counting", it->sessionRef);
+                        return LE_OK;
+                    }
+                    else
+                    {
+                        LE_INFO("Client with sessionRef %p", it->sessionRef);
+                        it->isAcked = true;
+                        break;
+                    }
                 }
             }
+
+            LE_DEBUG("ACKed counter ++");
             mpms.ackClientrecrdSize++;
             LE_INFO("Received ACK from client %s/%d, regClientrecrd size is %zu ,ackClientrecrd size is:%d",
                     sessionNodePtr->name,

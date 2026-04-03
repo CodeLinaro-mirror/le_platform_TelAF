@@ -69,6 +69,9 @@ void DemDataHandler::Init
 
     // Update the DEM user_version after initialization.
     tafDtcDao.GetDaoHandler()->SetVersion(DEM_DB_VERSION);
+
+    // Ebale WAL
+    tafDtcDao.GetDaoHandler()->EnableWAL();
 }
 
 le_result_t DemDataHandler::Load

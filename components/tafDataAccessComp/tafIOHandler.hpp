@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -45,6 +45,7 @@ namespace dataAccess{
 
             virtual le_result_t GetVersion(int &ver) = 0;   // Get storage(e.g. database) version.
             virtual le_result_t SetVersion(int ver) = 0;  // Set storage(e.g. database) version.
+            virtual le_result_t EnableWAL() = 0;
             virtual le_result_t Add(T &entity) = 0;
             virtual le_result_t Remove(T &entity) = 0;
             virtual le_result_t Update(T &entity) = 0;

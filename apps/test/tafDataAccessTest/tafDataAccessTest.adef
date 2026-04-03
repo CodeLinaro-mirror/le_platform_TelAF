@@ -21,3 +21,9 @@ processes:
 
     maxFileBytes: 1048576K
 }
+
+// Add SELinux module
+components:
+{
+    $TELAF_ROOT/security/selinux/sepolicy/test/tafDataAccessTest/component
+}

@@ -8,7 +8,6 @@ capability:
 {
         CAP_WAKE_ALARM
         CAP_NET_ADMIN
-        CAP_BLOCK_SUSPEND
         CAP_DAC_OVERRIDE
         CAP_FOWNER
         CAP_SYS_ADMIN

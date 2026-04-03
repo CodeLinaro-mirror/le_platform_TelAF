@@ -41,6 +41,9 @@ le_result_t MssConnectStatusMainThread = LE_FAULT;
 
 le_thread_Ref_t SyncTimeThreadRef = NULL;
 
+static bool IsPmStateChangeHandlerRegistered = false;
+taf_pm_State_t PowerSuspendResumeState = TAF_PM_STATE_RESUME;
+
 taf_time_setRTCCb_t tafsvc::taf_Time::setRTCCBtoClient;
 taf_time_getRTCCb_t tafsvc::taf_Time::getRTCCBtoClient;
 
@@ -65,6 +68,13 @@ taf_Time &taf_Time::GetInstance()
     static taf_Time instance;
     return instance;
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Pre-define function.
+ */
+//--------------------------------------------------------------------------------------------------
+void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3032,7 +3042,6 @@ void SyncRtcTrustInfoWithMSSHandler
 {
     bool mssStoragedValidity = false;
     le_result_t result = LE_FAULT;
-    uint32_t time = 0;
 
     auto &tafTime = taf_Time::GetInstance();
     if(!isSecStorageConnected())
@@ -3045,59 +3054,144 @@ void SyncRtcTrustInfoWithMSSHandler
     if(rtcSrcPtr == NULL)
     {
         LE_ERROR("Not found %s pointer", SourceNameIndexToStr(TAF_TIME_SRC_NAME_RTC));
-
-        if (tafTime.syncSecStorageRef)
-        {
-            le_timer_Stop(tafTime.syncSecStorageRef);
-        }
         return;
     }
 
-    if(! rtcSrcPtr->isSyncedWithStorage)
+    if(rtcSrcPtr->isSyncedWithStorage)
     {
-        // If the validity was not set by cmd, then the one in MSS is the right value.
-        result = tafTime.ReadValidityFromSecStorage(rtcSrcPtr, &mssStoragedValidity);
-        if ( LE_OK == result)
-        {
-            // 1. Assign RTC's validity to system if the system time source is RTC.
-            // 2. Update the RTC validity in ram if the system time source is unknown
-            if (LatestTimeSourceInfo->systemSourceId == TAF_TIME_SRC_NAME_RTC
-                || LatestTimeSourceInfo->systemSourceId == TAF_TIME_SRC_NAME_UNKNOWN)
-            {
-                result = SyncValidityInRam(rtcSrcPtr->sourceId, mssStoragedValidity);
-                if (LE_OK == result)
-                {
-                    rtcSrcPtr->isSyncedWithStorage = true;
-                }
-            }
-            // Sync system time info to RTC if the system time was set by other time source.
-            else
-            {
-                // Here needs to cover:
-                // In case before the connection is ready an API "SetTrustTime" was call, the trust
-                // info should NOT be synced to RTC. Now the connection is ready, try to sync both
-                // the time and validity to RTC.
-                RtcTrustTimeUpdateHandler();
-            }
-        }
+        return;
     }
 
+    // If the validity was not set by cmd, then the one in MSS is the right value.
+    result = tafTime.ReadValidityFromSecStorage(rtcSrcPtr, &mssStoragedValidity);
+    if ( LE_OK == result)
+    {
+        // 1. Assign RTC's validity to system if the system time source is RTC.
+        // 2. Update the RTC validity in ram if the system time source is unknown
+        if (LatestTimeSourceInfo->systemSourceId == TAF_TIME_SRC_NAME_RTC
+            || LatestTimeSourceInfo->systemSourceId == TAF_TIME_SRC_NAME_UNKNOWN)
+        {
+            result = SyncValidityInRam(rtcSrcPtr->sourceId, mssStoragedValidity);
+            if (LE_OK == result)
+            {
+                rtcSrcPtr->isSyncedWithStorage = true;
+                LE_INFO("Rtc isSyncedWithStorage is set to: %d", rtcSrcPtr->isSyncedWithStorage);
+            }
+        }
+        // Sync system time info to RTC if the system time was set by other time source.
+        else
+        {
+            // Here needs to cover:
+            // In case before the connection is ready an API "SetTrustTime" was call, the trust
+            // info should NOT be synced to RTC. Now the connection is ready, try to sync both
+            // the time and validity to RTC.
+            RtcTrustTimeUpdateHandler();
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+ /**
+ * Check whether RTC trust info has already been synced with MSS.
+ */
+//--------------------------------------------------------------------------------------------------
+static bool IsRtcTrustInfoSyncedWithMss(void)
+{
+    auto &tafTime = taf_Time::GetInstance();
+    taf_SourceInf_t* rtcSrcPtr = tafTime.SearchSourceMap(TAF_TIME_SRC_NAME_RTC);
+    if (rtcSrcPtr == NULL)
+    {
+        LE_ERROR("Not found %s pointer", SourceNameIndexToStr(TAF_TIME_SRC_NAME_RTC));
+        return false;
+    }
+
+    return rtcSrcPtr->isSyncedWithStorage;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Try connecting to tafPMSvc and register the power state change handler.
+ */
+//--------------------------------------------------------------------------------------------------
+
+static bool TryConnectPmService(void)
+{
+    if (IsPmStateChangeHandlerRegistered)
+    {
+        return true;
+    }
+
+    if (taf_pm_TryConnectService() == LE_OK)
+    {
+        taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
+        IsPmStateChangeHandlerRegistered = true;
+        LE_INFO("Successfully connected to tafPMSvc");
+        return true;
+    }
+
+    return false;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Check whether all startup retry tasks are finished.
+ */
+//--------------------------------------------------------------------------------------------------
+static bool AreStartupRetryTasksFinished(void)
+{
+    bool isMssSyncDone = true;
+
+    if (RtcVhalIntStatus == LE_OK)
+    {
+        isMssSyncDone = IsRtcTrustInfoSyncedWithMss();
+    }
+
+    return (IsPmStateChangeHandlerRegistered && isMssSyncDone);
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Shared retry handler for startup tasks.
+ */
+//--------------------------------------------------------------------------------------------------
+static void StartupRetryHandler
+(
+    le_timer_Ref_t timerRef
+)
+{
+    auto &tafTime = taf_Time::GetInstance();
+    uint32_t time = 0;
     if (timerRef)
     {
         time = le_timer_GetExpiryCount(timerRef);
     }
-    LE_DEBUG("Sync MSS, tried: (%d-%d), synced: %d, result: %d",
-                           INIT_SYNC_VALIDI_WITH_MSS_COUNTER, (int)(time),
-                             rtcSrcPtr->isSyncedWithStorage, (int)result);
 
-    if (rtcSrcPtr->isSyncedWithStorage || LE_OK == result)
+    // This part is needed at the very beginning.
+    if (time <= (TAF_TIME_START_UP_RETRY_COUNTER/3))
     {
-        if (tafTime.syncSecStorageRef)
+        (void)TryConnectPmService();
+
+        if (RtcVhalIntStatus == LE_OK)
         {
-            le_timer_Stop(tafTime.syncSecStorageRef);
+            SyncRtcTrustInfoWithMSSHandler(timerRef);
         }
     }
+    else
+    // This part is as necessary as possible. So, try a few more times.
+    {
+        (void)TryConnectPmService();
+    }
 
+    if (AreStartupRetryTasksFinished() && tafTime.StartupRetryTimerRef)
+    {
+        le_timer_Stop(tafTime.StartupRetryTimerRef);
+    }
+
+    if ( time == TAF_TIME_START_UP_RETRY_COUNTER)
+    {
+        LE_INFO("Startup retry tasks done: (%d-%d), pmReady: %d, mssSync: %d",
+                 TAF_TIME_START_UP_RETRY_COUNTER,
+                 (int)(time),
+                 IsPmStateChangeHandlerRegistered,
+                 (RtcVhalIntStatus == LE_OK) ? IsRtcTrustInfoSyncedWithMss() : false);
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -3114,37 +3208,28 @@ void taf_Time::InitAsyncRtcEvtHandler(void)
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Attempts to sync trust info between MSS, RTC and system.
+ * Initialize startup retry tasks:
+ * - try connecting tafPMSvc
+ * - initialize RTC/system trust info
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t InitRtcVhalAndSystemTrustInfo(void)
-{
+void InitStartupRetryTasks(void)
+ {
     auto &tafTime = taf_Time::GetInstance();
-    taf_SourceInf_t* rtcSrcPtr = tafTime.SearchSourceMap(TAF_TIME_SRC_NAME_RTC);
-    TAF_ERROR_IF_RET_VAL(rtcSrcPtr == NULL, LE_BAD_PARAMETER, "rtcSrcPtr is NULL");
 
-    if (RtcVhalIntStatus != LE_OK)
+    // Try startup tasks immediately once after initialization.
+    StartupRetryHandler(NULL);
+
+    // Start shared retry timer only if there are unfinished startup tasks.
+    if (!AreStartupRetryTasksFinished())
     {
-        LE_WARN("Async RTC is not initialized");
-        return LE_FAULT;
+        tafTime.StartupRetryTimerRef = le_timer_Create("startupRetryTimerRef");
+        le_timer_SetMsInterval(tafTime.StartupRetryTimerRef, 3*1000);
+        le_timer_SetRepeat(tafTime.StartupRetryTimerRef, TAF_TIME_START_UP_RETRY_COUNTER);
+        le_timer_SetHandler(tafTime.StartupRetryTimerRef, StartupRetryHandler);
+        le_timer_SetWakeup(tafTime.StartupRetryTimerRef, false);
+        le_timer_Start(tafTime.StartupRetryTimerRef);
     }
-
-    // Try to sync with MSS
-    SyncRtcTrustInfoWithMSSHandler(NULL);
-
-    // The MSS is often not ready on time; use a timer to retry.
-    // Since the RTC time is only used during boot, retries are limited and will stop
-    // after a predefined number of attempts.
-    if (rtcSrcPtr->isSyncedWithStorage == false)
-    {
-        tafTime.syncSecStorageRef = le_timer_Create("syncSecStorageRef");
-        le_timer_SetMsInterval(tafTime.syncSecStorageRef, 3*1000);
-        le_timer_SetRepeat(tafTime.syncSecStorageRef, INIT_SYNC_VALIDI_WITH_MSS_COUNTER);
-        le_timer_SetHandler(tafTime.syncSecStorageRef, SyncRtcTrustInfoWithMSSHandler);
-        le_timer_SetWakeup(tafTime.syncSecStorageRef, false);
-        le_timer_Start(tafTime.syncSecStorageRef);
-    }
-    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -3280,7 +3365,9 @@ static void TafSigTermEventHandler(int sigNum)
 
     // Phase-2: main-thread resource cleanup
     _StopTimerIfRunning(tafTime.sysTimeUdTimerRef);
-    _StopTimerIfRunning(tafTime.syncSecStorageRef);
+    _StopTimerIfRunning(tafTime.StartupRetryTimerRef);
+    IsPmStateChangeHandlerRegistered = false;
+
 
     if (InitNetwork1Status == LE_OK)
     {
@@ -3469,6 +3556,12 @@ le_result_t taf_Time::DeregGnssTimeListener(void)
 void taf_Time::SyncTimeTimerHandler(le_timer_Ref_t timerRef)
 {
     auto &tafTime = taf_Time::GetInstance();
+
+    if (PowerSuspendResumeState == TAF_PM_STATE_SUSPEND)
+    {
+        LE_DEBUG("Under suspend, do nothing");
+        return;
+    }
 
     if (RtcAsyncBaseDataIntStatus == LE_OK)
     {
@@ -3944,7 +4037,9 @@ void PowerStateChangeHandler
 )
 {
     auto &tafTime = taf_Time::GetInstance();
-    if (state == TAF_PM_STATE_RESUME)
+
+    PowerSuspendResumeState = state;
+    if (PowerSuspendResumeState == TAF_PM_STATE_RESUME)
     {
         LE_DEBUG("Power state change to RESUME");
         if (InitNetwork1Status == LE_OK)
@@ -3959,7 +4054,7 @@ void PowerStateChangeHandler
 
         tafTime.RegisterPtpDevice();
     }
-    else if (state == TAF_PM_STATE_SUSPEND)
+    else if (PowerSuspendResumeState == TAF_PM_STATE_SUSPEND)
     {
         LE_DEBUG("Power state change to SUSPEND");
         if (InitNetwork1Status == LE_OK)
@@ -4878,20 +4973,16 @@ void taf_Time::Init(void)
     le_thread_SetJoinable(SyncTimeThreadRef);
     le_thread_Start(SyncTimeThreadRef);
 
-    // 4. Add power state change handle.
-    taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
-
-    // 5. Create event ID for time source status change.
+    // 4. Create event ID for time source status change.
     timeSourceStatusEventId =
         le_event_CreateId("timeSourceStatusEventId", sizeof(SourceStatusChange_Event_t));
     le_event_AddHandler("TimeSourceStatusHandlerRef",
         timeSourceStatusEventId, timeSourceStatusHandler);
 
-    // 6.Initialize RTC and system time's validity, report the event 'timeSourceStatusEventId'
-    // if the status get changed.
-    InitRtcVhalAndSystemTrustInfo();
+    // 5. Initialize startup retry tasks:
+    InitStartupRetryTasks();
 
-    // 7.Start to get time from time source and set to system in loop.
+    // 6.Start to get time from time source and set to system in loop.
     StartSetTimeForSystem();
 
 }

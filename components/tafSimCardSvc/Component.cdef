@@ -3,7 +3,6 @@ provides:
     api:
     {
         taf_sim.api
-        taf_simRsp.api
     }
 }
 
@@ -47,6 +46,4 @@ sources:
 {
     tafSimCardImpl.cpp
     tafSimCardSvc.cpp
-    tafRSP.cpp
-    tafRSPImpl.cpp
 }

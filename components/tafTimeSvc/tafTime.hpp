@@ -237,6 +237,25 @@ typedef struct
 
 typedef struct
 {
+    taf_time_TimeSpec_t timeVal;
+    le_result_t         status;
+} GnssEvent_t;
+
+typedef enum
+{
+    RTC_SET_TIME_CB,
+    RTC_GET_TIME_CB
+} RtcCallbackType_t;
+
+typedef struct
+{
+    RtcCallbackType_t cbType;
+    le_result_t       status;
+    struct TimeSpec   timeVal;   ///< MUST be set for RTC_GET_TIME_CB
+} RtcEvent_t;
+
+typedef struct
+{
     le_msg_SessionRef_t sessionRef;
     void* getRTCCtxPtr;
     taf_time_AsyncGetTimeReqHandlerFunc_t getRTCCallbackFunc;
@@ -259,6 +278,7 @@ struct NetworkInfoUpdateArgs_t
 {
     taf_time_TimeSources_t sourceId; ///< Time source ID.
     taf_time_NetTimeInfo_t info;     ///< [IN] Network time information.
+    int slotId;
     le_result_t error;               ///< [IN] Error code.
 };
 
@@ -397,25 +417,25 @@ struct ValidityParams
             // Print the details of all source in time sources configuration
             void printSourceDetails() const {
                 for (const Source& item : source) {
-                    LE_INFO("Name: %s, priority: %d, setTimeFlag: %d, ToleranceMillsec: %ld, "
-                        "SetTimeCounter: %ld\n",
+                    LE_INFO("Name: %s, priority: %d, SetTime: %d, ToleranceMillsec: %ld, "
+                        "SetTimeCounter: %ld",
                         item.sourceName.c_str(), item.priority, item.setSystemTime,
                         item.toleranceMillsec, item.setTimeCounter);
                 }
                 if (pollingInterval) {
-                    LE_INFO("PollingInterval: %ld\n", pollingInterval);
+                    LE_DEBUG("PollingInterval: %ld\n", pollingInterval);
                 }
                 LE_INFO("allowOverrideAfterFail: %" PRId64 "\n", allowOverrideAfterFail);
 
                 for (auto item : validClientList) {
-                    LE_INFO("Client: %s\n", item.c_str());
+                    LE_DEBUG("Client: %s\n", item.c_str());
                 }
                 if(!gptpDeviceName.empty())
                 {
                     LE_INFO("GptpDeviceName %s\n", gptpDeviceName.c_str());
                 }
 
-                LE_INFO("Time source size: %zu\n", source.size());
+                LE_DEBUG("Time source size: %zu\n", source.size());
             }
         };
 
@@ -445,7 +465,6 @@ struct ValidityParams
                 int64_t rtcDeltaMsec = 0;
 
                 const char* SourceAttrToStr(taf_Time_SrcAttr_t sourceConf);
-                const char* SourceNameIndexToStr(taf_time_TimeSources_t sourceName);
                 taf_time_TimeSources_t SourceNameStrToIndex(const char* typeNamePtr);
 
                 le_result_t ReadSourceConf(TimeSources& serviceCfg,
@@ -456,22 +475,9 @@ struct ValidityParams
                                                                           const char* filePathPtr);
                 void DeleteNotSupportedSource(TimeSources& serviceCfg);
 
-                taf_time_TimeSpec_t taf_time_Sub(taf_time_TimeSpec_t timeA,
-                                                                        taf_time_TimeSpec_t timeB);
-                taf_time_TimeSpec_t taf_time_Add(taf_time_TimeSpec_t timeA,
-                                                                        taf_time_TimeSpec_t timeB);
-                bool TimeGreaterThan(taf_time_TimeSpec_t timeA,taf_time_TimeSpec_t timeB);
-
-                le_result_t ReadWriteDeltaTime(taf_time_TimeSpec_t* timeValPtr,
-                         taf_time_TimeSpec_t* deltaTimeDataPtr, taf_TimeReadWrite_t ReadWriteType);
-
-                le_result_t UpdateLocalTimeCache(taf_time_TimeSpec_t newTime,
-                   taf_time_TimeSources_t sourceName, taf_time_TimeSpec_t* deltaTimeDataBufferPtr);
-
                 le_result_t GetTimeFromLocalCache(taf_time_TimeSpec_t* timeValPtr,
                          taf_time_TimeSpec_t* deltaTimeDataPtr, taf_time_TimeSources_t sourceName);
 
-                le_result_t GetBootTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetRtcTime(taf_time_TimeSpec_t* timeValPtr, bool isAllowGetInternalRTCTime);
                 le_result_t GetGnssTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetExSetTimeStatus(void);
@@ -536,10 +542,15 @@ struct ValidityParams
                                                                   taf_time_TimeSpec_t* timeValPtr);
 
                 le_result_t InitGnssBaseData(void);
+                le_result_t InitGnssTime(void);
+
+                le_result_t InitNetworkTime(void);
                 le_result_t InitNetworkBaseData(void);
 
-                le_result_t InitGnssTime(void);
-                le_result_t InitNetworkTime(void);
+                le_result_t RtcVhalInitStatus(void);
+                le_result_t InitAsyncRtcBaseData(void);
+
+                le_result_t InitNetworkManager(void);
 
                 taf_time_TimeValueChangeHandlerRef_t AddTimeValueChangeHandler(
                              taf_time_TimeSources_t sourceId,
@@ -565,9 +576,8 @@ struct ValidityParams
                 le_mem_PoolRef_t SetTimeStatusPool = NULL;
                 le_mem_PoolRef_t timeSourceChangePool = NULL;
 
-                taf_time_TimeSpec_t* GnssDeltaTime = NULL;
                 le_mem_PoolRef_t GnssDeltaTimePool = NULL;
-
+                le_mem_PoolRef_t GnssEventPool = NULL;
 
                 le_ref_MapRef_t TimeRefMap;
                 le_mem_PoolRef_t TimePool = NULL;
@@ -591,6 +601,10 @@ struct ValidityParams
                 le_ref_MapRef_t TsrEventMap;
                 le_mem_PoolRef_t TsrEventPool;
 
+                taf_time_TimeSpec_t* RtcAsyncDeltaTimePtr = NULL;
+                le_mem_PoolRef_t RtcAsyncDeltaTimePool = NULL;
+
+                le_event_Id_t RtcEvtHandlerId;
                 time_Inf_t* timeInf = nullptr;
                 bool isDrvPresent = false;
                 static taf_time_getRTCCb_t getRTCCBtoClient;
@@ -598,6 +612,10 @@ struct ValidityParams
                 static void getRtcTimeRespCB(struct TimeSpec timeVal, le_result_t result);
                 static void setRtcTimeRespCB(le_result_t result);
                 static void setRtcTrustTimeRespCB(le_result_t result);
+                static void setRtcTimeRespCbEvtHandler(const struct TimeSpec& timeVal,
+                                                                   le_result_t response);
+                void InitAsyncRtcEvtHandler(void);
+                static void RtcCbEventHandler(void* context);
 
                 using SetRtcHalCb = void (*)(le_result_t);
                 le_result_t SetRtcTimeReqAsync(const taf_time_TimeSpec_t* timeValPtr,
@@ -620,7 +638,7 @@ struct ValidityParams
                     int64_t* loopIntervalSec);
                 bool IsAvailable(taf_time_SourceRef_t sourceRef);
                 le_result_t GetSystemTimeSourceID(taf_time_TimeSources_t* timeSource);
-                void SourceStatusUpdate(le_result_t result,taf_time_TimeSources_t sourceIndex);
+                void SourceStatusUpdate(le_result_t, bool, taf_time_TimeSources_t);
                 le_result_t ReleaseSourceRef(taf_time_SourceRef_t SrcRef);
                 void RemoveTimeSourceStatusHandler(taf_time_TimeSourceStatusHandlerRef_t handlerRef);
 
@@ -634,7 +652,6 @@ struct ValidityParams
                 void UpdateFailedLoops(taf_time_TimeSources_t sourceIndex,
                     taf_TimeFailLoopAction_t action);
 
-                void InitializeSystemTimeAttr(void);
                 bool IsSourceValid(taf_time_SourceRef_t sourceRef);
 
                 void UpdateSystemTimeRefInfo(taf_time_TimeSpec_t timeVal,
@@ -648,16 +665,14 @@ struct ValidityParams
                 void ReleasePtpDevice(void);
                 void RegisterPtpDevice(void);
 
-                uint64_t PrevSrcAvailabiltyMap = 0x0;
                 struct SetTimeStatus* SetTimeSt = NULL;
-                NetworkInfoUpdateArgs_t NetworkUpdateInfo1 = {};
-                NetworkInfoUpdateArgs_t NetworkUpdateInfo2 = {};
-                le_thread_Ref_t mainThreadRef = NULL;
+                NetworkInfoUpdateArgs_t NetworkUpdateInfo1  = {};
+                NetworkInfoUpdateArgs_t NetworkUpdateInfo2  = {};
+                NetworkInfoUpdateArgs_t NetworkHandlerInfo  = {};
                 int sigTermSignalNum = -1;
 
             private:
                 int64_t AllowOverrideAfterFail = -1;
-                pthread_mutex_t ProtectlocalTime_mutex;
                 taf_gptpTime_Ref_t gptpTimeRef = NULL;
         };
     }

@@ -60,7 +60,6 @@ requires:
         taf_wlanAp.api
         taf_wlanSta.api
         taf_simRsim.api
-        taf_simRsp.api
         taf_simSap.api
         taf_verInfo.api
         someipGW/taf_someipClnt.api

@@ -22,6 +22,8 @@ void ThermalPrintHelpMenu()
         "\n"
         "SYNOPSIS:\n"
         "    app runProc tafThermIntTest tafThermIntTest -- help\n"
+        "    app runProc tafThermIntTest tafThermIntTest -- AllThermalZones\n"
+        "    app runProc tafThermIntTest tafThermIntTest -- AllCoolingDevices\n"
         "    app runProc tafThermIntTest tafThermIntTest -- ThermalZoneInfo thermalZoneName\n"
         "    app runProc tafThermIntTest tafThermIntTest -- CDevInfo cDevName\n"
         "    app runProc tafThermIntTest tafThermIntTest -- TripEventHandler 500\n"
@@ -31,8 +33,14 @@ void ThermalPrintHelpMenu()
         "    app runProc tafThermIntTest tafThermIntTest -- help\n"
         "       Display this help and exit.\n"
         "\n"
+        "    app runProc tafThermIntTest tafThermIntTest -- AllThermalZones\n"
+        "       Gets information about all thermal zones available on the device\n"
+        "\n"
+        "    app runProc tafThermIntTest tafThermIntTest -- AllCoolingDevices\n"
+        "       Gets information about all cooling devices available on the device\n"
+        "\n"
         "    app runProc tafThermIntTest tafThermIntTest -- ThermalZoneInfo thermalZoneName\n"
-        "       Gets information about thermal zone 'thermalZoneName'"
+        "       Gets information about thermal zone 'thermalZoneName'\n"
         "\n"
         "    app runProc tafThermIntTest tafThermIntTest -- CDevInfo cDevName\n"
         "       Gets information about cooling device 'cDevName'"
@@ -89,11 +97,11 @@ void TestTripPointInformation(taf_therm_ThermalZoneRef_t tZone)
         result = taf_therm_GetTripPointType(tripPoint, tripType, sizeof(tripType));
         LE_TEST_OK(result == LE_OK, "Trip Point Type %s",tripType);
 
-        uint32_t threshold;
+        int32_t threshold;
         result = taf_therm_GetTripPointThreshold(tripPoint, &threshold);
         LE_TEST_OK(result == LE_OK, "Trip Point threshold %d", threshold);
 
-        uint32_t hysterisis;
+        int32_t hysterisis;
         result = taf_therm_GetTripPointHysterisis(tripPoint, &hysterisis);
         LE_TEST_OK(result == LE_OK, "Trip Point hysterisis %d", hysterisis);
         if (listSize > 0)
@@ -158,11 +166,11 @@ void TestBoundCoolingDevicesInformation(taf_therm_ThermalZoneRef_t tZone)
                 sizeof(boundTripType));
             LE_TEST_OK(result == LE_OK, "BoundTripPoint Type: %s", boundTripType);
 
-            uint32_t boundThreshold;
+            int32_t boundThreshold;
             result = taf_therm_GetBoundTripPointThreshold(boundTripPoint, &boundThreshold);
             LE_TEST_OK(result == LE_OK, "BoundTripPoint threshold: %d", boundThreshold);
 
-            uint32_t boundHysterisis;
+            int32_t boundHysterisis;
             result = taf_therm_GetBoundTripPointHysterisis(boundTripPoint, &boundHysterisis);
             LE_TEST_OK(result == LE_OK, "BoundTripPoint hysterisis: %d", boundHysterisis);
 
@@ -194,12 +202,12 @@ void TestZoneInformation(taf_therm_ThermalZoneRef_t tZone)
     result = taf_therm_GetThermalZoneType(tZone, thermalZoneType, sizeof(thermalZoneType));
     LE_TEST_OK(result == LE_OK, "Thermal Zone Name: %s", thermalZoneType);
 
-    uint32_t currTemp;
+    int32_t currTemp;
     result = taf_therm_GetThermalZoneCurrentTemp(tZone, &currTemp);
     LE_TEST_OK((result == LE_OK),"Thermal Zone Current Temp: %d", currTemp);
 
     LE_TEST_INFO("Test Thermal Zone Passive Temp Retrieval");
-    uint32_t passiveTemp;
+    int32_t passiveTemp;
     result = taf_therm_GetThermalZonePassiveTemp(tZone, &passiveTemp);
     LE_TEST_OK((result == LE_OK),"Thermal Zone Passive Temp: %d", passiveTemp);
 }
@@ -298,6 +306,148 @@ void CDevInfoTest()
     LE_TEST_OK(result == LE_OK, "taf_therm_ReleaseCoolingDeviceRef - LE_OK");
 }
 
+void AllThermalZonesTest(void)
+{
+    le_result_t result;
+    LE_TEST_INFO("===== Get All Thermal Zones =====");
+    LE_TEST_INFO("Retrieving thermal zone list with taf_therm_GetThermalZonesList");
+    taf_therm_ThermalZoneListRef_t tZoneListRef = taf_therm_GetThermalZonesList();
+    LE_TEST_OK((tZoneListRef != NULL), "taf_therm_GetThermalZonesList - LE_OK");
+
+    if (tZoneListRef == NULL)
+    {
+        LE_ERROR("Not able to get reference to thermal zone list");
+        return;
+    }
+
+    taf_therm_ThermalZoneListRef_t headTZoneListRef = tZoneListRef;
+
+    LE_TEST_INFO("Retrieving first thermal zone with taf_therm_GetFirstThermalZone");
+    taf_therm_ThermalZoneRef_t tZone = taf_therm_GetFirstThermalZone(tZoneListRef);
+    LE_TEST_OK((tZone != NULL), "taf_therm_GetFirstThermalZone - LE_OK");
+
+    uint32_t thermalZoneListSize;
+    result = taf_therm_GetThermalZonesListSize(tZoneListRef, &thermalZoneListSize);
+    LE_TEST_OK(result == LE_OK || result == LE_NOT_FOUND,
+        "taf_therm_GetThermalZonesListSize - LE_OK");
+    LE_INFO("Thermal zone list size: %d", thermalZoneListSize);
+
+    if(result != LE_OK || thermalZoneListSize <= 0)
+    {
+        LE_ERROR("No thermal zones present");
+        return;
+    }
+
+    while (tZone != NULL and thermalZoneListSize--)
+    {
+        TestZoneInformation(tZone);
+
+        uint32_t tripPointListSize;
+        result = taf_therm_GetTripPointListSize(tZone, &tripPointListSize);
+        LE_TEST_OK(result == LE_OK || result == LE_NOT_FOUND,
+            "taf_therm_GetTripPointListSize - LE_OK");
+        if(result != LE_OK || tripPointListSize <= 0)
+        {
+            LE_ERROR("No trip points are associated with the thermal zone");
+        }
+        else if (tripPointListSize > 0)
+        {
+            LE_INFO("TRIP POINT LIST SIZE %d", tripPointListSize);
+            TestTripPointInformation(tZone);
+        }
+
+        uint32_t boundCDevListSize;
+        result = taf_therm_GetBoundCoolingDeviceListSize(tZone, &boundCDevListSize);
+        LE_TEST_OK(result == LE_OK || result == LE_NOT_FOUND,
+            "taf_therm_GetBoundCoolingDeviceListSize - LE_OK");
+        if(result != LE_OK || boundCDevListSize <= 0)
+        {
+            LE_ERROR("No cooling devices bounded with thermal zone");
+        }
+        else if (boundCDevListSize > 0)
+        {
+            TestBoundCoolingDevicesInformation(tZone);
+        }
+
+        if (thermalZoneListSize > 0)
+        {
+            LE_TEST_INFO("Retrieving next thermal zone with taf_therm_GetNextThermalZone");
+            tZone = taf_therm_GetNextThermalZone(tZoneListRef);
+            LE_TEST_OK((tZone != NULL), "taf_therm_GetNextThermalZone - LE_OK");
+        }
+    }
+
+    LE_TEST_INFO("Deleting thermal zone list with taf_therm_DeleteThermalZoneList");
+    result = taf_therm_DeleteThermalZoneList(headTZoneListRef);
+    LE_TEST_OK(result == LE_OK, "taf_therm_DeleteThermalZoneList - LE_OK");
+    LE_INFO("===== Completed retrieving information about all thermal zones =====");
+}
+
+void AllCoolingDevicesTest(void)
+{
+    le_result_t result;
+    LE_TEST_INFO("===== Get All Cooling Devices =====");
+    LE_TEST_INFO("Retrieving cooling device list with taf_therm_GetCoolingDeviceList");
+    taf_therm_CoolingDeviceListRef_t cDevListRef = taf_therm_GetCoolingDeviceList();
+    LE_TEST_OK((cDevListRef != NULL), "taf_therm_GetCoolingDeviceList - LE_OK");
+
+    if (cDevListRef == NULL)
+    {
+        LE_ERROR("Not able to get reference to cooling device list");
+        return;
+    }
+
+    taf_therm_CoolingDeviceListRef_t headCDevListRef = cDevListRef;
+
+    LE_TEST_INFO("Retrieving first cooling device with taf_therm_GetFirstCoolingDevice");
+    taf_therm_CoolingDeviceRef_t cDev = taf_therm_GetFirstCoolingDevice(cDevListRef);
+    LE_TEST_OK((cDev != NULL), "taf_therm_GetFirstCoolingDevice - LE_OK");
+
+    uint32_t coolingDeviceListSize;
+    result = taf_therm_GetCoolingDeviceListSize(cDevListRef, &coolingDeviceListSize);
+    LE_TEST_OK(result == LE_OK || result == LE_NOT_FOUND,
+        "taf_therm_GetCoolingDeviceListSize - LE_OK");
+    LE_INFO("Cooling device list size: %d", coolingDeviceListSize);
+
+    if(result != LE_OK || coolingDeviceListSize <= 0)
+    {
+        LE_ERROR("No cooling device present");
+        return;
+    }
+
+    while (cDev != NULL and coolingDeviceListSize--)
+    {
+        char description[TYPE_SIZE];
+        memset(description, 0, TYPE_SIZE);
+        result = taf_therm_GetCDevDescription(cDev, description, sizeof(description));
+        LE_TEST_OK(result == LE_OK, "CDev Description: %s", description);
+
+        uint32_t coolingID;
+        result = taf_therm_GetCDevID(cDev, &coolingID);
+        LE_TEST_OK(result == LE_OK, "CDev ID: %d", coolingID);
+
+        uint32_t maxCooling;
+        result = taf_therm_GetCDevMaxCoolingLevel(cDev, &maxCooling);
+        LE_TEST_OK(result == LE_OK, "CDev Max CoolingLevel: %d", maxCooling);
+
+        uint32_t currCooling;
+        result = taf_therm_GetCDevCurrentCoolingLevel(cDev, &currCooling);
+        LE_TEST_OK(result == LE_OK, "CDev Current CoolingLevel: %d", currCooling);
+
+        if (coolingDeviceListSize > 0)
+        {
+            LE_TEST_INFO("Retrieving next cooling device with taf_therm_GetNextCoolingDevice");
+            cDev = taf_therm_GetNextCoolingDevice(cDevListRef);
+            LE_TEST_OK((cDev != NULL), "taf_therm_GetNextCoolingDevice - LE_OK");
+        }
+    }
+
+    LE_TEST_INFO("Deleting cooling device list with taf_therm_DeleteCoolingDeviceList");
+    result = taf_therm_DeleteCoolingDeviceList(headCDevListRef);
+    LE_TEST_OK((result == LE_OK), "taf_therm_DeleteCoolingDeviceList - LE_OK");
+    LE_INFO("===== Completed retrieving information about all cooling devices =====");
+}
+
 const char* TripEventToString(taf_therm_TripEventType_t state)
 {
     const char* tripEvent;
@@ -340,12 +490,12 @@ static void TestTripEventHandler
     result = taf_therm_GetTripPointType(tripPoint, tripType, sizeof(tripType));
     LE_TEST_OK(result == LE_OK, "Trip Point Type: %s", tripType);
 
-    uint32_t threshold;
+    int32_t threshold;
     result = taf_therm_GetTripPointThreshold(tripPoint, &threshold);
     LE_TEST_OK(result == LE_OK, "Trip Point Threshold: %d",
            threshold);
 
-    uint32_t hysterisis;
+    int32_t hysterisis;
     result = taf_therm_GetTripPointHysterisis(tripPoint, &hysterisis);
     LE_TEST_OK(result == LE_OK, "Trip Point Hysterisis: %d",
            hysterisis);
@@ -484,7 +634,15 @@ COMPONENT_INIT
 
     LE_TEST_INFO("======== TelAF Thermal Service Integration Test %s ========", cmd);
 
-    if (strncmp(cmd, "ThermalZoneInfo", strlen(cmd)) == 0)
+    if (strncmp(cmd, "AllThermalZones", strlen(cmd)) == 0)
+    {
+        AllThermalZonesTest();
+    }
+    else if (strncmp(cmd, "AllCoolingDevices", strlen(cmd)) == 0)
+    {
+        AllCoolingDevicesTest();
+    }
+    else if (strncmp(cmd, "ThermalZoneInfo", strlen(cmd)) == 0)
     {
         ThermalZoneInfoTest();
     }

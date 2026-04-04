@@ -357,6 +357,9 @@ le_result_t TafDcsProfileManager::SvcGetPhoneIdByInterfaceName
     TAF_ERROR_IF_RET_VAL(nullptr == ifNameStr, LE_BAD_PARAMETER, "ifNameStr is NULL");
     TAF_ERROR_IF_RET_VAL(nullptr == phoneIdPtr, LE_BAD_PARAMETER, "phoneIdPtr is NULL");
 
+    // Add validation for empty string
+    TAF_ERROR_IF_RET_VAL(0 == strlen(ifNameStr), LE_BAD_PARAMETER, "ifNameStr is empty");
+
     std::string ifName(ifNameStr);
     le_result_t result = LE_OK;
     // Get a read lock
@@ -396,6 +399,9 @@ le_result_t TafDcsProfileManager::SvcGetProfileIdByInterfaceName
 {
     TAF_ERROR_IF_RET_VAL(nullptr == ifNameStr, LE_BAD_PARAMETER, "ifNameStr is NULL");
     TAF_ERROR_IF_RET_VAL(nullptr == profileIdPtr, LE_BAD_PARAMETER, "profileIdPtr is NULL");
+
+    // Add validation for empty string
+    TAF_ERROR_IF_RET_VAL(0 == strlen(ifNameStr), LE_BAD_PARAMETER, "ifNameStr is empty");
 
     std::string ifName(ifNameStr);
     le_result_t result = LE_OK;
@@ -1836,8 +1842,9 @@ le_result_t TafDcsProfileManager::SvcStartSessionSync
         LE_DEBUG("State: %d", TO_INT(connState));
         if (TAF_DCS_DISCONNECTED == connState)
         {
-            LE_WARN ("StartDataSessionAsync did not succeed.");
-            return LE_TERMINATED;
+            LE_WARN("StartDataSessionAsync returned success but session state is DISCONNECTED. "
+            "Phone Id: %d, Profile Id: %d", phoneId, profileId);
+            return LE_FAULT;
         }
 
         // Add the client to the list of clients that have requested data.

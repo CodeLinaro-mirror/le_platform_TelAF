@@ -32,6 +32,30 @@ KeyOp_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Keystore Tag struct
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_dls_Link_t link;        ///< Link to the tag list of the key.
+    taf_pa_ks_Tag_t tag;       ///< KS tag.
+}
+KeyTag_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Keystore Param struct
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_dls_Link_t link;        ///< Link to the param list of the key.
+    taf_pa_ks_Param_t param;   ///< KS param.
+}
+KeyParam_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Data struct for shared app object
  */
 //--------------------------------------------------------------------------------------------------
@@ -263,6 +287,112 @@ static le_timer_Ref_t InitTimer;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Parms list passed to PA layer.
+ */
+//--------------------------------------------------------------------------------------------------
+#define MAX_PARAM_NUMBER 32
+static taf_pa_ks_Param_t* ParamPtrList[MAX_PARAM_NUMBER] = { NULL };
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Tags list passed to PA layer.
+ */
+//--------------------------------------------------------------------------------------------------
+#define MAX_TAG_NUMBER 32
+static taf_pa_ks_Tag_t* TagPtrList[MAX_TAG_NUMBER] = { NULL };
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Mapping pa_result_t to le_result_t
+ */
+//--------------------------------------------------------------------------------------------------
+static le_result_t ConvertPaToLeRet(pa_result_t paResult)
+{
+    switch(paResult)
+    {
+        case PA_OK:
+            return LE_OK;
+            break;
+        case PA_NOT_FOUND:
+            return LE_NOT_FOUND;
+            break;
+        case PA_NOT_POSSIBLE:
+            return LE_NOT_POSSIBLE;
+            break;
+        case PA_OUT_OF_RANGE:
+            return LE_OUT_OF_RANGE;
+            break;
+        case PA_NO_MEMORY:
+            return LE_NO_MEMORY;
+            break;
+        case PA_NOT_PERMITTED:
+            return LE_NOT_PERMITTED;
+            break;
+        case PA_FAULT:
+            return LE_FAULT;
+            break;
+        case PA_COMM_ERROR:
+            return LE_COMM_ERROR;
+            break;
+        case PA_TIMEOUT:
+            return LE_TIMEOUT;
+            break;
+        case PA_OVERFLOW:
+            return LE_OVERFLOW;
+            break;
+        case PA_UNDERFLOW:
+            return LE_UNDERFLOW;
+            break;
+        case PA_WOULD_BLOCK:
+            return LE_WOULD_BLOCK;
+            break;
+        case PA_DEADLOCK:
+            return LE_DEADLOCK;
+            break;
+        case PA_FORMAT_ERROR:
+            return LE_FORMAT_ERROR;
+            break;
+        case PA_DUPLICATE:
+            return LE_DUPLICATE;
+            break;
+        case PA_BAD_PARAMETER:
+            return LE_BAD_PARAMETER;
+            break;
+        case PA_CLOSED:
+            return LE_CLOSED;
+            break;
+        case PA_BUSY:
+            return LE_BUSY;
+            break;
+        case PA_UNSUPPORTED:
+            return LE_UNSUPPORTED;
+            break;
+        case PA_IO_ERROR:
+            return LE_IO_ERROR;
+            break;
+        case PA_NOT_IMPLEMENTED:
+            return LE_NOT_IMPLEMENTED;
+            break;
+        case PA_UNAVAILABLE:
+            return LE_UNAVAILABLE;
+            break;
+        case PA_TERMINATED:
+            return LE_TERMINATED;
+            break;
+        case PA_IN_PROGRESS:
+            return LE_IN_PROGRESS;
+            break;
+        case PA_SUSPENDED:
+            return LE_SUSPENDED;
+            break;
+        default:
+            LE_FATAL("Unknown PA return code: %d.", paResult);
+            break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Check if the string follows POSIX file name format. It only contains character in [A-Za-z0-9._-].
  */
 //--------------------------------------------------------------------------------------------------
@@ -351,32 +481,33 @@ static taf_ks_Key_t* SearchNewKey
 static void SetTag
 (
     taf_ks_Key_t*    keyPtr,    ///< [IN] Key pointer
-    taf_pa_ks_Tag_t* setTagPtr  ///< [IN] Tag pointer
+    KeyTag_t* setTagPtr  ///< [IN] Tag pointer
 )
 {
-    taf_pa_ks_Tag_t* tagPtr = NULL;
+    KeyTag_t* tagPtr = NULL;
 
-    if ((setTagPtr != NULL) && (setTagPtr->id < TAF_PA_KS_TAG_MAX_IDS) &&
+    if ((setTagPtr != NULL) && (setTagPtr->tag.id < TAF_PA_KS_TAG_MAX_IDS) &&
         (keyPtr != NULL) && (keyPtr->keyType == KS_NEW_CREATED_KEY))
     {
         // Check if the tag is already created for this new key.
         le_dls_Link_t* linkPtr = le_dls_Peek(&(keyPtr->newKey.tagList));
         while (linkPtr)
         {
-            tagPtr = CONTAINER_OF(linkPtr, taf_pa_ks_Tag_t, link);
+            tagPtr = CONTAINER_OF(linkPtr, KeyTag_t, link);
             linkPtr = le_dls_PeekNext(&(keyPtr->newKey.tagList), linkPtr);
 
-            if (tagPtr->id == setTagPtr->id)
+            if (tagPtr->tag.id == setTagPtr->tag.id)
             {
                 // Remove the old tag from the tagList of the new key.
                 LE_WARN("Remove old tag(%u) for new keyId '%s'.",
-                        tagPtr->id, keyPtr->newKey.keyId);
+                        tagPtr->tag.id, keyPtr->newKey.keyId);
                 le_dls_Remove(&(keyPtr->newKey.tagList), &(tagPtr->link));
 
-                if ((tagPtr->id == TAF_PA_KS_TAG_APPLICATION_DATA) && (tagPtr->appDataPtr != NULL))
+                if ((tagPtr->tag.id == TAF_PA_KS_TAG_APPLICATION_DATA) &&
+                    (tagPtr->tag.appDataPtr != NULL))
                 {
                     // Release the appData object in tag object.
-                    le_mem_Release(tagPtr->appDataPtr);
+                    le_mem_Release(tagPtr->tag.appDataPtr);
                 }
 
                 // Release the tag object.
@@ -388,7 +519,7 @@ static void SetTag
 
         // Create a new tag with sepcified id/value for the new key.
         LE_DEBUG("Add tag(%u) for new keyId '%s' for client(%p).",
-                setTagPtr->id, keyPtr->newKey.keyId,
+                setTagPtr->tag.id, keyPtr->newKey.keyId,
                 keyPtr->newKey.clientSessionRef);
 
         // Add the tag into the tagList of the new key.
@@ -404,44 +535,44 @@ static void SetTag
 static void SetParam
 (
     taf_ks_CryptoSession_t* sessionPtr,///< [IN] Cryption session pointer
-    taf_pa_ks_Param_t* setParamPtr     ///< [IN] Parameter pointer
+    KeyParam_t* setParamPtr     ///< [IN] Parameter pointer
 )
 {
-    taf_pa_ks_Param_t* paramPtr = NULL;
+    KeyParam_t* paramPtr = NULL;
 
     if ((sessionPtr != NULL) && (setParamPtr != NULL) &&
-        (setParamPtr->id < TAF_PA_KS_PARAM_MAX_IDS))
+        (setParamPtr->param.id < TAF_PA_KS_PARAM_MAX_IDS))
     {
         // Check if the parameter is already created for this session.
         le_dls_Link_t* linkPtr = le_dls_Peek(&(sessionPtr->paramList));
         while (linkPtr)
         {
-            paramPtr = CONTAINER_OF(linkPtr, taf_pa_ks_Param_t, link);
+            paramPtr = CONTAINER_OF(linkPtr, KeyParam_t, link);
             linkPtr = le_dls_PeekNext(&(sessionPtr->paramList), linkPtr);
 
-            if (paramPtr->id == setParamPtr->id)
+            if (paramPtr->param.id == setParamPtr->param.id)
             {
                 // Remove the parameter from the paramList for the session.
                 LE_WARN("Remove old param(%u) for crypto session(%p) of key(%p).",
-                        paramPtr->id, sessionPtr->cryptoSessionRef, sessionPtr->keyRef);
+                        paramPtr->param.id, sessionPtr->cryptoSessionRef, sessionPtr->keyRef);
                 le_dls_Remove(&(sessionPtr->paramList), &(paramPtr->link));
 
                 // Free the sub parameter.
-                switch(paramPtr->id)
+                switch(paramPtr->param.id)
                 {
                     case TAF_PA_KS_PARAM_NONCE:
-                        le_mem_Release(paramPtr->nonceDataPtr);
+                        le_mem_Release(paramPtr->param.nonceDataPtr);
                         break;
 
                     case TAF_PA_KS_PARAM_APPLICATION_DATA:
-                        le_mem_Release(paramPtr->appDataPtr);
+                        le_mem_Release(paramPtr->param.appDataPtr);
                         break;
 
                     case TAF_PA_KS_PARAM_RSA_PADDING_TYPE:
                         break;
 
                     default:
-                        LE_FATAL("Unrecognized param(%u)", paramPtr->id);
+                        LE_FATAL("Unrecognized param(%u)", paramPtr->param.id);
                         break;
                 }
 
@@ -454,7 +585,7 @@ static void SetParam
 
         // Create a new parameter with sepcified id/value for the session.
         LE_DEBUG("Add parameter(%u) for crypto session(%p) of key(%p).",
-                setParamPtr->id, sessionPtr->cryptoSessionRef, sessionPtr->keyRef);
+                setParamPtr->param.id, sessionPtr->cryptoSessionRef, sessionPtr->keyRef);
 
         // Add the paramter into the paramList of the session
         le_dls_Queue(&(sessionPtr->paramList), &(setParamPtr->link));
@@ -471,7 +602,7 @@ static void ClearTagList
     taf_ks_Key_t* keyPtr   ///< [IN] Key pointer
 )
 {
-    taf_pa_ks_Tag_t* tagPtr;
+    KeyTag_t* tagPtr;
 
     if ((keyPtr != NULL) && (keyPtr->keyType == KS_NEW_CREATED_KEY))
     {
@@ -479,14 +610,15 @@ static void ClearTagList
         le_dls_Link_t* linkPtr = le_dls_Pop(&(keyPtr->newKey.tagList));
         while (linkPtr)
         {
-            tagPtr = CONTAINER_OF(linkPtr, taf_pa_ks_Tag_t, link);
+            tagPtr = CONTAINER_OF(linkPtr, KeyTag_t, link);
 
             LE_DEBUG("Removed the tag(%u) of new Key ID '%s'.",
-                    tagPtr->id, keyPtr->newKey.keyId);
+                    tagPtr->tag.id, keyPtr->newKey.keyId);
             // Release the tag object
-            if ((tagPtr->id == TAF_PA_KS_TAG_APPLICATION_DATA) && (tagPtr->appDataPtr != NULL))
+            if ((tagPtr->tag.id == TAF_PA_KS_TAG_APPLICATION_DATA) &&
+                (tagPtr->tag.appDataPtr != NULL))
             {
-                le_mem_Release(tagPtr->appDataPtr);
+                le_mem_Release(tagPtr->tag.appDataPtr);
             }
             le_mem_Release(tagPtr);
 
@@ -506,7 +638,7 @@ static void ClearParamList
     taf_ks_CryptoSession_t* sessionPtr   ///< [IN] Crypto session pointer
 )
 {
-    taf_pa_ks_Param_t* paramPtr = NULL;
+    KeyParam_t* paramPtr = NULL;
 
     if (sessionPtr != NULL)
     {
@@ -514,26 +646,26 @@ static void ClearParamList
         le_dls_Link_t* linkPtr = le_dls_Pop(&(sessionPtr->paramList));
         while (linkPtr)
         {
-            paramPtr = CONTAINER_OF(linkPtr, taf_pa_ks_Param_t, link);
+            paramPtr = CONTAINER_OF(linkPtr, KeyParam_t, link);
 
             LE_DEBUG("Removed the param(%u) for crypto session(%p) of key(%p)",
-                    paramPtr->id, sessionPtr->cryptoSessionRef, sessionPtr->keyRef);
+                    paramPtr->param.id, sessionPtr->cryptoSessionRef, sessionPtr->keyRef);
             // Free the sub parameter.
-            switch(paramPtr->id)
+            switch(paramPtr->param.id)
             {
                 case TAF_PA_KS_PARAM_NONCE:
-                    le_mem_Release(paramPtr->nonceDataPtr);
+                    le_mem_Release(paramPtr->param.nonceDataPtr);
                     break;
 
                 case TAF_PA_KS_PARAM_APPLICATION_DATA:
-                    le_mem_Release(paramPtr->appDataPtr);
+                    le_mem_Release(paramPtr->param.appDataPtr);
                     break;
 
                 case TAF_PA_KS_PARAM_RSA_PADDING_TYPE:
                     break;
 
                 default:
-                    LE_FATAL("Unrecognized param(%u)", paramPtr->id);
+                    LE_FATAL("Unrecognized param(%u)", paramPtr->param.id);
                     break;
             }
             // Free the parameter.
@@ -807,7 +939,7 @@ static void KeySharingPAHandler
     const char* keyIdPtr,                          ///< Key ID string
     const char* ownerAppNamePtr,                   ///< Owner app name string
     const char* sharedAppNamePtr,                  ///< Shared app name string
-    taf_ks_SharingState_t state,                   ///< Key sharing state
+    taf_pa_ks_SharingState_t state,                ///< Key sharing state
     KeyMgt_KeyFileRef_t keyFileRef                 ///< Key file reference
 )
 {
@@ -1159,7 +1291,8 @@ le_result_t taf_ks_CreateKey
 
     // Check if a provisoned key of the specified key ID for the client already exists.
     // We don't allow to create it again if so, thus we expect it return LE_NOT_FOUND.
-    result = taf_pa_ks_GetKey(clientSessionRef, keyId, &keyFileRef);
+    result = ConvertPaToLeRet(taf_pa_ks_GetKey(le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
+                                                keyId, &keyFileRef));
     if (result == LE_OK)
     {
         LE_WARN("Provisioned key for keyName '%s' already exists.", keyId);
@@ -1284,13 +1417,16 @@ le_result_t taf_ks_GetKey
     if (ownerAppPtr != NULL)
     {
         LE_DEBUG("Get keyId('%s') of app('%s').", keyIdPtr, ownerAppPtr);
-        result = taf_pa_ks_GetSharedKey(clientSessionRef, keyIdPtr, ownerAppPtr, &keyFileRef);
+        result =ConvertPaToLeRet(taf_pa_ks_GetSharedKey(
+                                 le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
+                                 keyIdPtr, ownerAppPtr, &keyFileRef));
     }
     else
     {
         // Get the key file of our own key.
         LE_DEBUG("Get keyId('%s').", keyIdPtr);
-        result = taf_pa_ks_GetKey(clientSessionRef, keyIdPtr, &keyFileRef);
+        result = ConvertPaToLeRet(taf_pa_ks_GetKey(le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
+                                   keyIdPtr, &keyFileRef));
     }
 
     if (result == LE_OK)
@@ -1368,8 +1504,9 @@ le_result_t taf_ks_DeleteKey
     if (keyPtr->keyType == KS_PROVISIONED_KEY)
     {
         // Delete a provisioned key.
-        le_result_t result = taf_pa_ks_DeleteKey(taf_ks_GetClientSessionRef(),
-                                                 keyPtr->proKey.keyFileRef);
+        le_result_t result = ConvertPaToLeRet(
+                        taf_pa_ks_DeleteKey(le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
+                        keyPtr->proKey.keyFileRef));
         if (result != LE_OK)
         {
             LE_ERROR("Failed to delete provisioned key(%p) (%s).",
@@ -1441,8 +1578,16 @@ le_result_t taf_ks_GetKeyUsage
     }
 
     // This is a provisioned key, return key usage from the PA.
-    return taf_pa_ks_GetKeyUsage(taf_ks_GetClientSessionRef(),
-                                 keyPtr->proKey.keyFileRef, keyUsagePtr);
+    taf_pa_ks_KeyUsage_t paKeyUsage;
+    le_result_t result = ConvertPaToLeRet(
+                    taf_pa_ks_GetKeyUsage(le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
+                    keyPtr->proKey.keyFileRef, &paKeyUsage));
+    if (result == LE_OK)
+    {
+        *keyUsagePtr = (taf_ks_KeyUsage_t)paKeyUsage;
+    }
+
+    return result;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1472,11 +1617,12 @@ le_result_t taf_ks_SetKeyMaxUsesPerBoot
         return LE_NOT_PERMITTED;
     }
 
-    taf_pa_ks_Tag_t* newTagPtr = le_mem_ForceAlloc(TagPool);
-    memset(newTagPtr, 0, sizeof(taf_pa_ks_Tag_t));
+    KeyTag_t* newTagPtr = le_mem_ForceAlloc(TagPool);
+    memset(newTagPtr, 0, sizeof(KeyTag_t));
 
-    newTagPtr->id = TAF_PA_KS_TAG_MAX_USES_PER_BOOT;
-    newTagPtr->maxUsesPerBoot = value;
+    newTagPtr->link = LE_DLS_LINK_INIT;
+    newTagPtr->tag.id = TAF_PA_KS_TAG_MAX_USES_PER_BOOT;
+    newTagPtr->tag.maxUsesPerBoot = value;
     SetTag(keyPtr, newTagPtr);
 
     return LE_OK;
@@ -1509,11 +1655,12 @@ le_result_t taf_ks_SetKeyMinSecondsBetweenOps
         return LE_NOT_PERMITTED;
     }
 
-    taf_pa_ks_Tag_t* newTagPtr = le_mem_ForceAlloc(TagPool);
-    memset(newTagPtr, 0, sizeof(taf_pa_ks_Tag_t));
+    KeyTag_t* newTagPtr = le_mem_ForceAlloc(TagPool);
+    memset(newTagPtr, 0, sizeof(KeyTag_t));
 
-    newTagPtr->id = TAF_PA_KS_TAG_MIN_SECONDS_BETWEEN_OPS;
-    newTagPtr->minSecondsBetweenOps = value;
+    newTagPtr->link = LE_DLS_LINK_INIT;
+    newTagPtr->tag.id = TAF_PA_KS_TAG_MIN_SECONDS_BETWEEN_OPS;
+    newTagPtr->tag.minSecondsBetweenOps = value;
     SetTag(keyPtr, newTagPtr);
 
     return LE_OK;
@@ -1556,13 +1703,14 @@ le_result_t taf_ks_SetKeyAppData
         return LE_NOT_PERMITTED;
     }
 
-    taf_pa_ks_Tag_t* newTagPtr = le_mem_ForceAlloc(TagPool);
-    memset(newTagPtr, 0, sizeof(taf_pa_ks_Tag_t));
+    KeyTag_t* newTagPtr = le_mem_ForceAlloc(TagPool);
+    memset(newTagPtr, 0, sizeof(KeyTag_t));
 
-    newTagPtr->id = TAF_PA_KS_TAG_APPLICATION_DATA;
-    newTagPtr->appDataPtr = le_mem_ForceAlloc(DataPool);
-    memcpy(newTagPtr->appDataPtr->data, dataPtr, dataSize);
-    newTagPtr->appDataPtr->size = dataSize;
+    newTagPtr->link = LE_DLS_LINK_INIT;
+    newTagPtr->tag.id = TAF_PA_KS_TAG_APPLICATION_DATA;
+    newTagPtr->tag.appDataPtr = le_mem_ForceAlloc(DataPool);
+    memcpy(newTagPtr->tag.appDataPtr->data, dataPtr, dataSize);
+    newTagPtr->tag.appDataPtr->size = dataSize;
     SetTag(keyPtr, newTagPtr);
 
     return LE_OK;
@@ -1596,11 +1744,12 @@ le_result_t taf_ks_SetKeyActiveDateTime
         return LE_NOT_PERMITTED;
     }
 
-    taf_pa_ks_Tag_t* newTagPtr = le_mem_ForceAlloc(TagPool);
-    memset(newTagPtr, 0, sizeof(taf_pa_ks_Tag_t));
+    KeyTag_t* newTagPtr = le_mem_ForceAlloc(TagPool);
+    memset(newTagPtr, 0, sizeof(KeyTag_t));
 
-    newTagPtr->id = TAF_PA_KS_TAG_ACTIVE_DATETIME;
-    newTagPtr->activeDateTime = value;
+    newTagPtr->link = LE_DLS_LINK_INIT;
+    newTagPtr->tag.id = TAF_PA_KS_TAG_ACTIVE_DATETIME;
+    newTagPtr->tag.activeDateTime = value;
     SetTag(keyPtr, newTagPtr);
 
     return LE_OK;
@@ -1634,11 +1783,12 @@ le_result_t taf_ks_SetKeyOriginationExpireDateTime
         return LE_NOT_PERMITTED;
     }
 
-    taf_pa_ks_Tag_t* newTagPtr = le_mem_ForceAlloc(TagPool);
-    memset(newTagPtr, 0, sizeof(taf_pa_ks_Tag_t));
+    KeyTag_t* newTagPtr = le_mem_ForceAlloc(TagPool);
+    memset(newTagPtr, 0, sizeof(KeyTag_t));
 
-    newTagPtr->id = TAF_PA_KS_TAG_ORIGINATION_EXPIRE_DATETIME;
-    newTagPtr->originationExpireDateTime = value;
+    newTagPtr->link = LE_DLS_LINK_INIT;
+    newTagPtr->tag.id = TAF_PA_KS_TAG_ORIGINATION_EXPIRE_DATETIME;
+    newTagPtr->tag.originationExpireDateTime = value;
     SetTag(keyPtr, newTagPtr);
 
     return LE_OK;
@@ -1672,11 +1822,12 @@ le_result_t taf_ks_SetKeyUsageExpireDateTime
         return LE_NOT_PERMITTED;
     }
 
-    taf_pa_ks_Tag_t* newTagPtr = le_mem_ForceAlloc(TagPool);
-    memset(newTagPtr, 0, sizeof(taf_pa_ks_Tag_t));
+    KeyTag_t* newTagPtr = le_mem_ForceAlloc(TagPool);
+    memset(newTagPtr, 0, sizeof(KeyTag_t));
 
-    newTagPtr->id = TAF_PA_KS_TAG_USAGE_EXPIRE_DATETIME;
-    newTagPtr->usageExpireDateTime = value;
+    newTagPtr->link = LE_DLS_LINK_INIT;
+    newTagPtr->tag.id = TAF_PA_KS_TAG_USAGE_EXPIRE_DATETIME;
+    newTagPtr->tag.usageExpireDateTime = value;
     SetTag(keyPtr, newTagPtr);
 
     return LE_OK;
@@ -1741,15 +1892,17 @@ le_result_t taf_ks_ProvisionRsaEncKeyValue
         ((keyPtr->newKey.keyUsage == TAF_KS_RSA_ENCRYPT_ONLY) ?
         TAF_PA_KS_ENCRYPT_ONLY : TAF_PA_KS_DECRYPT_ONLY);
 
-    result = taf_pa_ks_GenerateRsaEncKey(taf_ks_GetClientSessionRef(),
+    result = ConvertPaToLeRet(taf_pa_ks_GenerateRsaEncKey(
+                                         le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
                                          keyPtr->newKey.keyId,
                                          keySize,
                                          keyUsage,
                                          padding,
-                                         &(keyPtr->newKey.tagList),
+                                         (const taf_pa_ks_Tag_t**)TagPtrList,
+                                         0,
                                          impDataPtr,
                                          impDataSize,
-                                         &keyFileRef);
+                                         &keyFileRef));
     if (result == LE_OK)
     {
         // Clear the tag list after successful provisioned.
@@ -1824,15 +1977,17 @@ le_result_t taf_ks_ProvisionRsaSigKeyValue
         ((keyPtr->newKey.keyUsage == TAF_KS_RSA_SIGN_ONLY) ?
         TAF_PA_KS_SIGN_ONLY : TAF_PA_KS_VERIFY_ONLY);
 
-    result = taf_pa_ks_GenerateRsaSigKey(taf_ks_GetClientSessionRef(),
+    result = ConvertPaToLeRet(taf_pa_ks_GenerateRsaSigKey(
+                                         le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
                                          keyPtr->newKey.keyId,
                                          keySize,
                                          keyUsage,
                                          padding,
-                                         &(keyPtr->newKey.tagList),
+                                         (const taf_pa_ks_Tag_t**)TagPtrList,
+                                         0,
                                          impDataPtr,
                                          impDataSize,
-                                         &keyFileRef);
+                                         &keyFileRef));
     if (result == LE_OK)
     {
         // Clear the tag list after successful provisioned.
@@ -1907,15 +2062,17 @@ le_result_t taf_ks_ProvisionEcdsaKeyValue
         ((keyPtr->newKey.keyUsage == TAF_KS_ECDSA_SIGN_ONLY) ?
         TAF_PA_KS_SIGN_ONLY : TAF_PA_KS_VERIFY_ONLY);
 
-    result = taf_pa_ks_GenerateEcdsaKey(taf_ks_GetClientSessionRef(),
+    result = ConvertPaToLeRet(taf_pa_ks_GenerateEcdsaKey(
+                                        le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
                                         keyPtr->newKey.keyId,
                                         keySize,
                                         keyUsage,
                                         digest,
-                                        &(keyPtr->newKey.tagList),
+                                        (const taf_pa_ks_Tag_t**)TagPtrList,
+                                        0,
                                         impDataPtr,
                                         impDataSize,
-                                        &keyFileRef);
+                                        &keyFileRef));
     if (result == LE_OK)
     {
         // Clear the tag list after successful provisioned.
@@ -1990,15 +2147,17 @@ le_result_t taf_ks_ProvisionAesKeyValue
         ((keyPtr->newKey.keyUsage == TAF_KS_AES_ENCRYPT_ONLY) ?
         TAF_PA_KS_ENCRYPT_ONLY : TAF_PA_KS_DECRYPT_ONLY);
 
-    result = taf_pa_ks_GenerateAesKey(taf_ks_GetClientSessionRef(),
+    result = ConvertPaToLeRet(taf_pa_ks_GenerateAesKey(
+                                      le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
                                       keyPtr->newKey.keyId,
                                       keySize,
                                       keyUsage,
                                       mode,
-                                      &(keyPtr->newKey.tagList),
+                                      (const taf_pa_ks_Tag_t**)TagPtrList,
+                                      0,
                                       impDataPtr,
                                       impDataSize,
-                                      &keyFileRef);
+                                      &keyFileRef));
     if (result == LE_OK)
     {
         // Clear the tag list after successful provisioned.
@@ -2075,15 +2234,17 @@ le_result_t taf_ks_ProvisionHmacKeyValue
         ((keyPtr->newKey.keyUsage == TAF_KS_HMAC_SIGN_ONLY) ?
         TAF_PA_KS_SIGN_ONLY : TAF_PA_KS_VERIFY_ONLY);
 
-    result = taf_pa_ks_GenerateHmacKey(taf_ks_GetClientSessionRef(),
+    result = ConvertPaToLeRet(taf_pa_ks_GenerateHmacKey(
+                                       le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
                                        keyPtr->newKey.keyId,
                                        keySize,
                                        keyUsage,
                                        digest,
-                                       &(keyPtr->newKey.tagList),
+                                       (const taf_pa_ks_Tag_t**)TagPtrList,
+                                       0,
                                        impDataPtr,
                                        impDataSize,
-                                       &keyFileRef);
+                                       &keyFileRef));
     if (result == LE_OK)
     {
         // Clear the tag list after successful provisioned.
@@ -2137,12 +2298,13 @@ le_result_t taf_ks_ExportKey
     }
 
     // Export the key data.
-    return taf_pa_ks_ExportKey(taf_ks_GetClientSessionRef(),
+    return ConvertPaToLeRet(taf_pa_ks_ExportKey(
+                               le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
                                keyPtr->proKey.keyFileRef,
                                appDataPtr,
                                appDataSize,
                                expDataPtr,
-                               expDataSizePtr);
+                               expDataSizePtr));
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2220,11 +2382,12 @@ le_result_t taf_ks_ShareKey
     }
 
     // Export the key data.
-    return taf_pa_ks_ShareKey(taf_ks_GetClientSessionRef(),
+    return ConvertPaToLeRet(taf_pa_ks_ShareKey(
+                              le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
                               keyPtr->proKey.keyFileRef,
                               keyCap,
                               appCap,
-                              appName);
+                              appName));
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2277,9 +2440,10 @@ le_result_t taf_ks_CancelKeySharing
     }
 
     // Cancel the key sharing.
-    return taf_pa_ks_CancelKeySharing(taf_ks_GetClientSessionRef(),
+    return ConvertPaToLeRet(taf_pa_ks_CancelKeySharing(
+                                      le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
                                       keyPtr->proKey.keyFileRef,
-                                      appName);
+                                      appName));
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2351,8 +2515,9 @@ le_result_t taf_ks_GetFirstSharedApp
     memset(&appList, 0, sizeof(appList));
 
     // Get the sharing state of the key from PA layer.
-    le_result_t result = taf_pa_ks_GetSharedAppList(clientSessionRef, keyPtr->proKey.keyFileRef,
-                                                    &appList);
+    le_result_t result = ConvertPaToLeRet(taf_pa_ks_GetSharedAppList(
+                                                    le_msg_GetClientFd(clientSessionRef),
+                                                    keyPtr->proKey.keyFileRef, &appList));
 
     if (result != LE_OK)
     {
@@ -2541,10 +2706,11 @@ taf_ks_KeySharingHandlerRef_t taf_ks_AddKeySharingHandler
 
     // Get the sharing state of the desired key.
     KeyMgt_KeyFileRef_t keyFileRef = NULL;
-    le_result_t result = taf_pa_ks_GetSharedKey(myHandlerPtr->clientSessionRef,
+    le_result_t result = ConvertPaToLeRet(taf_pa_ks_GetSharedKey(
+                                                le_msg_GetClientFd(myHandlerPtr->clientSessionRef),
                                                 myHandlerPtr->keyId,
                                                 myHandlerPtr->ownerAppName,
-                                                &keyFileRef);
+                                                &keyFileRef));
 
     // Trigger the handler immediately if the key is already shared to the client.
     if ((result == LE_OK) && (keyFileRef != NULL))
@@ -2686,15 +2852,16 @@ le_result_t taf_ks_CryptoSessionSetAesNonce
         return LE_NOT_PERMITTED;
     }
 
-    taf_pa_ks_Param_t* newParamPtr = le_mem_ForceAlloc(ParamPool);
-    memset(newParamPtr, 0, sizeof(taf_pa_ks_Param_t));
+    KeyParam_t* newParamPtr = le_mem_ForceAlloc(ParamPool);
+    memset(newParamPtr, 0, sizeof(KeyParam_t));
 
-    newParamPtr->id = TAF_PA_KS_PARAM_NONCE;
-    newParamPtr->nonceDataPtr = le_mem_ForceAlloc(AesNoncePool);
-    memset(newParamPtr->nonceDataPtr, 0, sizeof(taf_pa_ks_Nonce_t));
+    newParamPtr->link = LE_DLS_LINK_INIT;
+    newParamPtr->param.id = TAF_PA_KS_PARAM_NONCE;
+    newParamPtr->param.nonceDataPtr = le_mem_ForceAlloc(AesNoncePool);
+    memset(newParamPtr->param.nonceDataPtr, 0, sizeof(taf_pa_ks_Nonce_t));
 
-    memcpy(newParamPtr->nonceDataPtr->data, dataPtr, dataSize);
-    newParamPtr->nonceDataPtr->size = dataSize;
+    memcpy(newParamPtr->param.nonceDataPtr->data, dataPtr, dataSize);
+    newParamPtr->param.nonceDataPtr->size = dataSize;
     SetParam(sessionPtr, newParamPtr);
 
     return LE_OK;
@@ -2753,11 +2920,12 @@ le_result_t taf_ks_CryptoSessionSetRsaPadding
         return LE_NOT_PERMITTED;
     }
 
-    taf_pa_ks_Param_t* newParamPtr = le_mem_ForceAlloc(ParamPool);
-    memset(newParamPtr, 0, sizeof(taf_pa_ks_Param_t));
+    KeyParam_t* newParamPtr = le_mem_ForceAlloc(ParamPool);
+    memset(newParamPtr, 0, sizeof(KeyParam_t));
 
-    newParamPtr->id = TAF_PA_KS_PARAM_RSA_PADDING_TYPE;
-    newParamPtr->rsaPaddingType = paddingType;
+    newParamPtr->link = LE_DLS_LINK_INIT;
+    newParamPtr->param.id = TAF_PA_KS_PARAM_RSA_PADDING_TYPE;
+    newParamPtr->param.rsaPaddingType = paddingType;
 
     SetParam(sessionPtr, newParamPtr);
 
@@ -2813,15 +2981,16 @@ le_result_t taf_ks_CryptoSessionSetAppData
         return LE_NOT_PERMITTED;
     }
 
-    taf_pa_ks_Param_t* newParamPtr = le_mem_ForceAlloc(ParamPool);
-    memset(newParamPtr, 0, sizeof(taf_pa_ks_Param_t));
+    KeyParam_t* newParamPtr = le_mem_ForceAlloc(ParamPool);
+    memset(newParamPtr, 0, sizeof(KeyParam_t));
 
-    newParamPtr->id = TAF_PA_KS_PARAM_APPLICATION_DATA;
-    newParamPtr->appDataPtr = le_mem_ForceAlloc(DataPool);
-    memset(newParamPtr->appDataPtr, 0, sizeof(taf_pa_ks_Data_t));
+    newParamPtr->link = LE_DLS_LINK_INIT;
+    newParamPtr->param.id = TAF_PA_KS_PARAM_APPLICATION_DATA;
+    newParamPtr->param.appDataPtr = le_mem_ForceAlloc(DataPool);
+    memset(newParamPtr->param.appDataPtr, 0, sizeof(taf_pa_ks_Data_t));
 
-    memcpy(newParamPtr->appDataPtr->data, dataPtr, dataSize);
-    newParamPtr->appDataPtr->size = dataSize;
+    memcpy(newParamPtr->param.appDataPtr->data, dataPtr, dataSize);
+    newParamPtr->param.appDataPtr->size = dataSize;
     SetParam(sessionPtr, newParamPtr);
 
     return LE_OK;
@@ -2883,11 +3052,29 @@ le_result_t taf_ks_CryptoSessionStart
         return LE_DUPLICATE;
     }
 
-    result = taf_pa_ks_CryptoSessionStart(taf_ks_GetClientSessionRef(),
+    // Populate the param list of the session to PA layer.
+    uint8_t pNum = 0;
+    KeyParam_t* paramObjPtr = NULL;
+    le_dls_Link_t* linkPtr = le_dls_Peek(&(sessionPtr->paramList));
+    while (linkPtr)
+    {
+        paramObjPtr = CONTAINER_OF(linkPtr, KeyParam_t, link);
+        linkPtr = le_dls_PeekNext(&(sessionPtr->paramList), linkPtr);
+
+        if ((pNum < MAX_PARAM_NUMBER) && (paramObjPtr != NULL))
+        {
+            ParamPtrList[pNum] = &(paramObjPtr->param);
+            pNum++;
+        }
+    }
+
+    result = ConvertPaToLeRet(taf_pa_ks_CryptoSessionStart(
+                                          le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
                                           keyPtr->proKey.keyFileRef,
                                           cryptoPurpose,
-                                          &(sessionPtr->paramList),
-                                          &handle);
+                                          (const taf_pa_ks_Param_t**)ParamPtrList,
+                                          pNum,
+                                          &handle));
     if (result == LE_OK)
     {
         // Save the handle and set the session as started.
@@ -2963,9 +3150,9 @@ le_result_t taf_ks_CryptoSessionProcessAead
         return LE_NOT_PERMITTED;
     }
 
-    result = taf_pa_ks_CryptoSessionProcessAead(sessionPtr->handle,
+    result = ConvertPaToLeRet(taf_pa_ks_CryptoSessionProcessAead(sessionPtr->handle,
                                                 inputDataPtr,
-                                                inputDataSize);
+                                                inputDataSize));
     if (result != LE_OK)
     {
         // Process failed means the session is already aborted.
@@ -3049,11 +3236,11 @@ le_result_t taf_ks_CryptoSessionProcess
         return LE_NOT_PERMITTED;
     }
 
-    result = taf_pa_ks_CryptoSessionProcess(sessionPtr->handle,
+    result = ConvertPaToLeRet(taf_pa_ks_CryptoSessionProcess(sessionPtr->handle,
                                             inputDataPtr,
                                             inputDataSize,
                                             outputDataPtr,
-                                            outputDataSizePtr);
+                                            outputDataSizePtr));
     if (result != LE_OK)
     {
         // Process failed means the session is already aborted.
@@ -3127,11 +3314,11 @@ le_result_t taf_ks_CryptoSessionEnd
         return LE_NOT_PERMITTED;
     }
 
-    result = taf_pa_ks_CryptoSessionEnd(sessionPtr->handle,
+    result = ConvertPaToLeRet(taf_pa_ks_CryptoSessionEnd(sessionPtr->handle,
                                         inputDataPtr,
                                         inputDataSize,
                                         outputDataPtr,
-                                        outputDataSizePtr);
+                                        outputDataSizePtr));
     // Set the session is stopped.
     sessionPtr->started = false;
     sessionPtr->handle = 0;
@@ -3191,7 +3378,7 @@ le_result_t taf_ks_CryptoSessionAbort
     }
 
     // Abort the session.
-    result = taf_pa_ks_CryptoSessionAbort(sessionPtr->handle);
+    result = ConvertPaToLeRet(taf_pa_ks_CryptoSessionAbort(sessionPtr->handle));
     sessionPtr->started = false;
     sessionPtr->handle = 0;
 
@@ -3229,7 +3416,7 @@ static void InitTimerHandler
 {
     static uint8_t Count = 0;
 
-    le_result_t result = taf_pa_ks_Init();
+    le_result_t result = ConvertPaToLeRet(taf_pa_ks_Init());
     if (result == LE_OK)
     {
         LE_INFO("Telaf keyStore Service initialized (count=%d).", Count);
@@ -3244,6 +3431,9 @@ static void InitTimerHandler
 
         le_timer_Delete(timerRef);
         InitTimer = NULL;
+
+        // Add boot KPI marker
+        SetBootKpiMarker("L - TelAF keystore service is ready");
 
         return;
     }
@@ -3272,8 +3462,8 @@ COMPONENT_INIT
     CryptoSessionPool = le_mem_CreatePool("CryptoSessionPool", sizeof(taf_ks_CryptoSession_t));
     KeyPool = le_mem_CreatePool("KeyPool", sizeof(taf_ks_Key_t));
 
-    TagPool = le_mem_CreatePool("TagPool", sizeof(taf_pa_ks_Tag_t));
-    ParamPool = le_mem_CreatePool("ParamPool", sizeof(taf_pa_ks_Param_t));
+    TagPool = le_mem_CreatePool("TagPool", sizeof(KeyTag_t));
+    ParamPool = le_mem_CreatePool("ParamPool", sizeof(KeyParam_t));
 
     AesNoncePool = le_mem_CreatePool("AesNoncePool", sizeof(taf_pa_ks_Nonce_t));
     DataPool = le_mem_CreatePool("DataPool", sizeof(taf_pa_ks_Data_t));

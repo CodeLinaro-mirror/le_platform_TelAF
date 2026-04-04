@@ -95,7 +95,7 @@ typedef struct {
 static AckCollection_t AckCollection;
 
 typedef struct {
-    PaType(ConsolidatedInfo) info;
+    taf_pa_pms_ConsolidatedInfo_t info;
     bool isAllAcked;
     taf_pm_State_t state;
 } FinalConsolidatedInfo_t;
@@ -153,7 +153,7 @@ public:
     static void SendAckToPaLayer
     (
         taf_pm_State_t state,
-        PaType(Ack) ack
+        taf_pa_pms_Ack_t ack
     );
 
     static void ShowCurrentClientSessionInfo
@@ -167,7 +167,7 @@ public:
         const char * from
     );
 
-    PaType(Reference) pa;
+    taf_pa_pms_Reference_t pa;
 
     void AllocateResource(void);
 
@@ -240,7 +240,7 @@ private:
 
     static void PaEventReportCallback
     (
-        PaEvent_t * ev
+        taf_pa_pms_Event_t * ev
     );
 
     static void PaIndication_Handler
@@ -250,12 +250,12 @@ private:
 
     static void * AllocPaEvtPayload
     (
-        PaEvent_t * ev
+        taf_pa_pms_Event_t * ev
     );
 
     static void FreePaEvtPayload
     (
-        PaEvent_t * ev
+        taf_pa_pms_Event_t * ev
     );
 
     le_event_Id_t evt_ConsolidatedAckInfo;
@@ -358,16 +358,16 @@ static inline const char *to_StateText
     }
 }
 
-static PaType(PowerState) to_PaPowerState
+static taf_pa_pms_PowerState_t to_PaPowerState
 (
     taf_pm_State_t state
 )
 {
     switch(state)
     {
-        case TAF_PM_STATE_RESUME: return PaPwrState(RESUME);
-        case TAF_PM_STATE_SUSPEND: return PaPwrState(SUSPEND);
-        case TAF_PM_STATE_SHUTDOWN: return PaPwrState(SHUTDOWN);
+        case TAF_PM_STATE_RESUME: return taf_pa_pms_PwrSts_RESUME;
+        case TAF_PM_STATE_SUSPEND: return taf_pa_pms_PwrSts_SUSPEND;
+        case TAF_PM_STATE_SHUTDOWN: return taf_pa_pms_PwrSts_SHUTDOWN;
 
         /* Internal state */
         case TAF_PM_STATE_RESTART:
@@ -375,21 +375,21 @@ static PaType(PowerState) to_PaPowerState
         case TAF_PM_STATE_ALL_WAKELOCKS_RELEASED:
         case TAF_PM_STATE_UNKNOWN:
         default:
-            return PaPwrState(UNKNOWN);
+            return taf_pa_pms_PwrSts_UNKNOWN;
     }
 }
 
 static taf_pm_State_t from_PaPowerState
 (
-    PaType(PowerState) paState
+    taf_pa_pms_PowerState_t paState
 )
 {
     switch (paState)
     {
-        case PaPwrState(SUSPEND): return TAF_PM_STATE_SUSPEND;
-        case PaPwrState(RESUME): return TAF_PM_STATE_RESUME;
-        case PaPwrState(SHUTDOWN): return TAF_PM_STATE_SHUTDOWN;
-        case PaPwrState(UNKNOWN):
+        case taf_pa_pms_PwrSts_SUSPEND:  return TAF_PM_STATE_SUSPEND;
+        case taf_pa_pms_PwrSts_RESUME:   return TAF_PM_STATE_RESUME;
+        case taf_pa_pms_PwrSts_SHUTDOWN: return TAF_PM_STATE_SHUTDOWN;
+        case taf_pa_pms_PwrSts_UNKNOWN:
         default:
             return TAF_PM_STATE_UNKNOWN;
     }
@@ -463,13 +463,13 @@ le_result_t taf_PM::SetPowerState
         case TAF_PM_STATE_RESUME:
         case TAF_PM_STATE_SHUTDOWN:
         {
-            PaType(Result) paRst =
-                PaFn(SetPowerStateAsMaster)(
+            pa_result_t paRst =
+                taf_pa_pms_SetPowerStateAsMaster(
                     pm.pa,
                     to_PaPowerState(state),
                     machineName);
 
-            if (PaResult(OK) != paRst)
+            if (PA_OK != paRst)
             {
                 LE_ERROR("Failed to invoke PA:SetPowerStateAsMaster: %d", paRst);
                 rst = LE_FAULT;
@@ -689,7 +689,7 @@ void taf_PM::OnClientDisconnected
 void taf_PM::SendAckToPaLayer
 (
     taf_pm_State_t state,
-    PaType(Ack) ack
+    taf_pa_pms_Ack_t ack
 )
 {
     if (state != TAF_PM_STATE_SUSPEND
@@ -701,14 +701,14 @@ void taf_PM::SendAckToPaLayer
     }
 
     LE_INFO("Sending [%s] to PA Layer with [%s]",
-            ack == PaAck(ACK) ? "ACK" : "NACK",
+            ack == taf_pa_pms_ACK ? "ACK" : "NACK",
             to_StateText(state));
 
-    PaType(Result) rst =
-        PaFn(SendAckForStateUpdate)
-            (pm.pa, to_PaPowerState(state), ack);
+    pa_result_t rst =
+        taf_pa_pms_SendAckForStateUpdate(
+            pm.pa, to_PaPowerState(state), ack);
 
-    if (rst != PaResult(OK))
+    if (PA_OK != rst)
     {
         LE_ERROR("Failed to invoke PA:SendAckForStateUpdate: %d", rst);
     }
@@ -760,7 +760,7 @@ void taf_PM::PaHandler_evt_ConsolidatedInfo
     void * payload
 )
 {
-    PaType(ConsolidatedInfo) * info = (PaType(ConsolidatedInfo) *) payload;
+    taf_pa_pms_ConsolidatedInfo_t * info = (taf_pa_pms_ConsolidatedInfo_t *) payload;
 
     LE_DEBUG("--> Consolidated info indication is coming");
 
@@ -936,7 +936,7 @@ void taf_PM::Handle_evt_StateChangedAckNeeded
     if (rst != LE_OK)
     {
         LE_INFO("No client registered for /StateChangeEx evt handler");
-        SendAckToPaLayer(reportState, PaAck(ACK));
+        SendAckToPaLayer(reportState, taf_pa_pms_ACK);
 
         return;
     }
@@ -1148,13 +1148,13 @@ void taf_PM::Handle_sig_SIGTERM
     // Resume in SA525M before service termination as master app is terminating
     if (pm.GetCurrentState() != TAF_PM_STATE_RESUME)
     {
-        PaType(Result) rst =
-            PaFn(SetPowerStateAsMaster)(
+        pa_result_t rst =
+            taf_pa_pms_SetPowerStateAsMaster(
                 pm.pa,
                 to_PaPowerState(TAF_PM_STATE_RESUME),
                 "ALL_MACHINES");
 
-        if (PaResult(OK) != rst)
+        if (PA_OK != rst)
         {
             LE_ERROR("Failed to invoke PA:SetPowerStateAsMaster error: %d", rst);
         }
@@ -1167,7 +1167,7 @@ void taf_PM::Handle_sig_SIGTERM
 
     le_event_RemoveHandler(pm.ref_PaEventHandler);
 
-    PaFn(Deinit)(&pm.pa);
+    taf_pa_pms_Deinit(&pm.pa);
 }
 
 void taf_PM::PaHandler_evt_ServiceAvailable
@@ -1175,7 +1175,7 @@ void taf_PM::PaHandler_evt_ServiceAvailable
     void * payload
 )
 {
-    ServiceStatus_t status = *(ServiceStatus_t *) payload;
+    taf_pa_pms_ServiceStatus_t status = *(taf_pa_pms_ServiceStatus_t *) payload;
 
     if (status == SVC_AVAILABLE)
     {
@@ -1192,7 +1192,7 @@ void taf_PM::PaHandler_evt_PowerStateUpdate
     void * payload
 )
 {
-    PowerUpdateEvent_t * evp = (PowerUpdateEvent_t *)payload;
+    taf_pa_pms_PowerUpdateEvent_t * evp = (taf_pa_pms_PowerUpdateEvent_t *)payload;
 
     taf_pm_State_t state = from_PaPowerState(evp->state);
 
@@ -1215,7 +1215,7 @@ void taf_PM::PaHandler_evt_MachineUpdate
     void * payload
 )
 {
-    MachineUpdateEvent_t * evp = (MachineUpdateEvent_t *) payload;
+    taf_pa_pms_MachineUpdateEvent_t * evp = (taf_pa_pms_MachineUpdateEvent_t *) payload;
 
     if (evp->machineEvent == MACHINE_AVAILABLE)
     {
@@ -1229,7 +1229,7 @@ void taf_PM::PaHandler_evt_MachineUpdate
 
 void * taf_PM::AllocPaEvtPayload
 (
-    PaEvent_t * ev
+    taf_pa_pms_Event_t * ev
 )
 {
     void * newPayload = malloc(ev->evPsize);
@@ -1240,7 +1240,7 @@ void * taf_PM::AllocPaEvtPayload
 
 void taf_PM::FreePaEvtPayload
 (
-    PaEvent_t * ev
+    taf_pa_pms_Event_t * ev
 )
 {
     if (ev)
@@ -1258,7 +1258,7 @@ void taf_PM::PaIndication_Handler
     void * reportPtr
 )
 {
-    PaEvent_t * evp = (PaEvent_t *) reportPtr;
+    taf_pa_pms_Event_t * evp = (taf_pa_pms_Event_t *) reportPtr;
 
     LE_INFO("PA Event: [%d] captured", evp->evType);
 
@@ -1308,10 +1308,10 @@ void taf_PM::PaIndication_Handler
 // Function-Call by the PA layer
 void taf_PM::PaEventReportCallback
 (
-    PaEvent_t * ev
+    taf_pa_pms_Event_t * ev
 )
 {
-    PaEvent_t newEv;
+    taf_pa_pms_Event_t newEv;
     newEv.evType = ev->evType;
     newEv.evPayload = AllocPaEvtPayload(ev);
     newEv.evPsize = ev->evPsize;
@@ -1322,7 +1322,7 @@ void taf_PM::PaEventReportCallback
 void taf_PM::TryToInitPaLayer()
 {
     // Create event-id to handle PA indications
-    pm.evt_PaInd = le_event_CreateId("pms-pa-evt", sizeof(PaEvent_t));
+    pm.evt_PaInd = le_event_CreateId("pms-pa-evt", sizeof(taf_pa_pms_Event_t));
     pm.ref_PaEventHandler =
         le_event_AddHandler(
             "pms-pa-evt-hdlr",
@@ -1330,16 +1330,17 @@ void taf_PM::TryToInitPaLayer()
             PaIndication_Handler);
 
     // Also register the logger and event-reporter
-    PaType(Result) rst = PaFn(Init)(
-        &pm.pa,
-        PaEventReportCallback,
-        PA_LAYER_TIMEOUT_MAX_MS);
+    pa_result_t rst =
+        taf_pa_pms_Init(
+            &pm.pa,
+            PaEventReportCallback,
+            PA_LAYER_TIMEOUT_MAX_MS);
 
-    if (PaResult(OK) == rst)
+    if (PA_OK == rst)
     {
         LE_INFO("Pa Init Done");
     }
-    else if (PaResult(TIMEOUT) == rst)
+    else if (PA_TIMEOUT == rst)
     {
         // Retry ? No, we don't know where is stoped, so..
         LE_FATAL("Pa Init Timeout");
@@ -2031,7 +2032,7 @@ void API(SendStateChangeAck)
         }
         else
         {
-            pm.SendAckToPaLayer(pm.GetCurrentState(), PaAck(ACK));
+            pm.SendAckToPaLayer(pm.GetCurrentState(), taf_pa_pms_ACK);
         }
 
         return;
@@ -2054,7 +2055,7 @@ void API(SendStateChangeAck)
             {
                 collection->hasNack = true;
 
-                pm.SendAckToPaLayer(pm.GetCurrentState(), PaAck(NACK));
+                pm.SendAckToPaLayer(pm.GetCurrentState(), taf_pa_pms_NACK);
             }
 
             return;
@@ -2106,8 +2107,8 @@ taf_pm_VMListRef_t API(GetMachineList)
 {
     std::vector<std::string> machineNames;
 
-    PaType(Result) rst = PaFn(GetAllMachineNames)(pm.pa, machineNames);
-    if (PaResult(OK) != rst)
+    pa_result_t rst = taf_pa_pms_GetAllMachineNames(pm.pa, machineNames);
+    if (PA_OK != rst)
     {
         LE_ERROR("Failed to GetAllMachineNames from PA Layer");
         return nullptr;
@@ -2286,8 +2287,8 @@ le_result_t API(SetModemWakeupSel)
     taf_pm_NodeModemWsBitMask_t wsBitmask
 )
 {
-    PaType(Result) rst = PaFn( SetModemWakeupFilter )(pm.pa, wsBitmask);
-    if (PaResult(OK) != rst)
+    pa_result_t rst = taf_pa_pms_SetModemWakeupFilter(pm.pa, wsBitmask);
+    if (PA_OK != rst)
     {
         return LE_FAULT;
     }
@@ -2309,8 +2310,8 @@ le_result_t API(GetModemWakeupSel)
         return LE_BAD_PARAMETER;
     }
 
-    PaType(Result) rst = PaFn( GetModemWakeupFilter )(pm.pa, wsBitmaskPtr);
-    if (PaResult(OK) != rst)
+    pa_result_t rst = taf_pa_pms_GetModemWakeupFilter(pm.pa, wsBitmaskPtr);
+    if (PA_OK != rst)
     {
         *wsBitmaskPtr = 0;
         return LE_FAULT;

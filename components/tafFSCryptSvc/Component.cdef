@@ -7,24 +7,21 @@ cflags:
 {
     -I${LEGATO_ROOT}/framework/liblegato
     -I$TELAF_PA_DEFAULT/include/keyStore
+    -I$TELAF_PA_DEFAULT/include
 }
 
 requires:
 {
-    component:
-    {
-#if ${LE_CONFIG_TARGET_SIMULATION} = y
-        $TELAF_ROOT/simulation/stub/keyStore/taf_pa_fscrypt
-#else
-        $TELAF_PA_DEFAULT/component/keyStore/taf_pa_fscrypt_default
-        $LEGATO_BUILD/stub/component/taf_pa_fscrypt
-#endif
-    }
-
     api:
     {
         taf_pm.api
         taf_ks.api
+    }
+
+    lib:
+    {
+        libComponent_taf_pa_fscrypt.so
+        libComponent_taf_pa_fscryptDef.so
     }
 }
 
@@ -40,4 +37,5 @@ ldflags:
 {
    -lssl
    -lcrypto
+   -L$TELAF_DEFAULT_PA_LIB_DIR/lib
 }

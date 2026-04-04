@@ -27,7 +27,6 @@ LE_REF_DEFINE_STATIC_MAP(tSensorListMap, TAF_SENSOR_LIST_POOL_SIZE);
 
 void Handler::onSelfTestFailed(tafpa::sensor::taf_pa_sensor_SensorId sensorId, uint64_t timestamp,
     std::any context){
-    LE_INFO("onSelfTestFailed");
     le_msg_SessionRef_t sessionRef = std::any_cast<le_msg_SessionRef_t>(context);
     auto &sensorMngr = taf_Sensor::GetInstance();
     taf_SensorSelfTest_t event;
@@ -86,7 +85,8 @@ le_result_t taf_Sensor::InitializeSensorClientList(taf_SensorClient_t* clientReq
         clientInfo->sensorClient =
             tafpa::sensor::taf_pa_sensor_GetSensorClient(sensorMngr.sList[i].basicInfo.sensorName);
         if(clientInfo->sensorClient == 0){
-            LE_ERROR("unable to create Reference for %s",sensorMngr.sList[i].basicInfo.sensorName.c_str());
+            LE_ERROR("Unable to create Reference for %s", 
+                sensorMngr.sList[i].basicInfo.sensorName.c_str());
             continue;
         }
         clientInfo->eventListener.onEvent = &Handler::onEvent;
@@ -128,6 +128,7 @@ void taf_Sensor::DataEventHandler(void* reportPtr){
         currentEventList = NULL;
         return;
     }
+    bool listEmpty = true;
     taf_imuSensor_SensorRef_t sensorRef = NULL;
     for(std::shared_ptr<taf_sensorClientInfo_t> clientInfoPtr: clientRequestPtr->clients){
         if(clientInfoPtr->sensorClient == currentEventList->sensorClientId){
@@ -145,7 +146,6 @@ void taf_Sensor::DataEventHandler(void* reportPtr){
         }
         if(evtHandlerPtr->sessionRef == currentEventList->sessionRef &&
             evtHandlerPtr->sensorRef == sensorRef){
-            LE_DEBUG("SessionRef and sensorRef Found");
             eventInfo = (taf_SensorEventInfo_t*)le_mem_ForceAlloc(sensorMngr.tSensorEventInfoPool);
             memset(eventInfo, 0, sizeof(taf_SensorEventInfo_t));
             eventInfo->eventPtr = (taf_SensorEventList_t*)le_mem_ForceAlloc(sensorMngr.tSensorEventPool);
@@ -155,11 +155,13 @@ void taf_Sensor::DataEventHandler(void* reportPtr){
             (taf_imuSensor_SampleRef_t)le_ref_CreateRef(sensorMngr.tSensorEventMap,eventInfo);
             evtHandlerPtr->handlerFuncPtr(sensorRef,
             eventInfo->ref,evtHandlerPtr->handlerContextPtr);
+            listEmpty = false;
             LE_DEBUG("Data reported with ref %p",eventInfo->ref);
         }
-        else{
-            LE_DEBUG("DataEventHandler sensor ref or session ref didnt match ");
-        }
+    }
+    if (listEmpty)
+    {
+        LE_DEBUG("No sensor or session references matches");
     }
     currentEventList->eventList.reset();
     le_mem_Release(currentEventList);
@@ -168,7 +170,7 @@ void taf_Sensor::DataEventHandler(void* reportPtr){
 
 le_result_t taf_Sensor::SetEulerAngle(double pitch ,double roll , double yaw)
 {
-    LE_DEBUG("Set Euler Angle");
+    LE_DEBUG("Set Euler Angle with pitch %lf, roll %lf and yaw %lf", pitch, roll, yaw);
     if(tafpa::sensor::taf_pa_sensor_SetEulerAngle(0,pitch,roll,yaw) != PA_OK){
         LE_ERROR("Not able to set euler angle for client");
         return LE_FAULT;
@@ -178,7 +180,6 @@ le_result_t taf_Sensor::SetEulerAngle(double pitch ,double roll , double yaw)
 
 taf_imuSensor_SensorListRef_t taf_Sensor::GetAvailableSensors()
 {
-    LE_DEBUG("Get Available Sensors");
     auto& sensorMngr = taf_Sensor::GetInstance();
       taf_SensorInfoList_t* sensorListPtr =
         (taf_SensorInfoList_t*)le_mem_ForceAlloc(sensorMngr.tSensorListPool);
@@ -567,7 +568,6 @@ void taf_Sensor::FirstLayerSelfTestHandler(void* reportPtr,void* secondLayerHand
 taf_imuSensor_SelfTestFailedHandlerRef_t taf_Sensor::AddSelfTestFailedHandler
     (taf_imuSensor_SensorRef_t sensorRef,taf_imuSensor_SelfTestFailedHandlerFunc_t handlerPtr,
     void* contextPtr){
-    LE_DEBUG("AddSelfTestFailedHandler");
     TAF_KILL_CLIENT_IF_RET_VAL(handlerPtr == NULL, NULL, "Handler pointer is NULL");
     taf_SensorClient_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();
@@ -601,7 +601,6 @@ void taf_Sensor::RemoveSelfTestFailedHandler(taf_imuSensor_SelfTestFailedHandler
 }
 
 le_result_t taf_Sensor::Deactivate(taf_imuSensor_SensorRef_t sensorRef){
-    LE_DEBUG("Deactivate Sensor");
     taf_SensorClient_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();
     TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr,LE_FAULT, "clientRequestPtr is NULL");
@@ -630,7 +629,6 @@ le_result_t taf_Sensor::Deactivate(taf_imuSensor_SensorRef_t sensorRef){
 
 taf_imuSensor_DataHandlerRef_t taf_Sensor::AddDataHandler(taf_imuSensor_SensorRef_t sensorRef,
     taf_imuSensor_DataHandlerFunc_t handlerPtr,void* contextPtr){
-    LE_DEBUG("AddDataHandler for sensorRef %p",sensorRef);
     TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "handlerPtr is NULL !");
     taf_SensorClient_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();
@@ -709,7 +707,6 @@ le_result_t taf_Sensor::GetData( taf_imuSensor_SampleRef_t eventList,taf_imuSens
             BiasData[j].z = eventData.zb;
             j++;
             if (j == ptr->eventPtr->listSize){
-                LE_DEBUG("Data Copied !!");
                 break;
             }
             if (j >= *RawDataSizePtr || j >= *BiasDataSizePtr) {
@@ -750,12 +747,8 @@ taf_SensorClient_t* taf_Sensor::DiscoverSessionRef(le_msg_SessionRef_t sessionRe
             return NULL;
         }
 
-        LE_DEBUG("clientPtr %p, clientPtr->sessionRef %p, sessionRef %p",
-                 clientPtr, clientPtr->sessionRef, sessionRef);
-
         if (sessionRef == clientPtr->sessionRef)
         {
-             LE_DEBUG("sessionRef %p found in Client session", sessionRef);
              return clientPtr;
         }
         result = le_ref_NextNode(iterRef);
@@ -817,7 +810,6 @@ void taf_Sensor::ReleaseClientRef(void* RefPtr)
     else
     {
         le_ref_DeleteRef(sensorMngr.ClientRequestRefMap, RefPtr);
-        LE_DEBUG("Remove Client Ctrl (%p)",RefPtr);
         le_mem_Release(clientPtr);
     }
 }

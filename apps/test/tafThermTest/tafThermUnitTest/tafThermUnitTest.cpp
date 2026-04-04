@@ -28,11 +28,11 @@ void TestZoneInformation(taf_therm_ThermalZoneRef_t tZone)
 
     ThermalZoneNameList.insert(std::string(thermalZoneType));
 
-    uint32_t currTemp;
+    int32_t currTemp;
     result = taf_therm_GetThermalZoneCurrentTemp(tZone, &currTemp);
     LE_TEST_OK((result == LE_OK),"Thermal Zone CurrentTemp : %d", currTemp);
 
-    uint32_t passiveTemp;
+    int32_t passiveTemp;
     result = taf_therm_GetThermalZonePassiveTemp(tZone, &passiveTemp);
     LE_TEST_OK((result == LE_OK),"Thermal Zone PassiveTemp : %d", passiveTemp);
 }
@@ -70,12 +70,12 @@ void TestTripPointInformation(taf_therm_ThermalZoneRef_t tZone)
         result = taf_therm_GetTripPointType(tripPoint, tripType, sizeof(tripType));
         LE_TEST_OK(result == LE_OK, "TripPoint Type : %s",tripType);
 
-        uint32_t threshold;
+        int32_t threshold;
         result = taf_therm_GetTripPointThreshold(tripPoint, &threshold);
         LE_TEST_OK(result == LE_OK, "TripPoint Threshold : %d",
                 threshold);
 
-        uint32_t hysterisis;
+        int32_t hysterisis;
         result = taf_therm_GetTripPointHysterisis(tripPoint, &hysterisis);
         LE_TEST_OK(result == LE_OK, "TripPoint Hysterisis : %d",
                 hysterisis);
@@ -142,11 +142,11 @@ void TestBoundCoolingDevicesInformation(taf_therm_ThermalZoneRef_t tZone)
             result = taf_therm_GetBoundTripPointType(boundTripPoint, boundTripType, sizeof(boundTripType));
             LE_TEST_OK(result == LE_OK, "BoundTripPoint Type : %s", boundTripType);
 
-            uint32_t boundThreshold;
+            int32_t boundThreshold;
             result = taf_therm_GetBoundTripPointThreshold(boundTripPoint, &boundThreshold);
             LE_TEST_OK(result == LE_OK, "BoundTripPoint Threshold : %d", boundThreshold);
 
-            uint32_t boundHysterisis;
+            int32_t boundHysterisis;
             result = taf_therm_GetBoundTripPointHysterisis(boundTripPoint, &boundHysterisis);
             LE_TEST_OK(result == LE_OK, "BoundTripPoint Hysterisis : %d", boundHysterisis);
 
@@ -471,11 +471,11 @@ static void TestTripEventHandler
     result = taf_therm_GetTripPointType(tripPoint, tripType, sizeof(tripType));
     LE_TEST_OK(result == LE_OK, "TripPoint Type : %s", tripType);
 
-    uint32_t threshold;
+    int32_t threshold;
     result = taf_therm_GetTripPointThreshold(tripPoint, &threshold);
     LE_TEST_OK(result == LE_OK, "TripPoint Threshold : %d", threshold);
 
-    uint32_t hysterisis;
+    int32_t hysterisis;
     result = taf_therm_GetTripPointHysterisis(tripPoint, &hysterisis);
     LE_TEST_OK(result == LE_OK, "TripPoint Hysterisis : %d", hysterisis);
     LE_INFO("TestTripEventHandler -- Trip type is %s\n\n", TripEventToString(type));

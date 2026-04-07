@@ -193,7 +193,7 @@ void taf_Audio::MpmsConnectHandler(le_timer_Ref_t timerRef)
         audio.mpmsTimerRepeat++;
     }
     else if (expiryCount >= MAX_NUM_OF_MPMS_CONN_ATTEMPTS
-            && audio.mpmsTimerRepeat > MAX_NUM_OF_MPMS_TIMER_REPEAT)
+            && audio.mpmsTimerRepeat >= MAX_NUM_OF_MPMS_TIMER_REPEAT)
     {
         LE_ERROR("Failed to connect to MPMS after maximum retries");
         le_timer_Stop(audio.mpmsRetryTimer);
@@ -225,10 +225,11 @@ void taf_Audio::MpmsDelayHandler(le_timer_Ref_t timerRef)
 }
 
 void tafServiceListener::onServiceStatusChange(telux::common::ServiceStatus status) {
+    auto &audio = taf_Audio::GetInstance();
     if (status == telux::common::ServiceStatus::SERVICE_UNAVAILABLE) {
         LE_ERROR("Audio Service UNAVAILABLE");
-        // Exit process with EXIT_UNAVAILABLE as audio subsystem is unavailable.
-        exit(EXIT_UNAVAILABLE);
+        // Report subsystem unavailable event to main thread
+        le_event_Report(audio.subsystemStateEventId, &status, sizeof(telux::common::ServiceStatus));
     }
     if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
         LE_INFO("Audio Service AVAILABLE");
@@ -298,6 +299,12 @@ void taf_Audio::Init(void)
         LE_FATAL(" *** ERROR - Unable to initialize audio subsystem");
         return;
     }
+
+    // Create subsystem state change event and register handler
+    subsystemStateEventId = le_event_CreateId("SubsystemStateEvent",
+            sizeof(telux::common::ServiceStatus));
+    subsystemStateHandlerRef = le_event_AddHandler("SubsystemStateHandler",
+            subsystemStateEventId, SubsystemStateChangeHandler);
 
     serviceStatusChangeListener = std::make_shared<tafServiceListener>();
     auto status = mAudioManager->registerListener(serviceStatusChangeListener);
@@ -431,8 +438,18 @@ void taf_Audio::ClientSessionCloseEventHandler
 )
 {
     auto &audio = taf_Audio::GetInstance();
-
     LE_DEBUG("ClientSessionCloseEventHandler sessionRef : %p", sessionRef);
+
+    if(audio.mDtmfStarted && audio.dtmfDataRx.sessionRef == sessionRef)
+    {
+        LE_DEBUG("Stop on going DTMF");
+        audio.StopDtmf(audio.dtmfDataRx.streamRef);
+    }
+    if(audio.mDtmfStartedTx && audio.dtmfDataTx.sessionRef == sessionRef)
+    {
+        LE_DEBUG("Stop on going DTMF signalling");
+        audio.StopSignallingDtmf(audio.dtmfDataTx.slotId);
+    }
 
     // Close audio streams
     // This is a two stage process: parse audio stream reference map
@@ -3310,6 +3327,36 @@ void taf_Audio::BufferEventHandler(void* ctxPtr)
     }
 }
 
+void taf_Audio::RemoveBufferHandler(void* param1, void* param2)
+{
+    auto &audio = taf_Audio::GetInstance();
+    if (audio.bufferHandlerRef)
+    {
+        LE_INFO("remove bufferHandlerRef");
+        le_event_RemoveHandler(audio.bufferHandlerRef);
+        audio.bufferHandlerRef = nullptr;
+    }
+    le_thread_Exit(nullptr);
+}
+
+void taf_Audio::SubsystemStateChangeHandler(void* ctxPtr)
+{
+    telux::common::ServiceStatus* statusPtr = (telux::common::ServiceStatus*)ctxPtr;
+    auto &audio = taf_Audio::GetInstance();
+
+    LE_DEBUG("Audio subsystem state changed, status: %d", (int)*statusPtr);
+
+    if (*statusPtr == telux::common::ServiceStatus::SERVICE_UNAVAILABLE)
+    {
+        // Clean up all telux audio resources
+        audio.CleanupTeluxAudioResources();
+
+        // Exit process with EXIT_UNAVAILABLE as audio subsystem is unavailable
+        LE_ERROR("Audio subsystem unavailable, exiting process");
+        exit(EXIT_UNAVAILABLE);
+    }
+}
+
 void taf_Audio::RecBufferHandler(taf_audio_Stream_t* streamPtr)
 {
     std::shared_ptr<telux::audio::IAudioCaptureStream> *audioCaptureStream;
@@ -3496,6 +3543,7 @@ void* taf_Audio::PlayList( void* ctxPtr) {
     audio.pbList = {};
     audio.currentPbFile = {};
     audio.mPbFileFormat = AudioFormat::UNKNOWN;
+    audio.playListThreadRef = nullptr;
     return nullptr;
 }
 
@@ -3941,7 +3989,9 @@ le_result_t taf_Audio::PlayList
     if(streamPtr->direction == TAF_AUDIO_TX)
         return LE_UNSUPPORTED;
     mPbStartedSemRef = le_sem_Create("tafPbStartedSemRef", 0);
-    le_thread_Start(le_thread_Create("PlayListThread", PlayList, NULL));
+    playListThreadRef = le_thread_Create("PlayListThread", PlayList, NULL);
+    le_thread_SetJoinable(playListThreadRef);
+    le_thread_Start(playListThreadRef);
     // Wait for playback to start successfully
     le_sem_Wait(mPbStartedSemRef);
     le_sem_Delete(mPbStartedSemRef);
@@ -4575,7 +4625,7 @@ void* taf_Audio::playAllDtmfTones(void* dtmfTones) {
                         le_sem_Post(audio.mDtmfStartedSemRef);
                         playingFirstDtmf = false;
                     }
-                    return NULL;
+                    break;
                 }
                 audio.mDtmfStarted = true;
                 if(playingFirstDtmf) {
@@ -4588,7 +4638,7 @@ void* taf_Audio::playAllDtmfTones(void* dtmfTones) {
                     le_sem_Post(audio.mDtmfStartedSemRef);
                     playingFirstDtmf = false;
                 }
-                return NULL;
+                break;
             }
 
             if(dtmfData->durationRx == INFINITE_TONE_DURATION) {
@@ -4609,6 +4659,7 @@ void* taf_Audio::playAllDtmfTones(void* dtmfTones) {
         }
     }
     audio.mDtmfStarted = false;
+    audio.dtmfThreadRef = nullptr;
     return NULL;
 }
 
@@ -4691,7 +4742,7 @@ void* taf_Audio::playDTMFonTX(void* dtmfTones) {
                         dtmfData->result = LE_FAULT;
                         le_sem_Post(audio.mDtmfStartedSemRefTx);
                     }
-                    return NULL;
+                    break;
                 }
                 if(playingFirstDtmf) {
                     dtmfData->result = LE_OK;
@@ -4703,7 +4754,6 @@ void* taf_Audio::playDTMFonTX(void* dtmfTones) {
                 LE_DEBUG("Play tone request sent successfully %c", *dtmfData->dtmfChars);
 
                 std::this_thread::sleep_for(std::chrono::milliseconds(dtmfData->durationTx));
-
                 spCall->stopDtmfTone(audio.onStopDtmfTone);
 
                 std::this_thread::sleep_for(std::chrono::milliseconds(dtmfData->pause));
@@ -4723,6 +4773,7 @@ void* taf_Audio::playDTMFonTX(void* dtmfTones) {
         }
     }
     audio.mDtmfStartedTx = false;
+    audio.dtmfThreadTxRef = nullptr;
     return NULL;
 }
 
@@ -4746,9 +4797,12 @@ le_result_t taf_Audio::PlaySignallingDtmf
     dtmfDataTx.dtmfChars = dtmfPtr;
     dtmfDataTx.slotId = slotId;
     dtmfDataTx.result = LE_FAULT;
+    dtmfDataTx.sessionRef = taf_audio_GetClientSessionRef();
 
     mDtmfStartedSemRefTx = le_sem_Create("tafDtmfStartedSemRefTx", 0);
-    le_thread_Start(le_thread_Create("DtmfThreadTx", playDTMFonTX, &dtmfDataTx));
+    dtmfThreadTxRef = le_thread_Create("DtmfThreadTx", playDTMFonTX, &dtmfDataTx);
+    le_thread_SetJoinable(dtmfThreadTxRef);
+    le_thread_Start(dtmfThreadTxRef);
     // Wait for DTMF to start successfully
     le_sem_Wait(mDtmfStartedSemRefTx);
     le_sem_Delete(mDtmfStartedSemRefTx);
@@ -4782,6 +4836,8 @@ le_result_t taf_Audio::PlayDtmf
     dtmfDataRx.pause = upause;
     dtmfDataRx.dtmfGain = gain;
     dtmfDataRx.frequencyList.clear();
+    dtmfDataRx.sessionRef = taf_audio_GetClientSessionRef();
+    dtmfDataRx.streamRef = rStreamRef;
 
     if (mAudioVoiceStream && mVoiceEnabled1) {
         while (*dtmfPtr != '\0') {
@@ -4799,7 +4855,9 @@ le_result_t taf_Audio::PlayDtmf
         return LE_FAULT;
     }
     mDtmfStartedSemRef = le_sem_Create("tafDtmfStartedSemRef", 0);
-    le_thread_Start(le_thread_Create("DtmfThread", playAllDtmfTones, &dtmfDataRx));
+    dtmfThreadRef = le_thread_Create("DtmfThread", playAllDtmfTones, &dtmfDataRx);
+    le_thread_SetJoinable(dtmfThreadRef);
+    le_thread_Start(dtmfThreadRef);
     // Wait for DTMF to start successfully
     le_sem_Wait(mDtmfStartedSemRef);
     le_sem_Delete(mDtmfStartedSemRef);
@@ -4841,6 +4899,16 @@ le_result_t taf_Audio::StopDtmf(taf_audio_StreamRef_t streamRef)
     TAF_ERROR_IF_RET_VAL( streamPtr == NULL, LE_BAD_PARAMETER,"streamPtr is nullptr!");
     TAF_ERROR_IF_RET_VAL(streamPtr->interface != TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX,
             LE_BAD_PARAMETER, "Invalid stream reference");
+
+    // Cancel and join DTMF thread if running
+    if (dtmfThreadRef)
+    {
+        LE_INFO("cancel dtmfThreadRef");
+        le_thread_Cancel(dtmfThreadRef);
+        le_thread_Join(dtmfThreadRef, NULL);
+        dtmfThreadRef = nullptr;
+    }
+
     if (mAudioVoiceStream && mVoiceEnabled1 && mDtmfStarted) {
         status = mAudioVoiceStream->stopDtmfTone(StreamDirection::RX, cb);
         if(status == Status::SUCCESS) {
@@ -4867,6 +4935,15 @@ le_result_t taf_Audio::StopSignallingDtmf(uint32_t slotId) {
     auto status = Status::FAILED;
     std::shared_ptr<telux::tel::ICall> spCall = nullptr;
     std::vector<std::shared_ptr<telux::tel::ICall>> inProgressCalls;
+
+    // Cancel and join DTMF TX thread if running
+    if (dtmfThreadTxRef)
+    {
+        LE_INFO("Cancel dtmfThreadTxRef");
+        le_thread_Cancel(dtmfThreadTxRef);
+        le_thread_Join(dtmfThreadTxRef, NULL);
+        dtmfThreadTxRef = nullptr;
+    }
 
     TAF_ERROR_IF_RET_VAL(slotId != DEFAULT_SLOT_ID, LE_BAD_PARAMETER,"invalid slot ID");
     TAF_ERROR_IF_RET_VAL(callManager == NULL, LE_BAD_PARAMETER,"No call Manager found");
@@ -4932,43 +5009,220 @@ void taf_Audio::TafSigTermEventHandler(int tafSigNum)
     exit(EXIT_SUCCESS);
 }
 
+void taf_Audio::CleanupTeluxAudioResources()
+{
+    LE_INFO("Cleaning up Telux audio resources");
+
+    // Reset all telux audio shared pointers
+    if(serviceStatusChangeListener)
+    {
+        serviceStatusChangeListener.reset();
+        serviceStatusChangeListener = nullptr;
+    }
+
+    if (mAudioVoiceStream)
+    {
+        mAudioVoiceStream.reset();
+        mAudioVoiceStream = nullptr;
+    }
+
+    if (mAudioCaptureStream)
+    {
+        mAudioCaptureStream.reset();
+        mAudioCaptureStream = nullptr;
+    }
+
+    if (mAudioRxCaptureStream)
+    {
+        mAudioRxCaptureStream.reset();
+        mAudioRxCaptureStream = nullptr;
+    }
+
+    if (mAudioPlayStream)
+    {
+        mAudioPlayStream.reset();
+        mAudioPlayStream = nullptr;
+    }
+
+    if (mAudioLoopbackStream)
+    {
+        mAudioLoopbackStream.reset();
+        mAudioLoopbackStream = nullptr;
+    }
+
+    if (mAudioPlayer)
+    {
+        mAudioPlayer.reset();
+        mAudioPlayer = nullptr;
+    }
+
+    if (mTxAudioPlayer)
+    {
+        mTxAudioPlayer.reset();
+        mTxAudioPlayer = nullptr;
+    }
+
+    if (mAudioManager)
+    {
+        mAudioManager.reset();
+        mAudioManager = nullptr;
+    }
+
+    if (callManager)
+    {
+        callManager.reset();
+        callManager = nullptr;
+    }
+
+    // reset as all functionalities will be stopped in lower layer on subsystem unavailable.
+    mCallStarted = false;
+    mVoiceEnabled1 = false;
+    mDtmfStarted = false;
+    mDtmfStartedTx = false;
+    mIsRecording = false;
+    mIsRxRecording = false;
+    mIsPlaying = false;
+    mIsTxPlaying = false;
+
+    CleanUpThreadsTimers();
+    LE_INFO("Telux audio resources cleanup completed");
+}
+
 void taf_Audio::CleanUpBeforeExit()
 {
-    // Stop active recordings
+    LE_DEBUG("Starting cleanup before exit");
+
+    if(mDtmfStarted)
+    {
+        LE_DEBUG("stopDtmfRx");
+        StopDtmf(dtmfDataRx.streamRef);
+    }
+    if(mDtmfStartedTx)
+    {
+        LE_DEBUG("stopDtmfSignalling");
+        StopSignallingDtmf(dtmfDataTx.slotId);
+    }
+
+    if(mDtmfAudioRef && mAudioVoiceStream && mVoiceEnabled1) {
+        Status st = mAudioVoiceStream->deRegisterListener(mVoiceListener);
+        if(st == Status::SUCCESS) {
+            LE_DEBUG("Request to deregister for DTMF detection sent");
+        } else {
+            LE_ERROR("Request to deregister for DTMF detection failed error : %d", (int)st);
+        }
+        mDtmfAudioRef = NULL;
+    }
+
+    if(serviceStatusChangeListener)
+    {
+        LE_DEBUG("deregister serviceStatusChangeListener");
+        mAudioManager->deRegisterListener(serviceStatusChangeListener);
+        serviceStatusChangeListener = nullptr;
+    }
+
+    // Stop active playback and recordings
     le_ref_IterRef_t iteratorRef;
     iteratorRef = le_ref_GetIterator(StreamRefMap);
     while (le_ref_NextNode(iteratorRef) == LE_OK)
     {
         taf_audio_Stream_t* audioStreamPtr =
                 (taf_audio_Stream_t*) le_ref_GetValue(iteratorRef);
-        if ( audioStreamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE )
+        if ( (audioStreamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY)
+                || (audioStreamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE))
         {
+            LE_DEBUG("stopAudio %d", audioStreamPtr->interface);
             StopAudio(audioStreamPtr);
             DeleteAudioStream(audioStreamPtr);
         }
     }
 
+    // Close active route
+    iteratorRef = le_ref_GetIterator(RouteRefMap);
+    while (le_ref_NextNode(iteratorRef) == LE_OK)
+    {
+        taf_audio_Route_t* routePtr =
+                (taf_audio_Route_t*) le_ref_GetValue(iteratorRef);
+        if ( routePtr )
+        {
+            LE_DEBUG("CloseRoute for %p routeRef", iteratorRef);
+            CloseRoute(routePtr->routeRef);
+        }
+    }
+
+    CleanUpThreadsTimers();
+    LE_INFO("Cleanup before exit completed");
+}
+
+void taf_Audio::CleanUpThreadsTimers()
+{
+    // Remove event handlers
+    if (subsystemStateHandlerRef)
+    {
+        LE_DEBUG("remove subsystemStateHandlerRef");
+        le_event_RemoveHandler(subsystemStateHandlerRef);
+        subsystemStateHandlerRef = nullptr;
+    }
+
+    // Cancel and join all active threads
+    if (dtmfThreadTxRef)
+    {
+        LE_DEBUG("Cancel dtmfThreadTxRef");
+        le_thread_Cancel(dtmfThreadTxRef);
+        le_thread_Join(dtmfThreadTxRef, NULL);
+        dtmfThreadTxRef = nullptr;
+    }
+
+    if (playListThreadRef)
+    {
+        LE_DEBUG("Cancel playListThreadRef");
+        le_thread_Cancel(playListThreadRef);
+        le_thread_Join(playListThreadRef, NULL);
+        playListThreadRef = nullptr;
+    }
+
     if (bufferHandlingThreadRef)
     {
-        le_thread_Cancel(bufferHandlingThreadRef);
+        LE_DEBUG("Cancel bufferHandlingThreadRef");
+        le_event_QueueFunctionToThread(bufferHandlingThreadRef,
+            RemoveBufferHandler, nullptr, nullptr);
         le_thread_Join(bufferHandlingThreadRef, NULL);
+        bufferHandlingThreadRef = nullptr;
+    }
+
+    if (dtmfThreadRef)
+    {
+        LE_DEBUG("Cancel dtmfThreadRef");
+        le_thread_Cancel(dtmfThreadRef);
+        le_thread_Join(dtmfThreadRef, NULL);
+        dtmfThreadRef = nullptr;
     }
 
     // Stop and delete timers if active
     if (vhalRetryTimer)
     {
+        LE_DEBUG("stop vhalRetryTimer");
         le_timer_Stop(vhalRetryTimer);
         le_timer_Delete(vhalRetryTimer);
         vhalRetryTimer = nullptr;
     }
+
+    if (bubHandlerRef)
+    {
+        LE_DEBUG("remove bub handler");
+        taf_mngdPm_RemoveInfoReportHandler(bubHandlerRef);
+        bubHandlerRef = nullptr;
+    }
+
     if (mpmsRetryTimer)
     {
+        LE_DEBUG("stop mpmsRetryTimer");
         le_timer_Stop(mpmsRetryTimer);
         le_timer_Delete(mpmsRetryTimer);
         mpmsRetryTimer = nullptr;
     }
     if (mpmsDelayTimer)
     {
+        LE_DEBUG("stop mpmsDelayTimer");
         le_timer_Stop(mpmsDelayTimer);
         le_timer_Delete(mpmsDelayTimer);
         mpmsDelayTimer = nullptr;

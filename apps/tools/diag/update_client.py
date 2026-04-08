@@ -207,7 +207,7 @@ def update_workflow():
             values = response.service_data.values
 
             #Step21: Routine control with authentication check. 31 01 02 46 start the routine
-            response = uds_client.routine_control(routine_id=0x0246, control_type=0x01)
+            response = uds_client.routine_control(routine_id=0x0246, control_type=0x01, data=b'\x01')
             print(response)
 
             #Step22: Deauthenticate. 29 00
@@ -273,13 +273,13 @@ def update_workflow():
             print(response)
 
             # Step25: Routine Control RUNDTCTEST(RoutineControl). 31 01 02 47 start to update
-            response = uds_client.routine_control(routine_id=0x0247, control_type=0x01)
+            response = uds_client.routine_control(routine_id=0x0247, control_type=0x01, data=b'\x01')
             print(response)
 
             # Step26: Routine Control RUNDTCTEST(RoutineControl). 31 03 02 47 request update status
             for i in range(100):
                 time.sleep(3)
-                response = uds_client.routine_control(routine_id=0x0247, control_type=0x03)
+                response = uds_client.routine_control(routine_id=0x0247, control_type=0x03, data=b'\x01')
                 print(response)
                 print(response.service_data.routine_status_record)
                 update_state=response.service_data.routine_status_record

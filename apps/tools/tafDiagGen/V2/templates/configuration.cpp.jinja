@@ -1075,8 +1075,13 @@ inline uint32_t extractBits(const uint8_t* data, size_t recordLength, uint16_t b
      {% set _ = generated_validators.append(element.dataElement) %}
 class Validator_{{ element.dataElement }} {
     {% if data.functional_definition.data_type == 'Numeric' %}
+        {% if data.functional_definition.value_type.startswith('sint') %}
+    int32_t min, max;
+    std::vector<int32_t> allowedValues;
+        {% else %}
     uint32_t min, max;
     std::vector<uint32_t> allowedValues;
+        {% endif %}
     {% elif data.functional_definition.data_type == 'Not numeric' %}
     std::vector<uint32_t> forbiddenValues;
     std::vector<uint32_t> forbiddenRanges;
@@ -1085,8 +1090,13 @@ class Validator_{{ element.dataElement }} {
     {% endif %}
 public:
     {% if data.functional_definition.data_type == 'Numeric' %}
+        {% if data.functional_definition.value_type.startswith('sint') %}
+    Validator_{{ element.dataElement }}(int32_t min, int32_t max, const std::vector<int32_t>& values)
+    : min(min), max(max), allowedValues(values) {}
+        {% else %}
     Validator_{{ element.dataElement }}(uint32_t min, uint32_t max, const std::vector<uint32_t>& values)
     : min(min), max(max), allowedValues(values) {}
+        {% endif %}
     {% elif data.functional_definition.data_type == 'Not numeric' %}
     Validator_{{ element.dataElement }}(const std::vector<uint32_t>& values, const std::vector<uint32_t>& ranges)
     : forbiddenValues(values), forbiddenRanges(ranges) {}
@@ -1095,16 +1105,20 @@ public:
     : allowedValues(values) {}
     {% endif %}
 
+    {% if data.functional_definition.value_type.startswith('sint') %}
+    bool validate(int32_t value) {
+    {% else %}
     bool validate(uint32_t value) {
+    {% endif %}
         {% if data.functional_definition.data_type == 'Numeric' %}
         LE_DEBUG("Numeric!!");
         if (min != max) {
             LE_DEBUG("Numeric---> Min/Max");
-            LE_DEBUG("min: %" PRIu32 "",min);
-            LE_DEBUG("max: %" PRIu32 "",max);
+            LE_DEBUG("min: %d",min);
+            LE_DEBUG("max: %d",max);
             if (value < min || value > max)
             {
-                LE_DEBUG("Found Banned value: %" PRIu32 "",value);
+                LE_DEBUG("Found Banned value: %d",value);
                 return true; /* Found Banned value */
             }
         } else if (!allowedValues.empty()) {
@@ -1116,7 +1130,7 @@ public:
 
             if (it == allowedValues.end())
             {
-                LE_DEBUG("Found Banned value: %" PRIu32 "",value);
+                LE_DEBUG("Found Banned value: %d",value);
                 return true; /* Not found -> Ban it */
             }
         }

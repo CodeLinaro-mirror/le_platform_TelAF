@@ -2999,6 +2999,108 @@ void NotifyVhalOnClientDisconnectionForReleaseWS()
     }
 }
 
+
+static taf_mngdPm_wsRef_t TestWs;
+static le_thread_Ref_t TestThreadRef = NULL;
+
+void MultipleAckWhenStateChange_ACK2
+(
+    uint8_t pmNodeId,
+    taf_mngdPm_nodePowerStateRef_t nodePowerStateRef,
+    taf_mngdPm_NodePowerState_t state,
+    void *contextPtr
+)
+{
+    LE_UNUSED(contextPtr);
+
+    le_result_t rst = LE_OK;
+
+    LE_INFO("node:%d, state:%d, ackRef: %p", pmNodeId, state, nodePowerStateRef);
+
+    LE_INFO("ACK time: 1");
+    rst = taf_mngdPm_SendNodePowerStateChangeAck(
+            pmNodeId,
+            nodePowerStateRef,
+            TAF_MNGDPM_CLIENT_READY);
+
+    LE_INFO("result: %s", LE_RESULT_TXT(rst));
+
+    LE_INFO("ACK time: 2");
+    rst = taf_mngdPm_SendNodePowerStateChangeAck(
+            pmNodeId,
+            nodePowerStateRef,
+            TAF_MNGDPM_CLIENT_READY);
+
+    LE_INFO("result: %s", LE_RESULT_TXT(rst));
+
+    // Please check the log output if exists: Client %p already acked, ignore counting
+
+    LE_INFO("After 1s .. Exit");
+    le_thread_Sleep(1);
+
+    exit(EXIT_SUCCESS);
+}
+
+void MultipleAckWhenStateChange_NO_ACK
+(
+    uint8_t pmNodeId,
+    taf_mngdPm_nodePowerStateRef_t nodePowerStateRef,
+    taf_mngdPm_NodePowerState_t state,
+    void *contextPtr
+)
+{
+    LE_INFO("Received state : %d, but not ACK", state);
+}
+
+void * TestThreadTask(void * unused)
+{
+    taf_mngdPm_ConnectService();
+
+    int nodeId = 0;
+    taf_mngdPm_NodePowerStateChangeHandlerRef_t ref =
+        taf_mngdPm_AddNodePowerStateChangeHandler(
+            MultipleAckWhenStateChange_NO_ACK, NULL,
+            nodeId, TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE);
+    LE_FATAL_IF(!ref, "Failed to register state change handler");
+
+    le_event_RunLoop();
+}
+
+void MultipleAckFromSameSession(void)
+{
+    TestWs =
+            taf_mngdPm_CreateWakeupSource(
+                TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL,
+                TAF_MNGDPM_WS_OPT_DEFAULT,
+                wsTag);
+
+    LE_FATAL_IF(!TestWs, "Failed to create wakeup source");
+
+    le_result_t rst = taf_mngdPm_StayAwake(TestWs);
+    LE_FATAL_IF(rst != LE_OK, "Failed to acquire the wake lock for %p", TestWs);
+
+    TestThreadRef = le_thread_Create("test", TestThreadTask, NULL);
+    le_thread_Start(TestThreadRef);
+
+    LE_INFO("Waiting 2s ... to RESUME");
+    le_thread_Sleep(2);
+
+    int nodeId = 0;
+    taf_mngdPm_NodePowerStateChangeHandlerRef_t ref =
+        taf_mngdPm_AddNodePowerStateChangeHandler(
+            MultipleAckWhenStateChange_ACK2, NULL,
+            nodeId, TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE);
+    LE_FATAL_IF(!ref, "Failed to register state change handler");
+
+    rst = taf_mngdPm_SetNodeTargetedPowerMode(nodeId, TAF_MNGDPM_SUSPEND);
+    LE_FATAL_IF(rst != LE_OK, "Failed to taf_mngdPm_SetNodeTargetedPowerMode");
+
+    rst = taf_mngdPm_Relax(TestWs);
+    LE_FATAL_IF(rst != LE_OK, "Failed to release the wake lock for %p", TestWs);
+
+    LE_INFO("To event-loop, waiting for the SUSPEND notification ..");
+}
+
 COMPONENT_INIT
 {
     const char* testType = "";
@@ -3225,6 +3327,10 @@ COMPONENT_INIT
         else if(strcmp(testType, "ShouldNotDeleteWsIfIgnored") == 0)
         {
             ShouldNotDeleteWsIfIgnored();
+        }
+        else if(strcmp(testType, "TestMultipleAckFromSameSession") == 0)
+        {
+            MultipleAckFromSameSession();
         }
         else if(strcmp(testType, "NotifyVhalOnClientDisconnectionForReleaseWS") == 0)
         {

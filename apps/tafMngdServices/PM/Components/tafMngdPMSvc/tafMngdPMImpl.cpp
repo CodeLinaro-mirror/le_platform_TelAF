@@ -1894,6 +1894,11 @@ void tafMngdPMSvc::CallNodePowerStateHandlerFunc(taf_mngdPm_NodePowerState_t sta
     {
         mpms.currentStateChangePtr = state;
         le_timer_SetContextPtr(mpms.stateChangeAckTimerRef, &(mpms.currentStateChangePtr));
+        if (le_timer_IsRunning(mpms.stateChangeAckTimerRef))
+        {
+            LE_DEBUG("Stop the timer");
+            le_timer_Stop(mpms.stateChangeAckTimerRef);
+        }
         le_timer_Start(mpms.stateChangeAckTimerRef);
         LE_INFO("stateChangeAck Timer has started");
     }

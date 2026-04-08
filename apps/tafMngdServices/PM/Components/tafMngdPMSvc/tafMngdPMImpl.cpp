@@ -752,6 +752,40 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
             le_mem_Release((void*)handlerCtxPtr);
         }
     }
+    // Clear nodePowerStateList
+    le_dls_Link_t* nodePowerStateListHandlerPtr = le_dls_PeekTail(&nodePowerStateHandlerList);
+    while (nodePowerStateListHandlerPtr)
+    {
+        taf_mngdPm_NodePowerStateCtxt_t * handlerCtxPtr =
+                CONTAINER_OF(nodePowerStateListHandlerPtr, taf_mngdPm_NodePowerStateCtxt_t, link);
+        nodePowerStateListHandlerPtr = le_dls_PeekPrev(&nodePowerStateHandlerList, nodePowerStateListHandlerPtr);
+        // Release the per-handler immediate-notify node state ref, if any
+        if (handlerCtxPtr->initialNodePowerState.nodeStateRef)
+        {
+            taf_NodePowerStateRef_t* nodeRefPtr =
+                (taf_NodePowerStateRef_t*) le_ref_Lookup(
+                    mpms.nodePowerStateRefMap,
+                    handlerCtxPtr->initialNodePowerState.nodeStateRef);
+
+            if (nodeRefPtr)
+            {
+                LE_INFO("Releasing initialNodePowerState ref %p for sessionRef %p",
+                    handlerCtxPtr->initialNodePowerState.nodeStateRef,
+                    handlerCtxPtr->initialNodePowerState.sessionRef);
+                le_ref_DeleteRef(
+                    mpms.nodePowerStateRefMap,
+                    handlerCtxPtr->initialNodePowerState.nodeStateRef);
+                le_mem_Release(nodeRefPtr);
+            }
+            handlerCtxPtr->initialNodePowerState.nodeStateRef = NULL;
+            handlerCtxPtr->initialNodePowerState.isAcked = false;
+        }
+        LE_INFO("Clearing node power state handler for client sessionRef %p",
+            handlerCtxPtr->sessionRef);
+        le_ref_DeleteRef(mpms.nodePowerStateHandlerMap, handlerCtxPtr->handlerRef);
+        le_dls_Remove(&(mpms.nodePowerStateHandlerList), &handlerCtxPtr->link);
+        le_mem_Release((void*)handlerCtxPtr);
+    }
     //Clear wakeupVehicle client's data
     if(mpms.wakeupVehicleCB.sessionRef == sessionRef)
     {

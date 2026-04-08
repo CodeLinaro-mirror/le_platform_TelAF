@@ -1995,8 +1995,8 @@ void tafMngdConnAdmin::EventDataDisconnected(uint8_t dataId)
 
         case MCS_DATA_CONNECTED_ACTIVE:
         {
-            // Check if autoStart is true before starting the retry mechanism
-            if (dataCtxPtr->autoStart)
+            // Check if autoStart or needReConn are true before starting the retry mechanism
+            if (dataCtxPtr->autoStart || dataCtxPtr->needReConn)
             {
                 dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_RETRYING;
                 LE_INFO("Data call disconnected, retrying");

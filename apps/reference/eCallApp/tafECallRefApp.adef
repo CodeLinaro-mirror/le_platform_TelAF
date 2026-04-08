@@ -3,6 +3,7 @@ sandboxed: false
 executables:
 {
     tafECallRefApp = ( eCallAppComp )
+    ecallctl       = ( ctrlComponent )
 }
 
 
@@ -14,7 +15,7 @@ processes:
     }
     envVars:
     {
-        LE_LOG_LEVEL = DEBUG
+        LE_LOG_LEVEL = INFO
     }
 }
 
@@ -27,12 +28,16 @@ bindings:
     tafECallRefApp.eCallAppComp.taf_gpio -> tafGpioSvc.taf_gpio
     tafECallRefApp.eCallAppComp.taf_audio -> tafAudioSvc.taf_audio
     tafECallRefApp.eCallAppComp.taf_mngdPm -> tafMngdPMSvc.taf_mngdPm
-    tafECallRefApp.eCallAppComp.taf_mngdStorSecFile -> tafMngdStorageSvc.taf_mngdStorSecFile
-    tafECallRefApp.eCallAppComp.taf_mngdStorCfg -> tafMngdStorageSvc.taf_mngdStorCfg
     tafECallRefApp.eCallAppComp.taf_diagDataID -> tafDiagSvc.taf_diagDataID
     tafECallRefApp.eCallAppComp.taf_diagDTC -> tafDiagSvc.taf_diagDTC
+    tafECallRefApp.eCallAppComp.taf_diagEvent -> tafDiagSvc.taf_diagEvent
+    tafECallRefApp.eCallAppComp.taf_diag -> tafDiagSvc.taf_diag
     tafECallRefApp.eCallAppComp.taf_hms -> tafHMSvc.taf_hms
     tafECallRefApp.eCallAppComp.taf_sim -> tafSimCardSvc.taf_sim
+    tafECallRefApp.eCallAppComp.taf_radio -> tafRadioSvc.taf_radio
     tafECallRefApp.eCallAppComp.le_cfg -> <tafcore>.le_cfg
+
+    // ecall command-line tool -> eCallApp IPC service
+    ecallctl.ctrlComponent.ctrlEcall -> tafECallRefApp.eCallAppComp.ctrlEcall
 }
 

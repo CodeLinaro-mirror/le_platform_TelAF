@@ -1288,6 +1288,40 @@ le_result_t taf_DataProfile::SetApn(taf_dcs_ProfileRef_t profileRef, const char 
     return LE_OK;
 }
 
+le_result_t taf_DataProfile::SetInterface
+(
+    taf_dcs_ProfileRef_t profileRef,
+    const char *namePtr
+)
+{
+    int32_t profileId;
+    uint8_t slotId;
+    taf_dcs_ProfileCtx_t * profileCtxPtr;
+
+    TAF_ERROR_IF_RET_VAL((profileRef == NULL) || (namePtr == NULL), LE_NOT_FOUND,
+                          "some pointers may be null");
+    TAF_ERROR_IF_RET_VAL(GetSlotIdAndProfileId(profileRef, &slotId, &profileId) != LE_OK,
+                         LE_NOT_FOUND, "cannot get profile id from reference(%p)", profileRef);
+
+    profileCtxPtr = GetProfileCtx(slotId, profileId);
+    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
+                        "cannot get profile context from reference(%p)", profileRef);
+
+    if (strlen(namePtr) == 0)
+    {
+        profileCtxPtr->isIntefaceValid = false;
+        LE_INFO("Profile %d will use an automatically assigned interface.", profileId);
+    }
+    else
+    {
+        profileCtxPtr->isIntefaceValid = true;
+        le_utf8_Copy(profileCtxPtr->interface, namePtr, TAF_DCS_NAME_MAX_LEN, NULL);
+        LE_INFO("Profile %d will use interface %s.", profileId, profileCtxPtr->interface);
+    }
+
+    return LE_OK;
+}
+
 le_result_t taf_DataProfile::SetPdp(taf_dcs_ProfileRef_t profileRef, taf_dcs_Pdp_t pdp)
 {
     int32_t profileId;
@@ -1441,6 +1475,8 @@ le_result_t taf_DataProfile::CreateIndividualProfile(taf_dcs_ProfileCtx_t *info)
     snprintf(nameStr, sizeof(nameStr) - 1, "HwAccelEvt-%d-%d", profileCtx->slotId,
                                                                         profileCtx->info.index);
     profileCtx->HwAccelStateEvent = le_event_CreateIdWithRefCounting(nameStr);
+
+    profileCtx->isIntefaceValid = false;
 
     // add this profile context to list
     le_dls_Queue(&ProfileCtxList, &profileCtx->link);

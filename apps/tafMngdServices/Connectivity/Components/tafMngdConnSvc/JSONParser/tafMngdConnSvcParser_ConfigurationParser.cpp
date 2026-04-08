@@ -506,6 +506,53 @@ bool mcs_ConfigurationParser::Validate_MCSC_Data_Name(
 }
 
 /**
+ * Data Interface can be a string or NULL.
+ */
+bool mcs_ConfigurationParser::Validate_MCSC_Data_Interface(
+                                            mcs_Configuration_t &Configuration,
+                                            std::string Value,
+                                            int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_STRING != DataType && MCS_JSON_DATA_TYPE_NULL != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Index should be valid as Data is an array
+    if (Index < 0)
+    {
+        LE_WARN("Invalid Array Index");
+        return false;
+    }
+    //Check for max length
+    if(Value.size() > MCS_MAX_NAME_LEN)
+    {
+        LE_WARN("Interface Name exceeded maximum length");
+        return false;
+    }
+
+    // Update the Data Count.
+    // Index will be 0. So count will be Index + 1
+    Configuration.DataCount = Index + 1;
+
+    // Valid value. Update Configuration.
+    // Set to NULL or string
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        memset(Configuration.Data[Index].Interface, 0, MCS_MAX_NAME_LEN);
+        LE_DEBUG("Null JSON Interface value");
+        return true;
+    }
+    // Valid String.
+    // Since we have already validated string length above, we can ignore return value here
+    le_utf8_Copy(Configuration.Data[Index].Interface, Value.c_str(),
+                                            MCS_MAX_NAME_LEN,NULL);
+    return true;
+}
+
+/**
  * Data Profile Number should be a number.
  */
 bool mcs_ConfigurationParser::Validate_MCSC_Data_Profile_Number(
@@ -1216,6 +1263,29 @@ bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                                             return false;
                                         }
                                     }
+                                    else if ("Interface" == iter.first )
+                                    {
+                                        log.clear();
+                                        log = "\t\tKey: " + iter.first +
+                                        ", Value: " + iter.second.data();
+                                        LE_DEBUG("%s", log.c_str());
+
+                                        JSON_Property.clear();
+                                        JSON_Property.append (parent.first + ":" + iter.first);
+                                        JSON_Value.clear();
+                                        JSON_Value = iter.second.data();
+                                        // Validate the value and update Configuration structure.
+                                        // Data is an array, so pass element count.
+                                        if (!ValidateValue(Configuration, JSON_Property, JSON_Value,
+                                        ElementCount))
+                                        {
+                                            LE_WARN("Invalid JSON_Property Value");
+                                            LE_INFO("JSON_Property: %s, Value: %s",
+                                                JSON_Property.c_str(),
+                                                JSON_Value.c_str());
+                                            return false;
+                                        }
+                                    }
                                     // Iterate through Profile object
                                     else if ("Profile" == iter.first)
                                     {
@@ -1411,6 +1481,7 @@ void mcs_ConfigurationParser::UpdateValidConfigurationFuncMap(void)
     ConfigurationValidationFuncMap["Data:ID"]             = &Validate_MCSC_Data_ID;
     ConfigurationValidationFuncMap["Data:Use_Network_ID"] = &Validate_MCSC_Data_Use_Network_ID;
     ConfigurationValidationFuncMap["Data:Name"]           = &Validate_MCSC_Data_Name;
+    ConfigurationValidationFuncMap["Data:Interface"]      = &Validate_MCSC_Data_Interface;
 
     // Data:Profile
     ConfigurationValidationFuncMap["Data:Profile:Number"] = &Validate_MCSC_Data_Profile_Number;
@@ -1470,6 +1541,7 @@ void mcs_ConfigurationParser::ResetConfigurationStructure (
         Configuration.Data[Index].Use_Network_ID         = 0;
         Configuration.Data[Index].Profile.ProfileNumber  = 0;
         Configuration.Data[Index].DataName[0] = '\0';
+        Configuration.Data[Index].Interface[0] = '\0';
         Configuration.Data[Index].Profile.APN[0]         = '\0';
         Configuration.Data[Index].DataStartConnectionTest.URL[0]        = '\0';
         Configuration.Data[Index].DataStartConnectionTest.IPv4[0]       = '\0';

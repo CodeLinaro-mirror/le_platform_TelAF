@@ -1560,10 +1560,22 @@ le_result_t taf_DataConnection::MakeCall
         return LE_FAULT;
     }
 
+    auto& dataProfile = taf_DataProfile::GetInstance();
+    taf_dcs_ProfileCtx_t* profileCtxPtr = dataProfile.GetProfileCtx(slotId, profileId);
+
+    telux::data::DataCallParams params;
+    params.profileId = profileId;
+    params.ipFamilyType = ipType;
     auto cb = CreateStartStopDataCallCb(slotId, profileId, EVT_START_CALLBACK,
         StartDataCallCallback);
+    if (profileCtxPtr != nullptr && profileCtxPtr->isIntefaceValid)
+    {
+        LE_INFO("Starting data call with profile %d on interface %s.", profileId,
+            profileCtxPtr->interface);
+        params.interfaceName = profileCtxPtr->interface;
+    }
 
-    const auto status = manager->startDataCall(profileId, ipType, cb);
+    const auto status = manager->startDataCall(params, cb);
     TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS,
                          LE_FAULT,
                          "Starting call failed for slot %d profile %d, ret: %d",

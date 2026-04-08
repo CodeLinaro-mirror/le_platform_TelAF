@@ -706,7 +706,8 @@ le_result_t sms_DecodeDeliver
     const uint8_t smsAddrLen =  GetByteAtPos(dataPtr, pos_smsDeliver + 1);
     const uint8_t pos_smsAddr = pos_smsDeliver + 2;
 
-    TAF_ERROR_IF_RET_VAL((uint8_t)(smsAddrLen + 1) > sizeof(smsPduPtr->addr), LE_OVERFLOW, "addr size overflow");
+    TAF_ERROR_IF_RET_VAL((size_t)smsAddrLen + TAF_SMS_ADDR_PLUS_CHARS + TAF_SMS_ADDR_NULL_CHARS > sizeof(smsPduPtr->addr),
+                         LE_OVERFLOW, "addr size overflow");
 
     pduDecodeAddr(dataPtr + pos_smsAddr, smsAddrLen, smsPduPtr->addr);
 

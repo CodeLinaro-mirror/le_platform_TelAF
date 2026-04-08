@@ -16,7 +16,14 @@
 #define BITMASK_8BITS                       0xFF
 #define BITMASK_HIGH_4BITS                  0xF0
 #define BITMASK_LOW_4BITS                   0x0F
+#define TAF_SMS_ADDR_PLUS_CHARS             1   // Optional '+'
+#define TAF_SMS_ADDR_NULL_CHARS             1   // '\0'
+#define TAF_SMS_ADDR_PROTO_EXTRA_CHARS      2   // Extra bytes added to 3GPP TS 23.040 max SMS address length (18 -> 20)
 
+#define TAF_SMS_ADDR_EXTRA_CHARS \
+    (TAF_SMS_ADDR_PLUS_CHARS + \
+     TAF_SMS_ADDR_NULL_CHARS + \
+     TAF_SMS_ADDR_PROTO_EXTRA_CHARS)
 
 typedef enum
 {
@@ -48,7 +55,7 @@ typedef enum
 pdu_Encoding_t;
 
 typedef struct {
-    char            addr[TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES];
+    char            addr[TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES + TAF_SMS_ADDR_EXTRA_CHARS];
     char            data[TAF_SMS_TEXT_BYTES];
     uint32_t        dataLen;
     sms_Type_t      type;

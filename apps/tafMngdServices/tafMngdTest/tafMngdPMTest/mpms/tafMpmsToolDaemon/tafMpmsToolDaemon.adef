@@ -1,0 +1,34 @@
+username: telaf
+maxThreads: 700
+start: auto
+sandboxed: false
+
+executables:
+{
+    exe_mpmsToolDaemon = ( ../tafMpmsToolDaemon )
+}
+
+capability:
+{
+    CAP_DAC_OVERRIDE
+}
+
+processes:
+{
+    run:
+    {
+        proc_mpmsToolDaemon = (exe_mpmsToolDaemon)
+    }
+
+    faultAction: restart
+}
+
+bindings:
+{
+    exe_mpmsToolDaemon.tafMpmsToolDaemon.taf_mngdPm -> tafMngdPMSvc.taf_mngdPm
+}
+
+extern:
+{
+    exe_mpmsToolDaemon.tafMpmsToolDaemon.taf_mpms_tool
+}

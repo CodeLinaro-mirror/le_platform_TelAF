@@ -1,0 +1,20 @@
+sources:
+{
+    mpmsToolDaemon.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_mngdPm.api [manual-start]
+    }
+}
+
+provides:
+{
+    api:
+    {
+        taf_mpms_tool.api
+    }
+}

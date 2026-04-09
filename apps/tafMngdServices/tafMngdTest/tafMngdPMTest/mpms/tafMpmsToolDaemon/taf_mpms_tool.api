@@ -1,0 +1,10 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+FUNCTION le_result_t Ctrl_Suspend();
+FUNCTION le_result_t Ctrl_Resume();
+FUNCTION le_result_t Ctrl_Shutdown();
+FUNCTION le_result_t Ctrl_Restart();
+FUNCTION le_result_t Ctrl_Selfcheck();

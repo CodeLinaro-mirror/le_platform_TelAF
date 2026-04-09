@@ -2019,13 +2019,15 @@ taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t ackType )
         LE_INFO("Received ACK from client %s",pClient->name);
         if(curTcuState == TAF_PM_STATE_RESTART)
         {
-            if (reboot(RB_AUTOBOOT)) {
-                LE_INFO("System is rebooted");
-                return;
+            LE_INFO("Try to reboot system by supervisor");
+            le_result_t rst = le_framework_Reboot();
+            if (rst != LE_OK)
+            {
+                LE_ERROR("Failed to le_framework_Reboot: %s", LE_RESULT_TXT(rst));
             }
-            else {
-                LE_INFO("System reboot failed");
-                return;
+            else
+            {
+                LE_INFO("Successfully triggered, waiting system reboot ...");
             }
         }
         SendAckToPmd(curTcuState);

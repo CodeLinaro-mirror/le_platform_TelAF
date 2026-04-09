@@ -45,7 +45,7 @@
 #include <vector>
 #include <iostream>
 
-#include "taf_pa_l2tp.hpp"
+#include "tafL2tpPa.hpp"
 #include "tafSvcIF.hpp"
 
 #define DEFAULT_MTU_SIZE       1422

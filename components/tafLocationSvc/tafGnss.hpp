@@ -49,7 +49,7 @@
 #include <bitset>
 #include <fstream>
 #include "tafSvcIF.hpp"
-#include "taf_pa_location.hpp"
+#include "tafLocationPa.hpp"
 
 using GnssReportTypeMask = uint32_t;
 using LocReqEngine = uint16_t;

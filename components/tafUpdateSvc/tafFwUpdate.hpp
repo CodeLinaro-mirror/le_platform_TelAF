@@ -13,7 +13,7 @@
 
 #include "tafSvcIF.hpp"
 
-#include "taf_pa_flash.hpp"
+#include "tafFlashPa.hpp"
 
 #define TAF_FWUPDATE_CMD_LEN 256
 #define TAF_FWUPDATE_CMD_RESULT_LEN 32

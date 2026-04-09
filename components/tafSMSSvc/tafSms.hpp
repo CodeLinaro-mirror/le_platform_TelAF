@@ -47,7 +47,7 @@
 #include "AsyncCallbackUtils.hpp"
 #include "tafSmsHlos.hpp"
 #include "tafSmsPdu.hpp"
-#include "taf_pa_sms.hpp"
+#include "tafSmsPa.hpp"
 
 #define MIN_SIM_SLOT_COUNT 1
 #define MAX_SIM_SLOT_COUNT 2

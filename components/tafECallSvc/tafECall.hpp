@@ -5,7 +5,7 @@
 
 #include "legato.h"
 #include "interfaces.h"
-#include "taf_pa_ecall.hpp"
+#include "tafEcallPa.hpp"
 #include "tafSvcIF.hpp"
 
 // For using VHAL

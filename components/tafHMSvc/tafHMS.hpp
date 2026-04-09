@@ -11,7 +11,7 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
-#include "taf_pa_health.hpp"
+#include "tafHealthPa.hpp"
 #include <memory>
 #include <future>
 

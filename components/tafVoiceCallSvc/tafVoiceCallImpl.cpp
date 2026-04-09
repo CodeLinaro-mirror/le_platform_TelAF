@@ -40,7 +40,7 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafVoiceCall.hpp"
-#include "taf_pa_voicecall.hpp"
+#include "tafVoicecallPa.hpp"
 
 using namespace std;
 using namespace tafsvc;

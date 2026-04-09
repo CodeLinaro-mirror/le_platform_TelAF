@@ -8,7 +8,7 @@
 #include "le_singlyLinkedList.h"
 #include "tafSvcIF.hpp"
 #include "mutex"
-#include "taf_pa_sensor.hpp"
+#include "tafSensorPa.hpp"
 
 #define SENSOR_EVENT_HANDLER_HIGH 11
 #define TAF_SENSOR_MAX_EVENTS_SIZE 100

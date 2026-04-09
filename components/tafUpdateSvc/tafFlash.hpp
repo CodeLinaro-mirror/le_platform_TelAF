@@ -9,7 +9,7 @@
 #include "legato.h"
 #include "interfaces.h"
 
-#include "taf_pa_flash.hpp"
+#include "tafFlashPa.hpp"
 
 #define PAGE_ERASED -255
 

@@ -16,7 +16,7 @@
 using namespace std;
 
 // provided: Actual PA layer APIs
-#include "taf_pa_pms.hpp"
+#include "tafPmsPa.hpp"
 
 #define TAF_TAG_PREFIX   "taf"
 #define TAF_WS_NAME_FORMAT TAF_TAG_PREFIX"_%s_%p"

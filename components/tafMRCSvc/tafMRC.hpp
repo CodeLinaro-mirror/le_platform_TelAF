@@ -10,7 +10,7 @@
 #include "legato.h"
 #include "interfaces.h"
 
-#include "taf_pa_mrc.hpp"
+#include "tafMrcPa.hpp"
 
 #define DISABLE_INDICATION 0
 #define ENABLE_INDICATION 1

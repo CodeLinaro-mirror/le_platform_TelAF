@@ -18,7 +18,7 @@
 #include "tafL2tpImpl.hpp"
 #include "tafSocksImpl.hpp"
 #include "tafGsbImpl.hpp"
-#include "taf_pa_socks.hpp"
+#include "tafSocksPa.hpp"
 #include "tafNetUtility.hpp"
 
 using namespace tafsvc;

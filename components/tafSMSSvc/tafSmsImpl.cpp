@@ -337,11 +337,24 @@ void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
       pduMsg.storage = TAF_SMS_STORAGE_HLOS;
 
       TAF_ERROR_IF_RET_NIL(pduMsg.length > sizeof(pduMsg.data), "Invalid msg length(%d)", pduMsg.length);
-
-      taf_sms_hlos_StoreNewMsgToHLOS(&pduMsg);
-
-      tafNewMsg->storage = TAF_SMS_STORAGE_HLOS;
-      tafNewMsg->storageIdx = pduMsg.index;
+      le_result_t storeRes = taf_sms_hlos_StoreNewMsgToHLOS(&pduMsg);
+      if (storeRes == LE_FAULT)
+      {
+          LE_ERROR("Failed to store new SMS to HLOS, res: %d", storeRes);
+          le_mem_Release(tafNewMsg);
+          return;
+      }
+      else if (storeRes == LE_NO_MEMORY)
+      {
+          LE_ERROR("No available slot in HLOS, notify upper layer without storage info");
+          tafNewMsg->storage = TAF_SMS_STORAGE_NONE;
+          tafNewMsg->storageIdx = 0;
+      }
+      else
+      {
+          tafNewMsg->storage = TAF_SMS_STORAGE_HLOS;
+          tafNewMsg->storageIdx = pduMsg.index;
+      }
    }
 
    if(sms.sysPrefStorage == TAF_SMS_STORAGE_SIM)
@@ -1160,6 +1173,8 @@ void taf_Sms::ReleaseSession
       }
    }
 
+   std::vector<taf_sms_MsgListRef_t> toDelete;
+
    le_ref_IterRef_t iterListRef = le_ref_GetIterator(ListRefMap);
    le_result_t result = le_ref_NextNode(iterListRef);
 
@@ -1173,17 +1188,19 @@ void taf_Sms::ReleaseSession
       {
          if (smsListPtr->sessionRef == sessionRef)
          {
-            taf_sms_MsgListRef_t msgListRef = NULL;
-
-            msgListRef = (taf_sms_MsgListRef_t) le_ref_GetSafeRef(iterListRef);
-
-            LE_INFO("Release msgListRef %p", msgListRef);
-
-            taf_sms_DeleteList(msgListRef);
+            taf_sms_MsgListRef_t msgListRef =
+               (taf_sms_MsgListRef_t) le_ref_GetSafeRef(iterListRef);
+            toDelete.push_back(msgListRef);
          }
       }
 
       result = le_ref_NextNode(iterListRef);
+   }
+
+   for (taf_sms_MsgListRef_t msgListRef : toDelete)
+   {
+      LE_INFO("Release msgListRef %p", msgListRef);
+      taf_sms_DeleteList(msgListRef);
    }
 }
 

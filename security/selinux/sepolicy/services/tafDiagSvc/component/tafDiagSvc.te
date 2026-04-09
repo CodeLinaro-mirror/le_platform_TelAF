@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafDiagSvc, 1.0)
@@ -38,6 +38,7 @@ allow telaf_tafDiagSvc_t node_t:tcp_socket { node_bind };
 allow telaf_tafDiagSvc_t proc_t:file {read_file_perms};
 # /data/diag
 allow telaf_tafDiagSvc_t data_t:dir {relabelfrom};
+allow telaf_tafDiagSvc_t data_t:file {map};
 
 allow telaf_tafDiagSvc_t self:capability2 { mac_admin };
 

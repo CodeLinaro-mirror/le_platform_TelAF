@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -239,11 +239,43 @@ le_result_t SQLite3DbUtil::SetVersion
 
     std::string sql = sqlSs.str();
     LE_DEBUG("QueryByKey statement: %s", sql.c_str());
-                
+
     ret = sqlite3_exec(mDbPtr, sql.c_str(), nullptr, nullptr, &errMsg);
     if (ret != SQLITE_OK)
     {
         LE_ERROR("Set DB version error: %s, ret=%d", errMsg, ret);
+        sqlite3_free(errMsg);
+        return LE_IO_ERROR;
+    }
+
+    return LE_OK;
+}
+
+le_result_t SQLite3DbUtil::EnableWAL
+(
+)
+{
+    int ret;
+    char *errMsg = nullptr;
+    std::stringstream sqlSs;
+
+    sqlSs << "PRAGMA journal_mode = WAL;";
+    sqlSs << "PRAGMA synchronous = NORMAL;";
+    sqlSs << "PRAGMA wal_autocheckpoint = 1000;";
+
+    if (mDbPtr == nullptr)
+    {
+        LE_ERROR("Database is not open.");
+        return LE_BAD_PARAMETER;
+    }
+
+    std::string sql = sqlSs.str();
+    LE_DEBUG("sql: %s", sql.c_str());
+
+    ret = sqlite3_exec(mDbPtr, sql.c_str(), nullptr, nullptr, &errMsg);
+    if (ret != SQLITE_OK)
+    {
+        LE_ERROR("Enable WAL error: %s, ret=%d", errMsg, ret);
         sqlite3_free(errMsg);
         return LE_IO_ERROR;
     }

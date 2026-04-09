@@ -60,7 +60,8 @@ using namespace std;
 
 #define UNUSED(arg) (arg = arg)
 
-#define TAF_HMS_MAX_EVENT_POOL_SIZE 10
+#define TAF_HMS_MAX_REF_POOL_SIZE 10
+#define TAF_HMS_MAX_EVENT_POOL_SIZE (TAF_HMS_MAX_REF_POOL_SIZE * 3)
 #define TAF_HMS_MODEM_RESET_TIMER 120000
 #define TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_LOW 1
 #define TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_MEDIUM 2
@@ -140,6 +141,7 @@ typedef struct
     uint32_t ubiDevInfoListSize;
     le_sls_List_t ubiDevInfoList;
     le_sls_Link_t* currPtr;
+    le_msg_SessionRef_t sessionRef;
     taf_hms_UbiDevInfoListRef_t ref;
 }taf_hms_ubiDevInfoList_t;
 
@@ -200,6 +202,7 @@ typedef struct
     uint32_t mtdInfoListSize;
     le_sls_List_t mtdInfoList;
     le_sls_Link_t* currPtr;
+    le_msg_SessionRef_t sessionRef;
     taf_hms_MtdDevInfoListRef_t ref;
 }taf_hms_mtdInfoList_t;
 
@@ -213,6 +216,7 @@ typedef struct
     taf_hms_ModemEvtHandlerRef_t  handlerRef = NULL;
     taf_hms_ModemEvtHandlerFunc_t handlerFunc = NULL;
     taf_hms_ModemEvtBitmask_t     reqEventBits;  // Client only needs the registered event type.
+    le_msg_SessionRef_t           sessionRef = NULL;
     void* contextPtr;
 }taf_hms_modemInfo_t;
 
@@ -306,6 +310,7 @@ namespace tafsvc {
             ~taf_Hms() {};
             static taf_Hms& GetInstance();
             void Init();
+            void AdvertiseService();
             static void OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *contextPtr);
             le_result_t GetCpuLoad(double* cpuCurrentLoadPtr);
             uint32_t GetCpuCoreNum(void);

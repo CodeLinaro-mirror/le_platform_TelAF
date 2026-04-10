@@ -1206,18 +1206,12 @@ uint32_t tafMngdConnAdmin::CalculateBackOffInterval(uint16_t IntervalInSec,
         // Interval is always the same
         intervalInMilliSec = IntervalInSec * 1000;
     }
-    else if (2 ==step)
+    else if (2 ==step && retryCount > 1)
     {
-        if (2 == retryCount)
-            intervalInMilliSec = 60 * 1000;
-        else if (3 == retryCount)
-            intervalInMilliSec = 120 * 1000;
-        else if (4 == retryCount)
-            intervalInMilliSec = 240 * 1000;
-        else if (5 == retryCount)
-            intervalInMilliSec = 480 * 1000;
-        else
-            intervalInMilliSec = 480 * 1000;
+        // Cap retryCount to prevent overflow
+        uint8_t safeRetryCount = (retryCount > 5) ? 5 : retryCount;
+        uint32_t multiplier = 1U << (safeRetryCount - 1U);
+        intervalInMilliSec = multiplier * IntervalInSec * 1000;
     }
 
     LE_INFO("Back off interval = %d ms", intervalInMilliSec);

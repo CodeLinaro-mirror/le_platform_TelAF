@@ -167,11 +167,24 @@ typedef struct
     taf_RadioCmdType_t cmdType;
     void* handlerFuncPtr;
     void* contextPtr;
+    le_msg_SessionRef_t sessionRef;
     taf_radio_RatBitMask_t ratMask;
     uint8_t phoneId;
     char mccPtr[TAF_RADIO_MCC_BYTES];
     char mncPtr[TAF_RADIO_MNC_BYTES];
+    le_dls_Link_t link;
 } taf_RadioCmdReq_t;
+
+/*
+ * @brief Radio command completion event payload for aync APIs.
+ */
+typedef struct
+{
+    taf_RadioCmdReq_t* cmdPtr;
+    le_result_t result;
+    taf_radio_ScanInformationListRef_t scanListRef;
+    taf_radio_PciScanInformationListRef_t pciScanListRef;
+} taf_RadioCmdComplete_t;
 
 /*
  * @brief The struct of GSM cell information.
@@ -909,6 +922,8 @@ namespace tafsvc {
          * @returns    Null.
          */
         static void RadioProcCmdHandler(void* cmdReqPtr);
+        static void RadioCmdCompleteHandler(void* reportPtr);
+        static void ClientSessionCloseHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
 
         /*
          * The initialization function of the Radio Service.
@@ -971,6 +986,9 @@ namespace tafsvc {
         le_event_Id_t lteCAIndEvId;
         le_event_Id_t connStatusEvId;
         static le_event_Id_t radioCmdEvId;
+        static le_event_Id_t radioCmdCompleteEvId;
+        le_dls_List_t pendingCmdList;
+        le_mem_PoolRef_t cmdReqPool;
 
         int32_t netRejectCause = TAF_RADIO_NET_REJ_CAUSE_UNDEFINED;
         taf_RadioDataCallbackInfo_t dataInfoCb;

@@ -258,12 +258,13 @@ taf_mngdStorSecData_DataRef_t tafMngdStorageSvc::GetDataRef
                             nullptr,
                             "cannot get data path");
 
-    // Check if the data file exists
-    if(IsFileExisting(dataItemPath) == false)
+    int dataFd = taf_rfs_Open(dataItemPath, O_RDONLY, 0);
+    if (dataFd < 0)
     {
         LE_ERROR("The data item doesn't exist");
         return nullptr;
     }
+    taf_rfs_Close(dataFd);
 
     taf_mngdStorSecData_DataRef_t dataRef = nullptr;
     tafMngdStorage_ClientData_t *clientDataPtr = nullptr;
@@ -630,7 +631,7 @@ void tafMngdStorageSvc::ReleaseDataRef
                 {
                     taf_rfs_Close(dataPtr->readOp.outputFd);
                     dataPtr->isInReadingProcess = false;
-                    dataPtr->writeOp.clientSessionRef = nullptr;
+                    dataPtr->readOp.clientSessionRef = nullptr;
                 }
             }
 

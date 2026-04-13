@@ -6,7 +6,7 @@
 #include "legato.h"
 #include "interfaces.h"
 
-static taf_mpms_test_MpmsTestRef_t MpmsTestInstance;
+static taf_mngdPmTest_MpmsTestRef_t MpmsTestInstance;
 static le_ref_MapRef_t MpmsTestInstanceMap;
 static taf_mngdPm_wsRef_t wsRef;
 
@@ -203,9 +203,9 @@ static le_result_t QueryLastWakeupReason(uint32_t * outputBitset)
 
 // ------------------- API -------------------
 
-le_result_t taf_mpms_test_GetMpmsTestObject
+le_result_t taf_mngdPmTest_GetMpmsTestObject
 (
-    taf_mpms_test_MpmsTestRef_t* refPtrPtr
+    taf_mngdPmTest_MpmsTestRef_t* refPtrPtr
 )
 {
     if (refPtrPtr == NULL)
@@ -218,9 +218,9 @@ le_result_t taf_mpms_test_GetMpmsTestObject
     return LE_OK;
 }
 
-le_result_t taf_mpms_test_GetWakeupFilterFromMpss
+le_result_t taf_mngdPmTest_GetWakeupFilterFromMpss
 (
-    taf_mpms_test_MpmsTestRef_t ref,
+    taf_mngdPmTest_MpmsTestRef_t ref,
     uint32_t* bitmaskPtr
 )
 {
@@ -239,9 +239,9 @@ le_result_t taf_mpms_test_GetWakeupFilterFromMpss
     return GetFilter(bitmaskPtr);
 }
 
-le_result_t taf_mpms_test_SetWakeupFitlerToMpss
+le_result_t taf_mngdPmTest_SetWakeupFitlerToMpss
 (
-    taf_mpms_test_MpmsTestRef_t ref,
+    taf_mngdPmTest_MpmsTestRef_t ref,
     uint32_t bitmask
 )
 {
@@ -254,9 +254,9 @@ le_result_t taf_mpms_test_SetWakeupFitlerToMpss
     return SetFilter(bitmask);
 }
 
-le_result_t taf_mpms_test_UpMonitorForWakeup
+le_result_t taf_mngdPmTest_UpMonitorForWakeup
 (
-    taf_mpms_test_MpmsTestRef_t ref
+    taf_mngdPmTest_MpmsTestRef_t ref
 )
 {
     if (ref == NULL || ref != MpmsTestInstance)
@@ -268,9 +268,9 @@ le_result_t taf_mpms_test_UpMonitorForWakeup
     return UpMonitor();
 }
 
-void taf_mpms_test_DownMonitorForWakeup
+void taf_mngdPmTest_DownMonitorForWakeup
 (
-    taf_mpms_test_MpmsTestRef_t ref
+    taf_mngdPmTest_MpmsTestRef_t ref
 )
 {
     if (ref == NULL || ref != MpmsTestInstance)
@@ -283,9 +283,9 @@ void taf_mpms_test_DownMonitorForWakeup
 }
 
 
-le_result_t taf_mpms_test_QueryLastWakeupReason
+le_result_t taf_mngdPmTest_QueryLastWakeupReason
 (
-    taf_mpms_test_MpmsTestRef_t ref,
+    taf_mngdPmTest_MpmsTestRef_t ref,
     uint32_t * bitset
 )
 {
@@ -298,9 +298,9 @@ le_result_t taf_mpms_test_QueryLastWakeupReason
     return QueryLastWakeupReason(bitset);
 }
 
-le_result_t taf_mpms_test_RelaxWakeSource
+le_result_t taf_mngdPmTest_RelaxWakeSource
 (
-    taf_mpms_test_MpmsTestRef_t ref
+    taf_mngdPmTest_MpmsTestRef_t ref
 )
 {
     if (ref == NULL || ref != MpmsTestInstance)
@@ -322,7 +322,7 @@ COMPONENT_INIT
                 le_ref_CreateMap("mpms-test-inst-map", 1);
 
     MpmsTestInstance =
-        (taf_mpms_test_MpmsTestRef_t)
+        (taf_mngdPmTest_MpmsTestRef_t)
             le_ref_CreateRef(MpmsTestInstanceMap, &Instance);
 
     wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL,

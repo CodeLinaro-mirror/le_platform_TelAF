@@ -16,6 +16,6 @@ provides:
 {
     api:
     {
-        taf_mpms_test.api
+        taf_mngdPmTest.api
     }
 }

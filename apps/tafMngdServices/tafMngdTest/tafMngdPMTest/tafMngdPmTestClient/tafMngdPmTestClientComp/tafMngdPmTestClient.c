@@ -6,7 +6,7 @@
 #include "legato.h"
 #include "interfaces.h"
 
-static taf_mpms_test_MpmsTestRef_t MpmsTestDaemonRef;
+static taf_mngdPmTest_MpmsTestRef_t MpmsTestDaemonRef;
 static void (*ActionFn)(void);
 static const char* bitmaskFromCmd = NULL;
 
@@ -49,11 +49,11 @@ static void GetMpssFilter(void)
     uint32_t bitset = 0;
 
     le_result_t rst =
-        taf_mpms_test_GetWakeupFilterFromMpss(MpmsTestDaemonRef,
+        taf_mngdPmTest_GetWakeupFilterFromMpss(MpmsTestDaemonRef,
                                               &bitset);
     if (rst != LE_OK)
     {
-        printf("Failed to taf_mpms_test_GetWakeupFilterFromMpss\n");
+        printf("Failed to taf_mngdPmTest_GetWakeupFilterFromMpss\n");
         StopCommandLine(false);
     }
 
@@ -73,17 +73,17 @@ static void SetMpssFitler(void)
         StopCommandLine(false);
     }
 
-    rst = taf_mpms_test_SetWakeupFitlerToMpss(MpmsTestDaemonRef, bitsetInput);
+    rst = taf_mngdPmTest_SetWakeupFitlerToMpss(MpmsTestDaemonRef, bitsetInput);
     if (rst != LE_OK)
     {
-        printf("Failed to taf_mpms_test_SetWakeupFitlerToMpss\n");
+        printf("Failed to taf_mngdPmTest_SetWakeupFitlerToMpss\n");
         StopCommandLine(false);
     }
 
-    rst = taf_mpms_test_GetWakeupFilterFromMpss(MpmsTestDaemonRef, &bitsetOutput);
+    rst = taf_mngdPmTest_GetWakeupFilterFromMpss(MpmsTestDaemonRef, &bitsetOutput);
     if (rst != LE_OK)
     {
-        printf("Failed to taf_mpms_test_GetWakeupFilterFromMpss\n");
+        printf("Failed to taf_mngdPmTest_GetWakeupFilterFromMpss\n");
         StopCommandLine(false);
     }
 
@@ -95,11 +95,11 @@ static void SetMpssFitler(void)
 static void UpMonitorForWakeup(void)
 {
     le_result_t rst =
-        taf_mpms_test_UpMonitorForWakeup(MpmsTestDaemonRef);
+        taf_mngdPmTest_UpMonitorForWakeup(MpmsTestDaemonRef);
 
     if (rst != LE_OK)
     {
-        printf("Failed to taf_mpms_test_UpMonitorForWakeup\n");
+        printf("Failed to taf_mngdPmTest_UpMonitorForWakeup\n");
         StopCommandLine(false);
     }
     else
@@ -112,11 +112,11 @@ static void QueryWakeupReason(void)
 {
     uint32_t outputBitset = 0;
     le_result_t rst =
-        taf_mpms_test_QueryLastWakeupReason(MpmsTestDaemonRef, &outputBitset);
+        taf_mngdPmTest_QueryLastWakeupReason(MpmsTestDaemonRef, &outputBitset);
 
     if (rst != LE_OK)
     {
-        printf("Failed to taf_mpms_test_QueryLastWakeupReason\n");
+        printf("Failed to taf_mngdPmTest_QueryLastWakeupReason\n");
         StopCommandLine(false);
     }
     else
@@ -128,7 +128,7 @@ static void QueryWakeupReason(void)
 
 static void DownMonitorForWakeup(void)
 {
-    taf_mpms_test_DownMonitorForWakeup(MpmsTestDaemonRef);
+    taf_mngdPmTest_DownMonitorForWakeup(MpmsTestDaemonRef);
     StopCommandLine(true);
 }
 
@@ -144,7 +144,7 @@ static void RelaxWakeSource
 (
 )
 {
-    taf_mpms_test_RelaxWakeSource(MpmsTestDaemonRef);
+    taf_mngdPmTest_RelaxWakeSource(MpmsTestDaemonRef);
 }
 
 static void ActionHandler
@@ -201,12 +201,12 @@ COMPONENT_INIT
 
     le_arg_Scan();
 
-    taf_mpms_test_ConnectService();
+    taf_mngdPmTest_ConnectService();
 
-    rst = taf_mpms_test_GetMpmsTestObject(&MpmsTestDaemonRef);
+    rst = taf_mngdPmTest_GetMpmsTestObject(&MpmsTestDaemonRef);
     if (rst != LE_OK)
     {
-        printf("Failed to taf_mpms_test_GetMpmsTestObject");
+        printf("Failed to taf_mngdPmTest_GetMpmsTestObject");
         StopCommandLine(false);
     }
 

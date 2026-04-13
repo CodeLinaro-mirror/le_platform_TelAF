@@ -18,5 +18,5 @@ processes:
 
 bindings:
 {
-    tafMngdPmTestClient.tafMngdPmTestClientComp.taf_mpms_test -> tafMngdPmTestDaemon.taf_mpms_test
+    tafMngdPmTestClient.tafMngdPmTestClientComp.taf_mngdPmTest -> tafMngdPmTestDaemon.taf_mngdPmTest
 }

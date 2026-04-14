@@ -580,6 +580,7 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
                 LocationData->satInfo[i].satId = clientRequestPtr->mSatInfo[i].satId;
                 LocationData->satInfo[i].satConst = clientRequestPtr->mSatInfo[i].satConst;
                 LocationData->satInfo[i].satUsed = clientRequestPtr->mSatInfo[i].satUsed;
+                LocationData->satInfo[i].satUsedDgnss = false;
                 LocationData->satInfo[i].satTracked = clientRequestPtr->mSatInfo[i].satTracked;
                 LocationData->satInfo[i].satSnr = clientRequestPtr->mSatInfo[i].satSnr;
                 LocationData->satInfo[i].satAzim = clientRequestPtr->mSatInfo[i].satAzim;
@@ -1240,16 +1241,31 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
                 for (auto dgnssStation : dgnssStations){
                     if (IsSbasStationId(dgnssStation))
                     {
-                        LE_DEBUG("Ignoring SBAS DGNSS station id=%d", dgnssStation);
+                        for (int n = 0; n < TAF_LOCGNSS_SV_INFO_MAX_LEN; n++)
+                        {
+                            if (LocationData->satInfo[n].satId != 0 &&
+                                LocationData->satInfo[n].satId != UINT16_MAX &&
+                                LocationData->satInfo[n].satId == dgnssStation)
+                            {
+                                LE_DEBUG("DGNSS satellite (id=%d) is providing corrections", dgnssStation);
+                                LocationData->satInfo[n].satUsedDgnss = true;
+                                break;
+                            }
+                        }
                         continue;
                     }
-                    LocationData->dgnssStationIds[LocationData->dgnssStationIdsCount] = dgnssStation-1000;
-                    LocationData->dgnssStationIdsCount++;
+                    if (dgnssStation < 1000)
+                    {
+                        LE_WARN("Invalid DGNSS station ID %d (<1000), ignore", dgnssStation);
+                        continue;
+                    }
                     if(LocationData->dgnssStationIdsCount >= TAF_LOCGNSS_MAX_MONITOR_STATION_IDS)
                     {
                         LE_ERROR("Maximum DGNSS station IDs reached, ignoring remaining stations");
                         break;
                     }
+                    LocationData->dgnssStationIds[LocationData->dgnssStationIdsCount] = dgnssStation-1000;
+                    LocationData->dgnssStationIdsCount++;
                 }
                 LE_DEBUG("DGNSS Station Count=%d", LocationData->dgnssStationIdsCount);
             }
@@ -1952,6 +1968,7 @@ void taf_locGnss::CopyPositionData
         LastDataPtr->satInfo[i].satId = CurrentDataPtr->satInfo[i].satId;
         LastDataPtr->satInfo[i].satConst = CurrentDataPtr->satInfo[i].satConst;
         LastDataPtr->satInfo[i].satUsed = CurrentDataPtr->satInfo[i].satUsed;
+        LastDataPtr->satInfo[i].satUsedDgnss = CurrentDataPtr->satInfo[i].satUsedDgnss;
         LastDataPtr->satInfo[i].satTracked = CurrentDataPtr->satInfo[i].satTracked;
         LastDataPtr->satInfo[i].satSnr = CurrentDataPtr->satInfo[i].satSnr;
         LastDataPtr->satInfo[i].satAzim = CurrentDataPtr->satInfo[i].satAzim;
@@ -7554,6 +7571,7 @@ le_result_t taf_locGnss::GetSatellitesInfoEx
                     svInfoPtr[count].signalType = posSampleReqPtr->positionSampleNodePtr->satInfo[i].signalType;
                     svInfoPtr[count].glonassFcn = posSampleReqPtr->positionSampleNodePtr->satInfo[i].glonassFcn;
                     svInfoPtr[count].baseBandCnr = posSampleReqPtr->positionSampleNodePtr->satInfo[i].baseBandCnr;
+                    svInfoPtr[count].satUsedDgnss = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satUsedDgnss;
                     count++;
                   }
                 }
@@ -7576,6 +7594,7 @@ le_result_t taf_locGnss::GetSatellitesInfoEx
                 svInfoPtr[i].signalType = UINT32_MAX;
                 svInfoPtr[i].glonassFcn = UINT16_MAX;
                 svInfoPtr[i].baseBandCnr = 0.0;
+                svInfoPtr[i].satUsedDgnss = false;
             }
             result = LE_OUT_OF_RANGE;
         }

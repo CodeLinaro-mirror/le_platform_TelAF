@@ -362,10 +362,12 @@ void taf_SnapshotSvr::_triggerSnapshot
 #ifndef LE_CONFIG_DIAG_FEATURE_A
     if (! NeedToBeTriggered(dtcCode, typeOfTrigger))
     {
-        LE_INFO("No matching type to trigger snapshot for dtc [0x%03X].", dtcCode);
+        LE_DEBUG("No matching type for %d to trigger snapshot for dtc [0x%03X].", typeOfTrigger,
+            dtcCode);
         return;
     }
 #endif
+    LE_INFO("Collect snapshot data for DTC:%d, type:%d", dtcCode, typeOfTrigger);
     SendRequestToCollectDids(dtcCode,
                              supplierFaultCodePtr,
                              supplierFaultCodeSize);

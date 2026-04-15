@@ -144,7 +144,6 @@ taf_diag_ServiceRef_t taf_DiagSvr::GetService
         servicePtr->targetVlanId = 0;
     }
 
-    LE_DEBUG("Get serviceRef %p for Diag service.", servicePtr->svcRef);
     return servicePtr->svcRef;
 }
 
@@ -159,8 +158,6 @@ taf_DiagSvc_t* taf_DiagSvr::GetServiceObj
     le_msg_SessionRef_t sessionRef
 )
 {
-    LE_DEBUG("GetServiceObj sessionRef: %p", sessionRef);
-
     le_ref_IterRef_t iterRef = le_ref_GetIterator(SvcRefMap);
 
     while (le_ref_NextNode(iterRef) == LE_OK)
@@ -432,6 +429,9 @@ taf_diag_TesterStateHandlerRef_t taf_DiagSvr::AddTesterStateHandler
 
     // Attach handler to service.
     servicePtr->testerHandlerRef = handlerObjPtr->handlerRef;
+
+    LE_INFO("TesterState: Registered Tester state change Handler for VLAN ID %d",
+        servicePtr->targetVlanId);
 
     return handlerObjPtr->handlerRef;
 }

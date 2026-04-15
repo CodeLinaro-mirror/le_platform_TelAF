@@ -154,7 +154,6 @@ void taf_SecuritySvr::UDSMsgHandler
     size_t msgLen
 )
 {
-    LE_DEBUG("UDSMsgHandler!");
 
     TAF_ERROR_IF_RET_NIL(addrPtr == NULL, "Invalid addrPtr");
     TAF_ERROR_IF_RET_NIL(msgPtr == NULL, "Invalid msgPtr");
@@ -176,6 +175,9 @@ void taf_SecuritySvr::UDSMsgHandler
         rxSesTypePtr->link = LE_DLS_LINK_INIT;
         rxSesTypePtr->rxSesTypeRef = (taf_diagSecurity_RxSesTypeCheckRef_t)le_ref_CreateRef(
                 RxSesTypeRefMap, rxSesTypePtr);
+
+        LE_DEBUG("Receive message(%p) for serviceId: 0x%x and subFunction: 0x%x)",
+                rxSesTypePtr->rxSesTypeRef, sid, rxSesTypePtr->sesType);
 
         // Report the session control request message to message handler in service layer.
         le_event_ReportWithRefCounting(SesTypeEvent, rxSesTypePtr);
@@ -641,7 +643,6 @@ taf_diagSecurity_SesChangeHandlerRef_t taf_SecuritySvr::AddSesChangeHandler
     void* contextPtr
 )
 {
-    LE_DEBUG("AddSesChangeHandler!");
 
     taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, NULL, "Invalid service reference provided");
@@ -667,6 +668,8 @@ taf_diagSecurity_SesChangeHandlerRef_t taf_SecuritySvr::AddSesChangeHandler
 
     // Attach handler to service.
     servicePtr->sesChangeHandlerRef = handlerObjPtr->sesChangeHandlerRef;
+
+    LE_DEBUG("Session change: Registered Rx Handler for VLAN ID %d", servicePtr->selectedVlanId);
 
     return handlerObjPtr->sesChangeHandlerRef;
 }
@@ -846,6 +849,8 @@ taf_diagSecurity_RxSecAccessMsgHandlerRef_t taf_SecuritySvr::AddRxSecAccessMsgHa
 
     // Attach handler to service.
     servicePtr->handlerRef = handlerObjPtr->handlerRef;
+
+    LE_DEBUG("Security access: Registered Rx Handler for VLAN ID %d", servicePtr->selectedVlanId);
 
     return handlerObjPtr->handlerRef;
 }

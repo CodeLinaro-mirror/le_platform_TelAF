@@ -214,7 +214,8 @@ void UdsCommunicationMgr::InitAuthData
         }
         else /* not existed */
         {
-            LE_INFO("Interface:%s doesn't exist in auth config tree", pair.second->interface);
+            LE_INFO("Interface:%s doesn't exist in auth config tree, init it",
+                pair.second->interface);
             le_cfg_CancelTxn(iteratorRef);
             le_cfg_IteratorRef_t wrIterRef = le_cfg_CreateWriteTxn(AUTH_CONF_DATA);
 
@@ -225,7 +226,6 @@ void UdsCommunicationMgr::InitAuthData
             le_cfg_SetInt(wrIterRef, delayTimeNodePath, udsCmMgr->authDelayTime);
 
             le_cfg_CommitTxn(wrIterRef);
-            LE_INFO("Initialize auth config tree");
         }
     }
 }

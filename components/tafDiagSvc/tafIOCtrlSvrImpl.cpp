@@ -36,7 +36,6 @@ taf_diagIOCtrl_ServiceRef_t taf_IOCtrlSvr::GetService
     uint16_t dataID
 )
 {
-    LE_DEBUG("Gets the IOCtrl service!");
 
     // Data ID check. Exception if can't get node from config file.
     try
@@ -73,8 +72,6 @@ taf_diagIOCtrl_ServiceRef_t taf_IOCtrlSvr::GetService
         servicePtr->svcRef = (taf_diagIOCtrl_ServiceRef_t)le_ref_CreateRef(SvcRefMap,
                 servicePtr);
     }
-
-    LE_DEBUG("Get serviceRef %p for Diag IOCtrl service.", servicePtr->svcRef);
 
     return servicePtr->svcRef;
 }
@@ -361,7 +358,6 @@ taf_diagIOCtrl_RxMsgHandlerRef_t taf_IOCtrlSvr::AddRxMsgHandler
     void* contextPtr
 )
 {
-    LE_DEBUG("AddRxMsgHandler!");
 
     taf_IOCtrlSvc_t* servicePtr = (taf_IOCtrlSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, NULL, "Invalid service reference provided");
@@ -388,6 +384,8 @@ taf_diagIOCtrl_RxMsgHandlerRef_t taf_IOCtrlSvr::AddRxMsgHandler
 
     // Attach handler to service.
     servicePtr->handlerRef = handlerObjPtr->handlerRef;
+
+    LE_DEBUG("IOCtrl: Registered Rx Handler for data ID 0x%x", servicePtr->dataID);
 
     return handlerObjPtr->handlerRef;
 }

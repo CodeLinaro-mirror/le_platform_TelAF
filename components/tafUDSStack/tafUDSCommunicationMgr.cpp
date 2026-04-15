@@ -2747,7 +2747,7 @@ le_result_t UdsCommunicationMgr::IndicateAuthReq
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
-    // Check negative err code for minimum request msg length
+    // Step 0: Check negative err code for minimum request msg length
     if(recvDataLen < UDS_AUTH_INFO_REQ_MIN_LEN)
     {
         LE_WARN("recvDataLen is less than the authentication request msg minimum length.");
@@ -2757,15 +2757,7 @@ le_result_t UdsCommunicationMgr::IndicateAuthReq
 
     uint8_t subFunc = recvBuf[1] & 0x7F;
 
-    // Step 1: Subfunction length check. UDS_0x29_NRC_13
-    if(!IsAuthReqLenCorrect(subFunc))
-    {
-        LE_WARN("Length of authentication subFunction 0x%x is not correct.", subFunc);
-        *isInternalHandle = true;
-        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
-    }
-
-    // Step 2: Subfunction supported check. UDS_0x29_NRC_12
+    // Step 1: Subfunction supported check. UDS_0x29_NRC_12
     if(!IsSubFuncSupported(sid, subFunc))
     {
         LE_WARN("Requested subfunction type is not configured: 0x%x", subFunc);
@@ -2779,6 +2771,14 @@ le_result_t UdsCommunicationMgr::IndicateAuthReq
         LE_WARN("Requested subfunction type is not supported: 0x%x", subFunc);
         *isInternalHandle = true;
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr); // NRC 0x12
+    }
+
+    // Step 2: Subfunction length check. UDS_0x29_NRC_13
+    if(!IsAuthReqLenCorrect(subFunc))
+    {
+        LE_WARN("Length of authentication subFunction 0x%x is not correct.", subFunc);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // Step 3: Subfunction supported in active session check. UDS_0x29_NRC_7E

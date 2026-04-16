@@ -301,7 +301,7 @@ typedef struct {
     int32_t slotId;
     double dtmfGain;
     std::vector<std::pair<int, int>> frequencyList{};
-    const char* dtmfChars;
+    std::string dtmfChars;
     le_result_t result;
     le_msg_SessionRef_t sessionRef;
     taf_audio_StreamRef_t streamRef;
@@ -437,6 +437,7 @@ class taf_Audio : public ITafSvc
         bool mVoiceEnabled1 = false;
         bool mDtmfStarted = false;
         bool mDtmfStartedTx = false;
+        bool mDtmfTxPaused = false;
         bool mModemRx = false;
         bool mSpeaker = false;
         bool mModemTx = false;

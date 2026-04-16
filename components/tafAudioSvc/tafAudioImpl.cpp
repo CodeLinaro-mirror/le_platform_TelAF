@@ -3616,6 +3616,7 @@ void* taf_Audio::playAllDtmfTones(void* dtmfTones) {
                     le_sem_Post(audio.mDtmfStartedSemRef);
                     playingFirstDtmf = false;
                 }
+                *dtmfData = {};
                 return NULL;
             }
 
@@ -3661,6 +3662,7 @@ void* taf_Audio::playAllDtmfTones(void* dtmfTones) {
         }
     }
     audio.mDtmfStarted = false;
+    *dtmfData = {};
     return NULL;
 }
 
@@ -3669,21 +3671,26 @@ void* taf_Audio::playDTMFonTX(void* dtmfTones) {
     auto &audio = taf_Audio::GetInstance();
     taf_Dtmf_t* dtmfData = (taf_Dtmf_t*)dtmfTones;
     bool playingFirstDtmf = true;
+    const char* dtmfCharsPtr = dtmfData->dtmfChars.c_str();
 
-    while(*dtmfData->dtmfChars != '\0') {
+    while(*dtmfCharsPtr != '\0') {
         if((audio.mDtmfStartedTx || playingFirstDtmf)) {
-            std::any context = std::make_shared<char>(*dtmfData->dtmfChars);
+            std::any context = std::make_shared<char>(*dtmfCharsPtr);
             CALLBACK_TO_SET_PA_RESULT;
             pa_result_t res = taf_pa_audio_PlaySignallingDtmfOnTx(dtmfData->slotId,
-                    *dtmfData->dtmfChars, cb, context);
+                    *dtmfCharsPtr, cb, context);
             if (res != PA_OK) {
                 LE_ERROR("Play tone request failed, err %d", (int)res);
                 if(playingFirstDtmf) {
                     dtmfData->result = LE_FAULT;
                     le_sem_Post(audio.mDtmfStartedSemRefTx);
                 }
+                *dtmfData = {};
+                audio.mDtmfStartedTx = false;
+                audio.mDtmfTxPaused = false;
                 return NULL;
             }
+            audio.mDtmfTxPaused = false;
             pa_result_t cbRes = prom->get_future().get();
             if(cbRes != PA_OK)
             {
@@ -3692,6 +3699,7 @@ void* taf_Audio::playDTMFonTX(void* dtmfTones) {
                 if(playingFirstDtmf) {
                     le_sem_Post(audio.mDtmfStartedSemRefTx);
                 }
+                *dtmfData = {};
                 return NULL;
             }
             if(playingFirstDtmf) {
@@ -3700,27 +3708,36 @@ void* taf_Audio::playDTMFonTX(void* dtmfTones) {
                 audio.mDtmfStartedTx = true;
                 playingFirstDtmf = false;
             }
-            LE_DEBUG("Play tone request sent successfully %c", *dtmfData->dtmfChars);
+            LE_DEBUG("Play tone request sent successfully %c", *dtmfCharsPtr);
             std::this_thread::sleep_for(std::chrono::milliseconds(dtmfData->durationTx));
             if (!audio.mDtmfStartedTx)
             {
                 LE_INFO("Dtmf signalling has stopped.");
+                audio.mDtmfTxPaused = false;
+                *dtmfData = {};
                 return NULL;
             }
             CALLBACK1_TO_SET_PA_RESULT;
             res = taf_pa_audio_StopSignallingDtmfOnTx(dtmfData->slotId, cb1, context);
+            audio.mDtmfTxPaused = true;
             if (res != PA_OK) {
                 LE_ERROR("stop tone request failed, err %d", (int)res);
+                *dtmfData = {};
+                audio.mDtmfStartedTx = false;
+                audio.mDtmfTxPaused = false;
                 return NULL;
             }
             cbRes = prom1->get_future().get();
             if(cbRes != PA_OK)
             {
                 LE_ERROR("Failed to stop dtmf signalling on slot Id: %d", dtmfData->slotId);
+                *dtmfData = {};
+                audio.mDtmfStartedTx = false;
+                audio.mDtmfTxPaused = false;
                 return NULL;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(dtmfData->pause));
-            dtmfData->dtmfChars++;
+            dtmfCharsPtr++;
         } else {
             LE_DEBUG("DTMF tone signalling stopped");
             break;
@@ -3728,6 +3745,8 @@ void* taf_Audio::playDTMFonTX(void* dtmfTones) {
     }
     LE_DEBUG("Signalling dtmf completed successfully");
     audio.mDtmfStartedTx = false;
+    audio.mDtmfTxPaused = false;
+    *dtmfData = {};
     return NULL;
 }
 
@@ -3819,6 +3838,7 @@ le_result_t taf_Audio::PlayDtmf
 
 le_result_t taf_Audio::StopDtmf(taf_audio_StreamRef_t streamRef)
 {
+    TAF_ERROR_IF_RET_VAL( !mDtmfStarted, LE_BAD_PARAMETER,"No active dtmf to stop");
     pa_result_t paResult = PA_FAULT;
     taf_audio_Stream_t* streamPtr = (taf_audio_Stream_t*)le_ref_Lookup(StreamRefMap,
             streamRef);
@@ -3827,7 +3847,7 @@ le_result_t taf_Audio::StopDtmf(taf_audio_StreamRef_t streamRef)
             LE_BAD_PARAMETER, "Invalid stream reference");
     std::any context = std::make_shared<taf_audio_Stream_t*>(streamPtr);
     CALLBACK_TO_SET_PA_RESULT;
-    if (mVoiceEnabled1 && mDtmfStarted) {
+    if (mVoiceEnabled1) {
         paResult = taf_pa_audio_StopDtmf(PaStreamDirection::RX, cb, NULL);
         if(paResult == PA_OK) {
             pa_result_t res = prom->get_future().get();
@@ -3836,6 +3856,7 @@ le_result_t taf_Audio::StopDtmf(taf_audio_StreamRef_t streamRef)
                 return LE_FAULT;
             }
             mDtmfStarted = false;
+            dtmfDataRx = {};
         }else {
             LE_ERROR("Request to stop Dtmf Tone failed");
             return LE_FAULT;
@@ -3851,19 +3872,24 @@ le_result_t taf_Audio::StopSignallingDtmf(uint32_t slotId) {
 
     TAF_ERROR_IF_RET_VAL(!mDtmfStartedTx, LE_BAD_PARAMETER, "No active dtmf signalling to stop");
 
-    std::any context = std::make_shared<uint32_t>(slotId);
-    CALLBACK_TO_SET_PA_RESULT;
-    pa_result_t result = taf_pa_audio_StopSignallingDtmfOnTx(slotId, cb, context);
-    if(result != PA_OK) {
-        LE_ERROR("Failed to stop dtmf signalling on slot Id %d", slotId);
-        return LE_FAULT;
-    }
-    result = prom->get_future().get();
-    if (result != PA_OK) {
-        LE_ERROR("Stop Dtmf signalling failed");
-        return LE_FAULT;
+    // send stop request only when dtmf signalling is not in pause state
+    if (!mDtmfTxPaused)
+    {
+        std::any context = std::make_shared<uint32_t>(slotId);
+        CALLBACK_TO_SET_PA_RESULT;
+        pa_result_t result = taf_pa_audio_StopSignallingDtmfOnTx(slotId, cb, context);
+        if(result != PA_OK) {
+            LE_ERROR("Failed to stop dtmf signalling on slot Id %d", slotId);
+            return LE_FAULT;
+        }
+        result = prom->get_future().get();
+        if (result != PA_OK) {
+            LE_ERROR("Stop Dtmf signalling failed");
+            return LE_FAULT;
+        }
     }
     mDtmfStartedTx = false;
+    dtmfDataTx = {};
     return LE_OK;
 }
 

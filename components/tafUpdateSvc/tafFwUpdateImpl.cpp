@@ -205,6 +205,86 @@ le_result_t taf_FwUpdate::GetPostScript
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Get cancel post script.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::GetCancelPostScript
+(
+    taf_update_State_t state, ///< [IN] Update state.
+    char* scriptPath,         ///< [OUT] Script path.
+    size_t pathLen            ///< [IN] Script path length.
+)
+{
+    json_t *root;
+    json_error_t error;
+
+    // Load entire JSON file.
+    root = json_load_file(TAF_FWUPDATE_CFG_FILE, 0, &error);
+    if (root == NULL)
+    {
+        LE_ERROR("JSON file error: line: %d, column: %d, position: %d, source: '%s', error: %s",
+            error.line, error.column, error.position, error.source, error.text);
+        return LE_FAULT;
+    }
+
+    // Check if "root" is an object.
+    if (!json_is_object(root))
+    {
+        LE_ERROR("root is not an object.");
+        json_decref(root);
+        return LE_FAULT;
+    }
+
+    // Load the 'firmware' object.
+    json_t* js_firmware = json_object_get(root, "firmware");
+    if (!json_is_object(js_firmware))
+    {
+        LE_ERROR("firmware object is not set in JSON file %s.", TAF_FWUPDATE_CFG_FILE);
+        return LE_FAULT;
+    }
+
+    json_t* js_post;
+    if (state == TAF_UPDATE_INSTALLING)
+    {
+        // Load the 'post-install' object.
+        js_post = json_object_get(js_firmware, "post-install");
+    }
+    else
+    {
+        LE_ERROR("Invalid state for hook function.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (!json_is_object(js_post))
+    {
+        LE_ERROR("post-install object is not set in JSON file %s.",
+            TAF_FWUPDATE_CFG_FILE);
+        return LE_FAULT;
+    }
+
+    // Load the 'cancel' object.
+    json_t* js_cancel = json_object_get(js_post, "cancel");
+    if (!json_is_object(js_cancel))
+    {
+        LE_ERROR("cancel object is not set in JSON file %s.", TAF_FWUPDATE_CFG_FILE);
+        return LE_FAULT;
+    }
+
+    // Load the 'user-script' object.
+    json_t* js_user_script = json_object_get(js_cancel, "user-script");
+    if (!json_is_string(js_user_script))
+    {
+        LE_ERROR("user-script string is not set in JSON file %s.", TAF_FWUPDATE_CFG_FILE);
+        return LE_FAULT;
+    }
+
+    le_utf8_Copy(scriptPath, json_string_value(js_user_script), pathLen, NULL);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Set update state.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2035,6 +2115,29 @@ void taf_FwUpdate::UpdateImage
         }
     }
 
+    // Post process for install success.
+    result = tafFwUpdate.PostProcess(TAF_UPDATE_INSTALL_SUCCESS);
+    if (result != LE_OK)
+    {
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+        return;
+    }
+
+    if (tafFwUpdate.GetCancelAction(TAF_UPDATE_INSTALLING))
+    {
+        LE_INFO("Cancelled during post installation.");
+        result = tafFwUpdate.CancelPostInstall();
+        if (result != LE_OK)
+        {
+            LE_INFO("Failed to cancel post installation.");
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+            return;
+        }
+
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_IDLE);
+        return;
+    }
+
     taf_update_Bank_t bank = TAF_UPDATE_BANK_UNKNOWN;
     result = tafFwUpdate.GetActiveBank(&bank);
     if (result != LE_OK)
@@ -2060,17 +2163,11 @@ void taf_FwUpdate::UpdateImage
             tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
             return;
         }
-        // Post process for install success.
-        result = tafFwUpdate.PostProcess(TAF_UPDATE_INSTALL_SUCCESS);
-        if (result != LE_OK)
-        {
-            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
-            return;
-        }
-        tafFwUpdate.SetActivationContext(TAF_UPDATE_INSTALL_SUCCESS, bank);
-
-        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_SUCCESS);
     }
+
+    tafFwUpdate.SetActivationContext(TAF_UPDATE_INSTALL_SUCCESS, bank);
+
+    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_SUCCESS);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -3593,14 +3690,11 @@ le_result_t taf_FwUpdate::PostProcess
         return LE_FAULT;
     }
 
-    if (access(TAF_FWUPDATE_POST_HOOK, 0) == 0 && access(script, 0) == 0)
+    if (access(script, 0) == 0)
     {
         LE_INFO("Post processing...");
 
-        char cmd[TAF_FWUPDATE_CMD_LEN];
-        snprintf(cmd, sizeof(cmd), "%s %s", TAF_FWUPDATE_POST_HOOK, script);
-
-        result = tafFwUpdate.SendPipeCmd(cmd, "w");
+        result = tafFwUpdate.SendPipeCmd(script, "w");
         if (result != LE_OK)
         {
             LE_ERROR("Post processing failed.");
@@ -3612,6 +3706,45 @@ le_result_t taf_FwUpdate::PostProcess
     }
 
     LE_INFO("Skip post processing.");
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cancel the post installation.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::CancelPostInstall
+(
+    void
+)
+{
+    char script[TAF_FWUPDATE_POST_SCRIPT_PATH_LEN];
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    le_result_t result = tafFwUpdate.GetCancelPostScript(TAF_UPDATE_INSTALLING, script,
+        TAF_FWUPDATE_POST_SCRIPT_PATH_LEN);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Can not get user script.");
+        return LE_FAULT;
+    }
+
+    if (access(script, 0) == 0)
+    {
+        LE_INFO("Cancel post installation...");
+
+        result = tafFwUpdate.SendPipeCmd(script, "w");
+        if (result != LE_OK)
+        {
+            LE_ERROR("Cancel post installation failed.");
+            return LE_FAULT;
+        }
+
+        LE_INFO("Cancel Post installation successfully.");
+        return LE_OK;
+    }
+
+    LE_INFO("Skip cancel post installation.");
     return LE_OK;
 }
 

@@ -158,7 +158,7 @@ le_result_t tafMngdRpcPm::ReleaseRpcNodeWakeLock()
 /**
  * Releases the acquired wake lock for the given reference.
  */
-le_result_t tafMngdRpcPm::RelaxRpcNode(taf_mngdPm_wsRef_t wsRef)
+le_result_t tafMngdRpcPm::RelaxRpcNode(taf_mngdPm_wsNodeRef_t wsRef)
 {
     auto &rpcPm = tafMngdRpcPm::GetInstance();
     le_result_t res = LE_FAULT;
@@ -191,7 +191,7 @@ le_result_t tafMngdRpcPm::RelaxRpcNode(taf_mngdPm_wsRef_t wsRef)
 /**
  * Keeps the system awake by acquiring wake lock for the given reference.
  */
-le_result_t tafMngdRpcPm::StayAwakeRpcNode(taf_mngdPm_wsRef_t wsRef)
+le_result_t tafMngdRpcPm::StayAwakeRpcNode(taf_mngdPm_wsNodeRef_t wsRef)
 {
     auto &rpcPm = tafMngdRpcPm::GetInstance();
     le_result_t res = LE_FAULT;
@@ -233,20 +233,44 @@ le_result_t tafMngdRpcPm::StayAwakeRpcNode(taf_mngdPm_wsRef_t wsRef)
 /**
  * Creates the node wakeupSource reference.
  */
-taf_mngdPm_wsRef_t tafMngdRpcPm::NewRpcNodeWakeupSource(uint8_t pmNodeId,
-        taf_mngdPm_WakeupType_t wakeupType)
-
+taf_mngdPm_wsNodeRef_t tafMngdRpcPm::CreateRpcNodeWakeupSource
+(
+    uint8_t pmNodeId,
+    taf_mngdPm_WsOpt_t option,
+    const char* wsTag
+)
 {
     auto &rpcPm = tafMngdRpcPm::GetInstance();
+
     if(rpcPm.IsRpcConnected) {
         LE_INFO("RPC Connected");
+
+        // Check for duplicate wsTag within the same session
+        le_dls_Link_t* linkPtr = le_dls_Peek(&(rpcPm.rpcWsRefList));
+        while (linkPtr)
+        {
+            taf_nodeWsRefCtx_t *existingPtr =
+                CONTAINER_OF(linkPtr, taf_nodeWsRefCtx_t, link);
+            linkPtr = le_dls_PeekNext(&(rpcPm.rpcWsRefList), linkPtr);
+
+            if (existingPtr->sessionRef == taf_mngdPm_GetClientSessionRef()
+            &&  strcmp(existingPtr->wsTag, wsTag) == 0)
+            {
+                LE_WARN("CreateRpcNodeWakeupSource: wsTag '%s' already exists for this session",
+                        wsTag);
+                return NULL;
+            }
+        }
+
         taf_nodeWsRefCtx_t * wsCtxPtr =
                 (taf_nodeWsRefCtx_t *)le_mem_ForceAlloc(rpcPm.rpcWsRefPool);
-        if(wsCtxPtr) {
-            wsCtxPtr->wsRef = (taf_mngdPm_wsRef_t)le_ref_CreateRef(
+        if(wsCtxPtr)
+        {
+            wsCtxPtr->wsRef = (taf_mngdPm_wsNodeRef_t)le_ref_CreateRef(
                     rpcPm.rpcWsRefMap, wsCtxPtr);
+            wsCtxPtr->wsTag = strdup(wsTag);
             wsCtxPtr->pmNodeId = pmNodeId;
-            wsCtxPtr->wakeupType = wakeupType;
+            wsCtxPtr->option = option;
             wsCtxPtr->sessionRef = taf_mngdPm_GetClientSessionRef();
             wsCtxPtr->link = LE_DLS_LINK_INIT;
             wsCtxPtr->isAcquiredLock= false;
@@ -254,7 +278,47 @@ taf_mngdPm_wsRef_t tafMngdRpcPm::NewRpcNodeWakeupSource(uint8_t pmNodeId,
             return wsCtxPtr->wsRef;
         }
     }
+
     return NULL;
+}
+
+le_result_t tafMngdRpcPm::DeleteRpcNodeWakeupSource
+(
+    taf_mngdPm_wsNodeRef_t wsRef
+)
+{
+    le_result_t rst = LE_NOT_FOUND;
+
+    auto &rpcPm = tafMngdRpcPm::GetInstance();
+    le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(rpcPm.rpcWsRefList));
+
+    while (linkHandlerPtr)
+    {
+        taf_nodeWsRefCtx_t * wsRefCtxPtr =
+                CONTAINER_OF(linkHandlerPtr, taf_nodeWsRefCtx_t, link);
+
+        linkHandlerPtr = le_dls_PeekPrev(&(rpcPm.rpcWsRefList), linkHandlerPtr);
+
+        if (wsRefCtxPtr && wsRefCtxPtr->wsRef == wsRef
+        &&  wsRefCtxPtr->sessionRef == taf_mngdPm_GetClientSessionRef())
+        {
+            LE_INFO("RPC: found & delete ws: %s from client session: %p",
+                    wsRefCtxPtr->wsTag,
+                    wsRefCtxPtr->sessionRef);
+            le_ref_DeleteRef(rpcPm.rpcWsRefMap, wsRefCtxPtr->wsRef);
+            le_dls_Remove(&(rpcPm.rpcWsRefList), &wsRefCtxPtr->link);
+            le_mem_Release((void*)wsRefCtxPtr);
+            rst = LE_OK;
+            break;
+        }
+    }
+
+    if (rst == LE_NOT_FOUND)
+    {
+        LE_WARN("Not found the wsRef: %p in list", wsRef);
+    }
+
+    return rst;
 }
 
 /**
@@ -700,7 +764,7 @@ void tafMngdRpcPm::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
             }
             le_ref_DeleteRef(rpcPm.rpcWsRefMap, wsRefCtxPtr->wsRef);
             le_dls_Remove(&(rpcPm.rpcWsRefList), &wsRefCtxPtr->link);
-            free((void*)wsRefCtxPtr->vhalTag);
+            free((void*)wsRefCtxPtr->wsTag);
             le_mem_Release((void*)wsRefCtxPtr);
         }
     }

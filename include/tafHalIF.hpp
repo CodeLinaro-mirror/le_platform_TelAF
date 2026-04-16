@@ -103,15 +103,9 @@ typedef struct {
         static struct sigaction oldAct2; \
         static int safeRun = 0;	\
         static void handler(int signum){ \
-            LE_INFO("receive signal %d",signum); \
-            \
             if(safeRun == 1) \
             { \
                 siglongjmp(env , 1); \
-            } \
-            else \
-            { \
-                LE_INFO("ignore non safe run invoke!"); \
             } \
         } \
 
@@ -140,9 +134,11 @@ typedef struct {
         {	\
             safeRun = 1; \
             func(__VA_ARGS__); \
+            alarm(0); \
         } \
         else \
         { \
+            alarm(0); \
             LE_INFO("now recovery\n"); \
             ret = -1; \
         \
@@ -174,9 +170,11 @@ typedef struct {
             {   \
                 safeRun = 1; \
                 funcRet = func; \
+                alarm(0); \
             } \
             else \
             { \
+                alarm(0); \
                 LE_INFO("now recovery\n"); \
                 ret = -1; \
             \

@@ -200,6 +200,79 @@ void tafMngdConnAdmin::Deinit(void)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for power state changes.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::PowerStateChangeHandler
+(
+    taf_pm_State_t state,
+    void* contextPtr
+)
+{
+    if (state != TAF_PM_STATE_RESUME)
+    {
+        LE_INFO("Power state change to SUSPEND");
+        return;
+    }
+
+    LE_INFO("Power state change to RESUME");
+
+    auto& mngdConnAdmin = tafMngdConnAdmin::GetInstance();
+    le_event_Id_t eventId = mngdConnAdmin.GetStateMachineEventId();
+
+    std::vector<stateMachineEvent_t> eventsToReport;
+
+    le_mutex_Lock(mngdConnAdmin.DataCtxMutex);
+    le_dls_Link_t* linkPtr = le_dls_Peek(&mngdConnAdmin.DataCtxList);
+    while (linkPtr)
+    {
+        mcs_DataCtx_t* dataCtxPtr = CONTAINER_OF(linkPtr, mcs_DataCtx_t, link);
+        linkPtr = le_dls_PeekNext(&mngdConnAdmin.DataCtxList, linkPtr);
+
+        taf_radio_NetRegState_t psState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+        le_result_t result = taf_radio_GetPacketSwitchedState(&psState, dataCtxPtr->phoneId);
+        if (result != LE_OK)
+        {
+            LE_WARN("Failed to get packet switched state for phoneId %d after resume: %d",
+                dataCtxPtr->phoneId, result);
+            continue;
+        }
+
+        stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
+
+        if ((psState == TAF_RADIO_NET_REG_STATE_HOME ||
+            psState == TAF_RADIO_NET_REG_STATE_ROAMING) &&
+            dataCtxPtr->dataState == TAF_MNGDCONN_DATA_DISCONNECTED)
+        {
+            stateMachineEvt.event = MCS_EVT_NETWORK_REG_STATE;
+            stateMachineEvt.phoneId = dataCtxPtr->phoneId;
+            eventsToReport.push_back(stateMachineEvt);
+        }
+        else if (psState == TAF_RADIO_NET_REG_STATE_NONE &&
+            dataCtxPtr->dataState != TAF_MNGDCONN_DATA_DISCONNECTED)
+        {
+            stateMachineEvt.event = MCS_EVT_NETWORK_UNREG_STATE;
+            stateMachineEvt.phoneId = dataCtxPtr->phoneId;
+            eventsToReport.push_back(stateMachineEvt);
+        }
+    }
+    le_mutex_Unlock(mngdConnAdmin.DataCtxMutex);
+
+    for (auto& evt : eventsToReport)
+    {
+        if (eventId != nullptr)
+        {
+            le_event_Report(eventId, &evt, sizeof(stateMachineEvent_t));
+            LE_INFO("Reported event %d for phoneId %d after resume", evt.event, evt.phoneId);
+        }
+        else
+            LE_ERROR("Cannot report event - eventId is null");
+    }
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Client connect function.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1151,10 +1224,25 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
         case MCS_RECOVERY_FAILED_L3:
             result = data.Startdata(dataCtxPtr->phoneId, dataCtxPtr->profileNumber,
                                     dataCtxPtr->startDataTimeout);
-            if (result == LE_OK || result == LE_DUPLICATE) {
+            if (result == LE_OK) {
                 LE_INFO("StartData returned LE_OK");
-                // connection is created. Now we will go for DataStartConnectionTest
+                // connection is created. Wait for DCS events to proceed.
                 dataCtxPtr->adminState = MCS_DATA_CONNECTED_INACTIVE;
+                return result;
+            }
+            else if (result == LE_DUPLICATE)
+            {
+                LE_INFO("StartData returned LE_DUPLICATE");
+                dataCtxPtr->adminState = MCS_DATA_CONNECTED_INACTIVE;
+                /**
+                 * Connection is created. However, DCS will not send events. So send
+                 * MCS_EVT_DATA_CONNECTION_CONNECTED(which is sent on TAF_DCS_CONNECTED)
+                 * event to the state machine.
+                 */
+                stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT,0};
+                stateMachineEvt.event=MCS_EVT_DATA_CONNECTION_CONNECTED;
+                stateMachineEvt.dataId = dataCtxPtr->dataId;
+                le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
                 return result;
             }
             else if(result == LE_TIMEOUT)
@@ -1695,7 +1783,6 @@ le_result_t tafMngdConnAdmin::EventNetworkRegState(uint8_t phoneId)
                 case MCS_DATA_NOT_CONNECTED_SIM_READY:
 
                     dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_NW_REGISTERED;
-                    ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
                     //Start a data call if autoStart, or reconnection flag is true
                     if(dataCtxPtr->autoStart || dataCtxPtr->needReConn)
                     {
@@ -1710,11 +1797,10 @@ le_result_t tafMngdConnAdmin::EventNetworkRegState(uint8_t phoneId)
                     {
                         // Wait for user to call DataStart()
                         dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED;
-                        ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
                     }
                     break;
                 case MCS_DATA_NOT_CONNECTED_RETRYING:
-                    // TODO: This state is not possbile as  retry timers will be stopped when NAD
+                    // TODO: This state is not possible as  retry timers will be stopped when NAD
                     // loses registration.
                     break;
                 default:
@@ -1762,10 +1848,10 @@ le_result_t tafMngdConnAdmin::EventNetworkUnregState(uint8_t phoneId)
                 default:
                     break;
             }
-            // Update service state and report OUT_OF_SERVICE event
-            LE_INFO("Report data out of service event");
+            // Update service state and report DISCONNECTED event
+            LE_INFO("Report data disconnected event");
             dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_NW_NOT_REGISTERED;
-            ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED_OUT_OF_SERVICE);
+            ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
         }
     }
     le_mutex_Unlock(DataCtxMutex);
@@ -1949,6 +2035,7 @@ void tafMngdConnAdmin::StateMachineEvtThreadDestructorFunc(void *contextPtr)
     taf_radio_DisconnectService();
     taf_dcs_DisconnectService();
     taf_sim_DisconnectService();
+    taf_pm_DisconnectService();
 #ifndef LE_CONFIG_TARGET_SIMULATION
     taf_net_DisconnectService();
     taf_mngdPm_DisconnectService();
@@ -1970,6 +2057,7 @@ void *tafMngdConnAdmin::StateMachineEventThreadFunc(void *contextPtr)
 
     auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
 
+    taf_pm_ConnectService();
     taf_radio_ConnectService();
     taf_dcs_ConnectService();
     taf_sim_ConnectService();
@@ -1983,6 +2071,8 @@ void *tafMngdConnAdmin::StateMachineEventThreadFunc(void *contextPtr)
     mngdConnAdmin.StateMachineEventId = le_event_CreateId("Sm Event", sizeof(stateMachineEvent_t));
     le_event_AddHandler("StateMachine Event Handler", mngdConnAdmin.StateMachineEventId,
                         StateMachineEvtHandlerFunc);
+
+    taf_pm_AddStateChangeHandler(tafMngdConnAdmin::PowerStateChangeHandler, nullptr);
 
     le_sem_Post(semRef);
 
@@ -4464,8 +4554,6 @@ const char *tafMngdConnAdmin::DataStateToString(taf_mngdConn_DataState_t state)
             return "TAF_MNGDCONN_DATA_CONNECTION_STALLED";
         case TAF_MNGDCONN_DATA_CONNECTION_FAILED:
             return "TAF_MNGDCONN_DATA_CONNECTION_FAILED";
-        case TAF_MNGDCONN_DATA_DISCONNECTED_OUT_OF_SERVICE:
-            return "TAF_MNGDCONN_DATA_DISCONNECTED_OUT_OF_SERVICE";
         default:
             LE_ERROR("unknown status: %d", state);
             break;

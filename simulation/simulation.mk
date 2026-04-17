@@ -8,7 +8,7 @@ TARGETS += simulation menuconfig_simulation
 # BTW, for all details for TelAF & Legato, along with 'Q= V=1' in make command
 Q ?=@
 
--include $(TELAF_ROOT)/simulation/.simulation.build
+-include $(SIMULATION_ROOT)/.simulation.build
 
 # Sometimes, due to docker's caching, it can lead docker image rebuilding failure.
 # So we need to add some options for building images, such as "--no-cache"
@@ -30,7 +30,7 @@ export LEGATO_VERSION=$(shell cat $(TELAF_ROOT)/VERSION 2> /dev/null)
 # So for consistency, we add the required path without any affect for mktools.
 export SYSROOT=/
 
-export SIMULATION_HOME := $(TELAF_ROOT)/simulation
+export SIMULATION_HOME := $(SIMULATION_ROOT)
 export SIMULATION_SCRIPTS := $(SIMULATION_HOME)/scripts
 export SIMULATION_WORKDIR := $(SIMULATION_HOME)/workstation
 SIMULATION_TARBALL := $(SIMULATION_HOME)/workstation/telaf_simulation.tar
@@ -188,8 +188,8 @@ endif
 
 simula-menuconfig: menuconfig_simulation
 
-which_one_default := $(CURDIR)/simulation/which_one_default
-which_one := $(CURDIR)/simulation/workstation/.which_one
+which_one_default := $(SIMULATION_HOME)/which_one_default
+which_one := $(SIMULATION_WORKDIR)/.which_one
 get_which_one := `if [ -e $(which_one) ]; then cat $(which_one) ; else cat $(which_one_default) ; fi`
 which_one_point_version :=  $(shell echo $(get_which_one) | sed 's/\([0-9][0-9]\)/\1./')
 
@@ -231,7 +231,7 @@ define build_simulation_docker_image
 	$Q export UBUNTU_DISTRO_ORIGIN=$(from) \
 	    && export DEVELOPER_UID=$(shell id -u) \
 	    && export DEVELOPER_GID=$(shell id -g) \
-	    && docker compose -f "$(CURDIR)/simulation/docker/for_ubuntu_$(get_which_one)/docker-compose.yml" \
+	    && docker compose -f "$(SIMULATION_HOME)/docker/for_ubuntu_$(get_which_one)/docker-compose.yml" \
 	    build $(docker_build_opts) telaf_simulation_$(1)_$(get_which_one)
 	$Q echo "[$@] image build done."
 endef
@@ -304,10 +304,10 @@ simula-upx simula-upx-runtime:
 	$(call up_simulation_container,up_runtime_master.sh)
 
 simula-up-develop:
-	$Q /bin/bash $(CURDIR)/simulation/scripts/up_develop.sh -i $(get_which_one)
+	$Q /bin/bash $(SIMULATION_SCRIPTS)/up_develop.sh -i $(get_which_one)
 
 simula-up-develop-for-c:
-	$Q /bin/bash $(CURDIR)/simulation/scripts/up_develop.sh -v -m $(get_which_one)
+	$Q /bin/bash $(SIMULATION_SCRIPTS)/up_develop.sh -v -m $(get_which_one)
 	$Q echo "Compiled from --> [$@] [dversion: $(get_which_one)]"
 
 simula-list simula-list-distro:
@@ -315,9 +315,6 @@ simula-list simula-list-distro:
 	$Q echo -n "  [1] ubuntu22.04"; if [ "$(get_which_one)" = "2204" ]; then echo " <--" ; else echo ; fi
 	$Q if [ "$(get_which_one)" != "2204" ]; then \
 	      echo -n "  [x] ubuntu$(which_one_point_version)"; echo " <-- (unsupported version)" ; fi
-
-
-
 
 simula-distro-2204:
 	$Q echo -n "2204" > $(which_one)
@@ -390,7 +387,7 @@ simula-clean-config:
 	$Q rm -f $(LEGATO_ROOT)/.config.simulation
 
 simula-clean-system:
-	$Q rm -rf build/simulation/{_staging_system.simulation.update,system}
+	$Q rm -rf $(TELAF_ROOT)/build/simulation/{_staging_system.simulation.update,system}
 
 simula-rm-network:
 	$Q docker network ls -q --filter="name=telaf_simulation_runtime" | xargs -r docker network rm

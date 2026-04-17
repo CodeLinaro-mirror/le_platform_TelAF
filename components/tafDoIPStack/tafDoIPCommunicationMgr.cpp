@@ -1973,6 +1973,7 @@ taf_doip_Result_t CommunicationMgr::CreateIPv4SocketRes
     taf_doip_Result_t result;
 
     auto& vehicleMgr = VehicleManager::GetInstance();
+    auto& tafCmMgr = CommunicationMgr::GetInstance();
 
     if (TAF_DOIP_RESULT_OK != vehicleMgr.GetTcpPort(&tcpDataPort))
     {
@@ -2017,6 +2018,14 @@ taf_doip_Result_t CommunicationMgr::CreateIPv4SocketRes
             {
                 LE_ERROR("Failed to create specific socket reference.");
                 return result;
+            }
+            //Update the VLAN ID if it's 0, which may indicate either an untagged interface(no VLAN)
+            //or a VLAN‑tagged interface whose ID was not retrieved from /proc/net/vlan/config.
+            if(ifacePtr->vlanId == 0)
+            {
+                ifacePtr->vlanId = tafCmMgr.GetVlanId(ifacePtr->ifName);
+                //If vlanId is still 0, it means the interface is an untagged interface(no VLAN).
+                LE_INFO("Update vlanId %d for interface %s", ifacePtr->vlanId, ifacePtr->ifName);
             }
 
             linkPtr = le_dls_PeekNext(ifaceListPtr, linkPtr);

@@ -4292,7 +4292,7 @@ le_result_t taf_radio_GetRatSvcStatus
     if (paResult != 0)
     {
         LE_ERROR("Failed to get serving RAT.");
-        return LE_FAULT;
+        return Utility::Convert::Result(paResult);
     }
 
     taf_pa_radio_RatServiceStatus_t status = TAF_PA_RADIO_RAT_SERVICE_STATUS_UNKNOWN;

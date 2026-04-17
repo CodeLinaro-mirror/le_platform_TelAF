@@ -803,42 +803,27 @@ taf_diagDidStore_DataIdChangeHandlerRef_t taf_diagDidStore::AddDataIdChangeHandl
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets the reference of a DID change handler.
- */
-//-------------------------------------------------------------------------------------------------
-taf_diagDidStore_DIDChangeHandlerRef_t taf_diagDidStore::GetDIDHandlerRef
-(
-    taf_diagDidStore_ServiceRef_t svcRef
-        ///< [IN] Service reference.
-)
-{
-    LE_DEBUG("GetDIDHandlerRef!");
-
-    taf_DidStore_t* servicePtr = (taf_DidStore_t*)le_ref_Lookup(SvcRefMap, svcRef);
-    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, NULL, "Invalid service reference");
-
-    return (taf_diagDidStore_DIDChangeHandlerRef_t)servicePtr->msgDIDStorgHandlerRef;
-}
-
-//-------------------------------------------------------------------------------------------------
-/**
  * Adds the DID to handler for change notification.
  */
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_diagDidStore::AddDIDToHandler
 (
-    taf_diagDidStore_DIDChangeHandlerRef_t handlerRef,
+    taf_diagDidStore_ServiceRef_t svcRef,
         ///< [IN] Handler reference.
     uint16_t dataId
         ///< [IN] Data identifier.
 )
 {
     LE_DEBUG("AddDIDToHandler!");
-    TAF_ERROR_IF_RET_VAL(handlerRef == NULL, LE_BAD_PARAMETER, "Invalid handlerRef");
+    taf_DidStore_t* servicePtr = (taf_DidStore_t*)le_ref_Lookup(SvcRefMap, svcRef);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
+
+    TAF_ERROR_IF_RET_VAL(servicePtr->msgDIDStorgHandlerRef == NULL, LE_BAD_PARAMETER,
+            "Handler not registered");
 
     taf_DIDStorgNotifyHandler_t* handlerObjPtr = NULL;
     handlerObjPtr = (taf_DIDStorgNotifyHandler_t*)le_ref_Lookup(MsgDIDStorgHandlerRefMap,
-            (taf_diagDidStore_DataIdChangeHandlerRef_t)handlerRef);
+            (taf_diagDidStore_DataIdChangeHandlerRef_t)servicePtr->msgDIDStorgHandlerRef);
     TAF_ERROR_IF_RET_VAL(handlerObjPtr == NULL, LE_BAD_PARAMETER, "Invalid handlerObjPtr");
 
     // Check DataID was already added before or not
@@ -889,17 +874,21 @@ le_result_t taf_diagDidStore::AddDIDToHandler
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_diagDidStore::RemoveDIDFromHandler
 (
-    taf_diagDidStore_DIDChangeHandlerRef_t handlerRef,
+    taf_diagDidStore_ServiceRef_t svcRef,
         ///< [IN] Handler reference.
     uint16_t dataId
         ///< [IN] Data identifier.
 )
 {
-    TAF_ERROR_IF_RET_VAL(handlerRef == NULL, LE_BAD_PARAMETER, "Invalid handlerRef");
+    taf_DidStore_t* servicePtr = (taf_DidStore_t*)le_ref_Lookup(SvcRefMap, svcRef);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid service reference");
+
+    TAF_ERROR_IF_RET_VAL(servicePtr->msgDIDStorgHandlerRef == NULL, LE_BAD_PARAMETER,
+            "Handler not registered");
 
     taf_DIDStorgNotifyHandler_t* handlerObjPtr = NULL;
     handlerObjPtr = (taf_DIDStorgNotifyHandler_t*)le_ref_Lookup(MsgDIDStorgHandlerRefMap,
-            (taf_diagDidStore_DataIdChangeHandlerRef_t)handlerRef);
+            (taf_diagDidStore_DataIdChangeHandlerRef_t)servicePtr->msgDIDStorgHandlerRef);
     TAF_ERROR_IF_RET_VAL(handlerObjPtr == NULL, LE_BAD_PARAMETER, "Invalid handlerObjPtr");
 
     // Remove the requested DataID from the list.

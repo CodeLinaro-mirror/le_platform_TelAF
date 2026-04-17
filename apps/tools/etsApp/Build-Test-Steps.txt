@@ -1,0 +1,80 @@
+#########  TC8 build steps ##############
+// Specify installation path
+#export WORKSPACE=/local/mnt/workspace/user_guide
+export WORKSPACE=/home/lianyun/workdir/TC8
+export CMAKE_PREFIX_PATH=${WORKSPACE}/install-soa/
+export GTEST_ROOT=/home/lianyun/workdir/vsomeip/googletest-main
+1) vsomeip3 : Git clone (3.4.10) and build steps:
+=> git clone https://github.com/COVESA/vsomeip.git -b 3.4.10
+=> cd vsomeip
+=> mkdir build
+=> cd build
+=> cmake -DCMAKE_INSTALL_PREFIX=${WORKSPACE}/install-soa/ ..
+=> make
+=> make install
+
+2) CommonAPI : Git clone (3.2.0.1) and build steps:
+=> git clone https://git.codelinaro.org/clo/la/platform/external/capicxx-core-runtime.git
+=> cd capicxx-core-runtime
+=> git reset --hard 89720d3c63bbd22cbccc80cdc92c2f2dd20193ba
+=> mkdir build
+=> cd build
+=> cmake -DCMAKE_INSTALL_PREFIX=${WORKSPACE}/install-soa/ ..
+=> make
+=> make install
+
+3) CommonAPI-SomeIP : Git clone (3.2.0.1) and build steps:
+=> git clone https://git.codelinaro.org/clo/la/platform/external/capicxx-someip-runtime.git
+=> cd capicxx-someip-runtime
+=> git reset --hard 0ad2bdc1807fc0f078b9f9368a47ff2f3366ed13
+=> mkdir build
+=> cd build
+=> cmake -DCMAKE_INSTALL_PREFIX=${WORKSPACE}/install-soa/ ..
+=> make
+=> make install
+
+4) Required tool to be installed on the development host environment
+a) capicxx-core-gen:
+=> wget https://github.com/GENIVI/capicxx-core-tools/releases/download/3.2.0.1/commonapi_core_generator.zip
+=> unzip commonapi_core_generator.zip -d commonapi_core_generator/
+
+b) capicxx-someip-gen:
+=> wget https://github.com/GENIVI/capicxx-someip-tools/releases/download/3.2.0.1/commonapi_someip_generator.zip
+=> unzip commonapi_someip_generator.zip -d commonapi_someip_generator/
+
+5) Use the installed CommonAPI tools to generate code for Fidl and Fdepl files. By default, code will be generated in the src-gen folder of the current path
+=> ./commonapi_core_generator/commonapi-core-generator-linux-x86_64 -sk ets.fidl
+=> ./commonapi_core_generator/commonapi-core-generator-linux-x86_64 -sk ets.fdepl
+=> ./commonapi_someip_generator/commonapi-someip-generator-linux-x86_64 ets.fdepl
+
+#=> export VSOMEIP_CONFIGURATION=../helloworld-client.json
+#=> export VSOMEIP_APPLICATION_NAME=hello_world_client
+#=> export LD_LIBRARY_PATH=/home/telaf-raspberry-bdc/Desktop/Sumit/vsomeip-master/build
+
+6) Put ETS client on raspberry-pi.
+=> Use modified CmakeList.txt file
+=> cd ets_app
+=> mkdir build
+=> cd build
+=> export CMAKE_PREFIX_PATH=${WORKSPACE}/install-soa/
+=> cmake -DCMAKE_INSTALL_PREFIX=${WORKSPACE}/install-soa/ ..
+=> make
+=> make install
+
+
+Service and Client run steps
+=> Flash telaf images
+=> app stop tafSomeipGWSvc
+=> route add 224.0.0.1 dev bridge0
+=> setenforce 0
+=> Start the logread log and pcap log in other terminal to capture the logs
+=> app restart tafEtsSvc
+
+2) Client test steps
+=> Configure the client json file as per client device (eg - unicast: 192.168.225.24, multicast: 224.0.0.1)
+=> sudo route add 224.0.0.1 dev eth0
+=> export COMMONAPI_CONFIG=/home/lianyun/workdir/TC8/ets_app/config/commonapiRef.ini
+=> export VSOMEIP_CONFIGURATION=/home/lianyun/workdir/TC8/ets_app/config/ets_someip_client.json
+=> export LD_LIBRARY_PATH=/home/lianyun/workdir/TC8/vsomeip/build:/home/lianyun/workdir/TC8/install-soa/lib:${PATH}
+=> cd /home/lianyun/workdir/TC8/ets_app/build
+=> ./someipETSClient ets_default_client

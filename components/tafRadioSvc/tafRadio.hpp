@@ -42,7 +42,7 @@
 #include <string>
 #include <map>
 
-#include "taf_pa_radio.hpp"
+#include "tafRadioPa.hpp"
 
 #define INSTANCE_MAX_COUNT 2
 #define DISABLE_INDICATION 0

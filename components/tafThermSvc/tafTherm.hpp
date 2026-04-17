@@ -15,7 +15,7 @@
 #include <map>
 #include <string>
 #include "le_singlyLinkedList.h"
-#include "taf_pa_therm.hpp"
+#include "tafThermPa.hpp"
 
 #define TAF_THERM_MAX_LIST_POOL_SIZE 100
 #define TAF_THERM_MAX_ZONE_POOL_SIZE 50

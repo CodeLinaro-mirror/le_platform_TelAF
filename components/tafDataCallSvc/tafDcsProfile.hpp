@@ -13,7 +13,7 @@
 
 #include "legato.h"
 #include "interfaces.h"
-#include "taf_pa_data.hpp"
+#include "tafDataPa.hpp"
 
 #include <map>
 #include <string>

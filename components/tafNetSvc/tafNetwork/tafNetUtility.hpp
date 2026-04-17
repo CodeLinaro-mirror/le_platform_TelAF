@@ -8,7 +8,7 @@
 
 #include "legato.h"
 #include "interfaces.h"
-#include "taf_pa_common.h"
+#include "tafCommonPa.h"
 
 
 /**

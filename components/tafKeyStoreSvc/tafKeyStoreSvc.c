@@ -8,7 +8,7 @@
 #include "interfaces.h"
 #include "limit.h"
 #include <errno.h>
-#include "taf_pa_keystore.h"
+#include "tafKeystorePa.h"
 
 //--------------------------------------------------------------------------------------------------
 // Enum for key type.

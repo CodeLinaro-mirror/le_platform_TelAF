@@ -36,7 +36,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
 #include "tafHalAudio.h"
-#include "taf_pa_audio.hpp"
+#include "tafAudioPa.hpp"
 #include <queue>
 #include <unordered_map>
 #include <thread>

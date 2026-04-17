@@ -16,7 +16,7 @@
 #include "legato.h"
 #include "tafSvcIF.hpp"
 #include "tafHalLib.hpp"
-#include "taf_pa_deviceinfo.hpp"
+#include "tafDeviceinfoPa.hpp"
 
 using namespace tafpa::deviceinfo;
 

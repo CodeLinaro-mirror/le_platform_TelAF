@@ -40,7 +40,7 @@
 #include <telux/tel/PhoneFactory.hpp>
 #include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
-#include "taf_pa_sim.hpp"
+#include "tafSimPa.hpp"
 
 #define DEFAULT_TIMEOUT_IN_SECONDS 10
 #define TAF_SIM_SUBSYSTEM_TIMEOUT 30

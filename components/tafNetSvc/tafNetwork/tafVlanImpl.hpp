@@ -11,7 +11,7 @@
 #include <vector>
 #include <iostream>
 #include "tafSvcIF.hpp"
-#include "taf_pa_vlan.hpp"
+#include "tafVlanPa.hpp"
 
 #define MIN_VLAN_ID                         1  /*vlan 0 is reserved as per RFC*/
 #define MAX_VLAN_ID                         4094/*vlan 4095 is max and it is reserved*/

@@ -11,7 +11,7 @@
 #include <vector>
 #include <iostream>
 #include "tafSvcIF.hpp"
-#include "taf_pa_common.h"
+#include "tafCommonPa.h"
 
 
 /**

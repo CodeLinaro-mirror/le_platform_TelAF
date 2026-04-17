@@ -9,7 +9,7 @@
 #include <string>
 #include <memory>
 #include "tafSocksImpl.hpp"
-#include "taf_pa_socks.hpp"
+#include "tafSocksPa.hpp"
 #include "tafNetUtility.hpp"
 #include "tafSvcIF.hpp"
 

@@ -11,7 +11,7 @@
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
 #include "taf_gptpTime.h"
-#include "taf_pa_time.hpp"
+#include "tafTimePa.hpp"
 
 // For reading json configuration file
 #include "jansson.h"

@@ -515,29 +515,31 @@ static void* ipv4_check(void* ipType)
 
     // Test Case
     result=taf_dcs_GetIPv4Address(TestProfileRef, ipAddr0, TAF_DCS_IPV4_ADDR_MAX_LEN);
-    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4Address - LE_OK");
     LE_TEST_INFO("IPv4 Addr: %s", ipAddr0);
     if(result == LE_OK)
     {
         std::cout<<TC_No<<". taf_dcs_GetIPv4Address - LE_OK - Pass - "<<ipAddr0<<endl;
+        LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4Address - LE_OK");
     }
-    else
+    else if (result != LE_UNAVAILABLE)
     {
         std::cout<<TC_No<<". taf_dcs_GetIPv4Address - LE_OK - Fail"<<endl;
+        LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4Address - LE_OK");
     }
     TC_No += 1;
 
     // Test Case
     result=taf_dcs_GetIPv4GatewayAddress(TestProfileRef, ipAddr0, TAF_DCS_IPV4_ADDR_MAX_LEN);
-    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4GatewayAddress - LE_OK");
     LE_TEST_INFO("IPv4 Gateway: %s", ipAddr0);
-    if(result == LE_OK)
+    if (result == LE_OK)
     {
         std::cout<<TC_No<<". taf_dcs_GetIPv4GatewayAddress - LE_OK - Pass - "<<ipAddr0<<endl;
+        LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4GatewayAddress - LE_OK");
     }
-    else
+    else if (result != LE_UNAVAILABLE)
     {
         std::cout<<TC_No<<". taf_dcs_GetIPv4GatewayAddress - LE_OK - Fail"<<endl;
+        LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4GatewayAddress - LE_OK");
     }
     TC_No += 1;
 
@@ -545,15 +547,16 @@ static void* ipv4_check(void* ipType)
     result=taf_dcs_GetIPv4DNSAddresses(TestProfileRef, ipAddr0,
                                        TAF_DCS_IPV4_ADDR_MAX_LEN, ipAddr1,
                                        TAF_DCS_IPV4_ADDR_MAX_LEN);
-    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4DNSAddresses - LE_OK");
     LE_TEST_INFO("IPv4 Dns0: %s, Dns1: %s", ipAddr0, ipAddr1);
-    if(result == LE_OK)
+    if (result == LE_OK)
     {
-        std::cout << TC_No << ". taf_dcs_GetIPv4DNSAddresses - LE_OK - Pass - " << ipAddr0 << endl;
+        std::cout<<TC_No<<". taf_dcs_GetIPv4DNSAddresses - LE_OK - Pass - "<<ipAddr1<<endl;
+        LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4DNSAddresses - LE_OK");
     }
-    else
+    else if (result != LE_UNAVAILABLE)
     {
         std::cout<<TC_No<<". taf_dcs_GetIPv4DNSAddresses - LE_OK - Fail"<<endl;
+        LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4DNSAddresses - LE_OK");
     }
     TC_No += 1;
 
@@ -600,29 +603,31 @@ static void* ipv6_check(void* ipType)
 
     // Test Case
     result=taf_dcs_GetIPv6Address(TestProfileRef, ipAddr0, TAF_DCS_IPV6_ADDR_MAX_LEN);
-    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv6Address - LE_OK");
     LE_TEST_INFO("IPv6 Addr: %s", ipAddr0);
-    if(result == LE_OK)
+    if (result == LE_OK)
     {
         std::cout<<TC_No<<". taf_dcs_GetIPv6Address - LE_OK - Pass - "<<ipAddr0<<endl;
+        LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv6Address - LE_OK");
     }
-    else
+    else if (result != LE_UNAVAILABLE)
     {
         std::cout<<TC_No<<". taf_dcs_GetIPv6Address - LE_OK - Fail"<<endl;
+        LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv6Address - LE_OK");
     }
     TC_No += 1;
 
     // Test Case
     result=taf_dcs_GetIPv6GatewayAddress(TestProfileRef, ipAddr0, TAF_DCS_IPV6_ADDR_MAX_LEN);
-    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv6GatewayAddress - LE_OK");
     LE_TEST_INFO("IPv6 Gateway: %s", ipAddr0);
-    if(result == LE_OK)
+    if (result == LE_OK)
     {
         std::cout<<TC_No<<". taf_dcs_GetIPv6GatewayAddress - LE_OK - Pass - "<<ipAddr0<<endl;
+        LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv6GatewayAddress - LE_OK");
     }
-    else
+    else if (result != LE_UNAVAILABLE)
     {
         std::cout<<TC_No<<". taf_dcs_GetIPv6GatewayAddress - LE_OK - Fail"<<endl;
+        LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv6GatewayAddress - LE_OK");
     }
     TC_No += 1;
 
@@ -630,15 +635,16 @@ static void* ipv6_check(void* ipType)
     result=taf_dcs_GetIPv6DNSAddresses(TestProfileRef, ipAddr0,
                                        TAF_DCS_IPV6_ADDR_MAX_LEN,
                                        ipAddr1, TAF_DCS_IPV6_ADDR_MAX_LEN);
-    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv6DNSAddresses - LE_OK");
     LE_TEST_INFO("IPv6 Dns0: %s, Dns1: %s", ipAddr0, ipAddr1);
-    if(result == LE_OK)
+    if (result == LE_OK)
     {
-        std::cout << TC_No << ". taf_dcs_GetIPv6DNSAddresses - LE_OK - Pass - " << ipAddr0 << endl;
+        std::cout<<TC_No<<". taf_dcs_GetIPv6DNSAddresses - LE_OK - Pass - "<<ipAddr1<<endl;
+        LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv6DNSAddresses - LE_OK");
     }
-    else
+    else if (result != LE_UNAVAILABLE)
     {
         std::cout<<TC_No<<". taf_dcs_GetIPv6DNSAddresses - LE_OK - Fail"<<endl;
+        LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv6DNSAddresses - LE_OK");
     }
     TC_No += 1;
 

@@ -58,6 +58,8 @@ LE_MEM_DEFINE_STATIC_POOL(tafHandler,MAX_TAFCALL_SESSION,sizeof(taf_HandlerCtx_t
 //taf_VoiceCall* taf_Handler::TafCallPtr = nullptr;
 bool  VoiceCallSvc::isEnableDebug = false;
 
+static bool ecallServiceAvailable  = false;
+
 // session close handler
 void Handler::CloseSessHandler(le_msg_SessionRef_t sessionRef, void* ctxPtr)
 {
@@ -300,6 +302,12 @@ const char * VoiceCallSvc::TerminationToString(taf_voicecall_CallEndCause_t term
     return termPtr;
 }
 
+static void EcallServerDisconnectHandler(void* contextPtr)
+{
+    LE_ERROR("eCall server disconnected");
+    ecallServiceAvailable = false;
+}
+
 le_result_t VoiceCallSvc::SendCallEventToClient(taf_VoiceCtrl_t *callCtxPtr)
 {
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_BAD_PARAMETER, "callCtxPtr is null");
@@ -398,6 +406,37 @@ void VoiceCallSvc::CallHandler(CallEvent_t *eventVoicePtr)
         ((eventVoicePtr->event == TAF_VOICECALL_EVENT_INCOMING) ||
          (eventVoicePtr->event == TAF_VOICECALL_EVENT_WAITING)))
     {
+        if (!ecallServiceAvailable )
+        {
+            le_result_t res = taf_ecall_TryConnectService();
+            if (res == LE_OK)
+            {
+                taf_ecall_SetNonExitServerDisconnectHandler(EcallServerDisconnectHandler, NULL);
+                ecallServiceAvailable = true;
+            }
+            else
+            {
+                LE_WARN("Could not connect to eCall Service to check T9 status (res=%d), proceeding with call.", res);
+            }
+        }
+
+        if (ecallServiceAvailable)
+        {
+            taf_ecall_HlapTimerStatus_t timerStatus = TAF_ECALL_TIMER_STATUS_UNKNOWN;
+            uint16_t elapsedTime = 0;
+
+            le_result_t res = taf_ecall_GetHlapTimerState(TAF_ECALL_TIMER_TYPE_T9, &timerStatus, &elapsedTime);
+            if (res == LE_OK && timerStatus == TAF_ECALL_TIMER_STATUS_ACTIVE)
+            {
+                LE_DEBUG("eCall T9 is ACTIVE. Ignoring Incoming/Waiting call: %s", eventVoicePtr->dest);
+                return;
+            }
+            else if (res != LE_OK)
+            {
+                LE_WARN("Failed to get T9 timer state (res=%d), assuming T9 inactive.", res);
+            }
+        }
+
         LE_INFO("No callCtx for event %s, create one", EventToString(eventVoicePtr->event));
         callCtxPtr = CreateCallCtx(eventVoicePtr->phoneId, eventVoicePtr->dest, taf_voicecall_Direction_t::INCOMING);
         TAF_ERROR_IF_RET_NIL(callCtxPtr == NULL, "Cannot create call context");

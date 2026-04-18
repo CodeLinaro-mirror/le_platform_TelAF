@@ -637,6 +637,9 @@ namespace tafsvc {
             le_result_t GetMeasDataValidityMask(taf_locGnss_MeasSampleRef_t measSampleRef,
                 uint32_t* measDataValidityMaskPtr, size_t* measDataValidityMaskSizePtr);
 
+            le_result_t InjectMerkleData(const char* merkleTreeFilePath);
+            le_result_t ConfigureOsnma(bool galOsnma);
+
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionExHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;

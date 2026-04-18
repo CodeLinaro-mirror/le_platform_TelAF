@@ -2286,3 +2286,45 @@ void taf_locGnss_RemoveDgnssStatusChangeHandler
     auto &gnss = taf_locGnss::GetInstance();
     return gnss.RemoveDgnssStatusChangeHandler(handlerRef);
 }
+
+/**
+* FUNCTION     : InjectMerkleTreeInformationByPath
+* DESCRIPTION  : This function Injects the Merkle Tree information via an XML configuration file
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
+*/
+//--------------------------------------------------------------------------------------------------
+/**
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_locGnss_InjectMerkleTreeInformationByPath
+(
+    const char* LE_NONNULL merkleTreeFilePath
+        ///< [IN]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.InjectMerkleData(merkleTreeFilePath);
+}
+
+/**
+* FUNCTION     : ConfigureOsnma
+* DESCRIPTION  : This function Enables or disables the OSNMA feature in the modem.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed with reason
+*/
+//--------------------------------------------------------------------------------------------------
+/**
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_locGnss_ConfigureOsnma
+(
+    bool galOsnma
+        ///< [IN]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.ConfigureOsnma(galOsnma);
+}

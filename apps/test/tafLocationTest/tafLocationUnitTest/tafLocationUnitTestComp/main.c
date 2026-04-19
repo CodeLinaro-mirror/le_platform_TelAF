@@ -5289,16 +5289,14 @@ COMPONENT_INIT
    LE_TEST_INFO("====TestTafGnssPositionExHandler====");
    TestTafGnssPositionExHandler();
 
-<<<<<<< HEAD
    LE_TEST_INFO("======== TestTafDgnss API ======");
    TestTafDgnssAPI();
-=======
+
    LE_TEST_INFO("====TestTafGnssConfigureOsnma====");
    TestTafGnssConfigureOsnma();
 
    LE_TEST_INFO("====TestTafGnssInjectMerkleTree====");
    TestTafGnssInjectMerkleTree();
->>>>>>> 218eb456 (tafLocationSvc: Support OSNMA enablement and Merkle injection)
 
    LE_TEST_INFO("======== LE_TEST_EXIT  ========");
    LE_TEST_EXIT;

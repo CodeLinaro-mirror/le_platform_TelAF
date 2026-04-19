@@ -24,15 +24,16 @@ SE_MODS = $(shell find $(CURDIR)/security/selinux/sepolicy/ -name tmp -type d)
 
 PA_BUILD_DIRS := $(TELAF_PA)/build $(TELAF_PA)/staging $(TELAF_PA_DEFAULT)/build $(TELAF_PA_DEFAULT)/staging
 
+export SIMULATION_ROOT := $(wildcard $(CURDIR)/../telaf-simulation)
+ifeq ($(SIMULATION_ROOT),)
+  SIMULATION_ROOT := $(CURDIR)/simulation
+endif
+$(info simulation root path @ $(SIMULATION_ROOT))
+
 # Sub-Makefile for TelAF Simulation, but we need to
 # prevent 'simulation' target from affecting other targets.
 ifneq ($(filter simula%,$(MAKECMDGOALS)),)
-  SIMULATION_ROOT := $(wildcard $(CURDIR)/../telaf-simulation)
-  ifeq ($(SIMULATION_ROOT),)
-    SIMULATION_ROOT := $(CURDIR)/simulation
-  endif
-  export SIMULATION_ROOT
-  $(info simulation root path @ $(SIMULATION_ROOT))
+  $(info import the simulation build flow)
   include $(SIMULATION_ROOT)/simulation.mk
 endif
 

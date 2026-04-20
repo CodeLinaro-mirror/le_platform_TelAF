@@ -237,8 +237,7 @@ typedef struct
 
 typedef struct
 {
-    taf_time_TimeSpec_t timeVal;
-    le_result_t         status;
+    uint64_t utc;
 } GnssEvent_t;
 
 typedef enum

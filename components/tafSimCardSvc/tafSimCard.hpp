@@ -61,7 +61,8 @@ using namespace std;
         typedef struct taf_sim_FPLMNList
         {
             taf_sim_FPLMNListRef_t ref;
-            le_dls_List_t          link;
+            le_dls_List_t          list;
+            le_dls_Link_t*         iter;
         }taf_sim_FPLMNList_t;
 
         typedef struct taf_sim_Session
@@ -190,8 +191,12 @@ using namespace std;
                 le_ref_MapRef_t FPLMNListRefMap;
                 le_mem_PoolRef_t SessionPool = NULL;
                 le_ref_MapRef_t SessionRefMap;
-                le_result_t AddFPLMNOperatorInternal(taf_sim_FPLMNListRef_t FPLMNListRef, char* mccPtr, char* mncPtr);
-                taf_sim_FPLMNListRef_t CreateInternalFPLMNList();
+                static uint8_t CharToDigit(char c);
+                static bool DecodePlmnBytes(const uint8_t* data, char* mccStr, char* mncStr);
+                static void EncodePlmnBytes(const char* mccStr, const char* mncStr, uint8_t* outData);
+                static bool GetFileSizeFromFcp(const uint8_t* fcp, size_t fcpLen, uint16_t* fileSizePtr);
+                le_result_t SelectFileAndGetFCP(taf_sim_Id_t simId, uint8_t channel, const uint8_t* fileId, uint16_t* outFileSize);
+                le_result_t ClearFPLMNToFF(taf_sim_Id_t simId);
                 taf_sim_RefreshStatus_t ConvertPaRefreshStageToTafRefreshStatus(taf_pa_sim_RefreshStage_t refreshStage);
                 taf_pa_sim_SessionType_t ConvertTafSessionTypeToPaSessionType(taf_sim_SessionType_t sessionType);
 

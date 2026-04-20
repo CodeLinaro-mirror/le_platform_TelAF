@@ -47,7 +47,6 @@ using namespace std;
 
 static taf_sim_info_t simList[TAF_SIM_ID_MAX];
 static int fplmnListIndex = 0;
-static taf_sim_FPLMNListRef_t fplmnListRefs = nullptr;
 
 taf_pa_common_LogLevel_t Utility::Convert::Level
 (
@@ -680,7 +679,7 @@ void taf_sim::Init(void)
     }
 
     FPLMNNodePool = le_mem_CreatePool("FPLMNNodePool", sizeof(FPLMNNode_t));
-    le_mem_ExpandPool(FPLMNNodePool, TAF_SIM_FPLMN_MAX_LISTS * TAF_SIM_FPLMN_MAX_OPERATORS_PER_LIST);
+    le_mem_ExpandPool(FPLMNNodePool, TAF_SIM_FPLMN_MAX_OPERATORS_PER_LIST);
     FPLMNListPool = le_mem_CreatePool("FPLMNListPool", sizeof(taf_sim_FPLMNList_t));
     le_mem_ExpandPool(FPLMNListPool, TAF_SIM_FPLMN_MAX_LISTS);
     FPLMNListRefMap = le_ref_CreateMap("FPLMNListRefMap", TAF_SIM_FPLMN_MAX_LISTS);
@@ -2416,379 +2415,504 @@ le_result_t taf_sim::IsEmergencyCallSubscriptionSelected
     return LE_OK;
 }
 
-
-
-taf_sim_FPLMNListRef_t taf_sim::CreateInternalFPLMNList
-(
-)
+uint8_t taf_sim::CharToDigit(char c)
 {
-    taf_sim_FPLMNList_t* res = (taf_sim_FPLMNList_t* )le_mem_ForceAlloc(FPLMNListPool);
-    if(res == NULL) {
-        LE_INFO("CreateInternalFPLMNList failed!");
-        return NULL;
-    }
-    res->link = LE_DLS_LIST_INIT;
-    res->ref = (taf_sim_FPLMNListRef_t)le_ref_CreateRef(FPLMNListRefMap, res);
-    return (taf_sim_FPLMNListRef_t)(res->ref);
+    return (c >= '0' && c <= '9') ? (c - '0') : 0xF;
 }
 
-taf_sim_FPLMNListRef_t taf_sim::CreateFPLMNList
-(
-)
+bool taf_sim::DecodePlmnBytes(const uint8_t* data, char* mccStr, char* mncStr)
 {
-    if (fplmnListRefs != nullptr) {
-        taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, fplmnListRefs);
-        if (!ListReference) {
-            return NULL;
+    uint8_t b1 = data[0];
+    uint8_t b2 = data[1];
+    uint8_t b3 = data[2];
+
+    if (b1 == 0xFF && b2 == 0xFF && b3 == 0xFF) return false;
+
+    mccStr[0] = (char)((b1 & 0x0F) + '0');
+    mccStr[1] = (char)(((b1 & 0xF0) >> 4) + '0');
+    mccStr[2] = (char)((b2 & 0x0F) + '0');
+    mccStr[3] = '\0';
+
+    uint8_t mnc3_val = (b2 & 0xF0) >> 4;
+    uint8_t mnc1_val = (b3 & 0x0F);
+    uint8_t mnc2_val = (b3 & 0xF0) >> 4;
+
+    mncStr[0] = (char)(mnc1_val + '0');
+    mncStr[1] = (char)(mnc2_val + '0');
+
+    if (mnc3_val != 0xF) {
+        mncStr[2] = (char)(mnc3_val + '0');
+        mncStr[3] = '\0';
+    } else {
+        mncStr[2] = '\0';
+    }
+    return true;
+}
+
+void taf_sim::EncodePlmnBytes(const char* mccStr, const char* mncStr, uint8_t* outData)
+{
+    uint8_t mcc[3];
+    uint8_t mnc[3] = {0xF, 0xF, 0xF};
+
+    for(int i=0; i<3 && mccStr[i]; i++) mcc[i] = CharToDigit(mccStr[i]);
+    for(int i=0; i<3 && mncStr[i]; i++) mnc[i] = CharToDigit(mncStr[i]);
+
+    outData[0] = (mcc[1] << 4) | mcc[0];
+    outData[1] = (mnc[2] << 4) | mcc[2];
+    outData[2] = (mnc[1] << 4) | mnc[0];
+}
+
+bool taf_sim::GetFileSizeFromFcp(const uint8_t* fcp, size_t fcpLen, uint16_t* fileSizePtr)
+{
+    if (!fcp || fcpLen < 2 || !fileSizePtr) return false;
+    size_t i = 0;
+    if (fcp[0] == 0x62) i = 2;
+
+    while (i + 2 <= fcpLen) {
+        uint8_t tag = fcp[i++];
+        uint8_t len = fcp[i++];
+        if (i + len > fcpLen) break;
+        if ((tag == 0x80 || tag == 0x81) && len >= 2) {
+            *fileSizePtr = ((uint16_t)fcp[i] << 8) | fcp[i + 1];
+            return true;
         }
-        LE_INFO("CreateFPLMNList: Already created fplmnListRefs, so use the existing one.");
-        return (taf_sim_FPLMNListRef_t)(ListReference->ref);
+        i += len;
     }
-
-    return CreateInternalFPLMNList();
+    return false;
 }
 
-le_result_t taf_sim::AddFPLMNOperator
-(
-    taf_sim_FPLMNListRef_t FPLMNListRef,
-    char* mccPtr,
-    char* mncPtr
+le_result_t taf_sim::SelectFileAndGetFCP(
+    taf_sim_Id_t simId,
+    uint8_t channel,
+    const uint8_t* fileId,
+    uint16_t* outFileSize
 )
 {
-    if ((mccPtr == NULL) || (mncPtr == NULL)) {
-        LE_INFO("MCC or MNC pointer is NULL");
-        return LE_OVERFLOW;
-    }
-    fplmnListRefs = FPLMNListRef;
-    return AddFPLMNOperatorInternal(FPLMNListRef, mccPtr, mncPtr);
-}
+    uint8_t selectApdu[] = { channel, 0xA4, 0x08, 0x04, 0x04, 0x7F, 0xFF, fileId[0], fileId[1]};
+    uint8_t respBuf[TAF_SIM_RESPONSE_MAX_BYTES];
+    size_t  respLen = 0;
 
-le_result_t taf_sim::AddFPLMNOperatorInternal
-(
-    taf_sim_FPLMNListRef_t FPLMNListRef,
-    char* mccPtr,
-    char* mncPtr
-)
-{
-    if (!IsValidMCCAndMNC(mccPtr, mncPtr)) {
-        return LE_OVERFLOW;
-    }
+    le_result_t res = SendApduOnChannel(simId, channel, selectApdu, sizeof(selectApdu), respBuf, &respLen);
+    if (res != LE_OK || respLen < 2) return LE_FAULT;
 
-    taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
-    if((ListReference == NULL)) {
-        LE_INFO("Issue with ListReference ");
-        return LE_OVERFLOW;
+    uint8_t sw1 = respBuf[respLen - 2];
+    uint8_t sw2 = respBuf[respLen - 1];
+
+    uint8_t* fcpPtr = NULL;
+    size_t   fcpLen = 0;
+
+    if (sw1 == 0x90 && sw2 == 0x00)
+    {
+        if (respLen > 2) {
+            fcpPtr = respBuf;
+            fcpLen = respLen - 2;
+        }
     }
-    FPLMNNode_t* nodeFPLMN = (FPLMNNode_t*)le_mem_ForceAlloc(FPLMNNodePool);
-    if (nodeFPLMN == NULL) {
+    else if (sw1 == 0x61)
+    {
+        uint8_t le = sw2;
+        uint8_t getRespApdu[] = { channel, 0xC0, 0x00, 0x00, le };
+
+        respLen = sizeof(respBuf);
+        res = SendApduOnChannel(simId, channel, getRespApdu, sizeof(getRespApdu), respBuf, &respLen);
+        if (res == LE_OK && respLen >= 2) {
+            uint8_t grSw1 = respBuf[respLen - 2];
+            uint8_t grSw2 = respBuf[respLen - 1];
+            if (grSw1 == 0x90 && grSw2 == 0x00) {
+                fcpPtr = respBuf;
+                fcpLen = respLen - 2;
+            } else {
+                LE_ERROR("GetFCP: GET RESP SW=%02X%02X", grSw1, grSw2);
+                return LE_FAULT;
+            }
+        } else {
+            return LE_FAULT;
+        }
+    }
+    else
+    {
+        LE_ERROR("SelectFile: Failed SW=%02X%02X", sw1, sw2);
         return LE_FAULT;
     }
 
-    le_utf8_Copy(nodeFPLMN->mcc, mccPtr, sizeof(nodeFPLMN->mcc), NULL);
-    le_utf8_Copy(nodeFPLMN->mnc, mncPtr, sizeof(nodeFPLMN->mnc), NULL);
-    nodeFPLMN->link = LE_DLS_LINK_INIT;
-    le_dls_Queue(&(ListReference->link), &(nodeFPLMN->link));
+    if (fcpPtr && outFileSize) {
+        if (!GetFileSizeFromFcp(fcpPtr, fcpLen, outFileSize)) {
+            *outFileSize = 0;
+        }
+    }
+
+    return LE_OK;
+}
+
+taf_sim_FPLMNListRef_t taf_sim::CreateFPLMNList(void)
+{
+    taf_sim_FPLMNList_t* listRef = (taf_sim_FPLMNList_t*)le_mem_ForceAlloc(FPLMNListPool);
+    listRef->list = LE_DLS_LIST_INIT;
+    listRef->iter = NULL;
+    listRef->ref  = (taf_sim_FPLMNListRef_t)le_ref_CreateRef(FPLMNListRefMap, listRef);
+    return (taf_sim_FPLMNListRef_t)(listRef->ref);
+}
+
+le_result_t taf_sim::AddFPLMNOperator(taf_sim_FPLMNListRef_t FPLMNListRef, char* mccPtr, char* mncPtr)
+{
+    if (!mccPtr || !mncPtr) {
+        LE_INFO("Invalid input");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (!IsValidMCCAndMNC(mccPtr, mncPtr))
+    {
+        LE_ERROR("Invalid MCC/MNC %s/%s", mccPtr, mncPtr);
+        return LE_BAD_PARAMETER;
+    }
+
+    taf_sim_FPLMNList_t* listRef = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
+    if (!listRef) return LE_FAULT;
+
+    FPLMNNode_t* node = (FPLMNNode_t*)le_mem_ForceAlloc(FPLMNNodePool);
+    if (!node) return LE_FAULT;
+
+    le_utf8_Copy(node->mcc, mccPtr, sizeof(node->mcc), NULL);
+    le_utf8_Copy(node->mnc, mncPtr, sizeof(node->mnc), NULL);
+    node->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&listRef->list, &node->link);
     return LE_OK;
 }
 
 le_result_t taf_sim::GetFirstFPLMNOperator
 (
     taf_sim_FPLMNListRef_t FPLMNListRef,
-    char* mccPtr,
-    size_t mccLen,
-    char* mncPtr,
-    size_t mncLen
+    char* mccPtr, size_t mccLen,
+    char* mncPtr, size_t mncLen
 )
 {
-    if ((mccPtr == NULL) || (mncPtr == NULL)) {
-        LE_INFO("MCC or MNC pointer is NULL");
-        return LE_OVERFLOW;
+    if (!mccPtr || !mncPtr) {
+        LE_ERROR("GetFirstFPLMNOperator: MCC/MNC buffer NULL");
+        return LE_BAD_PARAMETER;
     }
-    taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
-    if((ListReference == NULL)) {
-        LE_INFO("Issue with ListReference ");
-        return LE_OVERFLOW;
-    }
-    le_dls_Link_t* linkPtr = le_dls_Peek(&(ListReference->link));
-    if (linkPtr == NULL) {
+
+    taf_sim_FPLMNList_t* listRef = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
+    if (!listRef) {
+        LE_ERROR("GetFirstFPLMNOperator: invalid listRef");
         return LE_FAULT;
     }
+
+    le_dls_Link_t* linkPtr = le_dls_Peek(&listRef->list);
+    if (!linkPtr) {
+        return LE_NOT_FOUND;
+    }
+
     FPLMNNode_t* node = CONTAINER_OF(linkPtr, FPLMNNode_t, link);
-    if (node == NULL) {
-        return LE_FAULT;
-    }
-    le_utf8_Copy(mccPtr, node->mcc, mccLen, &mccLen);
-    le_utf8_Copy(mncPtr, node->mnc, mncLen, &mncLen);
-    fplmnListIndex = 1;
+
+    le_result_t res;
+    res = le_utf8_Copy(mccPtr, node->mcc, mccLen, NULL);
+    if (res != LE_OK) return res;
+    res = le_utf8_Copy(mncPtr, node->mnc, mncLen, NULL);
+    if (res != LE_OK) return res;
+
+    listRef->iter = linkPtr;
     return LE_OK;
 }
 
 le_result_t taf_sim::GetNextFPLMNOperator
 (
     taf_sim_FPLMNListRef_t FPLMNListRef,
-    char* mccPtr,
-    size_t mccLen,
-    char* mncPtr,
-    size_t mncLen
+    char* mccPtr, size_t mccLen,
+    char* mncPtr, size_t mncLen
 )
 {
-    if ((mccPtr == NULL) || (mncPtr == NULL)) {
-        LE_INFO("MCC or MNC pointer is NULL");
-        return LE_OVERFLOW;
-    }
-    taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
-    if((ListReference == NULL)) {
-        LE_INFO("Issue with ListReference ");
-        return LE_OVERFLOW;
-    }
-    le_dls_Link_t* linkPtr = le_dls_Peek(&(ListReference->link));
-    if (linkPtr == NULL) {
-        return LE_FAULT;
-    }
-    FPLMNNode_t* node;
-
-    for (int i = 0; i < fplmnListIndex && linkPtr!=NULL; i++) {
-        linkPtr = le_dls_PeekNext(&(ListReference->link), (linkPtr));
+    if (!mccPtr || !mncPtr) {
+        LE_ERROR("GetNextFPLMNOperator: MCC/MNC buffer NULL");
+        return LE_BAD_PARAMETER;
     }
 
-    if(linkPtr == NULL) {
+    taf_sim_FPLMNList_t* listRef = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
+    if (!listRef) {
+        LE_ERROR("GetNextFPLMNOperator: invalid listRef");
         return LE_FAULT;
     }
-    node = CONTAINER_OF(linkPtr, FPLMNNode_t, link);
-    if (node == NULL) {
-        return LE_FAULT;
+
+    if (!listRef->iter) {
+        return LE_NOT_FOUND;
     }
-    le_utf8_Copy(mccPtr, node->mcc, mccLen, &mccLen);
-    le_utf8_Copy(mncPtr, node->mnc, mncLen, &mncLen);
-    fplmnListIndex++;
+
+    le_dls_Link_t* next = le_dls_PeekNext(&listRef->list, listRef->iter);
+    if (!next) {
+        return LE_NOT_FOUND;
+    }
+
+    FPLMNNode_t* node = CONTAINER_OF(next, FPLMNNode_t, link);
+
+    le_result_t res;
+    res = le_utf8_Copy(mccPtr, node->mcc, mccLen, NULL);
+    if (res != LE_OK) return res;
+    res = le_utf8_Copy(mncPtr, node->mnc, mncLen, NULL);
+    if (res != LE_OK) return res;
+
+    listRef->iter = next;
     return LE_OK;
 }
 
-taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(
-    taf_sim_Id_t simId
-)
+void taf_sim::DeleteFPLMNList(taf_sim_FPLMNListRef_t FPLMNListRef)
 {
-    //First select the file using APDU commands
-    //Then read from it in binary form and use payload to get the response as a hex string
-    uint8_t selectFPLMNApdu[] = {0x00, 0xA4, 0x08, 0x04, 0x04, 0x7F, 0xFF, 0x6F, 0x7B};
-    uint8_t responseAPDU[TAF_SIM_RESPONSE_MAX_BYTES];
-    size_t responseLength = 0;
+    taf_sim_FPLMNList_t* listRef = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
+    if (!listRef) return;
+
+    while (!le_dls_IsEmpty(&listRef->list))
+    {
+        le_dls_Link_t* link = le_dls_Peek(&listRef->list);
+        le_dls_Remove(&listRef->list, link);
+
+        FPLMNNode_t* node = CONTAINER_OF(link, FPLMNNode_t, link);
+        le_mem_Release(node);
+    }
+
+    listRef->iter = NULL;
+    le_ref_DeleteRef(FPLMNListRefMap, FPLMNListRef);
+    le_mem_Release(listRef);
+}
+
+taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(taf_sim_Id_t simId)
+{
+    taf_sim_FPLMNListRef_t listRef = CreateFPLMNList();
+    if (!listRef) return NULL;
+
+    if (selectSimSlot(simId) != LE_OK) return NULL;
+
     uint8_t channel = 0;
-    LE_INFO("Entered here");
-    if((selectSimSlot(simId))!=LE_OK) {
-        return NULL;
-    }
-    LE_INFO("Sim slot selected");
-    le_result_t res = OpenLogicalChannel((taf_sim_Id_t)slot, TAF_SIM_APPTYPE_USIM, &channel);
-    if(res != LE_OK) {
-        return NULL;
-    }
-    LE_INFO("Logical channel opened channel id: %d", channel);
-    selectFPLMNApdu[0] = channel;
-    res = SendApduOnChannel((taf_sim_Id_t)slot, channel, selectFPLMNApdu, sizeof(selectFPLMNApdu), responseAPDU, &responseLength);
+    if (OpenLogicalChannel(simId, TAF_SIM_APPTYPE_USIM, &channel) != LE_OK) return NULL;
 
-    if(res != LE_OK || (uint8_t)responseAPDU[responseLength-2] != 0x61) {
-        res = CloseLogicalChannel((taf_sim_Id_t)slot, channel);
-        LE_INFO("ReadFplmnList: CloseLogicalChannel channel_id: %d res: %d", channel, res);
-        return NULL;
-    }
-    LE_DEBUG("ReadFplmnList: After selectFPLMNApdu channel id: %d", channel);
-    LE_INFO("selectFPLMNApdu sw1: %d, sw2: %d", (uint8_t)responseAPDU[responseLength-2], (uint8_t)responseAPDU[responseLength-1]);
+    uint8_t fileId[] = { 0x6F, 0x7B };
+    uint16_t fileSize = 0;
 
-    uint8_t readBinaryFPLMNApdu[] = {0x00, 0xB0, 0x00, 0x00, 0x00};
-    readBinaryFPLMNApdu[0] = channel;
-    res = SendApduOnChannel((taf_sim_Id_t)slot, channel, readBinaryFPLMNApdu, sizeof(readBinaryFPLMNApdu), responseAPDU, &responseLength);
-
-    if(res != LE_OK || (uint8_t)responseAPDU[responseLength-2] != 0x90 || (uint8_t)responseAPDU[responseLength-1] != 0x00) {
-        res = CloseLogicalChannel((taf_sim_Id_t)slot, channel);
-        LE_INFO("ReadFplmnList: CloseLogicalChannel channel_id: %d res: %d", channel, res);
-        return NULL;
-    }
-    LE_INFO("ReadFplmnList: After readFPLMNApdu channel id: %d", channel);
-    res = CloseLogicalChannel((taf_sim_Id_t)slot, channel);
-    if(res != LE_OK) {
+    if (SelectFileAndGetFCP(simId, channel, fileId, &fileSize) != LE_OK) {
+        LE_ERROR("ReadFPLMNList: Select Failed");
+        CloseLogicalChannel(simId, channel);
         return NULL;
     }
 
-    taf_sim_FPLMNListRef_t listRef = CreateInternalFPLMNList();
-    int size = responseLength - 2;
+    uint8_t p3 = 0x00;
+    if (fileSize > 0 && fileSize < 256) {
+        p3 = (uint8_t)fileSize;
+    }
 
-    for(int i=0; i<size/3; i++) {
-        int k=3*i;
-        char mcc[4], mnc[4];
+    uint8_t readBinaryApdu[] = { channel, 0xB0, 0x00, 0x00, p3 };
+    uint8_t respBuf[TAF_SIM_RESPONSE_MAX_BYTES];
+    size_t  respLen = sizeof(respBuf);
 
-        //1st byte:mcc[1] mcc[0]
-        //2th byte:mnc[2] mcc[2]
-        //3th byte:mnc[1] mnc[0]
-        //42 F6 18 = mcc:246 mnc:81
-        //60 f5 34 = mcc:65 mnc:43
-        //e.g. mcc:246 mnc:81 = 42 F6 18. Here mcc[0] = 2, mcc[1] = 4, mcc[2] = 6 and mnc[0] = 8, mnc[1] = 1
-        //e.g. mcc:65 mnc:43 = 40 65 91. Here mcc[0] = 0, mcc[1] = 6, mcc[2] = 5 and mnc[0] = 4, mnc[1] = 3
+    le_result_t res = SendApduOnChannel(simId, channel, readBinaryApdu, sizeof(readBinaryApdu), respBuf, &respLen);
 
-        if ((k+2) >= TAF_SIM_RESPONSE_MAX_BYTES)
-        {
-            LE_ERROR("Exceeds the max response bytes");
-            return NULL;
-        }
-        if (responseAPDU[k] == 0xFF && responseAPDU[k+1] == 0xFF && responseAPDU[k+2] == 0xFF) {
-            LE_INFO("Skipping invalid MCC/MNC due to all FF values");
+    CloseLogicalChannel(simId, channel);
+
+    if (res != LE_OK || respLen < 2) {
+        LE_ERROR("ReadFPLMNList: APDU Send Failed");
+        return NULL;
+    }
+
+    uint8_t sw1 = respBuf[respLen - 2];
+    uint8_t sw2 = respBuf[respLen - 1];
+
+    if (sw1 != 0x90 || sw2 != 0x00) {
+        LE_ERROR("ReadFPLMNList: READ BINARY SW=%02X%02X", sw1, sw2);
+        return NULL;
+    }
+
+    size_t payloadLen = respLen - 2;
+    if (payloadLen < 3) {
+        return CreateFPLMNList();
+    }
+
+    uint32_t nodeCount = 0;
+
+    for (size_t i = 0; i + 3 <= payloadLen; i += 3)
+    {
+        uint8_t b1 = respBuf[i];
+        uint8_t b2 = respBuf[i+1];
+        uint8_t b3 = respBuf[i+2];
+
+        if (b1 == 0xFF && b2 == 0xFF && b3 == 0xFF) {
+            LE_INFO("ReadFPLMNList: skip FF entry at index %zu", i/3);
             continue;
         }
-        mcc[0] = (responseAPDU[k] & 0x0F) + '0';
-        mcc[1] = ((responseAPDU[k] & 0xF0) >> 4) + '0';
-        mcc[2] = (responseAPDU[k+1] & 0x0F) + '0';
 
-        mnc[0] = (responseAPDU[k+2] & 0x0F) + '0';
-        mnc[1] = ((responseAPDU[k+2] & 0xF0) >> 4) + '0';
+        char mcc[4] = {0};
+        char mnc[4] = {0};
 
-        if(((responseAPDU[k+1] & 0xF0) >> 4) == 15) {
-            mnc[2] = '\0';
-        } else {
-            mnc[2]=((responseAPDU[k+1] & 0xF0) >> 4) + '0';
+        if (!DecodePlmnBytes(&respBuf[i], mcc, mnc)) {
+            continue;
         }
-        mcc[3] = '\0';
-        mnc[3] = '\0';
 
-        res = AddFPLMNOperatorInternal(listRef, mcc, mnc);
-        if(res!=LE_OK) {
+        if (!IsValidMCCAndMNC(mcc, mnc))
+        {
+            LE_WARN("ReadFPLMNList: invalid decoded MCC/MNC %s/%s, skip", mcc, mnc);
+            continue;
+        }
+
+        if (nodeCount >= TAF_SIM_FPLMN_MAX_OPERATORS_PER_LIST) {
+            LE_WARN("ReadFPLMNList: Limit reached (%u), truncating rest", TAF_SIM_FPLMN_MAX_OPERATORS_PER_LIST);
+            break;
+        }
+
+        if (AddFPLMNOperator(listRef, mcc, mnc) != LE_OK) {
+            LE_ERROR("ReadFPLMNList: Add failed");
             DeleteFPLMNList(listRef);
             return NULL;
         }
-        LE_INFO("FPLMN #%d - MCC:%s MNC:%s", i+1, mcc, mnc);
+
+        nodeCount++;
+        LE_INFO("ReadFPLMNList: Found #%u %s/%s", nodeCount, mcc, mnc);
     }
 
     return listRef;
 }
 
-void taf_sim::DeleteFPLMNList
-(
-    taf_sim_FPLMNListRef_t FPLMNListRef
-)
+le_result_t taf_sim::ClearFPLMNToFF(taf_sim_Id_t simId)
 {
-    taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
-    if(ListReference == NULL) {
-        LE_WARN("Cannot find the FPLMNList with ref: %p", FPLMNListRef);
-        return;
+    LE_INFO("ClearFPLMNToFF: Start");
+    if (selectSimSlot(simId) != LE_OK) return LE_FAULT;
+
+    uint8_t channel = 0;
+    if (OpenLogicalChannel(simId, TAF_SIM_APPTYPE_USIM, &channel) != LE_OK) return LE_FAULT;
+
+    uint8_t fileId[] = { 0x6F, 0x7B };
+    uint16_t fileSize = 0;
+
+    if (SelectFileAndGetFCP(simId, channel, fileId, &fileSize) != LE_OK) {
+        CloseLogicalChannel(simId, channel);
+        return LE_FAULT;
     }
 
-    // Release all nodes in the list before releasing the list itself
-    while(!le_dls_IsEmpty(&(ListReference->link))) {
-        le_dls_Link_t* link = le_dls_Peek(&(ListReference->link));
-        if (link != NULL) {
-            le_dls_Remove(&(ListReference->link), link);
-            FPLMNNode_t* node = CONTAINER_OF(link, FPLMNNode_t, link);
-            if (node != NULL)
-            {
-                le_mem_Release(node);
-            }
-        }
-    }
-    le_ref_DeleteRef(FPLMNListRefMap, FPLMNListRef);
-    fplmnListIndex = 0;
-    le_mem_Release(ListReference);
+    uint16_t writeLen = (fileSize > 0 && fileSize < 255) ? fileSize : 255;
+    std::vector<uint8_t> data(writeLen, 0xFF);
 
-    // Clear fplmnListRefs if it points to the deleted list
-    if (fplmnListRefs == FPLMNListRef) {
-        fplmnListRefs = nullptr;
-    }
+    std::vector<uint8_t> apdu;
+    apdu.reserve(5 + data.size());
+    apdu.push_back(channel);
+    apdu.push_back(0xD6);
+    apdu.push_back(0x00);
+    apdu.push_back(0x00);
+    apdu.push_back((uint8_t)data.size());
+    apdu.insert(apdu.end(), data.begin(), data.end());
+
+    uint8_t resp[TAF_SIM_RESPONSE_MAX_BYTES];
+    size_t  rLen = sizeof(resp);
+    le_result_t res = SendApduOnChannel(simId, channel, apdu.data(), apdu.size(), resp, &rLen);
+
+    CloseLogicalChannel(simId, channel);
+    return res;
 }
 
 le_result_t taf_sim::WriteFPLMNList
 (
-    taf_sim_Id_t simId,
+    taf_sim_Id_t           simId,
     taf_sim_FPLMNListRef_t FPLMNListRef
 )
 {
-    //Select the EF
-    uint8_t selectFPLMNApdu[] = {0x00, 0xA4, 0x08, 0x04, 0x04, 0x7F, 0xFF, 0x6F, 0x7B};
-    uint8_t responseAPDU[TAF_SIM_RESPONSE_MAX_BYTES];
-    size_t responseLength = 0;
+    taf_sim_FPLMNList_t* listPtr = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
+    if (!listPtr) {
+        LE_ERROR("WriteFPLMNList: invalid listRef");
+        return LE_FAULT;
+    }
+
+    if (le_dls_IsEmpty(&listPtr->list))
+    {
+        LE_INFO("WriteFPLMNList: list empty, redirecting to ClearFPLMNToFF");
+        return ClearFPLMNToFF(simId);
+    }
+
+    if (selectSimSlot(simId) != LE_OK) return LE_FAULT;
+
     uint8_t channel = 0;
-    if(selectSimSlot(simId) != LE_OK) {
-        return LE_FAULT;
-    }
-    le_result_t res = OpenLogicalChannel((taf_sim_Id_t)slot, TAF_SIM_APPTYPE_USIM, &channel);
-    if(res != LE_OK) {
-        return LE_FAULT;
-    }
-    LE_INFO("WriteFPLMNList: OpenLogicalChannel channel id: %d", channel);
-    const uint8_t channel_id = channel;
-    selectFPLMNApdu[0] = channel;
-    res = SendApduOnChannel((taf_sim_Id_t)slot, channel, selectFPLMNApdu, sizeof(selectFPLMNApdu), responseAPDU, &responseLength);
-    if(res != LE_OK || (uint8_t)responseAPDU[responseLength-2] != 0x61) {
-        res = CloseLogicalChannel((taf_sim_Id_t)slot, channel_id);
-        LE_INFO("WriteFPLMNList: CloseLogicalChannel channel_id: %d res: %d", channel_id, res);
-        return LE_FAULT;
-    }
-    LE_DEBUG("WriteFPLMNList: After selectFPLMNApdu channel id: %d and channel_id: %d", channel, channel_id);
-    LE_INFO("selectFPLMNApdu sw1: %d, sw2: %d", (uint8_t)responseAPDU[responseLength-2], (uint8_t)responseAPDU[responseLength-1]);
+    if (OpenLogicalChannel(simId, TAF_SIM_APPTYPE_USIM, &channel) != LE_OK) return LE_FAULT;
 
-    taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
-    if(ListReference == NULL) {
-        res = CloseLogicalChannel((taf_sim_Id_t)slot, channel_id);
-        LE_INFO("WriteFPLMNList: CloseLogicalChannel channel_id: %d res: %d", channel_id, res);
+    uint8_t fileId[] = { 0x6F, 0x7B };
+    uint16_t fileSize = 0;
+
+    if (SelectFileAndGetFCP(simId, channel, fileId, &fileSize) != LE_OK) {
+        LE_ERROR("WriteFPLMNList: Select Failed");
+        CloseLogicalChannel(simId, channel);
         return LE_FAULT;
     }
 
-    std::vector<uint8_t> writeFPLMNListApdu = {0x00, 0xD6, 0x00, 0x00, 0x00};
+    if (fileSize == 0) {
+        LE_WARN("WriteFPLMNList: Unknown fileSize, defaulting to 0 behavior");
+    }
 
-    auto nodeLink=le_dls_Peek(&(ListReference->link));
+    uint32_t listCount = 0;
+    for (le_dls_Link_t* l = le_dls_Peek(&listPtr->list); l != NULL; l = le_dls_PeekNext(&listPtr->list, l)) {
+        ++listCount;
+    }
 
-    while (nodeLink != NULL) {
-        FPLMNNode_t* node=CONTAINER_OF(nodeLink, FPLMNNode_t, link);
-        LE_INFO("WriteFPLMNList: node->mcc:%s, node->mnc:%s", node->mcc, node->mnc);
+    uint32_t maxRecords = (fileSize > 0) ? (fileSize / 3) : listCount;
+    uint32_t recordsToWrite = (listCount < maxRecords) ? listCount : maxRecords;
 
-        //1st byte:mcc[1] mcc[0]
-        //2th byte:mnc[2] mcc[2]
-        //3th byte:mnc[1] mnc[0]
-        //mcc:246 mnc:81 = 42 F6 18
-        //mcc:65 mnc:43 = 60 f5 34
-        //e.g. mcc:246 mnc:81 = 42 F6 18. Here mcc[0] = 2, mcc[1] = 4, mcc[2] = 6 and mnc[0] = 8, mnc[1] = 1
-        //e.g. mcc:65 mnc:43 = 40 65 91. Here mcc[0] = 0, mcc[1] = 6, mcc[2] = 5 and mnc[0] = 4, mnc[1] = 3
+    LE_INFO("WriteFPLMNList: listCount=%u fileSize=%u maxRecords=%u toWrite=%u",
+            listCount, fileSize, maxRecords, recordsToWrite);
 
-        int mccInt = atoi(node->mcc);
-        int mncInt = atoi(node->mnc);
-        uint8_t mcc0 = (int) mccInt/100;
-        uint8_t mcc1 = (int) (mccInt%100)/10;
-        uint8_t mcc2 = (int) mccInt%10;
-        uint8_t mnc0, mnc1, mnc2;
-        if (mncInt > 99) {
-            mnc0 = (int) mncInt/100;
-            mnc1 = (int) (mncInt%100)/10;
-            mnc2 = (int) mncInt%10;
-        } else {
-            mnc0 = (int) mncInt/10;
-            mnc1 = (int) mncInt%10;
-            mnc2 = 0x0F;
+    std::vector<uint8_t> data;
+    data.reserve(fileSize > 0 ? fileSize : (3 * recordsToWrite));
+
+    uint32_t writtenRecords = 0;
+    for (le_dls_Link_t* nodeLink = le_dls_Peek(&listPtr->list);
+         nodeLink != NULL && writtenRecords < recordsToWrite;
+         nodeLink = le_dls_PeekNext(&listPtr->list, nodeLink))
+    {
+        FPLMNNode_t* node = CONTAINER_OF(nodeLink, FPLMNNode_t, link);
+
+        uint8_t encoded[3];
+        EncodePlmnBytes(node->mcc, node->mnc, encoded);
+
+        data.push_back(encoded[0]);
+        data.push_back(encoded[1]);
+        data.push_back(encoded[2]);
+
+        ++writtenRecords;
+    }
+
+    if (fileSize > 0)
+    {
+        if (data.size() < fileSize) {
+            data.resize(fileSize, 0xFF);
+        } else if (data.size() > fileSize) {
+            data.resize(fileSize);
         }
-
-        LE_DEBUG("WriteFPLMNList: mcc0:%d, mcc1:%d, mcc2:%d and mnc0:%d, mnc1:%d, mnc2:%d", (int) mcc0, (int) mcc1,
-                (int) mcc2, (int) mnc0, (int) mnc1, (int) mnc2);
-
-        writeFPLMNListApdu.emplace_back(mcc1*16+mcc0);
-        writeFPLMNListApdu.emplace_back(mnc2*16+mcc2);
-        writeFPLMNListApdu.emplace_back(mnc1*16+mnc0);
-
-        nodeLink = le_dls_PeekNext(&(ListReference->link), nodeLink);
     }
-    uint8_t sizeOfwriteFPLMNListApdu = writeFPLMNListApdu.size();
-    LE_INFO("WriteFPLMNList: Total no of data(p3): %d", sizeOfwriteFPLMNListApdu);
-    writeFPLMNListApdu.at(4) = sizeOfwriteFPLMNListApdu - 5;
-    writeFPLMNListApdu[0] = channel_id;
-    res = SendApduOnChannel((taf_sim_Id_t)slot, channel_id, writeFPLMNListApdu.data(), sizeOfwriteFPLMNListApdu, responseAPDU, &responseLength);
-    if(res != LE_OK || (uint8_t)responseAPDU[responseLength-2] != 0x90 || (uint8_t)responseAPDU[responseLength-1] != 0x00) {
-        res = CloseLogicalChannel((taf_sim_Id_t)slot, channel_id);
-        LE_INFO("WriteFPLMNList: CloseLogicalChannel channel_id: %d res: %d", channel_id, res);
+
+    if (data.empty() || data.size() > 255)
+    {
+        LE_ERROR("WriteFPLMNList: Data size %zu invalid for Short APDU (Max 255)", data.size());
+        CloseLogicalChannel(simId, channel);
         return LE_FAULT;
     }
 
-    res = CloseLogicalChannel((taf_sim_Id_t)slot, channel_id);
-    LE_INFO("WriteFPLMNList: CloseLogicalChannel channel_id: %d res: %d", channel_id, res);
-    if(res != LE_OK) {
+    std::vector<uint8_t> writeApdu;
+    writeApdu.reserve(5 + data.size());
+    writeApdu.push_back(channel);
+    writeApdu.push_back(0xD6);
+    writeApdu.push_back(0x00);
+    writeApdu.push_back(0x00);
+    writeApdu.push_back((uint8_t)data.size());
+    writeApdu.insert(writeApdu.end(), data.begin(), data.end());
+
+    uint8_t respBuf[TAF_SIM_RESPONSE_MAX_BYTES];
+    size_t respLen = sizeof(respBuf);
+
+    le_result_t res = SendApduOnChannel(simId, channel, writeApdu.data(), writeApdu.size(), respBuf, &respLen);
+    if (res != LE_OK || respLen < 2) {
+        CloseLogicalChannel(simId, channel);
         return LE_FAULT;
     }
 
-    return LE_OK;
+    uint8_t sw1 = respBuf[respLen - 2];
+    uint8_t sw2 = respBuf[respLen - 1];
+    CloseLogicalChannel(simId, channel);
+
+    if (sw1 == 0x90 && sw2 == 0x00) {
+        return LE_OK;
+    } else {
+        LE_ERROR("WriteFPLMNList: Write Failed SW=%02X%02X", sw1, sw2);
+        return LE_FAULT;
+    }
 }
 
 le_result_t taf_sim::getSlotCount(int *count) {

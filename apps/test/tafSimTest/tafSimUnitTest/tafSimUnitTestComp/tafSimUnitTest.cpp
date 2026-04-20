@@ -176,8 +176,6 @@ void tafSimUnitTest_info
     char            imsi[TAF_SIM_IMSI_BYTES];
     char            phoneNumber[TAF_SIM_PHONE_NUM_MAX_BYTES];
     char            operatorName[50];
-    char            mcc[4];
-    char            mnc[4];
 
     int simCount = 0;
 
@@ -197,8 +195,6 @@ void tafSimUnitTest_info
         memset(imsi, 0, TAF_SIM_IMSI_BYTES);
         memset(phoneNumber, 0, TAF_SIM_PHONE_NUM_MAX_BYTES);
         memset(operatorName, 0, 50);
-        memset(mcc, 0, 4);
-        memset(mnc, 0, 4);
 
         LE_INFO("SimId %d", simId);
 
@@ -236,12 +232,6 @@ void tafSimUnitTest_info
         res = taf_sim_GetHomeNetworkOperator(simId, operatorName, sizeof(operatorName));
         LE_TEST_OK(res == LE_OK, "taf_sim_GetHomeNetworkOperator");
         printf("SIM Card Network Operator name: '%s'\n", operatorName);
-
-        res = taf_sim_GetHomeNetworkMccMnc(simId, mcc, sizeof(mcc), mnc, sizeof(mnc));
-        LE_TEST_OK(res == LE_OK, "taf_sim_GetHomeNetworkMccMnc");
-        printf("SIM Card MCC: '%s'\n", mcc);
-        printf("SIM Card MNC: '%s'\n", mnc);
-        printf("===============================================\n");
     }
     taf_sim_SelectCard(simidOrg);
 }
@@ -464,63 +454,91 @@ void tafSimUnitTest_swapToEmergencyAndBack
     LE_INFO("SwapToRegular is success");
 }
 
-void tafSimUnitTest_fplmnList_test(taf_sim_Id_t simId, const char* mccInput, const char* mncInput) {
+void tafSimUnitTest_fplmnList_test(taf_sim_Id_t simId) {
+
     le_result_t res;
-    char            mcc[4];
-    char            mnc[4];
-
-    memset(mcc, 0, 4);
-    memset(mnc, 0, 4);
-
-    taf_sim_FPLMNListRef_t FPLMNList = taf_sim_ReadFPLMNList(simId);
-    LE_TEST_OK(FPLMNList!=NULL, "tafSimUnitTest_ReadFPLMNList_test");
-
-    res = taf_sim_GetFirstFPLMNOperator(FPLMNList, mcc, sizeof(mcc), mnc, sizeof(mnc));
-    if (res == LE_OK) {
-        LE_INFO("FPLMN list #1: mcc %s, mnc %s\n", mcc, mnc);
-    }
-    LE_TEST_OK(LE_OK == res, "tafSimUnitTest_GetFirstFPLMNOperator_test");
-    memset(mcc, 0, 4);
-    memset(mnc, 0, 4);
-    res = taf_sim_GetNextFPLMNOperator(FPLMNList, mcc, sizeof(mcc), mnc, sizeof(mnc));
-    if (res == LE_OK) {
-        LE_INFO("FPLMN list #2: mcc %s, mnc %s\n", mcc, mnc);
-    }
-    LE_TEST_OK(LE_OK == res, "tafSimUnitTest_GetNextFPLMNOperator_test");
-    memset(mcc, 0, 4);
-    memset(mnc, 0, 4);
-    res = taf_sim_GetNextFPLMNOperator(FPLMNList, mcc, sizeof(mcc), mnc, sizeof(mnc));
-    if (res == LE_OK) {
-        LE_INFO("FPLMN list #3: mcc %s, mnc %s\n", mcc, mnc);
-    }
-    LE_TEST_OK(LE_OK == res, "tafSimUnitTest_GetNextFPLMNOperator_test");
-    memset(mcc, 0, 4);
-    memset(mnc, 0, 4);
-    res = taf_sim_GetNextFPLMNOperator(FPLMNList, mcc, sizeof(mcc), mnc, sizeof(mnc));
-    if (res == LE_OK) {
-        LE_INFO("FPLMN list #4: mcc %s, mnc %s\n", mcc, mnc);
-    }
-
-    LE_INFO("tafSimUnitTest_readFplmnList_test completed. Result: %s\n", (FPLMNList!=NULL) ? "PASS":"FAILED");
-    LE_TEST_OK(FPLMNList!=NULL, "tafSimUnitTest_readFplmnList_test");
-
+    static char Mcc[4]="208";
+    static char Mnc[4]="10";
     taf_sim_FPLMNListRef_t fplmnList = taf_sim_CreateFPLMNList();
     LE_TEST_OK(fplmnList!=NULL, "tafSimUnitTest_createFplmnList_test");
     LE_INFO("taf_sim_CreateFPLMNList end. FplmnListRef: %p\n", fplmnList);
     LE_INFO("createFplmnList_test completed. Result: %s\n", (fplmnList!=NULL) ? "PASS":"FAILED");
-    LE_TEST_OK(fplmnList!=NULL, "tafSimUnitTest_createFplmnList_test");
 
-    res = taf_sim_AddFPLMNOperator(fplmnList, mccInput, mncInput);
+    res = taf_sim_AddFPLMNOperator(fplmnList,"208", "10");
     LE_TEST_OK(res == LE_OK, "tafSimUnitTest_addFplmnOperator_test");
     LE_INFO("tafSimUnitTest_addFplmnOperator completed. Result: %s\n", res == LE_OK ? "PASS":"FAILED");
+
+    res = taf_sim_AddFPLMNOperator(fplmnList,"311", "70");
+    LE_TEST_OK(res == LE_OK, "tafSimUnitTest_addFplmnOperator_test");
+    LE_INFO("tafSimUnitTest_addFplmnOperator completed. Result: %s\n", res == LE_OK ? "PASS":"FAILED");
+
+    res = taf_sim_AddFPLMNOperator(fplmnList, "289", "88");
+    LE_TEST_OK(res == LE_OK, "tafSimUnitTest_addFplmnOperator_test");
+    LE_INFO("tafSimUnitTest_addFplmnOperator completed. Result: %s\n", res == LE_OK ? "PASS":"FAILED");
+
+    res = taf_sim_AddFPLMNOperator(fplmnList,"289", "68");
+    LE_TEST_OK(res == LE_OK, "tafSimUnitTest_addFplmnOperator_test");
+    LE_INFO("tafSimUnitTest_addFplmnOperator completed. Result: %s\n", res == LE_OK ? "PASS":"FAILED");
+
+    res = taf_sim_AddFPLMNOperator(fplmnList,"289", "67");
+    LE_TEST_OK(res == LE_OK, "tafSimUnitTest_addFplmnOperator_test");
+    LE_INFO("tafSimUnitTest_addFplmnOperator completed. Result: %s\n", res == LE_OK ? "PASS":"FAILED");
+
+    res =  taf_sim_AddFPLMNOperator(NULL, "289", "67");
+    LE_TEST_OK(LE_FAULT == res, "AddFPLMN with NULL handle returns LE_FAULT");
+
+    res = taf_sim_AddFPLMNOperator(fplmnList,"", "67");
+    LE_TEST_OK(LE_BAD_PARAMETER == res, "AddFPLMN with empty MCC returns LE_BAD_PARAMETER");
 
     res = taf_sim_WriteFPLMNList(simId, fplmnList);
     LE_TEST_OK(res == LE_OK, "tafSimUnitTest_writeFplmnList_test");
     LE_INFO("tafSimUnitTest_writeFplmnList completed. Result: %s\n", res == LE_OK ? "PASS":"FAILED");
 
+    res = taf_sim_WriteFPLMNList(simId, NULL);
+    LE_TEST_OK(LE_FAULT == res, "WriteFPLMNList with NULL handle returns LE_FAULT");
+
+    fplmnList = taf_sim_ReadFPLMNList(simId);
+    LE_TEST_OK(fplmnList!=NULL, "tafSimUnitTest_ReadFPLMNList_test");
+
+    memset(Mcc, 0, sizeof(Mcc));
+    memset(Mnc, 0, sizeof(Mnc));
+    res = taf_sim_GetFirstFPLMNOperator(fplmnList, Mcc, sizeof(Mcc), Mnc, sizeof(Mnc));
+    if (res == LE_OK) {
+        LE_INFO("FPLMN list #1:Mcc %s, Mnc %s\n",Mcc, Mnc);
+    }
+    LE_TEST_OK(LE_OK == res, "tafSimUnitTest_GetFirstFPLMNOperator_test");
+
+    memset(Mcc, 0, sizeof(Mcc));
+    memset(Mnc, 0, sizeof(Mnc));
+    res = taf_sim_GetNextFPLMNOperator(fplmnList, Mcc, sizeof(Mcc), Mnc, sizeof(Mnc));
+    if (res == LE_OK) {
+        LE_INFO("FPLMN list #2:Mcc %s, Mnc %s\n",Mcc, Mnc);
+    }
+    LE_TEST_OK(LE_OK == res, "tafSimUnitTest_GetNextFPLMNOperator_test");
+
+    memset(Mcc, 0, sizeof(Mcc));
+    memset(Mnc, 0, sizeof(Mnc));
+
+    res = taf_sim_GetNextFPLMNOperator(fplmnList,Mcc, sizeof(Mcc), Mnc, sizeof(Mnc));
+    if (res == LE_OK) {
+        LE_INFO("FPLMN list #3:Mcc %s, Mnc %s\n",Mcc, Mnc);
+    }
+    LE_TEST_OK(LE_OK == res, "tafSimUnitTest_GetNextFPLMNOperator_test");
+
+    memset(Mcc, 0, sizeof(Mcc));
+    memset(Mnc, 0, sizeof(Mnc));
+
+    res = taf_sim_GetNextFPLMNOperator(fplmnList,Mcc, sizeof(Mcc), Mnc, sizeof(Mnc));
+    if (res == LE_OK) {
+        LE_INFO("FPLMN list #4:Mcc %s, Mnc %s\n",Mcc, Mnc);
+    }
+
     taf_sim_DeleteFPLMNList(fplmnList);
     LE_TEST_OK(true, "tafSimUnitTest_deleteFplmnList_test");
     LE_INFO("tafSimUnitTest_deleteFplmnList_test end\n");
+
+    fplmnList = taf_sim_ReadFPLMNList(simId);
+    LE_TEST_OK(fplmnList==NULL, "tafSimUnitTest_ReadFPLMNList_test is Null after deletion");
 }
 
 static void TestIccidChangeHandler(taf_sim_Id_t simId, const char* Iccid, void* contextPtr) {
@@ -603,28 +621,9 @@ COMPONENT_INIT
     const char* pinPtr = "1234";
     const char* newPinPtr = "1234";
     const char* pukPtr = "12345678";
-    const char* mcc = "000";
-    const char* mnc = "00";
 
     int NumberOfArgs = le_arg_NumArgs();
-    LE_INFO("Total NumberOfArgs: %d", NumberOfArgs);
-    if (NumberOfArgs > 5) {
-        slotIdPtr = le_arg_GetArg(0);
-        pinPtr = le_arg_GetArg(1);
-        newPinPtr = le_arg_GetArg(2);
-        pukPtr = le_arg_GetArg(3);
-        mcc = le_arg_GetArg(4);
-        mnc = le_arg_GetArg(5);
-        if (NULL == slotIdPtr)
-        {
-            LE_ERROR("slotId input is NULL, input correct slot id. Check usages for details.");
-            printf("\n./tafSimUnitTest <slot1/slot2> <PIN> <NewPIN> <PUK> <FPLMN MCC> <FPLMN MNC>\n");
-        } else {
-            simId = get_slot_id(slotIdPtr);
-            LE_INFO("Input slotId: %s, pin: %s, pin: %s, puk: %s", slotIdPtr, pinPtr, newPinPtr, pukPtr);
-        }
-    }
-    else if (NumberOfArgs > 3) {
+    if (NumberOfArgs > 3) {
         slotIdPtr = le_arg_GetArg(0);
         pinPtr = le_arg_GetArg(1);
         newPinPtr = le_arg_GetArg(2);
@@ -632,7 +631,7 @@ COMPONENT_INIT
         if (NULL == slotIdPtr)
         {
             LE_ERROR("slotId input is NULL, input correct slot id. Check usages for details.");
-            printf("\n./tafSimUnitTest <slot1/slot2> <PIN> <NewPIN> <PUK> <FPLMN MCC> <FPLMN MNC>\n");
+            printf("\n./tafSimUnitTest <slot1/slot2> <PIN> <NewPIN> <PUK>\n");
         } else {
             simId = get_slot_id(slotIdPtr);
             LE_INFO("Input slotId: %s, pin: %s, pin: %s, puk: %s", slotIdPtr, pinPtr, newPinPtr, pukPtr);
@@ -644,7 +643,7 @@ COMPONENT_INIT
         if (NULL == slotIdPtr)
         {
             LE_ERROR("slotId input is NULL, input correct slot id. Check usages for details.");
-            printf("\n./tafSimUnitTest <slot1/slot2> <PIN> <NewPIN> <PUK> <FPLMN MCC> <FPLMN MNC>\n");
+            printf("\n./tafSimUnitTest <slot1/slot2> <PIN> <NewPIN> <PUK>\n");
         } else {
             simId = get_slot_id(slotIdPtr);
             LE_INFO("Input slotId: %s, pin: %s, pin: %s", slotIdPtr, pinPtr, newPinPtr);
@@ -655,7 +654,7 @@ COMPONENT_INIT
         if (NULL == slotIdPtr)
         {
             LE_ERROR("New PIN input is NULL, input correct New pin. Check usages for details.");
-            printf("\n./tafSimUnitTest <slot1/slot2> <PIN> <NewPIN> <PUK> <FPLMN MCC> <FPLMN MNC>\n");
+            printf("\n./tafSimUnitTest <slot1/slot2> <PIN> <NewPIN> <PUK> \n");
         } else {
             simId = get_slot_id(slotIdPtr);
             LE_INFO("Input slotId: %s, pin: %s", slotIdPtr, pinPtr);
@@ -665,7 +664,7 @@ COMPONENT_INIT
         if (NULL == slotIdPtr)
         {
             LE_ERROR("slotId input is NULL, input correct slot id. Check usages for details.");
-            printf("\n./tafSimUnitTest <slot1/slot2> <PIN> <NewPIN> <PUK> <FPLMN MCC> <FPLMN MNC>\n");
+            printf("\n./tafSimUnitTest <slot1/slot2> <PIN> <NewPIN> <PUK> \n");
             exit(EXIT_SUCCESS);
         } else {
             simId = get_slot_id(slotIdPtr);
@@ -673,30 +672,9 @@ COMPONENT_INIT
         }
     } else {
         LE_ERROR("Invalid input, input correct slotId, PIN, New PIN, PUK etc. Check usages for details.");
-        printf("\n./tafSimUnitTest <slot1/slot2> <PIN> <NewPIN> <PUK> <FPLMN MCC> <FPLMN MNC>\n");
+        printf("\n./tafSimUnitTest <slot1/slot2> <PIN> <NewPIN> <PUK> \n");
         exit(EXIT_SUCCESS);
     }
-    if (NULL == mcc) {
-        LE_ERROR("Invalid input of MCC. Check usages for details.");
-        printf("\n./tafSimUnitTest <slot1/slot2> <PIN> <NewPIN> <PUK> <FPLMN MCC> <FPLMN MNC>\n");
-        exit(EXIT_FAILURE);
-    }
-    if (NULL == mnc) {
-        LE_ERROR("Invalid input of MNC. Check usages for details.");
-        printf("\n./tafSimUnitTest <slot1/slot2> <PIN> <NewPIN> <PUK> <FPLMN MCC> <FPLMN MNC>\n");
-        exit(EXIT_FAILURE);
-    }
-    if(mcc && mnc)
-    {
-       int mccInt = atoi(mcc);
-       int mncInt = atoi(mnc);
-       if (mccInt < 1 || mccInt > 999 || mncInt < 1 || mncInt > 999) {
-            LE_INFO("No or wrong mcc mnc input! mcc: %s mnc: %s, so continue with default mcc-mnc (634-98).", mcc, mnc);
-            mcc = "634";
-            mnc = "98";
-        }
-    }
-
     LE_INFO("Start tafSimIntgTest app.");
 
     TestSemaphoreRef = le_sem_Create("SimSem", 0);
@@ -718,7 +696,7 @@ COMPONENT_INIT
 
         tafSimUnitTest_selection(simId);
 
-        tafSimUnitTest_fplmnList_test(simId, mcc, mnc);
+        tafSimUnitTest_fplmnList_test(simId);
 
         tafSimUnitTest_enterPin(simId,lockType,pinPtr);
 

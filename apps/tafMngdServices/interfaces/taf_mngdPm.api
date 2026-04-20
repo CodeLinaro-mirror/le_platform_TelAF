@@ -83,7 +83,7 @@
     {
         le_result_t res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON,
                 RestartCallback, NULL);
-        if(result == LE_OK) {
+        if(res == LE_OK) {
             LE_INFO("Forcefull restart request sent successfully");
         }
     }
@@ -152,7 +152,7 @@
     }
     void StayAwake()
     {
-        le_result_t result = = taf_mngdPm_StayAwake(ref);
+        le_result_t result = taf_mngdPm_StayAwake(ref);
         if(result == LE_OK)
             LE_INFO("taf_mngdPm_StayAwake successfully acquire a wake source to keep the system awake");
     }
@@ -166,7 +166,7 @@
  * @verbatim
     void Relax()
     {
-        le_result_t result = = taf_mngdPm_Relax(ref);
+        le_result_t result = taf_mngdPm_Relax(ref);
         if(result == LE_OK)
             LE_INFO("taf_mngdPm_Relax successfully released a acquired wake lock");
     }
@@ -186,7 +186,7 @@
 
     void WakeupVehicleReqAsync()
     {
-        le_result_t result = = taf_mngdPm_WakeupVehicleReqAsync(VEHICLE_WAKEUP_REASON_DEFAULT,
+        le_result_t result = taf_mngdPm_WakeupVehicleReqAsync(VEHICLE_WAKEUP_REASON_DEFAULT,
                  wakeupVehicleCB,NULL);
         if(result == LE_OK) {
             LE_INFO("WakeupVehicleReqAsync request sent successfully");
@@ -194,7 +194,34 @@
     }
    @endverbatim
  *
- *<HR>
+ * @section taf_mngdPm_callflow Typical application call flow
+ *
+ * **Forced system shutdown**
+ *
+ * @rstblock
+ *   .. image:: /rst/flow_diagrams/mpms_forced_shutdown.jpeg
+ * @endrst
+ *
+ * The forced system shutdown is triggered from the OEM application depending on MPMS.
+ * MPMS coordinates with PM VHAL to achieve the TCU level system shutdown.
+ *
+ * #1 -- Client requests forceful TCU shutdown. MPMS requests VHAL to confirm whether the shutdown can be accepted or not.
+ *
+ * #2 -- VHAL will respond if it is ready or not, or if the request is invalid. In a successful forceful shutdown scenario, VHAL will respond in the callback with READY.
+ *
+ * #3 -- MPMS responds to the client on the confirmation result via the asynchronous callback.
+ *
+ * #4 -- MPMS notifies PM VHAL to prepare for shutdown which does not require acknowledgement.
+ *
+ * #5 -- MPMS notifies the OEM client application to prepare for shutdown which requires acknowledgement.
+ *
+ * #6 -- OEM client application acknowledges that it is prepared to shut down.
+ *
+ * #7 -- MPMS notifies VHAL for NAD shutdown execution after detecting all notifications are ACKed and VHAL will respond via a callback.
+ *
+ * #8 -- MPMS executes the NAD Linux shutdown.
+ *
+ * <HR>
  *
  */
 //--------------------------------------------------------------------------------------------------
@@ -929,6 +956,7 @@ FUNCTION le_result_t DeleteWakeupSource
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the node power state.
+ *
  * @instaging
  */
 //--------------------------------------------------------------------------------------------------

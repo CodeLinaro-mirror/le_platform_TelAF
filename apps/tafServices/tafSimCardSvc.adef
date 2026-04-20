@@ -44,11 +44,6 @@ processes:
         faultAction: restart
 }
 
-bindings:
-{
-    tafSimCardSvc.tafSimCardSvc.taf_pm -> tafPMSvc.taf_pm
-}
-
 extern:
 {
         tafSimCardSvc.tafSimCardSvc.taf_sim

@@ -1,0 +1,247 @@
+{
+    "unicast" : "192.168.225.1",
+    "device" : "bridge0",
+    "netmask" : "255.255.255.0",
+    "logging" :
+    {
+        "level" : "debug",
+        "console" : "true",
+        "file" : { "enable" : "true", "path" : "/data/vsomeip_etsservice.log" },
+        "version" : { "enable" : "false", "interval" : "10" },
+        "dlt" : "false"
+    },
+    "applications" :
+    [
+        {
+            "name" : "ets_default_service",
+            "id" : "0x5444"
+        },
+        {
+            "name" : "ets_default_client",
+            "id" : "0x5445"
+        },
+        {
+            "name" : "ets_secondary_client",
+            "id" : "0x5446"
+        },
+        {
+            "name" : "TestService1Context1",
+            "id" : "0x5447"
+        },
+        {
+            "name" : "TestService1Context2",
+            "id" : "0x5448"
+        },
+        {
+            "name" : "TestService2Context1",
+            "id" : "0x5449"
+        }
+    ],
+    "services":
+    [
+        {
+            "service": "257",
+            "instance": "1",
+            "unreliable": "30515",
+            "reliable": "30517",
+            "unicast": "192.168.225.1",
+            "someip-tp": {
+                "service-to-client": ["77", "112", "113", "114", "32780", "79"]
+            },
+            "multicast" :
+            {
+                "address" : "224.0.0.1",
+                "port" : "32345"
+            },
+            "events" :
+            [
+                {
+                    "event" : "32769",
+                    "is_field" : "false",
+                    "is_reliable" : "false"
+                },
+                {
+                    "event" : "32770",
+                    "is_field" : "false",
+                    "is_reliable" : "false"
+                },
+                {
+                    "event" : "32772",
+                    "is_field" : "false",
+                    "is_reliable" : "false"
+                },
+                {
+                    "event" : "32779",
+                    "is_field" : "false",
+                    "is_reliable" : "false"
+                },
+                {
+                    "event" : "32780",
+                    "is_field" : "false",
+                    "is_reliable" : "false"
+                },
+                {
+                    "event" : "32781",
+                    "is_field" : "false",
+                    "is_reliable" : "false",
+                    "cycle" : "1000",
+                    "change_resets_cycle" : "true"
+                },
+                {
+                    "event" : "32782",
+                    "is_field" : "false",
+                    "is_reliable" : "false",
+                    "update_on_change" : "true"
+                },
+                {
+                    "event" : "32774",
+                    "is_field" : "true",
+                    "is_reliable" : "false"
+                },
+                {
+                    "event" : "32773",
+                    "is_field" : "true",
+                    "is_reliable" : "false"
+                },
+                {
+                    "event" : "32775",
+                    "is_field" : "true",
+                    "is_reliable" : "false"
+                },
+                {
+                    "event" : "32776",
+                    "is_field" : "true",
+                    "is_reliable" : "true"
+                },
+                {
+                    "event" : "32771",
+                    "is_field" : "false",
+                    "is_reliable" : "true"
+                }
+            ],
+            "eventgroups" :
+            [
+                {
+                    "eventgroup" : "2",
+                    "events" : [ "32769", "32770", "32772", "32779", "32780", "32774", "32775", "32776", "32771", "32773" ]
+                },
+                {
+                    "eventgroup" : "5",
+                    "events" : [ "32769", "32770", "32772", "32779", "32780", "32774", "32775", "32773" ]
+                },
+                {
+                    "eventgroup" : "6",
+                    "threshold" : "1",
+                    "is_multicast" : "true",
+                    "events" : [ "32779" ]
+                },
+                {
+                    "eventgroup" : "7",
+                    "events" : [ "32781", "32782" ]
+                }
+            ]
+        },
+        {
+            "service": "258",
+            "instance": "244",
+            "unreliable": "30516",
+            "reliable": "30518",
+            "unicast": "192.168.225.24",
+            "multicast" :
+            {
+                "address" : "224.0.0.1",
+                "port" : "32344"
+            },
+            "events" :
+            [
+                {
+                    "event" : "32901",
+                    "is_field" : "false",
+                    "is_reliable" : "false"
+                },
+                {
+                    "event" : "32902",
+                    "is_field" : "false",
+                    "is_reliable" : "false"
+                },
+                {
+                    "event" : "32903",
+                    "is_field" : "false",
+                    "is_reliable" : "true"
+                }
+            ],
+            "eventgroups" :
+            [
+                {
+                    "eventgroup" : "8",
+                    "events" : [ "32901" ]
+                },
+                {
+                    "eventgroup" : "9",
+                    "threshold" : "1",
+                    "is_multicast" : "true",
+                    "events" : [ "32902" ]
+                },
+                {
+                    "eventgroup" : "10",
+                    "events" : [ "32903" ]
+                }
+            ]
+        },
+        {
+            "service": "259",
+            "instance": "1",
+            "unreliable": "30516"
+        },
+        {
+            "service": "259",
+            "instance": "2",
+            "unreliable": "30517"
+        },
+        {
+            "service": "260",
+            "instance": "1",
+            "unreliable": "30516"
+        }
+    ],
+    "e2e" :
+    {
+        "e2e_enabled" : "true",
+        "protected" :
+        [
+            {
+                "service_id" : "257",
+                "event_id" : "11",
+                "profile" : "P04",
+                "variant" : "checker",
+                "crc_offset" : "64",
+                "data_id" : "0x1c"
+            },
+            {
+                "service_id" : "257",
+                "event_id" : "32772",
+                "profile" : "P04",
+                "variant" : "protector",
+                "crc_offset" : "64",
+                "data_id" : "0x1d"
+            }
+        ]
+    },
+    "max-payload-size-unreliable" : "5000",
+    "routing" : "tafSomeipGWSvc",
+    "network" : "tafSomeipGWSvc",
+    "service-discovery" :
+    {
+        "enable" : "true",
+        "multicast" : "224.0.0.1",
+        "port" : "30490",
+        "protocol" : "udp",
+        "initial_delay_min" : "10",
+        "initial_delay_max" : "50",
+        "repetitions_base_delay" : "100",
+        "repetitions_max" : "4",
+        "ttl" : "3",
+        "cyclic_offer_delay" : "1000",
+        "request_response_delay" : "20"
+    }
+}

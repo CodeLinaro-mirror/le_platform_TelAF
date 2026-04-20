@@ -1168,6 +1168,8 @@ void taf_PM::Handle_sig_SIGTERM
     le_event_RemoveHandler(pm.ref_PaEventHandler);
 
     taf_pa_pms_Deinit(&pm.pa);
+
+    exit(EXIT_SUCCESS);
 }
 
 void taf_PM::PaHandler_evt_ServiceAvailable

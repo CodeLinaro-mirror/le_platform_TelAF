@@ -34,7 +34,7 @@ requires:
     api:
     {
         taf_mngdStorSecData.api [optional]
-        taf_pm.api
+        taf_pm.api              [optional]
         le_appInfo.api
     }
 

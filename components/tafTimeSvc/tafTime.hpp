@@ -57,7 +57,7 @@
 
 #define TAF_TIME_RECEIVE_GNSS_TIME_COUNT   5
 #define TAF_TIME_SYNC_TIME_TIMER_INTERVAL (61000)
-#define INIT_SYNC_VALIDI_WITH_MSS_COUNTER  30
+#define TAF_TIME_START_UP_RETRY_COUNTER   100
 //-------------------------------------------------------------------------------------------------
 /**
  * Macro definition for network time.
@@ -570,6 +570,7 @@ struct ValidityParams
                 le_timer_Ref_t syncSecStorageRef = NULL;
                 le_timer_Ref_t syncTimeTimerRef = NULL;
                 le_timer_Ref_t sysTimeUdTimerRef = NULL;
+                le_timer_Ref_t StartupRetryTimerRef = NULL;
 
 
                 le_mem_PoolRef_t SetTimeStatusPool = NULL;

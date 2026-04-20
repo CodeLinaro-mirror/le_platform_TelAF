@@ -13,9 +13,9 @@ using namespace tafsvc;
  * Get revisions.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_FAULT -- Failed.
- *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Version plug-in does not define the format callback.
+ *  - LE_OK -- Revision string was generated successfully, or a fallback revision such as 0.0.0 /
+ *             0.0 / 0 was appended when major, minor, or patch retrieval failed.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_verInfo::GetRevisions
@@ -93,8 +93,8 @@ le_result_t taf_verInfo::GetRevisions
  * Convert string to hash.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_OK -- Succeeded.
+ *  - LE_OK -- Conversion completed. Parsing stops at the first non-hex character and the decoded
+ *             byte count is stored in hashSizePtr.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_verInfo::StringToHash
@@ -142,8 +142,9 @@ le_result_t taf_verInfo::StringToHash
  * Get boot bank.
  *
  * @return
- *  - LE_FAULT -- Failed.
- *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Failed to execute/read the boot-slot command, or the returned slot is not mapped
+ *             to bank A or bank B.
+ *  - LE_OK -- Boot bank was determined successfully.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_verInfo::GetBootBank
@@ -190,9 +191,9 @@ le_result_t taf_verInfo::GetBootBank
  * Get hash.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_FAULT -- Failed.
- *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Hash plug-in getHash callback returned an error.
+ *  - LE_OK -- Hash metadata was queried successfully and the hash was obtained, or no getHash
+ *             callback is provided by the plug-in.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_verInfo::GetHash
@@ -263,7 +264,10 @@ le_result_t taf_verInfo::GetHash
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get instance.
+ * Gets the singleton instance.
+ *
+ * @return
+ *  - Reference to the singleton instance.
  */
 //--------------------------------------------------------------------------------------------------
 taf_verInfo& taf_verInfo::GetInstance

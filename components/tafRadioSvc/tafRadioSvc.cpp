@@ -311,11 +311,12 @@ int32_t taf_radio_GetPlatformSpecificRegistrationErrorCode
  * Adds a preferred operator.
  *
  * @return
- *  - LE_NOT_IMPLEMENTED -- Not implemented.
- *  - LE_TIMEOUT -- Timeout.
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters (null pointer or invalid MCC/MNC string).
+ *  - LE_OUT_OF_RANGE -- MCC or MNC value out of range [0, 999].
+ *  - LE_FAULT -- Failed.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_AddPreferredOperator
@@ -367,12 +368,13 @@ le_result_t taf_radio_AddPreferredOperator
  * Removes a preferred operator.
  *
  * @return
- *  - LE_NOT_IMPLEMENTED -- Not implemented.
- *  - LE_NOT_FOUND -- Not found.
- *  - LE_TIMEOUT -- Timeout.
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters (null pointer or invalid MCC/MNC string).
+ *  - LE_OUT_OF_RANGE -- MCC or MNC value out of range [0, 999].
+ *  - LE_NOT_FOUND -- Operator not found in the preferred network list.
+ *  - LE_FAULT -- Failed.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_RemovePreferredOperator
@@ -2476,11 +2478,9 @@ le_result_t taf_radio_GetCellularNetworkMccMnc
  * Gets the the namework name of a scanned PLMN network
  *
  * @return
- *  - LE_NOT_FOUND -- Not found.
- *  - LE_OUT_OF_RANGE -- Out of range.
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters (null pointer).
+ *  - LE_NOT_FOUND -- Scan information reference not found.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCellularNetworkName
@@ -4327,7 +4327,7 @@ le_result_t taf_radio_GetRatSvcStatus
  * Adds handler for the network status changes.
  *
  * @return
- *  - af_radio_NetStatusChangeHandlerRef_t handler reference for the network status changes.
+ *  - taf_radio_NetStatusChangeHandlerRef_t handler reference for the network status changes.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_NetStatusChangeHandlerRef_t taf_radio_AddNetStatusChangeHandler
@@ -5648,9 +5648,10 @@ void taf_radio_RemoveConnectionStatusHandler
  * Gets the reference of connection status.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters (null pointer).
+ *  - LE_FAULT -- Failed to get data available system status.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetConnStatus
@@ -5693,9 +5694,8 @@ le_result_t taf_radio_GetConnStatus
  *  Deletes the connection status.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters (null reference or reference not found in map).
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeleteConnStatus
@@ -5731,9 +5731,8 @@ le_result_t taf_radio_DeleteConnStatus
  *  Gets the ENDC connection status.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters (reference not found in map or null statusPtr).
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetEndcConnectionStatus

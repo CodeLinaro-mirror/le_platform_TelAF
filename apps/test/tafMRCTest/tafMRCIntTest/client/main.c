@@ -12,6 +12,7 @@
 #define CMD_END     "end"
 #define CMD_SYNC    "sync"
 #define CMD_EFS     "efs"
+#define CMD_TOGGLE  "toggle"
 
 #define SYNC_INIT     "init"
 #define SYNC_FORCED   "forced"
@@ -20,6 +21,10 @@
 
 #define EFS_STATUS  "status"
 #define EFS_PERIOD  "period"
+
+#define TOGGLE_REQUESTED "requested"
+#define TOGGLE_SUCCEEDED "succeeded"
+#define TOGGLE_FAILED    "failed"
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -52,7 +57,7 @@ static void PrintHelpMenu
         "    tafMRCIntTest - MRC Service Integration Test\n"
         "\n"
         "SYNOPSIS:\n"
-        "    app runProc tafMRCIntTest -- <command> [options]\n"
+        "    app runProc tafMRCIntTest --exe=client -- <command> [options]\n"
         "\n"
         "DESCRIPTION:\n"
         "    This application provides a command-line interface to test the MRC service.\n"
@@ -80,6 +85,10 @@ static void PrintHelpMenu
         "        period <seconds>\n"
         "            Sets the time interval for the EFS backup period.\n"
         "            <seconds>: Time in seconds for the backup period\n"
+        "\n"
+        "    toggle <status>\n"
+        "        Sets the GPIO toggle status.\n"
+        "        <status>: 'requested', 'succeeded', or 'failed'\n"
     );
 
     exit(EXIT_SUCCESS);
@@ -131,8 +140,8 @@ static void HandleStartCommand
     void
 )
 {
-    le_result_t result = taf_mrc_SendOtaStartMsg();
-    LE_TEST_OK(result == LE_OK, "taf_mrc_SendOtaStartMsg - LE_OK");
+    tafMRCIntTest_Start();
+    LE_TEST_INFO("tafMRCIntTest_Start called");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -145,8 +154,8 @@ static void HandleResumeCommand
     void
 )
 {
-    le_result_t result = taf_mrc_SendOtaResumeMsg();
-    LE_TEST_OK(result == LE_OK, "taf_mrc_SendOtaResumeMsg - LE_OK");
+    tafMRCIntTest_Resume();
+    LE_TEST_INFO("tafMRCIntTest_Resume called");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -161,17 +170,16 @@ static void HandleEndCommand
 {
     CheckArgs(2);
     const char* status = GetArg(1);
-    le_result_t result;
 
     if (IsCommand(status, SYNC_SUCCESS))
     {
-        result = taf_mrc_SendOtaEndMsg(TAF_MRC_OTA_OP_STATUS_SUCCESS);
-        LE_TEST_OK(result == LE_OK, "taf_mrc_SendOtaEndMsg - LE_OK");
+        tafMRCIntTest_End(TAFMRCINTTEST_OTA_OP_STATUS_SUCCESS);
+        LE_TEST_INFO("tafMRCIntTest_End(SUCCESS) called");
     }
     else if (IsCommand(status, SYNC_FAILURE))
     {
-        result = taf_mrc_SendOtaEndMsg(TAF_MRC_OTA_OP_STATUS_FAILURE);
-        LE_TEST_OK(result == LE_OK, "taf_mrc_SendOtaEndMsg - LE_OK");
+        tafMRCIntTest_End(TAFMRCINTTEST_OTA_OP_STATUS_FAILURE);
+        LE_TEST_INFO("tafMRCIntTest_End(FAILURE) called");
     }
     else
     {
@@ -189,22 +197,20 @@ static void HandleSyncStatus
     const char* status ///< [IN] Sync status type
 )
 {
-    le_result_t result;
-
     if (IsCommand(status, SYNC_INIT))
     {
-        result = taf_mrc_SendSyncStatusMsg(TAF_MRC_SYNC_STATUS_INIT);
-        LE_TEST_OK(result == LE_OK, "taf_mrc_SendSyncStatusMsg - LE_OK");
+        tafMRCIntTest_Sync(TAFMRCINTTEST_SYNC_STATUS_INIT);
+        LE_TEST_INFO("tafMRCIntTest_Sync(INIT) called");
     }
     else if (IsCommand(status, SYNC_SUCCESS))
     {
-        result = taf_mrc_SendSyncStatusMsg(TAF_MRC_SYNC_STATUS_SUCCESS);
-        LE_TEST_OK(result == LE_OK, "taf_mrc_SendSyncStatusMsg - LE_OK");
+        tafMRCIntTest_Sync(TAFMRCINTTEST_SYNC_STATUS_SUCCESS);
+        LE_TEST_INFO("tafMRCIntTest_Sync(SUCCESS) called");
     }
     else if (IsCommand(status, SYNC_FAILURE))
     {
-        result = taf_mrc_SendSyncStatusMsg(TAF_MRC_SYNC_STATUS_FAILURE);
-        LE_TEST_OK(result == LE_OK, "taf_mrc_SendSyncStatusMsg - LE_OK");
+        tafMRCIntTest_Sync(TAFMRCINTTEST_SYNC_STATUS_FAILURE);
+        LE_TEST_INFO("tafMRCIntTest_Sync(FAILURE) called");
     }
     else
     {
@@ -227,8 +233,8 @@ static void HandleSyncCommand
 
     if (IsCommand(status, SYNC_FORCED))
     {
-        le_result_t result = taf_mrc_SendOtaAbsyncMsg();
-        LE_TEST_OK(result == LE_OK, "taf_mrc_SendOtaAbsyncMsg - LE_OK");
+        tafMRCIntTest_Absync();
+        LE_TEST_INFO("tafMRCIntTest_Absync called");
     }
     else
     {
@@ -246,35 +252,15 @@ static void HandleEfsStatus
     void
 )
 {
-    taf_mrc_MetricsRef_t metrics = NULL;
-    le_result_t result = taf_mrc_MeasureEfsMetrics(&metrics);
-    LE_TEST_OK(result == LE_OK, "taf_mrc_MeasureEfsMetrics - LE_OK");
-
     uint32_t max = 0, min = 0, avg = 0, sd = 0, badblocks = 0;
 
-    result = taf_mrc_GetEfsMaxPECount(metrics, &max);
-    LE_TEST_OK(result == LE_OK, "taf_mrc_GetEfsMaxPECount - LE_OK");
-
-    result = taf_mrc_GetEfsMinPECount(metrics, &min);
-    LE_TEST_OK(result == LE_OK, "taf_mrc_GetEfsMinPECount - LE_OK");
-
-    result = taf_mrc_GetEfsAvgPECount(metrics, &avg);
-    LE_TEST_OK(result == LE_OK, "taf_mrc_GetEfsAvgPECount - LE_OK");
-
-    result = taf_mrc_GetEfsPEStandardDeviation(metrics, &sd);
-    LE_TEST_OK(result == LE_OK, "taf_mrc_GetEfsPEStandardDeviation - LE_OK");
-
-    result = taf_mrc_GetEfsBadBlocks(metrics, &badblocks);
-    LE_TEST_OK(result == LE_OK, "taf_mrc_GetEfsBadBlocks - LE_OK");
+    tafMRCIntTest_GetEfsMetrics(&max, &min, &avg, &sd, &badblocks);
 
     LE_INFO("PE Max: %d", max);
     LE_INFO("PE Min: %d", min);
     LE_INFO("PE Average: %d", avg);
     LE_INFO("PE Standard Deviation: %d", sd);
     LE_INFO("Bad blocks: %d", badblocks);
-
-    result = taf_mrc_DeleteEfsMetrics(metrics);
-    LE_TEST_OK(result == LE_OK, "taf_mrc_DeleteEfsMetrics - LE_OK");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -291,8 +277,8 @@ static void HandleEfsPeriod
     const char* period = GetArg(2);
 
     long time = strtol(period, NULL, 10);
-    le_result_t result = taf_mrc_SetEfsBackupPeriod(time);
-    LE_TEST_OK(result == LE_OK, "taf_mrc_SetEfsBackupPeriod - LE_OK");
+    tafMRCIntTest_SetEfsBackupPeriod((uint32_t)time);
+    LE_TEST_INFO("tafMRCIntTest_SetEfsBackupPeriod(%ld) called", time);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -315,6 +301,40 @@ static void HandleEfsCommand
     else if (IsCommand(option, EFS_PERIOD))
     {
         HandleEfsPeriod();
+    }
+    else
+    {
+        PrintHelpMenu();
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handle the 'toggle' command.
+ */
+//--------------------------------------------------------------------------------------------------
+static void HandleToggleCommand
+(
+    void
+)
+{
+    CheckArgs(2);
+    const char* status = GetArg(1);
+
+    if (IsCommand(status, TOGGLE_REQUESTED))
+    {
+        tafMRCIntTest_SetGpioToggleStatus(TAFMRCINTTEST_TOGGLE_STATUS_REQUESTED);
+        LE_TEST_INFO("tafMRCIntTest_SetGpioToggleStatus(REQUESTED) called");
+    }
+    else if (IsCommand(status, TOGGLE_SUCCEEDED))
+    {
+        tafMRCIntTest_SetGpioToggleStatus(TAFMRCINTTEST_TOGGLE_STATUS_SUCCEEDED);
+        LE_TEST_INFO("tafMRCIntTest_SetGpioToggleStatus(SUCCEEDED) called");
+    }
+    else if (IsCommand(status, TOGGLE_FAILED))
+    {
+        tafMRCIntTest_SetGpioToggleStatus(TAFMRCINTTEST_TOGGLE_STATUS_FAILED);
+        LE_TEST_INFO("tafMRCIntTest_SetGpioToggleStatus(FAILED) called");
     }
     else
     {
@@ -352,6 +372,10 @@ static void DispatchCommand
     {
         HandleEfsCommand();
     }
+    else if (IsCommand(cmd, CMD_TOGGLE))
+    {
+        HandleToggleCommand();
+    }
     else
     {
         PrintHelpMenu();
@@ -376,7 +400,7 @@ COMPONENT_INIT
         exit(EXIT_FAILURE);
     }
 
-    LE_TEST_INFO("======== MRC Integration Test ========");
+    LE_TEST_INFO("======== MRC Integration Test Client ========");
 
     DispatchCommand(cmd);
 

@@ -1,7 +1,3 @@
-/*
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
- */
 
 #include <iostream>
 #include <fstream>
@@ -92,6 +88,9 @@ void serialize_didAll(std::map<int, DidEntry>& didAll, ptree& root)
                 diagnostic_session_and_security_level.execution_authorization_pattern_read =
                 acc->get<std::string>("execution_authorization_pattern_read", "");
             entry.did_accessibility.diagnostic_session_and_security_level.
+                execution_authorization_pattern_write =
+                acc->get<std::string>("execution_authorization_pattern_write", "");
+            entry.did_accessibility.diagnostic_session_and_security_level.
                 execution_authorization_pattern_io =
                 acc->get<std::string>("execution_authorization_pattern_io", "");
             if (auto auth_io_node = acc->get_child_optional("execution_authentication_pattern_io"))
@@ -129,6 +128,16 @@ void serialize_didAll(std::map<int, DidEntry>& didAll, ptree& root)
         if (auto io_role_node = did_data.get_child_optional("io_role")) {
             for (const auto& role : *io_role_node) {
                 entry.io_role.push_back(role.second.get_value<std::string>());
+            }
+        }
+        if (auto read_role_node = did_data.get_child_optional("read_role")) {
+            for (const auto& role : *read_role_node) {
+                entry.read_role.push_back(role.second.get_value<std::string>());
+            }
+        }
+        if (auto write_role_node = did_data.get_child_optional("write_role")) {
+            for (const auto& role : *write_role_node) {
+                entry.write_role.push_back(role.second.get_value<std::string>());
             }
         }
 
@@ -248,21 +257,29 @@ void serialize_datas(std::map<std::string, DatasEntry>& datas, ptree& root)
 
 void serialize_auth_anti_conf(std::map<std::string, AuthAntiConfEntry>& authAntiConf, ptree& root)
 {
-    ptree auth_anti_node = root.get_child("authentication_antibruteforce");
+    auto auth_anti_opt = root.get_child_optional("authentication_antibruteforce");
 
-    for (const auto& item : auth_anti_node) {
-        const std::string& key = item.first;
-        const ptree& entry = item.second;
+    if( auth_anti_opt ){
+        const ptree& auth_anti_node = auth_anti_opt.get();
 
-        AuthAntiConfEntry auth_anti_entry;
-        auth_anti_entry.antiBruteForceCounterMaxValue =
-            entry.get<int>("AntiBruteForceCounterMaxValue", 0);
-        auth_anti_entry.delayTimerInvokingValueInit =
-            entry.get<int>("DelayTimerInvokingValueInit", 0);
-        auth_anti_entry.delayTimerInvokingValueMax =
-            entry.get<int>("DelayTimerInvokingValueMax", 0);
+        for (const auto& item : auth_anti_node) {
+            const std::string& key = item.first;
+            const ptree& entry = item.second;
 
-        authAntiConf[key] = auth_anti_entry;
+            AuthAntiConfEntry auth_anti_entry;
+            auth_anti_entry.antiBruteForceCounterMaxValue =
+                entry.get<int>("AntiBruteForceCounterMaxValue", 0);
+            auth_anti_entry.delayTimerInvokingValueInit =
+                entry.get<int>("DelayTimerInvokingValueInit", 0);
+            auth_anti_entry.delayTimerInvokingValueMax =
+                entry.get<int>("DelayTimerInvokingValueMax", 0);
+
+            authAntiConf[key] = auth_anti_entry;
+        }
+    }
+    else
+    {
+        std::cerr << "authentication_antibruteforce node is not present" << std::endl;
     }
 }
 
@@ -303,13 +320,42 @@ void serialize_common_props(CommonProps& commonProps, ptree& root)
     commonProps.max_number_of_rcrrp =
         common_props_node.get<int>("max_number_of_request_correctly_received_response_pending", 0);
     commonProps.occurrence_counter_processing =
-        common_props_node.get<std::string>("TEST-CONFIRMED-BIT", "");
+        common_props_node.get<std::string>("occurrence_counter_processing", "");
     commonProps.s3_server_max = common_props_node.get<double>("s3_server_max", 0);
     commonProps.ignore_request_for_hardreset =
         common_props_node.get<bool>("ignore_request_for_hardreset", false);
     commonProps.dtc_status_availability_mask =
         common_props_node.get<int>("dtc_status_availability_mask", 0);
 
+}
+
+void serialize_extended_data_records
+(
+    std::map<std::string, ExtendedDataRecordEntry>& extendedDataRecords,
+    ptree& root
+)
+{
+    auto edr_node_opt = root.get_child_optional("extended_data_records");
+    if (!edr_node_opt) {
+        return; // Section doesn't exist, skip
+    }
+
+    const ptree& edr_node = *edr_node_opt;
+    for (const auto& item : edr_node) {
+        const std::string& key = item.first;
+        const ptree& entry = item.second;
+
+        ExtendedDataRecordEntry edr_entry;
+        edr_entry.short_name = entry.get<std::string>("short_name", "");
+        edr_entry.record_element_bit_off_set = entry.get<int>("record_element_bit_off_set", 0);
+        edr_entry.base_type = entry.get<std::string>("base_type", "");
+        edr_entry.record_number = entry.get<int>("record_number", 0);
+        edr_entry.data_provider = entry.get<std::string>("data_provider", "");
+        edr_entry.trigger = entry.get<std::string>("trigger", "");
+        edr_entry.update = entry.get<bool>("update", false);
+
+        extendedDataRecords[key] = edr_entry;
+    }
 }
 
 void serialize_exec_auth_pattern
@@ -319,19 +365,25 @@ void serialize_exec_auth_pattern
     ptree& root
 )
 {
-    ptree exec_auth_pattern_node = root.get_child("execution_authorization_pattern");
+    auto it = root.find("execution_authorization_pattern");
+
+    if (it == root.not_found()) {
+        return;
+    }
+
+    const ptree& exec_auth_pattern_node = it->second;
 
     for (const auto& item : exec_auth_pattern_node) {
         const std::string& key = item.first;
         const ptree& entry = item.second;
 
         ExecAuthPatternEntry exec_auth_pattern_entry;
+
         exec_auth_pattern_entry.class_ = entry.get<std::string>("class", "");
         exec_auth_pattern_entry.short_name = entry.get<std::string>("short_name", "");
         exec_auth_pattern_entry.base = entry.get<bool>("base", false);
         exec_auth_pattern_entry.did_read_app = entry.get<bool>("did_read_app", false);
-        exec_auth_pattern_entry.secured_configuration = entry.get<bool>("secured_configuration",
-            false);
+        exec_auth_pattern_entry.secured_configuration = entry.get<bool>("secured_configuration", false);
         exec_auth_pattern_entry.did_write = entry.get<bool>("did_write", false);
         exec_auth_pattern_entry.io_control = entry.get<bool>("io_control", false);
         exec_auth_pattern_entry.routine_control = entry.get<bool>("routine_control", false);
@@ -359,55 +411,71 @@ void serialize_diag_session(std::map<std::string, DiagSessionEntry>& diagSession
     }
 }
 
-void serialize_debounce_algorithm(DebounceAlgorithm& debounceAlgorithm, ptree& root)
+void serialize_debounce_algorithm(DebounceAlgorithm& debounceAlgorithm, const ptree& root)
 {
-    ptree debounce_algorithm_node = root.get_child("debounce_algorithm");
-    ptree counter_based_node
-        = debounce_algorithm_node.get_child("debounce_counter_based_algorithm");
-    ptree time_based_node = debounce_algorithm_node.get_child("debounce_time_based_algorithm");
-    ptree custom_node = debounce_algorithm_node.get_child("debounce_monitor_internal_algorithm");
+    auto opt = root.get_child_optional("debounce_algorithm");
+    if (!opt) {
+        std::cerr << "Missing 'debounce_algorithm' node in configuration!" << std::endl;
+        return;
+    }
 
-    //Get counter based algorithm
-    debounceAlgorithm.counter_based.short_name =
-        counter_based_node.get<std::string>("short_name", "");
-    debounceAlgorithm.counter_based.base = counter_based_node.get<std::string>("base", "");
-    debounceAlgorithm.counter_based.debounce_behavior =
-        counter_based_node.get<std::string>("debounce_behavior", "");
-    debounceAlgorithm.counter_based.counter_decrement_step_size =
-        counter_based_node.get<int>("counter_decrement_step_size", 0);
-    debounceAlgorithm.counter_based.counter_passed_threshold =
-        counter_based_node.get<int>("counter_passed_threshold", 0);
-    debounceAlgorithm.counter_based.counter_increment_step_size =
-        counter_based_node.get<int>("counter_increment_step_size", 0);
-    debounceAlgorithm.counter_based.counter_failed_threshold =
-        counter_based_node.get<int>("counter_failed_threshold", 0);
-     debounceAlgorithm.counter_based.counter_jump_down_value =
-        counter_based_node.get<int>("counter_jump_down_value", 0);
-     debounceAlgorithm.counter_based.counter_jump_up_value =
-        counter_based_node.get<int>("counter_jump_up_value", 0);
-    debounceAlgorithm.counter_based.counter_jump_up =
-        counter_based_node.get<bool>("counter_jump_up", 0);
-    debounceAlgorithm.counter_based.counter_jump_down =
-        counter_based_node.get<bool>("counter_jump_down", 0);
-     debounceAlgorithm.counter_based.counter_fdc_threshold =
-        counter_based_node.get<int>("counter_fdc_threshold", 0);
+    const ptree& debounce_node = *opt;
+    for (const auto& kv : debounce_node) {
+        const std::string& json_key = kv.first;
+        const ptree& alg = kv.second;
 
-    // //Get time based algorithm
-    debounceAlgorithm.time_based.short_name = time_based_node.get<std::string>("short_name", "");
-    debounceAlgorithm.time_based.base = time_based_node.get<std::string>("base", "");
-    debounceAlgorithm.time_based.debounce_behavior =
-        time_based_node.get<std::string>("debounce_behavior", "");
-    debounceAlgorithm.time_based.time_failed_threshold =
-        time_based_node.get<double>("time_failed_threshold", 0);
-    debounceAlgorithm.time_based.time_passed_threshold =
-        time_based_node.get<double>("time_passed_threshold", 0);
-    debounceAlgorithm.time_based.time_fdc_threshold =
-        time_based_node.get<double>("time_fdc_threshold", 0);
+        // Prefer short_name for external reference; fallback to json_key if absent
+        const std::string short_name = alg.get<std::string>("short_name", json_key);
 
-    // //Get custom algorithm
-    debounceAlgorithm.custom.short_name = custom_node.get<std::string>("short_name", "");
-    debounceAlgorithm.custom.base = custom_node.get<std::string>("base", "");
+        // Determine algorithm type
+        const std::string base = alg.get<std::string>("base", "");
 
+        if (base == "Counter") {
+            DebounceCounterBasedAlgorithm c{};
+            c.short_name = short_name;
+            c.base = base;
+
+            c.debounce_behavior = alg.get<std::string>("debounce_behavior", "reset");
+
+            c.counter_decrement_step_size = alg.get<int>("counter_decrement_step_size", 0);
+            c.counter_passed_threshold    = alg.get<int>("counter_passed_threshold", 0);
+            c.counter_increment_step_size = alg.get<int>("counter_increment_step_size", 0);
+            c.counter_failed_threshold    = alg.get<int>("counter_failed_threshold", 0);
+
+            c.counter_jump_down_value     = alg.get<int>("counter_jump_down_value", 0);
+            c.counter_jump_up_value       = alg.get<int>("counter_jump_up_value", 0);
+            c.counter_jump_up             = alg.get<bool>("counter_jump_up", false);
+            c.counter_jump_down           = alg.get<bool>("counter_jump_down", false);
+
+            c.counter_fdc_threshold       = alg.get<int>("counter_fdc_threshold", 0);
+
+            debounceAlgorithm.counter_based[short_name] = std::move(c);
+        }
+        else if (base == "Timer") {
+            DebounceTimeBasedAlgorithm t{};
+            t.short_name = short_name;
+            t.base = base;
+            t.debounce_behavior     = alg.get<std::string>("debounce_behavior", "reset");
+            t.time_failed_threshold = alg.get<double>("time_failed_threshold", 0.0);
+            t.time_passed_threshold = alg.get<double>("time_passed_threshold", 0.0);
+            t.time_fdc_threshold    = alg.get<double>("time_fdc_threshold", 0.0);
+
+            debounceAlgorithm.time_based[short_name] = std::move(t);
+        }
+        else if (base == "Custom") {
+            DebounceCustom cu{};
+            cu.short_name = short_name;
+            cu.base = base;
+
+            debounceAlgorithm.custom[short_name] = std::move(cu);
+        }
+        else {
+            // Unknown entry; keep a warning to catch config errors
+            std::cerr << "Unknown debounce algorithm entry: key=" << json_key
+                      << ", short_name=" << short_name
+                      << ", base=" << base << std::endl;
+        }
+    }
 }
 
 void serialize_routines_all(std::map<std::string, RoutineEntry>& routineAll, ptree& root)
@@ -439,38 +507,60 @@ void serialize_routines_all(std::map<std::string, RoutineEntry>& routineAll, ptr
 
 void serialize_auth_roles(std::map<std::string, AuthRoleEntry>& authRoles, ptree& root)
 {
-    ptree auth_roles_node = root.get_child("authentication_timeout_extended");
+    auto auth_roles_opt = root.get_child_optional("authentication_timeout_extended");
 
-    for (const auto& item : auth_roles_node) {
-        const std::string& key = item.first;
-        const ptree& entry = item.second;
+    if( auth_roles_opt ){
+        const ptree& auth_roles_node = auth_roles_opt.get();
 
-        AuthRoleEntry auth_role_entry;
-        auth_role_entry.name = entry.get<std::string>("name", "");
-        auth_role_entry.value = entry.get<int>("value", 0);
+        for (const auto& item : auth_roles_node) {
+            const std::string& key = item.first;
+            const ptree& entry = item.second;
 
-        authRoles[key] = auth_role_entry;
+            AuthRoleEntry auth_role_entry;
+            auth_role_entry.name = entry.get<std::string>("name", "");
+            auth_role_entry.value = entry.get<int>("value", 0);
+
+            authRoles[key] = auth_role_entry;
+        }
+    }
+    else{
+        std::cerr << "authentication_timeout_extended node is not present" << std::endl;
     }
 }
 
-
-void serialize_secur_binding(std::map<std::string, SecurBindingEntry>& securBinding, ptree& root)
+void serialize_secur_binding
+(
+    std::map<std::string, SecurBindingEntry>& securBinding,
+    const ptree& root,
+    std::map<std::string, SessionSecurLvlEntry>& sessionSecurLvl
+)
 {
-    ptree secur_binding_node = root.get_child("security_binding");
+    const ptree& secur_binding_node = root.get_child("security_binding");
 
-    for (const auto& item : secur_binding_node) {
-        const std::string& key = item.first;
-        const ptree& entry = item.second;
+    for (const auto& item : secur_binding_node)
+    {
+        const std::string& key   = item.first;
+        std::cout<< "key:"<<key<<std::endl;
+        const ptree&       entry = item.second;
 
         SecurBindingEntry secur_bind_entry;
         secur_bind_entry.session_id = entry.get<int>("session_id", 0);
-        if (auto secur_level_node = entry.get_child_optional("security_level")) {
-            for (const auto& s : *secur_level_node) {
-                secur_bind_entry.security_level.push_back(s.second.get_value<std::string>());
-            }
+        const ptree& sec_level = entry.get_child("security_level");
+        for (auto & level_item: sec_level)
+        {
+            std::string level_name = level_item.second.get<std::string>("");
+
+                auto it = sessionSecurLvl.find(level_name);
+                std::cout<< "name:"<<level_name<<std::endl;
+                if (it != sessionSecurLvl.end())
+                {
+                    std::cout<< "find and put into:"<<level_name<<std::endl;
+                    secur_bind_entry.security_level.emplace(level_name, it->second);
+                }
+
         }
 
-        securBinding[key] = secur_bind_entry;
+        securBinding.emplace(key, std::move(secur_bind_entry));
     }
 }
 
@@ -487,7 +577,6 @@ void serialize_events(std::map<int, EventEntry>& events, ptree& root)
         event_entry.confirmation_threshold = entry.get<int>("confirmation_threshold", 0);
         event_entry.operation_cycle = entry.get<std::string>("operation_cycle", "");
         event_entry.debounce_algorithm = entry.get<std::string>("debounce_algorithm", "");
-        event_entry.enable_condition = entry.get<std::string>("enable_condition", "");
 
         events[eventId] = event_entry;
     }
@@ -505,8 +594,14 @@ void serialize_dtc_all(std::map<int, DTCEntry>& dtcAll, ptree& root)
         dtc_entry.identification.code = entry.get<int>("identification.code", 0);
         dtc_entry.identification.fault_type = entry.get<int>("identification.fault_type", 0);
 
-        dtc_entry.snapshots.snapshot_record_content =
-            entry.get<int>("snapshots.snapshot_record_content", 0);
+        if (auto extended_data_node = entry.get_child_optional("identification.extended_data_records")) {
+            for (const auto& s : *extended_data_node) {
+                dtc_entry.identification.extended_data_records.push_back(s.second.get_value<std::string>());
+            }
+        }
+
+        dtc_entry.snapshots.snapshot_record_content = entry.get<std::string>("snapshots.snapshot_record_content", "");
+
 
         if (auto freeze_frame_node = entry.get_child_optional("snapshots.freeze_frames")) {
             for (const auto& s : *freeze_frame_node) {
@@ -553,55 +648,60 @@ void serialize_reset_all(std::map<int, ResetEntry>& resetAll, ptree& root)
 
 void serialize_io_all(std::map<int, IOEntry>& ioAll, ptree& root)
 {
-    ptree io_all_node = root.get_child("IO_all");
+    auto io_node_opt = root.get_child_optional("IO_all");
+    if (!io_node_opt) {
+        return;
+    }
 
+    const ptree& io_all_node = *io_node_opt;
     for (const auto& item : io_all_node) {
-        int did = std::stoi(item.first);
+        int ioId = std::stoi(item.first);
         const ptree& entry = item.second;
 
-        IOEntry io_all_entry;
-        io_all_entry.identifier = entry.get<int>("identifier", 0);
+        IOEntry io_entry;
+        io_entry.identifier = entry.get<int>("identifier", 0);
 
-        io_all_entry.request.control_option_record.did_size =
-            entry.get<int>("request.control_option_record.did_size", 0);
-        io_all_entry.request.control_option_record.control_state =
-            entry.get<std::string>("request.control_option_record.control_state", "");
-
-        if (auto parameter_node =
-            entry.get_child_optional("request.control_option_record.io_control_parameter")) {
-            for (const auto& s : *parameter_node) {
-                io_all_entry.request.control_option_record.io_control_parameter.push_back(
-                    s.second.get_value<int>());
+        // Parse request
+        if (auto req_node = entry.get_child_optional("request.control_option_record")) {
+            if (auto params_node = req_node->get_child_optional("io_control_parameter")) {
+                for (const auto& p : *params_node) {
+                    io_entry.request.control_option_record.io_control_parameter.push_back(
+                        p.second.get_value<int>());
+                }
             }
+            io_entry.request.control_option_record.did_size =
+                req_node->get<int>("did_size", 0);
         }
-        if (auto diag_sessions = entry.get_child_optional("diagnostic_session")) {
-            for (const auto& session : *diag_sessions) {
-                const std::string& session_name = session.first;
-                for (const auto& session_security : session.second) {
-                    const std::string& name = session_security.first;
-                    SecurityLevel sec;
-                    sec.security = session_security.second.get<bool>("IO.security", false);
 
-                    if (auto security_levels =
-                            session_security.second.get_child_optional("IO.security_level")) {
-                        for (const auto& level : *security_levels) {
-                            sec.security_level.push_back(level.second.get_value<std::string>());
+        // Parse diagnostic_session and populate both diagnostic_session map AND access.session vector
+        if (auto diag_sess_node = entry.get_child_optional("diagnostic_session")) {
+            for (const auto& sess_pair : *diag_sess_node) {
+                const std::string& session_name = sess_pair.first;
+                const ptree& sess_data = sess_pair.second;
+
+                // Add session name to access.session vector
+                io_entry.access.session.push_back(session_name);
+
+                // Parse the IO security info
+                if (auto io_node = sess_data.get_child_optional("IO")) {
+                    SecurityLevel sec_level;
+                    sec_level.security = io_node->get<bool>("security", false);
+
+                    if (auto sec_lvl_node = io_node->get_child_optional("security_level")) {
+                        for (const auto& lvl : *sec_lvl_node) {
+                            sec_level.security_level.push_back(lvl.second.get_value<std::string>());
                         }
                     }
 
-                    io_all_entry.diagnostic_session[session_name] = sec;
-
+                    io_entry.diagnostic_session[session_name] = sec_level;
                 }
             }
         }
 
-        if (auto access_node = entry.get_child_optional("access.session")) {
-            for (const auto& s : *access_node) {
-                io_all_entry.access.session.push_back(s.second.get_value<std::string>());
-            }
-        }
+        // Parse access.security_type if it exists at root level
+        io_entry.access.security_type = entry.get<uint8_t>("access.security_type", 0);
 
-        ioAll[did] = io_all_entry;
+        ioAll[ioId] = io_entry;
     }
 }
 
@@ -637,22 +737,31 @@ int main(int argc, char* argv[]) {
     serialize_freezeFrame(diagConf.freeze_frames, root);
     serialize_dataIdSet(diagConf.dataid_set, root);
     serialize_datas(diagConf.datas, root);
+    serialize_auth_anti_conf(diagConf.auth_anti_conf, root);
     serialize_session_secur_lvl(diagConf.session_secur_level, root);
     serialize_common_props(diagConf.common_props, root);
+    serialize_extended_data_records(diagConf.extended_data_records, root);
     serialize_diag_session(diagConf.diag_session, root);
+    serialize_events(diagConf.events, root);
+    serialize_dtc_all(diagConf.dtc_all, root);
     serialize_debounce_algorithm(diagConf.debounce_algorithm, root);
     serialize_routines_all(diagConf.routines_all, root);
     serialize_auth_roles(diagConf.auth_roles, root);
-    serialize_secur_binding(diagConf.secur_binding, root);
-    serialize_events(diagConf.events, root);
-    serialize_dtc_all(diagConf.dtc_all, root);
-
+    serialize_exec_auth_pattern(diagConf.exec_auth_pattern, root);
+    serialize_secur_binding(diagConf.secur_binding, root, diagConf.session_secur_level);
     serialize_reset_all(diagConf.reset_all, root);
     serialize_io_all(diagConf.io_all, root);
 
-    save_tree(diagConf, outPutFileName);
-
-    std::cout <<"Save tree successfully"<< std::endl;
+    try
+    {
+        save_tree(diagConf, outPutFileName);
+        std::cout << "Save tree successfully" << std::endl;
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Failed to save tree: " << e.what() << std::endl;
+        throw;
+    }
 
     return 0;
 }

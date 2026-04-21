@@ -194,83 +194,62 @@ void taf_DataIDSvr::UDSMsgHandler
     uint8_t errCode = 0;
 
     // check enable condition
-#ifndef LE_CONFIG_DIAG_FEATURE_A
+    #ifndef LE_CONFIG_DIAG_FEATURE_A
     if (sid == reqWriteDIDSvcId)
     {
-
-        uint16_t didNum = 0;
         uint16_t dataId = 0;
-
-        // Diag instance
         auto &diag = taf_DiagSvr::GetInstance();
 
-        didNum = MAX_WRITE_DID_REQ_NUM;
+        dataId = ((msgPtr[msgPos] << 8) + msgPtr[msgPos + 1]);
 
-        for(uint16_t i = 0; i < didNum; i++)
+        try
         {
-            dataId = ((msgPtr[i*DID_LEN + 1]) << 8) + msgPtr[i*DID_LEN + 2];
+            const EnableConditionData& cond = cfg::get_event_enable_conditions(dataId);
 
-            // check enable condition status
-            try
+            if (!cond.and_conditions.empty())
             {
-                cfg::Node & node = cfg::top_did_all<uint16_t>("identification.code", dataId);
-                cfg::Node & enableNode = node.get_child("data_enable_condition");
-
-                for (const auto & enable: enableNode)
+                for (uint8_t enableId : cond.and_conditions)
                 {
-                    // Get the defined enable operation type: "and" or "or"
-                    std::string enableOperation = enable.first;
-                    if (enableOperation == "and")
+                    if (!diag.GetEnableConditionStatus(enableId))
                     {
-                        cfg::Node & optNodeList = enableNode.get_child("and");
-                        for (const auto & optNode: optNodeList)
-                        {
-                            uint8_t enableId = optNode.second.get_value<uint8_t>();
-                            if (!diag.GetEnableConditionStatus(enableId))
-                            {
-                                errCode = cfg::get_nrc_by_condition_id(enableId);
-                                LE_WARN("Enable id %d condition is false, send nrc 0x%x",
-                                        enableId, errCode);
-                                SendNRCResp(sid, addrPtr, errCode);
-                                return;
-                            }
-                        }
-                    }
-                    else if (enableOperation == "or")
-                    {
-                        cfg::Node & optNodeList = enableNode.get_child("or");
-                        bool enableStatus = false;
-                        uint8_t enableId = 0;
-
-                        for (const auto & optNode: optNodeList)
-                        {
-                            enableId = optNode.second.get_value<uint8_t>();
-                            if(diag.GetEnableConditionStatus(enableId))
-                            {
-                                enableStatus = true;
-                                break;
-                            }
-                        }
-
-                        if(!enableStatus && enableId != 0)
-                        {
-                            errCode = cfg::get_nrc_by_condition_id(enableId);
-                            LE_WARN("Enable id %d condition is false, send nrc 0x%x",
-                                    enableId, errCode);
-                            SendNRCResp(sid, addrPtr, errCode);
-                            return;
-                        }
+                        errCode = cfg::get_nrc_by_condition_id(enableId);
+                        LE_WARN("Enable id %d (AND) condition is false, send nrc 0x%x",
+                                enableId, errCode);
+                        SendNRCResp(sid, addrPtr, errCode);
+                        return;
                     }
                 }
             }
-            catch (const std::exception& e)
+            else if (!cond.or_conditions.empty())
             {
-                LE_WARN("Enable condition does not define for DID: 0x%x, Exception: %s",
-                        dataId, e.what());
+                bool enableStatus = false;
+                uint8_t failingId = 0;
+                for (uint8_t enableId : cond.or_conditions)
+                {
+                    if (diag.GetEnableConditionStatus(enableId))
+                    {
+                        enableStatus = true;
+                        break;
+                    }
+                    failingId = enableId;
+                }
+                if (!enableStatus && failingId != 0)
+                {
+                    errCode = cfg::get_nrc_by_condition_id(failingId);
+                    LE_WARN("Enable id %d (OR) condition is false, send nrc 0x%x",
+                            failingId, errCode);
+                    SendNRCResp(sid, addrPtr, errCode);
+                    return;
+                }
             }
         }
+        catch (const std::exception& e)
+        {
+            LE_WARN("Enable condition check failed for DID: 0x%x, Exception: %s",
+                    dataId, e.what());
+        }
     }
-#endif
+    #endif
 
     if (sid == reqReadDIDSvcId)
     {
@@ -360,6 +339,7 @@ void taf_DataIDSvr::UDSMsgHandler
 
     return;
 }
+
 
 #ifndef LE_CONFIG_DIAG_VSTACK
 le_result_t taf_DataIDSvr::SnapshotTriggerTheCollectionOfDIDs

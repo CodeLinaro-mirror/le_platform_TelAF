@@ -10,6 +10,7 @@
 #include "tafDataAccessComp.h"
 #include <algorithm>
 #include <chrono>
+#include "serialization.hpp"
 
 using namespace tafsvc;
 using namespace std;
@@ -1479,11 +1480,11 @@ void taf_DTCSvr::OnClientDisconnection
  * Get DTC list and initialize the context.
  */
 //--------------------------------------------------------------------------------------------------
-void taf_DTCSvr::DtcConfiguration(cfg::Node & node)
+void taf_DTCSvr::DtcConfiguration(DiagConf & cfgRoot)
 {
     uint32_t dtcCode;
 
-    std::map<uint32_t, std::shared_ptr<cfg::Node>> dtc_map = cfg::get_dtc_nodes();
+     std::map<uint32_t, std::shared_ptr<DTCEntry>> dtc_map = cfg::get_dtc_nodes();
 
     for (const auto & dtc: dtc_map)
     {
@@ -1569,7 +1570,7 @@ void taf_DTCSvr::Init
     //Initialize the data from configuration module.
     try
     {
-        cfg::Node & root = cfg::get_root_node();
+        DiagConf & root = cfg::get_diag_config_root();
         DtcConfiguration(root);
     }
     catch (const std::exception& e)

@@ -35,6 +35,7 @@ $(TELAF_ROOT)/apps/tools/tafDiagGen/venv/$(DGTOOL_TARGET):
 cleanall-venv:
 	@echo "Clean the python virtual environment for dgtool"
 	rm -rf $(TELAF_ROOT)/apps/tools/tafDiagGen/venv
+	rm -rf $(TELAF_ROOT)/components/tafDiagSvc/tafDiagCfg/serialization.host
 
 # !! We didn't intend to use advanced syntax for Makefile, but made sure the file was readable!
 

@@ -539,10 +539,10 @@ namespace uds{
             void UdsTimerEventReport(taf_UDSTimer_EventType_t timerEvent, uint32_t interval,
                         const char* ifName);
             void CheckAndRestartS3Timer(uint8_t serviceId);
-            bool IsSessTypeMatched(cfg::Node& node);
-            bool IsSecurityAccessMatched(cfg::Node& node);
-            bool IsAuthRoleMatched(taf_UDSReqSvcID_t serviceType, cfg::Node& node);
-            bool IsRequestSubFuncSupported(cfg::Node& node, uint8_t subFunc);
+            bool IsSessTypeMatched(const ServiceEntry& serviceEntry);
+            bool IsSecurityAccessMatched(const RoutineEntry& routineEntry);
+            bool IsAuthRoleMatched(taf_UDSReqSvcID_t serviceType, const DidEntry& didEntry);
+            bool IsRequestSubFuncSupported(const RoutineEntry& routineEntry, uint8_t subFunc);
             bool IsControlOptionRecordValid(uint16_t rid, uint8_t subFunc, const uint8_t* dataRec,
                     size_t dataRecLen);
             bool IsTotalLengthCheckValid(uint16_t rid, uint8_t subFunc, size_t dataRecLen);

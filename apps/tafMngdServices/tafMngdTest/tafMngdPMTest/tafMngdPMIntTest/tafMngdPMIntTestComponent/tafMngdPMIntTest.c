@@ -140,7 +140,9 @@ static void PrintUsage ()
         "------------To Test PMVHAL notification on client disconnection-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- NotifyVhalOnClientDisconnectionForReleaseWS\n"
         "------------To Test PMVHAL stayawake after while suspending through MPMS-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestPmvhalStayAwakeAfterMpmsSuspendTrigger\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestPmvhalStayAwakeAfterMpmsSuspendTrigger\n"
+        "------------To register a client for power state notifications which does not acknowledges-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- RegisterClientForPowerStateNotificationWithoutAcknowledgement\n");
 }
 
 void NodePowerStateChangeHandlerCB(
@@ -173,6 +175,15 @@ void NodePowerStateChangeHandlerCB(
         exit(EXIT_SUCCESS);
     }
     exit(EXIT_FAILURE);
+}
+
+void NodePowerStateChangeHandlerWithoutAckCB(
+     uint8_t pmNodeId,
+     taf_mngdPm_nodePowerStateRef_t nodePowerStateRef,
+     taf_mngdPm_NodePowerState_t state,
+	 void *contextPtr)
+{
+    LE_INFO("NodePowerStateChangeHandlerWithoutAckCB called, no acknowledment sent");
 }
 
 void AddNodePowerStateChangeHandler
@@ -2700,6 +2711,32 @@ static void TestGetCurrentPowerStateFromPrimaryNad()
     exit(EXIT_SUCCESS);
 }
 
+void *RegisterClientForPowerStateNotificationsWithoutAcknowledgementFunction()
+{
+    taf_mngdPm_ConnectService();
+    stateMask = TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE | TAF_MNGDPM_NODE_STATE_BIT_MASK_RESUME | TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE | TAF_MNGDPM_NODE_STATE_BIT_MASK_RESTART_PREPARE;
+    taf_mngdPm_NodePowerStateChangeHandlerRef_t ref = NULL;
+    ref = taf_mngdPm_AddNodePowerStateChangeHandler(NodePowerStateChangeHandlerWithoutAckCB, NULL, 0, stateMask);
+    if(ref)
+    {
+        LE_INFO("AddNodePowerStateChangeHandler is success for all states");
+    }
+    le_sem_Post(semRef);
+    le_event_RunLoop();
+}
+
+void RegisterClientForPowerStateNotificationWithoutAcknowledgement()
+{
+    semRef = le_sem_Create("MngdIntTestApp", 0);
+    threadRef = le_thread_Create("inttestapp",
+                                RegisterClientForPowerStateNotificationsWithoutAcknowledgementFunction, NULL);
+    if (threadRef) {
+        fprintf(stderr, "Thread created with success\n");
+    }
+    le_thread_Start(threadRef);
+    le_sem_Wait(semRef);
+}
+
 COMPONENT_INIT
 {
     const char* testType = "";
@@ -2922,6 +2959,10 @@ COMPONENT_INIT
         else if(strcmp(testType, "get.current.state") == 0)
         {
             TestGetCurrentPowerStateFromPrimaryNad();
+        }
+        else if(strcmp(testType, "RegisterClientForPowerStateNotificationWithoutAcknowledgement") == 0)
+        {
+           RegisterClientForPowerStateNotificationWithoutAcknowledgement();
         }
         else
         {

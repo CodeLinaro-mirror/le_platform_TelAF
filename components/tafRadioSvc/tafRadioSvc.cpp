@@ -931,16 +931,29 @@ le_result_t taf_radio_GetNetRegState
     }
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
-    taf_pa_radio_VoiceServiceInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetVoiceServiceInfo(instance, &info);
+
+    taf_pa_radio_VoiceServiceInfo_t voiceInfo;
+
+    taf_radio_NetRegState_t vState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+    taf_radio_NetRegState_t dState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+
+    pa_result_t paResult = taf_pa_radio_GetVoiceServiceInfo(instance, &voiceInfo);
     le_result_t result = Utility::Convert::Result(paResult);
-    if (result != LE_OK)
-    {
-        LE_ERROR("Failed to get voice service information.");
-        return result;
+    if ( result == LE_OK) {
+        vState = Utility::Convert::NetRegState(&voiceInfo);
+    } else {
+        LE_WARN("Failed to get Voice Service Info for phoneId %d", phone);
     }
 
-    *statePtr =  Utility::Convert::NetRegState(&info);
+    result = taf_radio_GetPacketSwitchedState(&dState, phone);
+    if (result != LE_OK) {
+        LE_WARN("Failed to get Data Service Info for phoneId %d", phone);
+    }
+
+    *statePtr = Utility::Convert::CombineNetRegState(vState, dState);
+
+    LE_DEBUG("PhoneId %d NetRegState: Voice(%d) + Data(%d) -> Combined(%d)", 
+             phone, vState, dState, *statePtr);
 
     return LE_OK;
 }

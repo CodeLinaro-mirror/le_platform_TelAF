@@ -129,6 +129,27 @@ static void CreateSessionToDeviceManager()
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Creates a hash map to store module-inf handles
+ */
+//--------------------------------------------------------------------------------------------------
+static le_result_t CreateInfHashmap()
+{
+    // Create hash table
+    tafModInfMap = le_hashmap_Create("tafModInfMap",
+                                        TAF_HAL_MODULE_MAX_LOAD_NUM,
+                                        le_hashmap_HashVoidPointer,
+                                        le_hashmap_EqualsVoidPointer);
+
+    if (tafModInfMap == nullptr)
+    {
+        LE_ERROR("Can not create Map table for TAF VHAL");
+        return LE_NO_MEMORY;
+    }
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Opens an IPC session to device manager.
  */
 //--------------------------------------------------------------------------------------------------
@@ -174,6 +195,10 @@ static le_result_t ConnectToDeviceManager()
 
 COMPONENT_INIT_ONCE
 {
+    if(CreateInfHashmap() != LE_OK)
+    {
+        LE_FATAL("Failed to initialize hash map");
+    }
     CreateSessionToDeviceManager();
 }
 
@@ -311,7 +336,7 @@ extern "C" LE_SHARED void* taf_devMgr_LoadDrv(const char* drvName, const char* d
 
     // Get the specif interface and return it, instead of returning the so handle
     // in this way, the manager interface is hidden from services/apps
-    // put in the has table first
+    // put in the hash table first
     void* infRef = (*(mgrInf->getModInf))();
     if (le_hashmap_Put(tafModInfMap, infRef, drvHandle))
     {
@@ -488,20 +513,6 @@ COMPONENT_INIT
         le_thread_Sleep(TIME_RETRY_CONNECT_TO_DEVICEMANAGER);
 
         return;
-    }
-
-    // Create hash table
-    tafModInfMap = le_hashmap_Create("tafModInfMap",
-                                        TAF_HAL_MODULE_MAX_LOAD_NUM,
-                                        le_hashmap_HashVoidPointer,
-                                        le_hashmap_EqualsVoidPointer);
-
-    if (tafModInfMap == nullptr)
-    {
-        LE_ERROR("Can not create Map table for TAF VHAL");
-
-        // no enough memory, we have to exit
-        exit(-1);
     }
 
     // ready to server

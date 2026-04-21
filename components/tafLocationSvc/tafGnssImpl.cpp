@@ -46,8 +46,12 @@ using namespace tafsvc;
 LE_MEM_DEFINE_STATIC_POOL(PositionHandler, GNSS_POSITION_HANDLER_HIGH, sizeof(taf_locGnss_PositionHandler_t));
 LE_MEM_DEFINE_STATIC_POOL(MeasurementHandler, GNSS_POSITION_HANDLER_HIGH, sizeof(taf_locGnss_MeasurementHandler_t));
 LE_MEM_DEFINE_STATIC_POOL(PositionExHandler, GNSS_POSITION_HANDLER_HIGH, sizeof(taf_locGnss_PositionExHandler_t));
+LE_MEM_DEFINE_STATIC_POOL(NmeaHandler, GNSS_POSITION_HANDLER_HIGH, sizeof(taf_locGnss_NmeaHandler_t));
+LE_MEM_DEFINE_STATIC_POOL(CapHandler, GNSS_POSITION_HANDLER_HIGH, sizeof(taf_locGnss_CapHandler_t));
 LE_MEM_DEFINE_STATIC_POOL(PositionSample, GNSS_POSITION_SAMPLE_MAX, sizeof(taf_locGnss_PositionSample_t));
 LE_MEM_DEFINE_STATIC_POOL(MeasurementSample, GNSS_POSITION_SAMPLE_MAX, sizeof(taf_locGnss_GnssMeasurements_t));
+LE_MEM_DEFINE_STATIC_POOL(NmeaSample, GNSS_POSITION_SAMPLE_MAX, sizeof(NmeaInfoEvent_t));
+LE_MEM_DEFINE_STATIC_POOL(CapSample, GNSS_POSITION_SAMPLE_MAX, sizeof(CapabilityChangeEvent_t));
 LE_MEM_DEFINE_STATIC_POOL(PositionSampleRequest, GNSS_POSITION_SAMPLE_MAX, sizeof(taf_locGnss_PositionSampleRequest_t));
 LE_MEM_DEFINE_STATIC_POOL(MeasurementSampleRequest, GNSS_POSITION_SAMPLE_MAX, sizeof(taf_locGnss_MeasurementSampleRequest_t));
 LE_MEM_DEFINE_STATIC_POOL(PositionSampleEx, GNSS_POSITION_SAMPLE_MAX, sizeof(taf_locGnss_PositionSampleEx_t));
@@ -227,16 +231,18 @@ void Handler::onGnssNmeaInfo(taf_pa_location_LocationId clientId, const std::sha
         //clientRequestPtr->mSatMeas.satId = nmea;
         clientRequestPtr->mSatMeas.satLatency = nmeaEventInfo->timestamp;
 
-        NmeaInfoEvent_t nmeaEvent;
-        nmeaEvent.timestamp = nmeaEventInfo->timestamp;
+        NmeaInfoEvent_t* NmeaData = (NmeaInfoEvent_t*)le_mem_ForceAlloc(gnss.NmeaSamplePoolRef);
+
+        NmeaData->timestamp = nmeaEventInfo->timestamp;
         const int length = nmeaEventInfo->nmeaMask.length();
-        nmeaEvent.nmeaMask[length] ='\0';
+        NmeaData->nmeaMask[length] ='\0';
         for (int i = 0; i < length; i++)
         {
-            nmeaEvent.nmeaMask[i] = nmeaEventInfo->nmeaMask.c_str()[i];
+            NmeaData->nmeaMask[i] = nmeaEventInfo->nmeaMask.c_str()[i];
         }
-        LE_DEBUG( "**** NMEA handler string copied is: %s****",nmeaEvent.nmeaMask);
-        le_event_Report(gnss.nmeaEventId, &nmeaEvent, sizeof(nmeaEvent));
+        LE_DEBUG( "**** NMEA handler string copied is: %s****",NmeaData->nmeaMask);
+        NmeaData->clientSessionRefPtr = &clientRequestPtr->sessionRef;
+        le_event_ReportWithRefCounting(gnss.nmeaEventId, NmeaData);
     }
     le_mutex_Unlock(clientRequestPtr->mGnssMutexRef);
 
@@ -2056,7 +2062,7 @@ void taf_locGnss::GnssPositionHandler
     {
         posHandlerPtr = (taf_locGnss_PositionHandler_t*)le_ref_GetValue(iterRef);
         if(posHandlerPtr == NULL) {
-            return;
+            continue;
         }
 
         posSampleReqPtr = (taf_locGnss_PositionSampleRequest_t*)le_mem_ForceAlloc(gnss.PositionSampleRequestPoolRef);
@@ -2308,6 +2314,88 @@ void taf_locGnss::GnssMeasurementHandler
     }
 
     le_mem_Release(currentPosPtr);
+}
+
+void taf_locGnss::GnssNmeaHandler
+(
+ void* reportPtr
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    taf_locGnss_NmeaHandler_t*  nmeaHandlerPtr;
+    NmeaInfoEvent_t* nmeaEventPtr = (NmeaInfoEvent_t*)reportPtr;
+
+    TAF_ERROR_IF_RET_NIL( nmeaEventPtr == NULL, "nmeaEventPtr is Null");
+
+    LE_INFO("Handler Function called with position %p", nmeaEventPtr);
+
+    if(!gnss.NumOfNmeaHandlers)
+    {
+        LE_DEBUG("No Nmea handlers, exit Handler Function");
+        le_mem_Release(nmeaEventPtr);
+        return;
+    }
+
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(gnss.NmeaHandlerRefMap);
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        nmeaHandlerPtr = (taf_locGnss_NmeaHandler_t*)le_ref_GetValue(iterRef);
+        if(nmeaHandlerPtr == NULL) {
+            continue;
+        }
+
+        if (nmeaHandlerPtr->sessionRef == *nmeaEventPtr->clientSessionRefPtr) {
+            nmeaHandlerPtr->handlerFuncPtr(nmeaEventPtr->timestamp, nmeaEventPtr->nmeaMask,
+                    nmeaHandlerPtr->handlerContextPtr);
+        }
+        else
+        {
+            LE_DEBUG("GnssNmeaHandler session ref does not match! ReqPtr.sessionRef: %p, Sample.sessionRef: %p", nmeaHandlerPtr->sessionRef, *nmeaEventPtr->clientSessionRefPtr);
+        }
+    }
+
+    le_mem_Release(nmeaEventPtr);
+}
+
+void taf_locGnss::GnssCapabilityHandler
+(
+ void* reportPtr
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    taf_locGnss_CapHandler_t*  capHandlerPtr;
+    CapabilityChangeEvent_t* capChangePtr = (CapabilityChangeEvent_t*)reportPtr;
+
+    TAF_ERROR_IF_RET_NIL( capChangePtr == NULL, "capChangePtr is Null");
+
+    LE_INFO("Handler Function called with position %p", capChangePtr);
+
+    if(!gnss.NumOfCapabilityHandlers)
+    {
+        LE_DEBUG("No capability change handlers, exit Handler Function");
+        le_mem_Release(capChangePtr);
+        return;
+    }
+
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(gnss.CapHandlerRefMap);
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        capHandlerPtr = (taf_locGnss_CapHandler_t*)le_ref_GetValue(iterRef);
+        if(capHandlerPtr == NULL) {
+            continue;
+        }
+
+        if (capHandlerPtr->sessionRef == *capChangePtr->clientSessionRefPtr) {
+            capHandlerPtr->handlerFuncPtr(capChangePtr->locCapability,
+                                      capHandlerPtr->handlerContextPtr);
+        }
+        else
+        {
+            LE_DEBUG("GnssCapabilityHandler session ref does not match! ReqPtr.sessionRef: %p, Sample.sessionRef: %p", capHandlerPtr->sessionRef, *capChangePtr->clientSessionRefPtr);
+        }
+    }
+
+    le_mem_Release(capChangePtr);
 }
 
 le_result_t taf_locGnss::PositionDataCoversion
@@ -3195,6 +3283,11 @@ taf_locGnss_PositionHandlerRef_t taf_locGnss::AddPositionHandler
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "clientRequestPtr is NULL");
+
     taf_locGnss_PositionHandler_t*  positionHandlerPtr =
         (taf_locGnss_PositionHandler_t*)le_mem_ForceAlloc(PositionHandlerPoolRef);
     memset(positionHandlerPtr, 0, sizeof(taf_locGnss_PositionHandler_t));
@@ -3204,10 +3297,6 @@ taf_locGnss_PositionHandlerRef_t taf_locGnss::AddPositionHandler
     positionHandlerPtr->sessionRef = taf_locGnss_GetClientSessionRef();
 
     LE_DEBUG("AddPositionHandler() sessionRef: %p", positionHandlerPtr->sessionRef);
-
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "clientRequestPtr is NULL");
 
     positionHandlerPtr->handlerRef =
         (taf_locGnss_PositionHandlerRef_t)le_ref_CreateRef(gnss.PositionHandlerRefMap, positionHandlerPtr);
@@ -3227,6 +3316,11 @@ taf_locGnss_PositionExHandlerRef_t taf_locGnss::AddPositionExHandler
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "clientRequestPtr is NULL");
+
     taf_locGnss_PositionExHandler_t*  PositionHandlerExPtr =
         (taf_locGnss_PositionExHandler_t*)le_mem_ForceAlloc(PositionExHandlerPoolRef);
 
@@ -3238,10 +3332,6 @@ taf_locGnss_PositionExHandlerRef_t taf_locGnss::AddPositionExHandler
     PositionHandlerExPtr->sessionRef = taf_locGnss_GetClientSessionRef();
 
     LE_INFO("AddPositionExHandler() sessionRef: %p", PositionHandlerExPtr->sessionRef);
-
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "clientRequestPtr is NULL");
 
     PositionHandlerExPtr->handlerRef =
         (taf_locGnss_PositionExHandlerRef_t)le_ref_CreateRef(gnss.PositionExHandlerRefMap, PositionHandlerExPtr);
@@ -3261,6 +3351,11 @@ taf_locGnss_MeasurementHandlerRef_t taf_locGnss::AddMeasurementHandler
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "clientRequestPtr is NULL");
+
     taf_locGnss_MeasurementHandler_t*  measHandlerPtr =
         (taf_locGnss_MeasurementHandler_t*)le_mem_ForceAlloc(MeasurementHandlerPoolRef);
     memset(measHandlerPtr, 0, sizeof(taf_locGnss_MeasurementHandler_t));
@@ -3270,10 +3365,6 @@ taf_locGnss_MeasurementHandlerRef_t taf_locGnss::AddMeasurementHandler
     measHandlerPtr->sessionRef = taf_locGnss_GetClientSessionRef();
 
     LE_INFO("AddMeasurementHandler() sessionRef: %p", measHandlerPtr->sessionRef);
-
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "clientRequestPtr is NULL");
 
     measHandlerPtr->handlerRef =
         (taf_locGnss_MeasurementHandlerRef_t)le_ref_CreateRef(gnss.MeasurementHandlerRefMap, measHandlerPtr);
@@ -3292,41 +3383,56 @@ taf_locGnss_CapabilityChangeHandlerRef_t taf_locGnss::AddCapabilityHandler
     void* contextPtr
 )
 {
-    le_event_HandlerRef_t handlerRef;
-
-    TAF_KILL_CLIENT_IF_RET_VAL(handlerPtr == NULL, NULL, "Handler pointer is NULL");
+    auto &gnss = taf_locGnss::GetInstance();
 
     taf_locGnss_Client_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "AddCapabilityHandler: clientRequestPtr is NULL");
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "clientRequestPtr is NULL");
 
-    handlerRef = le_event_AddLayeredHandler("CapabilityHandler", locCapabilityEventId,
-            FirstLayerCapabilityHandler, (void*)handlerPtr);
+    taf_locGnss_CapHandler_t*  capHandlerPtr =
+        (taf_locGnss_CapHandler_t*)le_mem_ForceAlloc(CapabilityHandlerPoolRef);
+    memset(capHandlerPtr, 0, sizeof(taf_locGnss_CapHandler_t));
+
+    capHandlerPtr->next = LE_DLS_LINK_INIT;
+    capHandlerPtr->handlerFuncPtr = handlerPtr;
+    capHandlerPtr->handlerContextPtr = contextPtr;
+    capHandlerPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+
+    LE_INFO("AddCapabilityHandler() sessionRef: %p", capHandlerPtr->sessionRef);
+
+    capHandlerPtr->handlerRef =
+        (taf_locGnss_CapabilityChangeHandlerRef_t)le_ref_CreateRef(gnss.CapHandlerRefMap, capHandlerPtr);
 
     NumOfCapabilityHandlers++;
 
-    return (taf_locGnss_CapabilityChangeHandlerRef_t) handlerRef;
+    LE_INFO("Created capHandlerPtrRef(%p) for capHandlerPtr(%p) (totalCnt=0x%x).",
+        capHandlerPtr->handlerRef, capHandlerPtr, NumOfCapabilityHandlers);
+
+    return capHandlerPtr->handlerRef;
 }
 
 void taf_locGnss::RemoveCapabilityHandler (taf_locGnss_CapabilityChangeHandlerRef_t handlerRef)
 {
-    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
-    if (NumOfCapabilityHandlers > 0) {
+    auto &gnss = taf_locGnss::GetInstance();
+    taf_locGnss_CapHandler_t* capHandlerPtr =
+        (taf_locGnss_CapHandler_t*)le_ref_Lookup(gnss.CapHandlerRefMap, handlerRef);
+
+    if (capHandlerPtr != NULL)
+    {
+        if(capHandlerPtr->handlerRef != handlerRef) {
+            return;
+        }
         NumOfCapabilityHandlers--;
+
+        LE_INFO("Removed capHandlerPtrRef(%p) for capHandlerPtr(%p) (totalCnt=0x%x).",
+                 capHandlerPtr->handlerRef, capHandlerPtr, NumOfCapabilityHandlers);
+        le_ref_DeleteRef(gnss.CapHandlerRefMap, handlerRef);
+        le_mem_Release(capHandlerPtr);
     }
-}
-
-void taf_locGnss::FirstLayerCapabilityHandler(void* reportPtr,
-        void* secondLayerHandlerFunc)
-{
-    CapabilityChangeEvent_t* capEventPtr = (CapabilityChangeEvent_t*)reportPtr;
-
-    TAF_ERROR_IF_RET_NIL(capEventPtr == NULL,"CapabilityChangeEventPtr is NULL");
-
-    taf_locGnss_CapabilityChangeHandlerFunc_t clientHandlerFunc =
-        (taf_locGnss_CapabilityChangeHandlerFunc_t)secondLayerHandlerFunc;
-
-    clientHandlerFunc(capEventPtr->locCapability, le_event_GetContextPtr());
+    else
+    {
+        LE_ERROR("Invalid handlerRef(%p).", handlerRef);
+    }
 }
 
 taf_locGnss_NmeaHandlerRef_t taf_locGnss::AddNmeaHandler
@@ -3335,41 +3441,56 @@ taf_locGnss_NmeaHandlerRef_t taf_locGnss::AddNmeaHandler
     void* contextPtr
 )
 {
-    le_event_HandlerRef_t handlerRef;
-
-    TAF_KILL_CLIENT_IF_RET_VAL(handlerPtr == NULL, NULL, "Handler pointer is NULL");
+    auto &gnss = taf_locGnss::GetInstance();
 
     taf_locGnss_Client_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "AddCapabilityHandler: clientRequestPtr is NULL");
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "clientRequestPtr is NULL");
 
-    handlerRef = le_event_AddLayeredHandler("NmeaHandler", nmeaEventId,
-            FirstLayerNmeaHandler, (void*)handlerPtr);
+    taf_locGnss_NmeaHandler_t*  nmeaHandlerPtr =
+        (taf_locGnss_NmeaHandler_t*)le_mem_ForceAlloc(NmeaHandlerPoolRef);
+    memset(nmeaHandlerPtr, 0, sizeof(taf_locGnss_NmeaHandler_t));
+
+    nmeaHandlerPtr->next = LE_DLS_LINK_INIT;
+    nmeaHandlerPtr->handlerFuncPtr = handlerPtr;
+    nmeaHandlerPtr->handlerContextPtr = contextPtr;
+    nmeaHandlerPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+
+    LE_INFO("AddNmeaHandler() sessionRef: %p", nmeaHandlerPtr->sessionRef);
+
+    nmeaHandlerPtr->handlerRef =
+        (taf_locGnss_NmeaHandlerRef_t)le_ref_CreateRef(gnss.NmeaHandlerRefMap, nmeaHandlerPtr);
 
     NumOfNmeaHandlers++;
 
-    return (taf_locGnss_NmeaHandlerRef_t) handlerRef;
+    LE_INFO("Created nmeaHandlerPtrRef(%p) for nmeaHandlerPtr(%p) (totalCnt=0x%x).",
+        nmeaHandlerPtr->handlerRef, nmeaHandlerPtr, NumOfNmeaHandlers);
+
+    return nmeaHandlerPtr->handlerRef;
 }
 
 void taf_locGnss::RemoveNmeaHandler (taf_locGnss_NmeaHandlerRef_t handlerRef)
 {
-    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
-    if (NumOfNmeaHandlers > 0) {
+    auto &gnss = taf_locGnss::GetInstance();
+    taf_locGnss_NmeaHandler_t* nmeaHandlerPtr =
+        (taf_locGnss_NmeaHandler_t*)le_ref_Lookup(gnss.NmeaHandlerRefMap, handlerRef);
+
+    if (nmeaHandlerPtr != NULL)
+    {
+        if(nmeaHandlerPtr->handlerRef != handlerRef) {
+            return;
+        }
         NumOfNmeaHandlers--;
+
+        LE_INFO("Removed nmeaHandlerPtrRef(%p) for nmeaHandlerPtr(%p) (totalCnt=0x%x).",
+                 nmeaHandlerPtr->handlerRef, nmeaHandlerPtr, NumOfNmeaHandlers);
+        le_ref_DeleteRef(gnss.NmeaHandlerRefMap, handlerRef);
+        le_mem_Release(nmeaHandlerPtr);
     }
-}
-
-void taf_locGnss::FirstLayerNmeaHandler(void* reportPtr,
-        void* secondLayerHandlerFunc)
-{
-    NmeaInfoEvent_t* nmeaEventPtr = (NmeaInfoEvent_t*)reportPtr;
-
-    TAF_ERROR_IF_RET_NIL(nmeaEventPtr == NULL,"NmeaEventPtr is NULL");
-
-    taf_locGnss_NmeaHandlerFunc_t clientHandlerFunc =
-        (taf_locGnss_NmeaHandlerFunc_t)secondLayerHandlerFunc;
-
-    clientHandlerFunc(nmeaEventPtr->timestamp, nmeaEventPtr->nmeaMask, le_event_GetContextPtr());
+    else
+    {
+        LE_ERROR("Invalid handlerRef(%p).", handlerRef);
+    }
 }
 
 le_result_t taf_locGnss::GetConstellation
@@ -8623,8 +8744,8 @@ void taf_locGnss::RemovePositionHandler
 
         LE_DEBUG("Removed positionHandlerRef(%p) for positionHandlerPtr(%p) (totalCnt=0x%x).",
                  positionHandlerPtr->handlerRef, positionHandlerPtr, NumOfPositionHandlers);
-        le_mem_Release(positionHandlerPtr);
         le_ref_DeleteRef(gnss.PositionHandlerRefMap, handlerRef);
+        le_mem_Release(positionHandlerPtr);
     }
     else
     {
@@ -8960,11 +9081,23 @@ void taf_locGnss::Init()
     DgnssStatusHandlerPoolRef = le_mem_InitStaticPool(DgnssHandler, GNSS_POSITION_HANDLER_HIGH,
             sizeof(taf_locGnss_DgnssStatusChangeHandler_t));
 
+    NmeaHandlerPoolRef = le_mem_InitStaticPool(NmeaHandler, GNSS_POSITION_HANDLER_HIGH,
+            sizeof(taf_locGnss_NmeaHandler_t));
+
+    CapabilityHandlerPoolRef = le_mem_InitStaticPool(CapHandler, GNSS_POSITION_HANDLER_HIGH,
+            sizeof(taf_locGnss_CapHandler_t));
+
     PositionSamplePoolRef = le_mem_InitStaticPool(PositionSample, GNSS_POSITION_SAMPLE_MAX,
             sizeof(taf_locGnss_PositionSample_t));
 
     MeasurementSamplePoolRef = le_mem_InitStaticPool(MeasurementSample, GNSS_POSITION_SAMPLE_MAX,
             sizeof(taf_locGnss_GnssMeasurements_t));
+
+    NmeaSamplePoolRef = le_mem_InitStaticPool(NmeaSample, GNSS_POSITION_SAMPLE_MAX,
+            sizeof(NmeaInfoEvent_t));
+
+    CapSamplePoolRef = le_mem_InitStaticPool(CapSample, GNSS_POSITION_SAMPLE_MAX,
+            sizeof(CapabilityChangeEvent_t));
 
     PositionSampleRequestPoolRef = le_mem_InitStaticPool(PositionSampleRequest,
             GNSS_POSITION_SAMPLE_MAX, sizeof(taf_locGnss_PositionSampleRequest_t));
@@ -9005,8 +9138,17 @@ void taf_locGnss::Init()
 
     HandlerExRef = le_event_AddHandler("LocUpdateEventId1", PositionExEventId, taf_locGnss::GnssPositionExHandler);
 
-    locCapabilityEventId = le_event_CreateId("LocCapabilityEventId", sizeof(CapabilityChangeEvent_t));
-    nmeaEventId = le_event_CreateId("NmeaEventId", sizeof(NmeaInfoEvent_t));
+    locCapabilityEventId = le_event_CreateIdWithRefCounting("locCapabilityEventID");
+
+    CapHandlerRef = le_event_AddHandler("LocCapabilityEventId", locCapabilityEventId, taf_locGnss::GnssCapabilityHandler);
+
+    nmeaEventId = le_event_CreateIdWithRefCounting("NmeaEventId");
+
+    NmeaHandlerRef = le_event_AddHandler("NmeaEventID", nmeaEventId, taf_locGnss::GnssNmeaHandler);
+
+    NmeaHandlerRefMap = le_ref_CreateMap("NmeaHandlerRefMap", 4);
+
+    CapHandlerRefMap = le_ref_CreateMap("CapHandlerRefMap", 4);
 
     PositionHandlerRefMap = le_ref_CreateMap("PositionHandlerRefMap", 4);
     MeasurementHandlerRefMap = le_ref_CreateMap("MeasurementHandlerRefMap", 4);

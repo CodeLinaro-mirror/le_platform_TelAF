@@ -898,6 +898,12 @@ void taf_ecall::Delete(taf_ecall_CallRef_t ecallRef)
 }
 
 le_result_t taf_ecall::SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t eCallMode) {
+    if (phoneId < MIN_PHONE_ID || phoneId > MAX_PHONE_ID) {
+        LE_ERROR("Invalid phoneId: %d, must be %d~%d",
+                 phoneId, MIN_PHONE_ID, MAX_PHONE_ID);
+        return LE_BAD_PARAMETER;
+    }
+
     if(eCallMode == TAF_ECALL_MODE_NORMAL  || eCallMode == TAF_ECALL_MODE_ECALL) {
         auto promisePtr = std::make_shared<std::promise<le_result_t>>();
         auto cb = [promisePtr](pa_result_t errorCode,std::any context)
@@ -951,6 +957,13 @@ le_result_t taf_ecall::SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t
 
 le_result_t taf_ecall::GetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t *opMode) {
     TAF_ERROR_IF_RET_VAL(opMode == NULL, LE_BAD_PARAMETER, "OpMode is NULL");
+
+    if (phoneId < MIN_PHONE_ID || phoneId > MAX_PHONE_ID) {
+        LE_ERROR("Invalid phoneId: %d, must be %d~%d",
+                 phoneId, MIN_PHONE_ID, MAX_PHONE_ID);
+        return LE_BAD_PARAMETER;
+    }
+
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
     taf_pa_ecall_mode_t eCallOpMode;
     auto cb = [promisePtr, &eCallOpMode](taf_pa_ecall_mode_t mode,pa_result_t errorCode,

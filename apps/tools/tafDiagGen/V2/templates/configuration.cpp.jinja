@@ -15,12 +15,42 @@
 #include <tuple>
 #include <unordered_map>
 #include <limits.h>
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+
+#include <boost/serialization/map.hpp>
+
+#include <boost/serialization/string.hpp>
+#include <boost/serialization/vector.hpp>
+
+#include <map>
+#include "serialization.hpp"
+#include <chrono>
 
 namespace tafsvc {
 namespace cfg {
 
 static Node root;
 static bool root_inited = false;
+static DiagConf diagConf;
+
+void load_tree(DiagConf& tree, const std::string& filename) {
+    std::ifstream ifs(filename);
+    if (!ifs.is_open()) {
+        throw std::runtime_error("Failed to open serialization file: " + filename);
+    }
+    try {
+        boost::archive::text_iarchive ia(ifs);
+        ia >> tree;
+    } catch (const boost::archive::archive_exception& e) {
+        throw std::runtime_error("Failed to deserialize data: " + std::string(e.what()));
+    }
+}
 
 EXPORT_SYM Node & get_root_node(void)
 {
@@ -35,6 +65,13 @@ EXPORT_SYM bool get_init_status(void)
 
 EXPORT_SYM void diag_config_init(const char * cfg_path)
 {
+    load_tree(diagConf, "tree_data");
+
+    // Validate deserialized data
+    if (diagConf.services_all.empty()) {
+        throw std::runtime_error("Deserialized configuration appears to be empty");
+    }
+
     boost::property_tree::json_parser::read_json(cfg_path, root);
     root_inited = true;
 }
@@ -240,16 +277,9 @@ EXPORT_SYM std::vector<uint32_t> get_dtc_codes(void)
 EXPORT_SYM size_t get_did_value_size(uint16_t did_code)
 {
     NEED_INITED();
-
-    Node & dids = root.get_child("did_all");
-
-    for (auto & did: dids)
-    {
-        uint16_t this_did_code = (uint16_t) std::stol(did.first);
-        if (this_did_code == did_code)
-        {
-            return (size_t) did.second.get<int>("implementation.did_size");
-        }
+    auto it = diagConf.did_all.find(did_code);
+    if (it != diagConf.did_all.end()) {
+        return it->second.implementation.did_size;
     }
 
     return 0;

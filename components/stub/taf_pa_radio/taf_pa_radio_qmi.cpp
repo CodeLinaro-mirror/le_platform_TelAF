@@ -29,7 +29,21 @@ le_result_t taf_pa_radio_EnableIndication
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_pa_radio_DisableIndication
 (
-    void
+    taf_pa_radio_DisableIndicationMode_t mode
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set service state toggle indication
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_SetSysInfoIndLimit
+(
+    uint8_t phoneId,
+    taf_pa_radio_SysInfoIndLimitMask_t limitType
 )
 {
     return LE_OK;
@@ -200,6 +214,32 @@ void taf_pa_radio_RemoveNetStatusChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Add handler for Service status change.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_pa_radio_ServiceStatusChangeHandlerRef_t taf_pa_radio_AddServiceStatusChangeHandler
+(
+    taf_pa_radio_ServiceStatusChangeHandlerFunc_t  handlerFuncPtr,
+    void* contextPtr
+)
+{
+    return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler for Service status change.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_pa_radio_RemoveServiceStatusChangeHandler
+(
+    taf_pa_radio_ServiceStatusChangeHandlerRef_t handlerRef
+)
+{
+    return;
+}
+//--------------------------------------------------------------------------------------------------
+/**
  *  Get RAT service status.
  */
 //--------------------------------------------------------------------------------------------------
@@ -207,6 +247,35 @@ le_result_t taf_pa_radio_GetRatSvcStatus
 (
     uint8_t phoneId,
     taf_radio_RatSvcStatus_t* status
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Get RAT service status and serving rat.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t  taf_pa_radio_GetServiceStatus
+(
+    uint8_t phoneId,
+    taf_pa_radio_Rat_t* servingRat,
+    taf_pa_radio_ServiceStatus_t* status
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Get limit set for sys info indication.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_radio_GetSysInfoIndLimit
+(
+    uint8_t phoneId,
+    taf_pa_radio_SysInfoIndLimitMask_t* limitMask
 )
 {
     return LE_OK;

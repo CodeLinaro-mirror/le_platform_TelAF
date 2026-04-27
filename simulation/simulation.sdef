@@ -6,11 +6,11 @@
 
 apps:
 {
-    $TELAF_ROOT/simulation/stub/taf_simula_pm/tafPMSvc
-    $TELAF_ROOT/simulation/bypass/telaf/tafmodule
+    $SIMULATION_ROOT/stub/taf_simula_pm/tafPMSvc
+    $SIMULATION_ROOT/bypass/telaf/tafmodule
 
     // from --> $TELAF_ROOT/apps/tafServices/tafKeyStoreSvc
-    $TELAF_ROOT/simulation/stub/keyStore/tafKeyStoreSvc
+    $SIMULATION_ROOT/stub/keyStore/tafKeyStoreSvc
 
 #if ${TELAF_SIMULATION_ENABLE_SOMEIP_GW} = y
     $TELAF_ROOT/apps/tafServices/tafSomeipGWSvc
@@ -26,17 +26,17 @@ apps:
 
 #if ${TELAF_SIMULATION_ENABLE_SIM} = y
     // from --> $TELAF_ROOT/apps/tafServices/tafSimCardSvc
-    $TELAF_ROOT/simulation/bypass/telsdk/tafSimCardSvc
+    $SIMULATION_ROOT/bypass/telsdk/tafSimCardSvc
 #endif
 
 #if ${TELAF_SIMULATION_ENABLE_LOC} = y
     $TELAF_ROOT/apps/tafServices/tafLocationSvc
-    $TELAF_ROOT/simulation/bypass/telsdk/gnssTool
+    $SIMULATION_ROOT/bypass/telsdk/gnssTool
 #endif
 
 #if ${TELAF_SIMULATION_ENABLE_RADIO} = y
     // from --> $TELAF_ROOT/apps/tafServices/tafRadioSvc
-    $TELAF_ROOT/simulation/stub/taf_simula_radio/tafRadioSvc
+    $SIMULATION_ROOT/stub/taf_simula_radio/tafRadioSvc
 #endif
 
 #if ${TELAF_SIMULATION_ENABLE_MNGD_CONN} = y
@@ -54,13 +54,13 @@ apps:
 #if ${TELAF_SIMULATION_ENABLE_DIAG} = y
     $TELAF_ROOT/apps/tafServices/tafDiagSvc
     // from --> $TELAF_ROOT/apps/tafServices/tafUpdateSvc
-    $TELAF_ROOT/simulation/stub/taf_simula_update/tafUpdateSvc
+    $SIMULATION_ROOT/stub/taf_simula_update/tafUpdateSvc
 #endif
 
 #if ${TELAF_SIMULATION_ENABLE_ECALL} = y
     $TELAF_ROOT/apps/tafServices/tafECallSvc
-    $TELAF_ROOT/simulation/stub/taf_simula_audio/tafAudioSvc.adef
-    $TELAF_ROOT/simulation/stub/taf_simula_gpio/tafGpioSvc.adef
+    $SIMULATION_ROOT/stub/taf_simula_audio/tafAudioSvc.adef
+    $SIMULATION_ROOT/stub/taf_simula_gpio/tafGpioSvc.adef
 #endif
 
     $LEGATO_ROOT/apps/sample/helloIpc/printClient

@@ -35,6 +35,9 @@ export SIMULATION_SCRIPTS := $(SIMULATION_HOME)/scripts
 export SIMULATION_WORKDIR := $(SIMULATION_HOME)/workstation
 SIMULATION_TARBALL := $(SIMULATION_HOME)/workstation/telaf_simulation.tar
 
+# Add PA default and stub searching path for CDEF files
+export TELAF_DEFAULT_PA_LIB_DIR=${SIMULATION_HOME}/pa/telaf-pa-default/staging
+
 # Re-export the variable for subsequent scripts in legato-af project
 export SELINUX_FILE_CONTEXTS := /no/selinux/feature/for/simulation
 
@@ -165,10 +168,15 @@ check-sys:
 
 
 pre-simulation-build: $(SIMULATION_HOME)/workstation/up_simulation.sh $(SIMULATION_DEPS_ALL)
+	$Q echo "[Simulation]: Building PA layers ..."
+	$Q bash $(SIMULATION_ROOT)/pa/simulation_build_pa.sh
+	$Q echo "[Simulation]: PA layers finished"
 post-simulation-build: CURRENT_SYSTEM_OUTPUT=$(TELAF_BUILD)/simulation/_staging_system.simulation.update_ro/systems/current
 post-simulation-build:
+	$Q echo "[Simulation]: Installing PA libraries ..."
+	$Q bash $(SIMULATION_ROOT)/pa/simulation_install_pa.sh
 	$Q echo "[Simulation]: Creating Tarball ..."
-	$Q tar cf $(SIMULATION_TARBALL) -C $(TELAF_BUILD)/simulation/_staging_system.simulation.update_ro .
+	$Q tar cf $(SIMULATION_TARBALL) -C $(TELAF_BUILD)/simulation/staging_combined . # After introduced PA
 	$Q tar rf $(SIMULATION_TARBALL) -C $(SIMULATION_HOME)/workstation/ up_simulation.sh
 	$Q tar rf $(SIMULATION_TARBALL) -C $(SIMULATION_HOME)/workstation/ .check_done
 	$Q tar rf $(SIMULATION_TARBALL) -C $(SIMULATION_HOME)/workstation/ cg.version
@@ -220,7 +228,7 @@ endif
 
 define up_simulation_container
 	$Q echo "Up Simulation with [$(1:up_%.sh=%)]"
-	$Q /bin/bash $(CURDIR)/simulation/scripts/$(1) $(get_which_one) $(2)
+	$Q /bin/bash $(SIMULATION_SCRIPTS)/$(1) $(get_which_one) $(2)
 	$Q echo "Down Simulation with [$(1:up_%.sh=%)], see you ~"
 endef
 

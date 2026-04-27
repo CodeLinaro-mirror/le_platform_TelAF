@@ -88,9 +88,6 @@ void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr)
 
 }
 
-
-
-std::map<uint8_t, std::list<std::pair<int, int>>> taf_Vlan::slotVlanMappingInfo;
 std::vector<taf_pa_Vlan_t> taf_Vlan::vlanPAEntryInfo;
 
 //The VLAN hardware acceleration state.
@@ -312,6 +309,7 @@ taf_net_VlanRef_t taf_Vlan::CreateVlan
         vlanPtr->vlanBindConfig.profileId = -1;
         vlanPtr->vlanBindConfig.slotId = DEFAULT_SLOT_ID_1;
         vlanPtr->vlanBindConfig.vlanIdBackhaul = -1;
+        vlanPtr->vlanBindConfig.backhaulType = TAF_NET_BH_MAX;
         return (taf_net_VlanRef_t)le_ref_CreateRef(vlanRefMap, (void*)vlanPtr);
     }
 
@@ -475,9 +473,17 @@ taf_net_VlanRef_t taf_Vlan::GetVlanRefById
         vlanPtr->nwType=TAF_NET_NETWORK_UNKNOWN;
         //set vlan bind values to default values
         //because for backhaul type WWAN profile/slot are not needed
-        vlanPtr->vlanBindConfig.profileId = -1;
-        vlanPtr->vlanBindConfig.slotId = DEFAULT_SLOT_ID_1;
-        vlanPtr->vlanBindConfig.vlanIdBackhaul = -1;
+        le_result_t result = GetBackhaulInfoBoundWithVlan(vlanId, &vlanPtr->vlanBindConfig);
+        if( result != LE_OK)
+        {
+            // Initialize to safe defaults when no binding exists
+            vlanPtr->vlanBindConfig.profileId = -1;
+            vlanPtr->vlanBindConfig.slotId = DEFAULT_SLOT_ID_1;
+            vlanPtr->vlanBindConfig.vlanIdBackhaul = -1;
+            vlanPtr->vlanBindConfig.backhaulType = TAF_NET_BH_MAX;
+            LE_DEBUG("No backhaul binding found for vlan %d, using defaults", vlanId);
+        }
+
         return (taf_net_VlanRef_t)le_ref_CreateRef(vlanRefMap, (void*)vlanPtr);
     }
 }
@@ -1765,15 +1771,6 @@ le_result_t taf_Vlan::BindVlanWithProfile(taf_net_VlanRef_t vlanRef, uint8_t slo
 
     taf_pa_VlanBindConfig_t vlanBindConfig = {};
     taf_pa_Vlan_t vlanConfig = {};
-   // fix telsdk bug:when the profile is already bound with VLAN,bindWithProfile api from telsdk
-   // always return OK
-    vlanId=GetBoundVlanIdFromSlotAndProfile(slotId, profileId);
-    if(vlanId !=0)
-    {
-        LE_ERROR("Profile is already bound with vlan");
-        return LE_FAULT;
-    }
-    LE_INFO("BindVlanWithProfile: no vlanId mapped hence proceed to bind");
 
     taf_Vlan_t* vlanPtr = (taf_Vlan_t*)le_ref_Lookup(vlanRefMap, vlanRef);
     TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, LE_NOT_FOUND, "Vlan not found");
@@ -1782,10 +1779,18 @@ le_result_t taf_Vlan::BindVlanWithProfile(taf_net_VlanRef_t vlanRef, uint8_t slo
     vlanConfig.vlanId = vlanId;
     vlanBindConfig.slotId = slotId;
     vlanBindConfig.profileId = profileId;
+    vlanBindConfig.backhaulType = TAF_PA_VLAN_BH_WWAN;//Set backhaul type to WWAN
 
     LE_INFO("bindwithProfile: vlanid %d slotId %d profileId %d", vlanId,slotId,profileId);
 
-    result = PA_TO_LE_RESULT(taf_pa_net_BindWithProfile(vlanConfig,vlanBindConfig));
+    result = PA_TO_LE_RESULT(taf_pa_net_BindWithBackhaul(vlanConfig,vlanBindConfig));
+    if(result == LE_OK)
+    {
+        vlanPtr->vlanBindConfig.profileId = profileId;
+        vlanPtr->vlanBindConfig.slotId = slotId;
+        vlanPtr->vlanBindConfig.backhaulType = TAF_NET_BH_WWAN;
+        vlanPtr->vlanBindConfig.vlanIdBackhaul = -1;
+    }
     return result;
 
 }
@@ -1823,36 +1828,38 @@ le_result_t taf_Vlan::BindVlanWithBackhaul(taf_net_VlanRef_t vlanRef)
     taf_Vlan_t* vlanPtr = (taf_Vlan_t*)le_ref_Lookup(vlanRefMap, vlanRef);
     TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, LE_NOT_FOUND, "Vlan not found");
 
-    uint8_t slot = vlanPtr->vlanBindConfig.slotId;
+    // Validate backhaul configuration before binding
+    if(vlanPtr->vlanBindConfig.backhaulType == TAF_NET_BH_MAX)
+    {
+        LE_ERROR("Backhaul type not set for vlan %d", vlanPtr->vlanId);
+        return LE_BAD_PARAMETER;
+    }
+
     taf_pa_VlanBindConfig_t vlanBindConfig;
     taf_pa_Vlan_t vlanConfig;
 
     if(vlanPtr->vlanBindConfig.backhaulType == TAF_NET_BH_WWAN)
     {
-        vlanId=GetBoundVlanIdFromSlotAndProfile(vlanPtr->vlanBindConfig.slotId,
-                                                vlanPtr->vlanBindConfig.profileId);
-        if(vlanId !=0)
+        if(vlanPtr->vlanBindConfig.profileId < 0)
         {
-           LE_ERROR("Profile is already bound with vlan");
-           return LE_FAULT;
+            LE_ERROR("Profile ID not set for WWAN backhaul on vlan %d", vlanPtr->vlanId);
+            return LE_BAD_PARAMETER;
         }
         vlanBindConfig.slotId = vlanPtr->vlanBindConfig.slotId;
         vlanBindConfig.profileId = vlanPtr->vlanBindConfig.profileId;
+        LE_DEBUG("WWAN backhaul: slotId = %d, profileId = %d", vlanBindConfig.slotId,
+            vlanBindConfig.profileId);
     }
     else // for ETH and rest where SIM does not exist.
     {
-        uint16_t bhvlanid = GetBackhaulVlanIdBoundWithVlan(
-                                              vlanId, vlanPtr->vlanBindConfig.backhaulType, slot);
-
-        LE_INFO("bindVlanFromBackhaul: bhvlanid %d", bhvlanid);
-        TAF_ERROR_IF_RET_VAL(bhvlanid != 0, LE_FAULT, "vlan id is already bound to the backhaul");
         vlanBindConfig.vlanIdBackhaul = vlanPtr->vlanBindConfig.vlanIdBackhaul;
+        LE_DEBUG("Other backhaul: bhvlanid %d", vlanBindConfig.vlanIdBackhaul);
     }
 
     vlanId = vlanPtr->vlanId;
 
     vlanConfig.vlanId = vlanId;
-
+    LE_DEBUG("vlanid = %d, backhaul type=%d", vlanId, vlanPtr->vlanBindConfig.backhaulType);
     switch (vlanPtr->vlanBindConfig.backhaulType)
     {
         case TAF_NET_BH_ETH:
@@ -1903,8 +1910,6 @@ le_result_t taf_Vlan::UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef)
 {
     le_result_t result;
     uint16_t vlanId=0;
-    uint32_t profileId=0;
-    uint8_t slotId=0;
     taf_pa_VlanBindConfig_t vlanBindConfig;
     taf_pa_Vlan_t vlanConfig;
 
@@ -1916,15 +1921,20 @@ le_result_t taf_Vlan::UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef)
 
     TAF_ERROR_IF_RET_VAL(vlanId == 0, LE_FAULT, "Invalid vlan id");
 
-    result=GetBoundSlotIdProfileIdFromVlan(vlanId, &slotId, &profileId);
-
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting slotId and profileId failed");
-
     vlanConfig.vlanId = vlanId;
-    vlanBindConfig.slotId = slotId;
-    vlanBindConfig.profileId = profileId;
-
-    result = PA_TO_LE_RESULT(taf_pa_net_UnbindWithProfile(vlanConfig,vlanBindConfig));
+    vlanBindConfig.slotId = vlanPtr->vlanBindConfig.slotId;
+    vlanBindConfig.profileId = vlanPtr->vlanBindConfig.profileId;
+    vlanBindConfig.backhaulType = TAF_PA_VLAN_BH_WWAN;//Set backhaul type to WWAN
+    LE_DEBUG("vlanId = %d, slotId=%d, profileId=%d", vlanId, vlanBindConfig.slotId,
+        vlanBindConfig.profileId);
+    result = PA_TO_LE_RESULT(taf_pa_net_UnbindWithBackhaul(vlanConfig,vlanBindConfig));
+    if(result == LE_OK)
+    {
+        vlanPtr->vlanBindConfig.profileId = -1;
+        vlanPtr->vlanBindConfig.slotId = DEFAULT_SLOT_ID_1;
+        vlanPtr->vlanBindConfig.backhaulType = TAF_NET_BH_MAX;
+        vlanPtr->vlanBindConfig.vlanIdBackhaul = -1;
+    }
     return result;
 }
 
@@ -1952,8 +1962,6 @@ le_result_t taf_Vlan::UnbindVlanFromBackhaul(taf_net_VlanRef_t vlanRef)
 {
     le_result_t result;
     uint16_t vlanId=0;
-    uint32_t profileId=0;
-    uint8_t slotId=0;
     taf_net_BackhaulType_t backhaulType;
 
     taf_pa_VlanBindConfig_t vlanBindConfig;
@@ -1965,28 +1973,26 @@ le_result_t taf_Vlan::UnbindVlanFromBackhaul(taf_net_VlanRef_t vlanRef)
     TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
     vlanId = vlanPtr->vlanId;
     backhaulType = vlanPtr->vlanBindConfig.backhaulType;
-    uint8_t slot = vlanPtr->vlanBindConfig.slotId;
+    LE_DEBUG("vlanId = %d, backhaulType = %d", vlanId, backhaulType);
 
     TAF_ERROR_IF_RET_VAL(vlanId == 0, LE_FAULT, "Invalid vlan id");
 
     if(backhaulType == TAF_NET_BH_WWAN)
     {
-        result=GetBoundSlotIdProfileIdFromVlan(vlanId, &slotId, &profileId);
-        TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting slotId and profileId failed");
-        vlanBindConfig.slotId = slotId;
-        vlanBindConfig.profileId = profileId;
-        slot = slotId;
+        vlanBindConfig.slotId = vlanPtr->vlanBindConfig.slotId;
+        vlanBindConfig.profileId = vlanPtr->vlanBindConfig.profileId;
+        LE_DEBUG("WWAN backhaul: slotId = %d, profileId = %d", vlanBindConfig.slotId,
+            vlanBindConfig.profileId);
     }
     else // for ETH and rest where SIM does not exist.
     {
-        uint16_t bhvlanid = GetBackhaulVlanIdBoundWithVlan(vlanId,backhaulType, slot);
-        LE_INFO("UnbindVlanFromBackhaul: bhvlanid %d", bhvlanid);
-        TAF_ERROR_IF_RET_VAL(bhvlanid == 0, LE_FAULT, "vlan id is not bound to the backhaul");
-        vlanBindConfig.vlanIdBackhaul = bhvlanid;
+        vlanBindConfig.vlanIdBackhaul = vlanPtr->vlanBindConfig.vlanIdBackhaul;
+        LE_DEBUG("Other backhaul: bhvlanid %d", vlanBindConfig.vlanIdBackhaul);
+        //TAF_ERROR_IF_RET_VAL(bhvlanid == 0, LE_FAULT, "vlan id is not bound to the backhaul");
     }
 
     vlanConfig.vlanId = vlanId;
-
+    LE_DEBUG("backhaulType = %d, VLANID=%d", vlanPtr->vlanBindConfig.backhaulType, vlanId);
      switch (vlanPtr->vlanBindConfig.backhaulType)
     {
         case TAF_NET_BH_ETH:
@@ -2015,7 +2021,7 @@ le_result_t taf_Vlan::UnbindVlanFromBackhaul(taf_net_VlanRef_t vlanRef)
 
 /*======================================================================
 
- FUNCTION        taf_Vlan::GetBackhaulVlanIdBoundWithVlan
+ FUNCTION        taf_Vlan::GetBackhaulInfoBoundWithVlan
 
  DESCRIPTION     Get the bound backhaul id with vlan.
 
@@ -2032,104 +2038,106 @@ le_result_t taf_Vlan::UnbindVlanFromBackhaul(taf_net_VlanRef_t vlanRef)
  SIDE EFFECTS
 
 ======================================================================*/
-uint16_t taf_Vlan::GetBackhaulVlanIdBoundWithVlan(uint16_t vlanId,
-                                      taf_net_BackhaulType_t backhaulType,
-                                      uint8_t slot)
+le_result_t taf_Vlan::GetBackhaulInfoBoundWithVlan
+(
+    uint16_t vlanId,
+    taf_VlanBHBindConfig_t *vlanBindCfg
+)
 {
-    std::vector<taf_pa_VlanBindConfig_t> vlanBindInfo;
-    taf_pa_vlan_backhaul_type_t pabackhaulType;
-    switch (backhaulType)
+    TAF_ERROR_IF_RET_VAL(vlanBindCfg == NULL , LE_BAD_PARAMETER, "vlanBindCfg is null");
+
+    // Initialize output parameter to safe defaults
+    vlanBindCfg->slotId = DEFAULT_SLOT_ID_1;
+    vlanBindCfg->profileId = -1;
+    vlanBindCfg->vlanIdBackhaul = -1;
+    vlanBindCfg->backhaulType = TAF_NET_BH_MAX;
+
+    le_result_t result;
+    std::vector<uint8_t> slotIds;
+    result = PA_TO_LE_RESULT(taf_pa_net_GetSupportedSlotIds(slotIds));
+    if(result != LE_OK)
     {
-        case TAF_NET_BH_ETH:
-            pabackhaulType = TAF_PA_VLAN_BH_ETH;
-            break;
-        case TAF_NET_BH_USB:
-            pabackhaulType = TAF_PA_VLAN_BH_USB;
-            break;
-        case TAF_NET_BH_WLAN:
-            pabackhaulType = TAF_PA_VLAN_BH_WLAN;
-            break;
-        case TAF_NET_BH_WWAN:
-            pabackhaulType = TAF_PA_VLAN_BH_WWAN;
-            break;
-        case TAF_NET_BH_BLE:
-            pabackhaulType = TAF_PA_VLAN_BH_BLE;
-            break;
-        default:
-            LE_ERROR("Invalid backhaul type (%d).", backhaulType);
-            return LE_BAD_PARAMETER;
+        LE_ERROR("Failed to get supported slot IDs");
+        return LE_FAULT;
     }
 
-    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_QueryVlanToBackhaulMappingList((uint8_t)slot,pabackhaulType,vlanBindInfo));
-
-    if(result == LE_OK)
+    for(uint8_t slot:slotIds)
     {
-         LE_INFO("Size of vector VlanBindConfig: %d", (int) vlanBindInfo.size());
-         for (auto binding:vlanBindInfo)
-         {
-             LE_INFO("binding.vlanId: %d, binding.bhInfo.vlanId: %d",
-                                                          binding.vlanId,
-                                                          binding.vlanIdBackhaul);
-             if (binding.vlanId == vlanId) {
-                    if (binding.vlanIdBackhaul > 0) {
-                        return binding.vlanIdBackhaul;
-                 }
-             }
-         }
-    }
+        for(int backhaulType = TAF_NET_BH_ETH; backhaulType< TAF_NET_BH_MAX; backhaulType++ )
+        {
+            std::vector<taf_pa_VlanBindConfig_t> vlanBindInfo;
+            taf_pa_vlan_backhaul_type_t pabackhaulType;
 
-    return 0;
-}
-
-
-/*======================================================================
-
- FUNCTION        taf_Vlan::GetBoundVlanIdFromSlotAndProfile
-
- DESCRIPTION     Get the bound vlan id from profile.
-
- DEPENDENCIES    The initialization of Vlan.
-
- PARAMETERS      [IN] uint32_t profileId: The profile Id.
-
- RETURN VALUE    uint16_t
-                      0:      no vlan binding with this profile.
-                      others:  vlan id
-
- SIDE EFFECTS
-
-======================================================================*/
-uint16_t taf_Vlan::GetBoundVlanIdFromSlotAndProfile(uint8_t slotId, uint32_t profileId)
-{
-
-    if(GetBindingInfo(slotId) != LE_OK)
-        return 0;
-
-    if(slotVlanMappingInfo[slotId].size() == 0)
-    {
-        LE_DEBUG("no binding info for this profile");
-        return 0;
-    }
-
-    if (slotVlanMappingInfo.find(slotId) ==
-        slotVlanMappingInfo.end() ||
-        slotVlanMappingInfo[slotId].size() == 0)
-    {
-        LE_DEBUG("no binding info for this profile");
-        return 0;
-    }
-
-    for (auto info : slotVlanMappingInfo[slotId])
-    {
-            if((uint32_t)info.first == profileId)
+            switch (backhaulType)
             {
-                LE_DEBUG("the profile %d is bound with vlan %d",profileId,(uint16_t)info.second);
-                return (uint16_t)info.second;
+                case TAF_NET_BH_ETH:
+                    pabackhaulType = TAF_PA_VLAN_BH_ETH;
+                    break;
+                case TAF_NET_BH_USB:
+                    pabackhaulType = TAF_PA_VLAN_BH_USB;
+                    break;
+                case TAF_NET_BH_WLAN:
+                    pabackhaulType = TAF_PA_VLAN_BH_WLAN;
+                    break;
+                case TAF_NET_BH_WWAN:
+                    pabackhaulType = TAF_PA_VLAN_BH_WWAN;
+                    break;
+                case TAF_NET_BH_BLE:
+                    pabackhaulType = TAF_PA_VLAN_BH_BLE;
+                    break;
+                default:
+                    LE_ERROR("Invalid backhaul type (%d).", backhaulType);
+                    continue;
             }
+            //Get all binding info
+            result = PA_TO_LE_RESULT(taf_pa_net_QueryVlanToBackhaulMappingList(slot, pabackhaulType,
+                vlanBindInfo));
+
+            if(result == LE_OK && !vlanBindInfo.empty())
+            {
+                LE_DEBUG("VLAN ID =%d, size =%d", vlanId, (int) vlanBindInfo.size());
+                for (auto binding:vlanBindInfo)
+                {
+                    LE_DEBUG("vlanId: %d, slotId:%d, profileId:%d, backhaulType:%d, backvlanId:%d",
+                        binding.vlanId, binding.slotId, binding.profileId, binding.backhaulType,
+                        binding.vlanIdBackhaul);
+                    if (binding.vlanId == vlanId)
+                    {
+                        vlanBindCfg->slotId = binding.slotId;
+                        vlanBindCfg->profileId = binding.profileId;
+                        vlanBindCfg->vlanIdBackhaul = binding.vlanIdBackhaul;
+
+                        switch (binding.backhaulType)
+                        {
+                            case TAF_PA_VLAN_BH_ETH:
+                                vlanBindCfg->backhaulType = TAF_NET_BH_ETH;
+                                break;
+                            case TAF_PA_VLAN_BH_USB:
+                                vlanBindCfg->backhaulType = TAF_NET_BH_USB;
+                                break;
+                            case TAF_PA_VLAN_BH_WLAN:
+                                vlanBindCfg->backhaulType = TAF_NET_BH_WLAN;
+                                break;
+                            case TAF_PA_VLAN_BH_WWAN:
+                                vlanBindCfg->backhaulType = TAF_NET_BH_WWAN;
+                                break;
+                            case TAF_PA_VLAN_BH_BLE:
+                                vlanBindCfg->backhaulType = TAF_NET_BH_BLE;
+                                break;
+                            default:
+                                LE_ERROR("Invalid backhaul type (%d).", backhaulType);
+                                return LE_BAD_PARAMETER;
+                        }
+                        return LE_OK;
+                    }
+                }
+            }
+        }
     }
 
-    return 0;
+    return LE_NOT_FOUND;
 }
+
 
 /*======================================================================
 
@@ -2154,74 +2162,40 @@ le_result_t taf_Vlan::GetBoundSlotIdProfileIdFromVlan(uint16_t vlanId, uint8_t* 
     TAF_ERROR_IF_RET_VAL(slotId == NULL , LE_BAD_PARAMETER, "slotId ptr is null");
     TAF_ERROR_IF_RET_VAL(profileId == NULL , LE_BAD_PARAMETER, "profileId ptr is null");
 
-    for(int slotIdIdx =1; slotIdIdx <= 2; slotIdIdx++)
+    le_result_t result;
+    std::vector<uint8_t> slotIds;
+    result = PA_TO_LE_RESULT(taf_pa_net_GetSupportedSlotIds(slotIds));
+    if(result != LE_OK)
     {
+        LE_ERROR("Failed to get supported slot IDs");
+        return LE_FAULT;
+    }
 
-        if(GetBindingInfo(slotIdIdx) != LE_OK)
-            continue;
-        
-        if(slotVlanMappingInfo[slotIdIdx].size() == 0)
+    for(uint8_t slot:slotIds)
+    {
+        std::vector<taf_pa_VlanBindConfig_t> vlanBindInfo;
+        result = PA_TO_LE_RESULT(taf_pa_net_QueryVlanToBackhaulMappingList(slot,
+            TAF_PA_VLAN_BH_WWAN, vlanBindInfo));
+
+        if(result == LE_OK)
         {
-          LE_DEBUG("no binding info");
-          continue;
-        }
-
-        if (slotVlanMappingInfo.find(slotIdIdx) ==
-            slotVlanMappingInfo.end() ||
-            slotVlanMappingInfo[slotIdIdx].size() == 0)
-            continue;
-
-        for (auto info : slotVlanMappingInfo[slotIdIdx])
-        {
-            if((uint32_t)info.second == vlanId)
+            LE_INFO("VLAN ID =%d, size =%d", vlanId, (int) vlanBindInfo.size());
+            for (auto binding:vlanBindInfo)
             {
-                LE_DEBUG("the vlan %d is bound with profile %d",vlanId,(int32_t)info.first);
-                *slotId = slotIdIdx;
-                *profileId = info.first;
-                return LE_OK;
+                LE_INFO("vlanId: %d, slotId:%d, profileId:%d, backhaulType:%d, backvlanId:%d",
+                    binding.vlanId, binding.slotId, binding.profileId, binding.backhaulType,
+                    binding.vlanIdBackhaul);
+                if (binding.vlanId == vlanId)
+                {
+                    *slotId = binding.slotId;
+                    *profileId = binding.profileId;
+                    return LE_OK;
+                }
             }
         }
     }
 
     return LE_FAULT;
-}
-
-/*======================================================================
-
- FUNCTION        taf_Vlan::GetBindingInfo
-
- DESCRIPTION     Get the binding info between vlan id and profile id.
-
- DEPENDENCIES    The initialization of Vlan.
-
- PARAMETERS      None.
-
- RETURN VALUE    le_result_t
-                      LE_FAULT     Failure.
-                      LE_OK        Success
-
- SIDE EFFECTS
-
-======================================================================*/
-le_result_t taf_Vlan::GetBindingInfo(uint8_t slotId)
-{
-
-    le_result_t result = LE_OK;
-
-    std::list<std::pair<int, int>> vlanMapping;
-
-    result = PA_TO_LE_RESULT(taf_pa_net_QueryVlanMappingList(slotId,vlanMapping));
-
-    if (result != LE_OK)
-    {
-        LE_ERROR("Error(%d)", (int)result);
-        return LE_FAULT;
-    }
-    slotVlanMappingInfo[slotId].clear();
-    if(vlanMapping.size() != 0)
-       slotVlanMappingInfo[slotId]=vlanMapping;
-
-    return LE_OK;
 }
 
 bool taf_Vlan::sort_vlanId(const taf_pa_Vlan_t& s1, const taf_pa_Vlan_t& s2)

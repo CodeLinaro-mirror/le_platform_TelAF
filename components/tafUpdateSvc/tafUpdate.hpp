@@ -159,22 +159,125 @@ namespace tafsvc {
         taf_Update() {};
         ~taf_Update() {};
 
-        static taf_Update &GetInstance();
+        /**
+         * Returns the singleton instance of taf_Update.
+         *
+         * @return
+         *  - Reference to the singleton taf_Update instance.
+         */
+        static taf_Update &GetInstance
+        (
+            void
+        );
 
-        le_result_t CheckQotaHeader(const char* file);
-        le_result_t RemoveQotaHeader(const char* file);
+        /**
+         * Checks whether a package starts with a valid QOTA header.
+         *
+         * @return
+         *  - LE_OK    -- The file exists, is large enough, and starts with the expected QOTA magic.
+         *  - LE_FAULT -- The file could not be opened, is smaller than the QOTA header size, or its
+         *                leading bytes do not match the expected QOTA magic.
+         */
+        le_result_t CheckQotaHeader
+        (
+            const char* file ///< [IN] Path to the package file.
+        );
 
-        void ReportDownloadStatus(taf_UpdateDownloadSession_t* sessPtr, taf_update_State_t state);
-        void ReportUpdateStatus(taf_UpdatePlugInSession_t* sessPtr, taf_update_State_t state);
-        static void DownloadTimerHandler(le_timer_Ref_t timerRef);
-        static void UpdateTimerHandler(le_timer_Ref_t timerRef);
+        /**
+         * Removes the QOTA header from a package file in place.
+         *
+         * @return
+         *  - LE_OK    -- The QOTA header was removed successfully.
+         *  - LE_FAULT -- The file could not be opened, the temporary buffer could not be allocated, or a
+         *                read error occurred while shifting the payload to overwrite the header.
+         */
+        le_result_t RemoveQotaHeader
+        (
+            const char* file ///< [IN] Path to the package file.
+        );
 
-        static void StateLayeredHandler(void* reportPtr, void* layerHandlerFunc);
+        /**
+         * Reports download progress and emits a state indication.
+         *
+         * @note This helper has no return value.
+         */
+        void ReportDownloadStatus
+        (
+            taf_UpdateDownloadSession_t* sessPtr, ///< [IN] Download session pointer.
+            taf_update_State_t           state    ///< [IN] State to report.
+        );
 
-        static void DownloadHandler(void* reqPtr);
-        static void UpdateHandler(void* reqPtr);
+        /**
+         * Reports update progress and emits a state indication.
+         *
+         * @note This helper has no return value.
+         */
+        void ReportUpdateStatus
+        (
+            taf_UpdatePlugInSession_t* sessPtr, ///< [IN] Update session pointer.
+            taf_update_State_t         state    ///< [IN] State to report.
+        );
 
-        void Init(void);
+        /**
+         * Handles download timer expiry events.
+         *
+         * @note This helper has no return value.
+         */
+        static void DownloadTimerHandler
+        (
+            le_timer_Ref_t timerRef ///< [IN] Download timer reference.
+        );
+
+        /**
+         * Handles update timer expiry events.
+         *
+         * @note This helper has no return value.
+         */
+        static void UpdateTimerHandler
+        (
+            le_timer_Ref_t timerRef ///< [IN] Update timer reference.
+        );
+
+        /**
+         * Dispatches state reports to layered handlers.
+         *
+         * @note This helper has no return value.
+         */
+        static void StateLayeredHandler
+        (
+            void* reportPtr,       ///< [IN] State report pointer.
+            void* layerHandlerFunc ///< [IN] Layer handler function pointer.
+        );
+
+        /**
+         * Handles download requests in the event loop.
+         *
+         * @note This helper has no return value.
+         */
+        static void DownloadHandler
+        (
+            void* reqPtr ///< [IN] Download request pointer.
+        );
+
+        /**
+         * Handles update requests in the event loop.
+         *
+         * @note This helper has no return value.
+         */
+        static void UpdateHandler
+        (
+            void* reqPtr ///< [IN] Update request pointer.
+        );
+
+        /**
+         * Initializes the update service.
+         *
+         * @note This helper has no return value.
+         */
+        void Init
+        (
+            void
+        );
 
         da_Inf_t* daInfPtr;
         ua_Inf_t* uaInfPtr;

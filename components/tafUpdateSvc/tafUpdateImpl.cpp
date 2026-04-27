@@ -32,13 +32,18 @@ LE_REF_DEFINE_STATIC_MAP(sessionMap, TAF_UPDATE_SESSION_NUM);
 //--------------------------------------------------------------------------------------------------
 LE_MEM_DEFINE_STATIC_POOL(sessionPool, TAF_UPDATE_SESSION_NUM, sizeof(taf_UpdateSession_t));
 
-/*======================================================================
- FUNCTION        taf_Update::GetInstance
- DESCRIPTION     Get the instance of taf_Update
- PARAMETERS      void
- RETURN VALUE    taf_Update: Instance reference
-======================================================================*/
-taf_Update &taf_Update::GetInstance()
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the singleton instance of taf_Update.
+ *
+ * @return
+ *  - Reference to the singleton taf_Update instance.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_Update &taf_Update::GetInstance
+(
+    void
+)
 {
     static taf_Update instance;
     return instance;
@@ -49,8 +54,9 @@ taf_Update &taf_Update::GetInstance()
  * Check QOTA header.
  *
  * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ *  - LE_OK    The file exists, is large enough, and starts with the expected QOTA magic.
+ *  - LE_FAULT The file could not be opened, is smaller than the QOTA header size, or its leading
+ *             bytes do not match the expected QOTA magic.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_Update::CheckQotaHeader
@@ -98,8 +104,9 @@ le_result_t taf_Update::CheckQotaHeader
  * Remove QOTA header.
  *
  * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ *  - LE_OK    The QOTA header was removed successfully.
+ *  - LE_FAULT The file could not be opened, the temporary buffer could not be allocated, or a read
+ *             error occurred while shifting the payload to overwrite the header.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_Update::RemoveQotaHeader
@@ -159,8 +166,8 @@ le_result_t taf_Update::RemoveQotaHeader
 //--------------------------------------------------------------------------------------------------
 void taf_Update::StateLayeredHandler
 (
-    void* reportPtr,       ///< Indictaion to be reproted.
-    void* layerHandlerFunc ///< Layered handler function
+    void* reportPtr,       ///< [IN] Indictaion to be reproted.
+    void* layerHandlerFunc ///< [IN] Layered handler function
 )
 {
     TAF_ERROR_IF_RET_NIL(reportPtr == nullptr, "Null ptr(reportPtr)");
@@ -176,6 +183,9 @@ void taf_Update::StateLayeredHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Report download status.
+ *
+ * @note This helper has no return value. It updates the cached session state and emits a state
+ *       indication based on the supplied status.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_Update::ReportDownloadStatus
@@ -395,6 +405,9 @@ void taf_Update::DownloadHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Report update status.
+ *
+ * @note This helper has no return value. It updates the cached plug-in session state and emits a
+ *       state indication based on the supplied status.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_Update::ReportUpdateStatus

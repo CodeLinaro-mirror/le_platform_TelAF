@@ -29,9 +29,27 @@ class taf_FlashAccess
         taf_FlashAccess() = default;
         ~taf_FlashAccess() = default;
 
-        static taf_FlashAccess &GetInstance();
+        /**
+         * Returns the singleton instance of taf_FlashAccess.
+         *
+         * @return
+         *  - Reference to the singleton taf_FlashAccess instance.
+         */
+        static taf_FlashAccess &GetInstance
+        (
+            void
+        );
 
-        void Init();
+        /**
+         * Initializes the flash access reference maps and memory pools.
+         *
+         * @note This helper has no return value.
+         */
+        void Init
+        (
+            void
+        );
+
         le_ref_MapRef_t mtdMap;
         le_ref_MapRef_t ubiMap;
 

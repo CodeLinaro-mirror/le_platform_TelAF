@@ -10,7 +10,7 @@ apps:
 // So here we shall bind to peer system for RPC test.
 bindings:
 {
-    RpcPrintClient.rpcClientPrinter -> <telaf>.rpcServer_102_root_printer
+    RpcPrintClient.rpcClientPrinter -> <telaf>.rpcServer_102_telaf_tafRpcPrinter
 }
 
 interfaceSearch:

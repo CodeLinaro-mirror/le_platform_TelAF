@@ -891,6 +891,8 @@ le_result_t taf_sim::selectSimSlot(taf_sim_Id_t simId) {
     pa_result_t paResult = taf_pa_sim_selectSimSlot((taf_pa_sim_Id_t)simId);
     if (paResult == TAF_PA_SIM_RESULT_OK)
     {
+        auto &sim = taf_sim::GetInstance();
+        sim.slot= simId;
         return LE_OK;
     }
     else if (paResult == TAF_PA_SIM_RESULT_TIMEOUT)

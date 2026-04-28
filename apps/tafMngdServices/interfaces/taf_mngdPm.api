@@ -259,17 +259,6 @@ ENUM ShutdownMode
 };
 
 /**
- * Wakeup type for system wakeup.
- */
-ENUM WakeupType
-{
-    APP_STAYAWAKE,  ///< The wakeup type is to keep the system awake.
-    SMS,            ///< The wakeup type is SMS for system wakeup.
-    VOICE_CALL,     ///< The wakeup type is VOICE_CALL for system wakeup.
-    MCU_VHAL        ///< The wakeup type is  MCU / VHAL for system wakeup.
-};
-
-/**
  * StayAwakeReason type for system wakeup.
  * Value range from 5 to 15 is for the platform future extension.
  * Value range from 16 to 31 is for Tier 1 product specific extension.
@@ -454,46 +443,51 @@ ENUM NodePowerState
 //--------------------------------------------------------------------------------------------------
 BITMASK NodeModemWsBitMask
 {
-    NODE_MODEM_WS_BIT_MASK_SMS,        ///< Node Modem Wake Soure bit mask for received SMS.
-    NODE_MODEM_WS_BIT_MASK_VOICE_CALL, ///< Node Modem Wake Soure bit mask for incoming voice call.
+    NODE_MODEM_WS_BIT_MASK_SMS,        ///< Node Modem Wake Source bit mask for received SMS.
+    NODE_MODEM_WS_BIT_MASK_VOICE_CALL, ///< Node Modem Wake Source bit mask for incoming voice call.
     NODE_MODEM_WS_BIT_MASK_REMOTE_SIM_PROFILE_SWAP, ///< Node Modem Wake Source bit mask for remote
                                                     ///< sim profile swapped based SIM refresh
                                                     ///< indication wake up.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_3,   ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_4,   ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_5,   ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_6,   ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_7,   ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_8,   ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_9,   ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_10,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_11,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_12,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_13,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_14,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_15,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_16,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_17,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_18,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_19,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_20,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_21,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_22,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_23,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_24,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_25,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_26,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_27,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_28,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_29,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_30,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_31   ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_3,   ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_4,   ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_5,   ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_6,   ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_7,   ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_8,   ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_9,   ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_10,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_11,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_12,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_13,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_14,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_15,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_16,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_17,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_18,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_19,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_20,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_21,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_22,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_23,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_24,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_25,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_26,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_27,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_28,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_29,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_30,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_31   ///< Node Modem Wake Source bit mask Reserved.
 };
 
 /**
- * WakeupNodeSourceRef for system wakeup.
+ * System level wakeup source reference.
  */
 REFERENCE ws;
+
+/**
+ * Node level wakeup source reference.
+ */
+REFERENCE wsNode;
 
 /**
  * WakeupNodeSourceRef for system wakeup.
@@ -734,10 +728,10 @@ FUNCTION le_result_t WakeupVehicleReqAsync
  *     - LE_FAULT          Failed to send the request.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION ws NewNodeWakeupSource (
+FUNCTION wsNode CreateNodeWakeupSource (
     uint8 pmNodeId IN,               ///< The Node ID given.
-    WakeupType  wakeupType IN,       ///< The wakeup type given.
-    string vhalTag[WSREF_MAXLEN] IN  ///< The HAL tag information.
+    WsOpt option   IN,               ///< The wakeup source option given.
+    string wsTag[WSREF_MAXLEN] IN    ///< The wakeup source tag information.
 ) =12;
 
 //--------------------------------------------------------------------------------------------------
@@ -751,7 +745,7 @@ FUNCTION ws NewNodeWakeupSource (
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RelaxNode (
-    ws wsRef IN    ///< The wakesource reference ID given.
+    wsNode wsRef IN    ///< The wakesource reference ID given.
 ) =14;
 
 //--------------------------------------------------------------------------------------------------
@@ -765,7 +759,7 @@ FUNCTION le_result_t RelaxNode (
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StayAwakeNode(
-    ws wsRef IN     ///< The wakesource reference ID given.
+    wsNode wsRef IN     ///< The wakesource reference ID given.
 ) =15;
 
 //--------------------------------------------------------------------------------------------------
@@ -943,7 +937,7 @@ FUNCTION le_result_t GetNodeModemAwakeReason
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Deletes the given wake source.
+ * Deletes the given wakeup source.
  *
  * @instaging
  */
@@ -966,3 +960,14 @@ FUNCTION le_result_t GetNodePowerState
     NodePowerState state OUT ///< Node power state.
 ) =28;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes the given wakeup source.
+ *
+ * @instaging
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteNodeWakeupSource
+(
+    wsNode wsRef IN     ///< The node level wakesource reference ID given.
+) =29;

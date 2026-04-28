@@ -8,7 +8,7 @@ requires:
 {
     api:
     {
-        taf_mpms_test.api [manual-start]
+        taf_mngdPmTest.api [manual-start]
     }
 }
 

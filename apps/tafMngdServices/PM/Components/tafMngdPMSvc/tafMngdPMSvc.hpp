@@ -105,10 +105,10 @@ typedef struct
 
 typedef struct
 {
-    const char* vhalTag;                   // VhalTag to be sent to VHAL
-    taf_mngdPm_wsRef_t wsRef;              // New wakeup source reference
+    const char* wsTag;                     // VhalTag to be sent to VHAL
+    taf_mngdPm_wsNodeRef_t wsRef;          // New wakeup source reference
     uint8_t pmNodeId;                      // NodeId given
-    taf_mngdPm_WakeupType_t wakeupType;    // WakeupType for the wake source
+    taf_mngdPm_WsOpt_t option;             // wake source option for calling stay awake and relax
     le_dls_Link_t link;                    // Link to handler list
     le_msg_SessionRef_t sessionRef;        // Session reference of a client
     bool isAcquiredLock;                   // boolean to check wakelock acquired
@@ -133,6 +133,7 @@ typedef struct
     bool isRestart;
     bool isSuspend;
     bool isWsAcquired;
+    bool isWsNodeAcquired;
 }taf_powerMode_t;
 
 typedef struct
@@ -178,12 +179,6 @@ typedef struct
     taf_mngdPm_NodePowerState_t state;
     bool isAcked;
 }taf_mngdPm_NodePowerStateChangeCtxt_t;
-
-typedef struct
-{
-    uint32_t wakeupType;
-    le_msg_SessionRef_t sessionRef;
-}taf_mngdPm_WakeupSourceCtxt_t;
 
 typedef struct
 {
@@ -290,6 +285,9 @@ class tafMngdPMSvc: public ITafSvc
         static le_result_t AcquireWakeLock();
         static le_result_t ReleaseWakeLock();
 
+        static le_result_t AcquireNodeWakeLock();
+        static le_result_t ReleaseNodeWakeLock();
+
         static le_result_t RequestStateChange(uint8_t requestedState);
         static void ProcessStateChange(uint8_t toState);
 
@@ -315,12 +313,14 @@ class tafMngdPMSvc: public ITafSvc
         static taf_pm_StateChangeExHandlerRef_t handlerExRef;
         static taf_pm_PowerStateRef_t powerStateRef;
         static taf_pm_WakeupSourceRef_t ws;
+        static taf_pm_WakeupSourceRef_t wsNode;
 
         // resources to manage power state change requests
         static taf_mngdPm_TargetedPowerMode_t targetedPowerMode;
         static taf_mngdPm_RestartCb_t restartCB;
         static taf_mngdPm_ShutdownCb_t shutdownCB;
         static uint8_t wsCount;
+        static uint8_t wsNodeCount;
         static taf_powerMode_t powerMode;
         static taf_stateMachine_t stateMachine;
 

@@ -698,7 +698,7 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
             }
             le_ref_DeleteRef(mpms.nodeWsRefMap, wsRefCtxPtr->wsRef);
             le_dls_Remove(&(mpms.nodeWsRefList), &wsRefCtxPtr->link);
-            free((void*)wsRefCtxPtr->vhalTag);
+            free((void*)wsRefCtxPtr->wsTag);
             le_mem_Release((void*)wsRefCtxPtr);
         }
     }
@@ -1315,6 +1315,28 @@ le_result_t tafMngdPMSvc::AcquireWakeSource(taf_wsRefCtx_t * wsRefCtxPtr)
     return res;
 }
 
+le_result_t tafMngdPMSvc::AcquireNodeWakeLock()
+{
+    le_result_t rst = LE_OK;
+
+    if (! powerMode.isWsNodeAcquired)
+    {
+        rst = taf_pm_StayAwake(wsNode);
+        if (rst != LE_OK)
+        {
+            LE_ERROR("Failed to StayAwake PMS wsNode");
+            return rst;
+        }
+        powerMode.isWsNodeAcquired = true;
+    }
+
+    ++ wsNodeCount;
+    LE_INFO("AcquireNodeWakeLock wsNodeCount = %d", wsNodeCount);
+
+    return rst;
+}
+
+
 /**
  * Acquire wakesource and let system stay awake
  */
@@ -1485,6 +1507,47 @@ le_result_t tafMngdPMSvc::ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr)
         }
     }
     return res;
+}
+
+le_result_t tafMngdPMSvc::ReleaseNodeWakeLock()
+{
+    if(wsNodeCount > 0)
+    {
+        wsNodeCount--;
+        LE_INFO("ReleaseNodeWakeLock wsNodeCount:%d", wsNodeCount);
+
+        if (wsNodeCount > 0)
+        {
+            return LE_OK;
+        }
+        else // == 0, no reference
+        {
+            LE_INFO("Transfer to relax PMS wake lock flow ...");
+        }
+    }
+
+    // CASE below: wsNodeCount == 0
+
+    if (! powerMode.isWsNodeAcquired)
+    {
+        LE_WARN("PMS wsNode was not acquired, nothing to do");
+        return LE_FAULT;
+    }
+
+    // CASE below: isWsNodeAcquired == true
+
+    le_result_t rst = taf_pm_Relax(wsNode);
+    if (rst == LE_OK)
+    {
+        LE_INFO("Node wakesource from pms released successfully");
+        powerMode.isWsNodeAcquired = false;
+    }
+    else
+    {
+        LE_ERROR("Failed to relax the pms wsNode");
+    }
+
+    return rst;
 }
 
 /**
@@ -2064,13 +2127,15 @@ taf_pm_StateChangeHandlerRef_t tafMngdPMSvc::handlerRef = nullptr;
 taf_pm_StateChangeExHandlerRef_t tafMngdPMSvc::handlerExRef = nullptr;
 taf_pm_PowerStateRef_t tafMngdPMSvc::powerStateRef = nullptr;
 taf_pm_WakeupSourceRef_t tafMngdPMSvc::ws = nullptr;
+taf_pm_WakeupSourceRef_t tafMngdPMSvc::wsNode = nullptr;
 
 taf_mngdPm_TargetedPowerMode_t tafMngdPMSvc::targetedPowerMode = TAF_MNGDPM_RESUME;
 taf_mngdPm_RestartCb_t tafMngdPMSvc::restartCB;
 taf_mngdPm_ShutdownCb_t tafMngdPMSvc::shutdownCB;
 
 uint8_t tafMngdPMSvc::wsCount = 0;
-taf_powerMode_t tafMngdPMSvc::powerMode{ .isWsAcquired = false, };
+uint8_t tafMngdPMSvc::wsNodeCount = 0;
+taf_powerMode_t tafMngdPMSvc::powerMode{ .isWsAcquired = false, .isWsNodeAcquired = false};
 taf_stateMachine_t tafMngdPMSvc::stateMachine{};
 
 hal_pm_Inf_t* tafMngdPMSvc::pmInf = nullptr;

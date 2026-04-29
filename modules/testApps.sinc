@@ -89,11 +89,6 @@ apps:
     $TELAF_ROOT/apps/sample/etsSvc/tafEtsSvc/tafEtsSvc
     $TELAF_ROOT/apps/test/wdogKickAndLogging/tafTestLoggingStorm.adef
     $TELAF_ROOT/apps/test/wdogKickAndLogging/tafTestWdogKick.adef
-    $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/mpms/tafMpmsDaemon/tafMpmsDaemon.adef
-    $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/mpms/tafMpmsTool.adef
-    $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/mpms/cases/tafMpmsTestCase001/tafMpmsTestCase001.adef
-    $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/mpms/cases/tafMpmsTestCase002/tafMpmsTestCase002.adef
-    $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/mpms/cases/tafMpmsTestCase003/tafMpmsTestCase003.adef
 }
 
 interfaceSearch:

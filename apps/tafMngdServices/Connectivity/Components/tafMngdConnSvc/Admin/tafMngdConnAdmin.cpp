@@ -116,11 +116,24 @@ void tafMngdConnAdmin::Init(void)
         // Policy and Configuration parsed and validated. Move to "Data-Not_Connected" state
         LE_DEBUG("JSONs parsed. Initialization Complete and set IsJsonValid with true");
         IsJsonValid = true;
+
+        // Create semaphore to block until InitializeStates() completes in StateMachineEventThread.
+        // This ensures DataCtxList is fully populated before Init() returns, preventing the race
+        // condition where a client calls taf_mngdConn_GetDataByName before initialization is done.
+        InitCompleteSemRef = le_sem_Create("InitCompleteSem", 0);
+
         stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
         // Report the event to the state machine
         stateMachineEvt.event=MCS_EVT_INIT;
         le_event_Report(StateMachineEventId, &stateMachineEvt,
                                                         sizeof(stateMachineEvent_t));
+
+        // Block until EventInit() -> InitializeStates() completes.
+        // DataCtxList will be populated before Init() returns.
+        le_sem_Wait(InitCompleteSemRef);
+        le_sem_Delete(InitCompleteSemRef);
+        InitCompleteSemRef = NULL;
+        LE_INFO("InitializeStates completed, DataCtxList is ready for client queries");
     }
     else
     {
@@ -492,12 +505,19 @@ taf_mngdConn_DataRef_t tafMngdConnAdmin::GetRefByDataId(uint8_t dataId)
 //--------------------------------------------------------------------------------------------------
 taf_mngdConn_DataRef_t tafMngdConnAdmin::GetRefByName(const char *dataName)
 {
+    if (!IsInitialized)
+    {
+        // Distinguish "service not yet ready" from "data name not found in JSON"
+        LE_WARN("Service not yet initialized (InitializeStates not complete). "
+                "DataCtxList may be empty. Retry later.");
+        return NULL;
+    }
 
     mcs_DataCtx_t* dataCtxPtr = GetDataCtx(dataName);
 
     if(dataCtxPtr == NULL)
     {
-        LE_ERROR("Json is needed");
+        LE_ERROR("Data name '%s' not found in configuration JSON", dataName);
         return NULL;
     }
 
@@ -1066,10 +1086,23 @@ void tafMngdConnAdmin::EventInit()
 {
     // Initialize states for each data object
     le_result_t result = InitializeStates();
-    if (LE_OK != result)
+    if (LE_OK == result)
+    {
+        IsInitialized = true;
+        LE_INFO("Service initialization complete, DataCtxList is ready");
+    }
+    else
     {
         // Initialization did not complete. Wait for SIM/Radio events and act on them
         LE_INFO("Initialization not complete. Wait for further events");
+    }
+
+    // Unblock Init() regardless of result: DataCtxList entries are created in
+    // InitializeStates() even when SIM/network is not yet ready, so clients can
+    // already look up data names. Init() must not block indefinitely.
+    if (InitCompleteSemRef != NULL)
+    {
+        le_sem_Post(InitCompleteSemRef);
     }
 }
 

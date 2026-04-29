@@ -283,6 +283,8 @@ namespace tafsvc {
             char ConfigFileName[MCS_MAX_FILE_PATH_LEN];
 
             bool IsJsonValid = false;
+            bool IsInitialized = false;         // Set to true after InitializeStates() completes
+            le_sem_Ref_t InitCompleteSemRef = NULL; // Semaphore to sync Init() with EventInit()
 
             le_mem_PoolRef_t dataStatePool;
             std::promise<le_result_t> CmdSynchronousPromise;

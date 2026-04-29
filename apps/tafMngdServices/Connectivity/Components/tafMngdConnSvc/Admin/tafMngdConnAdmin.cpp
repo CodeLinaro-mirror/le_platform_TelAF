@@ -1787,7 +1787,7 @@ le_result_t tafMngdConnAdmin::EventNetworkRegState(uint8_t phoneId)
                 case MCS_DATA_NOT_CONNECTED_SIM_NOT_READY:
                 case MCS_DATA_NOT_CONNECTED_NW_NOT_REGISTERED:
                 case MCS_DATA_NOT_CONNECTED_SIM_READY:
-
+                case MCS_DATA_NOT_CONNECTED_RETRYING:
                     dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_NW_REGISTERED;
                     //Start a data call if autoStart, or reconnection flag is true
                     if(dataCtxPtr->autoStart || dataCtxPtr->needReConn)
@@ -1804,10 +1804,6 @@ le_result_t tafMngdConnAdmin::EventNetworkRegState(uint8_t phoneId)
                         // Wait for user to call DataStart()
                         dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED;
                     }
-                    break;
-                case MCS_DATA_NOT_CONNECTED_RETRYING:
-                    // TODO: This state is not possible as  retry timers will be stopped when NAD
-                    // loses registration.
                     break;
                 default:
                     break;

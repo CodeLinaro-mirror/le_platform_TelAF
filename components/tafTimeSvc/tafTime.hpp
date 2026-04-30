@@ -18,6 +18,7 @@
 #include <vector>
 #include <algorithm>
 #include <string>
+#include <atomic>
 
 // For using VHAL
 #include "tafSvcIF.hpp"
@@ -70,9 +71,10 @@
 #define TAF_TIME_NSEC_PER_SEC             (1000000000)
 #define TAF_TIME_THRESHOLD_MILLISEC       (2000)
 
-#define TAF_TIME_RECEIVE_GNSS_TIME_COUNT   5
 #define TAF_TIME_SYNC_TIME_TIMER_INTERVAL (61000)
 #define INIT_SYNC_VALIDI_WITH_MSS_COUNTER  30
+#define TAF_PM_CONNECT_RETRY_INTERVAL_SEC   5   ///< Seconds between tafPMSvc connection retries.
+#define TAF_PM_CONNECT_RETRY_MAX           30   ///< Max retries (30 x 5s = 150s total).
 //-------------------------------------------------------------------------------------------------
 /**
  * Macro definition for network time.
@@ -540,7 +542,6 @@ struct ValidityParams
                 le_result_t GetRtcTime(taf_time_TimeSpec_t* timeValPtr, bool isAllowGetInternalRTCTime);
                 le_result_t GetGnssTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetExSetTimeStatus(void);
-                le_result_t GetAsyncRtcSetTimeStatus(void);
                 le_result_t GetSystemTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetInternalRtcTime(taf_time_TimeSpec_t* timeVal);
 
@@ -588,7 +589,6 @@ struct ValidityParams
 
                 static void* SyncTimeTasks(void* contextPtr);
                 static void SyncTimeTimerHandler(le_timer_Ref_t timerRef);
-                static void SyncGnssTime(void);
                 static void LayerTimeSourceChangeHandler(void* reportPtr,
                                                                         void* layerHandlerFuncPtr);
 
@@ -732,9 +732,6 @@ struct ValidityParams
                 void RegisterPtpDevice(void);
 
                 struct SetTimeStatus* SetTimeSt = NULL;
-                NetworkInfoUpdateArgs_t NetworkUpdateInfo1  = {};
-                NetworkInfoUpdateArgs_t NetworkUpdateInfo2  = {};
-                NetworkInfoUpdateArgs_t NetworkHandlerInfo  = {};
                 int sigTermSignalNum = -1;
 
             private:

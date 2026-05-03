@@ -17,7 +17,6 @@
 #include <sstream>
 #include <string>
 #include <chrono>
-#include <thread>
 #include <dirent.h>
 #include <future>
 
@@ -56,7 +55,13 @@ LE_REF_DEFINE_STATIC_MAP(MtdRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
 LE_REF_DEFINE_STATIC_MAP(ModemEventInfoRefMap, TAF_HMS_MAX_EVENT_POOL_SIZE);
 LE_REF_DEFINE_STATIC_MAP(ModemInfoRefMap, TAF_HMS_MAX_REF_POOL_SIZE);
 
-bool tafHmsListener::ModemAvailability = false;
+std::atomic<bool> tafHmsListener::ModemAvailability{true};
+static std::atomic<int> pendingCount{0};
+
+// One-shot gate to print logs when connection between modem and APPs from LOST to ONLINE again.
+static bool oneTimeLog = true;
+
+extern std::shared_ptr<ModemStatus> modemStatus;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -202,6 +207,11 @@ static double CalculateCpuUsage(const taf_hms_CPUCore_t *start, const taf_hms_CP
     float end_total = GetTotalTime(end);
     float total_diff = end_total - start_total;
 
+    if (total_diff <= 0.0f)
+    {
+        return 0.0;
+    }
+
     float start_idle = GetIdleTime(start);
     float end_idle = GetIdleTime(end);
     float idle_diff = end_idle - start_idle;
@@ -306,12 +316,11 @@ uint32_t taf_Hms::GetCpuCoreNum
     char line[256];
     int core_count = 0;
 
-    // Open /proc/cpuinfo file
     fp = fopen("/proc/cpuinfo", "r");
     if (fp == NULL)
     {
         LE_ERROR("Error opening /proc/cpuinfo");
-        return LE_FAULT;
+        return 0;
     }
 
     // Read line by line and count the number of cores
@@ -341,6 +350,10 @@ static double CalculateCoreCpuUsage(taf_hms_CPUCore_t core)
     uint32_t total_non_idle = core.user + core.nice + core.system +
                          core.irq + core.softirq + core.steal + core.guest;
     uint32_t total_time = total_non_idle + core.idle;
+    if (total_time == 0)
+    {
+        return 0.0;
+    }
     return ((double)total_non_idle / total_time) * 100.0;
 }
 
@@ -362,6 +375,8 @@ le_result_t taf_Hms::GetIndvCoreUsage
 )
 {
     TAF_ERROR_IF_RET_VAL(cpuUsagePtr == NULL, LE_BAD_PARAMETER, "cpuUsagePtr pointer is NULL");
+    TAF_ERROR_IF_RET_VAL(coreID >= MAX_CORES, LE_BAD_PARAMETER,
+                         "coreID %u out of range (max %d)", coreID, MAX_CORES - 1);
     FILE* fp;
     char buffer[1024];
     uint32_t cpu_count = 0;
@@ -437,7 +452,6 @@ le_result_t taf_Hms::GetIndvCoreUsage
         }
     }
 
-    // Core ID not found
     LE_ERROR("Error: Core ID %d not found\n", coreID);
     fclose(fp);
     return LE_FAULT;
@@ -515,13 +529,14 @@ static uint32_t ReadSysfsFile(const char *path)
 
     if(NULL == path)
     {
-        LE_ERROR("Failed to open file\n");
-        return LE_FAULT;
+        LE_ERROR("ReadSysfsFile: path is NULL");
+        return 0;
     }
     fp = fopen(path, "r");
     if (NULL == fp)
     {
-        return LE_FAULT;
+        LE_ERROR("ReadSysfsFile: failed to open %s", path);
+        return 0;
     }
 
     rc = fscanf(fp, "%d\n", &value);
@@ -536,8 +551,14 @@ static uint32_t ReadSysfsFile(const char *path)
  * Function to read a string from the given path.
  */
 //--------------------------------------------------------------------------------------------------
-static uint32_t ReadSysfsStringFile(const char *path, char *buffer, size_t length)
+static le_result_t ReadSysfsStringFile(const char *path, char *buffer, size_t length)
 {
+    if (path == NULL || buffer == NULL || length == 0)
+    {
+        LE_ERROR("ReadSysfsStringFile: invalid parameter");
+        return LE_BAD_PARAMETER;
+    }
+
     FILE *file = fopen(path, "r");
     if (file == NULL)
     {
@@ -576,7 +597,7 @@ static uint32_t GetUbiDeviceCount
     if (dir == NULL)
     {
         LE_ERROR("Error opening UBI class path");
-        return LE_FAULT;
+        return 0;
     }
 
     // Iterate through each entry in the directory
@@ -937,15 +958,14 @@ le_result_t taf_Hms::GetUbiVolName
     size_t ubiVolNameSize
 )
 {
-    TAF_ERROR_IF_RET_VAL(ubiVolName == NULL, LE_BAD_PARAMETER, "ubiVolName pointer is NULL");
+    TAF_ERROR_IF_RET_VAL(ubiVolName == NULL || ubiVolNameSize == 0,
+                         LE_BAD_PARAMETER, "Invalid UBI volume name buffer");
     taf_hms_ubiVolInfo_t* ubiVolPtr =
         (taf_hms_ubiVolInfo_t*)le_ref_Lookup(UbiVolRefMap, ubiVolInfoRef);
     TAF_ERROR_IF_RET_VAL(ubiVolPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
         ubiVolPtr);
 
-    snprintf(ubiVolName, sizeof(ubiVolPtr->ubiVolumeName), "%s", ubiVolPtr->ubiVolumeName);
-
-    TAF_ERROR_IF_RET_VAL(ubiVolName == NULL, LE_FAULT, "Failed to return Ubi volume name.");
+    snprintf(ubiVolName, ubiVolNameSize, "%s", ubiVolPtr->ubiVolumeName);
     return LE_OK;
 }
 
@@ -992,7 +1012,7 @@ static uint32_t GetMtdCount()
     dir = opendir(MTD_CLASS_PATH);
     if (dir == NULL) {
         LE_ERROR("opendir");
-        return LE_FAULT;
+        return 0;
     }
 
     while ((entry = readdir(dir)) != NULL)
@@ -1053,7 +1073,7 @@ taf_hms_MtdDevInfoListRef_t taf_Hms::GetMtdDevInfoList
 
             // Get device name
             snprintf(path, sizeof(path), MTD_DEV_NAME_PATH, i);
-            uint8_t result = ReadSysfsStringFile(path, buffer, sizeof(buffer));
+            le_result_t result = ReadSysfsStringFile(path, buffer, sizeof(buffer));
             if (result == LE_OK)
             {
                 le_utf8_Copy(mtdInfoPtr->mtdDevName, buffer, BUFFER_SIZE, NULL);
@@ -1190,13 +1210,14 @@ le_result_t taf_Hms::GetMtdDevName
     size_t mtdNameSize
 )
 {
-    TAF_ERROR_IF_RET_VAL(mtdName == NULL, LE_BAD_PARAMETER, "mtdName pointer is NULL");
+    TAF_ERROR_IF_RET_VAL(mtdName == NULL || mtdNameSize == 0,
+                         LE_BAD_PARAMETER, "Invalid MTD name buffer");
     taf_hms_mtdInfo_t* mtdDevPtr =
         (taf_hms_mtdInfo_t*)le_ref_Lookup(MtdRefMap, mtdDevInfoRef);
     TAF_ERROR_IF_RET_VAL(mtdDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
             mtdDevPtr);
 
-    snprintf(mtdName, sizeof(mtdDevPtr->mtdDevName), "%s", mtdDevPtr->mtdDevName);
+    snprintf(mtdName, mtdNameSize, "%s", mtdDevPtr->mtdDevName);
 
     TAF_ERROR_IF_RET_VAL(mtdName == NULL, LE_FAULT, "Failed to return MTD device name.");
     return LE_OK;
@@ -1320,6 +1341,7 @@ taf_hms_ModemEvtBitmask_t ModemEvtTypeMatchToBitmask
             return TAF_HMS_MODEM_EVENT_BIT_CONNECTION_LOST;
 
         case TAF_HMS_MODEM_EVENT_TYPE_CONNECTION_AVAIL:
+            // Clients register CONNECTION_LOST bit to receive both LOST and AVAIL events
             return TAF_HMS_MODEM_EVENT_BIT_CONNECTION_LOST;
 
         default:
@@ -1335,53 +1357,97 @@ void ResetModemStatusCounterHandler(void)
     LE_DEBUG("Reseting the timer for modem crash monitor");
 }
 
+static void DoRequestOperatingModeTrampoline(void*, void*)
+{
+    if (modemStatus)
+    {
+        modemStatus->DoRequestOperatingMode();
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Periodic main-thread timer handler driving the modem-health state machine.
+ *
+ * Runs every MODEM_CHECK_STATUS_INTERVAL ms on the main thread (the timer is
+ * created in ModemStatus::StartWorkerThread and fires on the thread that
+ * created it). Two independent jobs are performed:
+ *
+ *   1. CONTINUE_REBOOT clients: every TAF_HMS_MODEM_RESET_TIMER ms the modem
+ *      crash counter is reset so old crashes don't keep escalating the
+ *      severity reported to clients.
+ *   2. CONNECTION_LOST clients: requestOperatingMode() is queued onto the
+ *      worker thread each tick. If no SUCCESS response comes back for
+ *      COUNTER_RESPONSE_TIME_OUT consecutive ticks the modem is declared
+ *      unresponsive, a CONNECTION_LOST event is dispatched, and the
+ *      one-shot ONLINE-log gate is re-armed for the next recovery.
+ */
+//--------------------------------------------------------------------------------------------------
 void ModemStatusTimerHandler(le_timer_Ref_t timerRef)
 {
     auto &hms_List = tafHmsListener::GetInstance();
-    auto &hms_stat = ModemStatus::GetInstance();
 
+    if (hms_List.counter >= INT_MAX)
+    {
+        hms_List.counter = 0;
+    }
     hms_List.counter++;
 
-    // For registered event: "continue reboot"
+    // For registered event: CONTINUE_REBOOT.
+    // Reset the modem crash counter every TAF_HMS_MODEM_RESET_TIMER ms so
+    // the severity reported to clients reflects only recent crashes.
     if (hms_List.AllModemEventMap & TAF_HMS_MODEM_EVENT_BIT_CONTINUE_REBOOT)
     {
-
-        int resetLoop = (TAF_HMS_MODEM_RESET_TIMER/MODEM_CHECK_STATUS_INTERVAL) > 2 ?
-            (TAF_HMS_MODEM_RESET_TIMER/MODEM_CHECK_STATUS_INTERVAL): 2;
+        int resetLoop = (TAF_HMS_MODEM_RESET_TIMER / MODEM_CHECK_STATUS_INTERVAL) > 2 ?
+            (TAF_HMS_MODEM_RESET_TIMER / MODEM_CHECK_STATUS_INTERVAL) : 2;
 
         //Reset monitoring duration for modem reboot in every 120 seconds.
-        if(hms_List.counter % (resetLoop) == 0)
+        if (hms_List.counter % resetLoop == 0)
         {
             ResetModemStatusCounterHandler();
         }
     }
 
-    // For registered event: "connection status"
+    // For registered event: CONNECTION_LOST.
+    // Probe the modem each tick and detect unresponsiveness via pendingCount.
     if (hms_List.AllModemEventMap & TAF_HMS_MODEM_EVENT_BIT_CONNECTION_LOST)
     {
-        //Check operating mode status in every 3 seconds
-        hms_stat.CheckOperModeStatus();
+        TAF_ERROR_IF_RET_NIL(modemStatus == nullptr, "modemStatus is null");
+        if (pendingCount.load() < COUNTER_EVENT_REPORT_DONE)
+        {
+            pendingCount++;
+        }
+
+        // No SUCCESS response for COUNTER_RESPONSE_TIME_OUT consecutive
+        // ticks: declare the modem unresponsive and notify clients once.
+        if (pendingCount.load() == COUNTER_RESPONSE_TIME_OUT)
+        {
+            LE_WARN("No response %d ms elapsed", MODEM_CHECK_STATUS_INTERVAL * pendingCount.load());
+
+            pendingCount.store(COUNTER_EVENT_REPORT_DONE);
+            modemStatus->ReportModemStatus(TAF_HMS_MODEM_EVENT_TYPE_CONNECTION_LOST,
+                                           TAF_HMS_MODEM_EVENT_SEVERITY_HIGH);
+
+            // Connection lost enable one-shot log
+            oneTimeLog = true;
+        }
+
+        // Queue the next operating-mode request on the worker thread.
+        // The worker may block in PhoneInit, so the DoRequest must not run on the
+        // main thread.
+        if (modemStatus->GetWorkerThread() != nullptr)
+        {
+            le_event_QueueFunctionToThread(modemStatus->GetWorkerThread(),
+                                           DoRequestOperatingModeTrampoline, nullptr, nullptr);
+        }
     }
+
 }
 
 void tafHmsListener::StartResetTimer(void)
 {
-    if(ModemResetTimer == NULL)
-    {
-        ModemResetTimer = le_timer_Create("ModemResetTimer");
-        le_timer_SetMsInterval(ModemResetTimer, MODEM_CHECK_STATUS_INTERVAL);
-        le_timer_SetRepeat(ModemResetTimer, 0);
-        le_timer_SetHandler(ModemResetTimer, ModemStatusTimerHandler);
-        le_timer_SetWakeup(ModemResetTimer, false);
-
-        // Start the timer
-        le_timer_Start(ModemResetTimer);
-    }
-    else
-    {
-        LE_INFO("Timer already in use!");
-    }
-
+    TAF_ERROR_IF_RET_NIL(modemStatus == nullptr, "modemStatus is null");
+    modemStatus->StartWorkerThread();
 }
 
 taf_hms_operationStatus_t ModemOnStatusChangeConvert
@@ -1400,54 +1466,86 @@ taf_hms_operationStatus_t ModemOnStatusChangeConvert
         default:
             return MODEM_ON_CHANGE_STATUS_UNKNOWN;
     }
-
-    return MODEM_ON_CHANGE_STATUS_UNKNOWN;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * telux ISubsystemListener callback.
+ *
+ * Invoked by the telux SDK on its own thread whenever the operational status
+ * of a registered subsystem (MPSS in our case) changes. We can not safely
+ * touch tafHMSvc state from the SDK thread, so the new status is marshalled
+ * to the main thread via le_event_Report; the actual handling happens in
+ * MdStatusOnChangeCBNotify().
+ *
+ * @param[in] subsystemInfo          Identifies the subsystem (unused; we only
+ *                                   register for MPSS).
+ * @param[in] newOperationalStatus   New operational status reported by SDK.
+ */
+//--------------------------------------------------------------------------------------------------
 void tafHmsListener::onStateChange(telux::common::SubsystemInfo subsystemInfo,
                 telux::common::OperationalStatus newOperationalStatus)
 {
     auto &hms = taf_Hms::GetInstance();
+    taf_hms_modemOperaInfo_t onChEventType;
+
+    onChEventType.operationalStatus = static_cast<int>(newOperationalStatus);
+    le_event_Report(hms.MdStatusOnChangeCBId, &onChEventType, sizeof(taf_hms_modemOperaInfo_t));
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Main-thread handler for modem operational-status changes.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+void MdStatusOnChangeCBNotify(void* reportPtr)
+{
+    if (reportPtr == nullptr)
+    {
+        LE_ERROR("MdStatusOnChangeCBNotify: null reportPtr");
+        return;
+    }
+
+    auto &hms = taf_Hms::GetInstance();
+    auto &hms_List = tafHmsListener::GetInstance();
+
+    taf_hms_modemOperaInfo_t *onChEventType = (taf_hms_modemOperaInfo_t*)reportPtr;
+    telux::common::OperationalStatus newOperationalStatus =
+        static_cast<telux::common::OperationalStatus>(onChEventType->operationalStatus);
+    taf_hms_operationStatus_t status = ModemOnStatusChangeConvert(newOperationalStatus);
 
     LE_DEBUG("Got status change, operationalStatus %d, crash counter %d",
-                               (int)newOperationalStatus, ModemCrashCounter);
+            (int)newOperationalStatus, hms_List.ModemCrashCounter);
 
     //Check if the modem has crashed
     if(newOperationalStatus == telux::common::OperationalStatus::UNAVAILABLE)
     {
-        ModemAvailability = false;
+        tafHmsListener::ModemAvailability.store(false);
         LE_ERROR("Modem status became UNAVAILABLE");
         return;
     }
 
     //Check if it is a reboot i.e. UNAVAILABLE --> OPERATIONAL
-    if(newOperationalStatus == telux::common::OperationalStatus::OPERATIONAL && ModemAvailability)
+    if(newOperationalStatus == telux::common::OperationalStatus::OPERATIONAL &&
+        tafHmsListener::ModemAvailability.load())
     {
         LE_DEBUG("Modem status is OPERATIONAL");
         return;
     }
 
-    ModemAvailability = true;
-    ModemCrashCounter++;
-
-    taf_hms_operationStatus_t status = ModemOnStatusChangeConvert(newOperationalStatus);
-    taf_hms_modemOperaInfo_t onChEventType;
-
-    onChEventType.status = status;
-    onChEventType.ModemCrashCounter = ModemCrashCounter;
-
-    le_event_Report(hms.MdStatusOnChangeCBId, &onChEventType, sizeof(taf_hms_modemOperaInfo_t));
-}
-void MdStatusOnChangeCBNotify(void* reportPtr)
-{
-    auto &hms = taf_Hms::GetInstance();
-
-    taf_hms_modemOperaInfo_t *onChEventType = (taf_hms_modemOperaInfo_t*)reportPtr;
-
-    //Currently only supports "REBOOT" event type.
-    if(onChEventType->status != MODEM_ON_CHANGE_STATUS_OPERATIONAL)
+    // UNAVAILABLE -> OPERATIONAL transition (modem reboot).
+    tafHmsListener::ModemAvailability.store(true);
+    if (hms_List.AllModemEventMap & TAF_HMS_MODEM_EVENT_BIT_CONTINUE_REBOOT)
     {
-        LE_DEBUG("Modem status is NOT OPERATIONAL: %d", onChEventType->status);
+        hms_List.ModemCrashCounter++;
+    }
+
+    // The mapping above only treats OPERATIONAL as a reboot trigger; any
+    // other intermediate state is ignored by this handler.
+    if(status != MODEM_ON_CHANGE_STATUS_OPERATIONAL)
+    {
+        LE_DEBUG("Modem status is NOT OPERATIONAL: %d", status);
         return;
     }
 
@@ -1474,52 +1572,94 @@ void MdStatusOnChangeCBNotify(void* reportPtr)
             continue;
         }
 
-        if (onChEventType->ModemCrashCounter <= TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_LOW) {
+        if (hms_List.ModemCrashCounter <= TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_LOW) {
             newEvent.eventLevel = TAF_HMS_MODEM_EVENT_SEVERITY_LOW;
         }
-        else if (onChEventType->ModemCrashCounter <= TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_MEDIUM) {
+        else if (hms_List.ModemCrashCounter <= TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_MEDIUM) {
             newEvent.eventLevel = TAF_HMS_MODEM_EVENT_SEVERITY_MEDIUM;
         }
-        else if (onChEventType->ModemCrashCounter >= TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_HIGH) {
+        else if (hms_List.ModemCrashCounter >= TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_HIGH) {
             newEvent.eventLevel = TAF_HMS_MODEM_EVENT_SEVERITY_HIGH;
         }
 
         newEvent.eventType = TAF_HMS_MODEM_EVENT_TYPE_CONTINUE_REBOOT;
 
-        le_event_Report(hms.ModemStatusChangeId, &newEvent, sizeof(taf_hms_modemEventInfo_t));
+        le_event_Report(hms.MdStatusChNotifyCliId, &newEvent, sizeof(taf_hms_modemEventInfo_t));
     }
 }
 
-void taf_Hms::ModemStatusChangeNotify(void* reportPtr)
+static void DispatchEventToClient(taf_hms_modemEventInfo_t* evt)
 {
-    auto hms = taf_Hms::GetInstance();
-    auto &mppsListener = tafHmsListener::GetInstance();
+    TAF_ERROR_IF_RET_NIL(evt == nullptr || evt->modemInfo == nullptr, "invalid event");
+    TAF_ERROR_IF_RET_NIL(evt->modemInfo->handlerFunc == NULL, "client handler is NULL");
 
-    taf_hms_modemEventInfo_t* evt =
+    auto &hms = taf_Hms::GetInstance();
+
+    // Allocate a persistent event ref that the client will release via ReleaseModemEvt.
+    taf_hms_modemEventInfo_t* evtAlloc =
         (taf_hms_modemEventInfo_t*)le_mem_ForceAlloc(hms.ModemEventInfoPool);
-    evt->eventType = ((taf_hms_modemEventInfo_t*)reportPtr)->eventType;
-    evt->eventLevel = ((taf_hms_modemEventInfo_t*)reportPtr)->eventLevel;
-    evt->modemInfo = ((taf_hms_modemEventInfo_t*)reportPtr)->modemInfo;
-    evt->ref = (taf_hms_ModemEventRef_t)le_ref_CreateRef(hms.ModemEventInfoRefMap, (void*)evt);
+    evtAlloc->eventType  = evt->eventType;
+    evtAlloc->eventLevel = evt->eventLevel;
+    evtAlloc->modemInfo  = evt->modemInfo;
+    evtAlloc->ref = (taf_hms_ModemEventRef_t)le_ref_CreateRef(
+                        hms.ModemEventInfoRefMap, (void*)evtAlloc);
 
-    TAF_ERROR_IF_RET_NIL(evt->modemInfo->handlerFunc == NULL, "clientHandlerFunc is NULL !");
-
-    if(!(ModemEvtTypeMatchToBitmask(evt->eventType) & evt->modemInfo->reqEventBits))
+    if (evtAlloc->ref == NULL)
     {
-        LE_DEBUG("Ignore event '%s', request event '0x%x', all events: 0x%08" PRIx64 "",
-            ModemEventTypeToStr(evt->eventType), evt->modemInfo->reqEventBits,
-            mppsListener.AllModemEventMap);
+        LE_ERROR("le_ref_CreateRef failed, dropping event");
+        le_mem_Release(evtAlloc);
         return;
     }
 
-    LE_INFO("ModemStatusChangeNotify: Type %s, Level %d",
-                            ModemEventTypeToStr(evt->eventType), (int)evt->eventLevel);
+    LE_DEBUG("Type %s, Level %d, clientId=%u",
+            ModemEventTypeToStr(evtAlloc->eventType),
+            (int)evtAlloc->eventLevel,
+            evtAlloc->modemInfo->clientId);
 
-    evt->modemInfo->handlerFunc(evt->eventType, evt->eventLevel,
-                                     evt->ref, evt->modemInfo->contextPtr);
+    evtAlloc->modemInfo->handlerFunc(evtAlloc->eventType, evtAlloc->eventLevel,
+                                     evtAlloc->ref, evtAlloc->modemInfo->contextPtr);
+}
+
+void taf_Hms::ModemStatusChNotifyClient(void* reportPtr)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == nullptr, "reportPtr is nullptr");
+
+    taf_hms_modemEventInfo_t* incoming = (taf_hms_modemEventInfo_t*)reportPtr;
+    TAF_ERROR_IF_RET_NIL(incoming->modemInfo == nullptr, "modemInfo is nullptr");
+    TAF_ERROR_IF_RET_NIL(incoming->modemInfo->handlerFunc == NULL, "clientHandlerFunc is NULL");
+
+    if (!(ModemEvtTypeMatchToBitmask(incoming->eventType) & incoming->modemInfo->reqEventBits))
+    {
+        return;
+    }
+
+    DispatchEventToClient(incoming);
 }
 
 
+// Monotonic client ID counter - incremented each time a new handler is registered.
+static std::atomic<uint32_t> nextClientId{1};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Registers a client handler for one or more modem events.
+ *
+ * Allocates a per-client record from ModemInfoPool, stores the requested
+ * event bitmask and handler function, assigns a monotonic clientId for
+ * logging, and adds the new bits to the global event map. On the first
+ * registration the modem-status worker thread and its periodic timer are
+ * started via StartResetTimer().
+ *
+ * @param[in] reqEventBits     Bitmask of taf_hms_ModemEvtBitmask_t the
+ *                             client wants to receive. Must be non-zero.
+ * @param[in] handlerFuncPtr   Client callback. Must not be NULL.
+ * @param[in] contextPtr       Opaque context returned to the client on each
+ *                             callback invocation.
+ *
+ * @return Handler reference passed to RemoveModemEvtHandler(), or NULL on
+ *         invalid arguments / allocation failure.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_hms_ModemEvtHandlerRef_t taf_Hms::AddModemEvtHandler
 (
     taf_hms_ModemEvtBitmask_t     reqEventBits,
@@ -1527,49 +1667,39 @@ taf_hms_ModemEvtHandlerRef_t taf_Hms::AddModemEvtHandler
     void* contextPtr
 )
 {
-    auto hms = taf_Hms::GetInstance();
     auto &mppsListener = tafHmsListener::GetInstance();
     TAF_ERROR_IF_RET_VAL(handlerFuncPtr == NULL, NULL, "INVALID handler function pointer.");
-    taf_hms_modemInfo_t* newEvt = (taf_hms_modemInfo_t*)le_mem_ForceAlloc(hms.ModemInfoPool);
-    TAF_ERROR_IF_RET_VAL(newEvt == NULL, NULL, "Not able to allocate memory for the event.");
+    TAF_ERROR_IF_RET_VAL(reqEventBits == 0, NULL, "Event bit is not correct");
 
-    newEvt->handlerFunc = handlerFuncPtr;
-    newEvt->contextPtr = contextPtr;
+    taf_hms_modemInfo_t* newEvt = (taf_hms_modemInfo_t*)le_mem_ForceAlloc(ModemInfoPool);
+    newEvt->handlerFunc  = handlerFuncPtr;
+    newEvt->contextPtr   = contextPtr;
     newEvt->reqEventBits = reqEventBits;
-    newEvt->sessionRef = taf_hms_GetClientSessionRef();
-    newEvt->handlerRef = (taf_hms_ModemEvtHandlerRef_t)le_ref_CreateRef(ModemInfoRefMap, newEvt);
+    newEvt->sessionRef   = taf_hms_GetClientSessionRef();
+    newEvt->clientId     = nextClientId++;
+    newEvt->handlerRef   = (taf_hms_ModemEvtHandlerRef_t)le_ref_CreateRef(ModemInfoRefMap, newEvt);
 
-    TAF_ERROR_IF_RET_VAL(newEvt->handlerRef == NULL, NULL, "Failed to create handler reference!");
+    if (newEvt->handlerRef == NULL)
+    {
+        LE_ERROR("Failed to create handler reference, releasing memory.");
+        le_mem_Release(newEvt);
+        return NULL;
+    }
 
     //Add new events to event map.
     mppsListener.AllModemEventMap |= reqEventBits;
-
-    //Start the timer.
     mppsListener.StartResetTimer();
-    LE_INFO("New register event '0x%x' for reference '%p', all events: 0x%08" PRIx64 "",
-                              reqEventBits, newEvt->handlerRef, mppsListener.AllModemEventMap);
+    LE_INFO("New register event '0x%x' for reference '%p' clientId=%u sessionRef=%p, "
+            "all events: 0x%08" PRIx64 "",
+            reqEventBits, newEvt->handlerRef, newEvt->clientId,
+            (void*)newEvt->sessionRef, mppsListener.AllModemEventMap);
     return (taf_hms_ModemEvtHandlerRef_t)newEvt->handlerRef;
 }
 
 void tafHmsListener::DeleteResetTime(void)
 {
-    if (ModemResetTimer != NULL)
-    {
-        le_result_t res = le_timer_Stop(ModemResetTimer);
-        if(res == LE_OK)
-        {
-            LE_DEBUG("Timer stopped for device");
-        }
-        else
-        {
-            LE_ERROR("Failed to stop timer: %s", LE_RESULT_TXT(res));
-        }
-        if (ModemResetTimer != NULL)
-        {
-            le_timer_Delete(ModemResetTimer);
-            ModemResetTimer = NULL;
-        }
-    }
+    TAF_ERROR_IF_RET_NIL(modemStatus == nullptr, "modemStatus is null");
+    modemStatus->StopWorkerThread();
 }
 
 bool taf_Hms::IsModemEventMapEmpty(void)
@@ -1660,31 +1790,6 @@ le_result_t taf_Hms::ReleaseModemEvt(taf_hms_ModemEventRef_t eventRef)
     return LE_OK;
 }
 
-void ModemStatus::ReqsOperatingMode(void)
-{
-    if (!phoneManager_) {
-        LE_ERROR("reqsOperatingMode called before phoneInit");
-        return;
-    }
-    phoneManager_->requestOperatingMode(shared_from_this());
-
-    if (pendingCount_ < COUNTER_RESPONSE_TIME_OUT)
-    {
-        pendingCount_++;
-    }
-
-    if (pendingCount_ == COUNTER_RESPONSE_TIME_OUT)
-    {
-        LE_WARN("Operating Mode: no response %d millisec elapsed",
-            MODEM_CHECK_STATUS_INTERVAL*pendingCount_);
-
-        ReportModemStatus(TAF_HMS_MODEM_EVENT_TYPE_CONNECTION_LOST,
-                                TAF_HMS_MODEM_EVENT_SEVERITY_HIGH);
-
-        pendingCount_ = COUNTER_EVENT_REPORT_DONE;
-    }
-}
-
 static std::string OperatingModeToString(telux::tel::OperatingMode operatingMode)
 {
     switch (operatingMode)
@@ -1700,134 +1805,278 @@ static std::string OperatingModeToString(telux::tel::OperatingMode operatingMode
     }
 }
 
-void ModemStatus::operatingModeResponse(telux::tel::OperatingMode operatingMode,
-                                        telux::common::ErrorCode error)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Main-thread handler for telux requestOperatingMode() responses.
+ *
+ * The actual SDK callback (ModemStatus::operatingModeResponse) runs on a
+ * telux thread and only marshals its arguments via le_event_Report; this
+ * function consumes the marshalled data on the main thread.
+ *
+ * On a SUCCESS response:
+ *   - If a CONNECTION_LOST event had previously been raised
+ *     (pendingCount == COUNTER_EVENT_REPORT_DONE), notify clients with a
+ *     CONNECTION_AVAIL event so they know the modem is reachable again.
+ *   - Reset pendingCount; the timer handler will start counting again on
+ *     the next tick.
+ */
+//--------------------------------------------------------------------------------------------------
+static void OperModeRespCBNotify(void* reportPtr)
 {
+    if (reportPtr == nullptr || modemStatus == nullptr)
+    {
+        LE_ERROR("modemStatus or reportPtr is nullptr");
+        return;
+    }
+
+    taf_hms_operModeRespData_t *data = (taf_hms_operModeRespData_t*)reportPtr;
+    telux::tel::OperatingMode operatingMode =
+        static_cast<telux::tel::OperatingMode>(data->operatingMode);
+    telux::common::ErrorCode error =
+        static_cast<telux::common::ErrorCode>(data->error);
+
     if (error == telux::common::ErrorCode::SUCCESS)
     {
-        //The status is "SUCCESS", that means the GLINK connection between MPSS and APSS are good
-        if (pendingCount_ == COUNTER_EVENT_REPORT_DONE)
+        // First successful response after a previously-reported
+        // CONNECTION_LOST: tell clients the modem is back.
+        if (pendingCount.load() == COUNTER_EVENT_REPORT_DONE)
         {
-            //Notify the client the connection was restored.
-            ReportModemStatus(TAF_HMS_MODEM_EVENT_TYPE_CONNECTION_AVAIL,
-                                    TAF_HMS_MODEM_EVENT_SEVERITY_LOW);
+            modemStatus->ReportModemStatus(TAF_HMS_MODEM_EVENT_TYPE_CONNECTION_AVAIL,
+                                           TAF_HMS_MODEM_EVENT_SEVERITY_LOW);
         }
-        //Now, reset the counter for another run.
-        pendingCount_ = 0;
+        pendingCount.store(0);
 
-        switch (operatingMode)
+        if (operatingMode == telux::tel::OperatingMode::ONLINE && oneTimeLog)
         {
-            case telux::tel::OperatingMode::ONLINE:
-            case telux::tel::OperatingMode::AIRPLANE:
-            case telux::tel::OperatingMode::FACTORY_TEST:
-            case telux::tel::OperatingMode::PERSISTENT_LOW_POWER:
-            case telux::tel::OperatingMode::OFFLINE:
-            case telux::tel::OperatingMode::RESETTING:
-            case telux::tel::OperatingMode::SHUTTING_DOWN:
-            default:
-                LE_DEBUG("Operating Mode is: %s", OperatingModeToString(operatingMode).c_str());
-                break;
+            LE_INFO("Operating Mode is: %s, pendingCount: %d",
+                    OperatingModeToString(operatingMode).c_str(), pendingCount.load());
+
+            oneTimeLog = false;// One-shot log is printed, disable it.
         }
     }
     else
     {
-        LE_ERROR("Operating Mode unknown, errorCode: %d", static_cast<int>(error));
-    }
-}
-
-std::shared_ptr<ModemStatus> modemStatus = std::make_shared<ModemStatus>();
-void ModemStatus::CheckOperModeStatus(void)
-{
-    if (modemStatus->PhoneInit())
-    {
-        modemStatus->ReqsOperatingMode();
-    }
-}
-
-void ModemStatus::ReportModemStatus(taf_hms_ModemEvtType_t eventType,
-                             taf_hms_ModemEvtSeverity_t eventLevel)
-{
-    auto &hms = taf_Hms::GetInstance();
-
-    le_ref_IterRef_t iterRef = le_ref_GetIterator(hms.ModemInfoRefMap);
-    while (le_ref_NextNode(iterRef) == LE_OK)
-    {
-        taf_hms_modemInfo_t* clientInfo  = (taf_hms_modemInfo_t*)le_ref_GetValue(iterRef);
-        TAF_ERROR_IF_RET_NIL(clientInfo == nullptr, "No registered client for modem info");
-
-        taf_hms_modemEventInfo_t newEvent;
-        newEvent.modemInfo = clientInfo;
-
-        //Check if client has registered for monitoring modem
-        if (clientInfo->handlerFunc == NULL)
-        {
-            continue;
-        }
-
-        //Check if the client has registered for connection status
-        if(!(ModemEvtTypeMatchToBitmask(eventType) & clientInfo->reqEventBits))
-        {
-            continue;
-        }
-
-        newEvent.eventType = eventType;
-        newEvent.eventLevel = eventLevel;
-
-        le_event_Report(hms.ModemStatusChangeId, &newEvent, sizeof(taf_hms_modemEventInfo_t));
+        LE_ERROR("Operating Mode unknown, errorCode: %d, pendingCount: %d",
+                 static_cast<int>(error), pendingCount.load());
     }
 }
 
 //--------------------------------------------------------------------------------------------------
-
-bool ModemStatus::PhoneInit(void)
+/**
+ * SDK callback - called from telux SDK thread.
+ * Marshals the response to the main thread via le_event_Report.
+ */
+//--------------------------------------------------------------------------------------------------
+void ModemStatus::operatingModeResponse(telux::tel::OperatingMode operatingMode,
+                                        telux::common::ErrorCode error)
 {
-    if (!phoneManager_)
+    auto &hms = taf_Hms::GetInstance();
+    taf_hms_operModeRespData_t data;
+    data.operatingMode = static_cast<int>(operatingMode);
+    data.error         = static_cast<int>(error);
+    le_event_Report(hms.OperModeRespId, &data, sizeof(data));
+}
+
+// ---------------------------------------------------------------------------
+// modemStatus: the shared_ptr-managed instance used for shared_from_this().
+// ---------------------------------------------------------------------------
+std::shared_ptr<ModemStatus> modemStatus = std::make_shared<ModemStatus>();
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Worker thread entry point.
+ */
+//--------------------------------------------------------------------------------------------------
+void* ModemStatus::WorkerThreadFunc(void*)
+{
+    LE_INFO("WorkerThread: started");
+    le_event_RunLoop();
+
+    LE_INFO("WorkerThread: exiting");
+    return nullptr;
+}
+
+void ModemStatus::DoRequestOperatingMode(void)
+{
+    if (!tafHmsListener::ModemAvailability.load())
     {
-        auto prom = std::make_shared<std::promise<telux::common::ServiceStatus>>();
-        auto tempManager = telux::tel::PhoneFactory::getInstance().getPhoneManager(
-            [prom]( telux::common::ServiceStatus status)
-            {
-                try
-                {
-                    prom->set_value(status);
-                }
-                catch (const std::future_error &e)
-                {
-                    LE_ERROR("Promise already satisfied: %s", e.what());
-                }
-            });
+        LE_WARN("Modem UNAVAILABLE, skipping requestOperatingMode");
+        return;
+    }
 
-        if (!tempManager)
+    if (!PhoneInit())
+    {
+        LE_WARN("PhoneInit failed, will retry next tick");
+        return;
+    }
+
+    phoneManager_->requestOperatingMode(shared_from_this());
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * StartWorkerThread - called from main thread.
+ * Starts the worker thread if not already running.
+ */
+//--------------------------------------------------------------------------------------------------
+void ModemStatus::StartWorkerThread(void)
+{
+    if (workerThread_ != nullptr)
+    {
+        LE_INFO("WorkerThread: already running");
+        return;
+    }
+
+    workerThread_ = le_thread_Create("ModemStatusWorker", WorkerThreadFunc, this);
+    le_thread_SetJoinable(workerThread_);
+    le_thread_Start(workerThread_);
+
+    mainTimer_ = le_timer_Create("ModemStatusMainTimer");
+    le_timer_SetMsInterval(mainTimer_, MODEM_CHECK_STATUS_INTERVAL);
+    le_timer_SetRepeat(mainTimer_, 0);  // repeat forever
+    le_timer_SetHandler(mainTimer_, ModemStatusTimerHandler);
+    le_timer_SetWakeup(mainTimer_, false);
+    le_timer_Start(mainTimer_);
+    LE_INFO("WorkerThread: started");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * StopWorkerThread - called from main thread for graceful shutdown.
+ * Signals the worker thread to exit and joins it.
+ */
+//--------------------------------------------------------------------------------------------------
+void ModemStatus::StopWorkerThread(void)
+{
+    if (workerThread_ == nullptr)
+    {
+        return;
+    }
+
+    if (mainTimer_ != nullptr)
+    {
+        le_timer_Stop(mainTimer_);
+        le_timer_Delete(mainTimer_);
+        mainTimer_ = nullptr;
+    }
+
+    le_thread_Cancel(workerThread_);
+    le_thread_Join(workerThread_, nullptr);
+
+   // Worker thread is guaranteed dead here. Clear related flags.
+    workerThread_ = nullptr;
+    phoneManager_.reset();
+    pendingCount.store(0);
+
+    LE_INFO("WorkerThread: stopped");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * ReportModemStatus - called from main thread.
+ * Iterates registered clients and dispatches the event via le_event_Report.
+ */
+//--------------------------------------------------------------------------------------------------
+void ModemStatus::ReportModemStatus(taf_hms_ModemEvtType_t eventType,
+                             taf_hms_ModemEvtSeverity_t eventLevel)
+{
+    auto &hms = taf_Hms::GetInstance();
+    bool isAvail = (eventType == TAF_HMS_MODEM_EVENT_TYPE_CONNECTION_AVAIL);
+
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(hms.ModemInfoRefMap);
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        taf_hms_modemInfo_t* clientInfo = (taf_hms_modemInfo_t*)le_ref_GetValue(iterRef);
+        TAF_ERROR_IF_RET_NIL(clientInfo == nullptr, "No registered client for modem info");
+
+        //Check if client has registered for monitoring modem
+        if (clientInfo->handlerFunc == NULL)
         {
-            LE_ERROR("ERROR - Failed to get Phone Manager");
-            return false;
+            LE_WARN("%s skipped for clientId=%u: handlerFunc is NULL",
+                    ModemEventTypeToStr(eventType), clientInfo->clientId);
+            continue;
         }
 
-        const auto statusNow = tempManager->getServiceStatus();
-        if (statusNow != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        //Check if the client has registered for connection status
+        if (!(ModemEvtTypeMatchToBitmask(eventType) & clientInfo->reqEventBits))
         {
-            LE_INFO("Phone Manager subsystem is not ready, please wait");
+            LE_WARN("%s skipped for clientId=%u: "
+                    "reqEventBits=0x%x does not match bitmask=0x%x",
+                    ModemEventTypeToStr(eventType), clientInfo->clientId,
+                    (unsigned)clientInfo->reqEventBits,
+                    (unsigned)ModemEvtTypeMatchToBitmask(eventType));
+            continue;
         }
 
-        auto fut = prom->get_future();
-        if (fut.wait_for(std::chrono::seconds(TAF_HMS_PHONE_MANAGER_TIMEOUT))
-            == std::future_status::ready)
+        taf_hms_modemEventInfo_t newEvent;
+        newEvent.modemInfo  = clientInfo;
+        newEvent.eventType  = eventType;
+        newEvent.eventLevel = eventLevel;
+
+        if (isAvail)
         {
-            auto status = fut.get(); // Wait until available
-            if (status != telux::common::ServiceStatus::SERVICE_AVAILABLE)
-            {
-                LE_ERROR("ERROR - Unable to initialize telephony subsystem");
-                return false;
-            }
-            LE_INFO("Phone Manager subsystem is ready.");
-            phoneManager_ = tempManager;
+            DispatchEventToClient(&newEvent);
         }
         else
         {
-            LE_ERROR("Timeout for waiting status callback");
-            return false;
+            le_event_Report(hms.MdStatusChNotifyCliId, &newEvent,
+                            sizeof(taf_hms_modemEventInfo_t));
         }
     }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Called from worker thread only.
+ * Acquires IPhoneManager with a "TAF_HMS_PHONE_MANAGER_TIMEOUT" second timeout.
+ */
+//--------------------------------------------------------------------------------------------------
+bool ModemStatus::PhoneInit(void)
+{
+    if (phoneManager_)
+    {
+        return true;
+    }
+
+    auto prom = std::make_shared<std::promise<telux::common::ServiceStatus>>();
+    auto tempManager = telux::tel::PhoneFactory::getInstance().getPhoneManager(
+        [prom](telux::common::ServiceStatus status)
+        {
+            try   { prom->set_value(status); }
+            catch (const std::future_error &e)
+            { LE_ERROR("Promise already satisfied: %s", e.what()); }
+        });
+
+    if (!tempManager)
+    {
+        LE_ERROR("ERROR - Failed to get Phone Manager");
+        return false;
+    }
+
+    auto statusNow = tempManager->getServiceStatus();
+    if (statusNow != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+    {
+        LE_WARN("Phone Manager subsystem is not ready (timeout %ds)",
+                TAF_HMS_PHONE_MANAGER_TIMEOUT);
+    }
+
+    auto fut  = prom->get_future();
+    if (fut.wait_for(std::chrono::seconds(TAF_HMS_PHONE_MANAGER_TIMEOUT))
+            != std::future_status::ready)
+    {
+        LE_ERROR("Timed out after %ds waiting for SDK callback",
+                 TAF_HMS_PHONE_MANAGER_TIMEOUT);
+        return false;
+    }
+
+    if (fut.get() != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+    {
+        LE_ERROR("Service not available, will retry next tick");
+        return false;
+    }
+
+    phoneManager_ = tempManager;
+    LE_INFO("PhoneInit: success, phoneManager_=valid");
     return true;
 }
 
@@ -1993,6 +2242,9 @@ le_result_t taf_Hms::ReadSubReason
     size_t subReasonSize
 )
 {
+    TAF_ERROR_IF_RET_VAL(subReasonStr == NULL || subReasonSize == 0,
+                         LE_BAD_PARAMETER, "Invalid sub-reason output buffer");
+
     std::string tmpStr;
     std::ifstream file(filePath);
     if (!file.is_open())
@@ -2027,6 +2279,10 @@ le_result_t taf_Hms::GetResetInformation
     size_t resetSpecificInfoStrSize     ///< [IN]  The length of specific information string.
 )
 {
+    TAF_ERROR_IF_RET_VAL(resetPtr == NULL || resetSpecificInfoStrPtr == NULL ||
+                         resetSpecificInfoStrSize == 0,
+                         LE_BAD_PARAMETER, "Invalid reset information output parameter");
+
     le_result_t res = LE_OK;
     std::ifstream file(TAF_HMS_BOOT_REASON_PATH);
     if (!file.is_open())
@@ -2132,7 +2388,6 @@ void taf_Hms::Init()
     auto future = promisePtr->get_future();
     if (future.wait_for(std::chrono::seconds(TAF_HMS_SUBSYSTEM_MANAGER_TIMEOUT)) == std::future_status::ready) {
         serviceStatus = future.get();
-        LE_INFO("serviceStatus received from callback");
         if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
             LE_FATAL("ISubsystemManager unavailable");
         }
@@ -2151,19 +2406,25 @@ void taf_Hms::Init()
     if (ec != telux::common::ErrorCode::SUCCESS) {
         LE_FATAL("Can't register listener, err ");
     }
-    LE_INFO("registerListener ok");
 
-    ModemStatusChangeId =
-        le_event_CreateId("ModemStatusChangeId", sizeof(taf_hms_modemEventInfo_t));
+    // Set modem to ready
+    tafHmsListener::ModemAvailability.store(true);
+
+    MdStatusChNotifyCliId =
+        le_event_CreateId("MdStatusChNotifyCliId", sizeof(taf_hms_modemEventInfo_t));
 
     le_event_AddHandler("ModemStatusChangeIdHandlerRef",
-        ModemStatusChangeId, ModemStatusChangeNotify);
+        MdStatusChNotifyCliId, ModemStatusChNotifyClient);
 
     MdStatusOnChangeCBId =
         le_event_CreateId("MdStatusOnChangeCBId", sizeof(taf_hms_modemOperaInfo_t));
-
-    le_event_AddHandler("MDStatusOnChangeCBIdHandlerRef",
+    le_event_AddHandler("MdStatusOnChangeCBIdHandlerRef",
         MdStatusOnChangeCBId, MdStatusOnChangeCBNotify);
+
+    OperModeRespId =
+        le_event_CreateId("OperModeRespId", sizeof(taf_hms_operModeRespData_t));
+    le_event_AddHandler("OperModeRespIdHandlerRef",
+        OperModeRespId, OperModeRespCBNotify);
 
     AdvertiseService();
 }

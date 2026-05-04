@@ -214,7 +214,7 @@ using namespace std;
                         taf_sim_AuthenticationResponseHandlerFunc_t handlerPtr, void* contextPtr);
                 void RemoveAuthenticationResponseHandler(taf_sim_AuthenticationResponseHandlerRef_t handlerRef);
 
-                le_result_t GetEID( taf_sim_Id_t slotId, char* eidPtr, size_t eidLen);
+                le_result_t GetEID(taf_sim_Id_t simId, char* eidPtr, size_t eidLen);
                 le_result_t SetAutomaticSelection( bool enable);
                 le_result_t GetAutomaticSelection( bool* enablePtr);
                 bool waitForCardEvent(CardEvent cardEvent, int timeout = DEFAULT_TIMEOUT_IN_SECONDS);

@@ -84,6 +84,10 @@ le_result_t Utility::Convert::Result
             return LE_FAULT;
         case TAF_PA_SIM_RESULT_BAD_PARAMETER:
             return LE_BAD_PARAMETER ;
+        case TAF_PA_SIM_RESULT_UNSUPPORTED:
+            return LE_UNSUPPORTED;
+        case TAF_PA_SIM_RESULT_TIMEOUT:
+            return LE_TIMEOUT;
         default:
             LE_DEBUG("Unknown result %d.", result);
     }
@@ -1184,8 +1188,23 @@ void taf_sim::FirstLayerAuthenticationResponseHandler(void* reportPtr,
             simResponsePtr->result, le_event_GetContextPtr());
 }
 
-le_result_t  taf_sim::GetEID( taf_sim_Id_t slotId, char* eidPtr, size_t eidLen) {
-    return LE_UNSUPPORTED;
+le_result_t taf_sim::GetEID(taf_sim_Id_t simId, char *eidPtr, size_t eidLen)
+{
+    eidPtr[0] = '\0';
+    std::string eidStr;
+    pa_result_t paResult =taf_pa_sim_GetEID((taf_pa_sim_Id_t) simId, eidStr);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK) {
+        LE_ERROR("taf_pa_sim_GetEID failed for simId: %d, result: %d", simId, result);
+        return LE_FAULT;
+    }
+    if (eidStr.size() + 1 > eidLen) {
+        LE_ERROR("EID buffer overflow for simId: %d, required: %zu, provided: %zu",simId, eidStr.size() + 1, eidLen);
+        return LE_OVERFLOW;
+    }
+    le_utf8_Copy(eidPtr, eidStr.c_str(), eidLen, nullptr);
+    LE_INFO("taf_sim::GetEID successful for simId: %d, EID: %s", simId, eidPtr);
+    return LE_OK;
 }
 
 le_result_t taf_sim::SetAutomaticSelection( bool enable) {

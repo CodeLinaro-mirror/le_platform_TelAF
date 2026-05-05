@@ -977,21 +977,35 @@ le_result_t taf_sim::getHomeNetworkOperator(taf_sim_Id_t simId, char *name, int 
 le_result_t taf_sim::getHomeNetworkMccMnc(taf_sim_Id_t simId, char *mccPtr,
         int mccPtrSize, char *mncPtr, int mncPtrSize)
 {
-    int mcc = 0;
-    int mnc = 0;
+    std::string mcc;
+    std::string mnc;
     LE_INFO("getHomeNetworkMccMnc for simId %d", simId);
     if (selectSimSlot(simId) != LE_OK) {
+        LE_ERROR("Invalid simId or failed to select SIM slot");
         return LE_BAD_PARAMETER;
     }
-    pa_result_t paResult = taf_pa_sim_GetHomeNetworkMccMnc((taf_pa_sim_Id_t)simId, &mcc, &mnc);
+    pa_result_t paResult = taf_pa_sim_GetHomeNetworkMccMncStr((taf_pa_sim_Id_t)simId, mcc, mnc);
     if (paResult != TAF_PA_SIM_RESULT_OK)
     {
         LE_ERROR("Failed to get HomeNetworkMccMnc via PA for simId %d", simId);
         return LE_FAULT;
     }
-    LE_INFO("Retrieved MCC: %d, MNC: %d", mcc, mnc);
-    le_utf8_Copy(mccPtr, std::to_string(mcc).c_str(), mccPtrSize, NULL);
-    le_utf8_Copy(mncPtr, std::to_string(mnc).c_str(), mncPtrSize, NULL);
+    LE_INFO("Retrieved MCC: %s, MNC: %s", mcc.c_str(), mnc.c_str());
+    if (mcc.empty() || mnc.empty())
+    {
+        LE_ERROR("PA returned empty MCC or MNC for simId %d", simId);
+        return LE_FAULT;
+    }
+    if (le_utf8_Copy(mccPtr, mcc.c_str(), mccPtrSize, nullptr) != LE_OK)
+    {
+        LE_ERROR("Failed to copy MCC to output buffer");
+        return LE_FAULT;
+    }
+    if (le_utf8_Copy(mncPtr, mnc.c_str(), mncPtrSize, nullptr) != LE_OK)
+    {
+        LE_ERROR("Failed to copy MNC to output buffer");
+        return LE_FAULT;
+    }
     return LE_OK;
 }
 

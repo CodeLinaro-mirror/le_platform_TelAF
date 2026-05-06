@@ -150,7 +150,6 @@ namespace tafsvc {
             static taf_SensorClient_t* AcquireSessionRef(void);
             void ReleaseClientRef(void* RefPtr);
             static void CloseEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
-            static void OpenEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
             taf_imuSensor_SensorRef_t GetFirstSensor(taf_imuSensor_SensorListRef_t SensorListRef);
             taf_imuSensor_SensorRef_t GetNextSensor(taf_imuSensor_SensorListRef_t SensorListRef);
             le_result_t DeleteSensorList(taf_imuSensor_SensorListRef_t SensorListRef);

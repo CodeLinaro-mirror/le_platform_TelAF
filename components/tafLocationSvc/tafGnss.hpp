@@ -237,6 +237,18 @@ namespace tafsvc {
         uint8_t  dgnssStationIdsCount;
         uint32_t navSolutionMask;
         bool     navSolutionMaskValid;
+        double protectionLevelAlongTrack;
+        double protectionLevelCrossTrack;
+        double protectionLevelVertical;
+        double baselineLength;
+        uint64_t ageCorrections;
+        uint32_t integrityRiskUsed;
+        bool protectionLevelAlongTrackValid;
+        bool protectionLevelCrossTrackValid;
+        bool protectionLevelVerticalValid;
+        bool baselineLengthValid;
+        bool ageCorrectionsValid;
+        bool integrityRiskUsedValid;
         le_dls_Link_t   next;
     }
     taf_locGnss_PositionSample_t;
@@ -661,6 +673,13 @@ namespace tafsvc {
 
             le_result_t InjectMerkleData(const char* merkleTreeFilePath);
             le_result_t ConfigureOsnma(bool galOsnma);
+
+            le_result_t SetEngineIntegrityRisk(taf_locGnss_EngineType_t engtype, uint32_t integrityRisk);
+            le_result_t GetProtectionLevels(taf_locGnss_SampleRef_t positionSampleRef,double* protectionLevelAlongTrackPtr,
+                    double* protectionLevelCrossTrackPtr,double* protectionLevelVerticalPtr);
+            le_result_t GetBaselineLength(taf_locGnss_SampleRef_t positionSampleRef, double* baselineLengthPtr);
+            le_result_t GetAgeOfCorrections(taf_locGnss_SampleRef_t positionSampleRef, uint64_t* ageCorrectionsPtr);
+            le_result_t GetIntegrityRiskUsed(taf_locGnss_SampleRef_t positionSampleRef, uint32_t* integrityRiskUsedPtr);
 
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionExHandlerPoolRef;

@@ -665,3 +665,100 @@ void taf_imuSensor_ReleaseSelfTestRef(taf_imuSensor_ServerCmdRef_t cmdRef,
     LE_UNUSED(eventRef);
     taf_imuSensor_ReleaseSelfTestRefRespond(cmdRef, LE_OK);
 }
+
+/*==================================================================================================
+
+ FUNCTION       taf_imuSensor_AddConfigUpdateHandler
+
+ DESCRIPTION    Registers a handler to be notified when the sensor configuration is updated.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS     [IN] taf_imuSensor_SensorRef_t sensorRef: reference to Sensor.
+                [IN] taf_imuSensor_ConfigUpdateHandlerFunc_t handlerPtr: handler function.
+                [IN] void* contextPtr: context pointer passed to the handler.
+
+ RETURN VALUE   taf_imuSensor_ConfigUpdateHandlerRef_t if registered successfully else NULL.
+
+ SIDE EFFECTS
+
+==================================================================================================*/
+taf_imuSensor_ConfigUpdateHandlerRef_t taf_imuSensor_AddConfigUpdateHandler(
+    taf_imuSensor_SensorRef_t sensorRef,
+    taf_imuSensor_ConfigUpdateHandlerFunc_t handlerPtr,
+    void* contextPtr)
+{
+    auto& m = taf_Sensor::GetInstance();
+    return m.AddConfigUpdateHandler(sensorRef, handlerPtr, contextPtr);
+}
+
+/*==================================================================================================
+
+ FUNCTION       taf_imuSensor_RemoveConfigUpdateHandler
+
+ DESCRIPTION    Removes the configuration update handler registered by
+                taf_imuSensor_AddConfigUpdateHandler.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS     [IN] taf_imuSensor_ConfigUpdateHandlerRef_t handlerRef: handler reference.
+
+ RETURN VALUE
+
+ SIDE EFFECTS
+
+==================================================================================================*/
+void taf_imuSensor_RemoveConfigUpdateHandler(
+    taf_imuSensor_ConfigUpdateHandlerRef_t handlerRef)
+{
+    auto& m = taf_Sensor::GetInstance();
+    m.RemoveConfigUpdateHandler(handlerRef);
+}
+
+/*==================================================================================================
+
+ FUNCTION       taf_imuSensor_AddCapabilityUpdateHandler
+
+ DESCRIPTION    Registers a handler to be notified when the sensor capability/status is updated.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS     [IN] taf_imuSensor_SensorRef_t sensorRef: reference to Sensor.
+                [IN] taf_imuSensor_CapabilityHandlerFunc_t handlerPtr: handler function.
+                [IN] void* contextPtr: context pointer passed to the handler.
+
+ RETURN VALUE   taf_imuSensor_CapabilityUpdateHandlerRef_t if registered successfully else NULL.
+
+ SIDE EFFECTS
+
+==================================================================================================*/
+taf_imuSensor_CapabilityUpdateHandlerRef_t taf_imuSensor_AddCapabilityUpdateHandler(
+    taf_imuSensor_SensorRef_t sensorRef,
+    taf_imuSensor_CapabilityUpdateHandlerFunc_t handlerPtr,
+    void* contextPtr)
+{
+    auto& m = taf_Sensor::GetInstance();
+    return m.AddCapabilityHandler(sensorRef, handlerPtr, contextPtr);
+}
+
+/*==================================================================================================
+
+ FUNCTION       taf_imuSensor_RemoveCapabilityUpdateHandler
+
+ DESCRIPTION    Removes the capability handler registered by taf_imuSensor_AddCapabilityUpdateHandler.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS     [IN] taf_imuSensor_CapabilityUpdateHandlerRef_t handlerRef: handler reference.
+
+ RETURN VALUE
+
+ SIDE EFFECTS
+
+==================================================================================================*/
+void taf_imuSensor_RemoveCapabilityUpdateHandler(
+    taf_imuSensor_CapabilityUpdateHandlerRef_t handlerRef)
+{
+    auto& m = taf_Sensor::GetInstance();
+    m.RemoveCapabilityHandler(handlerRef);
+}

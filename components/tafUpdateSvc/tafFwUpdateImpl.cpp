@@ -2507,16 +2507,16 @@ void taf_FwUpdate::StartSync
                 uint8_t buffer[TAF_FWUPDATE_FLASH_PAGE_SIZE];
                 uint32_t blocks = info.size / info.eraseSize;
                 uint32_t pagesPerBlock = info.eraseSize / info.writeSize;
-                for (uint32_t i = 0; i < blocks; i++)
+                for (uint32_t j = 0; j < blocks; j++)
                 {
                     bool isGood = false;
-                    ret = taf_pa_flash_CheckMtdGoodBlock(mtdRef, i, &isGood);
+                    ret = taf_pa_flash_CheckMtdGoodBlock(mtdRef, j, &isGood);
                     if (ret != 0 || !isGood)
                         continue;
                     else
                     {
                         size_t bytes = TAF_FWUPDATE_FLASH_PAGE_SIZE;
-                        ret = taf_pa_flash_ReadMtdPage(mtdRef, i * pagesPerBlock, buffer, &bytes);
+                        ret = taf_pa_flash_ReadMtdPage(mtdRef, j * pagesPerBlock, buffer, &bytes);
                         if (ret == TAF_FWUPDATE_FLASH_PAGE_ERASED)
                             break;
 
@@ -2526,8 +2526,12 @@ void taf_FwUpdate::StartSync
 
                 ret = taf_pa_flash_CloseMtd(mtdRef);
                 if (ret)
-                    LE_ERROR("Fail to close mtd %s.", tafFwUpdate.partitions[i].name);
-                continue;
+                {
+                    LE_ERROR("Fail to close mtd %s, ret = %d.", partition, ret);
+                    tafFwUpdate.SetErrorCode(errno);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+                    return;
+                }
             }
 
             partitionPage =  partitionSize / TAF_FWUPDATE_FLASH_PAGE_SIZE;

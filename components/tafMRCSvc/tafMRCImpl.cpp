@@ -48,6 +48,29 @@ static void RegisterIndication
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * SIGTERM signal event handler.
+ *
+ * Invoked by the Legato signal event framework when the process receives SIGTERM.
+ */
+//--------------------------------------------------------------------------------------------------
+static void SigTermEventHandler
+(
+    int sigNum ///< [IN] Signal number received (expected: SIGTERM).
+)
+{
+    LE_INFO("Signal : %d", sigNum);
+
+    RegisterIndication(DISABLE_INDICATION);
+
+    taf_pa_mrc_Deinit();
+
+    LE_INFO("Ready to exit.");
+
+    exit(EXIT_SUCCESS);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Converts PA result to Le result.
  *
  * @return
@@ -298,6 +321,9 @@ COMPONENT_INIT
 
         taf_pa_mrc_AddProcessStatusHandler(ProcessStatusHandler, nullptr);
         taf_pa_mrc_AddScrubStatusHandler(ScrubStatusHandler, nullptr);
+
+        le_sig_Block(SIGTERM);
+        le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);
 
         LE_INFO("MRC platform adaptor is ready.");
     }

@@ -303,6 +303,7 @@ void taf_FwUpdate::SetState
     {
         fwrite(&state, sizeof(taf_update_State_t), 1, fp);
         fflush(fp);
+        fsync(fileno(fp));
         fclose(fp);
     }
 }

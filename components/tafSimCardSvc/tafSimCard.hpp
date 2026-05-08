@@ -40,7 +40,6 @@
 #include "tafSvcIF.hpp"
 #include "tafSimPa.hpp"
 #include <mutex>
-
 #define DEFAULT_TIMEOUT_IN_SECONDS 10
 #define TAF_SIM_SUBSYSTEM_TIMEOUT 30
 
@@ -71,13 +70,20 @@ using namespace std;
             taf_sim_RefreshMode_t refreshMode;
             taf_pa_sim_RefreshChangeHandlerRef_t paHandlerRef;
             le_event_Id_t RefreshChangeEventId;
+            le_event_HandlerRef_t clientHandlerRef;
             bool refreshAllow;
             char simProfileIccid1[TAF_SIM_ICCID_BYTES];
             char simProfileIccid2[TAF_SIM_ICCID_BYTES];
             bool refreshResetStart;
+            bool refreshResetDone;
+            bool refreshInitFcnPending;
+            bool refreshFileChangeReported;
+            bool refreshParticipant;
+            bool refreshStartHandled;
+            bool refreshEndHandled;
             size_t refreshRegFilesSize;
             taf_sim_RefreshRegFile_t refreshRegFiles[TAF_SIM_MAX_SIM_REFRESH_FILES];
-            le_sem_Ref_t semaphore;
+            le_timer_Ref_t refreshTimer;
         }taf_sim_Session_t;
 
         typedef struct
@@ -118,6 +124,12 @@ using namespace std;
             taf_sim_RefreshStatus_t     refreshStatus;
         }
         sim_refresh_event_t;
+
+        typedef struct
+        {
+            taf_pa_sim_RefreshChangeInd_t ind;
+        } InternalRefreshEvent_t;
+
 
         enum class CardEvent {
             OPEN_LOGICAL_CHANNEL = 1,  /**<  Open Logical channel */
@@ -160,14 +172,14 @@ using namespace std;
                 le_result_t SelectFileAndGetFCP(taf_sim_Id_t simId, uint8_t channel, const uint8_t* fileId, uint16_t* outFileSize);
                 le_result_t ClearFPLMNToFF(taf_sim_Id_t simId);
                 taf_sim_RefreshStatus_t ConvertPaRefreshStageToTafRefreshStatus(taf_pa_sim_RefreshStage_t refreshStage);
-                taf_pa_sim_SessionType_t ConvertTafSessionTypeToPaSessionType(taf_sim_SessionType_t sessionType);
 
             public:
+                static std::vector<taf_sim_Session_t*> refresh_client ;
+                static le_thread_Ref_t mainThread;
                 void Init(void);
                 static taf_sim &GetInstance();
                 taf_sim() {};
                 ~taf_sim() {};
-
                 int slot = TAF_SIM_SLOT_ID_1;
                 bool isSingleActive = false;
                 CardEvent cardEventExpected;
@@ -180,9 +192,6 @@ using namespace std;
                 le_event_Id_t ResponseEventId;
                 le_event_Id_t IccidChangeEventId;
                 bool EnableAutoSelection = false;
-                bool IsPsEventInProgress = false;
-                bool RefreshVoteSent_Slot1 = false;
-                bool RefreshVoteSent_Slot2 = false;
                 void RemoveStateHandler(taf_sim_NewStateHandlerRef_t handlerRef);
                 taf_sim_States_t getState(taf_sim_Id_t simId);
                 static void FirstLayerNewSimStateHandler(void* reportPtr, void* secondLayerHandlerFunc);
@@ -192,13 +201,13 @@ using namespace std;
                 le_result_t selectSimSlot(taf_sim_Id_t simId);
                 taf_sim_info_t* GetSimContext(taf_sim_Id_t simId);
                 static taf_sim_Session_t* DiscoverSessionRef(taf_sim_RefreshRef_t sessionRef);
+                static taf_pa_sim_SessionType_t ConvertTafSessionTypeToPaSessionType(taf_sim_SessionType_t sessionType);
                 le_result_t getICCID(taf_sim_Id_t simId, char *iccid, int length);
                 le_result_t getSubscriberPhoneNumber(taf_sim_Id_t simId, char *phoneNumber, int length);
                 le_result_t getIMSI(taf_sim_Id_t simId, char *imsi, int length);
                 le_result_t getHomeNetworkOperator(taf_sim_Id_t simId, char *namePtr, int length);
                 le_result_t getHomeNetworkMccMnc(taf_sim_Id_t simId, char *mccPtr,
                         int mccPtrSize, char *mncPtr, int mncPtrSize);
-
                 le_result_t UnlockCardByPin(taf_sim_Id_t  simId, taf_sim_LockType_t lockType, const char* pinPtr);
                 le_result_t ChangeCardPin( taf_sim_Id_t simId, taf_sim_LockType_t lockType, const char* oldpinPtr,
                         const char*   newpinPtr);
@@ -208,12 +217,10 @@ using namespace std;
                         bool lockEnable);
                 int32_t GetRemainingPINTries(taf_sim_Id_t simId);
                 le_result_t GetRemainingPukTries(taf_sim_Id_t simId, uint32_t* remainingPukTriesPtr);
-
                 static void FirstLayerAuthenticationResponseHandler(void* reportPtr, void* secondLayerHandlerFunc);
                 taf_sim_AuthenticationResponseHandlerRef_t AddAuthenticationResponseHandler(
                         taf_sim_AuthenticationResponseHandlerFunc_t handlerPtr, void* contextPtr);
                 void RemoveAuthenticationResponseHandler(taf_sim_AuthenticationResponseHandlerRef_t handlerRef);
-
                 le_result_t GetEID(taf_sim_Id_t simId, char* eidPtr, size_t eidLen);
                 le_result_t SetAutomaticSelection( bool enable);
                 le_result_t GetAutomaticSelection( bool* enablePtr);
@@ -255,19 +262,28 @@ using namespace std;
                 static void FirstLayerNewRefreshChangeHandler(void* reportPtr, void* secondLayerHandlerFunc);
                 taf_sim_RefreshChangeHandlerRef_t AddRefreshChangeHandler(taf_sim_RefreshChangeHandlerFunc_t handlerPtr, void* contextPtr);
                 void RemoveRefreshChangeHandler(taf_sim_RefreshChangeHandlerRef_t handlerRef);
-                void NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* contextPtr);
+                static void InternalRefreshHandler(void* reportPtr, void* contextPtr);
                 void CheckAndSendProfileSwitchEvent();
                 void CheckAndSendRefreshEvent(taf_sim_Id_t SimId);
                 le_result_t CreateSession(taf_sim_SessionType_t sessionType, taf_sim_RefreshRef_t* refreshSessionRef);
+                le_result_t DeleteSession(taf_sim_RefreshRef_t refreshSessionRef);
                 le_result_t SetRefreshRegisterFiles(taf_sim_RefreshRef_t refreshSessionRef, const taf_sim_RefreshRegFile_t* filesPtr, size_t filesSize);
+                le_result_t RefreshRegisterFilesForSessionType(taf_sim_SessionType_t sessionType);
                 le_result_t SetRefreshMode(taf_sim_RefreshRef_t refreshSessionRef, taf_sim_RefreshMode_t refreshMode);
                 le_result_t SetRefreshAllow(taf_sim_RefreshRef_t refreshSessionRef, bool isRefreshAllowed);
-                le_result_t CheckRefreshAllow(taf_pa_sim_RefreshChangeInd_t* ind);
-                void ResetRefreshVote(taf_sim_Session_t* sessionPtr);
+                bool CheckRefreshAllow(taf_pa_sim_RefreshChangeInd_t* ind);
                 bool IsValidMCCAndMNC(const char* mccPtr, const char* mncPtr);
                 le_result_t SwapSubscriptionInternal(taf_sim_Id_t simId, taf_sim_Manufacturer_t manufacturer ,bool toEmergency);
-                void  UpdateLocalSimState(taf_sim_info_t* simPtr, const std::shared_ptr<taf_pa_sim_Iccid_t>& iccidDataInfo);
+                void UpdateLocalSimState(taf_sim_info_t* simPtr,const sim_iccid_event_t* iccidDataInfo);
                 taf_pa_sim_AppType_t ConvertTafappTypeToPaappType(taf_sim_AppType_t appType);
                 taf_pa_sim_EventListener eventListener;
+                static void RefreshTimeoutHandler(le_timer_Ref_t timerRef);
+                static void HandleCardInfoChanged_Queued(void*, void*);
+                static void HandleSubscriptionInfoChanged_Queued(void*, void*);
+                static void HandleRefreshEvent_Queued(void*, void*);
+                void CleanupSession(taf_sim_Session_t* session);
+                void ResetVoteSend(taf_sim_Session_t* session);
+                void DestroySessionLocked(taf_sim_Session_t* session);
+                static void OnClientDisconnect(le_msg_SessionRef_t clientSessionRef, void* contextPtr);
         };
     }

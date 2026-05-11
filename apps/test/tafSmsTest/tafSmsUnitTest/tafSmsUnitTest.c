@@ -80,7 +80,10 @@
 #define TEXT_PATTERN_NUM    "0123456789 0123456789 0123456789 0123456789 0123456789"
 #define TEXT_PATTERN_SYMBOL "~!@#$^&*()_+{}:<>?"
 #define BINARY_PATTERN      {0, 255}
-#define UCS2_PATTERN        {0x2C6E, 0x668A}
+// UCS-2 test pattern: "这是一条测试消息" (8 Chinese characters)
+// Each uint16_t value is constructed as (high_byte << 8) | low_byte
+// from the protocol byte stream: 8fd9 662f 4e00 6761 6d4b 8bd5 6d88 606f
+#define UCS2_PATTERN        {0x8FD9, 0x662F, 0x4E00, 0x6761, 0x6D4B, 0x8BD5, 0x6D88, 0x606F}
 
 #define DEST_PATTERN_EMPTY  ""
 #define DEST_PATTERN_VALID  "0979334397"    // Use the same sim and device to send/receive message
@@ -108,8 +111,7 @@ static uint8_t PDU_TEST_PATTERN_7BITS[]=
 };
 
 static uint8_t binary_pattern[2] = BINARY_PATTERN;
-
-static uint16_t ucs2_pattern[2]  = UCS2_PATTERN;
+static uint16_t ucs2_pattern[8]  = UCS2_PATTERN;
 
 typedef union {
     char     text[TAF_SMS_TEXT_BYTES];
@@ -920,7 +922,7 @@ __attribute__((unused)) static void RxHandler
             break;
 
         case 5:
-            LE_TEST_ASSERT(memcmp(rxContent.binary, ucs2_pattern, sizeof(ucs2_pattern)) == 0, "Test RX message content");
+            LE_TEST_ASSERT(memcmp(rxContent.ucs2, ucs2_pattern, sizeof(ucs2_pattern)) == 0, "Test RX message content");
             break;
 
         default:

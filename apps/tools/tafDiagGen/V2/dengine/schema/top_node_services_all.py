@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 import sys
@@ -34,6 +34,13 @@ def schema__services_all(top_node):
 
             if not check_fn(value[required_key]):
                 logger.error(f"{Tname} . {key} . {required_key} <-- Invalid value")
+                need_to_stop = True
+                return
+
+        # Optional -> IDPS_supported: If not present, defaults to False
+        if 'IDPS_supported' in value.keys():
+            if not Bool()(value['IDPS_supported']):
+                logger.error(f"{Tname} . {key} . IDPS_supported <-- Invalid value")
                 need_to_stop = True
                 return
 

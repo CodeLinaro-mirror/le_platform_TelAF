@@ -11,6 +11,7 @@
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
 #include "configuration.hpp"
+#include "tafIDPS.hpp"
 #include <mutex>
 #include "tafUDSStack.h"
 #include <atomic>
@@ -50,6 +51,7 @@ namespace uds{
 
     // UDS minimal len
     #define UDS_REQ_MIN_LEN 1
+    #define UDS_RESP_MIN_LEN 1
 
     // Negative Response (0x7F)
     #define UDS_NEGATIVE_RESP_SID 0x7F
@@ -390,6 +392,16 @@ namespace uds{
         ON = 0x01
     }taf_TesterState_t;
 
+    // Context passed to the main thread when P2* timeout fires.
+    // Using a plain struct avoids any heap allocation in the timer callback.
+    typedef struct
+    {
+        UdsCommunicationMgr* mgr;          ///< Owning instance.
+        uint8_t              sid;          ///< Service ID that timed out.
+        uint8_t              errorCode;    ///< NRC to send (REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING).
+        taf_doip_AddrInfo_t  addrInfo;     ///< Address info copied from the instance.
+    } P2StarNrcContext_t;
+
     class UdsCommunicationMgr{
         public:
             UdsCommunicationMgr(const char* ifName);
@@ -425,6 +437,7 @@ namespace uds{
             le_result_t CheckAndSendInd(uint8_t sid, taf_doip_AddrInfo_t* addrInfoPtr);
 
             static void P2StarTimeoutHandler(le_timer_Ref_t timerRef);
+            static void P2StarSendNrcInMainThread(void* param1Ptr, void* param2Ptr);
             static void S3TimeoutHandler(le_timer_Ref_t timerRef);
             static void AuthTimeoutHandler(le_timer_Ref_t timerRef);
             static void AuthDelayTimeoutHandler(le_timer_Ref_t timerRef);
@@ -586,6 +599,8 @@ namespace uds{
             //Send indication to diag service in UDS indication thread.
             static void IndMsgHandler(void* reqPtr);
 
+            void SendIdpsIndMsg();
+
             //session change parameter.
             taf_doip_AddrInfo_t addrInfo;
 
@@ -604,11 +619,13 @@ namespace uds{
             static bool isResetInProgress;
             static le_event_Id_t udsTimerEventId;
             static le_sem_Ref_t semRef;
+            static le_mem_PoolRef_t P2StarNrcPool; ///< Pool for P2StarNrcContext_t objects.
 
             static std::map<std::string, UdsCommunicationMgr*> instances;
             static std::mutex mutex_instance;
 
             static le_event_Id_t udsIndMsgEventId;
+            static le_thread_Ref_t mainThreadRef; ///< Reference to the main thread for queuing.
     };
 }
 }

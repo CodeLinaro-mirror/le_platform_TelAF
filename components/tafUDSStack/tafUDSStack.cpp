@@ -8,6 +8,7 @@
 #include "interfaces.h"
 #include "tafUDSStack.h"
 #include "tafUDSCommunicationMgr.hpp"
+#include "tafIDPS.hpp"
 
 using namespace taf::uds;
 
@@ -141,6 +142,63 @@ void taf_uds_RemoveDiagIndicationHandler
     if (handlerPtr != NULL)
     {
         le_ref_DeleteRef(UdsCommunicationMgr::udsHandlerRefMap, handlerPtr->safeRef);
+        handlerPtr->safeRef = NULL;
+    }
+
+    return;
+}
+
+taf_uds_IdpsIndicationHandlerRef_t taf_uds_AddIdpsHandler
+(
+    taf_uds_IdpsIndicationHandlerFunc_t  idpsHandlerPtr,   ///< [IN] Hander function.
+    void*                                userPtr                 ///< [IN] User-defined pointer.
+)
+{
+    void* handlerRef;
+
+    if(idpsHandlerPtr == NULL)
+    {
+        LE_ERROR("idpsHandlerPtr is Null");
+        return NULL;
+    }
+
+    if(UdsIdps::udsIdpsHandlerRefMap == NULL)
+    {
+        LE_ERROR("IDPS handler ref map not initialized");
+        return NULL;
+    }
+
+    // Remove previous handler reference
+    if (UdsIdps::idpsIndicationHandler.safeRef != NULL &&
+        le_ref_Lookup(UdsIdps::udsIdpsHandlerRefMap, UdsIdps::idpsIndicationHandler.safeRef))
+    {
+        le_ref_DeleteRef(UdsIdps::udsIdpsHandlerRefMap,
+                UdsIdps::idpsIndicationHandler.safeRef);
+    }
+
+    handlerRef = le_ref_CreateRef(UdsIdps::udsIdpsHandlerRefMap, &UdsIdps::idpsIndicationHandler);
+    UdsIdps::idpsIndicationHandler.funcPtr = idpsHandlerPtr;
+    UdsIdps::idpsIndicationHandler.ctxPtr = userPtr;
+    UdsIdps::idpsIndicationHandler.safeRef = handlerRef;
+
+    return (taf_uds_IdpsIndicationHandlerRef_t)handlerRef;
+}
+
+void taf_uds_RemoveIdpsIndicationHandler
+(
+    taf_uds_IdpsIndicationHandlerRef_t handerRef   ///< [IN] The handler reference.
+)
+{
+    LE_DEBUG("taf_uds_RemoveIdpsIndicationHandler");
+
+
+    taf_udsIdpsHandler_t* handlerPtr =
+            (taf_udsIdpsHandler_t*)le_ref_Lookup(UdsIdps::udsIdpsHandlerRefMap,
+            handerRef);
+
+    if (handlerPtr != NULL)
+    {
+        le_ref_DeleteRef(UdsIdps::udsIdpsHandlerRefMap, handlerPtr->safeRef);
         handlerPtr->safeRef = NULL;
     }
 

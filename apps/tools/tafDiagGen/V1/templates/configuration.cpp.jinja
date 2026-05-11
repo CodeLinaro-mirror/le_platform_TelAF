@@ -460,6 +460,16 @@ EXPORT_SYM bool is_service_supported(uint16_t sid)
     return get_service_entry(sid).supported;
 }
 
+EXPORT_SYM bool IsIDPSAvailable(void)
+{
+    return false;
+}
+
+EXPORT_SYM bool IsIDPSSupported(uint16_t sid)
+{
+    return false;
+}
+
 EXPORT_SYM bool is_authentication_supported(uint16_t sid)
 {
     return get_service_entry(sid).authentication;

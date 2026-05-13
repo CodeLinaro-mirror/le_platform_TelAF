@@ -760,6 +760,13 @@ static le_result_t SetIpv4MulticastRouteWithIoctl
     {
         if (ioctl(sockfd, SIOCADDRT, &rt) < 0)
         {
+            if (errno == EEXIST)
+            {
+                // Route was already created by another process; return LE_DUPLICATE.
+                LE_INFO("Route already exists for destination, created by another process.");
+                close(sockfd);
+                return LE_DUPLICATE;
+            }
             LE_ERROR("Failed to add route, error:%s", strerror(errno));
             close(sockfd);
             return LE_FAULT;
@@ -795,11 +802,20 @@ void TimerHandler
 
     app->incrementAddRouteRetryCount();
 
-    if (LE_OK == SetIpv4MulticastRouteWithIoctl(multicastAddr, intfName, true))
+    le_result_t result = SetIpv4MulticastRouteWithIoctl(multicastAddr, intfName, true);
+    if (result == LE_OK)
     {
         LE_INFO("Retry %d: Completed adding route for %s on %s.", app->getAddRouteRetryCount(),
             multicastAddr, intfName);
         app->setRouteAdded(true);
+        app->resetAddRouteRetryCount();
+        le_timer_Delete(timerRef);
+    }
+    else if (result == LE_DUPLICATE)
+    {
+        // Route was already created by another process; stop retrying.
+        LE_INFO("Retry %d: Route for %s on %s already exists, created by another process.",
+            app->getAddRouteRetryCount(), multicastAddr, intfName);
         app->resetAddRouteRetryCount();
         le_timer_Delete(timerRef);
     }
@@ -837,10 +853,17 @@ static void AddRoutingForMulticastAddr
             char timerName[64];
             snprintf(timerName, sizeof(timerName), "AddRouteRetryTimer_%d", id);
 
-            if (LE_OK == SetIpv4MulticastRouteWithIoctl(multicastAddr, intfName, true))
+            le_result_t result = SetIpv4MulticastRouteWithIoctl(multicastAddr, intfName, true);
+            if (result == LE_OK)
             {
                 LE_INFO("Completed adding route for %s on %s.", multicastAddr, intfName);
                 RoutingManagerTable[id]->setRouteAdded(true);
+            }
+            else if (result == LE_DUPLICATE)
+            {
+                // Route was already created by another process.
+                LE_INFO("Route for %s on %s already exists, created by another process.",
+                    multicastAddr, intfName);
             }
             else
             {
@@ -958,7 +981,7 @@ static void SetBootKpiMarker(const char* markerPtr){
     FILE *file = fopen(kpi_file, "w");
     if (file == NULL)
     {
-        LE_ERROR("%s not able to open due to %s", kpi_file,strerror(errno));
+        LE_WARN("%s not able to open due to %s", kpi_file, strerror(errno));
         return;
     }
     if (fwrite(markerPtr, sizeof(char), strlen(markerPtr), file) != strlen(markerPtr))
@@ -2096,4 +2119,3 @@ void taf_someipClnt_RemoveEventMsgHandler
     taf_SomeipClient& mySomeipClient = taf_SomeipClient::GetInstance();
     return mySomeipClient.RemoveEventMsgHandler(handlerRef);
 }
-

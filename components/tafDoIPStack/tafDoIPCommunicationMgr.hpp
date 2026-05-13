@@ -210,6 +210,8 @@ namespace doip{
             le_socket_Ref_t udpDiscoverSockRef;
             le_socket_Ref_t udpEquipSockRef[MAX_INF_NUM];
 
+            uint16_t ifCnt; // Interface number
+
             // For upper layer create doip and register handler.
             le_mem_PoolRef_t doipSessionPool;
             le_ref_MapRef_t doipSessionRefMap;
@@ -226,6 +228,12 @@ namespace doip{
 
             // If not set vlan, this function will return 0.
             uint16_t GetVlanId(const char *ifacePtr);
+
+            // TLS related interfaces
+            le_result_t AddOwnCertificate(const uint8_t* certificatePtr, size_t certificateLen);
+            le_result_t AddOwnPrivateKey(const uint8_t* pkeyPtr, size_t pkeyLen);
+            le_result_t SetCipherSuites(uint8_t cipherIdx);
+            le_result_t SetAuthType(taf_doip_AuthTYpe_t authType);
         private:
             taf_doip_Result_t GetLocalIPv4Addr(std::string& ifname, taf_doip_IPInfo_t* ipInfo,
                     socklen_t size);
@@ -268,6 +276,7 @@ namespace doip{
                     uint16_t udpDiscoveryPort, uint16_t tcpDataPort);
             taf_doip_Result_t GetLocalIPv4FromSource(struct sockaddr_in *srcAddrPtr, char *local);
             taf_doip_Result_t GetLocalIPv6FromSource(struct sockaddr_in6 *srcAddrPtr, char *local);
+            le_result_t SetTLSInfo();
 
             // Create Doip Connection Manager
             std::shared_ptr<ConnectionManager> connectionMgrPtr;

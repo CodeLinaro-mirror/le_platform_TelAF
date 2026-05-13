@@ -187,11 +187,22 @@ install_libs_to_runtime() {
 
     if [[ ! -L "$so" ]]; then
       if [[ -n "$OBJCOPY" && -n "$OUTPUT" ]]; then
-        ensure_dir "$OUTPUT"
-        local dbgfile="$OUTPUT/${base}.debug"
-        info "[$module] keep debug: $dbgfile"
-        run "$OBJCOPY" --only-keep-debug "$so" "$dbgfile"
-        (( ! NO_STRIP )) && run "$STRIP" --strip-unneeded "$so"
+        # Only extract debug symbols if the binary has not already been stripped.
+        # Binaries pre-processed by split_debug_symbols_strip_binaries.cmake are
+        # already stripped; running objcopy --only-keep-debug on them produces a
+        # near-empty (~2 KB) placeholder instead of real DWARF data.  The real
+        # debug symbols for those binaries are in the .build-id tree inside their
+        # staging directory and are collected separately below.
+        if file "$so" 2>/dev/null | grep -q "not stripped"; then
+          ensure_dir "$OUTPUT"
+          local dbgfile="$OUTPUT/${base}.debug"
+          info "[$module] keep debug: $dbgfile"
+          run "$OBJCOPY" --only-keep-debug "$so" "$dbgfile"
+          (( ! NO_STRIP )) && run "$STRIP" --strip-unneeded "$so"
+        else
+          info "[$module] skip debug extract: already stripped -> $base"
+          (( ! NO_STRIP )) && run "$STRIP" --strip-unneeded "$so"
+        fi
       else
         (( ! NO_STRIP )) && run "$STRIP" --strip-unneeded "$so"
       fi
@@ -423,6 +434,34 @@ install_libs_to_runtime "DEFAULT_PA"  "$DEFAULT_PA_BUILD_DIR"   "$STAGE_DIR_COMB
 
 replace_libs_in_stage "PROP"   "$PROP_BUILD_DIR"   "$STAGE_DIR_COMBINED"
 replace_libs_in_stage "NOSHIP" "$NOSHIP_BUILD_DIR" "$STAGE_DIR_COMBINED"
+
+# Collect .build-id debug symbol trees produced by split_debug_symbols_strip_binaries.cmake
+# from every PA/PROP/NOSHIP staging directory into $OUTPUT/debug/.build-id/.
+# These trees are NOT copied by install_libs_to_runtime (which only handles *.so* files),
+# so without this step the telaf-pa debug symbols are entirely absent from the build output.
+collect_build_id_debug_symbols() {
+  local debug_out="${OUTPUT}/debug/.build-id"
+  ensure_dir "${debug_out}"
+  local collected=0
+  for staging_dir in \
+      "${TARGET_PA_BUILD_DIR}" \
+      "${DEFAULT_PA_BUILD_DIR}" \
+      "${PROP_BUILD_DIR}" \
+      "${NOSHIP_BUILD_DIR}"; do
+    local src="${staging_dir}/.build-id"
+    if [[ -d "${src}" ]]; then
+      info "[.build-id] merging: ${src} -> ${debug_out}"
+      cp -a "${src}/." "${debug_out}/"
+      collected=$((collected + 1))
+    fi
+  done
+  if [[ "${collected}" -eq 0 ]]; then
+    info "[.build-id] no .build-id trees found in staging directories"
+  else
+    info "[.build-id] merged ${collected} .build-id tree(s) into ${debug_out}"
+  fi
+}
+collect_build_id_debug_symbols
 
 info "install/replace done"
 

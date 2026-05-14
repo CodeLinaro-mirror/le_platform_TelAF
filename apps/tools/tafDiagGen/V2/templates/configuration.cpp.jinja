@@ -62,6 +62,11 @@ EXPORT_SYM bool get_init_status(void)
     return root_inited;
 }
 
+EXPORT_SYM std::string get_tree_data_md5(void)
+{
+    return tree_data_md5;
+}
+
 EXPORT_SYM void diag_config_init(const char * cfg_path)
 {
     try

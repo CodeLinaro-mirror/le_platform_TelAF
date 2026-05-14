@@ -80,6 +80,8 @@ serialize: do-serialize
 do-serialize: $(SERIALIZATION_HOST_TARGET)
 	@LD_LIBRARY_PATH="$(STAGING_LIBDIR_NATIVE):$$LD_LIBRARY_PATH" \
 	$(SERIALIZATION_HOST_TARGET) $(diagcfg_of_project)/
+	@tree_data_md5=$$(md5sum "$(diagcfg_of_project)/tree_data" | awk '{print $$1}'); \
+	sed -i 's|^inline std::string tree_data_md5 = ".*";|inline std::string tree_data_md5 = "'"$$tree_data_md5"'";|' "$(diagcfg_of_project)/serialization.hpp"
 	@echo "[Serialize] Done."
 
 $(SERIALIZATION_HOST_TARGET): $(SERIALIZATION_SRC)

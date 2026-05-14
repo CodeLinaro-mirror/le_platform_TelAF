@@ -23,6 +23,9 @@
 
 using namespace taf::svc::datacall;
 
+static le_mem_PoolRef_t QosStatusPoolRef = nullptr;
+static le_ref_MapRef_t  QosStatusRefMap = nullptr;
+
 /**
  * Get a reference to TafDcsProfile object that matches profileRef
  * The macro provides "profile" reference that can be used with subsequent TafDcsProfile APIs.
@@ -138,6 +141,14 @@ void TafDcsProfileManager::Init()
     {
         // This should not happen.
         LE_FATAL("Registration of internal events timed out!");
+    }
+
+    //TFT QOS Flow Reference
+    if (QosStatusPoolRef == nullptr)
+    {
+        QosStatusPoolRef = le_mem_CreatePool("QosStatusPool", sizeof(QOSFlowCtxStatus_t));
+        le_mem_ExpandPool(QosStatusPoolRef, TAF_DCS_MAX_SESSION_REF);
+        QosStatusRefMap = le_ref_CreateMap("QosStatusRefMap", TAF_DCS_MAX_SESSION_REF);
     }
 
     // Register PA callbacks
@@ -2519,6 +2530,86 @@ bool TafDcsProfileManager::SvcIsIPv6(taf_dcs_ProfileRef_t profileRef)
     return false;
 }
 
+taf_dcs_QosFlowRef_t TafDcsProfileManager::findQosRef(uint8_t phoneId, uint32_t profileId, uint32_t qosFlowId)
+{
+    // Get an iterator for our global Safe Reference map
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(QosStatusRefMap);
+
+    // Iterate through all active QoS flows in the system
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        // Extract the context block for this node
+        QOSFlowCtxStatus_t *qosStatusPtr = (QOSFlowCtxStatus_t *)le_ref_GetValue(iterRef);
+
+        // Check if found an exact match
+        if (qosStatusPtr != nullptr &&
+            qosStatusPtr->phoneId == phoneId &&
+            qosStatusPtr->profileId == profileId &&
+            qosStatusPtr->qosFlowId == qosFlowId)
+        {
+            // Match found! Return the specific "Coat Check ticket" (Safe Reference)
+            return (taf_dcs_QosFlowRef_t)le_ref_GetSafeRef(iterRef);
+        }
+    }
+
+    // Return nullptr if no matching flow is currently active
+    return nullptr;
+}
+
+le_result_t TafDcsProfileManager::SvcGetQosProfile
+(
+    taf_dcs_QosFlowRef_t qosFlowRef,
+    taf_dcs_ProfileRef_t* profileRefPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(profileRefPtr == nullptr, LE_FAULT, "profileRefPtr is NULL");
+
+    QOSFlowCtxStatus_t *qosStatusPtr = (QOSFlowCtxStatus_t *)le_ref_Lookup(QosStatusRefMap, qosFlowRef);
+    TAF_ERROR_IF_RET_VAL(qosStatusPtr == nullptr, LE_NOT_FOUND, "Invalid QoS flow reference");
+
+    // Find the active profile in the QoS context block
+    auto profileOptWrapper = getProfile(qosStatusPtr->phoneId, qosStatusPtr->profileId);
+
+    TAF_ERROR_IF_RET_VAL((!profileOptWrapper.has_value()), LE_NOT_FOUND,
+                         "Profile not found for phoneId: %d, profileId: %d",
+                         qosStatusPtr->phoneId, qosStatusPtr->profileId);
+
+    TafDcsProfile &profile = profileOptWrapper.value().get();
+    *profileRefPtr = profile.GetReference();
+
+    return LE_OK;
+}
+
+le_result_t TafDcsProfileManager::SvcGetQosId(
+    taf_dcs_QosFlowRef_t qosFlowRef,
+    uint32_t* qosFlowIdPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(qosFlowRef == nullptr || qosFlowIdPtr == nullptr, LE_BAD_PARAMETER, "Null parameter");
+
+    QOSFlowCtxStatus_t *qosStatus = (QOSFlowCtxStatus_t *)le_ref_Lookup(QosStatusRefMap, qosFlowRef);
+    TAF_ERROR_IF_RET_VAL(qosStatus == nullptr, LE_NOT_FOUND, "Invalid or expired QoS flow reference");
+
+    *qosFlowIdPtr = qosStatus->qosFlowId;
+
+    return LE_OK;
+}
+
+le_result_t TafDcsProfileManager::SvcGetQosParameterMask(
+    taf_dcs_QosFlowRef_t qosFlowRef,
+    taf_dcs_QosFlowBitMask_t* qosFlowMaskPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(qosFlowRef == nullptr || qosFlowMaskPtr == nullptr, LE_BAD_PARAMETER, "Null parameter");
+
+    QOSFlowCtxStatus_t *qosStatus = (QOSFlowCtxStatus_t *)le_ref_Lookup(QosStatusRefMap, qosFlowRef);
+    TAF_ERROR_IF_RET_VAL(qosStatus == nullptr, LE_NOT_FOUND, "Invalid or expired QoS flow reference");
+
+    *qosFlowMaskPtr = qosStatus->paramMask;
+
+    return LE_OK;
+}
+
 // Helper macros for Reference Map creation
 #define GET_THROUGHPUT_LIST_FROM_REF(ref, ptr) \
     ptr = (TafDcsThroughputList_t*)le_ref_Lookup(getThroughputInfoListRefMap(), ref); \
@@ -3244,6 +3335,32 @@ le_result_t TafDcsProfileManager::updateSessionDetails(const TafDcsSessionChange
     }
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "SetDataBearerTech failed: %d", TO_INT(result));
 
+    if (TAF_DCS_DISCONNECTED == eventPtr->connState)
+    {
+        // Auto clean up QoS flow on call termination
+        // Make a local copy of the active flows so it won't crash when removing them
+        std::vector<taf_dcs_QosFlowRef_t> activeQosRefs = profile.GetQosFlowRefs();
+
+        if (!activeQosRefs.empty())
+        {
+            for (auto qosRef : activeQosRefs)
+            {
+                // Release the Legato memory
+                QOSFlowCtxStatus_t *qosStatus = (QOSFlowCtxStatus_t *)le_ref_Lookup(QosStatusRefMap, qosRef);
+                if (qosStatus) {
+                    le_mem_Release(qosStatus);
+                }
+
+                // Delete the Legato safe reference ticket
+                le_ref_DeleteRef(QosStatusRefMap, qosRef);
+
+                // Remove the specific ticket from the Profile's vector
+                profile.RemoveQosFlowRef(qosRef);
+            }
+            LE_DEBUG("Cleaned up QoS flow reference due to Call Disconnect.");
+        }
+    }
+
     if (TAF_DCS_CONNECTED == eventPtr->connState && TAF_DCS_CONNECTED == eventPtr->ipv4ConnState)
     {
         result = profile.SetIPv4Addresses(
@@ -3404,21 +3521,22 @@ le_result_t TafDcsProfileManager::sendHwAccelerationEvent
     return LE_OK;
 }
 
-le_result_t TafDcsProfileManager::sendQosTftEvent(const TafDcsQosTftEventInfo_t *eventPtr)
+le_result_t TafDcsProfile::sendQosTftEvent(const TafDcsQosTftEventInfo_t *eventPtr, taf_dcs_QosFlowRef_t qosRef)
 {
     TAF_ERROR_IF_RET_VAL(nullptr == eventPtr, LE_BAD_PARAMETER, "eventPtr is NULL!");
 
-    GET_DCS_PROFILE_FROM_ID_RET_VAL(eventPtr->phoneId, eventPtr->profileId, LE_NOT_FOUND);
-
-    // Transform to external DCS struct
     taf_dcs_QosTftEvent_t event;
 
-    LE_WARN ("QoS flow reference is NULL. TODO.");
-    event.qosFlowRef = nullptr;
+    // FETCH QOS REFERENCE
+    event.qosFlowRef = qosRef;
     event.qosState   = eventPtr->state;
 
+    if (event.qosFlowRef == nullptr && event.qosState != TAF_DCS_QOS_DELETED) {
+         LE_WARN("QoS flow reference is NULL for an active or modified event");
+    }
+
     // Send the external event
-    le_event_Report(profile.GetQosStatusChangedEventId(), &event,sizeof(taf_dcs_QosTftEvent_t));
+    le_event_Report(GetQosStatusChangedEventId(), &event, sizeof(taf_dcs_QosTftEvent_t));
     return LE_OK;
 }
 
@@ -4943,37 +5061,79 @@ void TafDcsProfileManager::registerPaQosTftEvtHandler(void *param1Ptr, void *par
 
 void TafDcsProfileManager::paQosTftEvtHandler(void *reqPtr)
 {
-    LE_DEBUG("The paQosTftEvtId_ handler");
+    LE_DEBUG("The paQosTftEvtHandler");
     TAF_ERROR_IF_RET_NIL(nullptr == reqPtr, "reqPtr is NULL");
 
     TafDcsQosTftEventInfo_t *qosTftEvt = static_cast<TafDcsQosTftEventInfo_t *>(reqPtr);
-
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
 
-    // Get the profile object
-    /*
-    auto profileOptWrapper = tafDcsProfileManager.getProfile(qosTftEvt->phoneId,
-                                                                        qosTftEvt->profileId);
+    // Fetch the profile object to ensure it's a valid data call
+    auto profileOptWrapper = tafDcsProfileManager.getProfile(qosTftEvt->phoneId, qosTftEvt->profileId);
     TAF_ERROR_IF_RET_NIL((!profileOptWrapper.has_value()),
-                            "profile[%d,%d] not found", qosTftEvt->phoneId, qosTftEvt->profileId);
-    TafDcsProfile &profile = profileOptWrapper.value().get();
-    */
-    // TODO: Update the profile with QoS flow details
-    if (TAF_DCS_QOS_ACTIVATED == qosTftEvt->state)
+                         "profile[%d,%d] not found", qosTftEvt->phoneId, qosTftEvt->profileId);
+
+    // Lookup existing QoS Flow Reference (Coat Check Ticket)
+    taf_dcs_QosFlowRef_t qosRef = tafDcsProfileManager.findQosRef(qosTftEvt->phoneId, qosTftEvt->profileId, qosTftEvt->qosFlowId);
+
+    // Process the Event State
+    if (qosTftEvt->state == TAF_DCS_QOS_ACTIVATED)
     {
-        // Create new QoS flow details
+        if (qosRef != nullptr) {
+            LE_DEBUG("QoS Flow ID %d already activated", qosTftEvt->qosFlowId);
+        } else {
+            // Allocate memory and generate a safe reference
+            QOSFlowCtxStatus_t *qosStatusPtr = (QOSFlowCtxStatus_t *)le_mem_ForceAlloc(QosStatusPoolRef);
+
+            // Map the new fields
+            qosStatusPtr->phoneId   = qosTftEvt->phoneId;    // Updated from slotId
+            qosStatusPtr->profileId = qosTftEvt->profileId;
+            qosStatusPtr->qosFlowId = qosTftEvt->qosFlowId;  // Updated from qosID
+            qosStatusPtr->state     = TAF_DCS_QOS_ACTIVATED; // Updated from qosState
+            qosStatusPtr->paramMask = qosTftEvt->paramMask;  // Updated from qosMask
+
+            qosRef = (taf_dcs_QosFlowRef_t)le_ref_CreateRef(QosStatusRefMap, (void *)qosStatusPtr);
+
+            // Hand the ticket back to the profile
+            profileOptWrapper.value().get().AddQosFlowRef(qosRef);
+        }
     }
-    else if (TAF_DCS_QOS_MODIFIED== qosTftEvt->state)
+    else if (qosTftEvt->state == TAF_DCS_QOS_MODIFIED)
     {
-        // Modify an existing flow
+        LE_DEBUG("QOS FLOW MODIFIED");
+        if (qosRef != nullptr) {
+            QOSFlowCtxStatus_t *qosStatusPtr = (QOSFlowCtxStatus_t *)le_ref_Lookup(QosStatusRefMap, qosRef);
+            if (qosStatusPtr) {
+                qosStatusPtr->paramMask = qosTftEvt->paramMask; // Update the mask parameter
+                qosStatusPtr->state = TAF_DCS_QOS_MODIFIED;
+            }
+        } else {
+            LE_WARN("Modify event received for unknown QoS flow ID %d", qosTftEvt->qosFlowId);
+        }
     }
-    else if (TAF_DCS_QOS_DELETED== qosTftEvt->state)
+    else if (qosTftEvt->state == TAF_DCS_QOS_DELETED)
     {
-        // Remove the flow
+        if (qosRef != nullptr)
+        {
+            QOSFlowCtxStatus_t *qosStatusPtr = (QOSFlowCtxStatus_t *)le_ref_Lookup(QosStatusRefMap, qosRef);
+            if (qosStatusPtr && qosStatusPtr->qosFlowId == qosTftEvt->qosFlowId)
+            {
+                // Remove the ticket from the profile BEFORE deleting the reference
+                profileOptWrapper.value().get().RemoveQosFlowRef(qosRef);
+
+                // Discard the ticket and return the coat rack space
+                le_ref_DeleteRef(QosStatusRefMap, qosRef);
+                le_mem_Release(qosStatusPtr);
+                LE_DEBUG("QoS flow %d successfully released", qosTftEvt->qosFlowId);
+                qosRef = nullptr;
+            }
+        }
+        else {
+            LE_WARN("Delete event received for unknown QoS flow ID %d", qosTftEvt->qosFlowId);
+        }
     }
 
-    // Send event to clients
-    le_result_t result = tafDcsProfileManager.sendQosTftEvent(qosTftEvt);
+    // Send the event to the client
+    le_result_t result = profileOptWrapper.value().get().sendQosTftEvent(qosTftEvt, qosRef);
     TAF_ERROR_IF_RET_NIL(LE_OK != result, "sendQosTftEvent failed: %d", result);
 }
 

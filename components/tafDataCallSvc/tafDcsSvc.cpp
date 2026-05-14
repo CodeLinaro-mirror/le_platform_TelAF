@@ -1170,12 +1170,12 @@ le_result_t taf_dcs_GetQosProfile
         ///< [OUT]
 )
 {
-    LE_UNUSED(qosFlowRef);
-    LE_UNUSED(profileRefPtr);
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
     TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                          LE_FAULT, "Service not initialized.");
-    return LE_UNSUPPORTED;
+
+    auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
+    return tafDcsProfileManager.SvcGetQosProfile(qosFlowRef, profileRefPtr);
 }
 
 le_result_t taf_dcs_GetQosId
@@ -1186,12 +1186,11 @@ le_result_t taf_dcs_GetQosId
         ///< [OUT] QOS ID.
 )
 {
-    LE_UNUSED(qosFlowRef);
-    LE_UNUSED(qosFlowIdPtr);
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
     TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                                                             LE_FAULT, "Service not initialized.");
-    return LE_UNSUPPORTED;
+    auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
+    return tafDcsProfileManager.SvcGetQosId(qosFlowRef, qosFlowIdPtr);
 }
 
 le_result_t taf_dcs_GetQosParameterMask
@@ -1202,14 +1201,12 @@ le_result_t taf_dcs_GetQosParameterMask
         ///< [OUT] QOS flow bitmask.
 )
 {
-    LE_UNUSED(qosFlowRef);
-    LE_UNUSED(qosFlowMaskPtr);
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
     TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
                          LE_FAULT, "Service not initialized.");
-    return LE_UNSUPPORTED;
+    auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
+    return tafDcsProfileManager.SvcGetQosParameterMask(qosFlowRef, qosFlowMaskPtr);
 }
-
 
 /**
  * Add a roaming state handler to monitor the roaming status.

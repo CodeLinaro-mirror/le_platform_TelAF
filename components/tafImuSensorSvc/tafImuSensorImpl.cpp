@@ -23,6 +23,10 @@ LE_MEM_DEFINE_STATIC_POOL(tSensorEventHandlerPool, SENSOR_EVENT_HANDLER_HIGH ,
     sizeof(taf_SensorEventHandler_t));
 LE_MEM_DEFINE_STATIC_POOL(ClientPoolRef,
    TAF_SENSOR_CLIENT_ACTIVATION_MAX,sizeof(taf_SensorClient_t));
+LE_MEM_DEFINE_STATIC_POOL(tSensorConfigUpdateHandlerPool, SENSOR_EVENT_HANDLER_HIGH,
+    sizeof(taf_SensorConfigUpdateHandler_t));
+LE_MEM_DEFINE_STATIC_POOL(tSensorCapabilityHandlerPool, SENSOR_EVENT_HANDLER_HIGH,
+    sizeof(taf_SensorCapabilityHandler_t));
 LE_REF_DEFINE_STATIC_MAP(tSensorInfoMap, TAF_SENSOR_POOL_SIZE);
 LE_REF_DEFINE_STATIC_MAP(tSensorListMap, TAF_SENSOR_LIST_POOL_SIZE);
 
@@ -96,6 +100,48 @@ void Handler::onEvent(tafpa::sensor::taf_pa_sensor_SensorId sensorId,
     le_event_ReportWithRefCounting(sensorMngr.SensorOnEventId,triggeredSensorEvent);
 }
 
+void Handler::onConfigUpdate(tafpa::sensor::taf_pa_sensor_SensorId sensorId,
+    double samplingRate, uint32_t batchCount, bool isRotated, std::any context)
+{
+    LE_DEBUG("onConfigUpdate");
+
+    le_msg_SessionRef_t sessionRef = NULL;
+    if (!TryGetSessionRef(context, &sessionRef)) {
+        LE_ERROR("Bad any_cast for sessionRef");
+        return;
+    }
+
+    auto &sensorMngr = taf_Sensor::GetInstance();
+    taf_SensorConfigUpdate_t event = {};
+    event.sensorClientId = sensorId;
+    event.samplingRate = samplingRate;
+    event.batchCount = batchCount;
+    event.isRotated = isRotated;
+    event.sessionRef = sessionRef;
+    le_event_Report(sensorMngr.ConfigUpdateEventId, &event, sizeof(event));
+}
+
+void Handler::onCapabilityUpdate(tafpa::sensor::taf_pa_sensor_SensorId sensorId,
+    tafpa::sensor::taf_pa_sensor_CapabilityInfo capabilityInfo, std::any context)
+{
+    LE_DEBUG("onCapabilityUpdate");
+
+    le_msg_SessionRef_t sessionRef = NULL;
+    if (!TryGetSessionRef(context, &sessionRef)) {
+        LE_ERROR("Bad any_cast for sessionRef");
+        return;
+    }
+
+    auto &sensorMngr = taf_Sensor::GetInstance();
+    taf_SensorCapability_t event = {};
+    event.sensorClientId = sensorId;
+    event.isAvailable = capabilityInfo.isAvailable;
+    event.isEnabled = capabilityInfo.isEnabled;
+    event.capabilityMask = capabilityInfo.capabilityMask;
+    event.sessionRef = sessionRef;
+    le_event_Report(sensorMngr.CapabilityEventId, &event, sizeof(event));
+}
+
 taf_Sensor &taf_Sensor::GetInstance()
 {
     static taf_Sensor instance;
@@ -159,12 +205,15 @@ le_result_t InitializeSensorClientList(taf_SensorClient_t* clientRequestPtr)
         }
         clientInfo->eventListener.onEvent = &Handler::onEvent;
         clientInfo->eventListener.onSelfTestFailed = &Handler::onSelfTestFailed;
-        if(tafpa::sensor::taf_pa_sensor_RegisterListener(clientInfo->sensorClient,
+        if(tafpa::sensor::taf_pa_sensor_AddListener(clientInfo->sensorClient,
             &clientInfo->eventListener,std::any(clientRequestPtr->sessionRef)) !=  PA_OK){
             LE_ERROR("Listener register failed for %s",
                 sensorMngr.sList[i].basicInfo.sensorName.c_str());
             continue;
         }
+
+        LE_INFO("Add listener for %lu successfully", clientInfo->sensorClient);
+
         le_utf8_Copy(clientInfo->sensorName, sensorMngr.sList[i].basicInfo.
             sensorName.c_str(), sizeof(clientInfo->sensorName), NULL);
         clientRequestPtr->clientCount++;
@@ -706,16 +755,26 @@ void taf_Sensor::ActivateWorker(void* cmdPtr, void*)
     auto* cPtr = (SensorCmdInfo_t*)cmdPtr;
 
     cPtr->retCode = LE_OK;
-    if (tafpa::sensor::taf_pa_sensor_Activate(cPtr->paClientId,
-                                             cPtr->activate.samplingRate,
-                                             cPtr->activate.batchCount,
-                                             1) != PA_OK)
+    if (tafpa::sensor::taf_pa_sensor_SetConfig(cPtr->paClientId,
+                                              cPtr->activate.samplingRate,
+                                              cPtr->activate.batchCount) != PA_OK)
     {
-        LE_ERROR("ActivateWorker: PA activate failed for paClientId %" PRIu64
+        LE_ERROR("ActivateWorker: PA set config failed for paClientId %" PRIu64
             " (rate=%lf, batch=%u)", cPtr->paClientId,
             cPtr->activate.samplingRate, cPtr->activate.batchCount);
         cPtr->retCode = LE_FAULT;
     }
+    else if (tafpa::sensor::taf_pa_sensor_Activate(cPtr->paClientId) != PA_OK)
+    {
+        LE_ERROR("ActivateWorker: PA activate failed for paClientId %" PRIu64,
+            cPtr->paClientId);
+        cPtr->retCode = LE_FAULT;
+    }
+    else
+    {
+        LE_INFO("ActivateWorker ... ");
+    }
+
     le_event_QueueFunctionToThread(sens.SensorSvcThRef, ActivateSvcRespond, cPtr, NULL);
 }
 
@@ -854,7 +913,7 @@ void taf_Sensor::SelfTestWorker(void* cmdPtr, void*)
     };
 
     pa_result_t res =
-        tafpa::sensor::taf_pa_sensor_SelfTest(cPtr->paClientId, type, cb, std::any(sref));
+        tafpa::sensor::taf_pa_sensor_SelfTestAsync(cPtr->paClientId, type, cb, std::any(sref));
     if (res != PA_OK)
     {
         LE_ERROR("SelfTestWorker: PA self-test failed for paClientId %" PRIu64, cPtr->paClientId);
@@ -983,6 +1042,287 @@ void taf_Sensor::RemoveSelfTestFailedHandler(taf_imuSensor_SelfTestFailedHandler
     }
 
     LE_DEBUG("RemoveSelfTestFailedHandler: handlerRef %p", handlerRef);
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+}
+
+// -------------------------------------------------------------------------------------------------
+// ConfigUpdate event dispatch: runs on the service main thread.
+// Iterates all registered ConfigUpdate handlers and calls the matching one.
+// -------------------------------------------------------------------------------------------------
+void taf_Sensor::ConfigUpdateNotifyClient(void* reportPtr, void* secondLayerHandlerFunc)
+{
+    taf_SensorConfigUpdate_t* evtPtr = (taf_SensorConfigUpdate_t*)reportPtr;
+    TAF_ERROR_IF_RET_NIL(evtPtr == NULL, "ConfigUpdateNotifyClient: evtPtr is NULL");
+
+    LE_INFO("ConfigUpdateNotifyClient: Event ...");
+    taf_imuSensor_ConfigUpdateHandlerFunc_t clientHandlerFunc =
+        (taf_imuSensor_ConfigUpdateHandlerFunc_t)secondLayerHandlerFunc;
+    TAF_ERROR_IF_RET_NIL(clientHandlerFunc == NULL, "ConfigUpdateNotifyClient: handler is NULL");
+
+    taf_SensorClient_t* clientRequestPtr = DiscoverSessionRef(evtPtr->sessionRef);
+    TAF_ERROR_IF_RET_NIL(clientRequestPtr == NULL,
+        "ConfigUpdateNotifyClient: clientRequestPtr is NULL");
+
+    for (uint32_t i = 0; i < clientRequestPtr->clientCount; ++i)
+    {
+        auto* clientInfoPtr = &clientRequestPtr->clients[i];
+        if (clientInfoPtr->sensorClient == evtPtr->sensorClientId)
+        {
+            clientHandlerFunc(clientInfoPtr->sensorRef,
+                              evtPtr->samplingRate,
+                              evtPtr->batchCount,
+                              evtPtr->isRotated,
+                              le_event_GetContextPtr());
+            break;
+        }
+    }
+}
+
+taf_imuSensor_ConfigUpdateHandlerRef_t taf_Sensor::AddConfigUpdateHandler(
+    taf_imuSensor_SensorRef_t sensorRef,
+    taf_imuSensor_ConfigUpdateHandlerFunc_t handlerPtr,
+    void* contextPtr)
+{
+    TAF_KILL_CLIENT_IF_RET_VAL(handlerPtr == NULL, NULL,
+        "AddConfigUpdateHandler: handlerPtr is NULL");
+
+    taf_SensorClient_t* clientRequestPtr = AcquireSessionRef(taf_imuSensor_GetClientSessionRef());
+    TAF_ERROR_IF_RET_VAL(clientRequestPtr == NULL, NULL,
+        "AddConfigUpdateHandler: clientRequestPtr is NULL");
+
+    taf_SensorInfo_t* sensorPtr = (taf_SensorInfo_t*)le_ref_Lookup(tSensorInfoMap, sensorRef);
+    TAF_ERROR_IF_RET_VAL(sensorPtr == NULL, NULL,
+        "AddConfigUpdateHandler: invalid sensorRef (%p)", sensorRef);
+
+    for (uint32_t i = 0; i < clientRequestPtr->clientCount; ++i)
+    {
+        auto* clientInfoPtr = &clientRequestPtr->clients[i];
+        if (strcmp(sensorPtr->name, clientInfoPtr->sensorName) == 0)
+        {
+            clientInfoPtr->sensorRef = sensorRef;
+
+            // Register the PA-level config update callback for this sensor client
+            auto cb = [](tafpa::sensor::taf_pa_sensor_SensorId sid,
+                         double sr, uint32_t bc, bool rot, std::any ctx)
+            {
+                Handler::onConfigUpdate(sid, sr, bc, rot, ctx);
+            };
+            pa_result_t paRes = tafpa::sensor::taf_pa_sensor_AddConfigUpdateHandler(
+                clientInfoPtr->sensorClient, cb,
+                std::any(clientRequestPtr->sessionRef));
+            if (paRes != PA_OK)
+            {
+                LE_ERROR("AddConfigUpdateHandler: PA registration failed for sensor %s",
+                    clientInfoPtr->sensorName);
+                return NULL;
+            }
+
+            le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler(
+                "ConfigUpdateHandler",
+                ConfigUpdateEventId,
+                ConfigUpdateNotifyClient,
+                (void*)handlerPtr);
+            if (handlerRef == NULL)
+            {
+                LE_ERROR("AddConfigUpdateHandler: failed to create layered handler");
+                return NULL;
+            }
+            le_event_SetContextPtr(handlerRef, contextPtr);
+
+            // Track handler for session cleanup in CloseEventHandler
+            taf_SensorConfigUpdateHandler_t* handlerInfoPtr =
+                (taf_SensorConfigUpdateHandler_t*)le_mem_ForceAlloc(
+                    tSensorConfigUpdateHandlerPool);
+            memset(handlerInfoPtr, 0, sizeof(taf_SensorConfigUpdateHandler_t));
+            handlerInfoPtr->sensorRef  = sensorRef;
+            handlerInfoPtr->handlerRef = (taf_imuSensor_ConfigUpdateHandlerRef_t)handlerRef;
+            handlerInfoPtr->sessionRef = clientRequestPtr->sessionRef;
+            le_ref_CreateRef(tSensorConfigUpdateHandlerMap, handlerInfoPtr);
+
+            LE_INFO("AddConfigUpdateHandler: registered for sensor %s, session %p",
+                clientInfoPtr->sensorName, clientRequestPtr->sessionRef);
+            return (taf_imuSensor_ConfigUpdateHandlerRef_t)handlerRef;
+        }
+    }
+
+    LE_ERROR("AddConfigUpdateHandler: sensor %p not found in session %p",
+        sensorRef, clientRequestPtr->sessionRef);
+    return NULL;
+}
+
+void taf_Sensor::RemoveConfigUpdateHandler(
+    taf_imuSensor_ConfigUpdateHandlerRef_t handlerRef)
+{
+    if (handlerRef == NULL)
+    {
+        LE_WARN("RemoveConfigUpdateHandler: handlerRef is NULL");
+        return;
+    }
+    LE_DEBUG("RemoveConfigUpdateHandler: handlerRef %p", handlerRef);
+
+    // Remove tracking entry from map
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(tSensorConfigUpdateHandlerMap);
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        auto* h = (taf_SensorConfigUpdateHandler_t*)le_ref_GetValue(iterRef);
+        if (h && h->handlerRef == handlerRef)
+        {
+            void* safeRef = (void*)le_ref_GetSafeRef(iterRef);
+            le_ref_DeleteRef(tSensorConfigUpdateHandlerMap, safeRef);
+            le_mem_Release(h);
+            break;
+        }
+    }
+
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+}
+
+// -------------------------------------------------------------------------------------------------
+// Capability event dispatch: runs on the service main thread.
+// Iterates all registered Capability handlers and calls the matching one.
+// -------------------------------------------------------------------------------------------------
+void taf_Sensor::CapabilityNotifyClient(void* reportPtr, void* secondLayerHandlerFunc)
+{
+    taf_SensorCapability_t* evtPtr = (taf_SensorCapability_t*)reportPtr;
+    TAF_ERROR_IF_RET_NIL(evtPtr == NULL, "CapabilityNotifyClient: evtPtr is NULL");
+
+    LE_INFO("CapabilityNotifyClient: Event ...");
+
+    taf_imuSensor_CapabilityUpdateHandlerFunc_t clientHandlerFunc =
+        (taf_imuSensor_CapabilityUpdateHandlerFunc_t)secondLayerHandlerFunc;
+    TAF_ERROR_IF_RET_NIL(clientHandlerFunc == NULL,
+        "CapabilityNotifyClient: clientHandlerFunc is NULL");
+
+    taf_SensorClient_t* clientRequestPtr = DiscoverSessionRef(evtPtr->sessionRef);
+    TAF_ERROR_IF_RET_NIL(clientRequestPtr == NULL,
+        "CapabilityNotifyClient: clientRequestPtr is NULL");
+
+    for (uint32_t i = 0; i < clientRequestPtr->clientCount; ++i)
+    {
+        auto* clientInfoPtr = &clientRequestPtr->clients[i];
+        if (clientInfoPtr->sensorClient == evtPtr->sensorClientId)
+        {
+            clientHandlerFunc(clientInfoPtr->sensorRef,
+                              evtPtr->isAvailable,
+                              evtPtr->isEnabled,
+                              evtPtr->capabilityMask,
+                              le_event_GetContextPtr());
+            break;
+        }
+    }
+}
+
+taf_imuSensor_CapabilityUpdateHandlerRef_t taf_Sensor::AddCapabilityHandler(
+    taf_imuSensor_SensorRef_t sensorRef,
+    taf_imuSensor_CapabilityUpdateHandlerFunc_t handlerPtr,
+    void* contextPtr)
+{
+    TAF_KILL_CLIENT_IF_RET_VAL(handlerPtr == NULL, NULL,
+        "AddCapabilityHandler: handlerPtr is NULL");
+
+    taf_SensorClient_t* clientRequestPtr = AcquireSessionRef(taf_imuSensor_GetClientSessionRef());
+    TAF_ERROR_IF_RET_VAL(clientRequestPtr == NULL, NULL,
+        "AddCapabilityHandler: clientRequestPtr is NULL");
+
+    taf_SensorInfo_t* sensorPtr = (taf_SensorInfo_t*)le_ref_Lookup(tSensorInfoMap, sensorRef);
+    TAF_ERROR_IF_RET_VAL(sensorPtr == NULL, NULL,
+        "AddCapabilityHandler: invalid sensorRef (%p)", sensorRef);
+
+    for (uint32_t i = 0; i < clientRequestPtr->clientCount; ++i)
+    {
+        auto* clientInfoPtr = &clientRequestPtr->clients[i];
+        if (strcmp(sensorPtr->name, clientInfoPtr->sensorName) == 0)
+        {
+            clientInfoPtr->sensorRef = sensorRef;
+
+            le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler(
+                "CapabilityUpdateHandler",
+                CapabilityEventId,
+                CapabilityNotifyClient,
+                (void*)handlerPtr);
+            if (handlerRef == NULL)
+            {
+                LE_ERROR("AddCapabilityHandler: failed to create layered handler");
+                return NULL;
+            }
+            le_event_SetContextPtr(handlerRef, contextPtr);
+
+            // Register the PA-level capability callback for this sensor client.
+            // Some PA variants do not implement capability update notifications.
+            // In that case, keep the handler registration and immediately synthesize
+            // one capability event from the static sensor information so the client
+            // still receives a valid capability callback.
+            auto cb = [](tafpa::sensor::taf_pa_sensor_SensorId sid,
+                         tafpa::sensor::taf_pa_sensor_CapabilityInfo capInfo,
+                         std::any ctx)
+            {
+                Handler::onCapabilityUpdate(sid, capInfo, ctx);
+            };
+            pa_result_t paRes = tafpa::sensor::taf_pa_sensor_AddCapabilityHandler(
+                clientInfoPtr->sensorClient, cb,
+                std::any(clientRequestPtr->sessionRef));
+
+            if (paRes != PA_OK)
+            {
+                LE_WARN("AddCapabilityHandler: PA registration unsupported/failed for sensor %s"
+                        " (paRes=%d). Falling back to synthetic capability notification.",
+                        clientInfoPtr->sensorName, (int)paRes);
+
+                taf_SensorCapability_t event = {};
+                event.sensorRef = sensorRef;
+                event.isAvailable = true;
+                event.isEnabled = clientInfoPtr->isSensorActivated;
+                event.capabilityMask = 0;
+                event.sessionRef = clientRequestPtr->sessionRef;
+                event.sensorClientId = clientInfoPtr->sensorClient;
+                le_event_Report(CapabilityEventId, &event, sizeof(event));
+            }
+
+            // Track handler for session cleanup in CloseEventHandler
+            taf_SensorCapabilityHandler_t* capHandlerInfoPtr =
+                (taf_SensorCapabilityHandler_t*)le_mem_ForceAlloc(
+                    tSensorCapabilityHandlerPool);
+            memset(capHandlerInfoPtr, 0, sizeof(taf_SensorCapabilityHandler_t));
+            capHandlerInfoPtr->sensorRef  = sensorRef;
+            capHandlerInfoPtr->handlerRef = (taf_imuSensor_CapabilityUpdateHandlerRef_t)handlerRef;
+            capHandlerInfoPtr->sessionRef = clientRequestPtr->sessionRef;
+            le_ref_CreateRef(tSensorCapabilityHandlerMap, capHandlerInfoPtr);
+
+            LE_INFO("AddCapabilityHandler: registered for sensor %s, session %p",
+                clientInfoPtr->sensorName, clientRequestPtr->sessionRef);
+            return (taf_imuSensor_CapabilityUpdateHandlerRef_t)handlerRef;
+        }
+    }
+
+    LE_ERROR("AddCapabilityHandler: sensor %p not found in session %p",
+        sensorRef, clientRequestPtr->sessionRef);
+    return NULL;
+}
+
+void taf_Sensor::RemoveCapabilityHandler(
+    taf_imuSensor_CapabilityUpdateHandlerRef_t handlerRef)
+{
+    if (handlerRef == NULL)
+    {
+        LE_WARN("RemoveCapabilityHandler: handlerRef is NULL");
+        return;
+    }
+    LE_DEBUG("RemoveCapabilityHandler: handlerRef %p", handlerRef);
+
+    // Remove tracking entry from map
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(tSensorCapabilityHandlerMap);
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        auto* h = (taf_SensorCapabilityHandler_t*)le_ref_GetValue(iterRef);
+        if (h && h->handlerRef == handlerRef)
+        {
+            void* safeRef = (void*)le_ref_GetSafeRef(iterRef);
+            le_ref_DeleteRef(tSensorCapabilityHandlerMap, safeRef);
+            le_mem_Release(h);
+            break;
+        }
+    }
+
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
@@ -1165,28 +1505,27 @@ le_result_t taf_Sensor::GetData( taf_imuSensor_SampleRef_t eventList,taf_imuSens
         return LE_BAD_PARAMETER;
     }
     size_t j = 0;
-    if (ptr->eventPtr->listSize > 0) {
-        for(uint32_t i = 0; i < ptr->eventPtr->listSize; ++i){
-            auto& eventData = ptr->eventPtr->eventList[i];
-            RawData[j].timestamp = eventData.timestamp;
-            RawData[j].x = eventData.x;
-            RawData[j].y = eventData.y;
-            RawData[j].z = eventData.z;
-            BiasData[j].timestamp = eventData.timestamp;
-            BiasData[j].x = eventData.xb;
-            BiasData[j].y = eventData.yb;
-            BiasData[j].z = eventData.zb;
-            j++;
+    for (uint32_t i = 0; i < ptr->eventPtr->listSize; ++i)
+    {
+        auto& eventData = ptr->eventPtr->eventList[i];
+        RawData[j].timestamp = eventData.timestamp;
+        RawData[j].x = eventData.x;
+        RawData[j].y = eventData.y;
+        RawData[j].z = eventData.z;
+        BiasData[j].timestamp = eventData.timestamp;
+        BiasData[j].x = eventData.xb;
+        BiasData[j].y = eventData.yb;
+        BiasData[j].z = eventData.zb;
+        j++;
 
-            if (j == ptr->eventPtr->listSize){
-                break;
-            }
+        if (j == ptr->eventPtr->listSize){
+            break;
+        }
 
-            if (j > *RawDataSizePtr || j > *BiasDataSizePtr) {
-                LE_ERROR("Output buffers too small, Raw: %zu, Bias: %zu, request: %u",
-                               *RawDataSizePtr, *BiasDataSizePtr, ptr->eventPtr->listSize);
-                break;
-            }
+        if (j > *RawDataSizePtr || j > *BiasDataSizePtr) {
+            LE_ERROR("Output buffers too small, Raw: %zu, Bias: %zu, request: %u",
+                            *RawDataSizePtr, *BiasDataSizePtr, ptr->eventPtr->listSize);
+            break;
         }
     }
     *RawDataSizePtr = j;
@@ -1250,12 +1589,15 @@ void taf_Sensor::CleanUp(taf_SensorClient_t* clientPtr){
         auto* ci = &clientPtr->clients[i];
         if(ci->isSensorActivated == true){
             if(tafpa::sensor::taf_pa_sensor_Deactivate(ci->sensorClient) != PA_OK){
-                LE_ERROR("Unable to deactivate sensor");
+                LE_ERROR("Unable to deactivate sensor for client %lu", ci->sensorClient);
             }
             ci->isSensorActivated = false;
         }
+        if(tafpa::sensor::taf_pa_sensor_RemoveListener(ci->sensorClient) != PA_OK){
+            LE_ERROR("Unable to remove listener for client %lu", ci->sensorClient);
+        }
         if(tafpa::sensor::taf_pa_sensor_ReleaseSensorClient(ci->sensorClient) != PA_OK){
-            LE_ERROR("Unable to delete reference");
+            LE_ERROR("Unable to delete reference for client %lu", ci->sensorClient);
         }
     }
     clientPtr->clientCount = 0;
@@ -1344,7 +1686,43 @@ void taf_Sensor::CloseEventHandler(le_msg_SessionRef_t sessionRef, void* context
         sensorMngr.RemoveDataHandler(ref);
     }
 
-    // 4) Remove client session entry.
+    // 4) Collect and remove ConfigUpdate handlers for this session.
+    std::vector<taf_imuSensor_ConfigUpdateHandlerRef_t> configUpdateRefs;
+    {
+        le_ref_IterRef_t iterRef = le_ref_GetIterator(sensorMngr.tSensorConfigUpdateHandlerMap);
+        while (le_ref_NextNode(iterRef) == LE_OK)
+        {
+            auto* h = (taf_SensorConfigUpdateHandler_t*)le_ref_GetValue(iterRef);
+            if (h && h->sessionRef == sessionRef)
+            {
+                configUpdateRefs.push_back(h->handlerRef);
+            }
+        }
+    }
+    for (auto ref : configUpdateRefs)
+    {
+        sensorMngr.RemoveConfigUpdateHandler(ref);
+    }
+
+    // 5) Collect and remove Capability handlers for this session.
+    std::vector<taf_imuSensor_CapabilityUpdateHandlerRef_t> capabilityRefs;
+    {
+        le_ref_IterRef_t iterRef = le_ref_GetIterator(sensorMngr.tSensorCapabilityHandlerMap);
+        while (le_ref_NextNode(iterRef) == LE_OK)
+        {
+            auto* h = (taf_SensorCapabilityHandler_t*)le_ref_GetValue(iterRef);
+            if (h && h->sessionRef == sessionRef)
+            {
+                capabilityRefs.push_back(h->handlerRef);
+            }
+        }
+    }
+    for (auto ref : capabilityRefs)
+    {
+        sensorMngr.RemoveCapabilityHandler(ref);
+    }
+
+    // 6) Remove client session entry.
     void* clientSafeRefPtr = NULL;
     taf_SensorClient_t* clientPtr = NULL;
     {
@@ -1458,11 +1836,23 @@ void taf_Sensor::Init()
         TAF_SENSOR_MAX_EVENTS_SIZE, sizeof(taf_SensorEventList_t));
     tSensorEventHandlerPool = le_mem_InitStaticPool(tSensorEventHandlerPool,
         SENSOR_EVENT_HANDLER_HIGH , sizeof(taf_SensorEventHandler_t));
+    tSensorConfigUpdateHandlerPool = le_mem_InitStaticPool(tSensorConfigUpdateHandlerPool,
+        SENSOR_EVENT_HANDLER_HIGH, sizeof(taf_SensorConfigUpdateHandler_t));
+    tSensorCapabilityHandlerPool = le_mem_InitStaticPool(tSensorCapabilityHandlerPool,
+        SENSOR_EVENT_HANDLER_HIGH, sizeof(taf_SensorCapabilityHandler_t));
     CmdSensorPoolRef = le_mem_CreatePool("CmdSensorPoolRef", sizeof(SensorCmdInfo_t));
     tSensorEventMap = le_ref_CreateMap("tSensorEventMap",TAF_SENSOR_MAX_EVENTS_SIZE);
     tSensorEventHandlerMap = le_ref_CreateMap("EventHandlerRefMap",SENSOR_EVENT_HANDLER_HIGH);
+    tSensorConfigUpdateHandlerMap = le_ref_CreateMap("ConfigUpdateHandlerMap",
+        SENSOR_EVENT_HANDLER_HIGH);
+    tSensorCapabilityHandlerMap = le_ref_CreateMap("CapabilityHandlerMap",
+        SENSOR_EVENT_HANDLER_HIGH);
     sensorMngr.SensorOnEventId = le_event_CreateIdWithRefCounting("sensorOnEventId");
     sensorMngr.SelfTestEventId = le_event_CreateId("SelfTestEventId",sizeof(taf_SensorSelfTest_t));
+    sensorMngr.ConfigUpdateEventId = le_event_CreateId("ConfigUpdateEventId",
+        sizeof(taf_SensorConfigUpdate_t));
+    sensorMngr.CapabilityEventId = le_event_CreateId("CapabilityEventId",
+        sizeof(taf_SensorCapability_t));
     sensorMngr.HandlerRef = le_event_AddHandler("OnEventHandler",
             sensorMngr.SensorOnEventId, taf_Sensor::DataEventHandler);
 

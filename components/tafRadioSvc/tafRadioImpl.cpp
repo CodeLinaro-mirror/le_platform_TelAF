@@ -2874,6 +2874,36 @@ static void* RequestThread
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * SIGTERM signal event handler.
+ *
+ * Invoked by the Legato signal event framework when the process receives SIGTERM. Disables all
+ * active radio indications, deinitializes the radio platform adaptor, and exits cleanly.
+ */
+//--------------------------------------------------------------------------------------------------
+static void SigTermEventHandler
+(
+    int sigNum ///< [IN] Signal number received (expected: SIGTERM).
+)
+{
+    LE_INFO("SigTermEventHandler signal : %d", sigNum);
+
+    RegisterIndication(DISABLE_INDICATION);
+
+    pa_result_t result = taf_pa_radio_Deinit();
+    if (result != PA_OK)
+    {
+        LE_ERROR("Failed to deinitialize radio platform adaptor, result: %d", result);
+    }
+    else
+    {
+        LE_INFO("Radio platform adaptor shutdown complete.");
+    }
+
+    exit(EXIT_SUCCESS);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Component initializer.
  *
  * Creates internal event IDs and memory pools, initializes reference maps and per-instance cached
@@ -3005,6 +3035,9 @@ COMPONENT_INIT
     taf_pm_AddStateChangeHandler(PowerStateChangeHandler, nullptr);
     if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
         RegisterIndication(ENABLE_INDICATION);
+
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);
 
     LE_INFO("Radio service is ready.");
 }

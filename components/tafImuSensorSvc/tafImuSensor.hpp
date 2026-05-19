@@ -87,6 +87,46 @@ typedef struct
 }
 taf_SensorSelfTest_t;
 
+typedef struct
+{
+    taf_imuSensor_SensorRef_t sensorRef;
+    taf_imuSensor_ConfigUpdateHandlerRef_t handlerRef;
+    taf_imuSensor_ConfigUpdateHandlerFunc_t handlerFuncPtr;
+    void* handlerContextPtr;
+    le_msg_SessionRef_t sessionRef;
+    le_dls_Link_t next;
+} taf_SensorConfigUpdateHandler_t;
+
+typedef struct
+{
+    taf_imuSensor_SensorRef_t sensorRef;
+    taf_imuSensor_CapabilityUpdateHandlerRef_t handlerRef;
+    taf_imuSensor_CapabilityUpdateHandlerFunc_t handlerFuncPtr;
+    void* handlerContextPtr;
+    le_msg_SessionRef_t sessionRef;
+    le_dls_Link_t next;
+} taf_SensorCapabilityHandler_t;
+
+typedef struct
+{
+    taf_imuSensor_SensorRef_t sensorRef;
+    double samplingRate;
+    uint32_t batchCount;
+    bool isRotated;
+    le_msg_SessionRef_t sessionRef;
+    tafpa::sensor::taf_pa_sensor_SensorId sensorClientId;
+} taf_SensorConfigUpdate_t;
+
+typedef struct
+{
+    taf_imuSensor_SensorRef_t sensorRef;
+    bool isAvailable;
+    bool isEnabled;
+    uint32_t capabilityMask;
+    le_msg_SessionRef_t sessionRef;
+    tafpa::sensor::taf_pa_sensor_SensorId sensorClientId;
+} taf_SensorCapability_t;
+
 typedef struct{
     tafpa::sensor::taf_pa_sensor_SensorId sensorClient;
     tafpa::sensor::taf_pa_sensor_EventListener eventListener;
@@ -152,15 +192,21 @@ namespace tafsvc {
             le_mem_PoolRef_t tSensorEventInfoPool    = NULL;
             le_mem_PoolRef_t CmdSensorPoolRef = NULL;
             le_mem_PoolRef_t ClientPoolRef    = NULL;
+            le_mem_PoolRef_t tSensorConfigUpdateHandlerPool = NULL;
+            le_mem_PoolRef_t tSensorCapabilityHandlerPool   = NULL;
 
             le_ref_MapRef_t tSensorListMap    = NULL;
             le_ref_MapRef_t tSensorInfoMap    = NULL;
             le_ref_MapRef_t tSensorEventMap   = NULL;
-            le_ref_MapRef_t tSensorEventHandlerMap  = NULL;
-            le_ref_MapRef_t ClientRequestRefMap     = NULL;
+            le_ref_MapRef_t tSensorEventHandlerMap        = NULL;
+            le_ref_MapRef_t ClientRequestRefMap           = NULL;
+            le_ref_MapRef_t tSensorConfigUpdateHandlerMap = NULL;
+            le_ref_MapRef_t tSensorCapabilityHandlerMap   = NULL;
 
             le_event_Id_t SensorOnEventId     = NULL;
             le_event_Id_t SelfTestEventId     = NULL;
+            le_event_Id_t ConfigUpdateEventId = NULL;
+            le_event_Id_t CapabilityEventId   = NULL;
 
             le_thread_Ref_t SensorSvcThRef    = NULL;    // service main thread
             le_thread_Ref_t SensorWorkerThRef = NULL;    // PA worker thread
@@ -195,6 +241,14 @@ namespace tafsvc {
                 taf_imuSensor_SensorRef_t, taf_imuSensor_SelfTestFailedHandlerFunc_t, void*);
             void RemoveSelfTestFailedHandler(taf_imuSensor_SelfTestFailedHandlerRef_t);
 
+            taf_imuSensor_ConfigUpdateHandlerRef_t AddConfigUpdateHandler(
+                taf_imuSensor_SensorRef_t, taf_imuSensor_ConfigUpdateHandlerFunc_t, void*);
+            void RemoveConfigUpdateHandler(taf_imuSensor_ConfigUpdateHandlerRef_t);
+
+            taf_imuSensor_CapabilityUpdateHandlerRef_t AddCapabilityHandler(
+                taf_imuSensor_SensorRef_t, taf_imuSensor_CapabilityUpdateHandlerFunc_t, void*);
+            void RemoveCapabilityHandler(taf_imuSensor_CapabilityUpdateHandlerRef_t);
+
             // -------- Client/session mgmt --------
             static taf_SensorClient_t* DiscoverSessionRef(le_msg_SessionRef_t sessionRef);
             void CleanUp(taf_SensorClient_t*);
@@ -228,6 +282,8 @@ namespace tafsvc {
 
             static void DataEventHandler(void* reportPtr);
             static void SelfTestNotifyClient(void* reportPtr, void* secondLayerHandlerFunc);
+            static void ConfigUpdateNotifyClient(void* reportPtr, void* secondLayerHandlerFunc);
+            static void CapabilityNotifyClient(void* reportPtr, void* secondLayerHandlerFunc);
             le_result_t GetSensorList(int8_t listSize);
 
             le_event_HandlerRef_t HandlerRef = NULL;
@@ -239,9 +295,13 @@ namespace tafsvc {
     public:
         void Init() { return; }
         static void onSelfTestFailed(tafpa::sensor::taf_pa_sensor_SensorId sensorId,
-            uint64_t timestamp,std::any context);
+            uint64_t timestamp, std::any context);
         static void onEvent(tafpa::sensor::taf_pa_sensor_SensorId sensorId,
             std::shared_ptr<const std::vector<tafpa::sensor::taf_pa_sensor_Event>> events,
             std::any context);
+        static void onConfigUpdate(tafpa::sensor::taf_pa_sensor_SensorId sensorId,
+            double samplingRate, uint32_t batchCount, bool isRotated, std::any context);
+        static void onCapabilityUpdate(tafpa::sensor::taf_pa_sensor_SensorId sensorId,
+            tafpa::sensor::taf_pa_sensor_CapabilityInfo capabilityInfo, std::any context);
     };
 }

@@ -11,6 +11,8 @@
 taf_imuSensor_SensorRef_t sensorsArray[SENSOR_NUMS];
 taf_imuSensor_DataHandlerRef_t eventHandlerRef1,eventHandlerRef2;
 taf_imuSensor_SelfTestFailedHandlerRef_t selfTestHandlerRef1,selfTestHandlerRef2;
+taf_imuSensor_ConfigUpdateHandlerRef_t configUpdateHandlerRef1, configUpdateHandlerRef2;
+taf_imuSensor_CapabilityUpdateHandlerRef_t capabilityHandlerRef1, capabilityHandlerRef2;
 le_thread_Ref_t threadRef1 =NULL;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
@@ -18,7 +20,12 @@ int isDeactivate =0;
 le_timer_Ref_t deactivateTimerRef;
 taf_imuSensor_SensorListRef_t Head;
 static le_sem_Ref_t semRef1;
+static le_sem_Ref_t semRef2;
 static le_mutex_Ref_t mSensorMutexRef;
+static volatile bool configUpdateReceived = false;
+static volatile bool capabilityReceived = false;
+static taf_imuSensor_SensorRef_t configUpdateTestSensorRef = NULL;
+static taf_imuSensor_SensorRef_t capabilityTestSensorRef = NULL;
 
 typedef struct{
     taf_imuSensor_SensorRef_t sensorRef;
@@ -332,8 +339,208 @@ void DeleteSensorList()
 }
 
 
+
+/*==================================================================================================
+ * ConfigUpdate handler callback
+ *==================================================================================================*/
+static void ConfigUpdateNotification(taf_imuSensor_SensorRef_t sensorRef,
+    double samplingRate, uint32_t batchCount, bool isRotated, void* contextPtr)
+{
+    char sensorName[50] = {0};
+    le_result_t result = taf_imuSensor_GetName(sensorRef, sensorName, sizeof(sensorName));
+    if (result != LE_OK)
+    {
+        LE_TEST_INFO("ConfigUpdateNotification: GetName failed for sensorRef %p", sensorRef);
+        return;
+    }
+    LE_TEST_INFO("ConfigUpdate received for %s: samplingRate=%.2f Hz, batchCount=%u, isRotated=%d",
+                 sensorName, samplingRate, batchCount, (int)isRotated);
+    configUpdateReceived = true;
+    le_sem_Post(semRef2);
+}
+
+/*==================================================================================================
+ * Capability handler callback
+ *==================================================================================================*/
+static void CapabilityNotification(taf_imuSensor_SensorRef_t sensorRef,
+    bool isAvailable, bool isEnabled, uint32_t capabilityMask, void* contextPtr)
+{
+    char sensorName[50] = {0};
+    le_result_t result = taf_imuSensor_GetName(sensorRef, sensorName, sizeof(sensorName));
+    if (result != LE_OK)
+    {
+        LE_TEST_INFO("CapabilityNotification: GetName failed for sensorRef %p", sensorRef);
+        return;
+    }
+    LE_TEST_INFO("Capability update received for %s: isAvailable=%d, isEnabled=%d, "
+                 "capabilityMask=0x%08" PRIx32,
+                 sensorName, (int)isAvailable, (int)isEnabled, capabilityMask);
+    capabilityReceived = true;
+    le_sem_Post(semRef2);
+}
+
+/*==================================================================================================
+ * ActivateSensorQueued
+ * Queued function that activates the sensor inside the worker thread's event loop.
+ * Shared by both ConfigUpdate and Capability test threads.
+ *==================================================================================================*/
+static void ActivateSensorQueued(void* p1, void* p2)
+{
+    LE_UNUSED(p2);
+    SensorConfig* cfg = (SensorConfig*)p1;
+    le_result_t result = taf_imuSensor_Activate(
+        cfg->sensorRef, cfg->samplingRate, cfg->batchCount);
+    LE_TEST_INFO("ActivateSensorQueued: taf_imuSensor_Activate rc=%d", (int)result);
+}
+
+/*==================================================================================================
+ * ConfigUpdate test thread: connects to the service, registers handlers for both sensors,
+ * queues sensor activation, then runs the event loop to receive notifications.
+ *==================================================================================================*/
+static void ConfigUpdateTestCleanup(void* p1, void* p2)
+{
+    LE_UNUSED(p1);
+    LE_UNUSED(p2);
+    if (configUpdateTestSensorRef != NULL)
+    {
+        taf_imuSensor_Deactivate(configUpdateTestSensorRef);
+        configUpdateTestSensorRef = NULL;
+    }
+    if (configUpdateHandlerRef1 != NULL)
+    {
+        taf_imuSensor_RemoveConfigUpdateHandler(configUpdateHandlerRef1);
+        LE_TEST_INFO("taf_imuSensor_RemoveConfigUpdateHandler sensor[0] - called");
+        configUpdateHandlerRef1 = NULL;
+    }
+    if (configUpdateHandlerRef2 != NULL)
+    {
+        taf_imuSensor_RemoveConfigUpdateHandler(configUpdateHandlerRef2);
+        LE_TEST_INFO("taf_imuSensor_RemoveConfigUpdateHandler sensor[1] - called");
+        configUpdateHandlerRef2 = NULL;
+    }
+    le_thread_Exit(NULL);
+}
+
+static void* ConfigUpdateTestThread(void* ctxPtr)
+{
+    taf_imuSensor_ConnectService();
+    SensorConfig* cfg = (SensorConfig*)ctxPtr;
+    configUpdateTestSensorRef = cfg->sensorRef;
+
+    configUpdateHandlerRef1 = taf_imuSensor_AddConfigUpdateHandler(
+        sensorsArray[0], ConfigUpdateNotification, sensorsArray[0]);
+    LE_TEST_OK(configUpdateHandlerRef1 != NULL,
+        "taf_imuSensor_AddConfigUpdateHandler sensor[0] - returned non-NULL ref");
+
+    configUpdateHandlerRef2 = taf_imuSensor_AddConfigUpdateHandler(
+        sensorsArray[1], ConfigUpdateNotification, sensorsArray[1]);
+    LE_TEST_OK(configUpdateHandlerRef2 != NULL,
+        "taf_imuSensor_AddConfigUpdateHandler sensor[1] - returned non-NULL ref");
+
+    le_event_QueueFunction(ActivateSensorQueued, cfg, NULL);
+    le_event_RunLoop();
+    return NULL;
+}
+
+/*==================================================================================================
+ * TestAddRemoveConfigUpdateHandler
+ * Tests registration and removal of the ConfigUpdate handler for both sensors.
+ *==================================================================================================*/
+void TestAddRemoveConfigUpdateHandler(void)
+{
+    LE_TEST_INFO("--------- Testing AddConfigUpdateHandler / RemoveConfigUpdateHandler ----------");
+
+    le_thread_Ref_t testThread = le_thread_Create("ConfigUpdateTestThread",
+                                                   ConfigUpdateTestThread, &configList[0]);
+    le_thread_SetJoinable(testThread);
+    le_thread_Start(testThread);
+
+    le_clk_Time_t timeout = { 5, 0 };
+    le_result_t waitResult = le_sem_WaitWithTimeOut(semRef2, timeout);
+    LE_TEST_OK(waitResult == LE_OK,
+        "ConfigUpdate handler callback received after registration");
+
+    le_event_QueueFunctionToThread(testThread, ConfigUpdateTestCleanup, NULL, NULL);
+    le_thread_Join(testThread, NULL);
+
+    LE_TEST_INFO("===== UnitTest Completed for ConfigUpdate handler =====");
+}
+
+/*==================================================================================================
+ * Capability test thread: connects to the service, registers handlers for both sensors,
+ * queues sensor activation, then runs the event loop to receive notifications.
+ *==================================================================================================*/
+static void CapabilityTestCleanup(void* p1, void* p2)
+{
+    LE_UNUSED(p1);
+    LE_UNUSED(p2);
+    if (capabilityTestSensorRef != NULL)
+    {
+        taf_imuSensor_Deactivate(capabilityTestSensorRef);
+        capabilityTestSensorRef = NULL;
+    }
+    if (capabilityHandlerRef1 != NULL)
+    {
+        taf_imuSensor_RemoveCapabilityUpdateHandler(capabilityHandlerRef1);
+        LE_TEST_INFO("taf_imuSensor_RemoveCapabilityUpdateHandler sensor[0] - called");
+        capabilityHandlerRef1 = NULL;
+    }
+    if (capabilityHandlerRef2 != NULL)
+    {
+        taf_imuSensor_RemoveCapabilityUpdateHandler(capabilityHandlerRef2);
+        LE_TEST_INFO("taf_imuSensor_RemoveCapabilityUpdateHandler sensor[1] - called");
+        capabilityHandlerRef2 = NULL;
+    }
+    le_thread_Exit(NULL);
+}
+
+static void* CapabilityTestThread(void* ctxPtr)
+{
+    taf_imuSensor_ConnectService();
+    SensorConfig* cfg = (SensorConfig*)ctxPtr;
+    capabilityTestSensorRef = cfg->sensorRef;
+
+    capabilityHandlerRef1 = taf_imuSensor_AddCapabilityUpdateHandler(
+        sensorsArray[0], CapabilityNotification, sensorsArray[0]);
+    LE_TEST_OK(capabilityHandlerRef1 != NULL,
+        "taf_imuSensor_AddCapabilityUpdateHandler sensor[0] - returned non-NULL ref");
+
+    capabilityHandlerRef2 = taf_imuSensor_AddCapabilityUpdateHandler(
+        sensorsArray[1], CapabilityNotification, sensorsArray[1]);
+    LE_TEST_OK(capabilityHandlerRef2 != NULL,
+        "taf_imuSensor_AddCapabilityUpdateHandler sensor[1] - returned non-NULL ref");
+
+    le_event_QueueFunction(ActivateSensorQueued, cfg, NULL);
+    le_event_RunLoop();
+    return NULL;
+}
+
+/*==================================================================================================
+ * TestAddRemoveCapabilityUpdateHandler
+ * Tests registration and removal of the CapabilityUpdate handler for both sensors.
+ *==================================================================================================*/
+void TestAddRemoveCapabilityUpdateHandler(void)
+{
+    LE_TEST_INFO("--------- Testing AddCapabilityUpdateHandler / RemoveCapabilityUpdateHandler ----------");
+
+    le_thread_Ref_t testThread = le_thread_Create("CapabilityTestThread",
+                                                   CapabilityTestThread, &configList[0]);
+    le_thread_SetJoinable(testThread);
+    le_thread_Start(testThread);
+
+    le_clk_Time_t timeout = { 5, 0 };
+    le_result_t waitResult = le_sem_WaitWithTimeOut(semRef2, timeout);
+    LE_TEST_OK(waitResult == LE_OK,
+        "Capability handler callback received after registration");
+
+    le_event_QueueFunctionToThread(testThread, CapabilityTestCleanup, NULL, NULL);
+    le_thread_Join(testThread, NULL);
+
+    LE_TEST_INFO("===== UnitTest Completed for Capability handler =====");
+}
 COMPONENT_INIT{
     semRef1 = le_sem_Create("SemRef1", 0);
+    semRef2 = le_sem_Create("SemRef2", 0);
     mSensorMutexRef = le_mutex_CreateRecursive("SensorMutexCl");
     TestAvailableSensor();
     TestSetEulerAngle();
@@ -346,6 +553,11 @@ COMPONENT_INIT{
     TestActivateSensor();
     TestSelfTest(0);
     TestSelfTest(1);
+    // Testing ConfigUpdate and Capability handler registration/removal
+    configUpdateReceived = false;
+    capabilityReceived = false;
+    TestAddRemoveConfigUpdateHandler();
+    TestAddRemoveCapabilityUpdateHandler();
     DeleteSensorList();
     exit(EXIT_SUCCESS);
 }

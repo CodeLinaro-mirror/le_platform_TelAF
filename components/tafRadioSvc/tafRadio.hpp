@@ -1062,6 +1062,15 @@ class Factory
         Event_t events;                    ///< Event identifiers used to fan out indications.
         Pool_t pools;                      ///< Memory pools used by this component.
         Map_t maps;                        ///< Reference maps used by this component.
+
+        static const uint32_t PM_RETRY_INTERVALS_MS[];
+        static const uint8_t PM_MAX_RETRIES;
+        le_timer_Ref_t pmRetryTimer = nullptr;
+        uint8_t pmRetryIndex = 0;
+        bool indicationRegistered = false;
+        void StartPmRetryTimer();
+        static void PmRetryHandler(le_timer_Ref_t timerRef);
+        static void PMServerDisconnectHandler(void* contextPtr);
 };
 
 #endif /* #ifndef TAFRADIO_HPP */

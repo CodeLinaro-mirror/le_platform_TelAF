@@ -144,6 +144,17 @@ LE_REF_DEFINE_STATIC_MAP(caInfo, CA_INFO_MAX_COUNT);
 //--------------------------------------------------------------------------------------------------
 LE_REF_DEFINE_STATIC_MAP(connStatus, CONN_STATUS_MAX_COUNT);
 
+
+const uint32_t Factory::PM_RETRY_INTERVALS_MS[] =
+{
+    10000, 30000, 60000, 120000
+};
+
+const uint8_t Factory::PM_MAX_RETRIES =
+    sizeof(Factory::PM_RETRY_INTERVALS_MS) /
+    sizeof(Factory::PM_RETRY_INTERVALS_MS[0]);
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Registers radio indications from the platform adaptor for all supported instances.
@@ -3199,6 +3210,115 @@ static void* RequestThread
     return nullptr;
 }
 
+
+void Factory::PmRetryHandler(le_timer_Ref_t timerRef)
+{
+    auto &radio = Factory::GetInstance();
+
+    le_result_t result = taf_pm_TryConnectService();
+
+    LE_INFO("PM retry attempt %d/%d", radio.pmRetryIndex + 1, radio.PM_MAX_RETRIES);
+
+    if (result == LE_OK)
+    {
+        LE_INFO("Connected to PM service");
+
+        taf_pm_SetNonExitServerDisconnectHandler(radio.PMServerDisconnectHandler, nullptr);
+
+        taf_pm_AddStateChangeHandler(PowerStateChangeHandler, nullptr);
+
+        // Register indication once
+        if (!radio.indicationRegistered)
+        {
+            RegisterIndication(ENABLE_INDICATION);
+            radio.indicationRegistered = true;
+        }
+
+        // Cleanup timer
+        if (radio.pmRetryTimer)
+        {
+            le_timer_Delete(radio.pmRetryTimer);
+            radio.pmRetryTimer = nullptr;
+        }
+
+        radio.pmRetryIndex = 0;
+        return;
+    }
+
+    radio.pmRetryIndex++;
+
+    // Schedule next retry
+    if (radio.pmRetryIndex < radio.PM_MAX_RETRIES)
+    {
+        uint32_t interval = radio.PM_RETRY_INTERVALS_MS[radio.pmRetryIndex];
+
+        LE_WARN("PM connect failed (res=%d), retry in %d ms", result, interval);
+
+        le_timer_SetMsInterval(timerRef, interval);
+        le_timer_Start(timerRef);
+
+    }
+    else
+    {
+        LE_ERROR("Max PM retries reached");
+
+        le_timer_Stop(timerRef);
+        le_timer_Delete(timerRef);
+
+        radio.pmRetryTimer = nullptr;
+        radio.pmRetryIndex = 0;
+
+        // Ensure indications still enabled
+        if (!radio.indicationRegistered)
+        {
+            RegisterIndication(ENABLE_INDICATION);
+            radio.indicationRegistered = true;
+        }
+    }
+}
+
+
+void Factory::StartPmRetryTimer()
+{
+    auto& factory = Factory::GetInstance();
+
+    if (factory.pmRetryTimer == nullptr)
+    {
+        factory.pmRetryTimer = le_timer_Create("pmRetryTimer");
+        if (!factory.pmRetryTimer)
+        {
+            LE_ERROR("Failed to create PM retry timer");
+            return;
+        }
+
+        le_timer_SetHandler(factory.pmRetryTimer, factory.PmRetryHandler);
+        le_timer_SetWakeup(factory.pmRetryTimer, false);
+    }
+
+    factory.pmRetryIndex = 0;
+
+    le_timer_SetMsInterval(factory.pmRetryTimer, PM_RETRY_INTERVALS_MS[0]);
+    le_timer_Start(factory.pmRetryTimer);
+
+    LE_INFO("PM retry mechanism started");
+}
+
+
+void Factory::PMServerDisconnectHandler(void* contextPtr)
+{
+    auto &radio = Factory::GetInstance();
+
+    LE_WARN("PM service disconnected");
+
+    radio.indicationRegistered = false;
+
+    if (radio.pmRetryTimer == nullptr)
+    {
+        radio.StartPmRetryTimer();
+    }
+}
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * SIGTERM signal event handler.
@@ -3212,6 +3332,8 @@ static void SigTermEventHandler
     int sigNum ///< [IN] Signal number received (expected: SIGTERM).
 )
 {
+    auto& factory = Factory::GetInstance();
+
     LE_INFO("SigTermEventHandler signal : %d", sigNum);
 
     RegisterIndication(DISABLE_INDICATION);
@@ -3225,6 +3347,14 @@ static void SigTermEventHandler
     {
         LE_INFO("Radio platform adaptor shutdown complete.");
     }
+
+    if (factory.pmRetryTimer)
+    {
+        le_timer_Delete(factory.pmRetryTimer);
+        factory.pmRetryTimer = nullptr;
+    }
+
+    factory.indicationRegistered = false;
 
     exit(EXIT_SUCCESS);
 }
@@ -3437,9 +3567,30 @@ COMPONENT_INIT
 
 #undef ADD_PA_RADIO_HANDLER
 
-    taf_pm_AddStateChangeHandler(PowerStateChangeHandler, nullptr);
-    if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
+    le_result_t pm_result = taf_pm_TryConnectService();
+
+    if (pm_result == LE_OK)
+    {
+        LE_INFO("Initial PM connection successful!!");
+
+        taf_pm_SetNonExitServerDisconnectHandler(factory.PMServerDisconnectHandler, nullptr);
+
+        taf_pm_AddStateChangeHandler(PowerStateChangeHandler, nullptr);
+
         RegisterIndication(ENABLE_INDICATION);
+        factory.indicationRegistered = true;
+    }
+    else
+    {
+        LE_WARN("Initial PM connection failed (result=%d)", pm_result);
+
+        factory.StartPmRetryTimer();
+
+        // Fallback: enable indications anyway
+        RegisterIndication(ENABLE_INDICATION);
+        factory.indicationRegistered = true;
+    }
+
 
     le_sig_Block(SIGTERM);
     le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);

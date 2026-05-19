@@ -812,6 +812,19 @@ le_result_t taf_dcs_GetAuthentication
                                                                             password, passwordSize);
 }
 
+le_result_t taf_dcs_SetInterface
+(
+    taf_dcs_ProfileRef_t profileRef,
+    const char* namePtr
+)
+{
+    auto &tafDcsSvc = TafDcsSvc::GetInstance();
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
+                                                            LE_FAULT, "Service not initialized.");
+    auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
+    return tafDcsProfileManager.SvcSetInterface(profileRef, namePtr);
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the connected data session IPv4 address.

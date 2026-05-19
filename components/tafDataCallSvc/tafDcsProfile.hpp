@@ -442,9 +442,16 @@ public:
     le_event_Id_t GetHwAccelStateChangedEventId();
     static le_event_Id_t GetRoamingStateChangedEventId();
 
+    void SetCustomInterface(const std::string& name);
+    bool GetCustomInterface(std::string& outInterface) const;
+
 private:
     //QOS flow references
     std::vector<taf_dcs_QosFlowRef_t> qosFlowRefs_;
+
+    // Interface Implementation Additions
+    bool isInterfaceValid_ = false; ///< Flag indicating if custom interface is set
+    std::string interface_; ///< Stored custom interface name
 
     // static getter to get the profiler reference map.
     static le_ref_MapRef_t getProfileRefMap();
@@ -569,7 +576,7 @@ public:
 
     le_result_t SvcCreateProfile(taf_dcs_ProfileRef_t profileRef);
     le_result_t SvcDeleteProfile(taf_dcs_ProfileRef_t profileRef);
-
+    le_result_t SvcSetInterface(taf_dcs_ProfileRef_t profileRef, const char *namePtr);
     le_result_t SvcGetAPN(taf_dcs_ProfileRef_t, char *apnName, size_t apnNameSize);
     le_result_t SvcGetProfileName(taf_dcs_ProfileRef_t, char *name, size_t nameSize);
     le_result_t SvcGetTechPreference(taf_dcs_ProfileRef_t profileRef,taf_dcs_Tech_t *techPrefPtr);

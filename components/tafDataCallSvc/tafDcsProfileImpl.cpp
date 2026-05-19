@@ -456,6 +456,32 @@ le_result_t TafDcsProfile::SetEmergencyCallSupport(bool bEmerCallSupport)
 }
 
 /**
+* @brief Sets or clears the custom network interface for the profile.
+*/
+void TafDcsProfile::SetCustomInterface(const std::string& name)
+{
+    if (name.empty()) {
+        isInterfaceValid_ = false;
+        interface_.clear();
+    } else {
+        isInterfaceValid_ = true;
+        interface_ = name;
+    }
+}
+
+/**
+* @brief Retrieves the custom interface if valid.
+*/
+bool TafDcsProfile::GetCustomInterface(std::string& outInterface) const
+{
+    if (isInterfaceValid_) {
+        outInterface = interface_;
+        return true;
+    }
+    return false;
+}
+
+/**
  * @brief Convert connection state to string.
  *
  * TODO: Move to a common location.

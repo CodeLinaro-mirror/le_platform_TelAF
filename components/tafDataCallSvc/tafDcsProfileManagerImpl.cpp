@@ -671,6 +671,37 @@ le_result_t TafDcsProfileManager::SvcGetTechPreference
     return LE_OK;
 }
 
+le_result_t TafDcsProfileManager::SvcSetInterface
+(
+    taf_dcs_ProfileRef_t profileRef,
+    const char *namePtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(nullptr == profileRef, LE_BAD_PARAMETER, "profileRef is NULL");
+    TAF_ERROR_IF_RET_VAL(nullptr == namePtr, LE_BAD_PARAMETER, "namePtr is NULL");
+
+    GET_DCS_PROFILE_FROM_REF_RET_VAL(profileRef, LE_NOT_FOUND);
+    TAF_CHECK_IF_PROFILE_IS_CREATED(profile);
+
+    std::string interfaceName(namePtr);
+    uint32_t profileId = 0;
+    le_result_t result = profile.GetId(profileId);
+    TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "GetId failed.");
+
+    if (interfaceName.empty())
+    {
+        profile.SetCustomInterface("");
+        LE_INFO("Profile %d will use an automatically assigned interface.", profileId);
+    }
+    else
+    {
+        profile.SetCustomInterface(interfaceName);
+        LE_INFO("Profile %d will use interface %s.", profileId, interfaceName.c_str());
+    }
+
+    return LE_OK;
+}
+
 le_result_t TafDcsProfileManager::SvcGetApnTypes
 (
     taf_dcs_ProfileRef_t profileRef,
@@ -1804,12 +1835,20 @@ le_result_t TafDcsProfileManager::SvcStartSessionSync
         LE_WARN("Disconnection in progress");
         return LE_BUSY;
     }
+
+    std::string customInterface = "";
+    if (profile.GetCustomInterface(customInterface))
+    {
+        LE_INFO("Starting data call with profile %d on interface %s.",
+            profileId, customInterface.c_str());
+    }
+
     taf::pa::data::DataCallStartStopParams_t params =
     {
         static_cast<taf::pa::data::PhoneId_e>(phoneId),
         static_cast<taf::pa::data::ProfileId_e>(profileId),
         TafDcsUtils::ConvertPDP(pdpIpType),
-        ""
+        customInterface
     };
     result = PA_TO_LE_RESULT(taf::pa::data::StartDataSessionAsync(params));
     if (LE_OK != result)
@@ -2032,13 +2071,20 @@ void TafDcsProfileManager::SvcStartSessionASync
         return;
     }
 
+    std::string customInterface = "";
+    if (profile.GetCustomInterface(customInterface))
+    {
+        LE_INFO("Starting data call with profile %d on interface %s.",
+            profileId, customInterface.c_str());
+    }
+
     // Start the call
     taf::pa::data::DataCallStartStopParams_t params =
     {
         static_cast<taf::pa::data::PhoneId_e>(phoneId),
         static_cast<taf::pa::data::ProfileId_e>(profileId),
         TafDcsUtils::ConvertPDP(pdpIpType),
-        ""
+        customInterface
     };
     result = PA_TO_LE_RESULT(taf::pa::data::StartDataSessionAsync(params));
     if (LE_OK != result)
@@ -2122,6 +2168,7 @@ le_result_t TafDcsProfileManager::SvcStopSessionSync
         LE_WARN("Connection in progress");
         return LE_BUSY;
     }
+
     taf::pa::data::DataCallStartStopParams_t params =
     {
         static_cast<taf::pa::data::PhoneId_e>(phoneId),

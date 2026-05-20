@@ -200,24 +200,38 @@ taf_doip_Result_t Connection::Shutdown()
 // When the connection is deleting, it shall be called to release resources.
 taf_doip_Result_t Connection::Stop()
 {
-    if (le_timer_IsRunning(aliveCheckTimerRef))
+    if (aliveCheckTimerRef != NULL && le_timer_IsRunning(aliveCheckTimerRef))
     {
         le_timer_Stop(aliveCheckTimerRef);
     }
 
-    if (le_timer_IsRunning(generalTimerRef))
+    if (generalTimerRef != NULL && le_timer_IsRunning(generalTimerRef))
     {
         le_timer_Stop(generalTimerRef);
     }
 
-    if (le_timer_IsRunning(initialTimerRef))
+    if (initialTimerRef != NULL && le_timer_IsRunning(initialTimerRef))
     {
         le_timer_Stop(initialTimerRef);
     }
 
-    le_timer_Delete(aliveCheckTimerRef);
-    le_timer_Delete(generalTimerRef);
-    le_timer_Delete(initialTimerRef);
+    if (aliveCheckTimerRef != NULL)
+    {
+        le_timer_Delete(aliveCheckTimerRef);
+        aliveCheckTimerRef = NULL;
+    }
+
+    if (generalTimerRef != NULL)
+    {
+        le_timer_Delete(generalTimerRef);
+        generalTimerRef = NULL;
+    }
+
+    if (initialTimerRef != NULL)
+    {
+        le_timer_Delete(initialTimerRef);
+        initialTimerRef = NULL;
+    }
 
     if (inBuf != NULL)
     {
@@ -437,6 +451,12 @@ taf_doip_Result_t Connection::ReceiveTCPData
     // Loop to process messages if each message is enough.
     while (buffer->dataSize >= TAF_DOIP_HEADER_GENERIC_LENGTH)
     {
+        // Discard all messages if the connection is invaliable.
+        if (connState == TAF_DOIP_CONNECT_STATE_FINALIZE)
+        {
+            break;
+        }
+
         parser.UnpackHeaderStruct(buffer->data + buffer->dataPos, buffer->dataSize, &hdr);
         if (hdr.payloadType != TAF_DOIP_PAYLOAD_TYPE_DIAGNOSTIC_MESSAGE
             && hdr.payloadType != TAF_DOIP_PAYLOAD_TYPE_DIAGNOSTIC_POSITIVE_ACK
@@ -658,6 +678,20 @@ void Connection::ProcessDoipMessage
         LE_DEBUG("Routing activation request is receiving.\n");
         RoutingActiveReqHandler(buffer->data + payloadPos,
                                 payloadLen);
+        if (connState == TAF_DOIP_CONNECT_STATE_FINALIZE)
+        {
+            // Routing activation invalid, return directly.
+            return;
+        }
+
+        // Routing activation message cannot be combined with other messages.
+        if (buffer->dataSize != (payloadLen + TAF_DOIP_HEADER_GENERIC_LENGTH))
+        {
+            // Discard the combined message.
+            buffer->dataSize    = 0;
+            buffer->dataPos     = 0;
+            return;
+        }
         break;
     case TAF_DOIP_PAYLOAD_TYPE_ROUTING_ACTIVE_RESPONSE:
         LE_DEBUG("Routing activation response is receiving.\n");
@@ -1137,7 +1171,14 @@ void Connection::DiagnosticMsgFirstHandler
         udsReceived = 0;
     }
 
-    memcpy(udsBuf, payload, receivedLen);
+    if (payloadLen > receivedLen)
+    {
+        memcpy(udsBuf, payload, receivedLen);
+    }
+    else
+    {
+        memcpy(udsBuf, payload, payloadLen);
+    }
 
     // If during diagnostic reception, set the uds variable value
     udsTotalLen = payloadLen;
@@ -1479,6 +1520,15 @@ void Connection::ReadAndDiscardMsg
     if (len == 0)
     {
         return;
+    }
+
+    // Guard: discard length must not exceed the maximum DoIP message size.
+    // An abnormally large value (e.g. caused by uint32_t underflow in the caller)
+    // would cause an extremely long loop that exhausts the thread stack.
+    if (len > TAF_DOIP_MAX_BUFFER_SIZE)
+    {
+        LE_ERROR("ReadAndDiscardMsg: discard len(%zu) exceeds max buffer size, clamping.", len);
+        len = TAF_DOIP_MAX_BUFFER_SIZE;
     }
 
     char buf[TAF_DOIP_MAX_BUFFER_SIZE] ={0};

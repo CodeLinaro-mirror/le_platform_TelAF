@@ -222,40 +222,40 @@ ENUM PowerMode
 //--------------------------------------------------------------------------------------------------
 BITMASK NodeModemWsBitMask
 {
-    NODE_MODEM_WS_BIT_MASK_SMS,        ///< Node Modem Wake Soure bit mask for received SMS.
-    NODE_MODEM_WS_BIT_MASK_VOICE_CALL, ///< Node Modem Wake Soure bit mask for incoming voice call.
+    NODE_MODEM_WS_BIT_MASK_SMS,        ///< Node Modem Wake Source bit mask for received SMS.
+    NODE_MODEM_WS_BIT_MASK_VOICE_CALL, ///< Node Modem Wake Source bit mask for incoming voice call.
     NODE_MODEM_WS_BIT_MASK_REMOTE_SIM_PROFILE_SWAP, ///< Node Modem Wake Source bit mask for remote
                                                     ///< sim profile swapped based SIM refresh
                                                     ///< indication wake up.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_3,   ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_4,   ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_5,   ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_6,   ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_7,   ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_8,   ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_9,   ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_10,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_11,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_12,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_13,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_14,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_15,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_16,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_17,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_18,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_19,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_20,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_21,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_22,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_23,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_24,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_25,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_26,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_27,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_28,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_29,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_30,  ///< Node Modem Wake Soure bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_31   ///< Node Modem Wake Soure bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_NAS_SYS_INFO, ///< Node Modem Wake Source bit mask for NAS system information.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_4,   ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_5,   ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_6,   ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_7,   ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_8,   ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_9,   ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_10,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_11,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_12,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_13,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_14,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_15,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_16,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_17,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_18,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_19,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_20,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_21,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_22,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_23,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_24,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_25,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_26,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_27,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_28,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_29,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_30,  ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_31   ///< Node Modem Wake Source bit mask Reserved.
 };
 
 

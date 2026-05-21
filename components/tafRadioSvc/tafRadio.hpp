@@ -430,7 +430,7 @@ class Utility
                  *      - LE_OUT_OF_RANGE if the PA layer returned -ERANGE.
                  *      - LE_BAD_PARAMETER if the PA layer returned -EINVAL.
                  *      - LE_UNSUPPORTED if the PA layer returned -ENOTSUP.
-                 *      - LE_NOT_IMPLEMENTED if the PA layer returned -ENOSYS.
+                 *      - LE_NOT_IMPLEMENTED if the PA layer returned -ENOSYS or PA_NOT_IMPLEMENTED.
                  */
                 static le_result_t Result
                 (

@@ -88,6 +88,8 @@ le_result_t Utility::Convert::Result
             return LE_UNSUPPORTED;
         case TAF_PA_SIM_RESULT_TIMEOUT:
             return LE_TIMEOUT;
+        case PA_NOT_IMPLEMENTED:
+            return LE_NOT_IMPLEMENTED;
         default:
             LE_DEBUG("Unknown result %d.", result);
     }
@@ -315,7 +317,8 @@ void taf_sim::Init(void)
     eventListener.unlockCardByPinResponseCb = &Handler::unlockCardByPinResponseCb;
     eventListener.unlockCardByPukResponseCb = &Handler::unlockCardByPukResponseCb;
     eventListener.setCardLockResponseCb = &Handler::setCardLockResponseCb;
-    if(taf_pa_sim_RegisterEventListener(&eventListener,nullptr) !=  PA_OK)
+    pa_result_t regEvtRes = taf_pa_sim_RegisterEventListener(&eventListener,nullptr);
+    if (regEvtRes != PA_OK)
     {
         LE_ERROR("Listener register failed for");
         return;
@@ -688,9 +691,19 @@ taf_sim_RefreshChangeHandlerRef_t taf_sim::AddRefreshChangeHandler(taf_sim_Refre
     handlerRef = le_event_AddLayeredHandler("RefreshChangeHandler", clientRequestPtr->RefreshChangeEventId,
             FirstLayerNewRefreshChangeHandler, (void*)handlerPtr);
 
-    clientRequestPtr->paHandlerRef = taf_pa_sim_AddRefreshChangeHandler((taf_pa_sim_RefreshChangeHandlerFunc_t)&onRefreshEvent, sessionRef);
+    pa_result_t addRes = taf_pa_sim_AddRefreshChangeHandler(
+        (taf_pa_sim_RefreshChangeHandlerFunc_t)&onRefreshEvent,
+        sessionRef,
+        &clientRequestPtr->paHandlerRef);
+    if (addRes != PA_OK)
+    {
+        LE_ERROR("taf_pa_sim_AddRefreshChangeHandler returned: %d", (int)addRes);
+        le_event_RemoveHandler(handlerRef);
+        return NULL;
+    }
 
-    LE_INFO("taf_pa_sim_AddRefreshChangeHandler done. paHandlerRef: %p, handlerRef: %p", clientRequestPtr->paHandlerRef, handlerRef);
+    LE_INFO("taf_pa_sim_AddRefreshChangeHandler done. paHandlerRef: %p, handlerRef: %p",
+        clientRequestPtr->paHandlerRef, handlerRef);
 
     return (taf_sim_RefreshChangeHandlerRef_t)(handlerRef);
 }
@@ -702,7 +715,11 @@ void taf_sim::RemoveRefreshChangeHandler(taf_sim_RefreshChangeHandlerRef_t handl
     clientRequestPtr = DiscoverSessionRef(sessionRef);
 
     TAF_ERROR_IF_RET_NIL( NULL == clientRequestPtr, "clientRequestPtr is NULL");
-    taf_pa_sim_RemoveRefreshChangeHandler(clientRequestPtr->paHandlerRef);
+    pa_result_t removeRes = taf_pa_sim_RemoveRefreshChangeHandler(clientRequestPtr->paHandlerRef);
+    if (removeRes != PA_OK)
+    {
+        LE_WARN("taf_pa_sim_RemoveRefreshChangeHandler returned: %d", (int)removeRes);
+    }
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
     le_ref_DeleteRef(SessionRefMap, clientRequestPtr->ref);
     mClientRefCount--;
@@ -1490,9 +1507,21 @@ bool taf_sim::FindProfileByType(taf_pa_sim_SlotId_t paSlot,
                               taf_pa_sim_ProfileType_t wantType,
                               taf_pa_sim_ProfileInfo_t* outInfo)
 {
-    uint8_t n = taf_pa_sim_GetProfileNum(paSlot);
+    uint8_t n = 0;
+    pa_result_t res = taf_pa_sim_GetProfileNum(paSlot, &n);
+    if (res != PA_OK)
+    {
+        LE_WARN("taf_pa_sim_GetProfileNum returned: %d", (int)res);
+        return false;
+    }
     for (uint8_t i = 0; i < n; ++i) {
-        taf_pa_sim_ProfileInfo_t info = taf_pa_sim_GetProfile(paSlot, i);
+        taf_pa_sim_ProfileInfo_t info = {};
+        pa_result_t getRes = taf_pa_sim_GetProfile(paSlot, i, &info);
+        if (getRes != PA_OK)
+        {
+            LE_WARN("taf_pa_sim_GetProfile[%u] returned: %d", i, (int)getRes);
+            continue;
+        }
         if (info.type == wantType) {
             if (outInfo) {
                 *outInfo = info;
@@ -1527,7 +1556,13 @@ le_result_t taf_sim::IsEmergencyCallSubscriptionSelected
         return LE_BAD_PARAMETER;
     }
 
-    uint8_t profileCount = taf_pa_sim_GetProfileNum(paSlot);
+    uint8_t profileCount = 0;
+    pa_result_t profileNumRes = taf_pa_sim_GetProfileNum(paSlot, &profileCount);
+    if (profileNumRes != PA_OK)
+    {
+        LE_WARN("IsEmergencyCallSubscriptionSelected: taf_pa_sim_GetProfileNum returned: %d", (int)profileNumRes);
+        return LE_FAULT;
+    }
     if (profileCount == 0) {
         LE_INFO("IsEmergencyCallSubscriptionSelected: profiles list is empty");
         return LE_FAULT;
@@ -2167,7 +2202,13 @@ le_result_t taf_sim::SwapSubscriptionInternal
         return LE_BAD_PARAMETER;
     }
 
-    uint8_t profileCount = taf_pa_sim_GetProfileNum(paSlot);
+    uint8_t profileCount = 0;
+    pa_result_t profileNumRes2 = taf_pa_sim_GetProfileNum(paSlot, &profileCount);
+    if (profileNumRes2 != PA_OK)
+    {
+        LE_WARN("taf_pa_sim_GetProfileNum returned: %d", (int)profileNumRes2);
+        return LE_FAULT;
+    }
     if (profileCount == 0) {
         LE_INFO("profiles list is empty");
         return LE_FAULT;

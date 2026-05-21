@@ -89,6 +89,8 @@ apps:
     $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestDaemon/tafMngdPmTestDaemon.adef
     $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestClient/tafMngdPmTestClient.adef
     $TELAF_ROOT/apps/test/tafDoIPStackUnitTest/tafDoIPStackUnitTest
+    $TELAF_ROOT/apps/test/tafSelinuxAllowIntTest/tafSelinuxAllowIntTest
+    $TELAF_ROOT/apps/test/tafSelinuxDenyIntTest/tafSelinuxDenyIntTest
     $TELAF_ROOT/apps/sample/etsSvc/tafEtsSvc/tafEtsSvc
     $TELAF_ROOT/apps/test/wdogKickAndLogging/tafTestLoggingStorm.adef
     $TELAF_ROOT/apps/test/wdogKickAndLogging/tafTestWdogKick.adef

@@ -2238,8 +2238,11 @@ le_result_t taf_Audio::startRecording(taf_audio_Stream_t* streamPtr)
     std::queue<std::shared_ptr<tafpa::audio::IPaStreamBuffer>> *freeBuffers;
     if(streamPtr->direction == TAF_AUDIO_TX) // Update local recording data
     {
-        audioCaptureStream = std::dynamic_pointer_cast<PaAudioCaptureStream>
-                (taf_pa_audio_GetCaptureStream(PaStreamDirection::TX));
+        if (taf_pa_audio_GetCaptureStream(PaStreamDirection::TX, audioCaptureStream) != PA_OK)
+        {
+            LE_ERROR("Failed to get TX capture stream");
+            return LE_FAULT;
+        }
         isRecording = &mIsRecording;
         bufferRecordedTillNow = &mBufferRecordedTillNow;
         streamBuffer = &mRecStreamBuffer;
@@ -2248,8 +2251,11 @@ le_result_t taf_Audio::startRecording(taf_audio_Stream_t* streamPtr)
     }
     else // Update incall downlink recording data
     {
-        audioCaptureStream = std::dynamic_pointer_cast<PaAudioCaptureStream>
-                (taf_pa_audio_GetCaptureStream(PaStreamDirection::RX));
+        if (taf_pa_audio_GetCaptureStream(PaStreamDirection::RX, audioCaptureStream) != PA_OK)
+        {
+            LE_ERROR("Failed to get RX capture stream");
+            return LE_FAULT;
+        }
         isRecording = &mIsRxRecording;
         bufferRecordedTillNow = &mRxBufferRecordedTillNow;
         streamBuffer = &mRxRecStreamBuffer;
@@ -3004,8 +3010,12 @@ void taf_Audio::RecBufferHandler(taf_audio_Stream_t* streamPtr)
     {
         if (!mFile)
             return;
-        audioCaptureStream = std::dynamic_pointer_cast<PaAudioCaptureStream>
-                (taf_pa_audio_GetCaptureStream(PaStreamDirection::TX));
+        if (taf_pa_audio_GetCaptureStream(PaStreamDirection::TX, audioCaptureStream) != PA_OK)
+        {
+            LE_ERROR("Failed to get TX capture stream");
+            mIsRecording = false;
+            mIsRecError = true;
+        }
         isRecording = &mIsRecording;
         file = mFile;
         bufferRecordedTillNow = &mBufferRecordedTillNow;
@@ -3017,8 +3027,12 @@ void taf_Audio::RecBufferHandler(taf_audio_Stream_t* streamPtr)
     {
         if(!mRxFile)
             return;
-        audioCaptureStream = std::dynamic_pointer_cast<PaAudioCaptureStream>
-                (taf_pa_audio_GetCaptureStream(PaStreamDirection::RX));
+        if (taf_pa_audio_GetCaptureStream(PaStreamDirection::RX, audioCaptureStream) != PA_OK)
+        {
+            LE_ERROR("Failed to get RX capture stream");
+            mIsRxRecording = false;
+            mIsRecError = true;
+        }
         isRecording = &mIsRxRecording;
         file = mRxFile;
         bufferRecordedTillNow = &mRxBufferRecordedTillNow;

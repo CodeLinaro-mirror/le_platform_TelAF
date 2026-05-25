@@ -2320,3 +2320,104 @@ le_result_t taf_locGnss_ConfigureOsnma
     auto &gnss = taf_locGnss::GetInstance();
     return gnss.ConfigureOsnma(galOsnma);
 }
+
+/**
+* FUNCTION     : SetEngineIntegrityRisk
+* DESCRIPTION  : Set the Integrity risk of desired engine
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_BAD_PARAMETER LE_NOT_PERMITTED on failed with reason
+*/
+le_result_t taf_locGnss_SetEngineIntegrityRisk
+(
+    taf_locGnss_EngineType_t engtype,
+        ///< [IN]
+    uint32_t integrityRisk
+        ///< [IN]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.SetEngineIntegrityRisk(engtype, integrityRisk);
+}
+
+/**
+* FUNCTION     : GetProtectionLevels
+* DESCRIPTION  : Get the protection level values at the specified integrity risk
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
+*/
+le_result_t taf_locGnss_GetProtectionLevels
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+        ///< [IN]
+    double* protectionLevelAlongTrackPtr,
+        ///< [OUT]
+    double* protectionLevelCrossTrackPtr,
+        ///< [OUT]
+    double* protectionLevelVerticalPtr
+        ///< [OUT]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetProtectionLevels(positionSampleRef, protectionLevelAlongTrackPtr,
+            protectionLevelCrossTrackPtr, protectionLevelVerticalPtr);
+}
+
+/**
+* FUNCTION     : GetBaselineLength
+* DESCRIPTION  : Get the distance between the basestation and the receiver.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
+*/
+le_result_t taf_locGnss_GetBaselineLength
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+        ///< [IN]
+    double* baselineLengthPtr
+        ///< [OUT]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetBaselineLength(positionSampleRef, baselineLengthPtr);
+}
+
+/**
+* FUNCTION     : GetAgeOfCorrections
+* DESCRIPTION  : Get the difference in time between the fix timestamp using the correction
+*                and the time of the correction data.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
+*/
+le_result_t taf_locGnss_GetAgeOfCorrections
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+        ///< [IN]
+    uint64_t* ageCorrectionsPtr
+        ///< [OUT]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetAgeOfCorrections(positionSampleRef, ageCorrectionsPtr);
+}
+
+/**
+* FUNCTION     : GetIntegrityRiskUsed
+* DESCRIPTION  : Gets the integrity risk used for protection level parameters
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
+*/
+le_result_t taf_locGnss_GetIntegrityRiskUsed
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+        ///< [IN]
+    uint32_t* integrityRiskUsedPtr
+        ///< [OUT]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetIntegrityRiskUsed(positionSampleRef, integrityRiskUsedPtr);
+}

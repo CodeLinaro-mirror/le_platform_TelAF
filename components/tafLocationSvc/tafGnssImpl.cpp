@@ -367,6 +367,12 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
             LocationData->drSolutionStatusValid = true;
             LocationData->leapSecondsUncValid = true;
             LocationData->navSolutionMaskValid = true;
+            LocationData->protectionLevelAlongTrackValid = true;
+            LocationData->protectionLevelCrossTrackValid = true;
+            LocationData->protectionLevelVerticalValid = true;
+            LocationData->baselineLengthValid = true;
+            LocationData->ageCorrectionsValid = true;
+            LocationData->integrityRiskUsedValid = true;
             if(locationInfo->mAltType == TAF_PA_LOCATION_CALCULATED)
             {
                 clientRequestPtr->mAltType = TAF_LOCGNSS_ALT_TYPE_CALCULATED;
@@ -1228,6 +1234,12 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
             LocationData->navSolutionMask = locationInfo->naviSolution;
             LocationData->gPtpTime = locationInfo->gPtpTime;
             LocationData->gPtpTimeUnc = locationInfo->gPtpTimeUnc;
+            LocationData->protectionLevelAlongTrack = locationInfo->protectionlevelAlongTrack;
+            LocationData->protectionLevelCrossTrack = locationInfo->protectionlevelCrossTrack;
+            LocationData->protectionLevelVertical = locationInfo->protectionlevelVertical;
+            LocationData->ageCorrections = locationInfo->ageOfCorrections;
+            LocationData->baselineLength = locationInfo->baselineLength;
+            LocationData->integrityRiskUsed  = locationInfo->integrityRiskUsed;
             LocationData->next = LE_DLS_LINK_INIT;
 
             le_event_ReportWithRefCounting(gnss.positionEventId, LocationData);
@@ -2023,6 +2035,18 @@ void taf_locGnss::CopyPositionData
     {
         LastDataPtr->dgnssStationIds[i] = CurrentDataPtr->dgnssStationIds[i];
     }
+    LastDataPtr->protectionLevelAlongTrackValid = CurrentDataPtr->protectionLevelAlongTrackValid;
+    LastDataPtr->protectionLevelCrossTrackValid = CurrentDataPtr->protectionLevelCrossTrackValid;
+    LastDataPtr->protectionLevelVerticalValid = CurrentDataPtr->protectionLevelVerticalValid;
+    LastDataPtr->baselineLengthValid = CurrentDataPtr->baselineLengthValid;
+    LastDataPtr->ageCorrectionsValid = CurrentDataPtr->ageCorrectionsValid;
+    LastDataPtr->integrityRiskUsedValid = CurrentDataPtr->integrityRiskUsedValid;
+    LastDataPtr->protectionLevelAlongTrack = CurrentDataPtr->protectionLevelAlongTrack;
+    LastDataPtr->protectionLevelCrossTrack = CurrentDataPtr->protectionLevelCrossTrack;
+    LastDataPtr->protectionLevelVertical = CurrentDataPtr->protectionLevelVertical;
+    LastDataPtr->baselineLength = CurrentDataPtr->baselineLength;
+    LastDataPtr->ageCorrections = CurrentDataPtr->ageCorrections;
+    LastDataPtr->integrityRiskUsed = CurrentDataPtr->integrityRiskUsed;
     LastDataPtr->next = LE_DLS_LINK_INIT;
 
     return;
@@ -3696,7 +3720,6 @@ le_result_t taf_locGnss::GetDirection
 (
     taf_locGnss_SampleRef_t positionSampleRef,
     uint32_t* directionPtr,
-
     uint32_t* directionAccuracyPtr
 )
 {
@@ -7493,6 +7516,7 @@ le_result_t taf_locGnss::GetSatellitesInfoEx
                     if (count < (int)*svInfoLen) {
                         svInfoPtr[count].satId = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satId;
                         svInfoPtr[count].satConst = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satConst;
+                        svInfoPtr[count].satUsed = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satUsed;
                         svInfoPtr[count].satTracked = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satTracked;
                         svInfoPtr[count].satSnr = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satSnr;
                         svInfoPtr[count].satAzim = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satAzim;
@@ -8616,6 +8640,213 @@ le_result_t taf_locGnss::ReleaseDgnssSource
     }
 
    return result;
+}
+
+le_result_t taf_locGnss::SetEngineIntegrityRisk
+(
+    taf_locGnss_EngineType_t engineType,
+    uint32_t integrityRisk
+)
+{
+    le_result_t result = LE_FAULT;
+    taf_locGnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
+    {
+        case TAF_LOCGNSS_STATE_DISABLED:
+        case TAF_LOCGNSS_STATE_UNINITIALIZED:
+        {
+             LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
+             result = LE_NOT_PERMITTED;
+        }
+        break;
+        case TAF_LOCGNSS_STATE_ACTIVE:
+        case TAF_LOCGNSS_STATE_READY:
+        {
+            typedef struct{
+                pa_result_t result;
+            }taf_SelfTestResult_t;
+            auto cb = [](pa_result_t result, std::any context) {
+                taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
+                resPtr->result = result;
+            };
+            taf_SelfTestResult_t resCallback = {};
+            pa_result_t res = taf_pa_location_configureEngineIntegrityRisk((taf_pa_location_EngineType_t)engineType,integrityRisk,cb,(std::any)&resCallback);
+            if(res == PA_OK){
+                if(resCallback.result == PA_OK)
+                {
+                    LE_INFO("SetEngineIntegrityRisk is success");
+                    return LE_OK;
+                }
+            }
+            else
+            {
+                LE_INFO("SetEngineIntegrityRisk is failed");
+                result = LE_FAULT;
+            }
+        }
+        break;
+        default:
+        {
+            result = LE_FAULT;
+            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
+        }
+        break;
+    }
+   return result;
+}
+
+le_result_t taf_locGnss::GetProtectionLevels
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+    double* protectionLevelAlongTrackPtr,
+    double* protectionLevelCrossTrackPtr,
+    double* protectionLevelVerticalPtr
+)
+{
+    le_result_t result = LE_OK;
+    taf_locGnss_PositionSampleRequest_t* posSampleReqPtr
+        = (taf_locGnss_PositionSampleRequest_t*)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+
+    if ((protectionLevelAlongTrackPtr == NULL) &&
+        (protectionLevelCrossTrackPtr == NULL) &&
+        (protectionLevelVerticalPtr == NULL))
+    {
+        return LE_FAULT;
+    }
+
+    if (protectionLevelAlongTrackPtr)
+    {
+        if (posSampleReqPtr->positionSampleNodePtr->protectionLevelAlongTrackValid)
+        {
+            *protectionLevelAlongTrackPtr =
+                posSampleReqPtr->positionSampleNodePtr->protectionLevelAlongTrack;
+        }
+        else
+        {
+            *protectionLevelAlongTrackPtr = NAN;
+            LE_DEBUG("GetProtectionLevels: along-track PL invalid");
+        }
+    }
+
+    if (protectionLevelCrossTrackPtr)
+    {
+        if (posSampleReqPtr->positionSampleNodePtr->protectionLevelCrossTrackValid)
+        {
+            *protectionLevelCrossTrackPtr =
+                posSampleReqPtr->positionSampleNodePtr->protectionLevelCrossTrack;
+        }
+        else
+        {
+            *protectionLevelCrossTrackPtr = NAN;
+            LE_DEBUG("GetProtectionLevels: cross-track PL invalid");
+        }
+    }
+
+    if (protectionLevelVerticalPtr)
+    {
+        if (posSampleReqPtr->positionSampleNodePtr->protectionLevelVerticalValid)
+        {
+            *protectionLevelVerticalPtr =
+                posSampleReqPtr->positionSampleNodePtr->protectionLevelVertical;
+        }
+        else
+        {
+            *protectionLevelVerticalPtr = NAN;
+            LE_DEBUG("GetProtectionLevels: vertical PL invalid");
+        }
+    }
+    return result;
+}
+
+le_result_t taf_locGnss::GetBaselineLength
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+    double* baselineLengthPtr
+)
+{
+    le_result_t result = LE_FAULT;
+    taf_locGnss_PositionSampleRequest_t* posSampleReqPtr = (taf_locGnss_PositionSampleRequest_t*)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+
+    if (baselineLengthPtr)
+    {
+        if (posSampleReqPtr->positionSampleNodePtr->baselineLengthValid)
+        {
+            *baselineLengthPtr = posSampleReqPtr->positionSampleNodePtr->baselineLength;
+            return LE_OK;
+        }
+    }
+    return result;
+}
+
+le_result_t taf_locGnss::GetAgeOfCorrections
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+    uint64_t* ageCorrectionsPtr
+)
+{
+    le_result_t result = LE_FAULT;
+    taf_locGnss_PositionSampleRequest_t* posSampleReqPtr = (taf_locGnss_PositionSampleRequest_t*)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+
+    if(ageCorrectionsPtr){
+        if (posSampleReqPtr->positionSampleNodePtr->ageCorrectionsValid)
+        {
+            *ageCorrectionsPtr = posSampleReqPtr->positionSampleNodePtr->ageCorrections;
+            return LE_OK;
+        }
+    }
+    return result;
+}
+
+le_result_t taf_locGnss::GetIntegrityRiskUsed
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+    uint32_t* integrityRiskUsedPtr
+)
+{
+    le_result_t result = LE_FAULT;
+    taf_locGnss_PositionSampleRequest_t* posSampleReqPtr = (taf_locGnss_PositionSampleRequest_t*)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+
+    if (integrityRiskUsedPtr)
+    {
+        if (posSampleReqPtr->positionSampleNodePtr->integrityRiskUsedValid)
+        {
+            *integrityRiskUsedPtr = posSampleReqPtr->positionSampleNodePtr->integrityRiskUsed;
+            return LE_OK;
+        }
+        else
+        {
+            LE_DEBUG("GetIntegrityRiskUsed Invalid");
+        }
+    }
+    return result;
 }
 
 taf_locGnss_DgnssStatusChangeHandlerRef_t taf_locGnss::AddDgnssStatusChangeHandler

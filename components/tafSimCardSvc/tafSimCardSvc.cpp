@@ -326,10 +326,11 @@ void taf_sim_RemoveAuthenticationResponseHandler(
     sim.RemoveAuthenticationResponseHandler(handlerRef);
 }
 
-le_result_t  taf_sim_GetEID( taf_sim_Id_t slotId, char* eidPtr, size_t eidLen) {
+le_result_t  taf_sim_GetEID(taf_sim_Id_t simId, char* eidPtr, size_t eidLen) {
     TAF_ERROR_IF_RET_VAL(eidPtr == NULL, LE_BAD_PARAMETER, "eidPtr is NULL");
     TAF_ERROR_IF_RET_VAL(eidLen < TAF_SIM_EID_BYTES, LE_OVERFLOW, "Incorrect buffer size");
-    return LE_NOT_IMPLEMENTED;
+    auto &sim = taf_sim::GetInstance();
+    return sim.GetEID(simId, eidPtr, eidLen);
 }
 
 le_result_t taf_sim_SetAutomaticSelection( bool enable) {

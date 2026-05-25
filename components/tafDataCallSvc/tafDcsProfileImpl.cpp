@@ -603,6 +603,28 @@ le_result_t TafDcsProfile::SetReference(taf_dcs_ProfileRef_t ref)
     return LE_OK;
 }
 
+const std::vector<taf_dcs_QosFlowRef_t>& TafDcsProfile::GetQosFlowRefs() const
+{
+    return qosFlowRefs_;
+}
+
+void TafDcsProfile::AddQosFlowRef(taf_dcs_QosFlowRef_t ref)
+{
+    // Ensure not to add duplicate tickets
+    if (std::find(qosFlowRefs_.begin(), qosFlowRefs_.end(), ref) == qosFlowRefs_.end()) {
+        qosFlowRefs_.push_back(ref);
+    }
+}
+
+void TafDcsProfile::RemoveQosFlowRef(taf_dcs_QosFlowRef_t ref)
+{
+    // Return the ticket (remove from the profile's list)
+    auto it = std::remove(qosFlowRefs_.begin(), qosFlowRefs_.end(), ref);
+    if (it != qosFlowRefs_.end()) {
+        qosFlowRefs_.erase(it, qosFlowRefs_.end());
+    }
+}
+
 le_result_t TafDcsProfile::AddClient(le_msg_SessionRef_t clientRef, size_t &listSize)
 {
     LE_WARN_IF (0 == clientRef, "clientRef is 0");

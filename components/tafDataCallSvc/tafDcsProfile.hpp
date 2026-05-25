@@ -258,6 +258,15 @@ struct TafDcsQosTftEventInfo_t
     taf_dcs_QosFlowBitMask_t paramMask; ///< The mask to check for valid parameters in the flow.
 };
 
+typedef struct
+{
+    uint8_t phoneId;                    ///< The phone id.
+    uint32_t profileId;                 ///< The profile id.
+    uint32_t qosFlowId;                 ///< The QoS flow id.
+    taf_dcs_QosFlowState_t state;       ///< The QoS flow state.
+    taf_dcs_QosFlowBitMask_t paramMask; ///< The mask to check for valid parameters in the flow.
+} QOSFlowCtxStatus_t;
+
 /**
  * The structure for taf_dcs_QosStatusHandlerFunc_t.
  * This is an internal structure as such an external struct is not defined.
@@ -275,6 +284,13 @@ struct taf_dcs_QosTftEvent_t
 class TafDcsProfile
 {
 public:
+
+    le_result_t sendQosTftEvent(const TafDcsQosTftEventInfo_t *eventPtr, taf_dcs_QosFlowRef_t qosRef);
+
+    // Profile getters/setters for handling multiple flows
+    const std::vector<taf_dcs_QosFlowRef_t>& GetQosFlowRefs() const;
+    void AddQosFlowRef(taf_dcs_QosFlowRef_t ref);
+    void RemoveQosFlowRef(taf_dcs_QosFlowRef_t ref);
 
     // Block copying so that thisPtr_ will not become invalid
     TafDcsProfile(const TafDcsProfile &) = delete;
@@ -427,6 +443,9 @@ public:
     static le_event_Id_t GetRoamingStateChangedEventId();
 
 private:
+    //QOS flow references
+    std::vector<taf_dcs_QosFlowRef_t> qosFlowRefs_;
+
     // static getter to get the profiler reference map.
     static le_ref_MapRef_t getProfileRefMap();
 
@@ -683,6 +702,24 @@ public:
         size_t mncSize
     );
 
+    le_result_t SvcGetQosProfile
+    (
+        taf_dcs_QosFlowRef_t qosFlowRef,
+        taf_dcs_ProfileRef_t* profileRefPtr
+    );
+
+    le_result_t SvcGetQosId
+    (
+        taf_dcs_QosFlowRef_t qosFlowRef,
+        uint32_t* qosFlowIdPtr
+    );
+
+    le_result_t SvcGetQosParameterMask
+    (
+        taf_dcs_QosFlowRef_t qosFlowRef,
+        taf_dcs_QosFlowBitMask_t* qosFlowMaskPtr
+    );
+
     // External event handlers
     taf_dcs_RoamingStatusHandlerRef_t SvcAddRoamingStatusHandler
     (
@@ -754,7 +791,6 @@ private:
     /**
      * Private functions.
      */
-
     // Initialize internal events and memory
     void
     registerInternalEventCallbacks();
@@ -852,7 +888,11 @@ private:
     static void firstHwAccelerationStateHandler  (void *reportPtr, void *clientHandlerFunc);
     le_result_t sendHwAccelerationEvent(const TafDcsHwAccelerationChangeEvent_t *eventPtr);
     static void firstQosStatusHandler(void *reportPtr, void *clientHandlerFunc);
-    le_result_t sendQosTftEvent(const TafDcsQosTftEventInfo_t *eventPtr);
+
+    // Helper to find an existing QoS flow reference in the Legato map
+    taf_dcs_QosFlowRef_t findQosRef(uint8_t phoneId, uint32_t profileId, uint32_t qosId);
+    // To automatically release QoS resources when transitioning to TAF_DCS_DISCONNECTED
+    void releaseAllQosFlowsForProfile(uint8_t phoneId, uint32_t profileId);
 
     // Forward declarations for internal event handlers
     static void getProfilesAsyncCb

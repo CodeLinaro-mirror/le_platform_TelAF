@@ -418,8 +418,10 @@ int main(int argc, char* argv[])
 
     if (svcMask & IVSS_TEST_SVC_SENSOR_MASK)
     {
+        // Instance ID must match SensorSvc.fdepl InstanceId
+        const char* sensorInstanceId = "com.qualcomm.qti.sensor.SensorInterface";
         std::shared_ptr<SensorSvc::SensorSvcProxy<>> sensorProxy = runtime->buildProxy
-            <SensorSvc::SensorSvcProxy>("local", "telephony.SensorSvc", "clientTest");
+            <SensorSvc::SensorSvcProxy>("local", sensorInstanceId, "clientTest");
         std::cout << "Checking availability!" << std::endl;
         while (!sensorProxy->isAvailable())
         {
@@ -866,35 +868,227 @@ int main(int argc, char* argv[])
 
     if (svcMask & IVSS_TEST_SVC_SENSOR_MASK)
     {
-        // Request method
-        SensorSvcTypes::TelephonyResultT sensorResult =
-            SensorSvcTypes::TelephonyResultT::TELEPHONY_RESULT_T_UNKNOWN;
+        // ---- Sensor service: interactive test (ported from sensor_idl_client) ----
+        // Sensor state for interactive commands
+        std::vector<SensorSvcTypes::SensorInfoT> sensorList;
+        int32_t sensorCount = 0;
+        struct SensorTracking { float samplingRate = 0; int32_t batchCount = 0;
+            SensorSvcTypes::SensorStateT state =
+                SensorSvcTypes::SensorStateT::SENSOR_STATE_T_DISABLE; };
+        std::vector<SensorTracking> sensorTracking;
 
-        uint32_t sensorNum = 0;
-        std::vector<SensorSvcTypes::SensorInfoT> sensorInfoList = {};
-        std::cout << "======== get SensorList Test ========" << "\n";
-        sensorProxyKeep->GetSensorList(callStatus, sensorNum, sensorInfoList, sensorResult);
-        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!",
-            callStatus)
-        CHECK_RETURN_VALUE(sensorResult == SensorSvcTypes::TelephonyResultT::TELEPHONY_RESULT_T_OK,
-            "sensorResult!", sensorResult)
+        // Per-sensor GPTP tracking for latency/ODR output
+        uint64_t accPrevGptp = 0, gyroPrevGptp = 0, headPrevGptp = 0;
+        int accCount = 0, gyroCount = 0, headCount = 0;
 
-        std::cout << "Sensor Total Number: " << sensorNum << "\n";
-        for (uint32_t i = 0; i < sensorNum; i++)
-        {
-            std::cout << "sensorId: " << sensorInfoList[i].getSensorId() << "\n";
-            std::cout << "sensorName: " << sensorInfoList[i].getSensorName() << "\n";
-            std::cout << "sensorVendorName: " << sensorInfoList[i].getSensorVendorName() << "\n";
-            std::cout << "sensorVersion: " << sensorInfoList[i].getSensorVersion() << "\n";
-            std::cout << "sensorType: "
-                << static_cast<unsigned int>(sensorInfoList[i].getSensorType())
-                << std::endl << std::endl;
+        auto getCurTimeMs = []() -> uint64_t {
+            struct timespec ts; clock_gettime(CLOCK_REALTIME, &ts);
+            return (uint64_t)ts.tv_sec * 1000ULL + (uint64_t)ts.tv_nsec / 1000000ULL;
+        };
+
+        auto printSensorList = [](
+            const std::vector<SensorSvcTypes::SensorInfoT>& sensors, int32_t cnt) {
+            for (int32_t i = 0; i < cnt; i++) {
+                const auto& s = sensors[i];
+                printf("Name:%s\n", s.getName().c_str());
+                printf("\tvendor: %s\n", s.getVendor().c_str());
+                printf("\tversion: %d\n", s.getSensorVersion());
+                printf("\tresolution: %f\n", s.getResolution());
+                printf("\tmaxRange %f\n", s.getMaxRange());
+                printf("\tsensor_id: %d\n", s.getSensorId());
+                printf("\ttype: %d\n", s.getSensorType());
+                printf("\tmaxSamplingRate: %f\n", s.getMaxSamplingRate());
+                printf("\tminBatchCount: %d\n", s.getMinBatchCount());
+                printf("\tmaxBatchCount: %d\n", s.getMaxBatchCount());
+                const auto& odr = s.getOdr();
+                printf("\todr rate: ");
+                for (size_t j = 0; j < 6; j++) {
+                    float v = (j < odr.size()) ? odr[j] : 0.0f;
+                    printf("%fHZ ", v);
+                }
+                printf("\n");
+            }
+        };
+
+        // Subscribe to broadcasts
+        sensorProxyKeep->getSensorCapabilitiesEvent().subscribe(
+            [](const SensorSvcTypes::SensorServiceStateMaskT& mask) {
+                printf("[SensorCapabilities] mask=%d (%s)\n", (int)mask,
+                    (mask == SensorSvcTypes::SensorServiceStateMaskT::
+                        SENSOR_SERVICE_STATE_MASK_T_READY)
+                    ? "READY" : "NOT_READY");
+            });
+
+        sensorProxyKeep->getSensorConfigUpdateEvent().subscribe(
+            [](const int32_t& sensorId, const float& samplingRate, const int32_t& batchCount) {
+                printf("[SensorConfigUpdate] sensorId=%d samplingRate=%f batchCount=%d\n",
+                    sensorId, samplingRate, batchCount);
+            });
+
+        sensorProxyKeep->getSensorImuDataReadEvent().subscribe(
+            [&](const std::vector<SensorSvcTypes::SensorImuEventT>& events, const int32_t& cnt) {
+                if (events.empty() || cnt == 0) return;
+                int32_t sid = events[0].getSensorId();
+                int32_t type = events[0].getType();
+                bool isAccel = (type == 35); bool isGyro = (type == 16);
+                uint64_t& prevGptp = isAccel ? accPrevGptp : gyroPrevGptp;
+                int& evtCnt = isAccel ? accCount : gyroCount;
+                uint64_t curGptp = events[0].getGptpTimestamp();
+                uint64_t curMs = getCurTimeMs();
+                uint64_t batchDelta = (prevGptp > 0) ?
+                    (curGptp - prevGptp)/1000000ULL : curGptp/1000000ULL;
+                printf("<<--Received SensorImuDataRead sensor_id: %d\n", sid);
+                printf("Sensor %s Live: sensor_id %d: count %d"
+                    " batch_delta(ms)=%llu cur_gptp_ts %llu latency(ms)=%llu\n",
+                    isAccel ? "ACC" : (isGyro ? "GYRO" : "IMU"), sid, cnt,
+                    (unsigned long long)batchDelta, (unsigned long long)curGptp,
+                    (unsigned long long)(curMs - curGptp/1000000ULL));
+                uint64_t prevEvtGptp = prevGptp;
+                for (int32_t i = 0; i < cnt && i < (int32_t)events.size(); i++) {
+                    const auto& e = events[i]; const auto& d = e.getData();
+                    uint64_t ts = e.getTimestamp(), gptp = e.getGptpTimestamp();
+                    uint64_t lat = (curMs > gptp/1000000ULL) ? (curMs - gptp/1000000ULL) : 0;
+                    uint64_t odr = (prevEvtGptp > 0) ?
+                        (gptp - prevEvtGptp)/1000000ULL : gptp/1000000ULL;
+                    printf("%s Live event:%d xyz_raw<%f %f %f> xyz_bias<%f %f %f>"
+                        " timestamp<boot,gptp> %llu %llu latency(ms)=%llu odr(ms)=%llu\n",
+                        isAccel ? "Accel" : (isGyro ? "Gyro" : "IMU"), evtCnt++,
+                        d.getXUncalib(), d.getYUncalib(), d.getZUncalib(),
+                        d.getXBias(), d.getYBias(), d.getZBias(),
+                        (unsigned long long)ts, (unsigned long long)gptp,
+                        (unsigned long long)lat, (unsigned long long)odr);
+                    prevEvtGptp = gptp;
+                }
+                printf("<<-------\n");
+                prevGptp = events[cnt-1].getGptpTimestamp();
+            });
+
+        sensorProxyKeep->getSensorHeadingDataReadEvent().subscribe(
+            [&](const std::vector<SensorSvcTypes::SensorHeadEventT>& events, const int32_t& cnt) {
+                if (events.empty() || cnt == 0) return;
+                int32_t sid = events[0].getSensorId();
+                uint64_t curGptp = events[0].getGptpTimestamp();
+                uint64_t curMs = getCurTimeMs();
+                uint64_t batchDelta = (headPrevGptp > 0) ?
+                    (curGptp - headPrevGptp)/1000000ULL : curGptp/1000000ULL;
+                printf("<<--Received SensorHeadingDataRead sensor_id: %d\n", sid);
+                printf("Sensor HEAD Live: sensor_id %d: count %d"
+                    " batch_delta(ms)=%llu cur_gptp_ts %llu latency(ms)=%llu\n",
+                    sid, cnt, (unsigned long long)batchDelta, (unsigned long long)curGptp,
+                    (unsigned long long)(curMs - curGptp/1000000ULL));
+                uint64_t prevEvtGptp = headPrevGptp;
+                for (int32_t i = 0; i < cnt && i < (int32_t)events.size(); i++) {
+                    const auto& e = events[i]; const auto& d = e.getData();
+                    uint64_t ts = e.getTimestamp(), gptp = e.getGptpTimestamp();
+                    uint64_t lat = (curMs > gptp/1000000ULL) ? (curMs - gptp/1000000ULL) : 0;
+                    uint64_t odr = (prevEvtGptp > 0) ?
+                        (gptp - prevEvtGptp)/1000000ULL : gptp/1000000ULL;
+                    printf("Head Live event:%d heading and accuracy<%f %f>"
+                        " timestamp<boot,gptp> %llu %llu latency(ms)=%llu odr(ms)=%llu\n",
+                        headCount++, d.getHeading(), d.getAccuracy(),
+                        (unsigned long long)ts, (unsigned long long)gptp,
+                        (unsigned long long)lat, (unsigned long long)odr);
+                    prevEvtGptp = gptp;
+                }
+                printf("<<-------\n");
+                headPrevGptp = events[cnt-1].getGptpTimestamp();
+            });
+
+        // Register client
+        SensorSvcTypes::SensorReturnT sensorResp;
+        printf("\n==== Calling RegisterSensorClientReq =====>>\n");
+        sensorProxyKeep->RegisterSensorClientReq(callStatus, sensorResp);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS,
+            "RegisterSensorClientReq failed!", callStatus)
+        printf("RegisterSensorClientReq result: %d (%s)\n", (int)sensorResp,
+            (sensorResp == SensorSvcTypes::SensorReturnT::SENSOR_RETURN_SUCCESS) ?
+            "SUCCESS" : "FAILED");
+
+        // Initial sensor list
+        printf("\n==== Calling GetSensorListReq =====>>\n");
+        sensorProxyKeep->GetSensorListReq(callStatus, sensorList, sensorCount);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS,
+            "GetSensorListReq failed!", callStatus)
+        sensorTracking.resize(sensorCount);
+        printf("sensor_count: %d\n", sensorCount);
+        printSensorList(sensorList, sensorCount);
+
+        // Interactive loop for sensor commands
+        printf("\nCommands: g=GetSensorList  c=Config  a=Control  q=Quit  (Abort with CTRL+C)\n");
+        while (true) {
+            printf("\n> ");
+            fflush(stdout);
+            char cmd[4] = {};
+            if (fgets(cmd, sizeof(cmd), stdin) == NULL) break;
+            if (cmd[0] == 'q') break;
+
+            if (cmd[0] == 'g') {
+                printf("\n==== Calling GetSensorListReq =====>>\n");
+                sensorProxyKeep->GetSensorListReq(callStatus, sensorList, sensorCount);
+                if (callStatus != CommonAPI::CallStatus::SUCCESS) {
+                    printf("GetSensorListReq failed\n"); continue;
+                }
+                sensorTracking.resize(sensorCount);
+                printf("sensor_count: %d\n", sensorCount);
+                printSensorList(sensorList, sensorCount);
+            }
+            else if (cmd[0] == 'c') {
+                if (sensorCount == 0) { printf("No sensors. Call 'g' first.\n"); continue; }
+                printf("\n==== Calling SensorConfigReq =====>>\n");
+                for (int32_t i = 0; i < sensorCount; i++) {
+                    const auto& s = sensorList[i];
+                    const auto& odr = s.getOdr();
+                    printf("Configure sensor id %d (%s)\nEnter ODR index: ",
+                        s.getSensorId(), s.getName().c_str());
+                    for (size_t j = 0; j < 6; j++) {
+                        float v = (j < odr.size()) ? odr[j] : 0.0f;
+                        printf("%zu:%fHZ ", j, v);
+                    }
+                    printf("\n");
+                    char buf[64] = {}; if (fgets(buf, sizeof(buf), stdin) == NULL) continue;
+                    int odrIdx = (int)strtol(buf, NULL, 10);
+                    float sr = (odrIdx >= 0 && odrIdx < (int)odr.size()) ? odr[odrIdx] : 0.0f;
+                    printf("Enter batch count: "); if (fgets(buf, sizeof(buf), stdin) == NULL) continue;
+                    int32_t bc = (int32_t)strtol(buf, NULL, 10);
+                    sensorProxyKeep->SensorConfigReq(s.getSensorId(), sr, bc, callStatus, sensorResp);
+                    printf("SensorConfigReq sensor_id=%d result=%d\n", s.getSensorId(), (int)sensorResp);
+                    if (sensorResp == SensorSvcTypes::SensorReturnT::SENSOR_RETURN_SUCCESS)
+                        { sensorTracking[i].samplingRate = sr; sensorTracking[i].batchCount = bc; }
+                }
+            }
+            else if (cmd[0] == 'a') {
+                if (sensorCount == 0) { printf("No sensors. Call 'g' first.\n"); continue; }
+                printf("\n==== Calling SensorControlReq =====>>\n");
+                for (int32_t i = 0; i < sensorCount; i++) {
+                    const auto& s = sensorList[i];
+                    printf("Enable/Disable sensor id %d (%s)\nEnter 1=Enable, 0=Disable: ", s.getSensorId(), s.getName().c_str());
+                    char buf[64] = {}; if (fgets(buf, sizeof(buf), stdin) == NULL) continue;
+                    int en = (int)strtol(buf, NULL, 10);
+                    auto state = (en == 1) ? SensorSvcTypes::SensorStateT::SENSOR_STATE_T_ENABLE
+                                           : SensorSvcTypes::SensorStateT::SENSOR_STATE_T_DISABLE;
+                    sensorProxyKeep->SensorControlReq(s.getSensorId(), state, callStatus, sensorResp);
+                    printf("SensorControlReq sensor_id=%d result=%d\n", s.getSensorId(), (int)sensorResp);
+                    if (sensorResp == SensorSvcTypes::SensorReturnT::SENSOR_RETURN_SUCCESS)
+                        sensorTracking[i].state = state;
+                }
+            }
+            else if (cmd[0] != '\n') {
+                printf("Unknown command '%c'. Use: g c a q\n", cmd[0]);
+            }
         }
-    }
 
-    while (true) {
-        std::cout << "Waiting for event... (Abort with CTRL+C)" << std::endl;
-        std::this_thread::sleep_for(std::chrono::seconds(20));
+        // Deregister sensor client on exit
+        printf("\n==== Calling DeRegisterSensorClientReq =====>>\n");
+        sensorProxyKeep->DeRegisterSensorClientReq(callStatus, sensorResp);
+        printf("DeRegisterSensorClientReq result: %d\n", (int)sensorResp);
+    }
+    else
+    {
+        // Non-sensor services: wait for events
+        while (true) {
+            std::cout << "Waiting for event... (Abort with CTRL+C)" << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(20));
+        }
     }
 
     return 0;

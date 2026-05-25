@@ -19,8 +19,9 @@ COMPONENT_INIT
     // Initialize the ivss sensor service.
     std::shared_ptr<CommonAPI::Runtime> sensorRuntime = CommonAPI::Runtime::get();
     auto ivssSensor = tafIvssSensorSvc::GetInstance();
-    if (true != sensorRuntime->registerService("local", "telephony.SensorSvc", ivssSensor,
-        "ivssSensorSvc"))
+
+    if (true != sensorRuntime->registerService("local",
+        "com.qualcomm.qti.sensor.SensorInterface", ivssSensor, "ivssSensorSvc"))
     {
         LE_FATAL("tafIvssSensorSvc Register Service failed.");
     }

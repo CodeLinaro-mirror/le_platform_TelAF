@@ -10,9 +10,8 @@
 
 #pragma once
 
+#include <string>
 #include "interfaces.h"
-#include "telux/data/DataDefines.hpp"
-#include "telux/common/ConnectivityDefines.hpp"
 
 namespace taf{
 namespace svc{

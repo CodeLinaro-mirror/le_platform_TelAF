@@ -1,0 +1,12 @@
+sources:
+{
+    rpcLatancyServerTest.c
+}
+
+provides:
+{
+    api:
+    {
+        rpcLatancy.api
+    }
+}

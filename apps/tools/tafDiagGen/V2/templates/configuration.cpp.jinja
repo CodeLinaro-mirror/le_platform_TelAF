@@ -688,7 +688,7 @@ EXPORT_SYM std::shared_ptr<std::vector<uint8_t>> get_pattern_levels_by_session_i
 
             for (int i = 0; i < total_of_levels; i++)
             {
-                level_list->push_back(pnode.second[total_of_sessions + i + 1]); /* Index from total_of_sessions + 1 */
+                level_list->push_back(pnode.second[total_of_sessions + i + 1 + 1]); /* Index from total_of_sessions + 1 + 1*/
             }
 
             break;

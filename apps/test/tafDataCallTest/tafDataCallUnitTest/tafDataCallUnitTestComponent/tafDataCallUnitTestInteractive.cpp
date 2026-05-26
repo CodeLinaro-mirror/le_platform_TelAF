@@ -16,6 +16,8 @@
 #include <future>
 #include <iostream>
 #include <map>
+#include <algorithm>
+#include <vector>
 #include <chrono>
 #include <iomanip> // for std::fixed and std::setprecision
 

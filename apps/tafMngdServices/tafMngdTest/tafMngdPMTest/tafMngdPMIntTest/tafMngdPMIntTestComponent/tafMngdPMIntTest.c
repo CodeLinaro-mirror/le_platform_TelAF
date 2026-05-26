@@ -649,6 +649,7 @@ void ForcedSystemShutdownCallBack(taf_mngdPm_ShutdownMode_t mode,
         LE_INFO("----ForcedSystemShutdown success----");
     }
     else{
+        LE_ERROR("----ForcedSystemShutdown failed----");
         exit(EXIT_FAILURE);
     }
 }

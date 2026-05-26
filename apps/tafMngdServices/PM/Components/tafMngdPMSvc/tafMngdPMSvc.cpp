@@ -1750,6 +1750,13 @@ COMPONENT_INIT
     le_timer_SetMsInterval(mpms.stateChangeAckTimerRef, mpms.config.state_change_ack_timeout);
     le_timer_SetHandler(mpms.stateChangeAckTimerRef, mpms.StateChangeAckTimerHandler);
 
+    mpms.wsDumpTimerRef = le_timer_Create("WS DUMP timer");
+    le_timer_SetWakeup(mpms.wsDumpTimerRef, false);
+    le_timer_SetMsInterval(mpms.wsDumpTimerRef, WS_DUMP_TIMER_INTERVAL);
+    le_timer_SetHandler(mpms.wsDumpTimerRef, tafMngdPMSvc::WsDumpTimerHandler);
+    le_timer_SetRepeat(mpms.wsDumpTimerRef, 0);
+    le_timer_Start(mpms.wsDumpTimerRef);
+
     // Initialize service-wide current node power state
     tafMngdPMSvc::InitializeCurrentNodePowerState();
 

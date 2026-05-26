@@ -176,6 +176,10 @@ static void PrintUsage ()
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ImmediateNotifyClientOnCurrNodePwStateOnRegister <NODE_ID>\n"
         "------------To Test GracefulSysShutdown for node pw state change notification-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestGracefulSysShutdownForNodePwStateChange <NODE_ID>\n"
+        "------------To test WsDump: primary process-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- WsDumpClient01\n"
+        "------------To test WsDump: helper process (different PID)-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTestHelper -- WsDumpClient02\n"
         "------------To Test PMVHAL stayawake after while suspending through MPMS-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestPmvhalStayAwakeAfterMpmsSuspendTrigger\n");
 }
@@ -3102,6 +3106,53 @@ void MultipleAckFromSameSession(void)
     LE_INFO("To event-loop, waiting for the SUSPEND notification ..");
 }
 
+// WsDump multi-process test: primary client.
+// Run alongside WsDumpClient02 (tafMngdPMIntTestHelper ELF) for a different-PID entry.
+//
+// Timer fires at ~t=15, 30, 42, 54s showing auth/ACQ state transitions.
+void WsDumpClient01(void)
+{
+    taf_mngdPm_wsRef_t wsNormal = taf_mngdPm_CreateWakeupSource(
+        TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL, TAF_MNGDPM_WS_OPT_DEFAULT, "ws-c01-normal");
+    taf_mngdPm_wsRef_t wsSwUpd = taf_mngdPm_CreateWakeupSource(
+        TAF_MNGDPM_STAY_AWAKE_REASON_SW_UPDATE, TAF_MNGDPM_WS_OPT_DEFAULT, "ws-c01-swupd");
+
+    taf_mngdPm_StayAwake(wsNormal);
+    // Only NORMAL is authorized: wsSwUpd → Unauthorized, ws-c02-ecall → Unauthorized
+    taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_NORMAL);
+
+    le_thread_Sleep(15);  // dump: normal(ACQ=yes,Auth) swupd(ACQ=no,Unauth) ecall(ACQ=yes,Unauth)
+
+    taf_mngdPm_Relax(wsNormal);
+    le_thread_Sleep(15);  // dump: normal(ACQ=no,Auth) swupd(ACQ=no,Unauth) ecall(ACQ=yes,Unauth)
+
+    taf_mngdPm_AuthorizeStayAwakeReason(AUTHORIZE_ALL_STAY_AWAKE_REASON);
+    le_thread_Sleep(12);  // dump: normal(ACQ=no,Auth) swupd(ACQ=no,Auth) ecall(ACQ=yes,Auth)
+
+    taf_mngdPm_DeleteWakeupSource(wsNormal);
+    taf_mngdPm_DeleteWakeupSource(wsSwUpd);
+    le_thread_Sleep(12);  // dump: only pmVHAL + ws-c02-ecall
+
+    LE_INFO("WsDumpClient01 done");
+    exit(EXIT_SUCCESS);
+}
+
+// WsDump multi-process test: helper client (run as tafMngdPMIntTestHelper ELF → different PID).
+// Stays alive for the full ~56s to appear in all 4 timer dumps.
+void WsDumpClient02(void)
+{
+    taf_mngdPm_wsRef_t wsEcall = taf_mngdPm_CreateWakeupSource(
+        TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE, TAF_MNGDPM_WS_OPT_DEFAULT, "ws-c02-ecall");
+
+    taf_mngdPm_StayAwake(wsEcall);
+    le_thread_Sleep(56);  // covers all 4 timer fires; auth state reflects Client01's changes
+
+    taf_mngdPm_Relax(wsEcall);
+    taf_mngdPm_DeleteWakeupSource(wsEcall);
+    LE_INFO("WsDumpClient02 done");
+    exit(EXIT_SUCCESS);
+}
+
 COMPONENT_INIT
 {
     const char* testType = "";
@@ -3357,6 +3408,14 @@ COMPONENT_INIT
         }else if(strcmp(testType, "TestPmvhalStayAwakeAfterMpmsSuspendTrigger") == 0)
         {
             TestPmvhalStayAwakeAfterMpmsSuspendTrigger();
+        }
+        else if(strcmp(testType, "WsDumpClient01") == 0)
+        {
+            WsDumpClient01();
+        }
+        else if(strcmp(testType, "WsDumpClient02") == 0)
+        {
+            WsDumpClient02();
         }
         else
         {

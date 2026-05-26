@@ -43,6 +43,7 @@ apps:
     $TELAF_ROOT/apps/test/tafPMTest/tafPMIntgTest/tafPMIntgTest
     $TELAF_ROOT/apps/test/tafGpioTest/tafGpioUnitTest.adef
     $TELAF_ROOT/apps/sample/eCallDemo/tafECallApp
+    $TELAF_ROOT/apps/reference/eCallApp/tafECallRefApp.adef
     $TELAF_ROOT/apps/test/tafLocationTest/tafLocationUnitTest/tafLocationUnitTest
     $TELAF_ROOT/apps/test/tafCanTest/tafCanUnitTest/tafCanUnitTest
     $TELAF_ROOT/apps/test/tafCanTest/tafCanIntTest/tafCanIntTest
@@ -97,4 +98,10 @@ interfaceSearch:
     $TELAF_ROOT/apps/test/tafPMTest/tafPMIntgTest
     $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestDaemon/tafMngdPmTestDaemonComp/
     $TELAF_ROOT/apps/test/tafMRCTest/tafMRCIntTest
+}
+
+
+commands:
+{
+    ecallctl = tafECallRefApp:/bin/ecallctl
 }

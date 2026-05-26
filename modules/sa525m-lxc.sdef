@@ -17,7 +17,12 @@ apps:
 
     // eCall Application
     $TELAF_ROOT/apps/sample/eCallDemo/tafECallAppLxc.adef
-    $TELAF_ROOT/apps/sample/eCallApp/tafECallRefAppLxc.adef
+    $TELAF_ROOT/apps/reference/eCallApp/tafECallRefAppLxc.adef
+}
+
+commands:
+{
+    ecallctl = tafECallRefAppLxc:/bin/ecallctl
 }
 
 bindings:
@@ -30,6 +35,7 @@ interfaceSearch:
     $TELAF_ROOT/interfaces
     $TELAF_ROOT/interfaces/someipGW
     $TELAF_ROOT/apps/tafMngdServices/interfaces
+    $TELAF_ROOT/apps/reference/eCallApp
 }
 
 cflags:

@@ -69,12 +69,27 @@
             "offer_systems" : [ "SERVER" ]
         },
         {
+            "name" : "taf_diagEvent",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_diag",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
             "name" : "taf_hms",
             "user" : "telaf",
             "offer_systems" : [ "SERVER" ]
         },
         {
             "name" : "taf_sim",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_radio",
             "user" : "telaf",
             "offer_systems" : [ "SERVER" ]
         }

@@ -84,6 +84,7 @@ apps:
     $TELAF_ROOT/apps/sample/configTree/configTreeSample.adef
     $TELAF_ROOT/framework/test/linkTest/linkDeviceUnitTest.adef
     $TELAF_ROOT/framework/test/linkTest/linkRequireUnitTest.adef
+    $TELAF_ROOT/framework/test/backtrace/backtraceTest.adef
     $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmWsFilterTest/tafMngdPmWsFilterTest.adef
     $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestDaemon/tafMngdPmTestDaemon.adef
     $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestClient/tafMngdPmTestClient.adef

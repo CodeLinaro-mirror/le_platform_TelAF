@@ -196,11 +196,14 @@ le_result_t InitializeSensorClientList(taf_SensorClient_t* clientRequestPtr)
         taf_sensorClientInfo_t* clientInfo =
             &clientRequestPtr->clients[clientRequestPtr->clientCount];
         clientInfo->isSensorActivated = false;
-        clientInfo->sensorClient =
-            tafpa::sensor::taf_pa_sensor_GetSensorClient(sensorMngr.sList[i].basicInfo.sensorName);
-        if(clientInfo->sensorClient == 0){
-            LE_ERROR("unable to create Reference for %s in session %p",
-                sensorMngr.sList[i].basicInfo.sensorName.c_str(), clientRequestPtr->sessionRef);
+        clientInfo->sensorClient = 0;
+        pa_result_t clientRes = tafpa::sensor::taf_pa_sensor_GetSensorClient(
+            sensorMngr.sList[i].basicInfo.sensorName,
+            clientInfo->sensorClient);
+        if ((clientRes != PA_OK) || (clientInfo->sensorClient == 0)){
+            LE_ERROR("unable to create Reference for %s in session %p, res=%d",
+                                    sensorMngr.sList[i].basicInfo.sensorName.c_str(),
+                                    clientRequestPtr->sessionRef, (int)clientRes);
             continue;
         }
         clientInfo->eventListener.onEvent = &Handler::onEvent;

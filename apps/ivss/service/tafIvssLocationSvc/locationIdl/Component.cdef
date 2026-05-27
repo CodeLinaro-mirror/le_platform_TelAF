@@ -1,8 +1,8 @@
 externalBuild:
 {
-    "capicxx-core-gen -sk $TELAF_ROOT/apps/ivss/fidl/LocationSvc/LocationSvc.fidl"
-    "capicxx-core-gen -sk $TELAF_ROOT/apps/ivss/fidl/LocationSvc/LocationSvc.fdepl"
-    "capicxx-someip-gen $TELAF_ROOT/apps/ivss/fidl/LocationSvc/LocationSvc.fdepl"
+    "capicxx-core-gen -configuration .capicxx-core-cfg -sk $TELAF_ROOT/apps/ivss/fidl/LocationSvc/LocationSvc.fidl"
+    "capicxx-core-gen -configuration .capicxx-core-cfg -sk $TELAF_ROOT/apps/ivss/fidl/LocationSvc/LocationSvc.fdepl"
+    "capicxx-someip-gen -configuration .capicxx-someip-cfg $TELAF_ROOT/apps/ivss/fidl/LocationSvc/LocationSvc.fdepl"
 
     "bash $TELAF_ROOT/apps/ivss/common/make.sh LocationSvc"
 }

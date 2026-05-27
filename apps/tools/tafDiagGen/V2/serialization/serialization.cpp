@@ -187,6 +187,7 @@ void serialize_servicesAll(std::map<std::string, ServiceEntry>& servicesAll, ptr
 
         ServiceEntry serviceEntry;
         serviceEntry.supported = service_data.get<bool>("supported", false);
+        serviceEntry.IDPS_supported = service_data.get<bool>("IDPS_supported", false);
         serviceEntry.execution_authorization_pattern =
             service_data.get<std::string>("execution_authorization_pattern", "");
 

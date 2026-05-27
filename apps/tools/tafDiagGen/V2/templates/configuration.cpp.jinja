@@ -566,6 +566,25 @@ EXPORT_SYM bool is_service_supported(uint16_t sid)
     return get_service_entry(sid).supported;
 }
 
+EXPORT_SYM bool IsIDPSAvailable(void)
+{
+    return IsIDPSSupported(0x27);
+}
+
+EXPORT_SYM bool IsIDPSSupported(uint16_t sid)
+{
+    NEED_INITED();
+
+    auto it = diagConf.services_all.find(std::to_string(sid));
+    if (it == diagConf.services_all.end())
+    {
+        LE_WARN("Service 0x%X not found in configuration", sid);
+        return false;
+    }
+
+    return it->second.IDPS_supported;
+}
+
 EXPORT_SYM bool is_authentication_supported(uint16_t sid)
 {
     return get_service_entry(sid).authentication;

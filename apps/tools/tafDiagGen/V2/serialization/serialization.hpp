@@ -68,6 +68,7 @@ struct SubFunction {
 
 struct ServiceEntry {
     bool supported = false;
+    bool IDPS_supported = false;
     bool authentication = false;
     std::string execution_authorization_pattern;
     Access access;
@@ -76,6 +77,7 @@ struct ServiceEntry {
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
         ar & supported;
+        ar & IDPS_supported;
         ar & authentication;
         ar & execution_authorization_pattern;
         ar & access;

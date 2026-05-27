@@ -1,0 +1,12 @@
+sources:
+{
+    diagIDPSStatus.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_diagIDPS.api
+    }
+}

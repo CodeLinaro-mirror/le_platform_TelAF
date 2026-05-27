@@ -18,6 +18,8 @@ using namespace taf::uds;
 
 le_event_Id_t UdsCommunicationMgr::cancelFileXferEvId = NULL;
 bool UdsCommunicationMgr::isResetInProgress = false;
+le_mem_PoolRef_t UdsCommunicationMgr::P2StarNrcPool = NULL;
+le_thread_Ref_t UdsCommunicationMgr::mainThreadRef = NULL;
 std::map<std::string, UdsCommunicationMgr*> UdsCommunicationMgr::instances;
 std::mutex UdsCommunicationMgr::mutex_instance;
 taf_doip_Ref_t  UdsCommunicationMgr::DoipEntityRef = NULL;
@@ -116,6 +118,12 @@ void UdsCommunicationMgr::InitInstances
 {
     le_dls_Link_t* linkPtr = NULL;
 
+    // Capture the main thread reference so the timer thread can queue work back to it.
+    mainThreadRef = le_thread_GetCurrent();
+
+    // Pool for P2* NRC context objects — one per active P2* timer fire.
+    P2StarNrcPool = le_mem_CreatePool("P2StarNrcPool", sizeof(P2StarNrcContext_t));
+
     le_event_QueueFunction(SecurityAccess_Init, NULL, NULL);
 
     linkPtr = le_dls_Peek(interfaceList);
@@ -163,6 +171,13 @@ void UdsCommunicationMgr::InitInstances
 
     InitAuthData(interfaceList);
 
+    if(cfg::IsIDPSAvailable())
+    {
+        auto &udsIdps = UdsIdps::GetInstance();
+        udsIdps.Init();
+    }
+
+    LE_INFO("UDS communication manager ok.");
     return;
 }
 
@@ -523,48 +538,88 @@ void UdsCommunicationMgr::P2StarTimeoutHandler
     char* ifName = (char*)le_timer_GetContextPtr(timerRef);
 
     auto udsCmMgr = UdsCommunicationMgr::GetInstance(ifName);
-
-    if(udsCmMgr == NULL)
+    if (udsCmMgr == NULL)
     {
         LE_ERROR("Can't get instance by ifName %s", ifName);
         return;
     }
 
     uint32_t maxNumberOfRcrrp;
-    uint32_t sid = udsCmMgr->recvBuf[0];
-
-    LE_DEBUG("P2StarTimeoutHandler count = %d",le_timer_GetExpiryCount(timerRef));
-    //Get P2* server count
     try
     {
         const CommonProps& common = cfg::get_common_props();
         maxNumberOfRcrrp = common.max_number_of_rcrrp;
-        LE_DEBUG("maxNumberOfRcrrp = %d", maxNumberOfRcrrp);
     }
     catch (const std::exception& e)
     {
         maxNumberOfRcrrp = UDS_P2_STAR_SERVER_CNT;
-        LE_ERROR("Exception: %s. Use default value:%d", e.what() , maxNumberOfRcrrp);
+        LE_ERROR("Exception: %s. Use default value:%d", e.what(), maxNumberOfRcrrp);
     }
 
-    if(le_timer_GetExpiryCount(timerRef) < maxNumberOfRcrrp)
+    uint8_t errorCode = (le_timer_GetExpiryCount(timerRef) < maxNumberOfRcrrp)
+                        ? REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING
+                        : GENERAL_REJECT;
+
+    LE_DEBUG("P2StarTimeoutHandler count=%d errorCode=0x%x",
+             le_timer_GetExpiryCount(timerRef), errorCode);
+
+    P2StarNrcContext_t* ctxPtr = (P2StarNrcContext_t*)le_mem_ForceAlloc(P2StarNrcPool);
+    ctxPtr->mgr       = udsCmMgr;
+    ctxPtr->sid       = udsCmMgr->recvBuf[0]; // atomic-safe: single-byte read
+    ctxPtr->errorCode = errorCode;
+    ctxPtr->addrInfo  = udsCmMgr->addrInfo;   // struct copy — addrInfo is written only
+                                               // in DiagIndicationHandler (main thread)
+                                               // and is stable while P2* is running
+
+    le_event_QueueFunctionToThread(mainThreadRef, P2StarSendNrcInMainThread, ctxPtr, NULL);
+}
+
+// Runs in the main thread — safe to call SendNRC and modify shared state.
+void UdsCommunicationMgr::P2StarSendNrcInMainThread
+(
+    void* param1Ptr,
+    void* param2Ptr
+)
+{
+    P2StarNrcContext_t* ctxPtr = (P2StarNrcContext_t*)param1Ptr;
+    if (ctxPtr == NULL)
     {
-        udsCmMgr->SendNRC(sid, REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING, &udsCmMgr->addrInfo);
+        LE_ERROR("P2StarSendNrcInMainThread: NULL context");
         return;
     }
 
-    LE_INFO("P2* timeout");
-    //If previous value of readyToRecvData is false, check if app set FileXfer state and set it
-    if(!udsCmMgr->readyToRecvData.load())
+    UdsCommunicationMgr* udsCmMgr = ctxPtr->mgr;
+    uint8_t sid       = ctxPtr->sid;
+    uint8_t errorCode = ctxPtr->errorCode;
+    taf_doip_AddrInfo_t addrInfo = ctxPtr->addrInfo;
+
+    le_mem_Release(ctxPtr);
+
+    if (udsCmMgr == NULL)
+    {
+        LE_ERROR("P2StarSendNrcInMainThread: NULL manager");
+        return;
+    }
+
+    udsCmMgr->SendNRC(sid, errorCode, &addrInfo);
+
+    if (errorCode == REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING)
+    {
+        // Intermediate RCRRP — nothing else to do.
+        return;
+    }
+
+    // Final timeout (GENERAL_REJECT): reset state exactly as before.
+    LE_INFO("P2* final timeout — resetting state");
+    memset(udsCmMgr->recvBuf, 0, UDS_MAX_DATA_SIZE);
+    udsCmMgr->recvDataLen = 0;
+    udsCmMgr->sendDataLen = 0;
+
+    if (!udsCmMgr->readyToRecvData.load())
     {
         udsCmMgr->readyToRecvData.store(true);
         udsCmMgr->CheckAndSendCancelFileXferEvent();
     }
-
-    udsCmMgr->SendNRC(sid, GENERAL_REJECT, &udsCmMgr->addrInfo);
-    memset(udsCmMgr->recvBuf, 0, UDS_MAX_DATA_SIZE);
-    udsCmMgr->recvDataLen = 0;
-    udsCmMgr->sendDataLen = 0;
 }
 
 void UdsCommunicationMgr::AuthDelayTimeoutHandler
@@ -720,8 +775,6 @@ void UdsCommunicationMgr::CheckAndRestartTesterStateTimer
 
     float p2StarServerInterval;
     uint32_t maxNumberOfRcrrp, testerStateTimer;
-
-    readyToRecvData.store(true);
 
     //Get P2* server interval;
     try
@@ -1074,6 +1127,7 @@ le_result_t UdsCommunicationMgr::SendNRC
     if(errorCode == REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING)
     {
         LE_DEBUG("RCRRP is sent");
+        return LE_OK;
     }
 
 #ifdef LE_CONFIG_DIAG_FEATURE_A
@@ -1084,6 +1138,9 @@ le_result_t UdsCommunicationMgr::SendNRC
     {
         IndicateNrcStatus(interface, sid, errorCode);
     }
+#else
+    if(cfg::IsIDPSAvailable())
+        SendIdpsIndMsg();
 #endif
 
     return LE_OK;
@@ -4303,6 +4360,13 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
+    // Check for minimum request msg length
+    if(diagMsgPtr->dataLen < UDS_REQ_MIN_LEN)
+    {
+        LE_ERROR("recvDataLen is less than the UDS msg minimum length.");
+        return;
+    }
+
     //Ignore other requests if hardware reset is in progress until system is restarted
     if(udsCmMgr->isResetInProgress)
     {
@@ -4310,11 +4374,14 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
+    // received service ID
+    uint8_t sid = diagMsgPtr->dataPtr[0];
+
     // Send NRC 0x22 if diag service is paused
     if (udsCmMgr->isPaused.load())
     {
         LE_WARN("In BUB state, dont't receive any requests");
-        udsCmMgr->SendNRC(diagMsgPtr->dataPtr[0], CONDITIONS_NOT_CORRECT, addrInfoPtr);
+        udsCmMgr->SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
         return;
     }
 
@@ -4322,23 +4389,13 @@ void UdsCommunicationMgr::DiagIndicationHandler
     if (!udsCmMgr->readyToRecvData.load())
     {
         LE_WARN("Handle in progress, can't receive another request");
-        udsCmMgr->SendNRC(diagMsgPtr->dataPtr[0], BUSY_REPEAT_REQ, addrInfoPtr);
+        udsCmMgr->SendNRC(sid, BUSY_REPEAT_REQ, addrInfoPtr);
         return;
     }
 
     memcpy((char*)(udsCmMgr->recvBuf), (char*)(diagMsgPtr->dataPtr), UDS_MAX_DATA_SIZE);
     udsCmMgr->recvDataLen = diagMsgPtr->dataLen;
     udsCmMgr->sendDataLen = 0;
-
-    // Check for minimum request msg length
-    if(udsCmMgr->recvDataLen < UDS_REQ_MIN_LEN)
-    {
-        LE_ERROR("recvDataLen is less than the UDS msg minimum length.");
-        return;
-    }
-
-    // received service ID
-    uint8_t sid = udsCmMgr->recvBuf[0];
 
     // General server response behaviour check, NRC check for 0x11, 0x34, 0x7f, 0x33
     if(udsCmMgr->GeneralServerResp(addrInfoPtr, sid) == LE_OK)
@@ -4755,6 +4812,9 @@ le_result_t UdsCommunicationMgr::SendUDSResp
     ret = taf_doip_DiagRequest(&udsCmMgr->udsRespAddrInfo, &respDiagMsg);
     if (ret == LE_OK)
     {
+        if(cfg::IsIDPSAvailable())
+            SendIdpsIndMsg();
+
         LE_DEBUG("Requested Diagnostic message response sent. Restart S3 timer");
         udsCmMgr->CheckAndRestartS3Timer(serviceId);
     #ifdef LE_CONFIG_DIAG_FEATURE_A
@@ -4841,7 +4901,7 @@ le_result_t UdsCommunicationMgr::SetUDSData
     uint16_t dataSize
 )
 {
-    LE_DEBUG("SendUDSResp");
+    LE_DEBUG("SetUDSData");
 
     if(ifName == NULL || dataPtr == NULL || dataSize == 0)
     {
@@ -6268,4 +6328,12 @@ void UdsCommunicationMgr::StoreDelayTimeToTree
     snprintf(delayTimeNodePath, sizeof(delayTimeNodePath), AUTH_CONF_DATA "%s/Delay_time",
             interface);
     le_cfg_QuickSetInt(delayTimeNodePath, authDelayTime);
+}
+
+void UdsCommunicationMgr::SendIdpsIndMsg
+(
+)
+{
+    auto &idps = UdsIdps::GetInstance();
+    idps.SendIdpsIndMsg(sendBuf, sendDataLen, recvBuf, recvDataLen, &addrInfo);
 }

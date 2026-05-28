@@ -361,7 +361,7 @@ static void ResponseAllZeroSeed(AO_SecurityAccess_t * self, MEvent_t const * ev)
 
     evp->report->mgr->sendDataLen = 2 + seed_byte_size; // 2 = (SID + SUBFUNC)
 
-    evp->report->mgr->SendData(&evp->report->mgr->udsRespAddrInfo);
+    evp->report->mgr->SendData(evp->report->mgr->recvSid, 0, &evp->report->mgr->udsRespAddrInfo);
     *evp->report->is_internal = true;
     evp->report->mgr->remoteError = LE_OK;
     TryToPostSemaphore(ev);

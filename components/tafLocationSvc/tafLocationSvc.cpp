@@ -55,407 +55,505 @@ COMPONENT_INIT
     LE_INFO("Location Service init completed...");
 }
 
-/**
-* FUNCTION     : SetAcquisitionRate
-* DESCRIPTION  : Set the acquisition rate
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES:  LE_OK On Success, LE_OUT_OF_RANGE Invalid acquisition rate
-*/
-le_result_t taf_locPos_SetAcquisitionRate
-(
- uint32_t  acquisitionRate
+void taf_locPosCtrl_Request (
+    taf_locPosCtrl_ServerCmdRef_t cmdRef
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.SetAcquisitionRate(acquisitionRate);
+    pos.locPosCtrl_Request(cmdRef);
 }
-
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : GetAcquisitionRate
-* DESCRIPTION  : Get the acquisition rate
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: Acquisition rate in milliseconds.
-*/
-uint32_t taf_locPos_GetAcquisitionRate
-(
- void
+ * Releases the Positioning Control service.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPosCtrl_Release (
+    taf_locPosCtrl_ServerCmdRef_t cmdRef,
+    taf_locPosCtrl_ActivationRef_t ref ///< [IN] Reference to a Positioning Control service activation request.
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.GetAcquisitionRate();
+    pos.locPosCtrl_Release(cmdRef, ref);
 }
 
-/**
-* FUNCTION     : GetFixState
-* DESCRIPTION  : Get the position fix state
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK On Success, LE_FAULT Function failed to get the fix state
-*/
-le_result_t taf_locPos_GetFixState
+taf_locPos_MovementHandlerRef_t taf_locPos_AddMovementHandler
 (
- taf_locGnss_FixState_t* statePtr
+    uint32_t horizontalMagnitude,
+        ///< [IN] Horizontal magnitude in meters.
+    uint32_t verticalMagnitude,
+        ///< [IN] Vertical magnitude in meters.
+    taf_locPos_MovementHandlerFunc_t handlerPtr,
+        ///< [IN]
+    void* contextPtr
+        ///< [IN]
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.GetFixState(statePtr);
+    return pos.AddMovementHandler(horizontalMagnitude, verticalMagnitude, handlerPtr, contextPtr);
 }
-
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : AddMovementHandler
-* DESCRIPTION  : This function must be called to register a handler for movement notifications
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: handler reference, which is only needed for later removal of the handler
-*                Doesn't return on failure, so there's no need to check the return value for errors
-*/
-taf_locPos_MovementHandlerRef_t taf_locPos_AddMovementHandler(uint32_t hMagnitude,uint32_t vMagnitude,
-                                        taf_locPos_MovementHandlerFunc_t handlerPtr, void* contextPtr)
-{
-    auto &pos = taf_locPos::GetInstance();
-    return pos.AddMovementHandler(hMagnitude, vMagnitude, handlerPtr, contextPtr);
-}
-
-/**
-* FUNCTION     : RemoveMovementHandler
-* DESCRIPTION  : This function must be called to remove a handler for movement notifications
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: Doesn't return on failure, so there's no need to check the return value for errors
-*/
-void taf_locPos_RemoveMovementHandler(taf_locPos_MovementHandlerRef_t handlerRef)
+ * Remove handler function for EVENT 'taf_locPos_Movement'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_RemoveMovementHandler
+(
+    taf_locPos_MovementHandlerRef_t handlerRef
+        ///< [IN]
+)
 {
     auto &pos = taf_locPos::GetInstance();
     return pos.RemoveMovementHandler(handlerRef);
 }
-
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : Release
-* DESCRIPTION  : This function must be called to release the position sample
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: If the caller is passing an invalid Position reference into this function,
-*                it is a fatal error, the function will not return.
-*/
-void taf_locPos_sample_Release
-(
- taf_locPos_SampleRef_t positionSampleRef
+ * Gets the 2D location data (latitude, longitude, horizontal accuracy).
+ *
+ * @return
+ * - LE_FAULT         Failed to get the 2D location data.
+ * - LE_OUT_OF_RANGE  One, or more, retrieved parameters is invalid.
+ * - LE_OK            Succeeded.
+ *
+ * @b NOTE: latitudePtr, longitudePtr, hAccuracyPtr can be set to NULL if not needed.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_Get2DLocation (
+    taf_locPos_ServerCmdRef_t cmdRef
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.Release(positionSampleRef);
+    int32_t latitude = 0;
+    int32_t longitude = 0;
+    int32_t hAccuracy = 0;
+    auto res = pos.Get2DLocation(&latitude, &longitude, &hAccuracy);
+    taf_locPos_Get2DLocationRespond(cmdRef,res,latitude,longitude,hAccuracy);
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the date of the last updated location.
+ *
+ * @return
+ * - LE_FAULT         Failed to get the date.
+ * - LE_OUT_OF_RANGE  The retrieved date is invalid.
+ * - LE_OK            Succeeded.
+ *
+ * @b NOTE: Currently the API implementation is in progress.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_GetDate (
+    taf_locPos_ServerCmdRef_t cmdRef
+)
+{
+    auto &pos = taf_locPos::GetInstance();
+    uint16_t yearPtr = 0;
+    uint16_t monthPtr = 0;
+    uint16_t dayPtr = 0;
+    auto result = pos.GetDate(&yearPtr, &monthPtr, &dayPtr);
+    taf_locPos_GetDateRespond(cmdRef,result,yearPtr,monthPtr,dayPtr);
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the position fix state.
+ *
+ * @return
+ * - LE_FAULT         Failed to get the position fix state.
+ * - LE_OK            Succeeded.
+ *
+ * @b NOTE: In case the function fails to get the position fix state, a fatal error occurs,
+ *       the function will not return.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_GetFixState (
+    taf_locPos_ServerCmdRef_t cmdRef
+)
+{
+    auto &pos = taf_locPos::GetInstance();
+    taf_locGnss_FixState_t statePtr = TAF_LOCGNSS_STATE_FIX_NO_POS;
+    le_result_t result = pos.GetFixState(cmdRef,&statePtr);
+    taf_locPos_GetFixStateRespond(cmdRef,result,statePtr);
 }
 
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : GetTime
-* DESCRIPTION  : Get the time of the last updated location
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
-*/
-le_result_t taf_locPos_GetTime
-(
- uint16_t* hrsPtr,
- uint16_t* minPtr,
- uint16_t* secPtr,
- uint16_t* msecPtr
+ * Gets the motion data (horizontal speed, horizontal speed
+ * accuracy, vertical speed, and vertical speed accuracy).
+ *
+ * @return
+ * - LE_FAULT         Failed to get the motion data.
+ * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is invalid (set to INT32_MAX,
+ *                    UINT32_MAX).
+ * - LE_OK            Succeeded.
+ *
+ * @b NOTE: hSpeedPtr, hSpeedAccuracyPtr, vSpeedPtr, and vSpeedAccuracyPtr can be set to NULL if not
+ *       needed.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_GetMotion (
+    taf_locPos_ServerCmdRef_t cmdRef
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.GetTime(hrsPtr, minPtr, secPtr, msecPtr);
+    uint32_t hSpeed = 0;
+    uint32_t hSpeedAccuracy = 0;
+    int32_t  vSpeed = 0;
+    int32_t  vSpeedAccuracy = 0;
+    auto res = pos.GetMotion(&hSpeed,&hSpeedAccuracy,&vSpeed,&vSpeedAccuracy);
+    taf_locPos_GetMotionRespond(cmdRef,res,hSpeed,hSpeedAccuracy,vSpeed,vSpeedAccuracy);
 }
-
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : GetDate
-* DESCRIPTION  : Get the date of the last updated location
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
-*/
-le_result_t taf_locPos_GetDate
-(
- uint16_t* yearPtr,
- uint16_t* monthPtr,
- uint16_t* dayPtr
+ * Gets the position sample's direction. Direction of movement is the direction that the vehicle or
+ * person is actually moving.
+ *
+ * @return
+ * - LE_FAULT         Failed to get the direction indication.
+ * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is invalid.
+ * - LE_OK            Succeeded.
+ *
+ * @b NOTE: Direction is given in degrees.
+ *       Direction ranges from 0 to 359 degrees, where 0 is true North degree.
+ *
+ * @b NOTE: directionPtr and directionAccuracyPtr can be set to NULL if not needed.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_GetDirection (
+    taf_locPos_ServerCmdRef_t cmdRef
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.GetDate(yearPtr, monthPtr, dayPtr);
+    uint32_t directionPtr = 0;
+    uint32_t directionAccuracyPtr = 0;
+    auto res = pos.GetDirection(&directionPtr,&directionAccuracyPtr);
+    taf_locPos_GetDirectionRespond(cmdRef, res, directionPtr,directionAccuracyPtr);
 }
-
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : GetMotion
-* DESCRIPTION  : Get the date of the last updated location
-* DEPENDECY    : Get the motion's data (Horizontal Speed, Horizontal Speed's
-* accuracy, Vertical Speed, Vertical Speed's accuracy).
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
-*/
-le_result_t taf_locPos_GetMotion
-(
- uint32_t* hSpeed,
- uint32_t* hSpeedAccuracy,
- int32_t*  vSpeed,
- int32_t*  vSpeedAccuracy
+ * Gets the position sample's time.
+ *
+ * @return
+ * - LE_FAULT         Failed to get the time.
+ * - LE_OUT_OF_RANGE  The retrieved time is invalid.
+ * - LE_OK            Succeeded.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_GetTime (
+    taf_locPos_ServerCmdRef_t cmdRef
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.GetMotion(hSpeed,hSpeedAccuracy,vSpeed,vSpeedAccuracy);
+    uint16_t hrsPtr = 0;
+    uint16_t minPtr = 0;
+    uint16_t secPtr = 0;
+    uint16_t msecPtr = 0;
+    auto result = pos.GetTime(&hrsPtr, &minPtr, &secPtr, &msecPtr);
+    taf_locPos_GetTimeRespond(cmdRef,result,hrsPtr,minPtr,secPtr,msecPtr);
 }
-
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : Get2DLocation
-* DESCRIPTION  : Get the 2D location's data (Latitude, Longitude, Horizontal
-*                accuracy)
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
-*/
-le_result_t taf_locPos_Get2DLocation
-(
- int32_t* latitudePtr,
- int32_t* longitudePtr,
- int32_t* hAccuracyPtr
+ * Sets the acquisition rate.
+ *
+ * @return
+ * - LE_OUT_OF_RANGE    Acquisition rate is invalid.
+ * - LE_OK              Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_SetAcquisitionRate (
+    taf_locPos_ServerCmdRef_t cmdRef,
+    uint32_t acquisitionRate ///< [IN] Acquisition Rate in milliseconds.
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.Get2DLocation(latitudePtr,longitudePtr,hAccuracyPtr);
+    auto res = pos.SetAcquisitionRate(cmdRef, acquisitionRate);
+    taf_locPos_SetAcquisitionRateRespond(cmdRef, res);
 }
-
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : Get3DLocation
-* DESCRIPTION  : Get the 3D location's data (Latitude, Longitude, Horizontal
-*                accuracy, , Vertical accuracy)
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
-*/
-le_result_t taf_locPos_Get3DLocation
-(
- int32_t* latitudePtr,
- int32_t* longitudePtr,
- int32_t* hAccuracyPtr,
- int32_t* altitudePtr,
- int32_t* vAccuracyPtr
+ * Retrieves the acquisition rate in milliseconds.
+ *
+ * @return
+ * Acquisition rate in milliseconds.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_GetAcquisitionRate (
+    taf_locPos_ServerCmdRef_t cmdRef
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.Get3DLocation(latitudePtr,longitudePtr,hAccuracyPtr,altitudePtr,vAccuracyPtr);
+    uint32_t acqRate = pos.GetAcquisitionRate();
+    taf_locPos_GetAcquisitionRateRespond(cmdRef, acqRate);
 }
-
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : sample_Get2DLocation
-* DESCRIPTION  : Get the sample's 2D location's data (Latitude, Longitude, Horizontal
-*                accuracy)
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
-*/
-le_result_t taf_locPos_sample_Get2DLocation
-(
- taf_locPos_SampleRef_t positionSampleRef,
- int32_t* latitudePtr,
- int32_t* longitudePtr,
- int32_t* hAccuracyPtr
+ * Releases the position sample.
+ *
+ * @b NOTE: If the caller is passing an invalid position reference to this function,
+ *       it is a fatal error and the function will not return.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_sample_Release (
+    taf_locPos_ServerCmdRef_t cmdRef,
+    taf_locPos_SampleRef_t positionSampleRef ///< [IN] Position sample reference.
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.sample_Get2DLocation(positionSampleRef,latitudePtr,longitudePtr,hAccuracyPtr);
+    pos.Release(cmdRef, positionSampleRef);
+    taf_locPos_sample_ReleaseRespond(cmdRef);
 }
-
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : sample_GetAltitude
-* DESCRIPTION  : Get the position sample's altitude
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
-*/
-le_result_t taf_locPos_sample_GetAltitude
-(
-taf_locPos_SampleRef_t positionSampleRef,
-int32_t* altitudePtr,
-int32_t* altitudeAccuracyPtr
+ * Gets the 3D location data (latitude, longitude, altitude,
+ * horizontal accuracy, vertical accuracy)
+ *
+ * @return
+ * - LE_FAULT         Failed to get the 3D location data.
+ * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is invalid.
+ * - LE_OK            Succeeded.
+ *
+ * @b NOTE: latitudePtr, longitudePtr,hAccuracyPtr, altitudePtr, and vAccuracyPtr can be set to NULL
+ *       if not needed.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_Get3DLocation (
+    taf_locPos_ServerCmdRef_t cmdRef
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.sample_GetAltitude(positionSampleRef,altitudePtr,altitudeAccuracyPtr);
+    int32_t latitudePtr = 0;
+    int32_t longitudePtr = 0;
+    int32_t hAccuracyPtr = 0;
+    int32_t altitudePtr = 0;
+    int32_t vAccuracyPtr = 0;
+    auto res = pos.Get3DLocation(&latitudePtr,&longitudePtr,&hAccuracyPtr,&altitudePtr,&vAccuracyPtr);
+    taf_locPos_Get3DLocationRespond(cmdRef, res, latitudePtr,longitudePtr,hAccuracyPtr,altitudePtr,vAccuracyPtr);
 }
-
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : sample_GetTime
-* DESCRIPTION  : This function must be called to get the position sample's time
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
-*/
-le_result_t taf_locPos_sample_GetTime
-(
-    taf_locPos_SampleRef_t  positionSampleRef,
-    uint16_t* hoursPtr,
-    uint16_t* minutesPtr,
-    uint16_t* secondsPtr,
-    uint16_t* millisecondsPtr
+ * Gets the position sample's 2D location (latitude, longitude,
+ * horizontal accuracy)
+ *
+ * @return
+ * - LE_FAULT         Failed to find the positionSample.
+ * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is invalid.
+ * - LE_OK            Suceeded.
+ *
+ * @b NOTE: If the caller passes an invalid position reference to this function,
+ *       it is a fatal error and the function will not return.
+ *
+ * @b NOTE: latitudePtr, longitudePtr, and horizontalAccuracyPtr can be set to NULL if not needed.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_sample_Get2DLocation (
+    taf_locPos_ServerCmdRef_t cmdRef,
+    taf_locPos_SampleRef_t positionSampleRef ///< [IN] Position sample reference.
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.sample_GetTime(positionSampleRef,hoursPtr,minutesPtr,secondsPtr,millisecondsPtr);
+    int32_t latitudePtr = 0;
+    int32_t longitudePtr = 0;
+    int32_t hAccuracyPtr = 0;
+    auto res = pos.sample_Get2DLocation(positionSampleRef,&latitudePtr,&longitudePtr,&hAccuracyPtr);
+    taf_locPos_sample_Get2DLocationRespond(cmdRef,res,latitudePtr,longitudePtr,hAccuracyPtr);
 }
-
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : sample_GetDate
-* DESCRIPTION  : This function is called to get the position sample's date
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
-*/
-le_result_t taf_locPos_sample_GetDate
-(
-   taf_locPos_SampleRef_t positionSampleRef,
-   uint16_t* yearPtr,
-   uint16_t* monthPtr,
-   uint16_t* dayPtr
+ * Gets the position sample's altitude.
+ *
+ * @return
+ * - LE_FAULT         Failed to find the positionSample.
+ * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is invalid.
+ * - LE_OK            Suceeded.
+ *
+ * @b NOTE: If the caller passes an invalid position reference to this function,
+ *       it is a fatal error and the function will not return.
+ *
+ * @b NOTE: altitudePtr and altitudeAccuracyPtr can be set to NULL if not needed.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_sample_GetAltitude (
+    taf_locPos_ServerCmdRef_t cmdRef,
+    taf_locPos_SampleRef_t positionSampleRef ///< [IN] Position sample reference.
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.sample_GetDate(positionSampleRef,yearPtr,monthPtr,dayPtr);
+    int32_t altitudePtr = 0;
+    int32_t altitudeAccuracyPtr = 0;
+    auto res = pos.sample_GetAltitude(positionSampleRef,&altitudePtr,&altitudeAccuracyPtr);
+    taf_locPos_sample_GetAltitudeRespond(cmdRef, res, altitudePtr,altitudeAccuracyPtr);
 }
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : sample_GetHorizontalSpeed
-* DESCRIPTION  : Get the position sample's horizontal speed
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
-*/
-le_result_t taf_locPos_sample_GetHorizontalSpeed
-(
-    taf_locPos_SampleRef_t positionSampleRef,
-    uint32_t* hSpeedPtr,
-    uint32_t* hSpeedAccuracyPtr
+ * Gets the position sample's time.
+ *
+ * @return
+ * - LE_FAULT         Failed to get the time.
+ * - LE_OUT_OF_RANGE  The retrieved time is invalid.
+ * - LE_OK            Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_sample_GetTime (
+    taf_locPos_ServerCmdRef_t cmdRef,
+    taf_locPos_SampleRef_t positionSampleRef ///< [IN] Position sample reference.
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.sample_GetHorizontalSpeed(positionSampleRef,hSpeedPtr,hSpeedAccuracyPtr);
+    uint16_t hoursPtr = 0;
+    uint16_t minutesPtr = 0;
+    uint16_t secondsPtr = 0;
+    uint16_t millisecondsPtr = 0;
+    auto result = pos.sample_GetTime(positionSampleRef,&hoursPtr,&minutesPtr,&secondsPtr,&millisecondsPtr);
+    taf_locPos_sample_GetTimeRespond(cmdRef,result,hoursPtr, minutesPtr,secondsPtr,millisecondsPtr);
 }
-
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : sample_GetDirection
-* DESCRIPTION  : Direction of movement is the direction that the vehicle or person is actually moving
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
-*/
-le_result_t taf_locPos_sample_GetDirection
-(
-    taf_locPos_SampleRef_t  positionSampleRef,
-    uint32_t* directionPtr,
-    uint32_t* directionAccuracyPtr
+ * Gets the position sample's horizontal speed.
+ *
+ * @return
+ * - LE_FAULT         Failed to find the positionSample.
+ * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is invalid.
+ * - LE_OK            Suceeded.
+ *
+ * @b NOTE: If the caller passes an invalid position reference to this function,
+ *       it is a fatal error and the function will not return.
+ *
+ * @b NOTE: hSpeedPtr and hSpeedAccuracyPtr can be set to NULL if not needed.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_sample_GetHorizontalSpeed (
+    taf_locPos_ServerCmdRef_t cmdRef,
+    taf_locPos_SampleRef_t positionSampleRef ///< [IN] Position sample reference.
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.sample_GetDirection(positionSampleRef,directionPtr,directionAccuracyPtr);
+    uint32_t hSpeedPtr = 0;
+    uint32_t hSpeedAccuracyPtr = 0;
+    auto res = pos.sample_GetHorizontalSpeed(positionSampleRef,&hSpeedPtr,&hSpeedAccuracyPtr);
+    taf_locPos_sample_GetHorizontalSpeedRespond(cmdRef, res, hSpeedPtr, hSpeedAccuracyPtr);
 }
-
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : sample_GetVerticalSpeed
-* DESCRIPTION  : Get the position sample's vertical speed
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
-*/
-le_result_t taf_locPos_sample_GetVerticalSpeed
-(
-    taf_locPos_SampleRef_t  positionSampleRef,
-    int32_t* vSpeedPtr,
-    int32_t* vSpeedAccuracyPtr
+ * Get the position sample's direction
+ *
+ * @return
+ * - LE_FAULT         Failed to find the positionSample.
+ * - LE_OUT_OF_RANGE  One of the retrieved parameter is invalid.
+ * - LE_OK            Suceeded.
+ *
+ * @b NOTE: Direction is given in degrees.
+ *       Direction ranges from 0 to 359 degrees, where 0 is true North.
+ *
+ * @b NOTE: If the caller passed an invalid position reference to this function,
+ *       it is a fatal error and the function will not return.
+ *
+ * @b NOTE: directionPtr and directionAccuracyPtr can be set to NULL if not needed.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_sample_GetDirection (
+    taf_locPos_ServerCmdRef_t cmdRef,
+    taf_locPos_SampleRef_t positionSampleRef ///< [IN] Position sample reference.
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.sample_GetVerticalSpeed( positionSampleRef,vSpeedPtr,vSpeedAccuracyPtr);
+    uint32_t directionPtr = 0;
+    uint32_t directionAccuracyPtr = 0;
+    auto res = pos.sample_GetDirection(positionSampleRef,&directionPtr,&directionAccuracyPtr);
+    taf_locPos_sample_GetDirectionRespond(cmdRef, res, directionPtr, directionAccuracyPtr);
 }
-
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : SetDistanceResolution
-* DESCRIPTION  : Set the resolution for the positioning distance values
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
-*/
-le_result_t taf_locPos_SetDistanceResolution
-(
- taf_locPos_Resolution_t resolution
+ * Gets the position sample's vertical speed.
+ *
+ * @return
+ * - LE_FAULT         Failed to find the positionSample.
+ * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is not valid.
+ * - LE_OK            Suceeded.
+ *
+ * @b NOTE: If the caller passes an invalid position reference to this function,
+ *       it is a fatal error and the function will not return.
+ *
+ * @b NOTE: vSpeedPtr and vSpeedAccuracyPtr can be set to NULL if not needed.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_sample_GetVerticalSpeed (
+    taf_locPos_ServerCmdRef_t cmdRef,
+    taf_locPos_SampleRef_t positionSampleRef ///< [IN] Position sample reference
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.SetDistanceResolution(resolution);
+    int32_t vSpeedPtr = 0;
+    int32_t vSpeedAccuracyPtr = 0;
+    auto result = pos.sample_GetVerticalSpeed(positionSampleRef, &vSpeedPtr, &vSpeedAccuracyPtr);
+    taf_locPos_sample_GetVerticalSpeedRespond(cmdRef,result,vSpeedPtr,vSpeedAccuracyPtr);
 }
-
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : sample_GetFixState
-* DESCRIPTION  : Get the position sample's fix state
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
-*/
-le_result_t taf_locPos_sample_GetFixState
-(
-    taf_locPos_SampleRef_t  positionSampleRef,
-    taf_locGnss_FixState_t*  statePtr
+ * Sets the resolution for the positioning distance values.
+ *
+ * @return
+ * - LE_OK               Suceeded.
+ * - LE_BAD_PARAMETER    Invalid parameter provided.
+ *
+ * @b NOTE: The positioning distance values are: the altitude above sea level, the horizontal
+ *       position accuracy and the vertical position accuracy. The API sets the same resolution to
+ *       all distance values. The resolution change request takes effect immediately.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_SetDistanceResolution (
+    taf_locPos_ServerCmdRef_t cmdRef,
+    taf_locPos_Resolution_t resolution ///< [IN] Resolution.
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.sample_GetFixState(positionSampleRef,statePtr);
+    le_result_t result = pos.SetDistanceResolution(resolution);
+    taf_locPos_SetDistanceResolutionRespond(cmdRef, result);
 }
-
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : GetDirection
-* DESCRIPTION  : Get the direction indication. Direction of movement is the direction that the vehicle or person
-*                is actually moving.
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
-*/
-le_result_t taf_locPos_GetDirection
-(
- uint32_t* directionPtr,
- uint32_t* directionAccuracyPtr
+ * Gets the position sample's fix state.
+ *
+ * @return
+ * - LE_FAULT         Failed to get the position sample's fix state.
+ * - LE_OK            Suceeded.
+ *
+ * @b NOTE: If the caller passes an invalid position reference to this function,
+ *       it is a fatal error and the function will not return.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_sample_GetFixState (
+    taf_locPos_ServerCmdRef_t cmdRef,
+    taf_locPos_SampleRef_t positionSampleRef ///< [IN] Position sample reference.
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.GetDirection(directionPtr,directionAccuracyPtr);
+    taf_locGnss_FixState_t statePtr = TAF_LOCGNSS_STATE_FIX_NO_POS;
+    auto result = pos.sample_GetFixState(positionSampleRef,&statePtr);
+    taf_locPos_sample_GetFixStateRespond(cmdRef,result,statePtr);
 }
-
+//--------------------------------------------------------------------------------------------------
 /**
-* FUNCTION     : locPosCtrl_Request
-* DESCRIPTION  : Request activation of the positioning service
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: Reference
-*/
-taf_locPosCtrl_ActivationRef_t taf_locPosCtrl_Request
-(
-    void
+ * Gets the position sample date.
+ *
+ * @return
+ * - LE_FAULT         Failed to get the date.
+ * - LE_OUT_OF_RANGE  The retrieved date is invalid.
+ * - LE_OK            Suceeded.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos_sample_GetDate (
+    taf_locPos_ServerCmdRef_t cmdRef,
+    taf_locPos_SampleRef_t positionSampleRef ///< [IN] Position sample reference.
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    return pos.locPosCtrl_Request();
-}
-
-/**
-* FUNCTION     : Release
-* DESCRIPTION  : Release the Positioning services
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: None
-*/
-void taf_locPosCtrl_Release
-(
- taf_locPosCtrl_ActivationRef_t ref
-)
-{
-    auto &pos = taf_locPos::GetInstance();
-    return pos.locPosCtrl_Release(ref);
+    uint16_t yearPtr = 0;
+    uint16_t monthPtr = 0;
+    uint16_t dayPtr = 0;
+    auto result = pos.sample_GetDate(positionSampleRef,&yearPtr,&monthPtr,&dayPtr);
+    taf_locPos_sample_GetDateRespond(cmdRef, result, yearPtr,monthPtr,dayPtr);
 }
 
 /**
@@ -465,16 +563,18 @@ void taf_locPosCtrl_Release
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
 */
-le_result_t taf_locGnss_GetDate
+void taf_locGnss_GetDate
 (
- taf_locGnss_SampleRef_t positionSampleRef,
- uint16_t* yearPtr,
- uint16_t* monthPtr,
- uint16_t* dayPtr
+ taf_locGnss_ServerCmdRef_t cmdRef,
+ taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetDate(positionSampleRef, yearPtr, monthPtr, dayPtr);
+    uint16_t year = 0;
+    uint16_t month = 0;
+    uint16_t day = 0;
+    le_result_t res = gnss.GetDate(positionSampleRef, &year, &month, &day);
+    taf_locGnss_GetDateRespond(cmdRef, res, year, month, day);
 }
 
 /**
@@ -484,17 +584,19 @@ le_result_t taf_locGnss_GetDate
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
 */
-le_result_t taf_locGnss_GetTime
+void taf_locGnss_GetTime
 (
- taf_locGnss_SampleRef_t positionSampleRef,
- uint16_t* hoursPtr,
- uint16_t* minutesPtr,
- uint16_t* secondsPtr,
- uint16_t* millisecondsPtr
+ taf_locGnss_ServerCmdRef_t cmdRef,
+ taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetTime(positionSampleRef, hoursPtr, minutesPtr, secondsPtr, millisecondsPtr);
+    uint16_t hours = 0;
+    uint16_t minutes = 0;
+    uint16_t seconds = 0;
+    uint16_t milliseconds = 0;
+    le_result_t res = gnss.GetTime(positionSampleRef, &hours, &minutes, &seconds, &milliseconds);
+    taf_locGnss_GetTimeRespond(cmdRef, res, hours, minutes, seconds, milliseconds);
 }
 
 /**
@@ -504,14 +606,16 @@ le_result_t taf_locGnss_GetTime
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success,LE_OUT_OF_RANGE LE_FAULT on fail
 */
-le_result_t taf_locGnss_GetGpsLeapSeconds
+void taf_locGnss_GetGpsLeapSeconds
 (
- taf_locGnss_SampleRef_t positionSampleRef,
- uint8_t* leapSecondsPtr
+ taf_locGnss_ServerCmdRef_t cmdRef,
+ taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetGpsLeapSeconds(positionSampleRef, leapSecondsPtr);
+    uint8_t leapSeconds = 0;
+    le_result_t res = gnss.GetGpsLeapSeconds(positionSampleRef, &leapSeconds);
+    taf_locGnss_GetGpsLeapSecondsRespond(cmdRef, res, leapSeconds);
 }
 
 /**
@@ -522,15 +626,17 @@ le_result_t taf_locGnss_GetGpsLeapSeconds
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
 */
-le_result_t taf_locGnss_GetDirection
+void taf_locGnss_GetDirection
 (
- taf_locGnss_SampleRef_t positionSampleRef,
- uint32_t* directionPtr,
- uint32_t* directionAccuracyPtr
+ taf_locGnss_ServerCmdRef_t cmdRef,
+ taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetDirection(positionSampleRef, directionPtr, directionAccuracyPtr);
+    uint32_t direction = 0;
+    uint32_t directionAccuracy = 0;
+    le_result_t res = gnss.GetDirection(positionSampleRef, &direction, &directionAccuracy);
+    taf_locGnss_GetDirectionRespond(cmdRef, res, direction, directionAccuracy);
 }
 
 /**
@@ -540,15 +646,17 @@ le_result_t taf_locGnss_GetDirection
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
 */
-le_result_t taf_locGnss_GetVerticalSpeed
+void taf_locGnss_GetVerticalSpeed
 (
- taf_locGnss_SampleRef_t positionSampleRef,
-int32_t* vspeedPtr,
-int32_t* vspeedAccuracyPtr
+ taf_locGnss_ServerCmdRef_t cmdRef,
+ taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetVerticalSpeed(positionSampleRef, vspeedPtr, vspeedAccuracyPtr);
+    int32_t vspeed = 0;
+    int32_t vspeedAccuracy = 0;
+    le_result_t res =  gnss.GetVerticalSpeed(positionSampleRef, &vspeed, &vspeedAccuracy);
+    taf_locGnss_GetVerticalSpeedRespond(cmdRef, res, vspeed, vspeedAccuracy);
 }
 
 /**
@@ -558,15 +666,17 @@ int32_t* vspeedAccuracyPtr
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on fail
 */
-le_result_t taf_locGnss_GetHorizontalSpeed
+void taf_locGnss_GetHorizontalSpeed
 (
- taf_locGnss_SampleRef_t positionSampleRef,
-uint32_t* hspeedPtr,
-uint32_t* hspeedAccuracyPtr
+ taf_locGnss_ServerCmdRef_t cmdRef,
+ taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetHorizontalSpeed(positionSampleRef, hspeedPtr, hspeedAccuracyPtr);
+    uint32_t hspeed = 0;
+    uint32_t hspeedAccuracy = 0;
+    le_result_t res = gnss.GetHorizontalSpeed(positionSampleRef, &hspeed, &hspeedAccuracy);
+    taf_locGnss_GetHorizontalSpeedRespond(cmdRef, res, hspeed, hspeedAccuracy);
 }
 
 /**
@@ -576,15 +686,17 @@ uint32_t* hspeedAccuracyPtr
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on fail
 */
-le_result_t taf_locGnss_GetAltitude
+void taf_locGnss_GetAltitude
 (
- taf_locGnss_SampleRef_t positionSampleRef,
-int32_t* altitudePtr,
-int32_t* vAccuracyPtr
+ taf_locGnss_ServerCmdRef_t cmdRef,
+ taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetAltitude(positionSampleRef, altitudePtr, vAccuracyPtr);
+    int32_t altitude = 0;
+    int32_t vAccuracy = 0;
+    le_result_t res = gnss.GetAltitude(positionSampleRef, &altitude, &vAccuracy);
+    taf_locGnss_GetAltitudeRespond(cmdRef, res, altitude, vAccuracy);
 }
 
 /**
@@ -594,16 +706,18 @@ int32_t* vAccuracyPtr
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
 */
-le_result_t taf_locGnss_GetLocation
+void taf_locGnss_GetLocation
 (
- taf_locGnss_SampleRef_t positionSampleRef,
-int32_t* latitudePtr,
-int32_t* longitudePtr,
-int32_t* hAccuracyPtr
+ taf_locGnss_ServerCmdRef_t cmdRef,
+ taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetLocation(positionSampleRef, latitudePtr, longitudePtr, hAccuracyPtr);
+    int32_t latitude = 0;
+    int32_t longitude = 0;
+    int32_t hAccuracy = 0;
+    le_result_t res = gnss.GetLocation(positionSampleRef, &latitude, &longitude, &hAccuracy);
+    taf_locGnss_GetLocationRespond(cmdRef, res, latitude, longitude, hAccuracy);
 }
 
 /**
@@ -765,13 +879,14 @@ taf_locGnss_NmeaHandlerRef_t taf_locGnss_AddNmeaHandler
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
-le_result_t taf_locGnss_Enable
+void taf_locGnss_Enable
 (
- void
+ taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.Enable();
+    le_result_t res = gnss.Enable();
+    taf_locGnss_EnableRespond(cmdRef, res);
 }
 
 /**
@@ -781,13 +896,14 @@ le_result_t taf_locGnss_Enable
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed with reason
 */
-le_result_t taf_locGnss_SetConstellation
+void taf_locGnss_SetConstellation
 (
-taf_locGnss_ConstellationBitMask_t constellationMask
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_ConstellationBitMask_t constellationMask
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.SetConstellation( constellationMask);
+    gnss.SetConstellation(cmdRef, constellationMask);
 }
 
 /**
@@ -797,13 +913,13 @@ taf_locGnss_ConstellationBitMask_t constellationMask
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
-le_result_t taf_locGnss_Start
+void taf_locGnss_Start
 (
- void
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.Start();
+    gnss.Start(cmdRef);
 }
 
 /**
@@ -813,13 +929,15 @@ le_result_t taf_locGnss_Start
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed with reason
 */
-le_result_t taf_locGnss_GetConstellation
+void taf_locGnss_GetConstellation
 (
-taf_locGnss_ConstellationBitMask_t *constellationMaskPtr
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetConstellation(constellationMaskPtr);
+    taf_locGnss_ConstellationBitMask_t constellationMask = 0;
+    le_result_t res = gnss.GetConstellation(&constellationMask);
+    taf_locGnss_GetConstellationRespond(cmdRef, res, constellationMask);
 }
 
 /**
@@ -829,13 +947,14 @@ taf_locGnss_ConstellationBitMask_t *constellationMaskPtr
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_DUPLICATE LE_NOT_PERMITTED on failed with reason
 */
-le_result_t taf_locGnss_Disable
+void taf_locGnss_Disable
 (
-void
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.Disable();
+    le_result_t res = gnss.Disable();
+    taf_locGnss_DisableRespond(cmdRef, res);
 }
 
 /**
@@ -845,13 +964,13 @@ void
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_DUPLICATE LE_NOT_PERMITTED on failed with reason
 */
-le_result_t taf_locGnss_Stop
+void taf_locGnss_Stop
 (
- void
+ taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.Stop();
+    gnss.Stop(cmdRef);
 }
 
 /**
@@ -861,13 +980,14 @@ le_result_t taf_locGnss_Stop
 * PARAMETERS   :
 * RETURN VALUES: returns current state
 */
-taf_locGnss_State_t taf_locGnss_GetState
+void taf_locGnss_GetState
 (
- void
+ taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetState();
+    taf_locGnss_State_t state = gnss.GetState();
+    taf_locGnss_GetStateRespond(cmdRef, state);
 }
 
 /**
@@ -877,16 +997,18 @@ taf_locGnss_State_t taf_locGnss_GetState
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT on failure
 */
-le_result_t taf_locGnss_GetSatellitesStatus
+void taf_locGnss_GetSatellitesStatus
 (
-taf_locGnss_SampleRef_t positionSampleRef,
-uint8_t* satsInViewCountPtr,
-uint8_t* satsTrackingCountPtr,
-uint8_t* satsUsedCountPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetSatellitesStatus(positionSampleRef, satsInViewCountPtr, satsTrackingCountPtr, satsUsedCountPtr);
+    uint8_t satsInViewCount = 0;
+    uint8_t satsTrackingCount = 0;
+    uint8_t satsUsedCount = 0;
+    le_result_t res = gnss.GetSatellitesStatus(positionSampleRef, &satsInViewCount, &satsTrackingCount, &satsUsedCount);
+    taf_locGnss_GetSatellitesStatusRespond(cmdRef, res, satsInViewCount, satsTrackingCount, satsUsedCount);
 }
 
 /**
@@ -896,13 +1018,15 @@ uint8_t* satsUsedCountPtr
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT on failure, LE_NOT_PERMITTED If the GNSS device is not in "ready" state
 */
-le_result_t taf_locGnss_GetAcquisitionRate
+void taf_locGnss_GetAcquisitionRate
 (
- uint32_t* ratePtr
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetAcquisitionRate(ratePtr);
+    uint32_t rate = 0;
+    le_result_t res = gnss.GetAcquisitionRate(&rate);
+    taf_locGnss_GetAcquisitionRateRespond(cmdRef, res, rate);
 }
 
 /**
@@ -911,13 +1035,15 @@ le_result_t taf_locGnss_GetAcquisitionRate
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_BUSY LE_NOT_PERMITTED LE_FAULT on failed with reason
 */
-le_result_t taf_locGnss_GetTtff
+void taf_locGnss_GetTtff
 (
- uint32_t* ttffPtr
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetTtff(ttffPtr);
+    uint32_t ttff = 0;
+    le_result_t res = gnss.GetTtff(&ttff);
+    taf_locGnss_GetTtffRespond(cmdRef, res, ttff);
 }
 
 /**
@@ -927,26 +1053,44 @@ le_result_t taf_locGnss_GetTtff
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT on fail, LE_OUT_OF_RANGE retrieved parameters is invalid
 */
-le_result_t taf_locGnss_GetSatellitesInfo
+void taf_locGnss_GetSatellitesInfo
 (
+    taf_locGnss_ServerCmdRef_t cmdRef,
     taf_locGnss_SampleRef_t positionSampleRef,
-    uint16_t* satIdPtr,
-    size_t* satIdNumPtr,
-    taf_locGnss_Constellation_t* satConstPtr,
-    size_t* satConstNumPtr,
-    bool* satUsedPtr,
-    size_t* satUsedNumPtr,
-    uint8_t* satSnrPtr,
-    size_t* satSnrNumPtr,
-    uint16_t* satAzimPtr,
-    size_t* satAzimNumPtr,
-    uint8_t* satElevPtr,
-    size_t* satElevNumPtr
+    size_t satIdNum,
+    size_t satConstNum,
+    size_t satUsedNum,
+    size_t satSnrNum,
+    size_t satAzimNum,
+    size_t satElevNum
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetSatellitesInfo(positionSampleRef, satIdPtr, satIdNumPtr, satConstPtr, satConstNumPtr,
-            satUsedPtr, satUsedNumPtr, satSnrPtr, satSnrNumPtr, satAzimPtr, satAzimNumPtr, satElevPtr, satElevNumPtr);
+
+    uint16_t                    satId[satIdNum];
+    taf_locGnss_Constellation_t satConst[satConstNum];
+    bool                        satUsed[satUsedNum];
+    uint8_t                     satSnr[satSnrNum];
+    uint16_t                    satAzim[satAzimNum];
+    uint8_t                     satElev[satElevNum];
+
+    le_result_t res = gnss.GetSatellitesInfo(
+        positionSampleRef,
+        satId,    &satIdNum,
+        satConst, &satConstNum,
+        satUsed,  &satUsedNum,
+        satSnr,   &satSnrNum,
+        satAzim,  &satAzimNum,
+        satElev,  &satElevNum);
+
+    taf_locGnss_GetSatellitesInfoRespond(
+        cmdRef, res,
+        satId,    satIdNum,
+        satConst, satConstNum,
+        satUsed,  satUsedNum,
+        satSnr,   satSnrNum,
+        satAzim,  satAzimNum,
+        satElev,  satElevNum);
 }
 
 /**
@@ -956,13 +1100,14 @@ le_result_t taf_locGnss_GetSatellitesInfo
 * PARAMETERS   :
 * RETURN VALUES: A reference to last Position's sample
 */
-taf_locGnss_SampleRef_t taf_locGnss_GetLastSampleRef
+void taf_locGnss_GetLastSampleRef
 (
-    void
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetLastSampleRef();
+    taf_locGnss_SampleRef_t ref = gnss.GetLastSampleRef();
+    taf_locGnss_GetLastSampleRefRespond(cmdRef, ref);
 }
 
 /**
@@ -972,15 +1117,17 @@ taf_locGnss_SampleRef_t taf_locGnss_GetLastSampleRef
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success,LE_FAULT on failure
 */
-le_result_t taf_locGnss_GetPositionState
+void taf_locGnss_GetPositionState
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-
-    taf_locGnss_FixState_t* statePtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetPositionState(positionSampleRef, statePtr);
+    taf_locGnss_FixState_t state = TAF_LOCGNSS_STATE_FIX_NO_POS;
+    le_result_t res = gnss.GetPositionState(positionSampleRef, &state);
+    taf_locGnss_GetPositionStateRespond(cmdRef, res, state);
+
 }
 
 /**
@@ -993,20 +1140,24 @@ le_result_t taf_locGnss_GetPositionState
 */
 void taf_locGnss_ReleaseSampleRef
 (
- taf_locGnss_SampleRef_t    positionSampleRef
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t    positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.ReleaseSampleRef(positionSampleRef);
+    gnss.ReleaseSampleRef(positionSampleRef);
+    taf_locGnss_ReleaseSampleRefRespond(cmdRef);
 }
 
 void taf_locGnss_ReleaseSampleExRef
 (
- taf_locGnss_SampleExRef_t    postitionSampleExRef
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleExRef_t    postitionSampleExRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.ReleaseSampleExRef(postitionSampleExRef);
+    gnss.ReleaseSampleExRef(postitionSampleExRef);
+    taf_locGnss_ReleaseSampleExRefRespond(cmdRef);
 }
 
 /**
@@ -1016,14 +1167,16 @@ void taf_locGnss_ReleaseSampleExRef
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
 */
-le_result_t taf_locGnss_GetTimeAccuracy
+void taf_locGnss_GetTimeAccuracy
 (
- taf_locGnss_SampleRef_t    positionSampleRef,
- uint32_t* timeAccuracyPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t    positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetTimeAccuracy(positionSampleRef, timeAccuracyPtr);
+    uint32_t timeAccuracy = 0;
+    le_result_t res = gnss.GetTimeAccuracy(positionSampleRef, &timeAccuracy);
+    taf_locGnss_GetTimeAccuracyRespond(cmdRef, res, timeAccuracy);
 }
 
 /**
@@ -1033,14 +1186,16 @@ le_result_t taf_locGnss_GetTimeAccuracy
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
 */
-le_result_t taf_locGnss_GetEpochTime
+void taf_locGnss_GetEpochTime
 (
- taf_locGnss_SampleRef_t    positionSampleRef,
- uint64_t* millisecondsPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t    positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetEpochTime(positionSampleRef, millisecondsPtr);
+    uint64_t milliseconds = 0;
+    le_result_t res = gnss.GetEpochTime(positionSampleRef, &milliseconds);
+    taf_locGnss_GetEpochTimeRespond(cmdRef, res, milliseconds);
 }
 
 /**
@@ -1050,13 +1205,15 @@ le_result_t taf_locGnss_GetEpochTime
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_BAD_PARAMETER on failed
 */
-le_result_t taf_locGnss_SetDopResolution
+void taf_locGnss_SetDopResolution
 (
- taf_locGnss_Resolution_t resolution
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_Resolution_t resolution
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.SetDopResolution(resolution);
+    le_result_t res = gnss.SetDopResolution(resolution);
+    taf_locGnss_SetDopResolutionRespond(cmdRef, res);
 }
 
 /**
@@ -1066,15 +1223,17 @@ le_result_t taf_locGnss_SetDopResolution
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
 */
-le_result_t taf_locGnss_GetDilutionOfPrecision
+void taf_locGnss_GetDilutionOfPrecision
 (
- taf_locGnss_SampleRef_t    positionSampleRef,
- taf_locGnss_DopType_t dopType,
- uint16_t* dopPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t    positionSampleRef,
+    taf_locGnss_DopType_t dopType
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetDilutionOfPrecision(positionSampleRef, dopType, dopPtr);
+    uint16_t dop = 0;
+    le_result_t res = gnss.GetDilutionOfPrecision(positionSampleRef, dopType, &dop);
+    taf_locGnss_GetDilutionOfPrecisionRespond(cmdRef, res, dop);
 }
 
 /**
@@ -1084,16 +1243,18 @@ le_result_t taf_locGnss_GetDilutionOfPrecision
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success,LE_FAULT on failed
 */
-le_result_t taf_locGnss_GetLeapSeconds
+void taf_locGnss_GetLeapSeconds
 (
- uint64_t* gpsTimePtr,
- int32_t* currentLeapSecondsPtr,
- uint64_t* changeEventTimePtr,
- int32_t* nextLeapSecondsPtr
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetLeapSeconds(gpsTimePtr,currentLeapSecondsPtr,changeEventTimePtr,nextLeapSecondsPtr);
+    uint64_t gpsTime = 0;
+    int32_t currentLeapSeconds = 0;
+    uint64_t changeEventTime = 0;
+    int32_t nextLeapSeconds = 0;
+    le_result_t res =  gnss.GetLeapSeconds(&gpsTime,&currentLeapSeconds,&changeEventTime,&nextLeapSeconds);
+    taf_locGnss_GetLeapSecondsRespond(cmdRef, res, gpsTime,currentLeapSeconds,changeEventTime,nextLeapSeconds);
 }
 
 /**
@@ -1103,15 +1264,17 @@ le_result_t taf_locGnss_GetLeapSeconds
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
 */
-le_result_t taf_locGnss_GetGpsTime
+void taf_locGnss_GetGpsTime
 (
- taf_locGnss_SampleRef_t    positionSampleRef,
- uint32_t* gpsWeekPtr,
- uint32_t* gpsTimeOfWeekPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t    positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetGpsTime(positionSampleRef, gpsWeekPtr, gpsTimeOfWeekPtr);
+    uint32_t gpsWeek = 0;
+    uint32_t gpsTimeOfWeek = 0;
+    le_result_t res = gnss.GetGpsTime(positionSampleRef, &gpsWeek, &gpsTimeOfWeek);
+    taf_locGnss_GetGpsTimeRespond(cmdRef, res, gpsWeek, gpsTimeOfWeek);
 }
 
 /**
@@ -1121,13 +1284,15 @@ le_result_t taf_locGnss_GetGpsTime
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE LE_NOT_PERMITTED LE_UNSUPPORTED on failed
 */
-le_result_t taf_locGnss_SetAcquisitionRate
+void taf_locGnss_SetAcquisitionRate
 (
- uint32_t  rate
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    uint32_t  rate
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.SetAcquisitionRate(rate);
+    le_result_t res = gnss.SetAcquisitionRate(rate);
+    taf_locGnss_SetAcquisitionRateRespond(cmdRef, res);
 }
 
 /**
@@ -1137,12 +1302,13 @@ le_result_t taf_locGnss_SetAcquisitionRate
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT on failed
 */
-le_result_t taf_locGnss_ForceColdRestart
+void taf_locGnss_ForceColdRestart
 (
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.ForceColdRestart();
+    gnss.ForceColdRestart(cmdRef);
 }
 
 /**
@@ -1152,12 +1318,13 @@ le_result_t taf_locGnss_ForceColdRestart
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT on failed
 */
-le_result_t taf_locGnss_ForceWarmRestart
+void taf_locGnss_ForceWarmRestart
 (
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.ForceWarmRestart();
+    gnss.ForceWarmRestart(cmdRef);
 }
 
 /**
@@ -1167,27 +1334,29 @@ le_result_t taf_locGnss_ForceWarmRestart
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT on failed
 */
-le_result_t taf_locGnss_ForceFactoryRestart
+void taf_locGnss_ForceFactoryRestart
 (
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     LE_DEBUG("Feature not Supported");
-    return LE_UNSUPPORTED;
+    taf_locGnss_ForceFactoryRestartRespond(cmdRef, LE_UNSUPPORTED);
 }
 
 /**
-* FUNCTION     : ForceWarmRestart
+* FUNCTION     : ForceHotRestart
 * DESCRIPTION  :
 * DEPENDECY    :
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT on failed
 */
-le_result_t taf_locGnss_ForceHotRestart
+void taf_locGnss_ForceHotRestart
 (
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.ForceHotRestart();
+    gnss.ForceHotRestart(cmdRef);
 }
 
 /**
@@ -1197,13 +1366,15 @@ le_result_t taf_locGnss_ForceHotRestart
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed
 */
-le_result_t taf_locGnss_GetSupportedConstellations
+void taf_locGnss_GetSupportedConstellations
 (
- taf_locGnss_ConstellationBitMask_t* constellationMaskPtr
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetSupportedConstellations(constellationMaskPtr);
+    taf_locGnss_ConstellationBitMask_t constellationMask = 0;
+    le_result_t res = gnss.GetSupportedConstellations(&constellationMask);
+    taf_locGnss_GetSupportedConstellationsRespond(cmdRef, res, constellationMask);
 }
 
 /**
@@ -1213,13 +1384,14 @@ le_result_t taf_locGnss_GetSupportedConstellations
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT LE_UNSUPPORTED on failed
 */
-le_result_t taf_locGnss_SetMinElevation
+void taf_locGnss_SetMinElevation
 (
- uint8_t  minElevation
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    uint8_t  minElevation
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.SetMinElevation(minElevation);
+    gnss.SetMinElevation(cmdRef, minElevation);
 }
 
 /**
@@ -1229,13 +1401,14 @@ le_result_t taf_locGnss_SetMinElevation
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_NOT_PERMITTED LE_FAULT LE_UNSUPPORTED on failed
 */
-le_result_t taf_locGnss_StartMode
+void taf_locGnss_StartMode
 (
- taf_locGnss_StartMode_t  mode
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_StartMode_t  mode
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.StartMode(mode);
+    gnss.StartMode(cmdRef, mode);
 }
 
 /**
@@ -1245,13 +1418,15 @@ le_result_t taf_locGnss_StartMode
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED on failed
 */
-le_result_t taf_locGnss_GetMinElevation
+void taf_locGnss_GetMinElevation
 (
- uint8_t*  minElevationPtr
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetMinElevation(minElevationPtr);
+    uint8_t minElevation = 0;
+    le_result_t res = gnss.GetMinElevation(&minElevation);
+    taf_locGnss_GetMinElevationRespond(cmdRef, res, minElevation);
 }
 
 /**
@@ -1262,13 +1437,14 @@ le_result_t taf_locGnss_GetMinElevation
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed
 */
 
-le_result_t taf_locGnss_SetNmeaSentences
+void taf_locGnss_SetNmeaSentences
 (
+    taf_locGnss_ServerCmdRef_t cmdRef,
     taf_locGnss_NmeaBitMask_t nmeaMask ///< [IN] Bit mask for enabled NMEA sentences.
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.SetNmeaSentences(nmeaMask);
+    gnss.SetNmeaSentences(cmdRef, nmeaMask);
 }
 
 /**
@@ -1278,13 +1454,15 @@ le_result_t taf_locGnss_SetNmeaSentences
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed
 */
-le_result_t taf_locGnss_GetNmeaSentences
+void taf_locGnss_GetNmeaSentences
 (
-    taf_locGnss_NmeaBitMask_t* nmeaMaskPtr ///< [OUT] Bit mask for enabled NMEA sentences.
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetNmeaSentences(nmeaMaskPtr);
+    taf_locGnss_NmeaBitMask_t nmeaMask = 0;
+    le_result_t res = gnss.GetNmeaSentences(&nmeaMask);
+    taf_locGnss_GetNmeaSentencesRespond(cmdRef, res, nmeaMask);
 }
 
 /**
@@ -1294,13 +1472,14 @@ le_result_t taf_locGnss_GetNmeaSentences
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED LE_OUT_OF_RANGE on failed with reason
 */
-le_result_t taf_locGnss_SetDRConfig
+void taf_locGnss_SetDRConfig
 (
+    taf_locGnss_ServerCmdRef_t cmdRef,
     const taf_locGnss_DrParams_t* drParamsPtr
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.SetDRConfig(drParamsPtr);
+    gnss.SetDRConfig(cmdRef, drParamsPtr);
 }
 /**
 * FUNCTION     : GetSupportedNmeaSentences
@@ -1309,13 +1488,15 @@ le_result_t taf_locGnss_SetDRConfig
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED on failed
 */
-le_result_t taf_locGnss_GetSupportedNmeaSentences
+void taf_locGnss_GetSupportedNmeaSentences
 (
-    taf_locGnss_NmeaBitMask_t* nmeaMaskPtr ///< [OUT] Bit mask for supported NMEA sentences.
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetSupportedNmeaSentences(nmeaMaskPtr);
+    taf_locGnss_NmeaBitMask_t nmeaMask = 0;
+    le_result_t res = gnss.GetSupportedNmeaSentences(&nmeaMask);
+    taf_locGnss_GetSupportedNmeaSentencesRespond(cmdRef, res, nmeaMask);
 }
 /**
 * FUNCTION     : ConfigureEngineState
@@ -1325,14 +1506,15 @@ le_result_t taf_locGnss_GetSupportedNmeaSentences
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-le_result_t taf_locGnss_ConfigureEngineState
+void taf_locGnss_ConfigureEngineState
 (
+    taf_locGnss_ServerCmdRef_t cmdRef,
     taf_locGnss_EngineType_t engtype,
     taf_locGnss_EngineState_t engState
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.ConfigureEngineState(engtype,engState);
+    gnss.ConfigureEngineState(cmdRef, engtype,engState);
 }
 #endif
 /**
@@ -1342,14 +1524,15 @@ le_result_t taf_locGnss_ConfigureEngineState
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
-le_result_t taf_locGnss_ConfigureRobustLocation
+void taf_locGnss_ConfigureRobustLocation
 (
+    taf_locGnss_ServerCmdRef_t cmdRef,
     uint8_t enable,
     uint8_t enabled911
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.ConfigureRobustLocation(enable,enabled911);
+    gnss.ConfigureRobustLocation(cmdRef, enable,enabled911);
 }
 
 /**
@@ -1359,16 +1542,18 @@ le_result_t taf_locGnss_ConfigureRobustLocation
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
-le_result_t taf_locGnss_RobustLocationInformation
+void taf_locGnss_RobustLocationInformation
 (
-   uint8_t* enable,
-   uint8_t* enabled911,
-   uint8_t* majorVersion,
-   uint8_t* minorVersion
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.RobustLocationInformation(enable,enabled911,majorVersion,minorVersion);
+    uint8_t enable = 0;
+    uint8_t enabled911 = 0;
+    uint8_t majorVersion = 0;
+    uint8_t minorVersion = 0;
+    le_result_t res = gnss.RobustLocationInformation(&enable, &enabled911, &majorVersion, &minorVersion);
+    taf_locGnss_RobustLocationInformationRespond(cmdRef, res, enable, enabled911, majorVersion, minorVersion);
 }
 
 /**
@@ -1379,12 +1564,13 @@ le_result_t taf_locGnss_RobustLocationInformation
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed with reason
 */
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-le_result_t taf_locGnss_DefaultSecondaryBandConstellations
+void taf_locGnss_DefaultSecondaryBandConstellations
 (
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.DefaultSecondaryBandConstellations();
+    gnss.DefaultSecondaryBandConstellations(cmdRef);
 }
 #endif
 /**
@@ -1395,13 +1581,13 @@ le_result_t taf_locGnss_DefaultSecondaryBandConstellations
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed with reason
 */
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-le_result_t taf_locGnss_RequestSecondaryBandConstellations
+void taf_locGnss_RequestSecondaryBandConstellations
 (
-   uint32_t* constellationSb
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.RequestSecondaryBandConstellations(constellationSb);
+    gnss.RequestSecondaryBandConstellations(cmdRef);
 }
 #endif
 /**
@@ -1412,13 +1598,14 @@ le_result_t taf_locGnss_RequestSecondaryBandConstellations
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed with reason
 */
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-le_result_t taf_locGnss_ConfigureSecondaryBandConstellations
+void taf_locGnss_ConfigureSecondaryBandConstellations
 (
+    taf_locGnss_ServerCmdRef_t cmdRef,
     uint32_t constellationSb
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.ConfigureSecondaryBandConstellations(constellationSb);
+    gnss.ConfigureSecondaryBandConstellations(cmdRef, constellationSb);
 }
 #endif
 /**
@@ -1428,14 +1615,16 @@ le_result_t taf_locGnss_ConfigureSecondaryBandConstellations
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
-le_result_t taf_locGnss_GetMagneticDeviation
+void taf_locGnss_GetMagneticDeviation
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    int32_t* magneticDeviationPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetMagneticDeviation(positionSampleRef,magneticDeviationPtr);
+    int32_t magneticDeviation = 0;
+    le_result_t res = gnss.GetMagneticDeviation(positionSampleRef,&magneticDeviation);
+    taf_locGnss_GetMagneticDeviationRespond(cmdRef, res, magneticDeviation);
 }
 
 /**
@@ -1445,17 +1634,20 @@ le_result_t taf_locGnss_GetMagneticDeviation
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
-le_result_t taf_locGnss_GetEllipticalUncertainty
+void taf_locGnss_GetEllipticalUncertainty
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    uint32_t* horUncEllipseSemiMajorPtr,
-    uint32_t* horUncEllipseSemiMinorPtr,
-    uint8_t*  horConfidencePtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetEllipticalUncertainty(positionSampleRef,horUncEllipseSemiMajorPtr,
-            horUncEllipseSemiMinorPtr,horConfidencePtr);
+    uint32_t horUncEllipseSemiMajor = 0;
+    uint32_t horUncEllipseSemiMinor = 0;
+    uint8_t  horConfidence = 0;
+    le_result_t res = gnss.GetEllipticalUncertainty(positionSampleRef,&horUncEllipseSemiMajor,
+            &horUncEllipseSemiMinor,&horConfidence);
+    taf_locGnss_GetEllipticalUncertaintyRespond(cmdRef, res, horUncEllipseSemiMajor,
+            horUncEllipseSemiMinor,horConfidence);
 }
 
 /**
@@ -1465,13 +1657,14 @@ le_result_t taf_locGnss_GetEllipticalUncertainty
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_BAD_PARAMETER LE_NOT_PERMITTED on failed with reason
 */
-le_result_t taf_locGnss_SetLeverArmConfig
+void taf_locGnss_SetLeverArmConfig
 (
+    taf_locGnss_ServerCmdRef_t cmdRef,
     const taf_locGnss_LeverArmParams_t* LeverArmParamsPtr
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.SetLeverArmConfig(LeverArmParamsPtr);
+    gnss.SetLeverArmConfig(cmdRef, LeverArmParamsPtr);
 }
 
 /**
@@ -1481,13 +1674,14 @@ le_result_t taf_locGnss_SetLeverArmConfig
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_BAD_PARAMETER LE_NOT_PERMITTED on failed with reason
 */
-le_result_t taf_locGnss_SetEngineType
+void taf_locGnss_SetEngineType
 (
+    taf_locGnss_ServerCmdRef_t cmdRef,
     taf_locGnss_EngineReportsType_t EngineType
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.SetEngineType(EngineType);
+    gnss.SetEngineType(cmdRef, EngineType);
 }
 
 /**
@@ -1497,14 +1691,16 @@ le_result_t taf_locGnss_SetEngineType
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
 */
-le_result_t taf_locGnss_GetConformityIndex
+void taf_locGnss_GetConformityIndex
 (
- taf_locGnss_SampleRef_t positionSampleRef,
-double* indexPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetConformityIndex(positionSampleRef,indexPtr);
+    double index = 0.0;
+    le_result_t res = gnss.GetConformityIndex(positionSampleRef, &index);
+    taf_locGnss_GetConformityIndexRespond(cmdRef, res, index);
 }
 
 /**
@@ -1514,15 +1710,17 @@ double* indexPtr
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
 */
-le_result_t taf_locGnss_GetCalibrationData
+void taf_locGnss_GetCalibrationData
 (
- taf_locGnss_SampleRef_t positionSampleRef,
-uint32_t* calibPtr,
-uint8_t* percentPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetCalibrationData(positionSampleRef,calibPtr,percentPtr);
+    uint32_t calib = 0;
+    uint8_t percent = 0;
+    le_result_t res = gnss.GetCalibrationData(positionSampleRef, &calib, &percent);
+    taf_locGnss_GetCalibrationDataRespond(cmdRef, res, calib, percent);
 }
 
 /**
@@ -1532,14 +1730,16 @@ uint8_t* percentPtr
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
 */
-le_result_t taf_locGnss_GetBodyFrameData
+void taf_locGnss_GetBodyFrameData
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-taf_locGnss_KinematicsData_t* bodyDataPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetBodyFrameData(positionSampleRef,bodyDataPtr);
+    taf_locGnss_KinematicsData_t bodyData = {};
+    le_result_t res = gnss.GetBodyFrameData(positionSampleRef, &bodyData);
+    taf_locGnss_GetBodyFrameDataRespond(cmdRef, res, &bodyData);
 }
 
 /**
@@ -1549,16 +1749,18 @@ taf_locGnss_KinematicsData_t* bodyDataPtr
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
 */
-le_result_t taf_locGnss_GetVRPBasedLLA
+void taf_locGnss_GetVRPBasedLLA
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    double* vrpLatitudePtr,
-    double* vrpLongitudePtr,
-    double* vrpAttitudePtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetVRPBasedLLA(positionSampleRef,vrpLatitudePtr,vrpLongitudePtr,vrpAttitudePtr);
+    double vrpLatitude = 0.0;
+    double vrpLongitude = 0.0;
+    double vrpAltitude = 0.0;
+    le_result_t res = gnss.GetVRPBasedLLA(positionSampleRef, &vrpLatitude, &vrpLongitude, &vrpAltitude);
+    taf_locGnss_GetVRPBasedLLARespond(cmdRef, res, vrpLatitude, vrpLongitude, vrpAltitude);
 }
 
 /**
@@ -1568,16 +1770,18 @@ le_result_t taf_locGnss_GetVRPBasedLLA
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
 */
-le_result_t taf_locGnss_GetVRPBasedVelocity
+void taf_locGnss_GetVRPBasedVelocity
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    double* eastVelPtr,
-    double* northVelPtr,
-    double* upVelPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetVRPBasedVelocity(positionSampleRef,eastVelPtr,northVelPtr,upVelPtr);
+    double eastVel = 0.0;
+    double northVel = 0.0;
+    double upVel = 0.0;
+    le_result_t res = gnss.GetVRPBasedVelocity(positionSampleRef, &eastVel, &northVel, &upVel);
+    taf_locGnss_GetVRPBasedVelocityRespond(cmdRef, res, eastVel, northVel, upVel);
 }
 
 /**
@@ -1587,14 +1791,16 @@ le_result_t taf_locGnss_GetVRPBasedVelocity
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
 */
-le_result_t taf_locGnss_GetSvUsedInPosition
+void taf_locGnss_GetSvUsedInPosition
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    taf_locGnss_SvUsedInPosition_t* svDataPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetSvUsedInPosition(positionSampleRef,svDataPtr);
+    taf_locGnss_SvUsedInPosition_t svData = {};
+    le_result_t res = gnss.GetSvUsedInPosition(positionSampleRef, &svData);
+    taf_locGnss_GetSvUsedInPositionRespond(cmdRef, res, &svData);
 }
 
 /**
@@ -1604,14 +1810,16 @@ le_result_t taf_locGnss_GetSvUsedInPosition
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
 */
-le_result_t taf_locGnss_GetSbasCorrection
+void taf_locGnss_GetSbasCorrection
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    uint32_t* sbasMaskPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetSbasCorrection(positionSampleRef,sbasMaskPtr);
+    uint32_t sbasMask = 0;
+    le_result_t res = gnss.GetSbasCorrection(positionSampleRef, &sbasMask);
+    taf_locGnss_GetSbasCorrectionRespond(cmdRef, res, sbasMask);
 }
 
 /**
@@ -1621,14 +1829,16 @@ le_result_t taf_locGnss_GetSbasCorrection
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
 */
-le_result_t taf_locGnss_GetPositionTechnology
+void taf_locGnss_GetPositionTechnology
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    uint32_t* techMaskPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetPositionTechnology(positionSampleRef,techMaskPtr);
+    uint32_t techMask = 0;
+    le_result_t res = gnss.GetPositionTechnology(positionSampleRef, &techMask);
+    taf_locGnss_GetPositionTechnologyRespond(cmdRef, res, techMask);
 }
 
 /**
@@ -1638,15 +1848,17 @@ le_result_t taf_locGnss_GetPositionTechnology
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
 */
-le_result_t taf_locGnss_GetLocationInfoValidity
+void taf_locGnss_GetLocationInfoValidity
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    uint32_t* validityMaskPtr,
-    uint64_t* validityExMaskPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetLocationInfoValidity(positionSampleRef,validityMaskPtr,validityExMaskPtr);
+    uint32_t validityMask = 0;
+    uint64_t validityExMask = 0;
+    le_result_t res = gnss.GetLocationInfoValidity(positionSampleRef, &validityMask, &validityExMask);
+    taf_locGnss_GetLocationInfoValidityRespond(cmdRef, res, validityMask, validityExMask);
 }
 
 /**
@@ -1657,15 +1869,17 @@ le_result_t taf_locGnss_GetLocationInfoValidity
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
 */
-le_result_t taf_locGnss_GetLocationOutputEngParams
+void taf_locGnss_GetLocationOutputEngParams
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    uint16_t* engMaskPtr,
-    uint16_t* locationEngTypePtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetLocationOutputEngParams(positionSampleRef,engMaskPtr,locationEngTypePtr);
+    uint16_t engMask = 0;
+    uint16_t locationEngType = 0;
+    le_result_t res = gnss.GetLocationOutputEngParams(positionSampleRef, &engMask, &locationEngType);
+    taf_locGnss_GetLocationOutputEngParamsRespond(cmdRef, res, engMask, locationEngType);
 }
 
 /**
@@ -1675,16 +1889,17 @@ le_result_t taf_locGnss_GetLocationOutputEngParams
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
 */
-le_result_t taf_locGnss_GetReliabilityInformation
+void taf_locGnss_GetReliabilityInformation
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    uint16_t* horiReliabilityPtr,
-    uint16_t* vertReliabilityPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetReliabilityInformation(positionSampleRef, horiReliabilityPtr,
-        vertReliabilityPtr);
+    uint16_t horiReliability = 0;
+    uint16_t vertReliability = 0;
+    le_result_t res = gnss.GetReliabilityInformation(positionSampleRef, &horiReliability, &vertReliability);
+    taf_locGnss_GetReliabilityInformationRespond(cmdRef, res, horiReliability, vertReliability);
 }
 
 /**
@@ -1695,16 +1910,18 @@ le_result_t taf_locGnss_GetReliabilityInformation
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
 */
-le_result_t taf_locGnss_GetStdDeviationAzimuthInfo
+void taf_locGnss_GetStdDeviationAzimuthInfo
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    double* azimuthPtr,
-    double* eastDevPtr,
-    double* northDevPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetStdDeviationAzimuthInfo(positionSampleRef,azimuthPtr,eastDevPtr,northDevPtr);
+    double azimuth = 0.0;
+    double eastDev = 0.0;
+    double northDev = 0.0;
+    le_result_t res = gnss.GetStdDeviationAzimuthInfo(positionSampleRef, &azimuth, &eastDev, &northDev);
+    taf_locGnss_GetStdDeviationAzimuthInfoRespond(cmdRef, res, azimuth, eastDev, northDev);
 }
 
 /**
@@ -1714,15 +1931,17 @@ le_result_t taf_locGnss_GetStdDeviationAzimuthInfo
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
 */
-le_result_t taf_locGnss_GetRealTimeInformation
+void taf_locGnss_GetRealTimeInformation
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    uint64_t* realTimePtr,
-    uint64_t* realTimeUncPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetRealTimeInformation(positionSampleRef,realTimePtr,realTimeUncPtr);
+    uint64_t realTime = 0;
+    uint64_t realTimeUnc = 0;
+    le_result_t res = gnss.GetRealTimeInformation(positionSampleRef, &realTime, &realTimeUnc);
+    taf_locGnss_GetRealTimeInformationRespond(cmdRef, res, realTime, realTimeUnc);
 }
 
 /**
@@ -1733,20 +1952,25 @@ le_result_t taf_locGnss_GetRealTimeInformation
 * RETURN VALUES: LE_OK on success, LE_FAULT, LE_OVERFLOW, LE_BAD_PARAMETER, LE_NO_MEMORY
 *                LE_OUT_OF_RANGE on failed with reason.
 */
-le_result_t taf_locGnss_GetMeasurementUsageInfo
+void taf_locGnss_GetMeasurementUsageInfo
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    taf_locGnss_GnssMeasurementInfo_t* LE_NONNULL measInfoPtr,
-    size_t* measInfoLen
+    taf_locGnss_ServerCmdRef_t  cmdRef,
+    taf_locGnss_SampleRef_t     positionSampleRef,  ///< [IN]    Position sample reference.
+    size_t                      measInfoPtrSize     ///< [INOUT] Max entries / actual count.
 )
 {
-    TAF_ERROR_IF_RET_VAL(positionSampleRef == NULL, LE_BAD_PARAMETER, "Invalid gnss sample reference");
-    TAF_ERROR_IF_RET_VAL(measInfoPtr == NULL, LE_NO_MEMORY, "measInfoPtr is NULL");
-    TAF_ERROR_IF_RET_VAL(*measInfoLen == 0, LE_OUT_OF_RANGE, "measInfoLen is ZERO");
-    TAF_ERROR_IF_RET_VAL(*measInfoLen > TAF_LOCGNSS_MEASUREMENT_INFO_MAX, LE_OVERFLOW, "Too many elements.");
-
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetMeasurementUsageInfo(positionSampleRef, measInfoPtr, measInfoLen);
+
+    size_t maxLen = measInfoPtrSize;
+    std::vector<taf_locGnss_GnssMeasurementInfo_t> measInfo(maxLen);
+
+    le_result_t res = gnss.GetMeasurementUsageInfo(positionSampleRef, measInfo.data(), &maxLen);
+    if (res != LE_OK)
+    {
+        maxLen = 0;
+    }
+
+    taf_locGnss_GetMeasurementUsageInfoRespond(cmdRef, res, measInfo.data(), maxLen);
 }
 
 /**
@@ -1757,17 +1981,18 @@ le_result_t taf_locGnss_GetMeasurementUsageInfo
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT, LE_BAD_PARAMETER, LE_NO_MEMORY on failed with reason
 */
-le_result_t taf_locGnss_GetReportStatus
+void taf_locGnss_GetReportStatus
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    int32_t* reportStatusPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
-    TAF_ERROR_IF_RET_VAL(positionSampleRef == NULL, LE_BAD_PARAMETER, "Invalid gnss sample reference");
-    TAF_ERROR_IF_RET_VAL(reportStatusPtr == NULL, LE_NO_MEMORY, "reportStatusPtr is NULL");
+    // TAF_ERROR_IF(positionSampleRef == NULL, "Invalid gnss sample reference");
 
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetReportStatus(positionSampleRef, reportStatusPtr);
+    int32_t reportStatus = 0;
+    le_result_t res = gnss.GetReportStatus(positionSampleRef, &reportStatus);
+    taf_locGnss_GetReportStatusRespond(cmdRef, res, reportStatus);
 }
 
 /**
@@ -1777,17 +2002,17 @@ le_result_t taf_locGnss_GetReportStatus
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT, LE_BAD_PARAMETER, LE_NO_MEMORY on failed with reason
 */
-le_result_t taf_locGnss_GetAltitudeMeanSeaLevel
+void taf_locGnss_GetAltitudeMeanSeaLevel
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    double* altMeanSeaLevelPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
-    TAF_ERROR_IF_RET_VAL(positionSampleRef == NULL, LE_BAD_PARAMETER, "Invalid gnss sample reference");
-    TAF_ERROR_IF_RET_VAL(altMeanSeaLevelPtr == NULL, LE_NO_MEMORY, "altMeanSeaLevelPtr is NULL");
 
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetAltitudeMeanSeaLevel(positionSampleRef, altMeanSeaLevelPtr);
+    double altMeanSeaLevel = 0.0;
+    le_result_t res = gnss.GetAltitudeMeanSeaLevel(positionSampleRef, &altMeanSeaLevel);
+    taf_locGnss_GetAltitudeMeanSeaLevelRespond(cmdRef, res, altMeanSeaLevel);
 }
 
 /**
@@ -1798,20 +2023,24 @@ le_result_t taf_locGnss_GetAltitudeMeanSeaLevel
 * RETURN VALUES: LE_OK on success, LE_FAULT, LE_OVERFLOW, LE_BAD_PARAMETER, LE_NO_MEMORY
 *                LE_OUT_OF_RANGE on failed with reason.
 */
-le_result_t taf_locGnss_GetSVIds
+void taf_locGnss_GetSVIds
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    uint16_t* LE_NONNULL sVIdsPtr,
-    size_t* sVIdsLen
+    taf_locGnss_ServerCmdRef_t  _cmdRef,
+    taf_locGnss_SampleRef_t     positionSampleRef,  ///< [IN]    Position sample reference.
+    size_t                      sVIdsLen            ///< [INOUT] Max entries / actual count.
 )
 {
-    TAF_ERROR_IF_RET_VAL(positionSampleRef == NULL, LE_BAD_PARAMETER, "Invalid gnss sample reference");
-    TAF_ERROR_IF_RET_VAL(sVIdsPtr == NULL, LE_NO_MEMORY, "measInfoPtr is NULL");
-    TAF_ERROR_IF_RET_VAL(*sVIdsLen == 0, LE_OUT_OF_RANGE, "measInfoLen is ZERO");
-    TAF_ERROR_IF_RET_VAL(*sVIdsLen > TAF_LOCGNSS_MEASUREMENT_INFO_MAX, LE_OVERFLOW, "Too many elements.");
-
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetSVIds(positionSampleRef, sVIdsPtr, sVIdsLen);
+
+    size_t maxLen = sVIdsLen;
+    std::vector<uint16_t> svIds(maxLen);
+
+    le_result_t res = gnss.GetSVIds(positionSampleRef, svIds.data(), &maxLen);
+    if (res != LE_OK){
+        maxLen = 0;
+    }
+
+    taf_locGnss_GetSVIdsRespond(_cmdRef, res, svIds.data(), maxLen);
 }
 
 /**
@@ -1822,20 +2051,26 @@ le_result_t taf_locGnss_GetSVIds
 * RETURN VALUES: LE_OK on success, LE_FAULT, LE_OVERFLOW, LE_BAD_PARAMETER, LE_NO_MEMORY
 *                LE_OUT_OF_RANGE on failed with reason.
 */
-le_result_t taf_locGnss_GetSatellitesInfoEx
+void taf_locGnss_GetSatellitesInfoEx
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    taf_locGnss_Constellation_t constellation,
-    taf_locGnss_SvInfo_t* LE_NONNULL svInfoPtr,
-    size_t* svInfoLen
+    taf_locGnss_ServerCmdRef_t    _cmdRef,
+    taf_locGnss_SampleRef_t       positionSampleRef,  ///< [IN]    Position sample reference.
+    taf_locGnss_Constellation_t   constellation,      ///< [IN]    Constellation filter.
+    size_t                        svInfoSize          ///< [INOUT] Max entries / actual count.
 )
 {
-    TAF_ERROR_IF_RET_VAL(positionSampleRef == NULL, LE_BAD_PARAMETER, "Invalid gnss sample reference");
-    TAF_ERROR_IF_RET_VAL(svInfoPtr == NULL, LE_NO_MEMORY, "svInfoPtr is NULL");
-    TAF_ERROR_IF_RET_VAL(*svInfoLen == 0, LE_OUT_OF_RANGE, "svInfoLen is ZERO");
-
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetSatellitesInfoEx(positionSampleRef, constellation, svInfoPtr, svInfoLen);
+
+    size_t maxLen = svInfoSize;
+    std::vector<taf_locGnss_SvInfo_t> svInfo(maxLen);
+
+    le_result_t res = gnss.GetSatellitesInfoEx(positionSampleRef, constellation, svInfo.data(), &maxLen);
+    if (res != LE_OK)
+    {
+        maxLen = 0;
+    }
+
+    taf_locGnss_GetSatellitesInfoExRespond(_cmdRef, res, svInfo.data(), maxLen);
 }
 
 /**
@@ -1850,13 +2085,14 @@ le_result_t taf_locGnss_GetSatellitesInfoEx
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT, LE_NOT_PERMITTED on failed
 */
-le_result_t taf_locGnss_SetMinGpsWeek
+void taf_locGnss_SetMinGpsWeek
 (
+    taf_locGnss_ServerCmdRef_t cmdRef,
     uint16_t minGpsWeek
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.SetMinGpsWeek(minGpsWeek);
+    gnss.SetMinGpsWeek(cmdRef, minGpsWeek);
 }
 
 /**
@@ -1866,13 +2102,15 @@ le_result_t taf_locGnss_SetMinGpsWeek
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT, LE_NO_MEMORY, LE_NOT_PERMITTED on failed.
 */
-le_result_t taf_locGnss_GetMinGpsWeek
+void taf_locGnss_GetMinGpsWeek
 (
- uint16_t*  minGpsWeekPtr
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetMinGpsWeek(minGpsWeekPtr);
+    uint16_t minGpsWeek = 0;
+    le_result_t res = gnss.GetMinGpsWeek(&minGpsWeek);
+    taf_locGnss_GetMinGpsWeekRespond(cmdRef, res, minGpsWeek);
 }
 
 /**
@@ -1882,13 +2120,15 @@ le_result_t taf_locGnss_GetMinGpsWeek
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT on failed.
 */
-le_result_t taf_locGnss_GetCapabilities
+void taf_locGnss_GetCapabilities
 (
- uint64_t*  locCapabilityPtr
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetCapabilities(locCapabilityPtr);
+    uint64_t locCapability = 0;
+    le_result_t res = gnss.GetCapabilities(&locCapability);
+    taf_locGnss_GetCapabilitiesRespond(cmdRef, res, locCapability);
 }
 
 /**
@@ -1905,15 +2145,16 @@ le_result_t taf_locGnss_GetCapabilities
 * RETURN VALUES: LE_OK on success, LE_FAULT, LE_BAD_PARAMETER, LE_NOT_PERMITTED on failed
 */
 
-le_result_t taf_locGnss_SetNmeaConfiguration
+void taf_locGnss_SetNmeaConfiguration
 (
+    taf_locGnss_ServerCmdRef_t cmdRef,
     taf_locGnss_NmeaBitMask_t nmeaMask,         ///< [IN] Bit mask for enabled NMEA sentences.
     taf_locGnss_GeodeticDatumType_t datumType,  ///< [IN] Specify the datum type to be configured.
     taf_locGnss_LocEngineType_t engineType      ///< [IN] Specify the Engine type.
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.SetNmeaConfiguration(nmeaMask, datumType, engineType);
+    gnss.SetNmeaConfiguration(cmdRef, nmeaMask, datumType, engineType);
 }
 
 /**
@@ -1923,14 +2164,15 @@ le_result_t taf_locGnss_SetNmeaConfiguration
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_NOT_PERMITTED on failed
 */
-le_result_t taf_locGnss_GetXtraStatus
+void taf_locGnss_GetXtraStatus
 (
-    taf_locGnss_XtraStatusParams_t* xtraParams //Specify Xtra assistant data's current status,
-                                            // validity and whether it is enabled.
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetXtraStatus(xtraParams);
+    taf_locGnss_XtraStatusParams_t xtraParams = {};
+    le_result_t res = gnss.GetXtraStatus(&xtraParams);
+    taf_locGnss_GetXtraStatusRespond(cmdRef, res, &xtraParams);
 }
 
 /**
@@ -1940,17 +2182,36 @@ le_result_t taf_locGnss_GetXtraStatus
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_NO_MEMORY on failed
 */
-le_result_t taf_locGnss_GetGnssData
+void taf_locGnss_GetGnssData
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    taf_locGnss_GnssData_t* gnssDataPtr,
-    size_t* maxSignalTypes
+    taf_locGnss_ServerCmdRef_t  _cmdRef,
+    taf_locGnss_SampleRef_t     positionSampleRef,  ///< [IN]    Position sample reference.
+    size_t                      maxSignalTypes      ///< [INOUT] Max entries / actual count.
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    TAF_ERROR_IF_RET_VAL(gnssDataPtr == NULL, LE_NO_MEMORY, "gnssDataPtr is NULL");
-    return gnss.GetGnssData(positionSampleRef,gnssDataPtr,maxSignalTypes);
+
+    size_t maxTypes = maxSignalTypes;
+
+    std::vector<taf_locGnss_GnssData_t> gnssData(maxTypes);
+
+    le_result_t res = gnss.GetGnssData(
+        positionSampleRef,
+        gnssData.data(),
+        &maxTypes);
+
+    if (res != LE_OK)
+    {
+        maxTypes = 0;
+    }
+
+    taf_locGnss_GetGnssDataRespond(
+        _cmdRef,
+        res,
+        gnssData.data(),
+        maxTypes);
 }
+
 /**
 * FUNCTION     : SetDRConfigValidity
 * DESCRIPTION  : Sets the dead reckoning parameters validity mask
@@ -1958,14 +2219,17 @@ le_result_t taf_locGnss_GetGnssData
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed with reason
 */
-le_result_t taf_locGnss_SetDRConfigValidity
+void taf_locGnss_SetDRConfigValidity
 (
+    taf_locGnss_ServerCmdRef_t cmdRef,
     taf_locGnss_DRConfigValidityType_t validMask
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.SetDRConfigValidity(validMask);
+    le_result_t res = gnss.SetDRConfigValidity(validMask);
+    taf_locGnss_SetDRConfigValidityRespond(cmdRef, res);
 }
+
 /**
 * FUNCTION     : GetGptpTime
 * DESCRIPTION  : Gets Gptp time and its uncertainity.
@@ -1973,15 +2237,17 @@ le_result_t taf_locGnss_SetDRConfigValidity
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT on failed
 */
-le_result_t taf_locGnss_GetGptpTime
+void taf_locGnss_GetGptpTime
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    uint64_t* gPtpTime,
-    uint64_t* gPtpTimeUnc
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetGptpTime(positionSampleRef,gPtpTime,gPtpTimeUnc);
+    uint64_t gPtpTime = 0;
+    uint64_t gPtpTimeUnc = 0;
+    le_result_t res = gnss.GetGptpTime(positionSampleRef, &gPtpTime, &gPtpTimeUnc);
+    taf_locGnss_GetGptpTimeRespond(cmdRef, res, gPtpTime, gPtpTimeUnc);
 }
 
 /**
@@ -1991,12 +2257,13 @@ le_result_t taf_locGnss_GetGptpTime
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_NOT_PERMITTED on failed
 */
-le_result_t taf_locGnss_DeleteDRSensorCalData
+void taf_locGnss_DeleteDRSensorCalData
 (
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.DeleteDRSensorCalData();
+    gnss.DeleteDRSensorCalData(cmdRef);
 }
 
 /**
@@ -2006,14 +2273,16 @@ le_result_t taf_locGnss_DeleteDRSensorCalData
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
 */
-le_result_t taf_locGnss_GetDRSolutionStatus
+void taf_locGnss_GetDRSolutionStatus
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    uint32_t* solutionStatusPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetDRSolutionStatus(positionSampleRef,solutionStatusPtr);
+    uint32_t solutionStatus = 0;
+    le_result_t res = gnss.GetDRSolutionStatus(positionSampleRef, &solutionStatus);
+    taf_locGnss_GetDRSolutionStatusRespond(cmdRef, res, solutionStatus);
 }
 
 /**
@@ -2023,14 +2292,16 @@ le_result_t taf_locGnss_GetDRSolutionStatus
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE and LE_FAULT on failed
 */
-le_result_t taf_locGnss_GetLeapSecondsUncertainty
+void taf_locGnss_GetLeapSecondsUncertainty
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-    uint8_t* leapSecondsUncPtr
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetLeapSecondsUncertainty(positionSampleRef,leapSecondsUncPtr);
+    uint8_t leapSecondsUnc = 0;
+    le_result_t res = gnss.GetLeapSecondsUncertainty(positionSampleRef, &leapSecondsUnc);
+    taf_locGnss_GetLeapSecondsUncertaintyRespond(cmdRef, res, leapSecondsUnc);
 }
 
 /**
@@ -2040,17 +2311,19 @@ le_result_t taf_locGnss_GetLeapSecondsUncertainty
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success and LE_FAULT on failed
 */
-le_result_t taf_locGnss_GetIsNHz
+void taf_locGnss_GetIsNHz
 (
-    taf_locGnss_MeasSampleRef_t measSampleRef,
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_MeasSampleRef_t measSampleRef
         ///< [IN] Measurement sample reference.
-    bool* isNHZPtr
-        ///< [OUT] Frequency generated at NHz or not .
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetIsNHz(measSampleRef,isNHZPtr);
+    bool isNHz = false;
+    le_result_t res = gnss.GetIsNHz(measSampleRef, &isNHz);
+    taf_locGnss_GetIsNHzRespond(cmdRef, res, isNHz);
 }
+
 
 /**
 * FUNCTION     : GetClockValidityMask
@@ -2063,16 +2336,17 @@ le_result_t taf_locGnss_GetIsNHz
 /**
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_locGnss_GetClockValidityMask
+void taf_locGnss_GetClockValidityMask
 (
-    taf_locGnss_MeasSampleRef_t measSampleRef,
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_MeasSampleRef_t measSampleRef
         ///< [IN] Measurement sample reference.
-    uint32_t* clockValidityMaskPtr
-        ///< [OUT] ClockValidity Mask.
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetClockValidityMask(measSampleRef,clockValidityMaskPtr);
+    uint32_t clockValidityMask = 0;
+    le_result_t res = gnss.GetClockValidityMask(measSampleRef, &clockValidityMask);
+    taf_locGnss_GetClockValidityMaskRespond(cmdRef, res, clockValidityMask);
 }
 
 /**
@@ -2086,43 +2360,42 @@ le_result_t taf_locGnss_GetClockValidityMask
 /**
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_locGnss_GetClockData
+void taf_locGnss_GetClockData
 (
-    taf_locGnss_MeasSampleRef_t measSampleRef,
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_MeasSampleRef_t measSampleRef
         ///< [IN] Measurement sample reference.
-    taf_locGnss_ClockData_t * clockDataPtr
-        ///< [OUT] GnssMeasurementClockData
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetClockData(measSampleRef,clockDataPtr);
+    taf_locGnss_ClockData_t clockData = {};
+    le_result_t res = gnss.GetClockData(measSampleRef, &clockData);
+    taf_locGnss_GetClockDataRespond(cmdRef, res, &clockData);
 }
 
-/**
-* FUNCTION     : GetMeasurementsData
-* DESCRIPTION  : Gets the Specify the signal measurement information such as satellite vehicle pseudo range,
-*                satellite vehicle time, carrier phase measurement etc. from GNSS positioning engine.
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success and LE_FAULT on failed
-*/
-//--------------------------------------------------------------------------------------------------
-/**
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_locGnss_GetMeasurementsData
+void taf_locGnss_GetMeasurementsData
 (
-    taf_locGnss_MeasSampleRef_t measSampleRef,
-        ///< [IN] Measurement sample reference.
-    taf_locGnss_MeasurementsData_t* measDataPtr,
-        ///< [OUT] GnssMeasurementData
-    size_t* measDataSizePtr
-        ///< [INOUT]
+    taf_locGnss_ServerCmdRef_t      _cmdRef,
+    taf_locGnss_MeasSampleRef_t     measSampleRef,  ///< [IN]    Measurement sample reference.
+    size_t                          measDataSize    ///< [INOUT] Max entries / actual count.
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetMeasurementsData(measSampleRef,measDataPtr, measDataSizePtr);
+
+    std::vector<taf_locGnss_MeasurementsData_t> measData(measDataSize);
+
+    le_result_t res = gnss.GetMeasurementsData(
+        measSampleRef,
+        measData.data(),
+        &measDataSize);
+
+    taf_locGnss_GetMeasurementsDataRespond(
+        _cmdRef,
+        res,
+        measData.data(),
+        measDataSize);
 }
+
 
 /**
 * FUNCTION     : ReleaseMeasSampleRef
@@ -2134,28 +2407,40 @@ le_result_t taf_locGnss_GetMeasurementsData
 */
 void taf_locGnss_ReleaseMeasSampleRef
 (
+    taf_locGnss_ServerCmdRef_t _cmdRef,
     taf_locGnss_MeasSampleRef_t    measSampleRef
     ///< [IN] Measurement sample reference.
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.ReleaseMeasSampleRef(measSampleRef);
+    gnss.ReleaseMeasSampleRef(measSampleRef);
+    taf_locGnss_ReleaseMeasSampleRefRespond(_cmdRef);
 }
 
-le_result_t taf_locGnss_GetMeasDataValidityMask
+void taf_locGnss_GetMeasDataValidityMask
 (
-    taf_locGnss_MeasSampleRef_t measSampleRef,
-        ///< [IN] Measurement sample reference.
-    uint32_t* measDataValidityMaskPtr,
-        ///< [OUT] GnssMeasurementData
-    size_t* measDataValidityMaskSizePtr
-        ///< [INOUT]
+    taf_locGnss_ServerCmdRef_t   _cmdRef,
+    taf_locGnss_MeasSampleRef_t  measSampleRef,            ///< [IN]    Measurement sample reference.
+    size_t                       measDataValidityMaskSize  ///< [INOUT] Max entries / actual count.
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetMeasDataValidityMask(measSampleRef, measDataValidityMaskPtr,
-            measDataValidityMaskSizePtr);
+
+    uint32_t measDataValidityMask[measDataValidityMaskSize];
+    memset(measDataValidityMask, 0, sizeof(measDataValidityMask));
+
+    le_result_t res = gnss.GetMeasDataValidityMask(
+        measSampleRef,
+        measDataValidityMask,
+        &measDataValidityMaskSize);
+
+    taf_locGnss_GetMeasDataValidityMaskRespond(
+        _cmdRef,
+        res,
+        measDataValidityMask,
+        measDataValidityMaskSize);
 }
+
 
 /**
 * FUNCTION     : GetNavigationSolution
@@ -2164,16 +2449,17 @@ le_result_t taf_locGnss_GetMeasDataValidityMask
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
 */
-le_result_t taf_locGnss_GetNavigationSolution
+void taf_locGnss_GetNavigationSolution
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
         ///< [IN] Position sample reference.
-    uint32_t* navSolutionPtr
-        ///< [OUT] Navigation solution bit mask.
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetNavigationSolution(positionSampleRef, navSolutionPtr);
+    uint32_t navSolution = 0;
+    le_result_t res = gnss.GetNavigationSolution(positionSampleRef, &navSolution);
+    taf_locGnss_GetNavigationSolutionRespond(cmdRef, res, navSolution);
 }
 
 /**
@@ -2183,19 +2469,26 @@ le_result_t taf_locGnss_GetNavigationSolution
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
 */
-le_result_t taf_locGnss_GetDgnssStationIds
+void taf_locGnss_GetDgnssStationIds
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
-        ///< [IN] Position sample reference.
-    uint16_t* stationIdsPtr,
-        ///< [OUT] Dgnss satellite data.
-    size_t* stationIdsSizePtr
-        ///< [INOUT]
+    taf_locGnss_ServerCmdRef_t  cmdRef,
+    taf_locGnss_SampleRef_t     positionSampleRef,  ///< [IN]    Position sample reference.
+    size_t                      stationIdsSize      ///< [INOUT] Max entries / actual count.
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetDgnssStationIds(positionSampleRef, stationIdsPtr,
-            stationIdsSizePtr);
+
+    std::vector<uint16_t> stationIds(stationIdsSize, 0);
+
+    le_result_t res = gnss.GetDgnssStationIds(
+        positionSampleRef,
+        stationIds.data(),
+        &stationIdsSize);
+
+    taf_locGnss_GetDgnssStationIdsRespond(
+        cmdRef, res,
+        stationIds.data(),
+        stationIdsSize);
 }
 
 /**
@@ -2205,14 +2498,14 @@ le_result_t taf_locGnss_GetDgnssStationIds
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_NOT_PERMITTED on failed with reason
 */
-taf_locGnss_DgnssSourceRef_t taf_locGnss_CreateDgnssSource
+void taf_locGnss_CreateDgnssSource
 (
+    taf_locGnss_ServerCmdRef_t cmdRef,
     taf_locGnss_DgnssFormat_t dgnssDataFormat
-        ///< [IN]
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.CreateDgnssSource(dgnssDataFormat);
+    gnss.CreateDgnssSource(cmdRef, dgnssDataFormat);
 }
 
 /**
@@ -2222,14 +2515,14 @@ taf_locGnss_DgnssSourceRef_t taf_locGnss_CreateDgnssSource
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_NOT_PERMITTED on failed with reason
 */
-le_result_t taf_locGnss_ReleaseDgnssSource
+void taf_locGnss_ReleaseDgnssSource
 (
+    taf_locGnss_ServerCmdRef_t cmdRef,
     taf_locGnss_DgnssSourceRef_t sourceRef
-        ///< [IN]
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.ReleaseDgnssSource(sourceRef);
+    gnss.ReleaseDgnssSource(cmdRef, sourceRef);
 }
 
 /**
@@ -2239,18 +2532,17 @@ le_result_t taf_locGnss_ReleaseDgnssSource
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT,LE_NOT_PERMITTED,LE_BAD_PARAMETER on failed with reason
 */
-le_result_t taf_locGnss_InjectDgnssCorrection
+void taf_locGnss_InjectDgnssCorrection
 (
+    taf_locGnss_ServerCmdRef_t cmdRef,
     taf_locGnss_DgnssSourceRef_t sourceRef,
-        ///< [IN] Source reference created for injection.
     const uint8_t* correctionDataPtr,
-        ///< [IN] File path used for injection.
     size_t correctionDataSize
-        ///< [IN]
+
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.InjectDgnssCorrection(sourceRef, correctionDataPtr, correctionDataSize);
+    gnss.InjectDgnssCorrection(cmdRef, sourceRef, correctionDataPtr, correctionDataSize);
 }
 
 taf_locGnss_DgnssStatusChangeHandlerRef_t taf_locGnss_AddDgnssStatusChangeHandler
@@ -2290,14 +2582,14 @@ void taf_locGnss_RemoveDgnssStatusChangeHandler
 /**
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_locGnss_InjectMerkleTreeInformationByPath
+void taf_locGnss_InjectMerkleTreeInformationByPath
 (
+    taf_locGnss_ServerCmdRef_t cmdRef,
     const char* LE_NONNULL merkleTreeFilePath
-        ///< [IN]
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.InjectMerkleData(merkleTreeFilePath);
+    gnss.InjectMerkleData(cmdRef, merkleTreeFilePath);
 }
 
 /**
@@ -2311,14 +2603,15 @@ le_result_t taf_locGnss_InjectMerkleTreeInformationByPath
 /**
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_locGnss_ConfigureOsnma
+void taf_locGnss_ConfigureOsnma
 (
+    taf_locGnss_ServerCmdRef_t cmdRef,
     bool galOsnma
         ///< [IN]
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.ConfigureOsnma(galOsnma);
+    gnss.ConfigureOsnma(cmdRef, galOsnma);
 }
 
 /**
@@ -2328,8 +2621,9 @@ le_result_t taf_locGnss_ConfigureOsnma
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_BAD_PARAMETER LE_NOT_PERMITTED on failed with reason
 */
-le_result_t taf_locGnss_SetEngineIntegrityRisk
+void taf_locGnss_SetEngineIntegrityRisk
 (
+    taf_locGnss_ServerCmdRef_t cmdRef,
     taf_locGnss_EngineType_t engtype,
         ///< [IN]
     uint32_t integrityRisk
@@ -2337,7 +2631,8 @@ le_result_t taf_locGnss_SetEngineIntegrityRisk
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.SetEngineIntegrityRisk(engtype, integrityRisk);
+    auto res = gnss.SetEngineIntegrityRisk(engtype, integrityRisk);
+    taf_locGnss_SetEngineIntegrityRiskRespond(cmdRef, res);
 }
 
 /**
@@ -2347,21 +2642,20 @@ le_result_t taf_locGnss_SetEngineIntegrityRisk
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
 */
-le_result_t taf_locGnss_GetProtectionLevels
+void taf_locGnss_GetProtectionLevels
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
         ///< [IN]
-    double* protectionLevelAlongTrackPtr,
-        ///< [OUT]
-    double* protectionLevelCrossTrackPtr,
-        ///< [OUT]
-    double* protectionLevelVerticalPtr
-        ///< [OUT]
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetProtectionLevels(positionSampleRef, protectionLevelAlongTrackPtr,
-            protectionLevelCrossTrackPtr, protectionLevelVerticalPtr);
+    double protectionLevelAlongTrackPtr = 0.0;
+    double protectionLevelCrossTrackPtr = 0.0;
+    double protectionLevelVerticalPtr = 0.0;
+    auto res = gnss.GetProtectionLevels(positionSampleRef, &protectionLevelAlongTrackPtr,
+            &protectionLevelCrossTrackPtr, &protectionLevelVerticalPtr);
+    taf_locGnss_GetProtectionLevelsRespond(cmdRef, res, protectionLevelAlongTrackPtr, protectionLevelCrossTrackPtr, protectionLevelVerticalPtr);
 }
 
 /**
@@ -2371,16 +2665,17 @@ le_result_t taf_locGnss_GetProtectionLevels
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
 */
-le_result_t taf_locGnss_GetBaselineLength
+void taf_locGnss_GetBaselineLength
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
         ///< [IN]
-    double* baselineLengthPtr
-        ///< [OUT]
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetBaselineLength(positionSampleRef, baselineLengthPtr);
+    double baselineLengthPtr = 0.0;
+    auto res = gnss.GetBaselineLength(positionSampleRef, &baselineLengthPtr);
+    taf_locGnss_GetBaselineLengthRespond(cmdRef, res, baselineLengthPtr);
 }
 
 /**
@@ -2391,16 +2686,17 @@ le_result_t taf_locGnss_GetBaselineLength
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
 */
-le_result_t taf_locGnss_GetAgeOfCorrections
+void taf_locGnss_GetAgeOfCorrections
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
         ///< [IN]
-    uint64_t* ageCorrectionsPtr
-        ///< [OUT]
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetAgeOfCorrections(positionSampleRef, ageCorrectionsPtr);
+    uint64_t ageCorrectionsPtr = 0;
+    auto result = gnss.GetAgeOfCorrections(positionSampleRef, &ageCorrectionsPtr);
+    taf_locGnss_GetAgeOfCorrectionsRespond(cmdRef, result, ageCorrectionsPtr);
 }
 
 /**
@@ -2410,14 +2706,15 @@ le_result_t taf_locGnss_GetAgeOfCorrections
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
 */
-le_result_t taf_locGnss_GetIntegrityRiskUsed
+void taf_locGnss_GetIntegrityRiskUsed
 (
-    taf_locGnss_SampleRef_t positionSampleRef,
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_SampleRef_t positionSampleRef
         ///< [IN]
-    uint32_t* integrityRiskUsedPtr
-        ///< [OUT]
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-    return gnss.GetIntegrityRiskUsed(positionSampleRef, integrityRiskUsedPtr);
+    uint32_t integrityRiskUsedPtr = 0;
+    auto res = gnss.GetIntegrityRiskUsed(positionSampleRef, &integrityRiskUsedPtr);
+    taf_locGnss_GetIntegrityRiskUsedRespond(cmdRef, res, integrityRiskUsedPtr);
 }

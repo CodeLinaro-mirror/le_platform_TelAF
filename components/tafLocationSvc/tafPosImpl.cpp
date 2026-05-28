@@ -55,6 +55,7 @@ LE_MEM_DEFINE_STATIC_POOL(PosHandler, HIGH_POS_HANDLER_COUNT, sizeof(taf_locPos_
 LE_REF_DEFINE_STATIC_MAP(PosSampleMap, POSITIONING_SAMPLE_MAX);
 LE_REF_DEFINE_STATIC_MAP(PositioningClient, TAF_CONFIG_POSITIONING_ACTIVATION_MAX);
 LE_MEM_DEFINE_STATIC_POOL(PosCtrlHandler, TAF_CONFIG_POSITIONING_ACTIVATION_MAX, sizeof(ClientRequest_t));
+LE_MEM_DEFINE_STATIC_POOL(PosCtrlCmdPool, MAX_CMD_LOCATION_POOL_SIZE, sizeof(PosCtrlCmdInfo_t));
 
 taf_locPos &taf_locPos::GetInstance()
 {
@@ -218,9 +219,11 @@ le_result_t taf_locPos::GetDirection
     le_result_t resPos = LE_OK;
     uint32_t dir;
     uint32_t dirAccuracy;
-    taf_locGnss_SampleRef_t positionSampleRef = taf_locGnss_GetLastSampleRef();
 
-    resGnss = taf_locGnss_GetDirection(positionSampleRef, &dir, &dirAccuracy);
+    auto &gnss = taf_locGnss::GetInstance();
+    taf_locGnss_SampleRef_t positionSampleRef = gnss.GetLastSampleRef();
+
+    resGnss =gnss.GetDirection(positionSampleRef, &dir, &dirAccuracy);
 
     if ((resGnss == LE_OK)||(resGnss == LE_OUT_OF_RANGE))
     {
@@ -254,7 +257,7 @@ le_result_t taf_locPos::GetDirection
         resPos = LE_FAULT;
     }
 
-    taf_locGnss_ReleaseSampleRef(positionSampleRef);
+    gnss.ReleaseSampleRef(positionSampleRef);
 
     return resPos;
 }
@@ -281,10 +284,12 @@ le_result_t taf_locPos::GetMotion
     int32_t vertSpeedAccuracy;
     le_result_t Result = LE_OK;
     le_result_t posResult = LE_OK;
-    taf_locGnss_SampleRef_t positionSampleRef = taf_locGnss_GetLastSampleRef();
+
+    auto &gnss = taf_locGnss::GetInstance();
+    taf_locGnss_SampleRef_t positionSampleRef = gnss.GetLastSampleRef();
 
     // Get horizontal speed
-    Result = taf_locGnss_GetHorizontalSpeed(positionSampleRef, &horiSpeed, &horiSpeedAccuracy);
+    Result = gnss.GetHorizontalSpeed(positionSampleRef, &horiSpeed, &horiSpeedAccuracy);
     if ((Result == LE_OK)||(Result == LE_OUT_OF_RANGE))
     {
         if (horiSpeedPtr)
@@ -318,7 +323,7 @@ le_result_t taf_locPos::GetMotion
     }
 
     // Get vertical speed
-    Result = taf_locGnss_GetVerticalSpeed(positionSampleRef, &vertSpeed, &vertSpeedAccuracy);
+    Result = gnss.GetVerticalSpeed(positionSampleRef, &vertSpeed, &vertSpeedAccuracy);
 
     if (((Result == LE_OK)||(Result == LE_OUT_OF_RANGE))
         &&(posResult != LE_FAULT))
@@ -353,7 +358,7 @@ le_result_t taf_locPos::GetMotion
         posResult = LE_FAULT;
     }
 
-    taf_locGnss_ReleaseSampleRef(positionSampleRef);
+    gnss.ReleaseSampleRef(positionSampleRef);
 
     return posResult;
 }
@@ -421,47 +426,101 @@ le_result_t taf_locPos::CalculateMove
     return LE_OK;
 }
 
-taf_locPosCtrl_ActivationRef_t taf_locPos::locPosCtrl_Request
+//--------------------------------------------------------------------------------------------------
+/**
+ * [3/3 RESPOND] - Runs on LocationSvc main thread.
+ * Called back by taf_locGnss::StartInternal completion.
+ */
+//--------------------------------------------------------------------------------------------------
+static void PosCtrlRequestRespond(le_result_t gnssResult, void* contextPtr)
+{
+    PosCtrlCmdInfo_t* cPtr = static_cast<PosCtrlCmdInfo_t*>(contextPtr);
+    auto &pos = taf_locPos::GetInstance();
+
+    if (gnssResult != LE_OK)
+    {
+        LE_ERROR("PosCtrlRequestRespond: GNSS start failed [rc=%d] - releasing refs", gnssResult);
+
+        // Clean up the refs allocated in the entry point
+        le_ref_DeleteRef(pos.ActivationRequestRefMap, cPtr->activationRef);
+        le_mem_Release(cPtr->clientRequestPtr);
+
+        taf_locPosCtrl_RequestRespond(cPtr->cmdRef, NULL);
+        le_mem_Release(cPtr);
+        return;
+    }
+
+    // GNSS started OK — increment activations and finalize client request
+    pos.CurrentActivationsCount++;
+    cPtr->clientRequestPtr->sessionRef       = cPtr->sessionRef;
+    cPtr->clientRequestPtr->posCtrlActivationRef = cPtr->activationRef;
+
+    LE_DEBUG("PosCtrlRequestRespond: ref(%p) sessionRef(%p)",
+             cPtr->activationRef, cPtr->sessionRef);
+
+    taf_locPosCtrl_RequestRespond(cPtr->cmdRef, cPtr->activationRef);
+    le_mem_Release(cPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * [1/3 ENTRY] TAF server entry point for posCtrl Request.
+ * Allocates activation ref and queues GNSS start via internal async API.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locPos::locPosCtrl_Request
 (
-    void
+    taf_locPosCtrl_ServerCmdRef_t cmdRef
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    ClientRequest_t * clientRequestPtr = (ClientRequest_t *)le_mem_ForceAlloc(PosCtrlHandlerPoolRef);
+    auto &gnss = taf_locGnss::GetInstance();
+
+    // Allocate client request node and activation ref upfront
+    ClientRequest_t* clientRequestPtr =
+        (ClientRequest_t*)le_mem_ForceAlloc(PosCtrlHandlerPoolRef);
 
     taf_locPosCtrl_ActivationRef_t reqRef =
-                    (taf_locPosCtrl_ActivationRef_t)le_ref_CreateRef(ActivationRequestRefMap, clientRequestPtr);
+        (taf_locPosCtrl_ActivationRef_t)le_ref_CreateRef(ActivationRequestRefMap,
+                                                          clientRequestPtr);
+
+    // Pack into cmd info to carry across async boundary
+    PosCtrlCmdInfo_t* cPtr = (PosCtrlCmdInfo_t*)le_mem_ForceAlloc(PosCtrlCmdPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef           = cmdRef;
+    cPtr->activationRef    = reqRef;
+    cPtr->sessionRef       = taf_locPosCtrl_GetClientSessionRef();
+    cPtr->clientRequestPtr = clientRequestPtr;
 
     if (pos.CurrentActivationsCount == 0)
     {
+        // First activation — need to start GNSS first, respond only after start completes
 #ifdef LE_CONFIG_ENABLE_GNSS_ACQUISITION_RATE_SETTING
         le_cfg_IteratorRef_t posConfig = le_cfg_CreateWriteTxn(CFG_POSITIONING_PATH);
         le_cfg_SetInt(posConfig, CFG_NODE_RATE, AcqRate);
         le_cfg_CommitTxn(posConfig);
-
-        LE_DEBUG("acquisition rate (%" PRIu32 ") for positioning", AcqRate);
 #endif
-        if (taf_locGnss_SetAcquisitionRate(AcqRate) != LE_OK)
+        if (gnss.SetAcquisitionRate(AcqRate) != LE_OK)
         {
-            LE_WARN("Failed to set GNSS's acquisition rate (%" PRIu32 ")", AcqRate);
+            LE_WARN("GnssStartInternalWorker:Failed to setAcquisition rate(%" PRIu32 ")", AcqRate);
         }
 
-        if (taf_locGnss_Start() != LE_OK)
-        {
-            le_ref_DeleteRef(ActivationRequestRefMap, reqRef);
-            le_mem_Release(clientRequestPtr);
-            return NULL;
-        }
+        // Async GNSS start — PosCtrlRequestRespond called on completion
+        gnss.StartInternal(cPtr->sessionRef, PosCtrlRequestRespond, cPtr);
     }
-    pos.CurrentActivationsCount++;
+    else
+    {
+        // GNSS already running — respond immediately with new activation ref
+        pos.CurrentActivationsCount++;
+        clientRequestPtr->sessionRef           = cPtr->sessionRef;
+        clientRequestPtr->posCtrlActivationRef = reqRef;
 
-    le_msg_SessionRef_t msgSession = taf_locPosCtrl_GetClientSessionRef();
-    clientRequestPtr->sessionRef = msgSession;
-    clientRequestPtr->posCtrlActivationRef = reqRef;
+        LE_DEBUG("taf_locPosCtrl_Request (already active): ref(%p) sessionRef(%p)",
+                 reqRef, cPtr->sessionRef);
 
-    LE_DEBUG("taf_locPosCtrl_Request ref (%p), SessionRef (%p)", reqRef, msgSession);
-
-    return reqRef;
+        taf_locPosCtrl_RequestRespond(cmdRef, reqRef);
+        le_mem_Release(cPtr);
+    }
 }
 
 
@@ -472,6 +531,7 @@ void taf_locPos::PositionHandler
 )
 {
     auto &pos = taf_locPos::GetInstance();
+    auto &gnss = taf_locGnss::GetInstance();
     le_result_t result;
     bool        locationValid = false;
     bool        altitudeValid = false;
@@ -505,13 +565,13 @@ void taf_locPos::PositionHandler
     if (!pos.NumOfHandlers)
     {
         LE_DEBUG("Release Handler,No positioning Sample handler");
-        taf_locGnss_ReleaseSampleRef(positionRef);
+        gnss.ReleaseSampleRef(positionRef);
         return;
     }
 
     LE_DEBUG("Handler Function called %p", positionRef);
 
-    result = taf_locGnss_GetLocation(positionRef, &latitude, &longitude, &hAccuracy);
+    result = gnss.GetLocation(positionRef, &latitude, &longitude, &hAccuracy);
     if ((LE_OK == result) ||
         ((LE_OUT_OF_RANGE == result) && (INT32_MAX != latitude) && (INT32_MAX != longitude)))
     {
@@ -525,7 +585,7 @@ void taf_locPos::PositionHandler
         locationValid = false;
     }
 
-    result = taf_locGnss_GetAltitude(positionRef, &altitude, &vAccuracy);
+    result = gnss.GetAltitude(positionRef, &altitude, &vAccuracy);
 
     if ((LE_OK == result) ||
         ((LE_OUT_OF_RANGE != result) && (INT32_MAX != altitude)))
@@ -557,7 +617,7 @@ void taf_locPos::PositionHandler
 
         if (LE_FAULT == CalculateMove(posHandlerNodePtr, &posObj, &horizontalFlag, &verticalFlag))
         {
-            taf_locGnss_ReleaseSampleRef(positionRef);
+            gnss.ReleaseSampleRef(positionRef);
             return;
         }
 
@@ -585,13 +645,13 @@ void taf_locPos::PositionHandler
             posRequestPtr->posSampleNodePtr->vAccuracyValid = CHECK_VALIDITY(vAccuracy,INT32_MAX);
             posRequestPtr->posSampleNodePtr->vAccuracy = vAccuracy;
 
-            taf_locGnss_GetHorizontalSpeed(positionRef, &hSpeed, &hSpeedAccuracy);
+            gnss.GetHorizontalSpeed(positionRef, &hSpeed, &hSpeedAccuracy);
             posRequestPtr->posSampleNodePtr->hSpeedValid = CHECK_VALIDITY(hSpeed,UINT32_MAX);
             posRequestPtr->posSampleNodePtr->hSpeed = hSpeed;
             posRequestPtr->posSampleNodePtr->hSpeedAccuracyValid = CHECK_VALIDITY(hSpeedAccuracy,UINT32_MAX);
             posRequestPtr->posSampleNodePtr->hSpeedAccuracy = hSpeedAccuracy;
 
-            taf_locGnss_GetVerticalSpeed(positionRef, &vSpeed, &vSpeedAccuracy);
+            gnss.GetVerticalSpeed(positionRef, &vSpeed, &vSpeedAccuracy);
             posRequestPtr->posSampleNodePtr->vSpeedValid = CHECK_VALIDITY(vSpeed,INT32_MAX);
             posRequestPtr->posSampleNodePtr->vSpeed = vSpeed;
             posRequestPtr->posSampleNodePtr->vSpeedAccuracyValid = CHECK_VALIDITY(vSpeedAccuracy,INT32_MAX);
@@ -602,14 +662,14 @@ void taf_locPos::PositionHandler
             posRequestPtr->posSampleNodePtr->headingValid = false;
             posRequestPtr->posSampleNodePtr->heading = UINT32_MAX;
 
-            taf_locGnss_GetDirection(positionRef, &direction, &directionAccuracy);
+            gnss.GetDirection(positionRef, &direction, &directionAccuracy);
 
             posRequestPtr->posSampleNodePtr->directionAccuracyValid = CHECK_VALIDITY(directionAccuracy,UINT32_MAX);
             posRequestPtr->posSampleNodePtr->directionAccuracy = directionAccuracy;
             posRequestPtr->posSampleNodePtr->directionValid = CHECK_VALIDITY(direction,UINT32_MAX);
             posRequestPtr->posSampleNodePtr->direction = direction;
 
-            if (LE_OK == taf_locGnss_GetDate(positionRef, &year, &month, &day))
+            if (LE_OK == gnss.GetDate(positionRef, &year, &month, &day))
             {
                 posRequestPtr->posSampleNodePtr->dateValid = true;
             }
@@ -621,7 +681,7 @@ void taf_locPos::PositionHandler
             posRequestPtr->posSampleNodePtr->month = month;
             posRequestPtr->posSampleNodePtr->year = year;
 
-            if (LE_OK == taf_locGnss_GetTime(positionRef, &hours, &minutes, &seconds, &milliseconds))
+            if (LE_OK == gnss.GetTime(positionRef, &hours, &minutes, &seconds, &milliseconds))
             {
                 posRequestPtr->posSampleNodePtr->timeValid = true;
             }
@@ -634,7 +694,7 @@ void taf_locPos::PositionHandler
             posRequestPtr->posSampleNodePtr->minutes = minutes;
             posRequestPtr->posSampleNodePtr->hours = hours;
 
-            if (LE_OK == taf_locGnss_GetGpsLeapSeconds(positionRef, &leapSeconds))
+            if (LE_OK == gnss.GetGpsLeapSeconds(positionRef, &leapSeconds))
             {
                posRequestPtr->posSampleNodePtr->leapSecondsValid = true;
             }
@@ -644,7 +704,7 @@ void taf_locPos::PositionHandler
             }
             posRequestPtr->posSampleNodePtr->leapSeconds = leapSeconds;
 
-            if (LE_OK != taf_locGnss_GetPositionState(positionRef, &gnssState))
+            if (LE_OK != gnss.GetPositionState(positionRef, &gnssState))
             {
                 posRequestPtr->posSampleNodePtr->fixState = TAF_LOCGNSS_STATE_FIX_NO_POS;
                 LE_ERROR("Failed to get a position fix");
@@ -672,7 +732,7 @@ void taf_locPos::PositionHandler
 
     }
 
-    taf_locGnss_ReleaseSampleRef(positionRef);
+    gnss.ReleaseSampleRef(positionRef);
 }
 
 taf_locPos_MovementHandlerRef_t taf_locPos::AddMovementHandler
@@ -733,7 +793,8 @@ taf_locPos_MovementHandlerRef_t taf_locPos::AddMovementHandler
 
 le_result_t taf_locPos::SetAcquisitionRate
 (
- uint32_t  acqRate
+    taf_locPos_ServerCmdRef_t cmdRef,
+    uint32_t  acqRate
 )
 {
         LE_INFO("SetAcquisitionRate Called");
@@ -768,9 +829,11 @@ le_result_t taf_locPos::Get2DLocation
     int32_t     latitude;
     int32_t     longitude;
     int32_t     hAccuracy;
-    taf_locGnss_SampleRef_t positionSampleRef = taf_locGnss_GetLastSampleRef();
 
-    resGnss = taf_locGnss_GetLocation(positionSampleRef, &latitude, &longitude, &hAccuracy);
+    auto &gnss = taf_locGnss::GetInstance();
+    taf_locGnss_SampleRef_t positionSampleRef = gnss.GetLastSampleRef();
+
+    resGnss = gnss.GetLocation(positionSampleRef, &latitude, &longitude, &hAccuracy);
     if ((resGnss == LE_OK)||(resGnss == LE_OUT_OF_RANGE))
     {
         if (latPtr)
@@ -807,7 +870,7 @@ le_result_t taf_locPos::Get2DLocation
         resPos = LE_FAULT;
     }
 
-    taf_locGnss_ReleaseSampleRef(positionSampleRef);
+    gnss.ReleaseSampleRef(positionSampleRef);
 
     return resPos;
 }
@@ -832,15 +895,18 @@ uint32_t taf_locPos::GetAcquisitionRate
 
 le_result_t taf_locPos::GetFixState
 (
- taf_locGnss_FixState_t* statePtr
+    taf_locPos_ServerCmdRef_t cmdRef,
+    taf_locGnss_FixState_t* statePtr
 )
 {
     taf_locGnss_FixState_t gnssState;
-    taf_locGnss_SampleRef_t positionSampleRef = taf_locGnss_GetLastSampleRef();
+    
+    auto &gnss = taf_locGnss::GetInstance();
+    taf_locGnss_SampleRef_t positionSampleRef = gnss.GetLastSampleRef();
 
     TAF_KILL_CLIENT_IF_RET_VAL((statePtr == NULL) || (positionSampleRef == NULL), LE_FAULT, "state pointer is NULL / Invalid reference");
 
-    if (LE_OK != taf_locGnss_GetPositionState(positionSampleRef, &gnssState))
+    if (LE_OK != gnss.GetPositionState(positionSampleRef, &gnssState))
     {
         *statePtr = TAF_LOCGNSS_STATE_FIX_NO_POS;
         LE_ERROR("Failed to get the position fix state");
@@ -850,25 +916,27 @@ le_result_t taf_locPos::GetFixState
         *statePtr = (taf_locGnss_FixState_t)gnssState;
     }
 
-    taf_locGnss_ReleaseSampleRef(positionSampleRef);
+    gnss.ReleaseSampleRef(positionSampleRef);
     return LE_OK;
 }
 
 le_result_t taf_locPos::GetTime
 (
- uint16_t* hrsPtr,
- uint16_t* minPtr,
- uint16_t* secPtr,
- uint16_t* msecondsPtr
+    uint16_t* hrsPtr,
+    uint16_t* minPtr,
+    uint16_t* secPtr,
+    uint16_t* msecondsPtr
 )
 {
     TAF_KILL_CLIENT_IF_RET_VAL((hrsPtr == NULL) || (minPtr == NULL) || (secPtr == NULL) || (msecondsPtr == NULL), LE_FAULT, "Invalid input parameters");
     le_result_t resPos = LE_OK;
-    taf_locGnss_SampleRef_t positionSampleRef = taf_locGnss_GetLastSampleRef();
 
-    resPos = taf_locGnss_GetTime(positionSampleRef, hrsPtr, minPtr, secPtr, msecondsPtr);
+    auto &gnss = taf_locGnss::GetInstance();
+    taf_locGnss_SampleRef_t positionSampleRef = gnss.GetLastSampleRef();
 
-    taf_locGnss_ReleaseSampleRef(positionSampleRef);
+    resPos = gnss.GetTime(positionSampleRef, hrsPtr, minPtr, secPtr, msecondsPtr);
+
+    gnss.ReleaseSampleRef(positionSampleRef);
 
     return resPos;
 }
@@ -883,11 +951,13 @@ le_result_t taf_locPos::GetDate
     TAF_KILL_CLIENT_IF_RET_VAL((yearPtr == NULL) || (monthPtr == NULL) || (dayPtr == NULL),
             LE_FAULT, "Invalid input parameters");
     le_result_t posResult = LE_OK;
-    taf_locGnss_SampleRef_t positionSampleRef = taf_locGnss_GetLastSampleRef();
 
-    posResult = taf_locGnss_GetDate(positionSampleRef, yearPtr, monthPtr, dayPtr);
+    auto &gnss = taf_locGnss::GetInstance();
+    taf_locGnss_SampleRef_t positionSampleRef = gnss.GetLastSampleRef();
 
-    taf_locGnss_ReleaseSampleRef(positionSampleRef);
+    posResult = gnss.GetDate(positionSampleRef, yearPtr, monthPtr, dayPtr);
+
+    gnss.ReleaseSampleRef(positionSampleRef);
 
     return posResult;
 }
@@ -910,9 +980,11 @@ le_result_t taf_locPos::Get3DLocation
     int32_t     altitude;
     int32_t     hAccuracy;
     int32_t     vAccuracy;
-    taf_locGnss_SampleRef_t positionSampleRef = taf_locGnss_GetLastSampleRef();
 
-    resGnss = taf_locGnss_GetLocation(positionSampleRef, &latitude, &longitude, &hAccuracy);
+    auto &gnss = taf_locGnss::GetInstance();
+    taf_locGnss_SampleRef_t positionSampleRef = gnss.GetLastSampleRef();
+
+    resGnss = gnss.GetLocation(positionSampleRef, &latitude, &longitude, &hAccuracy);
     if ((resGnss == LE_OK)||(resGnss == LE_OUT_OF_RANGE))
     {
         if (longPtr)
@@ -949,7 +1021,7 @@ le_result_t taf_locPos::Get3DLocation
         resPos = LE_FAULT;
     }
 
-    resGnss = taf_locGnss_GetAltitude(positionSampleRef, &altitude, &vAccuracy);
+    resGnss = gnss.GetAltitude(positionSampleRef, &altitude, &vAccuracy);
 
     if (((resGnss == LE_OK)||(resGnss == LE_OUT_OF_RANGE))
         &&(resPos != LE_FAULT))
@@ -984,7 +1056,7 @@ le_result_t taf_locPos::Get3DLocation
         resPos = LE_FAULT;
     }
 
-    taf_locGnss_ReleaseSampleRef(positionSampleRef);
+    gnss.ReleaseSampleRef(positionSampleRef);
 
     return resPos;
 }
@@ -1361,6 +1433,8 @@ void taf_locPos::RemoveMovementHandler
  taf_locPos_MovementHandlerRef_t handlerRef
 )
 {
+    auto &gnss = taf_locGnss::GetInstance();
+
     taf_locPos_SampleHandler_t* posHandlerNodePtr =
         (taf_locPos_SampleHandler_t*)le_ref_Lookup(MovementHandlerRefMap, handlerRef);
 
@@ -1380,20 +1454,94 @@ void taf_locPos::RemoveMovementHandler
 
     if (NumOfHandlers == 0)
     {
-        taf_locGnss_RemovePositionHandler(GnssHandlerRef);
+        gnss.RemovePositionHandler(GnssHandlerRef);
         GnssHandlerRef = NULL;
     }
 }
 
+static void PosCtrlReleaseInternalRespond(void* cmdPtr, void*)
+{
+    PosCtrlCmdInfo_t* cPtr = (PosCtrlCmdInfo_t*)cmdPtr;
+    auto &pos = taf_locPos::GetInstance();
+
+    LE_DEBUG("PosCtrlReleaseInternalRespond: activationRef=%p retCode=%d",
+             cPtr->activationRef, cPtr->retCode);
+
+    if (cPtr->retCode != LE_OK)
+    {
+        LE_ERROR("PosCtrlReleaseInternalRespond: GNSS Stop failed [rc=%d] — "
+                 "proceeding with cleanup anyway", cPtr->retCode);
+    }
+
+    le_ref_DeleteRef(pos.ActivationRequestRefMap, cPtr->activationRef);
+    LE_DEBUG("PosCtrlReleaseInternalRespond: Remove Position Ctrl (%p)", cPtr->activationRef);
+    le_mem_Release(cPtr->posPtr);
+
+    le_mem_Release(cPtr);
+}
+
+static void OnGnssStopCompleteInternal(le_result_t result, void* contextPtr)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    PosCtrlCmdInfo_t* cPtr = (PosCtrlCmdInfo_t*)contextPtr;
+    cPtr->retCode = result;
+
+    // ✅ Queue cleanup back to main LocationSvc thread
+    le_event_QueueFunctionToThread(
+        gnss.LocationSvcThRef, PosCtrlReleaseInternalRespond, cPtr, NULL);
+}
+
+void taf_locPos::locPosCtrl_ReleaseInternal
+(
+    taf_locPosCtrl_ActivationRef_t ref,
+    le_msg_SessionRef_t            sessionRef
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+
+    void* posPtr = le_ref_Lookup(ActivationRequestRefMap, ref);
+    if (posPtr == NULL)
+    {
+        LE_ERROR("locPosCtrl_ReleaseInternal: Invalid ref (%p)", ref);
+        return;
+    }
+
+    PosCtrlCmdInfo_t* cPtr =
+        (PosCtrlCmdInfo_t*)le_mem_ForceAlloc(PosCtrlCmdPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+
+    cPtr->cmdRef        = NULL;
+    cPtr->activationRef = ref;
+    cPtr->posPtr        = posPtr;
+    cPtr->sessionRef    = sessionRef;
+
+    if (CurrentActivationsCount > 0)
+    {
+        CurrentActivationsCount--;
+
+        if (CurrentActivationsCount == 0)
+        {
+            LE_INFO("locPosCtrl_ReleaseInternal: Last client, stopping GNSS async");
+
+            gnss.StopInternal(sessionRef, OnGnssStopCompleteInternal, cPtr);
+            return;
+        }
+    }
+
+    le_ref_DeleteRef(ActivationRequestRefMap, ref);
+    LE_DEBUG("locPosCtrl_ReleaseInternal: Remove Position Ctrl (%p)", ref);
+    le_mem_Release(posPtr);
+    le_mem_Release(cPtr);
+}
 
 void taf_locPos::PosCtrlCloseSessionEventHandler
 (
     le_msg_SessionRef_t sessionRef,
-    void* contextPtr
+    void*               contextPtr
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    LE_DEBUG("SessionRef (%p) has been closed", sessionRef);
+    LE_DEBUG("PosCtrlCloseSessionEventHandler: SessionRef (%p) has been closed", sessionRef);
 
     if (!sessionRef)
     {
@@ -1402,49 +1550,100 @@ void taf_locPos::PosCtrlCloseSessionEventHandler
     }
 
     le_ref_IterRef_t iterRef = le_ref_GetIterator(pos.ActivationRequestRefMap);
-    le_result_t result = le_ref_NextNode(iterRef);
 
-    while (result == LE_OK)
+    while (le_ref_NextNode(iterRef) == LE_OK)
     {
-        ClientRequest_t* posCtrlHandlerPtr = (ClientRequest_t*) le_ref_GetValue(iterRef);
+        ClientRequest_t* posCtrlHandlerPtr =
+            (ClientRequest_t*)le_ref_GetValue(iterRef);
         LE_ASSERT(posCtrlHandlerPtr != NULL);
 
         if (posCtrlHandlerPtr->sessionRef == sessionRef)
         {
-            taf_locPosCtrl_ActivationRef_t saferef = (taf_locPosCtrl_ActivationRef_t) le_ref_GetSafeRef(iterRef);
-            LE_DEBUG("Release taf_locPosCtrl_Release 0x%p, Session 0x%p", saferef, sessionRef);
+            taf_locPosCtrl_ActivationRef_t safeRef =
+                (taf_locPosCtrl_ActivationRef_t)le_ref_GetSafeRef(iterRef);
 
-            taf_locPosCtrl_Release(saferef);
+            LE_DEBUG("PosCtrlCloseSessionEventHandler: releasing safeRef=0x%p session=0x%p",
+                     safeRef, sessionRef);
+
+            pos.locPosCtrl_ReleaseInternal(safeRef, sessionRef);
         }
-        result = le_ref_NextNode(iterRef);
     }
 }
 
+static void PosCtrlReleaseRespond(void* cmdPtr, void*)
+{
+    PosCtrlCmdInfo_t* cPtr = (PosCtrlCmdInfo_t*)cmdPtr;
+    auto &pos = taf_locPos::GetInstance();
+
+    if (cPtr->retCode != LE_OK)
+    {
+        LE_ERROR("PosCtrlReleaseRespond: GNSS Stop failed [rc=%d]", cPtr->retCode);
+    }
+
+    le_ref_DeleteRef(pos.ActivationRequestRefMap, cPtr->activationRef);
+    LE_DEBUG("PosCtrlReleaseRespond: Remove Position Ctrl (%p)", cPtr->activationRef);
+    le_mem_Release(cPtr->posPtr);
+
+    if (cPtr->cmdRef != NULL)
+    {
+        taf_locPosCtrl_ReleaseRespond(cPtr->cmdRef);
+    }
+
+    le_mem_Release(cPtr);
+}
+
+static void OnGnssStopComplete(le_result_t result, void* contextPtr)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    PosCtrlCmdInfo_t* cPtr = (PosCtrlCmdInfo_t*)contextPtr;
+    cPtr->retCode = result;
+
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, PosCtrlReleaseRespond, cPtr, NULL);
+}
 
 void taf_locPos::locPosCtrl_Release
 (
+    taf_locPosCtrl_ServerCmdRef_t  cmdRef,
     taf_locPosCtrl_ActivationRef_t ref
 )
 {
+    auto &gnss = taf_locGnss::GetInstance();
+
     void* posPtr = le_ref_Lookup(ActivationRequestRefMap, ref);
-    TAF_KILL_CLIENT_IF_RET_NIL((posPtr == NULL),  "Invalid positioning service activation reference %p", ref);
+    TAF_KILL_CLIENT_IF_RET_NIL((posPtr == NULL),
+        "Invalid positioning service activation reference %p", ref);
+
+    PosCtrlCmdInfo_t* cPtr =
+        (PosCtrlCmdInfo_t*)le_mem_ForceAlloc(PosCtrlCmdPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef        = cmdRef;
+    cPtr->activationRef = ref;
+    cPtr->posPtr        = posPtr;
+    cPtr->sessionRef    = taf_locPosCtrl_GetClientSessionRef();
 
     if (CurrentActivationsCount > 0)
     {
         CurrentActivationsCount--;
+
         if (CurrentActivationsCount == 0)
         {
-            taf_locGnss_Stop();
+            LE_INFO("locPosCtrl_Release: Last client, stopping GNSS async");
+            gnss.StopInternal(cPtr->sessionRef, OnGnssStopComplete, cPtr);
+            return;
         }
     }
+
     le_ref_DeleteRef(ActivationRequestRefMap, ref);
-    LE_DEBUG("Remove Position Ctrl (%p)",ref);
+    LE_DEBUG("locPosCtrl_Release: Remove Position Ctrl (%p)", ref);
     le_mem_Release(posPtr);
+    taf_locPosCtrl_ReleaseRespond(cmdRef);
+    le_mem_Release(cPtr);
 }
 
 void taf_locPos::Release
 (
- taf_locPos_SampleRef_t positionSampleRef
+    taf_locPos_ServerCmdRef_t cmdRef,
+    taf_locPos_SampleRef_t positionSampleRef
 )
 {
     TAF_KILL_CLIENT_IF_RET_NIL((positionSampleRef == NULL),  "Invalid reference");
@@ -1458,14 +1657,37 @@ void taf_locPos::Release
     le_mem_Release(posRequestPtr);
 }
 
+void taf_locPos::ReleaseInternal
+(
+    taf_locPos_SampleRef_t positionSampleRef
+)
+{
+    TAF_ERROR_IF_RET_NIL((positionSampleRef == NULL), "Null positionSampleRef");
+
+    PosSampleRequest_t* posRequestPtr =
+        (PosSampleRequest_t*)le_ref_Lookup(PosSampleMap, positionSampleRef);
+
+    if (posRequestPtr == NULL || posRequestPtr->posSampleNodePtr == NULL)
+    {
+        LE_ERROR("ReleaseInternal: Invalid reference (%p)", positionSampleRef);
+        return;
+    }
+
+    le_ref_DeleteRef(PosSampleMap, positionSampleRef);
+    le_mem_Release(posRequestPtr->posSampleNodePtr);
+    le_mem_Release(posRequestPtr);
+
+    LE_DEBUG("ReleaseInternal: released positionSampleRef (%p)", positionSampleRef);
+}
+
 void taf_locPos::PosCloseSessionEventHandler
 (
     le_msg_SessionRef_t sessionRef,
-    void* contextPtr
+    void*               contextPtr
 )
 {
     auto &pos = taf_locPos::GetInstance();
-    LE_DEBUG("SessionRef (%p) has been closed", sessionRef);
+    LE_DEBUG("PosCloseSessionEventHandler: SessionRef (%p) has been closed", sessionRef);
 
     if (!sessionRef)
     {
@@ -1474,21 +1696,23 @@ void taf_locPos::PosCloseSessionEventHandler
     }
 
     le_ref_IterRef_t iterRef = le_ref_GetIterator(pos.PosSampleMap);
-    le_result_t result = le_ref_NextNode(iterRef);
-    while (result == LE_OK)
+
+    while (le_ref_NextNode(iterRef) == LE_OK)
     {
-        PosSampleRequest_t *posRequestPtr = (PosSampleRequest_t*)le_ref_GetValue(iterRef);
+        PosSampleRequest_t* posRequestPtr =
+            (PosSampleRequest_t*)le_ref_GetValue(iterRef);
         LE_ASSERT(posRequestPtr != NULL);
 
         if (posRequestPtr->sessionRef == sessionRef)
         {
-            taf_locPos_SampleRef_t safeRef = (taf_locPos_SampleRef_t) le_ref_GetSafeRef(iterRef);
-            LE_DEBUG("Release taf_locPos_sample_Release 0x%p, Session 0x%p\n", safeRef, sessionRef);
+            taf_locPos_SampleRef_t safeRef =
+                (taf_locPos_SampleRef_t)le_ref_GetSafeRef(iterRef);
 
-            pos.Release(safeRef);
+            LE_DEBUG("PosCloseSessionEventHandler: releasing safeRef=0x%p session=0x%p",
+                     safeRef, sessionRef);
+
+            pos.ReleaseInternal(safeRef);
         }
-
-        result = le_ref_NextNode(iterRef);
     }
 }
 
@@ -1498,6 +1722,7 @@ void taf_locPos::Init()
 
    PosPoolRef = le_mem_InitStaticPool(PosSample, TAF_LOCPOS_MAX_OBJ, sizeof(taf_locPos_Sample_t));
    PosRequestPoolRef = le_mem_InitStaticPool(PosSampleRequest, TAF_LOCPOS_MAX_OBJ, sizeof(PosSampleRequest_t));
+   PosCtrlCmdPoolRef = le_mem_InitStaticPool(PosCtrlCmdPool, MAX_CMD_LOCATION_POOL_SIZE, sizeof(PosCtrlCmdInfo_t));
 
    posMsgService = taf_locPos_GetServiceRef();
    le_msg_AddServiceCloseHandler(posMsgService, PosCloseSessionEventHandler, NULL);

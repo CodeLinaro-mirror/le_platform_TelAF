@@ -2606,14 +2606,19 @@ taf_locGnss_Client_t* taf_locGnss::AcquireSessionRef
 
         if(clientRequestPtr->locationClient == 0)
         {
-            clientRequestPtr->locationClient = taf_pa_location_CreateClient();
-            if(clientRequestPtr->locationClient == 0){
-                LE_ERROR("unable to create PA Reference for %p",clientRequestPtr->sessionRef);
+            taf_pa_location_LocationId newClientId = 0;
+            pa_result_t createRes = taf_pa_location_CreateClient(&newClientId);
+            if (createRes != PA_OK || newClientId == 0)
+            {
+                LE_ERROR("taf_pa_location_CreateClient failed: res=%d, id=%d",
+                         (int)createRes, (int)newClientId);
+                le_mem_Release(clientRequestPtr);
+                return NULL;
             }
+            clientRequestPtr->locationClient = newClientId;
         }else{
             LE_INFO("Reference already created!!");
         }
-
 
         InitializeClient(clientRequestPtr);
 
@@ -7694,7 +7699,20 @@ le_result_t taf_locGnss::GetCapabilities
 
     TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
 
-    *locCapabilityPtr = taf_pa_location_getCapabilities(clientRequestPtr->locationClient, std::any(clientRequestPtr->sessionRef));
+    *locCapabilityPtr = 0;
+    uint32_t caps = 0;
+    pa_result_t capsRes = taf_pa_location_getCapabilities(
+        clientRequestPtr->locationClient, &caps,
+        std::any(clientRequestPtr->sessionRef));
+    if (capsRes != PA_OK)
+    {
+        LE_ERROR("taf_pa_location_getCapabilities failed: %d", (int)capsRes);
+        return LE_FAULT;
+    }
+    else
+    {
+        *locCapabilityPtr = (uint64_t)caps;
+    }
 
     LE_DEBUG("GetCapabilities: Location Capabilites is %" PRIu64 "", *locCapabilityPtr);
 

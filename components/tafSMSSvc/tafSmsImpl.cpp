@@ -917,17 +917,18 @@ uint32_t taf_Sms::ListRxMsg
             smsTagType = taf_pa_sms_Tag::TAF_PA_UNKNOWN;
       }
 
-      int32_t ret = taf_pa_sms_RequestSmsMessageList(idxArray,
-         MAX_OF_SMS_MSG_IN_STORAGE, kListRxMsgWaitTime, smsTagType, phoneId);
-      if(ret < 0)
+      int32_t paListCount = 0;
+      pa_result_t ret = taf_pa_sms_RequestSmsMessageList(idxArray,
+         MAX_OF_SMS_MSG_IN_STORAGE, kListRxMsgWaitTime, smsTagType, phoneId, &paListCount);
+      if (ret != PA_OK)
       {
-          LE_ERROR("taf_pa_sms_RequestSmsMessageList failed");
-          return ret;
+          LE_ERROR("taf_pa_sms_RequestSmsMessageList failed, errorCode: %d", (int)ret);
+          return -1;
       }
       else
       {
-          LE_DEBUG("taf_pa_sms_RequestSmsMessageList was successful, ret = %d", ret);
-          numOfIdx = ret;
+          LE_DEBUG("taf_pa_sms_RequestSmsMessageList was successful, count = %d", paListCount);
+          numOfIdx = (uint32_t)paListCount;
       }
    }
 
@@ -1189,7 +1190,12 @@ le_result_t taf_Sms::SendPDUMessageAsync(taf_sms_MsgRef_t msgRef)
       le_event_ReportWithRefCounting(sms.MsgSendCallbackEvent, msgSendStatusPtr);
    };
 
-   taf_pa_sms_SendPDUMessageAsync(phoneId, pduData, pduLength, cb);
+   pa_result_t paRes = taf_pa_sms_SendPDUMessageAsync(phoneId, pduData, pduLength, cb);
+   if (paRes != PA_OK)
+   {
+       LE_WARN("taf_pa_sms_SendPDUMessageAsync failed, errorCode: %d", (int)paRes);
+       return LE_FAULT;
+   }
    return LE_OK;
 }
 
@@ -1334,7 +1340,7 @@ void taf_Sms::Init(void)
       SetPreferredStorage(TAF_SMS_STORAGE_HLOS);
    }
 
-   taf_pa_sms_RegisterIncomingSmsCallback
+   pa_result_t regIncomingRes = taf_pa_sms_RegisterIncomingSmsCallback
    (
       [](int phoneId, const std::string &pdu, const std::string &sender, int storageIdx)
       {
@@ -1346,8 +1352,12 @@ void taf_Sms::Init(void)
          le_event_Report(taf_Sms::GetInstance().NewMsgEvent, &newMsg, sizeof(newSms_t));
       }
    );
+   if (regIncomingRes != PA_OK)
+   {
+       LE_ERROR("taf_pa_sms_RegisterIncomingSmsCallback failed, errorCode: %d", (int)regIncomingRes);
+   }
 
-   taf_pa_sms_RegisterMemoryFullCallback
+   pa_result_t regMemFullRes = taf_pa_sms_RegisterMemoryFullCallback
    (
       [](int phoneId, taf_pa_sms_StorageFullType fullType)
       {
@@ -1373,6 +1383,10 @@ void taf_Sms::Init(void)
          }
       }
    );
+   if (regMemFullRes != PA_OK)
+   {
+       LE_ERROR("taf_pa_sms_RegisterMemoryFullCallback failed, errorCode: %d", (int)regMemFullRes);
+   }
 
    LE_INFO("System ready, start tafSms service!\n");
 }

@@ -79,7 +79,7 @@ static void SigTermEventHandler
  *      - LE_TIMEOUT if the PA layer returned -ETIMEDOUT.
  *      - LE_BAD_PARAMETER if the PA layer returned -EINVAL.
  *      - LE_UNSUPPORTED if the PA layer returned -ENOTSUP.
- *      - LE_NOT_IMPLEMENTED if the PA layer returned -ENOSYS.
+ *      - LE_NOT_IMPLEMENTED if the PA layer returned -ENOSYS or PA_NOT_IMPLEMENTED.
 */
 //--------------------------------------------------------------------------------------------------
 le_result_t Utility::Convert::Result
@@ -100,6 +100,7 @@ le_result_t Utility::Convert::Result
         case -ENOTSUP:
             return LE_UNSUPPORTED;
         case -ENOSYS:
+        case PA_NOT_IMPLEMENTED:
             return LE_NOT_IMPLEMENTED;
         default:
             LE_INFO("Unknown result %d.", result);
@@ -319,8 +320,8 @@ COMPONENT_INIT
         // Subscribe to asynchronous PA indications before exposing the service as ready.
         RegisterIndication(ENABLE_INDICATION);
 
-        taf_pa_mrc_AddProcessStatusHandler(ProcessStatusHandler, nullptr);
-        taf_pa_mrc_AddScrubStatusHandler(ScrubStatusHandler, nullptr);
+        taf_pa_mrc_AddProcessStatusHandler(ProcessStatusHandler, nullptr, nullptr);
+        taf_pa_mrc_AddScrubStatusHandler(ScrubStatusHandler, nullptr, nullptr);
 
         le_sig_Block(SIGTERM);
         le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);

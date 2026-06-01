@@ -1032,6 +1032,12 @@ le_result_t taf_radio_GetPacketSwitchedState
         return result;
     }
 
+    if (state != TAF_PA_RADIO_DATA_SERVICE_STATE_IN_SERVICE)
+    {
+        *statePtr = Utility::Convert::NetRegState(
+            state, TAF_PA_RADIO_DATA_ROAMING_STATUS_UNKNOWN);
+        return LE_OK;
+    }
     taf_pa_radio_DataRoamingStatus_t status = TAF_PA_RADIO_DATA_ROAMING_STATUS_UNKNOWN;
     paResult = taf_pa_radio_GetDataCurrRoamingStatus(instance, &status);
     result = Utility::Convert::Result(paResult);

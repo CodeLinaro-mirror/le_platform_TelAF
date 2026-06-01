@@ -346,7 +346,245 @@ static void RatChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for voice service information indications.
+ * Reports a net reg state event if the new value differs from the cached value, then
+ * updates the cache.  Used by both the indication handler and the resync path.
+ */
+//--------------------------------------------------------------------------------------------------
+static void ReportNetRegStateIfChanged
+(
+    le_event_Id_t eventId,              ///< [IN] Event to report on.
+    taf_radio_NetRegState_t& cached,    ///< [IN/OUT] Cached value (updated on change).
+    uint8_t phoneId,                    ///< [IN] Phone ID for the payload.
+    taf_radio_NetRegState_t newState    ///< [IN] Newly computed state.
+)
+{
+    if (newState == cached)
+    {
+        LE_DEBUG("ReportNetRegStateIfChanged: phoneId=%d state=%d unchanged, skip.",
+                 phoneId, newState);
+        return;
+    }
+    LE_INFO("ReportNetRegStateIfChanged: phoneId=%d state %d -> %d.",
+            phoneId, cached, newState);
+    cached = newState;
+
+    auto& factory = Factory::GetInstance();
+    taf_radio_NetRegStateInd_t* indPtr =
+        (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(factory.pools.netRegState);
+    indPtr->phoneId = phoneId;
+    indPtr->state   = newState;
+    le_event_ReportWithRefCounting(eventId, (void*)indPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Main-thread handler for registration state indications (voice / data service / data roaming).
+ *
+ * Runs on the main event loop so it never executes concurrently with other main-thread events
+ * and never blocks the PA callback thread.
+ */
+//--------------------------------------------------------------------------------------------------
+static void RegStateIndEventHandler
+(
+    void* contextPtr ///< [IN] Ref-counted RegStateIndEvent_t pointer.
+)
+{
+    auto* eventPtr    = (RegStateIndEvent_t*)contextPtr;
+    uint32_t instance = eventPtr->instance;
+
+    if (instance >= INSTANCE_MAX_COUNT)
+    {
+        LE_ERROR("RegStateIndEventHandler: invalid instance %d.", instance);
+        le_mem_Release(contextPtr);
+        return;
+    }
+
+    auto& factory   = Factory::GetInstance();
+    uint8_t phoneId = Utility::Convert::InstanceToPhone(instance);
+
+    switch (eventPtr->type)
+    {
+        case REG_STATE_IND_VOICE_SERVICE_INFO:
+        {
+            taf_radio_NetRegState_t voiceState =
+                Utility::Convert::NetRegState(&eventPtr->voiceServiceInfo.info);
+
+            taf_radio_NetRegState_t psState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+            if (taf_radio_GetPacketSwitchedState(&psState, phoneId) != LE_OK)
+            {
+                LE_WARN("RegStateIndEventHandler: failed to get PS state for phoneId %d.",
+                        phoneId);
+            }
+
+            taf_radio_NetRegState_t combinedState =
+                Utility::Convert::CombineNetRegState(voiceState, psState);
+
+            LE_DEBUG("RegStateIndEventHandler: VOICE instance=%d voice=%d ps=%d combined=%d.",
+                    instance, voiceState, psState, combinedState);
+
+            ReportNetRegStateIfChanged(
+                factory.events.netRegState,
+                factory.cache.netRegState[instance],
+                phoneId, combinedState);
+            break;
+        }
+
+        case REG_STATE_IND_DATA_SERVICE_STATUS:
+        {
+            taf_pa_radio_DataServiceState_t dataState = eventPtr->dataServiceStatus.state;
+            factory.cache.dataServiceState[instance] = dataState;
+
+            taf_radio_NetRegState_t psState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+            switch (dataState)
+            {
+                case TAF_PA_RADIO_DATA_SERVICE_STATE_IN_SERVICE:
+                {
+                    taf_pa_radio_DataRoamingStatus_t roamingStatus =
+                        TAF_PA_RADIO_DATA_ROAMING_STATUS_UNKNOWN;
+                    pa_result_t result =
+                        taf_pa_radio_GetDataCurrRoamingStatus(instance, &roamingStatus);
+
+                    if (result == 0 && roamingStatus == TAF_PA_RADIO_DATA_ROAMING_STATUS_ON)
+                    {
+                        psState = TAF_RADIO_NET_REG_STATE_ROAMING;
+                    }
+                    else
+                    {
+                        psState = TAF_RADIO_NET_REG_STATE_HOME;
+                    }
+                    LE_DEBUG("RegStateIndEventHandler: DATA_SERVICE instance=%d "
+                            "dataState=IN_SERVICE roamingResult=%d roamingStatus=%d ps=%d.",
+                            instance, result, roamingStatus, psState);
+                    break;
+                }
+
+                case TAF_PA_RADIO_DATA_SERVICE_STATE_OUT_OF_SERVICE:
+                    psState = TAF_RADIO_NET_REG_STATE_NONE;
+                    LE_DEBUG("RegStateIndEventHandler: DATA_SERVICE instance=%d "
+                            "dataState=OUT_OF_SERVICE ps=%d.", instance, psState);
+                    break;
+
+                default:
+                    psState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+                    LE_DEBUG("RegStateIndEventHandler: DATA_SERVICE instance=%d "
+                            "dataState=%d ps=UNKNOWN.", instance, dataState);
+                    break;
+            }
+
+            ReportNetRegStateIfChanged(
+                factory.events.packetSwitchedState,
+                factory.cache.packetSwitchedState[instance],
+                phoneId, psState);
+
+            taf_pa_radio_VoiceServiceInfo_t voiceInfo;
+            taf_radio_NetRegState_t voiceState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+            if (taf_pa_radio_GetVoiceServiceInfo(instance, &voiceInfo) == 0)
+            {
+                voiceState = Utility::Convert::NetRegState(&voiceInfo);
+            }
+            else
+            {
+                LE_WARN("RegStateIndEventHandler: failed to get voice info for instance %d.",
+                        instance);
+            }
+
+            taf_radio_NetRegState_t combinedState =
+                Utility::Convert::CombineNetRegState(voiceState, psState);
+
+            LE_DEBUG("RegStateIndEventHandler: DATA_SERVICE instance=%d voice=%d ps=%d "
+                    "combined=%d.", instance, voiceState, psState, combinedState);
+
+            ReportNetRegStateIfChanged(
+                factory.events.netRegState,
+                factory.cache.netRegState[instance],
+                phoneId, combinedState);
+            break;
+        }
+
+        case REG_STATE_IND_DATA_ROAMING_STATUS:
+        {
+            taf_radio_NetRegState_t psState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+            if (eventPtr->dataRoamingStatus.status == TAF_PA_RADIO_DATA_ROAMING_STATUS_ON)
+            {
+                psState = TAF_RADIO_NET_REG_STATE_ROAMING;
+            }
+            else if (factory.cache.dataServiceState[instance] ==
+                     TAF_PA_RADIO_DATA_SERVICE_STATE_IN_SERVICE)
+            {
+                psState = TAF_RADIO_NET_REG_STATE_HOME;
+            }
+            else
+            {
+                psState = TAF_RADIO_NET_REG_STATE_NONE;
+            }
+
+            LE_DEBUG("RegStateIndEventHandler: DATA_ROAMING instance=%d roamingStatus=%d "
+                    "cachedDataState=%d ps=%d.",
+                    instance, eventPtr->dataRoamingStatus.status,
+                    factory.cache.dataServiceState[instance], psState);
+
+            ReportNetRegStateIfChanged(
+                factory.events.packetSwitchedState,
+                factory.cache.packetSwitchedState[instance],
+                phoneId, psState);
+
+            taf_pa_radio_VoiceServiceInfo_t voiceInfo;
+            taf_radio_NetRegState_t voiceState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+            if (taf_pa_radio_GetVoiceServiceInfo(instance, &voiceInfo) == 0)
+            {
+                voiceState = Utility::Convert::NetRegState(&voiceInfo);
+            }
+            else
+            {
+                LE_WARN("RegStateIndEventHandler: failed to get voice info for instance %d.",
+                        instance);
+            }
+
+            taf_radio_NetRegState_t combinedState =
+                Utility::Convert::CombineNetRegState(voiceState, psState);
+
+            LE_DEBUG("RegStateIndEventHandler: DATA_ROAMING instance=%d voice=%d ps=%d "
+                    "combined=%d.", instance, voiceState, psState, combinedState);
+
+            ReportNetRegStateIfChanged(
+                factory.events.netRegState,
+                factory.cache.netRegState[instance],
+                phoneId, combinedState);
+            break;
+        }
+
+        default:
+            LE_ERROR("RegStateIndEventHandler: unknown type %d.", eventPtr->type);
+            le_mem_Release(contextPtr);
+            return;
+    }
+
+    le_mem_Release(contextPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Helper: allocates a RegStateIndEvent_t, fills instance and type, and posts it to the
+ * main-thread event loop via Factory::staticEvents.regStateInd.
+ */
+//--------------------------------------------------------------------------------------------------
+static RegStateIndEvent_t* AllocRegStateIndEvent
+(
+    uint32_t instance,   ///< [IN] Instance index.
+    RegStateIndType_t type ///< [IN] Indication type.
+)
+{
+    auto* eventPtr = (RegStateIndEvent_t*)le_mem_ForceAlloc(
+        Factory::GetInstance().pools.regStateIndEvent);
+    eventPtr->instance = instance;
+    eventPtr->type     = type;
+    return eventPtr;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * PA callback handler for voice service info indications.
+ * Stores the indication payload and forwards it to the main thread event loop.
  */
 //--------------------------------------------------------------------------------------------------
 static void VoiceServiceInfoHandler
@@ -357,48 +595,14 @@ static void VoiceServiceInfoHandler
 )
 {
     (void)contextPtr;
-
     if (instance >= INSTANCE_MAX_COUNT)
     {
-        LE_ERROR("Invalid instance %d.", instance);
+        LE_ERROR("VoiceServiceInfoHandler: invalid instance %d.", instance);
         return;
     }
-
-    auto& factory = Factory::GetInstance();
-    uint8_t phoneId = Utility::Convert::InstanceToPhone(instance);
-
-    taf_radio_NetRegState_t vState = Utility::Convert::NetRegState(&indication.info);
-
-    taf_radio_NetRegState_t dState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
-    if (taf_radio_GetPacketSwitchedState(&dState, phoneId) != LE_OK)
-    {
-        LE_WARN("Failed to get Data Service Info for phoneId %d", phoneId);
-    }
-
-    taf_radio_NetRegState_t combinedState =
-        Utility::Convert::CombineNetRegState(vState, dState);
-
-    bool changed = false;
-    {
-        std::lock_guard<std::mutex> lock(factory.cache.sNetRegStateMutex[instance]);
-
-        if (combinedState != factory.cache.netRegState[instance])
-        {
-            factory.cache.netRegState[instance] = combinedState;
-            changed = true;
-        }
-    }
-
-    if (changed)
-    {
-        taf_radio_NetRegStateInd_t* indPtr =
-            (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(factory.pools.netRegState);
-
-        indPtr->phoneId = phoneId;
-        indPtr->state = combinedState;
-
-        le_event_ReportWithRefCounting(factory.events.netRegState, (void*)indPtr);
-    }
+    auto* eventPtr = AllocRegStateIndEvent(instance, REG_STATE_IND_VOICE_SERVICE_INFO);
+    eventPtr->voiceServiceInfo = indication;
+    le_event_ReportWithRefCounting(Factory::staticEvents.regStateInd, (void*)eventPtr);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -417,92 +621,12 @@ static void DataServiceStatusHandler
 
     if (instance >= INSTANCE_MAX_COUNT)
     {
-        LE_ERROR("Invalid instance %d.", instance);
+        LE_ERROR("DataServiceStatusHandler: invalid instance %d.", instance);
         return;
     }
-
-    auto& factory = Factory::GetInstance();
-    uint8_t phoneId = Utility::Convert::InstanceToPhone(instance);
-
-    factory.cache.dataServiceState[instance] = indication.state;
-
-    taf_radio_NetRegState_t state = TAF_RADIO_NET_REG_STATE_UNKNOWN;
-    switch (indication.state)
-    {
-        case TAF_PA_RADIO_DATA_SERVICE_STATE_IN_SERVICE:
-        {
-            taf_pa_radio_DataRoamingStatus_t status =
-                TAF_PA_RADIO_DATA_ROAMING_STATUS_UNKNOWN;
-
-            pa_result_t result =
-                taf_pa_radio_GetDataCurrRoamingStatus(instance, &status);
-
-            if (result == 0 &&
-                status == TAF_PA_RADIO_DATA_ROAMING_STATUS_ON)
-            {
-                state = TAF_RADIO_NET_REG_STATE_ROAMING;
-            }
-            else
-            {
-                state = TAF_RADIO_NET_REG_STATE_HOME;
-            }
-            break;
-        }
-
-        case TAF_PA_RADIO_DATA_SERVICE_STATE_OUT_OF_SERVICE:
-            state = TAF_RADIO_NET_REG_STATE_NONE;
-            break;
-
-        default:
-            state = TAF_RADIO_NET_REG_STATE_UNKNOWN;
-            break;
-    }
-
-    if (state != factory.cache.packetSwitchedState[instance])
-    {
-        factory.cache.packetSwitchedState[instance] = state;
-
-        taf_radio_NetRegStateInd_t* indPtr =
-            (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(factory.pools.netRegState);
-
-        indPtr->phoneId = phoneId;
-        indPtr->state = state;
-
-        le_event_ReportWithRefCounting(factory.events.packetSwitchedState, (void*)indPtr);
-    }
-
-    taf_pa_radio_VoiceServiceInfo_t voiceInfo;
-    taf_radio_NetRegState_t vState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
-
-    if (taf_pa_radio_GetVoiceServiceInfo(phoneId, &voiceInfo) == LE_OK)
-    {
-        vState = Utility::Convert::NetRegState(&voiceInfo);
-    }
-
-    taf_radio_NetRegState_t combinedState =
-        Utility::Convert::CombineNetRegState(vState, state);
-
-    bool changed = false;
-    {
-        std::lock_guard<std::mutex> lock(factory.cache.sNetRegStateMutex[instance]);
-
-        if (combinedState != factory.cache.netRegState[instance])
-        {
-            factory.cache.netRegState[instance] = combinedState;
-            changed = true;
-        }
-    }
-
-    if (changed)
-    {
-        taf_radio_NetRegStateInd_t* indPtr =
-            (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(factory.pools.netRegState);
-
-        indPtr->phoneId = phoneId;
-        indPtr->state = combinedState;
-
-        le_event_ReportWithRefCounting(factory.events.netRegState, (void*)indPtr);
-    }
+    auto* eventPtr = AllocRegStateIndEvent(instance, REG_STATE_IND_DATA_SERVICE_STATUS);
+    eventPtr->dataServiceStatus = indication;
+    le_event_ReportWithRefCounting(Factory::staticEvents.regStateInd, (void*)eventPtr);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -517,32 +641,15 @@ static void DataRoamingStatusHandler
     void* contextPtr                                       ///< [IN] Context.
 )
 {
+    (void)contextPtr;
     if (instance >= INSTANCE_MAX_COUNT)
     {
-        LE_ERROR("Invalid instance %d.", instance);
+        LE_ERROR("DataRoamingStatusHandler: invalid instance %d.", instance);
         return;
     }
-
-    auto& factory = Factory::GetInstance();
-    taf_radio_NetRegState_t state = TAF_RADIO_NET_REG_STATE_UNKNOWN;
-    if (indication.status == TAF_PA_RADIO_DATA_ROAMING_STATUS_ON)
-        state = TAF_RADIO_NET_REG_STATE_ROAMING;
-    else if (factory.cache.dataServiceState[instance] ==
-        TAF_PA_RADIO_DATA_SERVICE_STATE_IN_SERVICE)
-        state = TAF_RADIO_NET_REG_STATE_HOME;
-    else
-        state = TAF_RADIO_NET_REG_STATE_NONE;
-
-    if (state != factory.cache.packetSwitchedState[instance])
-    {
-        factory.cache.packetSwitchedState[instance] = state;
-
-        taf_radio_NetRegStateInd_t* indPtr = (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(
-            factory.pools.netRegState);
-        indPtr->phoneId = Utility::Convert::InstanceToPhone(instance);
-        indPtr->state = state;
-        le_event_ReportWithRefCounting(factory.events.packetSwitchedState, (void*)indPtr);
-    }
+    auto* eventPtr = AllocRegStateIndEvent(instance, REG_STATE_IND_DATA_ROAMING_STATUS);
+    eventPtr->dataRoamingStatus = indication;
+    le_event_ReportWithRefCounting(Factory::staticEvents.regStateInd, (void*)eventPtr);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -3136,6 +3243,10 @@ COMPONENT_INIT
         sizeof(LteCphyCaRefresh_t));
     le_event_AddHandler("LteCphyCaRefreshHandler", Factory::staticEvents.lteCphyCaRefresh,
         LteCphyCaRefreshHandler);
+    Factory::staticEvents.regStateInd =
+        le_event_CreateIdWithRefCounting("RegStateInd");
+    le_event_AddHandler("RegStateIndEventHandler",
+        Factory::staticEvents.regStateInd, RegStateIndEventHandler);
 
     auto& factory = Factory::GetInstance();
 
@@ -3181,6 +3292,9 @@ COMPONENT_INIT
 	factory.pools.nrIconChange = le_mem_CreatePool("NrIconChange", sizeof(NrIconInd_t));
 	factory.pools.caInfoChange = le_mem_CreatePool("CaInfoChange", sizeof(CAInfoInd_t));
 	factory.pools.connStatusChange = le_mem_CreatePool("ConnStatusChange", sizeof(ConnStatusInd_t));
+    factory.pools.regStateIndEvent =
+        le_mem_CreatePool("RegStateIndEvent", sizeof(RegStateIndEvent_t));
+    le_mem_ExpandPool(factory.pools.regStateIndEvent, 3 * INSTANCE_MAX_COUNT * 2);
 
     factory.pools.commonList = le_mem_InitStaticPool(commonList, COMMON_LIST_MAX_COUNT,
         sizeof(CommonList_t));

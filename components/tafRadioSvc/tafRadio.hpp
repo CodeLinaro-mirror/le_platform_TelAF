@@ -40,7 +40,6 @@
 #include "interfaces.h"
 
 #include <string>
-#include <mutex>
 #include <map>
 
 #include "tafRadioPa.hpp"
@@ -193,6 +192,37 @@ typedef struct
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Indication type tag used inside RegStateIndEvent_t to identify which PA indication
+ * was received and which union member is valid.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    REG_STATE_IND_VOICE_SERVICE_INFO  = 0, ///< Voice service info indication.
+    REG_STATE_IND_DATA_SERVICE_STATUS = 1, ///< Data service status indication.
+    REG_STATE_IND_DATA_ROAMING_STATUS = 2, ///< Data roaming status indication.
+} RegStateIndType_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Unified payload forwarded from PA indication callbacks to the main-thread event loop.
+ * The type field identifies which union member carries the indication data.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint32_t instance;        ///< Instance index.
+    RegStateIndType_t type;   ///< Identifies the active union member.
+    union
+    {
+        taf_pa_radio_VoiceServiceInfoIndication_t  voiceServiceInfo;  ///< Valid when type == VOICE_SERVICE_INFO.
+        taf_pa_radio_DataServiceStatusIndication_t dataServiceStatus; ///< Valid when type == DATA_SERVICE_STATUS.
+        taf_pa_radio_DataRoamingStatusIndication_t dataRoamingStatus; ///< Valid when type == DATA_ROAMING_STATUS.
+    };
+} RegStateIndEvent_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Static event identifiers owned by the component.
  */
 //--------------------------------------------------------------------------------------------------
@@ -200,6 +230,7 @@ typedef struct
 {
     le_event_Id_t request;          ///< Event used to dispatch internal asynchronous requests.
     le_event_Id_t lteCphyCaRefresh; ///< Event used to refresh LTE CPHY CA info cache.
+    le_event_Id_t regStateInd;///< Forwards voice/data/roaming PA indications to main thread.
 } StaticEvent_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -248,6 +279,7 @@ typedef struct
     le_mem_PoolRef_t nrIconChange;               ///< Pool for NR icon change indications.
     le_mem_PoolRef_t caInfoChange;               ///< Pool for CA info change indications.
     le_mem_PoolRef_t connStatusChange;           ///< Pool for connection status change indications.
+    le_mem_PoolRef_t regStateIndEvent;           ///< Pool for RegStateIndEvent_t payloads.
     le_mem_PoolRef_t commonList;                 ///< Pool for CommonList_t containers.
     le_mem_PoolRef_t pciCell;                    ///< Pool for PCI scan cell entries.
     le_mem_PoolRef_t plmnId;                     ///< Pool for PLMN ID entries.
@@ -445,6 +477,7 @@ typedef struct
     taf_pa_radio_Rat_t rat[INSTANCE_MAX_COUNT];          ///< Cached RAT per instance.
     taf_pa_radio_DataServiceState_t dataServiceState[INSTANCE_MAX_COUNT]; ///< Cached data svc state.
     taf_radio_NetRegState_t packetSwitchedState[INSTANCE_MAX_COUNT]; ///< Cached PS reg state.
+    taf_radio_NetRegState_t netRegState[INSTANCE_MAX_COUNT];             ///< Last reported combined net reg state (dedup).
     HysteresisConfig_t hysteresisConfig[INSTANCE_MAX_COUNT]; ///< Cached hysteresis config.
     taf_radio_NetStatusRef_t netStatusRefs[INSTANCE_MAX_COUNT]; ///< Cached net status references.
     taf_pa_radio_RatServiceStatus_t ratSvcState[INSTANCE_MAX_COUNT]; ///< Cached RAT svc state.
@@ -452,8 +485,6 @@ typedef struct
     taf_radio_ImsRef_t imsRefs[INSTANCE_MAX_COUNT];      ///< Cached IMS references.
     taf_radio_CAInfoRef_t caInfoRefs[INSTANCE_MAX_COUNT]; ///< Cached CA references.
     taf_radio_ConnStatusRef_t connStatusRefs[INSTANCE_MAX_COUNT]; ///< Cached connection refs.
-    taf_radio_NetRegState_t netRegState[INSTANCE_MAX_COUNT]; ///< Cached network reg state.
-    std::mutex sNetRegStateMutex[INSTANCE_MAX_COUNT];
 } Cache_t;
 
 //--------------------------------------------------------------------------------------------------

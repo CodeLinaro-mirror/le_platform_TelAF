@@ -22,14 +22,6 @@
 #define TAF_DIAG_UPDATE_RESUME_FILE     0x06    ///< Resume downloading the file.
 #define NRC_NOTIFICATION_MIN_LEN 3              ///< The minimal length of NRC
 
-typedef enum
-{
-    TAF_DIAG_UPDATE_INIT,
-    TAF_DIAG_UPDATE_REQ,
-    TAF_DIAG_UPDATE_TRANS,
-    TAF_DIAG_UPDATE_EXIT
-}tafDiagUpdateState_t;
-
 //--------------------------------------------------------------------------------------------------
 /**
  * Diag update service structure.
@@ -46,7 +38,6 @@ typedef struct
     taf_diagUpdate_RxXferDataMsgHandlerRef_t xferDataRef; ///< Rx Msg Handler of TransferData.
     taf_diagUpdate_RxXferExitMsgHandlerRef_t xferExitRef; ///< Rx Msg Handler of RequestTransferExit.
 
-    tafDiagUpdateState_t state;                        ///< Update session state machine.
     le_dls_List_t supportedVlanList;
 }taf_UpdateSvc_t;
 
@@ -237,7 +228,7 @@ namespace tafsvc
             le_result_t ReleaseRxXferExitMsg(taf_diagUpdate_RxXferExitMsgRef_t rxMsgRef);
 
             le_result_t RemoveUpdateSvc(taf_diagUpdate_ServiceRef_t svcRef);
-            void programmingInterrupt(uint16_t vlanId);
+
             le_result_t SetVlanId(taf_diagUpdate_ServiceRef_t svcRef, uint16_t vlanId);
             le_result_t GetVlanIdFromMsg(taf_diagUpdate_RxMsgRef_t rxMsgRef, uint16_t* vlanIdPtr);
 

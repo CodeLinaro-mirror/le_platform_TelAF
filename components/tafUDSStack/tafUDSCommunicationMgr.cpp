@@ -2568,6 +2568,13 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
     }
 
+    if(recvDataLen > UDS_MAX_DATA_SIZE)
+    {
+        LE_WARN("recvDataLen is more than UDS_DATA_SIZE.");
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
+    }
+
     // Step 4: Subfunction Authentication check. UDS_0x27_NRC_34
     if(!IsSubFuncAuthCheckOK(sid, subFunction))
     {
@@ -4393,7 +4400,13 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
-    memcpy((char*)(udsCmMgr->recvBuf), (char*)(diagMsgPtr->dataPtr), UDS_MAX_DATA_SIZE);
+    size_t copyLen = (diagMsgPtr->dataLen < UDS_MAX_DATA_SIZE) ? diagMsgPtr->dataLen :
+        UDS_MAX_DATA_SIZE;
+    if (copyLen > 0)
+    {
+        memcpy((char*)(udsCmMgr->recvBuf), (char*)(diagMsgPtr->dataPtr), copyLen);
+    }
+    // Set recvDataLen to dataLen which will be compared with max data len for NRC 0x13 check later
     udsCmMgr->recvDataLen = diagMsgPtr->dataLen;
     udsCmMgr->sendDataLen = 0;
 

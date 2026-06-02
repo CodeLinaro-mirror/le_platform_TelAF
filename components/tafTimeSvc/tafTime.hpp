@@ -58,6 +58,11 @@
 #define TAF_TIME_RECEIVE_GNSS_TIME_COUNT   5
 #define TAF_TIME_SYNC_TIME_TIMER_INTERVAL (61000)
 #define TAF_TIME_START_UP_RETRY_COUNTER   100
+
+// Retry interval used when reconnecting to tafPMSvc after an unexpected disconnection. This is a
+// runtime recovery policy and is intentionally kept separate from the start-up retry settings
+// above, so that tuning one does not silently change the other.
+#define TAF_TIME_PM_RECONNECT_INTERVAL_MS (3000)
 //-------------------------------------------------------------------------------------------------
 /**
  * Macro definition for network time.
@@ -571,6 +576,7 @@ struct ValidityParams
                 le_timer_Ref_t syncTimeTimerRef = NULL;
                 le_timer_Ref_t sysTimeUdTimerRef = NULL;
                 le_timer_Ref_t StartupRetryTimerRef = NULL;
+                le_timer_Ref_t pmSvcReconnectTimerRef = NULL;
 
 
                 le_mem_PoolRef_t SetTimeStatusPool = NULL;

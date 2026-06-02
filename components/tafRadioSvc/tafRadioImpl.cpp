@@ -28,8 +28,8 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -551,6 +551,37 @@ uint32_t taf_radio_CovertNrActiveBand
     }
 
     return 0;
+}
+
+static taf_radio_Rat_t ConvertPaRatToSvcRat(taf_pa_radio_Rat_t paRat)
+{
+    switch (paRat)
+    {
+        case TAF_PA_RADIO_RAT_GSM:    return TAF_RADIO_RAT_GSM;
+        case TAF_PA_RADIO_RAT_WCDMA:  return TAF_RADIO_RAT_UMTS;
+        case TAF_PA_RADIO_RAT_LTE:    return TAF_RADIO_RAT_LTE;
+        case TAF_PA_RADIO_RAT_NR5G:   return TAF_RADIO_RAT_NR5G;
+        case TAF_PA_RADIO_RAT_UNKNOWN:
+        default:
+            LE_WARN("ConvertPaRatToSvcRat: unmapped PA RAT=%d, defaulting to UNKNOWN", paRat);
+            return TAF_RADIO_RAT_UNKNOWN;
+    }
+}
+
+static taf_radio_RatSvcStatus_t ConvertPaSvcStatusToSvcStatus(taf_pa_radio_ServiceStatus_t paStatus)
+{
+    switch (paStatus)
+    {
+        case TAF_PA_RADIO_SRV_STATUS_NO_SRV:           return TAF_RADIO_RAT_SVC_STATUS_NO_SERVICE;
+        case TAF_PA_RADIO_SRV_STATUS_LIMITED:          return TAF_RADIO_RAT_SVC_STATUS_LIMITED;
+        case TAF_PA_RADIO_SRV_STATUS_SRV:              return TAF_RADIO_RAT_SVC_STATUS_SERVICE;
+        case TAF_PA_RADIO_SRV_STATUS_LIMITED_REGIONAL: return TAF_RADIO_RAT_SVC_STATUS_LIMITED_REGIONAL;
+        case TAF_PA_RADIO_SRV_STATUS_PWR_SAVE:         return TAF_RADIO_RAT_SVC_STATUS_POWER_SAVE;
+        case TAF_PA_RADIO_SRV_STATUS_UNKNOWN:
+        default:
+            LE_WARN("ConvertPaSvcStatusToSvcStatus: unmapped PA status=%d, defaulting to UNKNOWN", paStatus);
+            return TAF_RADIO_RAT_SVC_STATUS_UNKNOWN;
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2635,6 +2666,13 @@ LE_REF_DEFINE_STATIC_MAP(caInfoMap, TAF_RADIO_CA_INFO_MAX_NUM);
 //--------------------------------------------------------------------------------------------------
 LE_REF_DEFINE_STATIC_MAP(connStatusMap, TAF_RADIO_CONN_STATUS_MAX_NUM);
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static map for service status.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_REF_DEFINE_STATIC_MAP(svcStatusRefMap, TAF_RADIO_SVC_STATUS_HANDLER_MAX_NUM);
+
 le_event_Id_t taf_Radio::radioCmdEvId = nullptr;
 le_event_Id_t taf_Radio::radioCmdCompleteEvId = nullptr;
 
@@ -2912,6 +2950,115 @@ void taf_Radio::taf_radio_LayerNetStatusHandler
     }
 
     le_mem_Release(reportPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Layered handler for service status change.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Radio::taf_radio_LayerServiceStatusHandler
+(
+    void* reportPtr,       ///< [IN] Report pointer.
+    void* layerHandlerFunc ///< [IN] Layered function.
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_radio_ServiceStatusChangeHandlerFunc_t handlerFunc =
+        (taf_radio_ServiceStatusChangeHandlerFunc_t)layerHandlerFunc;
+    if (handlerFunc)
+    {
+        taf_RadioServiceStatusInd_t* indPtr = (taf_RadioServiceStatusInd_t*)reportPtr;
+
+        // ctxPtr holds both the phoneId filter and the original user contextPtr.
+        taf_RadioServiceStatusHandlerCtx_t* ctxPtr =
+            (taf_RadioServiceStatusHandlerCtx_t*)le_event_GetContextPtr();
+        uint8_t filterPhoneId = (ctxPtr != NULL) ? ctxPtr->phoneId : 0;
+        void*   userCtx       = (ctxPtr != NULL) ? ctxPtr->userCtx  : NULL;
+
+        LE_DEBUG("LayerServiceStatusHandler: phone=%d status=%d filterPhoneId=%d ctxPtr=%p",
+                indPtr->phone, indPtr->status, filterPhoneId, (void*)ctxPtr);
+
+        // phoneId == 0 means "all phones"; otherwise only report when phone matches.
+        if (filterPhoneId == 0 || filterPhoneId == indPtr->phone)
+        {
+            handlerFunc(indPtr->rat, indPtr->status, indPtr->phone, userCtx);
+        }
+        else
+        {
+            LE_DEBUG("ServiceStatusChange: skip phone=%d (filter=%d) ctxPtr=%p",
+                    indPtr->phone, filterPhoneId, (void*)ctxPtr);
+        }
+    }
+
+    le_mem_Release(reportPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler registered via taf_pa_radio_AddNetStatusChangeHandler().
+ * Filters service-status changes from NetStatus indications and retrieves the
+ * current service status via taf_pa_radio_GetRatSvcStatus().
+ */
+//--------------------------------------------------------------------------------------------------
+static void ServiceStatusChangeHandler
+(
+    uint8_t phoneId,
+    taf_pa_radio_Rat_t rat,
+    taf_pa_radio_ServiceStatus_t serviceStatus,
+    void* contextPtr
+)
+{
+    LE_UNUSED(contextPtr);
+
+    TAF_ERROR_IF_RET_NIL(phoneId == 0 || phoneId > TAF_RADIO_PHONE_NUM,
+        "ServiceStatusChangeHandler: invalid phoneId=%d", phoneId);
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_radio_RatSvcStatus_t svcStatus = ConvertPaSvcStatusToSvcStatus(serviceStatus);
+    taf_radio_Rat_t          svcRat    = ConvertPaRatToSvcRat(rat);
+
+    LE_DEBUG("ServiceStatusChangeHandler phone=%d oldStatus=%d newStatus=%d",
+             phoneId, tafRadio.ratSvcState[phoneId - 1], svcStatus);
+
+    if (svcStatus == tafRadio.ratSvcState[phoneId - 1])
+    {
+        LE_DEBUG("ServiceStatusChangeHandler phone=%d status=%d unchanged, skip",
+                 phoneId, svcStatus);
+        return;
+    }
+
+    le_event_Id_t svcEvId = nullptr;
+    switch (svcStatus)
+    {
+        case TAF_RADIO_RAT_SVC_STATUS_NO_SERVICE:
+            svcEvId = tafRadio.svcStatusNoServiceEvId;       break;
+        case TAF_RADIO_RAT_SVC_STATUS_LIMITED:
+            svcEvId = tafRadio.svcStatusLimitedEvId;         break;
+        case TAF_RADIO_RAT_SVC_STATUS_SERVICE:
+            svcEvId = tafRadio.svcStatusServiceEvId;         break;
+        case TAF_RADIO_RAT_SVC_STATUS_LIMITED_REGIONAL:
+            svcEvId = tafRadio.svcStatusLimitedRegionalEvId; break;
+        case TAF_RADIO_RAT_SVC_STATUS_POWER_SAVE:
+            svcEvId = tafRadio.svcStatusPowerSaveEvId;       break;
+        default:
+            LE_WARN("ServiceStatusChangeHandler: unexpected ratSrvStatus=%d phone=%d",
+                    svcStatus, phoneId);
+            return;
+    }
+
+    tafRadio.ratSvcState[phoneId - 1] = svcStatus;
+
+    taf_RadioServiceStatusInd_t* indPtr =
+        (taf_RadioServiceStatusInd_t*)le_mem_ForceAlloc(tafRadio.svcStatusIndPool);
+    indPtr->phone  = phoneId;
+    indPtr->status = svcStatus;
+    indPtr->rat    = svcRat;
+    le_event_ReportWithRefCounting(svcEvId, (void*)indPtr);
+    LE_DEBUG("ServiceStatusChangeHandler phone=%d -> status=%d rat=%d",
+             phoneId, svcStatus, svcRat);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -3598,6 +3745,8 @@ void PowerStateChangeHandler
     void* contextPtr      ///< [IN] Handler context.
 )
 {
+    auto &tafRadio = taf_Radio::GetInstance();
+
     le_result_t result;
     if (state == TAF_PM_STATE_RESUME)
     {
@@ -3605,13 +3754,163 @@ void PowerStateChangeHandler
         RegisterListener();
         result = taf_pa_radio_EnableIndication();
         TAF_ERROR_IF_RET_NIL(result != LE_OK, "Enable indication falied.");
+
+        for(auto i = 1; i <= TAF_RADIO_PHONE_NUM; i++)
+        {
+            le_result_t limitRes = taf_pa_radio_SetSysInfoIndLimit(i, TAF_PA_RADIO_SYS_INFO_IND_LIMIT_NONE);
+
+            if (limitRes != LE_OK)
+            {
+                LE_ERROR("PowerStateChangeHandler: Failed to set SYS_INFO limit for phoneId %d "
+                        "on RESUME [rc=%d]", i, limitRes);
+            }
+            else
+            {
+                LE_INFO("PowerStateChangeHandler: SYS_INFO limit (STATE_NONE) "
+                        "set for %d phoneId", i);
+            }
+        }
     }
     else if (state == TAF_PM_STATE_SUSPEND)
     {
         LE_INFO("Power state change to SUSPEND");
         DeregisterListener();
-        result = taf_pa_radio_DisableIndication();
-        TAF_ERROR_IF_RET_NIL(result != LE_OK, "Disable indication falied.");
+        if (!le_dls_IsEmpty(&tafRadio.svcStatusCtxList))
+        {
+            // Clients are connected — disable indications AND limit SYS_INFO to state-toggle
+            // so the modem only wakes the AP on SERVICE <-> OOS transitions.
+            result = taf_pa_radio_DisableIndication(TAF_PA_RADIO_DISABLE_IND_MODE_SKIP_NAS_SYS_INFO_IND);
+            if (result != LE_OK)
+            {
+                LE_ERROR("PowerStateChangeHandler: Disable indication failed [rc=%d]", result);
+            }
+
+            for(auto i = 1; i <= TAF_RADIO_PHONE_NUM; i++)
+            {
+                le_result_t limitRes = taf_pa_radio_SetSysInfoIndLimit(i, TAF_PA_RADIO_SYS_INFO_IND_LIMIT_BY_STATE_TOGGLE);
+
+                if (limitRes != LE_OK)
+                {
+                    LE_ERROR("PowerStateChangeHandler: Failed to set SYS_INFO limit for phoneId %d "
+                            "(STATE_TOGGLE) on SUSPEND [rc=%d]", i, limitRes);
+                }
+                else
+                {
+                    LE_INFO("PowerStateChangeHandler: SYS_INFO limit (STATE_TOGGLE) "
+                            "set for %d PhoneId", i);
+                }
+            }
+        }
+        else
+        {
+            // No clients connected — only disable indications entirely.
+            // No need to arm SYS_INFO state-toggle since no one is listening.
+            result = taf_pa_radio_DisableIndication(TAF_PA_RADIO_DISABLE_IND_MODE_ALL);
+            if (result != LE_OK)
+            {
+                LE_ERROR("PowerStateChangeHandler: Disable indication failed (no clients) [rc=%d]",
+                        result);
+            }
+            else
+            {
+                LE_INFO("PowerStateChangeHandler: No clients connected - indications disabled directly");
+            }
+        }
+    }
+}
+
+void taf_Radio::ApplyServiceStatusModemFiltering(void)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
+    {
+        return;
+    }
+
+    bool haveClients = !le_dls_IsEmpty(&tafRadio.svcStatusCtxList);
+
+    if (haveClients)
+    {
+        for(auto i = 1; i <= TAF_RADIO_PHONE_NUM; i++)
+        {
+            le_result_t limitRes = taf_pa_radio_SetSysInfoIndLimit(i,
+                TAF_PA_RADIO_SYS_INFO_IND_LIMIT_BY_STATE_TOGGLE);
+            if (limitRes != LE_OK)
+            {
+                LE_ERROR("ApplyServiceStatusModemFiltering: arm STATE_TOGGLE failed [rc=%d] for"
+                    "phoneId=%d", limitRes, i);
+            }
+            else
+            {
+                LE_DEBUG("ApplyServiceStatusModemFiltering: SYS_INFO STATE_TOGGLE set phoneId=%d", i);
+            }
+        }
+    }
+    else
+    {
+        for(auto i = 1; i <= TAF_RADIO_PHONE_NUM; i++)
+        {
+            le_result_t limitRes = taf_pa_radio_SetSysInfoIndLimit(i,
+                TAF_PA_RADIO_SYS_INFO_IND_LIMIT_NONE);
+            if (limitRes != LE_OK)
+            {
+                LE_ERROR("ApplyServiceStatusModemFiltering:Disable SYS_INFO wakeup failed [rc=%d]"
+                    "for phoneId:%d", limitRes, i);
+            }
+            else
+            {
+                LE_DEBUG("ApplyServiceStatusModemFiltering:SYS_INFO wakeup disabled phoneId:%d",i);
+            }
+        }
+    }
+}
+
+static void ServiceStatusSessionCloseHandler
+(
+    le_msg_SessionRef_t sessionRef,
+    void*               contextPtr
+)
+{
+    LE_UNUSED(contextPtr);
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    le_dls_Link_t* linkPtr = le_dls_Peek(&tafRadio.svcStatusCtxList);
+    while (linkPtr != nullptr)
+    {
+        taf_RadioServiceStatusHandlerCtx_t* ctxPtr =
+            CONTAINER_OF(linkPtr, taf_RadioServiceStatusHandlerCtx_t, link);
+
+        le_dls_Link_t* nextPtr = le_dls_PeekNext(&tafRadio.svcStatusCtxList, linkPtr);
+
+        if (ctxPtr->sessionRef == sessionRef)
+        {
+            LE_DEBUG("ServiceStatusSessionCloseHandler: cleaning up ctx for closed session");
+            le_dls_Remove(&tafRadio.svcStatusCtxList, linkPtr);
+
+            if (ctxPtr->safeRef != nullptr)
+            {
+                le_ref_DeleteRef(tafRadio.svcStatusRefMap, ctxPtr->safeRef);
+                ctxPtr->safeRef = nullptr;
+            }
+
+            for (size_t i = 0; i < TAF_RADIO_SERVICE_STATUS_BIT_MASK_COUNT; i++)
+            {
+                if (ctxPtr->handlerRefs[i] != nullptr)
+                {
+                    le_event_RemoveHandler(ctxPtr->handlerRefs[i]);
+                    ctxPtr->handlerRefs[i] = nullptr;
+                }
+            }
+            le_mem_Release(ctxPtr);
+        }
+
+        linkPtr = nextPtr;
+    }
+
+    if (le_dls_IsEmpty(&tafRadio.svcStatusCtxList))
+    {
+        tafRadio.ApplyServiceStatusModemFiltering();
     }
 }
 
@@ -3663,6 +3962,11 @@ void taf_Radio::Init(void)
     nrIconTypeEvId = le_event_CreateIdWithRefCounting("NrIconType");
     lteCAIndEvId = le_event_CreateIdWithRefCounting("LteCAInd");
     connStatusEvId = le_event_CreateIdWithRefCounting("ConnStatus");
+    svcStatusNoServiceEvId       = le_event_CreateIdWithRefCounting("SvcStatusNoServiceChange");
+    svcStatusLimitedEvId          = le_event_CreateIdWithRefCounting("SvcStatusLimitedChange");
+    svcStatusServiceEvId          = le_event_CreateIdWithRefCounting("SvcStatusServiceChange");
+    svcStatusLimitedRegionalEvId  = le_event_CreateIdWithRefCounting("SvcStatusLimitedRegionalChange");
+    svcStatusPowerSaveEvId        = le_event_CreateIdWithRefCounting("SvcStatusPowerSaveChange");
 
     // 2. Initiate the memory pool
     prefOpsListPool = le_mem_InitStaticPool(prefOpsListPool,
@@ -3702,6 +4006,10 @@ void taf_Radio::Init(void)
     nrIconTypePool = le_mem_CreatePool("nrIconTypePool", sizeof(taf_RadioNrIconTypeInd_t));
     caIndPool= le_mem_CreatePool("caIndPool", sizeof(taf_RadioCAInd_t));
     connStatusIndPool= le_mem_CreatePool("connStatusIndPool", sizeof(taf_RadioConnStatusInd_t));
+    svcStatusIndPool = le_mem_CreatePool("svcStatusIndPool",
+        sizeof(taf_RadioServiceStatusInd_t));
+    svcStatusHandlerCtxPool = le_mem_CreatePool("svcStatusHandlerCtxPool",
+        sizeof(taf_RadioServiceStatusHandlerCtx_t));
 
     // 3. Initiate the reference map.
     prefOpListRefMap = le_ref_InitStaticMap(prefOpListRefMap,TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM);
@@ -3716,6 +4024,7 @@ void taf_Radio::Init(void)
     netStatusRefMap = le_ref_InitStaticMap(netStatusRefMap, TAF_RADIO_PHONE_NUM);
     caInfoMap = le_ref_InitStaticMap(caInfoMap, TAF_RADIO_CA_INFO_MAX_NUM);
     connStatusMap = le_ref_InitStaticMap(connStatusMap, TAF_RADIO_CONN_STATUS_MAX_NUM);
+    svcStatusRefMap = le_ref_InitStaticMap(svcStatusRefMap, TAF_RADIO_SVC_STATUS_HANDLER_MAX_NUM);
 
     for (uint8_t phoneId = 1; phoneId <= TAF_RADIO_PHONE_NUM; phoneId++)
     {
@@ -3738,6 +4047,31 @@ void taf_Radio::Init(void)
     }
     taf_pa_radio_SetLteCaHandler(LteCAHandler, nullptr);
     taf_pa_radio_SetEndcStatusHandler(EndcStatusHandler, nullptr);
+
+    svcStatusCtxList = LE_DLS_LIST_INIT;
+
+    le_msg_AddServiceCloseHandler(taf_radio_GetServiceRef(), ServiceStatusSessionCloseHandler, nullptr);
+
+    // Initialize ratSvcState cache with the current modem state before registering
+    // the handler, so the first real status change is never silently dropped.
+    for (uint8_t phoneId = 1; phoneId <= TAF_RADIO_PHONE_NUM; phoneId++)
+    {
+        taf_pa_radio_ServiceStatus_t initStatus = TAF_PA_RADIO_SRV_STATUS_UNKNOWN;
+        taf_pa_radio_Rat_t rat = TAF_PA_RADIO_RAT_UNKNOWN;
+        le_result_t result = taf_pa_radio_GetServiceStatus(phoneId, &rat, &initStatus);
+        if (result == LE_OK)
+        {
+            ratSvcState[phoneId - 1] = ConvertPaSvcStatusToSvcStatus(initStatus);
+            LE_INFO("Init: phone=%d ratSvcState initialized to %d", phoneId, initStatus);
+        }
+        else
+        {
+            LE_WARN("Init: phone=%d GetRatSvcStatus failed result=%d, ratSvcState stays UNKNOWN",
+                    phoneId, result);
+        }
+    }
+
+    (void)taf_pa_radio_AddServiceStatusChangeHandler(ServiceStatusChangeHandler, nullptr);
 
     // 4. Get the PhoneFactory, dataFactory and PhoneManager instances
     auto &phoneFactory = telux::tel::PhoneFactory::getInstance();

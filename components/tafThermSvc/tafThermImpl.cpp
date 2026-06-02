@@ -284,6 +284,28 @@ static void CoolingLevelChangePAHandler(taf_pa_therm_CoolingLevelChangeInfo chan
 
 /*======================================================================
 
+ FUNCTION        SigTermEventHandler
+
+ DESCRIPTION     Callback for SIGTERM
+
+ PARAMETERS      SIGTERM signal
+
+ RETURN VALUE    None
+
+======================================================================*/
+void taf_Therm::SigTermEventHandler(int sigNum)
+{
+    LE_INFO("taf_Therm::SigTermEventHandler signal: %d", sigNum);
+    pa_result_t result = taf_pa_therm_Deinit();
+    if (result != PA_OK)
+    {
+        LE_ERROR("taf_pa_therm_Deinit failed, err: %d", (int)result);
+    }
+    exit(EXIT_SUCCESS);
+}
+
+/*======================================================================
+
  FUNCTION        taf_Therm::Init
 
  DESCRIPTION     Initialization of the thermal Service and registering listeners
@@ -308,6 +330,9 @@ void taf_Therm::Init(void)
         LE_FATAL("ERROR - Failed to initialize Thermal PA layer.");
     }
     LE_INFO("Thermal PA layer initialized successfully");
+
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, taf_Therm::SigTermEventHandler);
 
     // Create event IDs for queuing events from non-Legato threads
     tripEventId = le_event_CreateId("TripEvent", sizeof(taf_pa_therm_TripEventInfo));

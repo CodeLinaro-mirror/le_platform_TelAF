@@ -65,6 +65,7 @@ void ConnectionManager::Init
     if (udsMsgPool == NULL)
     {
         udsMsgPool = le_mem_CreatePool("UdsMsgPool", length);
+        le_mem_ExpandPool(udsMsgPool, MAX_MSG_BUFFER);
         //communicateMgr = CommunicationMgr::GetInstance();
     }
 

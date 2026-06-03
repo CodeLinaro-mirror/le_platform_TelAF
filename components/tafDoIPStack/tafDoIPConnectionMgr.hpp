@@ -25,7 +25,7 @@ extern "C" {
 namespace taf{
 namespace doip{
 
-    #define MAX_MSG_BUFFER    2
+    #define MAX_MSG_BUFFER    10
 
     class CommunicationMgr;
 

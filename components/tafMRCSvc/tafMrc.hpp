@@ -23,8 +23,19 @@
 
 #include "tafSvcIF.hpp"
 
-#define TAF_MRC_SVC_READY_TIMEOUT 8
-#define TAF_MRC_MSG_RESP_TIMEOUT 180
+//--------------------------------------------------------------------------------------------------
+/**
+ * Timeout for service readiness, in units of milliseconds.
+ */
+//--------------------------------------------------------------------------------------------------
+#define TAF_MRC_SVC_READY_TIMEOUT 5000
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Timeout for message response, in units of milliseconds.
+ */
+//--------------------------------------------------------------------------------------------------
+#define TAF_MRC_MSG_RESP_TIMEOUT 3000
 
 #define TAF_MRC_METRICS_MAX_NUM 1
 

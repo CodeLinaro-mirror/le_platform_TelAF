@@ -239,7 +239,7 @@ void taf_Mrc::Init(void)
     if (result != LE_OK)
     {
         paReady = false;
-        LE_WARN("Fail to initialize MRC platform adaptor.");
+        LE_FATAL("Fail to initialize MRC platform adaptor.");
     }
     else
     {
@@ -248,7 +248,7 @@ void taf_Mrc::Init(void)
         if (result != LE_OK)
         {
             paReady = false;
-            LE_ERROR("Fail to register MRC indications.");
+            LE_FATAL("Fail to register MRC indications.");
         }
         else
         {

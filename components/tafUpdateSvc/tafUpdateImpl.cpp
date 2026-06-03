@@ -225,21 +225,21 @@ void taf_Update::DownloadTimerHandler
         switch (status)
         {
             case TAF_PI_DA_STATUS_INIT:
-                LE_INFO("DA plug-in current status is download init.");
+                LE_DEBUG("DA plug-in current status is download init.");
                 break;
             case TAF_PI_DA_STATUS_DOWNLOADING:
-                LE_INFO("DA plug-in current status is downloading, percent = %d.",
+                LE_DEBUG("DA plug-in current status is downloading, percent = %d.",
                     sessPtr->percent);
                 tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_DOWNLOADING);
                 break;
             case TAF_PI_DA_STATUS_PAUSED:
-                LE_INFO("DA plug-in current status is download paused, percent = %d.",
+                LE_DEBUG("DA plug-in current status is download paused, percent = %d.",
                     sessPtr->percent);
                 le_timer_Stop(timerRef);
                 tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_DOWNLOAD_PAUSED);
                 break;
             case TAF_PI_DA_STATUS_FINISH:
-                LE_INFO("DA plug-in current status is download finish.");
+                LE_DEBUG("DA plug-in current status is download finish.");
                 le_timer_Stop(timerRef);
                 tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_DOWNLOAD_SUCCESS);
                 break;
@@ -277,7 +277,7 @@ void taf_Update::DownloadHandler
         case TAF_UPDATE_IDLE:
             if (dlReq->event == TAF_UPDATE_DL_START)
             {
-                LE_INFO("DA plug-in start to download.");
+                LE_DEBUG("DA plug-in start to download.");
                 sessPtr->state = TAF_UPDATE_DOWNLOADING;
                 sessPtr->percent = 0;
                 int ret = (*(tafUpdate.daInfPtr->startDownload))(sessPtr->sessRef);
@@ -295,7 +295,7 @@ void taf_Update::DownloadHandler
                     }
                     else
                     {
-                        LE_INFO("Start download timer.");
+                        LE_DEBUG("Start download timer.");
                         le_timer_SetContextPtr(sessPtr->timerRef, (void*)sessPtr);
                         le_timer_Start(sessPtr->timerRef);
                     }
@@ -309,7 +309,7 @@ void taf_Update::DownloadHandler
         case TAF_UPDATE_DOWNLOADING:
             if (dlReq->event == TAF_UPDATE_DL_PAUSE)
             {
-                LE_INFO("DA plug-in pause download.");
+                LE_DEBUG("DA plug-in pause download.");
                 int ret = (*(tafUpdate.daInfPtr->pauseDownload))(sessPtr->sessRef);
                 if (ret)
                 {
@@ -317,7 +317,7 @@ void taf_Update::DownloadHandler
                 }
                 else
                 {
-                    LE_INFO("Stop download timer.");
+                    LE_DEBUG("Stop download timer.");
                     le_timer_Stop(sessPtr->timerRef);
 
                     tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_DOWNLOAD_PAUSED);
@@ -325,7 +325,7 @@ void taf_Update::DownloadHandler
             }
             else if (dlReq->event == TAF_UPDATE_DL_CANCEL)
             {
-                LE_INFO("DA plug-in cancel download.");
+                LE_DEBUG("DA plug-in cancel download.");
                 int ret = (*(tafUpdate.daInfPtr->cancelDownload))(sessPtr->sessRef);
                 if (ret)
                 {
@@ -333,7 +333,7 @@ void taf_Update::DownloadHandler
                 }
                 else
                 {
-                    LE_INFO("Stop download timer.");
+                    LE_DEBUG("Stop download timer.");
                     le_timer_Stop(sessPtr->timerRef);
 
                     tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_IDLE);
@@ -347,7 +347,7 @@ void taf_Update::DownloadHandler
         case TAF_UPDATE_DOWNLOAD_PAUSED:
             if (dlReq->event == TAF_UPDATE_DL_RESUME)
             {
-                LE_INFO("DA plug-in resume download.");
+                LE_DEBUG("DA plug-in resume download.");
                 int ret = (*(tafUpdate.daInfPtr->resumeDownload))(sessPtr->sessRef);
                 if (ret)
                 {
@@ -355,7 +355,7 @@ void taf_Update::DownloadHandler
                 }
                 else
                 {
-                    LE_INFO("Restart download timer.");
+                    LE_DEBUG("Restart download timer.");
                     le_timer_SetContextPtr(sessPtr->timerRef, (void*)sessPtr);
                     le_timer_Start(sessPtr->timerRef);
 
@@ -364,7 +364,7 @@ void taf_Update::DownloadHandler
             }
             else if (dlReq->event == TAF_UPDATE_DL_CANCEL)
             {
-                LE_INFO("DA plug-in cancel download.");
+                LE_DEBUG("DA plug-in cancel download.");
                 int ret = (*(tafUpdate.daInfPtr->cancelDownload))(sessPtr->sessRef);
                 if (ret)
                 {

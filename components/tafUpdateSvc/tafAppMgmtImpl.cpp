@@ -415,7 +415,7 @@ bool taf_AppMgmt::IsValidToInstall
 
         if (strcmp(version, "") == 0)
         {
-            LE_INFO("%s has no version.", appName);
+            LE_DEBUG("%s has no version.", appName);
             return true;
         } else if (strcmp(tafAppMgmt.appVersion, "") == 0)
         {
@@ -499,7 +499,7 @@ void taf_AppMgmt::UpdateProgress
             tafAppMgmt.UpdateAppNode(tafAppMgmt.appName, false);
             if (tafAppMgmt.IsStartManual(tafAppMgmt.appName))
             {
-                LE_INFO("Install app %s (manual-start) successfully.", tafAppMgmt.appName);
+                LE_DEBUG("Install app %s (manual-start) successfully.", tafAppMgmt.appName);
                 tafAppMgmt.state = TAF_UPDATE_IDLE;
             }
             else
@@ -575,12 +575,12 @@ void taf_AppMgmt::ProbationTimerHandler
 
     if (time >= tafAppMgmt.prbtTime)
     {
-        LE_INFO("Stopping probation timer...");
+        LE_DEBUG("Stopping probation timer...");
         le_timer_Stop(tafAppMgmt.prbtTimerRef);
 
         tafAppMgmt.UpdateProgress(TAF_UPDATE_PROBATION_SUCCESS, 100, TAF_UPDATE_NONE);
 
-        LE_INFO("App %s is activated.", tafAppMgmt.appName);
+        LE_DEBUG("App %s is activated.", tafAppMgmt.appName);
         tafAppMgmt.UpdateAppNode(tafAppMgmt.appName, true);
     }
     else
@@ -588,7 +588,7 @@ void taf_AppMgmt::ProbationTimerHandler
         if (le_appInfo_GetState(tafAppMgmt.appName) == LE_APPINFO_STOPPED)
         {
             LE_ERROR("Detect app %s is not running.", tafAppMgmt.appName);
-            LE_INFO("Stopping probation timer...");
+            LE_DEBUG("Stopping probation timer...");
             le_timer_Stop(tafAppMgmt.prbtTimerRef);
             tafAppMgmt.UpdateProgress(TAF_UPDATE_PROBATION_FAIL, percent,
                 TAF_UPDATE_APP_NOT_RUNNING);
@@ -1205,7 +1205,7 @@ void taf_AppMgmt::AppUpdateHandler
                 LE_INFO("Starting app %s probation.", updateReq->appName);
 
                 le_appCtrl_Start(updateReq->appName);
-                LE_INFO("Starting probation timer...");
+                LE_DEBUG("Starting probation timer...");
                 le_timer_SetRepeat(tafAppMgmt.prbtTimerRef, tafAppMgmt.prbtTime);
                 le_timer_Start(tafAppMgmt.prbtTimerRef);
             }
@@ -1350,5 +1350,5 @@ void taf_AppMgmt::Init
 
     chrono::time_point<chrono::system_clock> endTime = chrono::system_clock::now();
     chrono::duration<double> elapsedTime = endTime - startTime;
-    LE_INFO("Elapsed time for tafAppMgmt component: %lfs.", elapsedTime.count());
+    LE_DEBUG("Elapsed time for tafAppMgmt component: %lfs.", elapsedTime.count());
 }

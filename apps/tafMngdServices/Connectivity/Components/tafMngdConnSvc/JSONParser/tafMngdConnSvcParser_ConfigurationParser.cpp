@@ -1061,18 +1061,11 @@ bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
 
     for (auto & element: tree) {
         if ("ManagedConnectivityService" == element.first ) {
-            log.clear();
-            log = "Top Element: " + element.first;
-            LE_DEBUG ("%s", log.c_str() );
 
             for (auto & property: element.second) {
                 if ("Configuration" == property.first){
                     for (auto & parent: property.second) {
                         if ("Name" == parent.first){
-                            log.clear();
-                            log = "Key: " + parent.first + ", Value: " +
-                                                    parent.second.get_value < std::string > ();
-                            LE_DEBUG ("%s", log.c_str() );
                             JSON_Property.clear();
                             JSON_Property.append (property.first + ":" + parent.first);
                             JSON_Value.clear();
@@ -1094,23 +1087,13 @@ bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                         // ID, Name, SlotNumber
                         else if ( "Sim" == parent.first ) {
                             bSimAvailable = true;
-                            log.clear();
-                            log = "Top Element: " + parent.first;
-                            LE_DEBUG ("%s", log.c_str() );
                             int ElementCount = 0;
                             // Iterate through the Array elements
                             for (auto &array_element: parent.second)
                             {
-                                log.clear();
-                                log.append ( string("Sim[") + to_string (ElementCount) + "]" );
-                                LE_DEBUG ("%s", log.c_str() );
                                 // Iterate through elements in each array element
                                 for (auto &iter: array_element.second)
                                 {
-                                    log.clear();
-                                    log = "\tKey: " + iter.first + ", Value: " + iter.second.data();
-                                    LE_DEBUG ("%s", log.c_str() );
-
                                     JSON_Property.clear();
                                     JSON_Property.append (parent.first + ":" + iter.first);
                                     JSON_Value.clear();
@@ -1135,24 +1118,14 @@ bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                         // Network object
                         else if ( "Network" == parent.first ) {
                             bNetworkAvailable = true;
-                            log.clear();
-                            log = "Top Element: " + parent.first;
-                            LE_DEBUG ("%s", log.c_str() );
 
                             int ElementCount = 0;
                             // Iterate through the Array elements
                             for (auto &array_element: parent.second)
                             {
-                                log.clear();
-                                log.append ( string("Network[") + to_string (ElementCount) + "]" );
-                                LE_DEBUG ("%s", log.c_str() );
                                 // Iterate through elements in each array element
                                 for (auto &iter: array_element.second)
                                 {
-                                    log.clear();
-                                    log = "\tKey: " + iter.first + ", Value: " + iter.second.data();
-                                    LE_DEBUG ("%s", log.c_str() );
-
                                     JSON_Property.clear();
                                     JSON_Property.append (parent.first + ":" + iter.first);
                                     JSON_Value.clear();
@@ -1176,27 +1149,16 @@ bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
 
                         // Data Object
                         else if ( "Data" == parent.first ) {
-                            log.clear();
-                            log = "Top Element: " + parent.first;
-                            LE_DEBUG ("%s", log.c_str() );
-
                             int ElementCount = 0;
                             // Iterate through the Array elements
                             for (auto &array_element: parent.second)
                             {
-                                log.clear();
-                                log.append ( string("\tData[") + to_string (ElementCount) + "]" );
-                                LE_DEBUG ("%s", log.c_str() );
                                 // Iterate through elements in each array element
                                 for (auto &iter: array_element.second)
                                 {
                                     if ( "ID" == iter.first )
                                     {
                                         bDataIdAvailable = true;
-                                        log.clear();
-                                        log = "\t\tKey: " + iter.first +
-                                        ", Value: " + iter.second.data();
-                                        LE_DEBUG("%s", log.c_str());
 
                                         JSON_Property.clear();
                                         JSON_Property.append (parent.first + ":" + iter.first);
@@ -1217,10 +1179,6 @@ bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                                     if ("Name" == iter.first)
                                     {
                                         bDataNameAvailable = true;
-                                        log.clear();
-                                        log = "\t\tKey: " + iter.first +
-                                        ", Value: " + iter.second.data();
-                                        LE_DEBUG("%s", log.c_str());
 
                                         JSON_Property.clear();
                                         JSON_Property.append (parent.first + ":" + iter.first);
@@ -1242,10 +1200,6 @@ bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                                         "AutoStart" == iter.first )
                                     {
                                         bAutoStartAvailable = true;
-                                        log.clear();
-                                        log = "\t\tKey: " + iter.first +
-                                        ", Value: " + iter.second.data();
-                                        LE_DEBUG("%s", log.c_str());
 
                                         JSON_Property.clear();
                                         JSON_Property.append (parent.first + ":" + iter.first);
@@ -1265,10 +1219,6 @@ bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                                     }
                                     else if ("Interface" == iter.first )
                                     {
-                                        log.clear();
-                                        log = "\t\tKey: " + iter.first +
-                                        ", Value: " + iter.second.data();
-                                        LE_DEBUG("%s", log.c_str());
 
                                         JSON_Property.clear();
                                         JSON_Property.append (parent.first + ":" + iter.first);
@@ -1290,18 +1240,9 @@ bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                                     else if ("Profile" == iter.first)
                                     {
                                         bProfileAvailable = true;
-                                        log.clear();
-                                        log.append("\t\t").append("Profile Node");
-                                        LE_DEBUG("%s", log.c_str());
                                         // Iterate through Profile object
                                         for (auto &iter2 : iter.second)
                                         {
-                                            log.clear();
-                                            log.append("\t\t\t").append("Key: " + iter2.first +
-                                                                        ", Value: "
-                                                                        + iter2.second.data());
-                                            LE_DEBUG("%s", log.c_str());
-
                                             JSON_Property.clear();
                                             JSON_Property.append (parent.first + ":" + iter.first +
                                                                                 ":" + iter2.first);
@@ -1323,18 +1264,8 @@ bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                                     // Iterate through DataStartConnectionTest object
                                     else if ("DataStartConnectionTest" == iter.first)
                                     {
-                                        log.clear();
-                                        log.append("\t\t").append("DataStartConnectionTest Node");
-                                        LE_DEBUG ("%s", log.c_str() );
-
                                         // Iterate through DataStartConnectionTest object
                                         for (auto &iter2: iter.second) {
-                                            log.clear();
-                                            log.append("\t\t\t").append("Key: " + iter2.first +
-                                                                        ", Value: "
-                                                                        + iter2.second.data());
-                                            LE_DEBUG ("%s", log.c_str() );
-
                                             JSON_Property.clear();
                                             JSON_Property.append (parent.first + ":" + iter.first +
                                                                                 ":" + iter2.first);
@@ -1356,18 +1287,8 @@ bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                                     else if ("DataStartRetry" == iter.first)
                                     {
                                         bDataStartRetryAvailable   = true;
-                                        log.clear();
-                                        log.append("\t\t").append("DataStartRetry Node");
-                                        LE_DEBUG ("%s", log.c_str() );
-
                                         // Iterate through DataStartRetry object
                                         for (auto &iter2: iter.second) {
-                                            log.clear();
-                                            log.append("\t\t\t").append("Key: " + iter2.first +
-                                                                        ", Value: "
-                                                                        + iter2.second.data());
-                                            LE_DEBUG ("%s", log.c_str() );
-
                                             JSON_Property.clear();
                                             JSON_Property.append (parent.first + ":" + iter.first +
                                                                                 ":" + iter2.first);
@@ -1389,18 +1310,8 @@ bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                                     // Iterate through PeriodicConnectivityCheck object
                                     else if ("PeriodicConnectivityCheck" == iter.first)
                                     {
-                                        log.clear();
-                                        log.append("\t\t").append("PeriodicConnectivityCheck Node");
-                                        LE_DEBUG ("%s", log.c_str() );
-
                                         // Iterate through PeriodicConnectivityCheck object
                                         for (auto &iter2: iter.second) {
-                                            log.clear();
-                                            log.append("\t\t\t").append("Key: " + iter2.first +
-                                                                        ", Value: "
-                                                                        + iter2.second.data());
-                                            LE_DEBUG ("%s", log.c_str() );
-
                                             JSON_Property.clear();
                                             JSON_Property.append (parent.first + ":" + iter.first +
                                                                                 ":" + iter2.first);
@@ -1434,7 +1345,6 @@ bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
 
                 }
             }
-            LE_DEBUG ("%s", log.c_str() ); log.clear();
         }
     }
 

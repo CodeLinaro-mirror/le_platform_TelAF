@@ -222,7 +222,7 @@ bool tafsvc::ParseJSON(std::string ConfigurationFileName,
         return false;
     }
 
-    std::string log, JSON_Property, JSON_Value;
+    std::string JSON_Property, JSON_Value;
     // Check for Product, Name, and Version before parsing
 
     //  Keep track of mandatory objets. If they are absent return an error.
@@ -238,9 +238,6 @@ bool tafsvc::ParseJSON(std::string ConfigurationFileName,
         if ("Product" == element.first ) {
             // Mark presence of Product
             bProductAvailable = true;
-            log.clear();
-            log.append ( "Section: " + element.first );
-            LE_DEBUG ("%s", log.c_str() );
 
             // Get the value of "Product". This should be "TelAF"
             if (element.second.get_value<std::string>() != MCS_Default_Product_Value)
@@ -254,9 +251,6 @@ bool tafsvc::ParseJSON(std::string ConfigurationFileName,
         if ("Name" == element.first ) {
             // Mark presence of Name
             bNameAvailable = true;
-            log.clear();
-            log.append ( "Section: " + element.first );
-            LE_DEBUG ("%s", log.c_str() );
 
             // Get the value "Name" and print it for information.
             // Name key is not used by the service
@@ -267,19 +261,13 @@ bool tafsvc::ParseJSON(std::string ConfigurationFileName,
         if ("ManagedConnectivityService" == element.first ) {
             // Mark presence of ManagedConnectivityService
             bMngdConnSvcAvailable = true;
-            log.clear();
-            log.append ( "Section: " + element.first );
-            LE_DEBUG ("%s", log.c_str() );
 
             // Get the elements within "ManagedConnectivityServicePolicy"
             for (auto & property: element.second) {
                 if ("Version" == property.first){
                     // Mark Version is present
                     bVersionAvailable = true;
-                    log.clear();
-                    log.append ("Key: " + property.first + ", Value: " +
-                                                    property.second.get_value < std::string > () );
-                    LE_DEBUG("%s", log.c_str());
+
                     // Validate the read value
                     JSON_Property.clear();
                     JSON_Property.append(element.first + ":" + property.first);

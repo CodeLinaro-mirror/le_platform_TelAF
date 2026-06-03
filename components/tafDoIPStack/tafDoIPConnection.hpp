@@ -49,6 +49,7 @@ namespace doip{
     #define TAF_DOIP_ALIVE_CHECK_TIMEOUT_DEF    500
     #define TAF_DOIP_INITIAL_TIMEOUT_DEF        2000
     #define TAF_DOIP_GENERAL_TIMEOUT_DEF        300000
+    #define TAF_DOIP_BATCH_SIZE             5
 
     typedef struct {
         char        data[TAF_DOIP_MAX_BUFFER_SIZE];
@@ -121,7 +122,7 @@ namespace doip{
             taf_doip_Result_t SendTCPData(char* buffer, uint32_t length);
 
             taf_doip_Result_t CheckDoipHeader(taf_doipHeader_t& header, taf_doip_Buffer_t* buffer);
-            void ProcessDoipMessage(uint16_t payloadType, taf_doip_Buffer_t* buffer,
+            taf_doip_Result_t ProcessDoipMessage(uint16_t payloadType, taf_doip_Buffer_t* buffer,
                     uint32_t payloadLen);
             void RoutingActiveReqHandler(char *payload, uint32_t payloadLen);
 
@@ -132,13 +133,14 @@ namespace doip{
             void CheckRoutingActivationAuthen(uint32_t authenInfo);
             void CheckRoutingActivationConfirm();
             void AliveCheckResHandler(char *payload, uint32_t payloadLen);
-            void DiagnosticMsgFirstHandler(char *payload, uint32_t payloadLen,
+            taf_doip_Result_t DiagnosticMsgFirstHandler(char *payload, uint32_t payloadLen,
                     uint32_t receivedLen);
-            void DiagnosticMsgSecondHandler();
-            void DiagnosticMsgCliSecondHandler();
-            void DiagnosticMsgSvrSecondHandler();
+            taf_doip_Result_t DiagnosticMsgSecondHandler();
+            taf_doip_Result_t DiagnosticMsgCliSecondHandler();
+            taf_doip_Result_t DiagnosticMsgSvrSecondHandler();
             void RespondHeaderNegativeACK(taf_doipHeaderNACKCode_t nackCode, uint32_t left);
             void ReadAndDiscardMsg(size_t len);
+            static void ConsumeTCPData(void* param1Ptr, void* param2Ptr);
 
             uint16_t                testerSA;   // Tester source logical address.
                                                 // It will be assigned after regitered.
@@ -154,6 +156,7 @@ namespace doip{
             uint16_t                remotePort;
             taf_doip_ConnectState_t connState = TAF_DOIP_CONNECT_STATE_INITIALIZED;
             taf_doip_ConnectType_t  connType;
+            bool                    isConsuming = false;
 
             // point to connection manager.
             std::shared_ptr<ConnectionManager>  connectionMgr;

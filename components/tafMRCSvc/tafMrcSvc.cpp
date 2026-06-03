@@ -93,9 +93,10 @@ le_result_t taf_mrc_SendSyncStatusMsg
         return LE_FAULT;
     }
 
-    le_clk_Time_t time = { .sec = TAF_MRC_MSG_RESP_TIMEOUT };
-    result = le_sem_WaitWithTimeOut(tafMrc.syncSem, time);
-    if (result != LE_OK)
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    ts.tv_sec += TAF_MRC_MSG_RESP_TIMEOUT;
+    if (sem_clockwait(&tafMrc.syncSem, CLOCK_MONOTONIC, &ts) != 0)
     {
         LE_ERROR("Timeout for MRC to handle AB sync status.");
         return LE_FAULT;

@@ -10,6 +10,9 @@
 #include "legato.h"
 #include "interfaces.h"
 
+#include <semaphore.h>
+#include <time.h>
+
 #include <future>
 #include <condition_variable>
 
@@ -65,7 +68,7 @@ namespace tafsvc {
         static void* PAEventThread(void* contextPtr);
 
         std::shared_ptr<telux::platform::IFsManager> fsManager;
-        le_sem_Ref_t syncSem;
+        sem_t syncSem;
         bool paReady = false;
         static taf_pa_mrc_OpStatusHandlerRef_t opStatusHandlerRef;
         le_mem_PoolRef_t metricsPool;

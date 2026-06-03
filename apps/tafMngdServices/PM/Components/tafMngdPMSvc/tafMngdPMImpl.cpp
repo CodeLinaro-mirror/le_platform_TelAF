@@ -99,23 +99,23 @@ le_result_t tafMngdPMSvc::ParseJsonConfiguration(std::string configPath)
     auto &mpms = tafMngdPMSvc::GetInstance();
 
     long int bootup_awake_time = root.get<int>("bootup_awake_time");
-    LE_INFO("bootup_awake_time is %ld", bootup_awake_time);
+    LE_DEBUG("bootup_awake_time is %ld", bootup_awake_time);
     mpms.config.bootup_awake_time = bootup_awake_time;
 
     bool hal_enabled = root.get<bool>("hal_enabled");
-    LE_INFO("hal_enabled is %d", hal_enabled);
+    LE_DEBUG("hal_enabled is %d", hal_enabled);
     mpms.config.hal_enabled = hal_enabled;
 
     long int hal_state_prepare_timeout = root.get<int>("hal_state_prepare_timeout");
-    LE_INFO("hal_state_prepare_timeout is %ld", hal_state_prepare_timeout);
+    LE_DEBUG("hal_state_prepare_timeout is %ld", hal_state_prepare_timeout);
     mpms.config.hal_state_prepare_timeout = hal_state_prepare_timeout;
 
     long int hal_wakeup_vehicle_timeout = root.get<int>("hal_wakeup_vehicle_timeout");
-    LE_INFO("hal_wakeup_vehicle_timeout is %ld", hal_wakeup_vehicle_timeout);
+    LE_DEBUG("hal_wakeup_vehicle_timeout is %ld", hal_wakeup_vehicle_timeout);
     mpms.config.hal_wakeup_vehicle_timeout = hal_wakeup_vehicle_timeout;
 
     long int state_change_ack_timeout = root.get<int>("state_change_ack_timeout");
-    LE_INFO("state_change_ack_timeout is %ld", state_change_ack_timeout);
+    LE_DEBUG("state_change_ack_timeout is %ld", state_change_ack_timeout);
     mpms.config.state_change_ack_timeout = state_change_ack_timeout;
 
     return LE_OK;
@@ -143,7 +143,7 @@ void tafMngdPMSvc::InitializeCurrentNodePowerState()
 {
     taf_pm_State_t pmState = taf_pm_GetPowerState();
     currentNodePowerState = ToNodePowerStateFromPm(pmState);
-    LE_INFO("Initialized currentNodePowerState to %d ", currentNodePowerState);
+    LE_DEBUG("Initialized currentNodePowerState to %d ", currentNodePowerState);
 }
 
 /**
@@ -443,7 +443,7 @@ void tafMngdPMSvc::WakeupVehicleCB
     int32_t response
 )
 {
-    LE_INFO("** %s **, hal_pm_WakeupVehicleReason: %d, hal_pm_RspReason_t: %d", __FUNCTION__, reason, response);
+    LE_DEBUG("** %s **, hal_pm_WakeupVehicleReason: %d, hal_pm_RspReason_t: %d", __FUNCTION__, reason, response);
 
     auto &mpms = tafMngdPMSvc::GetInstance();
     if(le_timer_IsRunning(mpms.wakeupVehicleTimerRef))
@@ -453,7 +453,7 @@ void tafMngdPMSvc::WakeupVehicleCB
     }
     if (reason == VEHICHLE_WAKEUP_REASON_DEFAULT && response == HAL_PM_VEHICHLE_WAKEUP_STATUS_AWAKE)
     {
-        LE_INFO("Response for the wakeupVehicleCall is HAL_PM_VEHICHLE_WAKEUP_STATUS_AWAKE");
+        LE_DEBUG("Response for the wakeupVehicleCall is HAL_PM_VEHICHLE_WAKEUP_STATUS_AWAKE");
         if(wakeupVehicleCB.wakeupVehicleCallbackFunc)
         {
             wakeupVehicleCB.wakeupVehicleCallbackFunc(VEHICHLE_WAKEUP_REASON_DEFAULT, VEHICHLE_WAKEUP_STATUS_AWAKE,
@@ -462,7 +462,7 @@ void tafMngdPMSvc::WakeupVehicleCB
     }
     else if (reason == VEHICHLE_WAKEUP_REASON_DEFAULT && response == HAL_PM_VEHICHLE_WAKEUP_STATUS_INVALID_REQ)
     {
-        LE_INFO("Response for the wakeupVehicleCall is HAL_PM_VEHICHLE_WAKEUP_STATUS_INVALID_REQ");
+        LE_DEBUG("Response for the wakeupVehicleCall is HAL_PM_VEHICHLE_WAKEUP_STATUS_INVALID_REQ");
         if(wakeupVehicleCB.wakeupVehicleCallbackFunc)
         {
             wakeupVehicleCB.wakeupVehicleCallbackFunc(VEHICHLE_WAKEUP_REASON_DEFAULT, VEHICHLE_WAKEUP_STATUS_INVALID_REQ,
@@ -471,7 +471,7 @@ void tafMngdPMSvc::WakeupVehicleCB
     }
     else if (reason == VEHICHLE_WAKEUP_REASON_DEFAULT && response == HAL_PM_VEHICHLE_WAKEUP_STATUS_UNKNOWN)
     {
-        LE_INFO("Response for the wakeupVehicleCall is HAL_PM_VEHICHLE_WAKEUP_STATUS_UNKNOWN");
+        LE_DEBUG("Response for the wakeupVehicleCall is HAL_PM_VEHICHLE_WAKEUP_STATUS_UNKNOWN");
         if(wakeupVehicleCB.wakeupVehicleCallbackFunc)
         {
             wakeupVehicleCB.wakeupVehicleCallbackFunc(VEHICHLE_WAKEUP_REASON_DEFAULT, VEHICHLE_WAKEUP_STATUS_UNKNOWN,
@@ -544,7 +544,7 @@ void tafMngdPMSvc::NodeInternalEventHandler(void *reportPtr)
 
             if (mpms.vhalWsState == WAKE_SOURCE_NOT_ACQUIRED)
             {
-                LE_INFO("vHalWs is not_required, no need to Relax");
+                LE_DEBUG("vHalWs is not_required, no need to Relax");
                 return;
             }
 
@@ -571,7 +571,7 @@ void tafMngdPMSvc::NodeInternalEventHandler(void *reportPtr)
 
             if (mpms.vhalWsState == WAKE_SOURCE_ACQUIRED)
             {
-                LE_INFO("vHalWs is already required, duplicate StayAwake");
+                LE_DEBUG("vHalWs is already required, duplicate StayAwake");
                 return;
             }
 
@@ -685,13 +685,13 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
         linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
         if (wsRefCtxPtr && wsRefCtxPtr->sessionRef == sessionRef)
         {
-            LE_INFO("Client with sessionRef %p", wsRefCtxPtr->sessionRef);
+            LE_DEBUG("Client with sessionRef %p", wsRefCtxPtr->sessionRef);
             if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_ACQUIRED)
             {
                 if (! mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason, mpms.stayAwakeReasonMask))
                 {
                     wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
-                    LE_INFO("wSrc is acquired but unauthorized, just mark wSrc as not_acquired");
+                    LE_DEBUG("wSrc is acquired but unauthorized, just mark wSrc as not_acquired");
                 }
                 else
                 {
@@ -699,7 +699,7 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
                     if(res == LE_OK)
                     {
                         wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
-                        LE_INFO("Released lock for the client with sessionRef %p", wsRefCtxPtr->sessionRef);
+                        LE_DEBUG("Released lock for the client with sessionRef %p", wsRefCtxPtr->sessionRef);
                     }
                     else
                     {
@@ -769,9 +769,6 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
 
             if (nodeRefPtr)
             {
-                LE_INFO("Releasing initialNodePowerState ref %p for sessionRef %p",
-                    handlerCtxPtr->initialNodePowerState.nodeStateRef,
-                    handlerCtxPtr->initialNodePowerState.sessionRef);
                 le_ref_DeleteRef(
                     mpms.nodePowerStateRefMap,
                     handlerCtxPtr->initialNodePowerState.nodeStateRef);
@@ -780,7 +777,7 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
             handlerCtxPtr->initialNodePowerState.nodeStateRef = NULL;
             handlerCtxPtr->initialNodePowerState.isAcked = false;
         }
-        LE_INFO("Clearing node power state handler for client sessionRef %p",
+        LE_DEBUG("Clearing node power state handler for client sessionRef %p",
             handlerCtxPtr->sessionRef);
         le_ref_DeleteRef(mpms.nodePowerStateHandlerMap, handlerCtxPtr->handlerRef);
         le_dls_Remove(&(mpms.nodePowerStateHandlerList), &handlerCtxPtr->link);
@@ -951,17 +948,17 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
     {
         le_result_t res;
 
-        LE_INFO("[SUSPEND] NTF arrived");
+        LE_DEBUG("[SUSPEND] NTF arrived");
 
         if (wsCount > 0)
         {
-            LE_INFO("Defer-task handling ...");
+            LE_DEBUG("Defer-task handling ...");
 
             if (! powerMode.isWsAcquired)
             {
                 // NACK -> PMS, then no [ALL-ACKED] notifcation later
                 taf_pm_SendStateChangeAck(psRef, state, TAF_PM_PVM, TAF_PM_NOT_READY);
-                LE_INFO("Defer-task sending out N-ACK to PMS");
+                LE_DEBUG("Defer-task sending out N-ACK to PMS");
 
                 // Acquired the wakelock from PMS
                 res = taf_pm_StayAwake(ws);
@@ -1030,14 +1027,14 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
     {
         le_result_t res;
 
-        LE_INFO("[RESUME] NTF arrived");
+        LE_DEBUG ("[RESUME] NTF arrived");
 
         ProcessStateChange(TAF_MNGDPM_STATE_RESUME);
         powerStateChange.state = TAF_MNGDPM_NODE_STATE_RESUME;
 
         if (wsCount == 0) // when WakingUp, 'Relax' is coming
         {
-            LE_INFO("Defer-task handling ...");
+            LE_DEBUG("Defer-task handling ...");
 
             if (powerMode.isWsAcquired)
             {
@@ -1228,7 +1225,7 @@ le_result_t tafMngdPMSvc::InitVHalModule()
     le_timer_SetHandler(mpms.wakeupVehicleTimerRef, VehichleWakeupTimerHandler);
 
     // PMVHAL successfully loaded
-    LE_INFO("Loaded module %s successfully", TAF_PM_MODULE_NAME);
+    LE_DEBUG("Loaded module %s successfully", TAF_PM_MODULE_NAME);
 
     taf_mngdPm_readyEvtType_t readyType;
     readyType.type = EVT_LOAD_PMVHAL_READY;
@@ -1252,7 +1249,7 @@ void tafMngdPMSvc::PMVhalReadyEvtHandler(void * reportPtr)
     {
         case EVT_LOAD_PMVHAL_READY:
             // After PMVHAL is loaded, advertise the service to client sides
-            LE_INFO("Advertise MngdPM service");
+            LE_DEBUG("Advertise MngdPM service");
             taf_mngdPm_AdvertiseService();
 
             WaitWakeSourceTimer();
@@ -1293,7 +1290,7 @@ void tafMngdPMSvc::RetryHandler(le_timer_Ref_t timerRef)
         {
             le_result_t res = mpms.InitVHalModule();
             if(res == LE_OK){
-                LE_INFO("PMVHAL loaded successfully");
+                LE_DEBUG("PMVHAL loaded successfully");
                 mpms.isPmVhalReady = true;
 
                 // Load PMVHAL successfully. Delete the timer.
@@ -1335,7 +1332,7 @@ void tafMngdPMSvc::GetPmVhalReady(void *p1, void *p2)
     le_timer_SetWakeup(retryTimer, false);
     le_timer_SetMsInterval(retryTimer, RETRY_TIMER_INTERVAL);
     le_timer_Start(retryTimer);
-    LE_INFO("Retry timer for loading PMVHAL start ...");
+    LE_DEBUG("Retry timer for loading PMVHAL start ...");
 }
 
 /**
@@ -1428,32 +1425,32 @@ void tafMngdPMSvc::RefreshWakeSources()
                 if ( !mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason, mpms.previousStayAwakeReasonMask)
                 &&    mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason, mpms.stayAwakeReasonMask))
                 {
-                    LE_INFO("wakeSource of %s with the authorized stayawakeReason:%d", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
+                    LE_DEBUG("wakeSource of %s with the authorized stayawakeReason:%d", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
 
                     if((mpms.pmInf) && (mpms.pmInf->nodeInfoNotification))
                     {
-                        LE_INFO("notify node info for reason:%d", wsRefCtxPtr->reason);
+                        LE_DEBUG("notify node info for reason:%d", wsRefCtxPtr->reason);
                         (*(mpms.pmInf->nodeInfoNotification))(NODE_ID,
                             HAL_PM_NODE_INFO_LOCK_ACQUIRED, (const uint8_t)wsRefCtxPtr->reason);
                     }
 
                     ++ wsCount;
-                    LE_INFO("AcquireWakeLock wsCount = %d", wsCount);
+                    LE_DEBUG("AcquireWakeLock wsCount = %d", wsCount);
                 }
                 else if (mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason, mpms.previousStayAwakeReasonMask)
                 &&      !mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason, mpms.stayAwakeReasonMask))
                 {
-                    LE_INFO("wakeSource of %s with the unauthorized stayawakeReason:%d", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
+                    LE_DEBUG("wakeSource of %s with the unauthorized stayawakeReason:%d", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
 
                     if((mpms.pmInf) && (mpms.pmInf->nodeInfoNotification))
                     {
-                        LE_INFO("notify node info for reason: %d", wsRefCtxPtr->reason);
+                        LE_DEBUG("notify node info for reason: %d", wsRefCtxPtr->reason);
                         (*(mpms.pmInf->nodeInfoNotification))(NODE_ID,
                                 HAL_PM_NODE_INFO_LOCK_RELEASED, (const uint8_t)wsRefCtxPtr->reason);
                     }
 
                     -- wsCount;
-                    LE_INFO("ReleaseWakeLock wsCount:%d", wsCount);
+                    LE_DEBUG("ReleaseWakeLock wsCount:%d", wsCount);
                 }
             }
             else // == WAKE_SOURCE_NOT_ACQUIRED
@@ -1527,7 +1524,7 @@ le_result_t tafMngdPMSvc::ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr)
     res = tafMngdPMSvc::ReleaseWakeLock();
     if(res == LE_OK)
     {
-        LE_INFO("Released wakesource for %s the with reason: %d, wakeSourceState set to: WAKE_SOURCE_NOT_ACQUIRED ", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
+        LE_DEBUG("Released wakesource for %s the with reason: %d, wakeSourceState set to: WAKE_SOURCE_NOT_ACQUIRED ", wsRefCtxPtr->wsTag, wsRefCtxPtr->reason);
         tafMngdPMSvc::ProcessStateChange(
                 TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
         wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
@@ -1559,19 +1556,19 @@ le_result_t tafMngdPMSvc::ReleaseWakeLock()
 
     if (wsCount == 0)
     {
-        LE_INFO("Release wake lock when wsCount = 0");
+        LE_DEBUG("Release wake lock when wsCount = 0");
 
         if (stateMachine.currentState == TAF_MNGDPM_STATE_RESUME
         ||  stateMachine.currentState == TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE)
         {
-            LE_INFO("Touch RESUME or RELEASING state");
+            LE_DEBUG("Touch RESUME or RELEASING state");
 
             if (powerMode.isWsAcquired)
             {
                 res = taf_pm_Relax(ws);
                 if (res == LE_OK)
                 {
-                    LE_INFO("Wake source from pms released successfully");
+                    LE_DEBUG("Wake source from pms released successfully");
                     powerMode.isWsAcquired = false;
                 }
                 else
@@ -1606,7 +1603,7 @@ void tafMngdPMSvc::SetModemWakeupSource(taf_mngdPm_WakeupType_t wakeupType)
         {
             if((client.wakeupType == wakeupType) && (client.sessionRef == taf_mngdPm_GetClientSessionRef()))
             {
-                LE_INFO("wakeupType already in wsWhiteList");
+                LE_DEBUG("wakeupType already in wsWhiteList");
                 return;
             }
         }

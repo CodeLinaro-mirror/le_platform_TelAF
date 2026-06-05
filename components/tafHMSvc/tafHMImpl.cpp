@@ -58,6 +58,7 @@ LE_REF_DEFINE_STATIC_MAP(ModemEventInfoRefMap, TAF_HMS_MAX_EVENT_POOL_SIZE);
 LE_REF_DEFINE_STATIC_MAP(ModemInfoRefMap, TAF_HMS_MAX_REF_POOL_SIZE);
 
 static bool ModemAvailability = false;
+bool isPaPhoneInitialized = false;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -68,6 +69,51 @@ taf_Hms &taf_Hms::GetInstance()
 {
     static taf_Hms instance;
     return instance;
+}
+
+void taf_Hms::CleanupOnSigTerm()
+{
+    LE_DEBUG("taf_Hms SIGTERM cleanup start");
+
+    if (HmsTimerRef != NULL)
+    {
+        le_timer_Stop(HmsTimerRef);
+        le_timer_Delete(HmsTimerRef);
+        HmsTimerRef = NULL;
+    }
+
+    if (ThreadRef != NULL)
+    {
+        le_thread_Cancel(ThreadRef);
+        le_thread_Join(ThreadRef, NULL);
+        ThreadRef = NULL;
+    }
+
+    auto &mppsListener = tafHmsListener::GetInstance();
+    mppsListener.DeleteResetTime();
+
+    if (isPaPhoneInitialized)
+    {
+        pa_result_t result = taf_pa_health_Deinit();
+        if (result != PA_OK)
+        {
+            LE_ERROR("taf_pa_health_Deinit failed, err: %d", (int)result);
+        }
+        else
+        {
+            isPaPhoneInitialized = false;
+        }
+    }
+
+    LE_DEBUG("taf_Hms SIGTERM cleanup complete");
+}
+
+void taf_Hms::SigTermEventHandler(int sigNum)
+{
+    LE_INFO("taf_Hms::SigTermEventHandler signal: %d", sigNum);
+    auto &hms = taf_Hms::GetInstance();
+    hms.CleanupOnSigTerm();
+    exit(EXIT_SUCCESS);
 }
 
 void taf_Hms::AdvertiseService()
@@ -219,9 +265,9 @@ static double CalculateCpuUsage(const taf_hms_CPUCore_t *start, const taf_hms_CP
 static void TimerExpiryHandler(le_timer_Ref_t timerRef)
 {
     LE_DEBUG("Timer expired, posting semaphore");
-    le_sem_Post(SemRef);
     le_timer_Delete(timerRef);
-    le_thread_Exit(0);
+    HmsTimerRef = NULL;
+    le_sem_Post(SemRef);
 }
 
 
@@ -277,6 +323,8 @@ le_result_t taf_Hms::GetCpuLoad
 
     // Delete semaphore.
     le_sem_Delete(SemRef);
+    le_thread_Cancel(ThreadRef);
+    ThreadRef = NULL;
 
     // Get CPU usage at "END" point
     taf_hms_CPUCore_t end_usage = GetCpuUsage();
@@ -1699,7 +1747,20 @@ void ModemStatus::ReqsOperatingMode(void)
 
 void ModemStatus::CheckOperModeStatus(void)
 {
-    if (taf_pa_health_PhoneInit() == PA_OK)
+    if (!isPaPhoneInitialized)
+    {
+        pa_result_t res = taf_pa_health_PhoneInit();
+        if (res == PA_OK)
+        {
+            LE_INFO("Phone initilization successful");
+            isPaPhoneInitialized = true;
+        }
+        else
+        {
+            LE_ERROR("Phone initilization failed, res %d", res);
+        }
+    }
+    if (isPaPhoneInitialized)
     {
         ReqsOperatingMode();
     }
@@ -2057,6 +2118,9 @@ void InitModemStatusChangeSupport(void)
 void taf_Hms::Init()
 {
     LE_INFO("tafHMSvc started");
+
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, taf_Hms::SigTermEventHandler);
 
     UbiDevListPool = le_mem_InitStaticPool(UbiDevListPool, TAF_HMS_MAX_LIST_POOL_SIZE,
         sizeof(taf_hms_ubiDevInfoList_t));

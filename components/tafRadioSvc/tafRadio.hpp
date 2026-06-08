@@ -198,7 +198,8 @@ typedef struct
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
-    le_event_Id_t request; ///< Event used to dispatch internal asynchronous requests.
+    le_event_Id_t request;          ///< Event used to dispatch internal asynchronous requests.
+    le_event_Id_t lteCphyCaRefresh; ///< Event used to refresh LTE CPHY CA info cache.
 } StaticEvent_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -355,6 +356,20 @@ typedef struct
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Payload used to request an LTE CPHY CA cache refresh on the service event loop.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint32_t instance;                         ///< Internal instance index (0-based).
+    bool reportChange;                         ///< True to report CA event if status/count changed.
+    bool queryPa;                              ///< True to refresh from PA instead of indication.
+    taf_radio_CAInfoRef_t reference;           ///< Cached CA info reference to refresh.
+    taf_pa_radio_LteCphyCaIndication_t indication; ///< CA indication snapshot, used when queryPa=false.
+} LteCphyCaRefresh_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Payload forwarded through layered events for connection status indications.
  */
 //--------------------------------------------------------------------------------------------------
@@ -367,6 +382,35 @@ typedef struct
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * LTE CA primary cell (PCell) information cached in a CA info reference.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint16_t pci;                  ///< Physical cell ID.
+    uint32_t freq;                 ///< Frequency/EARFCN.
+    taf_radio_RFBandWidth_t dlBw;  ///< Downlink bandwidth.
+    uint16_t band;                 ///< LTE band.
+} CA_PCellInfo_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * LTE CA secondary cell (SCell) information cached in a CA info reference.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint16_t pci;                         ///< Physical cell ID.
+    uint32_t freq;                        ///< Frequency/EARFCN.
+    taf_radio_RFBandWidth_t  dlBw;        ///< Downlink bandwidth.
+    uint16_t band;                        ///< LTE band.
+    taf_radio_CAScellState_t scellState;  ///< SCell activation state.
+    uint8_t  scellIndex;                  ///< Modem SCell index.
+    bool     ulConfigured;                ///< True if uplink is configured for this SCell.
+} CA_SCellInfo_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Carrier aggregation information cached per instance.
  */
 //--------------------------------------------------------------------------------------------------
@@ -374,6 +418,9 @@ typedef struct
 {
     taf_radio_CAStatus_t status; ///< CA activation status.
     uint32_t cellCount;          ///< Number of component carriers (PCell + active SCells).
+    CA_PCellInfo_t pcellInfo; ///< Primary cell information.
+    uint32_t scellInfoCount;  ///< Number of valid entries in scellInfo[].
+    CA_SCellInfo_t scellInfo[TAF_PA_RADIO_LTE_CPHY_SCELL_INFO_MAX_COUNT]; ///< SCell info.
 } CAInfo_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -622,6 +669,22 @@ class Utility
                 static taf_radio_RFBandWidth_t Bandwidth
                 (
                     taf_pa_radio_Bandwidth_t bandwidth ///< [IN] PA bandwidth.
+                );
+
+                /**
+                 * Converts PA LTE CPHY CA bandwidth to public RF bandwidth.
+                 */
+                static taf_radio_RFBandWidth_t LteCphyCaBandwidth
+                (
+                    taf_pa_radio_LteCphyCaBandwidth_t bandwidth ///< [IN] PA LTE CA bandwidth.
+                );
+
+                /**
+                 * Converts PA LTE CPHY SCell state to public CA SCell state.
+                 */
+                static taf_radio_CAScellState_t LteCphyCaScellState
+                (
+                    taf_pa_radio_LteCphyScellState_t state ///< [IN] PA LTE CA SCell state.
                 );
 
                 /**

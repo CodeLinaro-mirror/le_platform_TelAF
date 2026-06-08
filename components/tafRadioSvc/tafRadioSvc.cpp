@@ -1482,7 +1482,7 @@ le_result_t taf_radio_GetUmtsSignalMetrics
 le_result_t taf_radio_GetLteSignalMetrics
 (
     taf_radio_MetricsRef_t metricsRef, ///< [IN] The signal metrics reference.
-    int32_t* rssiPtr,                  ///< [OUT] Received Signal Strength Indicator in dBm.
+    int32_t* ssPtr,                    ///< [OUT] Signal Strength in dBm based on RSRP.
     int32_t* rsrqPtr,                  ///< [OUT] Reference Signal Received Quality in dB.
     int32_t* rsrpPtr,                  ///< [OUT] Reference Signal Received Power in dBm.
     int32_t* snrPtr                    ///< [OUT] Signal-to-Noise Ratio in units of 0.1 dB.
@@ -1494,9 +1494,9 @@ le_result_t taf_radio_GetLteSignalMetrics
         return LE_BAD_PARAMETER;
     }
 
-    if (rssiPtr == nullptr)
+    if (ssPtr == nullptr)
     {
-        LE_ERROR("rssiPtr is nullptr.");
+        LE_ERROR("ssPtr is nullptr.");
         return LE_BAD_PARAMETER;
     }
 
@@ -1529,14 +1529,14 @@ le_result_t taf_radio_GetLteSignalMetrics
 
     if (infoPtr->bitmask & TAF_PA_RADIO_BITMASK_RAT_LTE)
     {
-        *rssiPtr = infoPtr->lteInfo.rssi;
+        *ssPtr = infoPtr->lteInfo.rsrp;
         *rsrqPtr = infoPtr->lteInfo.rsrq;
         *rsrpPtr = infoPtr->lteInfo.rsrp;
         *snrPtr = infoPtr->lteInfo.snr;
     }
     else
     {
-        *rssiPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        *ssPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
         *rsrqPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
         *rsrpPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
         *snrPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
@@ -1683,6 +1683,154 @@ le_result_t taf_radio_GetNr5gSignalMetrics
         *rsrqPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
         *rsrpPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
         *snrPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets GSM signal strength value in dBm from signal metrics.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetGsmSignalMetricsSs
+(
+    taf_radio_MetricsRef_t metricsRef, ///< [IN] The signal metrics reference.
+    int32_t* ssPtr                     ///< [OUT] GSM signal strength in dBm.
+)
+{
+    if (metricsRef == nullptr)
+    {
+        LE_ERROR("metricsRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (ssPtr == nullptr)
+    {
+        LE_ERROR("ssPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SignalStrengthInfo_t* infoPtr = (taf_pa_radio_SignalStrengthInfo_t*)le_ref_Lookup(
+        factory.maps.signalStrengthInfo, metricsRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (infoPtr->bitmask & TAF_PA_RADIO_BITMASK_RAT_GSM)
+    {
+        *ssPtr = infoPtr->gsmInfo.ss;
+    }
+    else
+    {
+        *ssPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets UMTS Ec/Io from signal metrics.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetUmtsSignalMetricsEcio
+(
+    taf_radio_MetricsRef_t metricsRef, ///< [IN] The signal metrics reference.
+    int32_t* ecioPtr                   ///< [OUT] UMTS Ec/Io in dB.
+)
+{
+    if (metricsRef == nullptr)
+    {
+        LE_ERROR("metricsRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (ecioPtr == nullptr)
+    {
+        LE_ERROR("ecioPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SignalStrengthInfo_t* infoPtr = (taf_pa_radio_SignalStrengthInfo_t*)le_ref_Lookup(
+        factory.maps.signalStrengthInfo, metricsRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (infoPtr->bitmask & TAF_PA_RADIO_BITMASK_RAT_UMTS)
+    {
+        *ecioPtr = infoPtr->umtsInfo.ecio;
+    }
+    else
+    {
+        *ecioPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        return LE_UNAVAILABLE;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets LTE RSSI from signal metrics.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteSignalMetricsRssi
+(
+    taf_radio_MetricsRef_t metricsRef, ///< [IN] The signal metrics reference.
+    int32_t* rssiPtr                   ///< [OUT] LTE RSSI in dBm.
+)
+{
+    if (metricsRef == nullptr)
+    {
+        LE_ERROR("metricsRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (rssiPtr == nullptr)
+    {
+        LE_ERROR("rssiPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SignalStrengthInfo_t* infoPtr = (taf_pa_radio_SignalStrengthInfo_t*)le_ref_Lookup(
+        factory.maps.signalStrengthInfo, metricsRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (infoPtr->bitmask & TAF_PA_RADIO_BITMASK_RAT_LTE)
+    {
+        *rssiPtr = infoPtr->lteInfo.rssi;
+    }
+    else
+    {
+        *rssiPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
     }
 
     return LE_OK;
@@ -5501,7 +5649,13 @@ le_result_t taf_radio_GetCAInformation
     }
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
-    taf_pa_radio_LteCphyCaInfo_t info;
+    if (instance >= INSTANCE_MAX_COUNT)
+    {
+        LE_ERROR("Invalid phone ID %d.", phone);
+        return LE_BAD_PARAMETER;
+    }
+
+    taf_pa_radio_LteCphyCaInfo_t info = {};
     pa_result_t paResult = taf_pa_radio_GetLteCphyCaInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
@@ -5604,6 +5758,541 @@ le_result_t taf_radio_GetLteCAStatus
     return LE_OK;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA primary cell (PCell) physical cell ID.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCAPCellPci
+(
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    uint16_t* pciPtr                 ///< [OUT] The PCell physical cell ID.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (pciPtr == nullptr)
+    {
+        LE_ERROR("pciPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    *pciPtr = infoPtr->pcellInfo.pci;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA primary cell (PCell) frequency/EARFCN.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCAPCellFreq
+(
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    uint32_t* freqPtr                ///< [OUT] The PCell frequency/EARFCN.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (freqPtr == nullptr)
+    {
+        LE_ERROR("freqPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    *freqPtr = infoPtr->pcellInfo.freq;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA primary cell (PCell) downlink bandwidth.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCAPCellDlBandwidth
+(
+    taf_radio_CAInfoRef_t reference,  ///< [IN] The carrier aggregation information reference.
+    taf_radio_RFBandWidth_t* dlBwPtr  ///< [OUT] The PCell downlink bandwidth.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (dlBwPtr == nullptr)
+    {
+        LE_ERROR("dlBwPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    *dlBwPtr = infoPtr->pcellInfo.dlBw;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA primary cell (PCell) band.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCAPCellBand
+(
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    uint16_t* bandPtr                ///< [OUT] The PCell band.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (bandPtr == nullptr)
+    {
+        LE_ERROR("bandPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    *bandPtr = infoPtr->pcellInfo.band;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA secondary cell (SCell) count.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCASCellCount
+(
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    uint32_t* countPtr               ///< [OUT] The number of SCells.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (countPtr == nullptr)
+    {
+        LE_ERROR("countPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    *countPtr = infoPtr->scellInfoCount;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA secondary cell (SCell) physical cell ID by array index.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OUT_OF_RANGE -- Index is out of range.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCASCellPci
+(
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    uint32_t index,                  ///< [IN] SCell array index.
+    uint16_t* pciPtr                 ///< [OUT] The SCell physical cell ID.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (pciPtr == nullptr)
+    {
+        LE_ERROR("pciPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (index >= infoPtr->scellInfoCount)
+    {
+        LE_ERROR("SCell index %u out of range (count=%u).", index, infoPtr->scellInfoCount);
+        return LE_OUT_OF_RANGE;
+    }
+
+    *pciPtr = infoPtr->scellInfo[index].pci;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA secondary cell (SCell) frequency/EARFCN by array index.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OUT_OF_RANGE -- Index is out of range.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCASCellFreq
+(
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    uint32_t index,                  ///< [IN] SCell array index.
+    uint32_t* freqPtr                ///< [OUT] The SCell frequency/EARFCN.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (freqPtr == nullptr)
+    {
+        LE_ERROR("freqPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (index >= infoPtr->scellInfoCount)
+    {
+        LE_ERROR("SCell index %u out of range (count=%u).", index, infoPtr->scellInfoCount);
+        return LE_OUT_OF_RANGE;
+    }
+
+    *freqPtr = infoPtr->scellInfo[index].freq;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA secondary cell (SCell) downlink bandwidth by array index.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OUT_OF_RANGE -- Index is out of range.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCASCellDlBandwidth
+(
+    taf_radio_CAInfoRef_t reference,  ///< [IN] The carrier aggregation information reference.
+    uint32_t index,                   ///< [IN] SCell array index.
+    taf_radio_RFBandWidth_t* dlBwPtr  ///< [OUT] The SCell downlink bandwidth.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (dlBwPtr == nullptr)
+    {
+        LE_ERROR("dlBwPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (index >= infoPtr->scellInfoCount)
+    {
+        LE_ERROR("SCell index %u out of range (count=%u).", index, infoPtr->scellInfoCount);
+        return LE_OUT_OF_RANGE;
+    }
+
+    *dlBwPtr = infoPtr->scellInfo[index].dlBw;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA secondary cell (SCell) band by array index.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OUT_OF_RANGE -- Index is out of range.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCASCellBand
+(
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    uint32_t index,                  ///< [IN] SCell array index.
+    uint16_t* bandPtr                ///< [OUT] The SCell band.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (bandPtr == nullptr)
+    {
+        LE_ERROR("bandPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (index >= infoPtr->scellInfoCount)
+    {
+        LE_ERROR("SCell index %u out of range (count=%u).", index, infoPtr->scellInfoCount);
+        return LE_OUT_OF_RANGE;
+    }
+
+    *bandPtr = infoPtr->scellInfo[index].band;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA secondary cell (SCell) activation state by array index.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OUT_OF_RANGE -- Index is out of range.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCASCellState
+(
+    taf_radio_CAInfoRef_t reference,    ///< [IN] The carrier aggregation information reference.
+    uint32_t index,                     ///< [IN] SCell array index.
+    taf_radio_CAScellState_t* statePtr  ///< [OUT] The SCell state.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (statePtr == nullptr)
+    {
+        LE_ERROR("statePtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (index >= infoPtr->scellInfoCount)
+    {
+        LE_ERROR("SCell index %u out of range (count=%u).", index, infoPtr->scellInfoCount);
+        return LE_OUT_OF_RANGE;
+    }
+
+    *statePtr = infoPtr->scellInfo[index].scellState;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA secondary cell (SCell) modem index by array index.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OUT_OF_RANGE -- Index is out of range.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCASCellIndex
+(
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    uint32_t index,                  ///< [IN] SCell array index.
+    uint8_t* scellIndexPtr           ///< [OUT] The SCell modem index.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (scellIndexPtr == nullptr)
+    {
+        LE_ERROR("scellIndexPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (index >= infoPtr->scellInfoCount)
+    {
+        LE_ERROR("SCell index %u out of range (count=%u).", index, infoPtr->scellInfoCount);
+        return LE_OUT_OF_RANGE;
+    }
+
+    *scellIndexPtr = infoPtr->scellInfo[index].scellIndex;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA secondary cell (SCell) uplink configured flag by array index.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OUT_OF_RANGE -- Index is out of range.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCASCellUlConfigured
+(
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    uint32_t index,                  ///< [IN] SCell array index.
+    bool* ulConfiguredPtr            ///< [OUT] True if SCell uplink is configured.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (ulConfiguredPtr == nullptr)
+    {
+        LE_ERROR("ulConfiguredPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (index >= infoPtr->scellInfoCount)
+    {
+        LE_ERROR("SCell index %u out of range (count=%u).", index, infoPtr->scellInfoCount);
+        return LE_OUT_OF_RANGE;
+    }
+
+    *ulConfiguredPtr = infoPtr->scellInfo[index].ulConfigured;
+    return LE_OK;
+}
 //--------------------------------------------------------------------------------------------------
 /**
  * Adds handler for the connection status changes.

@@ -5,6 +5,7 @@ domain_name: Variant
 services_all:
   0x10:
     supported: true
+    IDPS_supported: false
     sub_functions:
       0x01:
         supported: true
@@ -22,6 +23,7 @@ services_all:
         supported: true
   0x11:
     supported: true
+    IDPS_supported: true
     sub_functions:
       0x01:
         supported: true
@@ -29,8 +31,10 @@ services_all:
         supported: true
   0x14:
     supported: true
+    IDPS_supported: false
   0x19:
     supported: true
+    IDPS_supported: false
     sub_functions:
       0x01:
         supported: true
@@ -48,12 +52,16 @@ services_all:
         supported: true
   0x22:
     supported: true
+    IDPS_supported: false
   0x23:
     supported: false
+    IDPS_supported: false
   0x24:
     supported: false
+    IDPS_supported: false
   0x27:
     supported: true
+    IDPS_supported: true
     sub_functions:
       0x01:
         supported: true
@@ -65,8 +73,10 @@ services_all:
         supported: true
   0x28:
     supported: false
+    IDPS_supported: false
   0x29:
     supported: true
+    IDPS_supported: true
     sub_functions:
       0x00:
         supported: true
@@ -80,12 +90,16 @@ services_all:
         supported: true
   0x2A:
     supported: false
+    IDPS_supported: false
   0x2C:
     supported: false
+    IDPS_supported: false
   0x2E:
     supported: true
+    IDPS_supported: true
   0x2F:
     supported: true
+    IDPS_supported: true
     sub_functions:
       0x00:
         supported: true
@@ -97,6 +111,7 @@ services_all:
         supported: true
   0x31:
     supported: true
+    IDPS_supported: true
     sub_functions:
       0x01:
         supported: true
@@ -105,19 +120,26 @@ services_all:
       0x03:
         supported: true
   0x34:
-    supported: false
+    supported: true
+    IDPS_supported: false
   0x35:
     supported: false
+    IDPS_supported: false
   0x36:
     supported: true
+    IDPS_supported: false
   0x37:
     supported: true
+    IDPS_supported: true
   0x38:
     supported: true
+    IDPS_supported: true
   0x3D:
     supported: false
+    IDPS_supported: false
   0x3E:
     supported: true
+    IDPS_supported: false
     sub_functions:
       0x00:
         supported: true

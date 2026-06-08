@@ -86,6 +86,13 @@ RFS_BackupStorageLimit_t;
 //--------------------------------------------------------------------------------------------------
 static RFS_BackupStorageLimit_t BackupStorageCheck;
 
+static le_result_t CalculateFileMD5(const char* filePath, char* md5Str, size_t md5StrSize);
+static void CalculateFilePathSHA1(const char* filePath, char* outputHash, size_t outputHashSize);
+static le_result_t BackupFileToStorage(const char* filePath);
+static le_result_t GetFileMD5FromExtendedAttr(const char* filePath, char* md5Str, size_t md5StrSize);
+static le_result_t SetFileMD5ToExtendedAttrValue(const char* filePath, const char* md5Str);
+static le_result_t RefreshBackupIfNeeded(const char* filePath, const char* primaryMd5Str);
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Count files in the backup folder
@@ -123,46 +130,55 @@ uint16_t CountFiles(const char *path)
  * Calculates MD5 for a specified file.
  */
 //--------------------------------------------------------------------------------------------------
-static void CalculateFileMD5(const char* filePath, char* md5Str, size_t md5StrSize)
+static le_result_t CalculateFileMD5(const char* filePath, char* md5Str, size_t md5StrSize)
 {
     LE_DEBUG("%s", __FUNCTION__);
 
     if (md5StrSize < (MD5_DIGEST_LENGTH * 2) + 1)
     {
         LE_ERROR("Output buffer is too small for MD5 hash.\n");
-        return;
+        return LE_OVERFLOW;
     }
 
     FILE* file = fopen(filePath, "rb");
-    if (!file) {
+    if (!file)
+    {
         LE_ERROR("Failed to open file");
-        return;
+        return LE_FAULT;
     }
 
     EVP_MD_CTX* mdCtx = EVP_MD_CTX_new();
     const EVP_MD* md = EVP_md5();
     unsigned char mdValue[EVP_MAX_MD_SIZE];
-    unsigned int mdLen, i;
+    unsigned int mdLen = 0;
 
     if (mdCtx == NULL || !EVP_DigestInit_ex(mdCtx, md, NULL))
     {
         LE_ERROR("Digest initialization failed.\n");
         fclose(file);
         EVP_MD_CTX_free(mdCtx);
-        return;
+        return LE_FAULT;
     }
 
-    // Read the file and update the digest
     unsigned char buffer[1024];
     size_t bytesRead;
     while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0)
     {
-        if (!EVP_DigestUpdate(mdCtx, buffer, bytesRead)) {
+        if (!EVP_DigestUpdate(mdCtx, buffer, bytesRead))
+        {
             LE_ERROR("Digest update failed.\n");
             fclose(file);
             EVP_MD_CTX_free(mdCtx);
-            return;
+            return LE_FAULT;
         }
+    }
+
+    if (ferror(file))
+    {
+        LE_ERROR("Failed while reading file for MD5 calculation.\n");
+        fclose(file);
+        EVP_MD_CTX_free(mdCtx);
+        return LE_FAULT;
     }
 
     if (!EVP_DigestFinal_ex(mdCtx, mdValue, &mdLen))
@@ -170,17 +186,18 @@ static void CalculateFileMD5(const char* filePath, char* md5Str, size_t md5StrSi
         LE_ERROR("Digest finalization failed.\n");
         fclose(file);
         EVP_MD_CTX_free(mdCtx);
-        return;
+        return LE_FAULT;
     }
 
-    // Convert the hash to a hex string
-    for (i = 0; i < mdLen; i++)
+    for (unsigned int i = 0; i < mdLen; i++)
     {
-        snprintf(&(md5Str[i*2]), 3, "%02x", mdValue[i]);
+        snprintf(&(md5Str[i * 2]), 3, "%02x", mdValue[i]);
     }
 
+    md5Str[mdLen * 2] = '\0';
     fclose(file);
     EVP_MD_CTX_free(mdCtx);
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -193,9 +210,44 @@ static le_result_t SetFileMD5ToExtendedAttr(const char* filePath)
     LE_DEBUG("%s", __FUNCTION__);
 
     char md5Str[(MD5_DIGEST_LENGTH * 2) + 1];
-    CalculateFileMD5(filePath, md5Str, sizeof(md5Str));
+    if (CalculateFileMD5(filePath, md5Str, sizeof(md5Str)) != LE_OK)
+    {
+        LE_ERROR("Failed to calculate MD5 for %s", filePath);
+        return LE_FAULT;
+    }
 
-    // write MD5 to the file extension attribute
+    return SetFileMD5ToExtendedAttrValue(filePath, md5Str);
+}
+
+static le_result_t GetFileMD5FromExtendedAttr(const char* filePath, char* md5Str, size_t md5StrSize)
+{
+    ssize_t len = getxattr(filePath, RFS_FILE_EXTENDED_ATTR_MD5, md5Str, md5StrSize);
+
+    if (len <= 0)
+    {
+        if (errno == ENODATA)
+        {
+            LE_WARN("MD5 xattr missing for %s", filePath);
+        }
+        else
+        {
+            LE_ERROR("Failed to read MD5 xattr for %s: %s", filePath, strerror(errno));
+        }
+        return LE_FAULT;
+    }
+
+    if ((size_t)len >= md5StrSize)
+    {
+        LE_ERROR("MD5 xattr buffer too small for %s", filePath);
+        return LE_FAULT;
+    }
+
+    md5Str[len] = '\0';
+    return LE_OK;
+}
+
+static le_result_t SetFileMD5ToExtendedAttrValue(const char* filePath, const char* md5Str)
+{
     if (setxattr(filePath, RFS_FILE_EXTENDED_ATTR_MD5, md5Str, strlen(md5Str), 0) < 0)
     {
         LE_ERROR("Failed to set MD5 attribute: %s", strerror(errno));
@@ -207,6 +259,57 @@ static le_result_t SetFileMD5ToExtendedAttr(const char* filePath)
 
         return LE_FAULT;
     }
+
+    return LE_OK;
+}
+
+static le_result_t ValidateFileMD5WithExtendedAttr(const char* filePath)
+{
+    char storedMd5Str[(MD5_DIGEST_LENGTH * 2) + 1] = {0};
+
+    if (GetFileMD5FromExtendedAttr(filePath, storedMd5Str, sizeof(storedMd5Str)) != LE_OK)
+    {
+        if (errno == ENODATA)
+        {
+            LE_WARN("MD5 xattr missing for %s", filePath);
+        }
+        else
+        {
+            LE_WARN("MD5 xattr missing or unreadable for %s", filePath);
+        }
+        return LE_FAULT;
+    }
+
+    char md5Str[(MD5_DIGEST_LENGTH * 2) + 1] = {0};
+    if (CalculateFileMD5(filePath, md5Str, sizeof(md5Str)) != LE_OK)
+    {
+        LE_WARN("Failed to calculate MD5 for %s", filePath);
+        return LE_FAULT;
+    }
+
+    if (strncmp(storedMd5Str, md5Str, MD5_DIGEST_LENGTH * 2) != 0)
+    {
+        LE_WARN("MD5 xattr/content mismatch for %s", filePath);
+        return LE_FAULT;
+    }
+
+    return LE_OK;
+}
+
+static le_result_t GetBackupPath(const char* filePath, char* backupPath, size_t backupPathSize)
+{
+    char sha1Hash[SHA_DIGEST_LENGTH * 2 + 1];
+    CalculateFilePathSHA1(filePath, sha1Hash, sizeof(sha1Hash));
+
+    if (strlen(appBackupStorage) > 0)
+    {
+        snprintf(backupPath, backupPathSize, "%s%s", appBackupStorage, sha1Hash);
+    }
+    else
+    {
+        snprintf(backupPath, backupPathSize, "%s%s", RFS_BACKUP_STORAGE, sha1Hash);
+    }
+
     return LE_OK;
 }
 
@@ -215,16 +318,26 @@ static le_result_t SetFileMD5ToExtendedAttr(const char* filePath)
  * Calculates file path SHA1
  */
 //--------------------------------------------------------------------------------------------------
-static void CalculateFilePathSHA1(const char* filePath, char* outputHash)
+static void CalculateFilePathSHA1(const char* filePath, char* outputHash, size_t outputHashSize)
 {
     LE_DEBUG("%s", __FUNCTION__);
+
+    if (outputHashSize < (SHA_DIGEST_LENGTH * 2) + 1)
+    {
+        LE_ERROR("Output buffer is too small for SHA1 hash string.");
+        if (outputHashSize > 0)
+        {
+            outputHash[0] = '\0';
+        }
+        return;
+    }
 
     unsigned char hash[SHA_DIGEST_LENGTH];
     SHA1((unsigned char*)filePath, strlen(filePath), hash);
     // transfer SHA1 to a hex string
     for (int i = 0; i < SHA_DIGEST_LENGTH; i++)
     {
-        snprintf(outputHash + (i * 2), sizeof(outputHash), "%02x", hash[i]);
+        snprintf(outputHash + (i * 2), 3, "%02x", hash[i]);
     }
     outputHash[SHA_DIGEST_LENGTH * 2] = '\0';
 }
@@ -238,18 +351,13 @@ static le_result_t ReplaceFileWithBackup(const char* filePath)
 {
     LE_DEBUG("%s", __FUNCTION__);
 
-    char sha1Hash[SHA_DIGEST_LENGTH * 2 + 1];
-    CalculateFilePathSHA1(filePath, sha1Hash);
-
     char backupPath[RFS_MAX_BACKUP_FILENAME];
+    GetBackupPath(filePath, backupPath, sizeof(backupPath));
 
-    if(strlen(appBackupStorage) > 0)
+    if (ValidateFileMD5WithExtendedAttr(backupPath) != LE_OK)
     {
-        snprintf(backupPath, sizeof(backupPath), "%s%s", appBackupStorage, sha1Hash);
-    }
-    else
-    {
-        snprintf(backupPath, sizeof(backupPath), "%s%s", RFS_BACKUP_STORAGE, sha1Hash);
+        LE_ERROR("Backup file MD5 validation failed for %s", backupPath);
+        return LE_FAULT;
     }
 
     LE_INFO("replace %s with %s", filePath, backupPath);
@@ -304,7 +412,13 @@ static le_result_t ReplaceFileWithBackup(const char* filePath)
     close(inputFd);
     close(outputFd);
 
-    SetFileMD5ToExtendedAttr(filePath);
+    // Update the primary file's xattr with its MD5 after restore
+    if (SetFileMD5ToExtendedAttr(filePath) != LE_OK)
+    {
+        LE_ERROR("Failed to set MD5 for restored primary file %s", filePath);
+        return LE_FAULT;
+    }
+
     return LE_OK;
 }
 
@@ -317,23 +431,14 @@ static le_result_t BackUpFileAndSELinuxContext(const char* sourcePath, const cha
 {
     LE_DEBUG("%s", __FUNCTION__);
 
-    LE_DEBUG("sourcePath: %s, targetPath: %s", sourcePath, targetPath);
-    int inputFd, outputFd;
-    struct stat stat_buf;
-    off_t offset = 0;
-    ssize_t sent;
-    #ifdef LE_CONFIG_ENABLE_SELINUX
-    char* selinuxContext = NULL;
-    #endif
-
-
-    inputFd = open(sourcePath, O_RDONLY);
+    int inputFd = open(sourcePath, O_RDONLY);
     if (inputFd < 0)
     {
         LE_ERROR("Failed to open source file for copying");
         return LE_FAULT;
     }
 
+    struct stat stat_buf;
     if (fstat(inputFd, &stat_buf) < 0)
     {
         LE_ERROR("Failed to get file size for copying");
@@ -341,20 +446,7 @@ static le_result_t BackUpFileAndSELinuxContext(const char* sourcePath, const cha
         return LE_FAULT;
     }
 
-    if ((uint64_t)stat_buf.st_size > BackupStorageCheck.maxFileSize)
-    {
-        LE_ERROR("Failed to get file size for copying");
-        close(inputFd);
-
-        RFS_ErrorMsg_t errMsg;
-        errMsg.error = RFS_ERR_FILE_TOO_LARGE;
-        snprintf(errMsg.filePath, sizeof(errMsg.filePath), "%s", sourcePath);
-        le_event_Report(ErrorEventId, (void*)&errMsg, sizeof(RFS_ErrorMsg_t));
-
-        return LE_OUT_OF_RANGE;
-    }
-
-    outputFd = open(targetPath, O_WRONLY | O_CREAT | O_TRUNC, stat_buf.st_mode);
+    int outputFd = open(targetPath, O_WRONLY | O_CREAT | O_TRUNC, stat_buf.st_mode);
     if (outputFd < 0)
     {
         LE_ERROR("Failed to open target file for copying");
@@ -362,7 +454,8 @@ static le_result_t BackUpFileAndSELinuxContext(const char* sourcePath, const cha
         return LE_FAULT;
     }
 
-    sent = sendfile(outputFd, inputFd, &offset, stat_buf.st_size);
+    off_t offset = 0;
+    ssize_t sent = sendfile(outputFd, inputFd, &offset, stat_buf.st_size);
     if (sent < 0)
     {
         LE_ERROR("Failed to copy file");
@@ -371,7 +464,7 @@ static le_result_t BackUpFileAndSELinuxContext(const char* sourcePath, const cha
         return LE_FAULT;
     }
 #ifdef LE_CONFIG_ENABLE_SELINUX
-    // obtain and set selinux context
+    char* selinuxContext = NULL;
     if (getfilecon(sourcePath, &selinuxContext) >= 0)
     {
         if (setfilecon(targetPath, selinuxContext) < 0)
@@ -383,6 +476,54 @@ static le_result_t BackUpFileAndSELinuxContext(const char* sourcePath, const cha
 #endif
     close(inputFd);
     close(outputFd);
+    return LE_OK;
+}
+
+static le_result_t RefreshBackupIfNeeded(const char* filePath, const char* primaryMd5Str)
+{
+    char backupPath[RFS_MAX_BACKUP_FILENAME];
+    char backupMd5Str[(MD5_DIGEST_LENGTH * 2) + 1] = {0};
+
+    if (primaryMd5Str == NULL || primaryMd5Str[0] == '\0')
+    {
+        LE_ERROR("Primary MD5 is invalid for %s", filePath);
+        return LE_BAD_PARAMETER;
+    }
+
+    GetBackupPath(filePath, backupPath, sizeof(backupPath));
+
+    if (GetFileMD5FromExtendedAttr(backupPath, backupMd5Str, sizeof(backupMd5Str)) != LE_OK)
+    {
+        if (errno == ENODATA)
+        {
+            LE_WARN("Backup MD5 missing for %s, rebuilding from primary %s",
+                    backupPath,
+                    filePath);
+        }
+        else
+        {
+            LE_WARN("Backup MD5 unreadable for %s, rebuilding from primary %s",
+                    backupPath,
+                    filePath);
+        }
+        return BackupFileToStorage(filePath);
+    }
+
+    if (ValidateFileMD5WithExtendedAttr(backupPath) != LE_OK)
+    {
+        LE_WARN("Backup MD5/content mismatch for %s, rebuilding from primary %s",
+                backupPath,
+                filePath);
+        return BackupFileToStorage(filePath);
+    }
+
+    if (strncmp(primaryMd5Str, backupMd5Str, MD5_DIGEST_LENGTH * 2) != 0)
+    {
+        LE_INFO("Backup is stale for %s, refreshing from primary %s", backupPath, filePath);
+        return BackupFileToStorage(filePath);
+    }
+
+    LE_DEBUG("Backup is already valid and up-to-date for %s", filePath);
     return LE_OK;
 }
 
@@ -409,7 +550,7 @@ static le_result_t BackupFileToStorage
         snprintf(backupDir, sizeof(backupDir), "%s", RFS_BACKUP_STORAGE);
     }
 
-    if(CountFiles(backupDir) > BackupStorageCheck.maxFileCount)
+    if(CountFiles(backupDir) >= BackupStorageCheck.maxFileCount)
     {
         RFS_ErrorMsg_t errMsg;
         errMsg.error = RFS_ERR_NO_MEMORY;
@@ -420,17 +561,14 @@ static le_result_t BackupFileToStorage
         return LE_NO_MEMORY;
     }
 
-    // Calculate SHA1 as the backup file name
     char sha1Hash[SHA_DIGEST_LENGTH * 2 + 1];
-    CalculateFilePathSHA1(filePath, sha1Hash);
+    CalculateFilePathSHA1(filePath, sha1Hash, sizeof(sha1Hash));
 
     char backupPath[RFS_MAX_BACKUP_FILENAME];
     snprintf(backupPath, sizeof(backupPath), "%s%s", backupDir, sha1Hash);
 
-    // back up file
     if (BackUpFileAndSELinuxContext(filePath, backupPath) != LE_OK)
     {
-        // trigger error event
         LE_ERROR("Failed to backup file");
 
         RFS_ErrorMsg_t errMsg;
@@ -438,10 +576,26 @@ static le_result_t BackupFileToStorage
         snprintf(errMsg.filePath, sizeof(errMsg.filePath), "%s", filePath);
 
         le_event_Report(ErrorEventId, (void*)&errMsg, sizeof(RFS_ErrorMsg_t));
+        return LE_FAULT;
     }
+
+    char primaryMd5Str[(MD5_DIGEST_LENGTH * 2) + 1] = {0};
+    if (GetFileMD5FromExtendedAttr(filePath, primaryMd5Str, sizeof(primaryMd5Str)) != LE_OK)
+    {
+        LE_ERROR("Failed to get MD5 from primary file %s", filePath);
+        return LE_FAULT;
+    }
+
+    if (SetFileMD5ToExtendedAttrValue(backupPath, primaryMd5Str) != LE_OK)
+    {
+        LE_ERROR("Failed to set MD5 for backup file %s", backupPath);
+        return LE_FAULT;
+    }
+
     LE_DEBUG("----- %s finished -----", __FUNCTION__);
     return LE_OK;
 }
+
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -456,7 +610,7 @@ static void DeleteBackup
     LE_DEBUG("%s", __FUNCTION__);
 
     char sha1Hash[SHA_DIGEST_LENGTH * 2 + 1];
-    CalculateFilePathSHA1(filePath, sha1Hash);
+    CalculateFilePathSHA1(filePath, sha1Hash, sizeof(sha1Hash));
     char backupPath[RFS_MAX_BACKUP_FILENAME];
 
     if(strlen(appBackupStorage) > 0)
@@ -609,50 +763,70 @@ extern "C" LE_SHARED int taf_rfs_Open
 
     struct stat st;
     bool needRestore = false;
+    int savedErrno = 0;
 
     if (stat(filePathPtr, &st) == 0)
     {
         // file exists
-
-        char storedMd5Str[(MD5_DIGEST_LENGTH * 2) + 1] = {0};
-        ssize_t len = getxattr(filePathPtr, RFS_FILE_EXTENDED_ATTR_MD5, storedMd5Str, sizeof(storedMd5Str));
-
-        if (len > 0)
+        if (ValidateFileMD5WithExtendedAttr(filePathPtr) != LE_OK)
         {
-            char md5Str[(MD5_DIGEST_LENGTH * 2) + 1] = {0};
-            CalculateFileMD5(filePathPtr, md5Str, sizeof(md5Str));
-
-            if (strncmp(storedMd5Str, md5Str, MD5_DIGEST_LENGTH * 2) != 0)
-            {
-                // MD5 is not matched, restore the file from backup storage
-                LE_WARN("MD5 is not mathced, will restore the file");
-                needRestore = true;
-            }
-        }
-        else
-        {
-            // The file doesn't have extended attribute to check hash, ignore it
-            LE_DEBUG("Cannot get MD5 from extended attribute: %s", strerror(errno));
+            LE_WARN("Primary file validation failed, will restore from backup");
+            needRestore = true;
         }
     }
-    else if (!(flags & O_CREAT))
+    else
     {
-        LE_ERROR("File does not exist and O_CREAT not specified");
-        return -1;
+        savedErrno = errno;
+        if (!(flags & O_CREAT) && savedErrno == ENOENT)
+        {
+            LE_WARN("Primary file missing (ENOENT), will restore from backup");
+            needRestore = true;
+        }
+        else if (!(flags & O_CREAT))
+        {
+            LE_ERROR("stat failed for %s: %s", filePathPtr, strerror(savedErrno));
+            return -1;
+        }
     }
 
     if (needRestore == true)
     {
-        // MD5 is not matched, restore the file from backup storage
+        // Restore primary before returning fd to caller.
         if (ReplaceFileWithBackup(filePathPtr) != LE_OK)
         {
-            LE_ERROR("Failed to replace file with backup, pleae check the file integrity");
+            LE_ERROR("Failed to replace file with backup, please check the file integrity");
 
             RFS_ErrorMsg_t errMsg;
             errMsg.error = RFS_ERR_RESTORE;
             snprintf(errMsg.filePath, sizeof(errMsg.filePath), "%s", filePathPtr);
             le_event_Report(ErrorEventId, (void*)&errMsg, sizeof(RFS_ErrorMsg_t));
+            return -1;
         }
+
+        // Re-validate restored primary before proceeding.
+        if (ValidateFileMD5WithExtendedAttr(filePathPtr) != LE_OK)
+        {
+            LE_ERROR("Primary validation failed after restore for %s", filePathPtr);
+
+            RFS_ErrorMsg_t errMsg;
+            errMsg.error = RFS_ERR_RESTORE;
+            snprintf(errMsg.filePath, sizeof(errMsg.filePath), "%s", filePathPtr);
+            le_event_Report(ErrorEventId, (void*)&errMsg, sizeof(RFS_ErrorMsg_t));
+            return -1;
+        }
+    }
+
+    char primaryMd5Str[(MD5_DIGEST_LENGTH * 2) + 1] = {0};
+    if (GetFileMD5FromExtendedAttr(filePathPtr, primaryMd5Str, sizeof(primaryMd5Str)) == LE_OK)
+    {
+        if (RefreshBackupIfNeeded(filePathPtr, primaryMd5Str) != LE_OK)
+        {
+            LE_WARN("Backup refresh/heal failed during open for %s", filePathPtr);
+        }
+    }
+    else
+    {
+        LE_WARN("Primary MD5 xattr missing or unreadable during open for %s", filePathPtr);
     }
 
     int fd = open(filePathPtr, flags, mode);
@@ -671,41 +845,85 @@ extern "C" LE_SHARED int taf_rfs_Close
         return close(fd);
     }
 
-    // use fcntl and F_GETFL to get flags of the fd
-    int flags = fcntl(fd, F_GETFL);
-    if (flags != -1)
-    {
-        // check if the fd has write permission
-        if (!(flags & O_WRONLY) && !(flags & O_RDWR))
-        {
-            LE_DEBUG("The fd does not have write permission, close it");
-            return close(fd);
-        }
-    }
-
-    LE_DEBUG("The fd has write permission.");
-
-    // Need to finish and return this function ASAP, push off uneccessary tasks to event process
-
     char filePath[LIMIT_MAX_PATH_BYTES];
 
     // construt the path to /proc/[pid]/fd/[fd]
     snprintf(filePath, sizeof(filePath), "/proc/self/fd/%d", fd);
 
     // get the actual path from the fd
-    char actualPath[LIMIT_MAX_PATH_BYTES];
+    char actualPath[LIMIT_MAX_PATH_BYTES] = {0};
     ssize_t len = readlink(filePath, actualPath, sizeof(actualPath)-1);
-    if (len != -1)
+    if (len == -1)
     {
-        actualPath[len] = '\0'; // ensure the string end with null terminator
-        LE_DEBUG("The file path is: %s\n", actualPath);
+        LE_ERROR("Failed to get file path from fd %d", fd);
+        return close(fd);
     }
 
-    SetFileMD5ToExtendedAttr(actualPath);
+    actualPath[len] = '\0'; // ensure the string end with null terminator
+    LE_DEBUG("The file path is: %s\n", actualPath);
 
-    BackupFileToStorage(actualPath);
+    // use fcntl and F_GETFL to get flags of the fd before close
+    int flags = fcntl(fd, F_GETFL);
+    bool hasWritePermission = false;
+    if (flags != -1)
+    {
+        hasWritePermission = ((flags & O_WRONLY) || (flags & O_RDWR));
+    }
 
-    return close(fd);
+    if (hasWritePermission)
+    {
+        if (fsync(fd) != 0)
+        {
+            LE_ERROR("Failed to fsync fd %d for %s", fd, actualPath);
+            return -1;
+        }
+    }
+
+    int closeResult = close(fd);
+    if (closeResult != 0)
+    {
+        LE_ERROR("Failed to close fd %d for %s", fd, actualPath);
+        return closeResult;
+    }
+
+    if (hasWritePermission)
+    {
+        char primaryMd5Str[(MD5_DIGEST_LENGTH * 2) + 1] = {0};
+
+        if (CalculateFileMD5(actualPath, primaryMd5Str, sizeof(primaryMd5Str)) != LE_OK)
+        {
+            LE_ERROR("Failed to calculate MD5 for primary file %s", actualPath);
+            return -1;
+        }
+
+        if (SetFileMD5ToExtendedAttrValue(actualPath, primaryMd5Str) != LE_OK)
+        {
+            LE_ERROR("Failed to update MD5 for primary file %s", actualPath);
+            return -1;
+        }
+
+        if (RefreshBackupIfNeeded(actualPath, primaryMd5Str) != LE_OK)
+        {
+            LE_ERROR("Backup maintenance failed for %s; will retry on next close/open path", actualPath);
+        }
+    }
+    else if (ValidateFileMD5WithExtendedAttr(actualPath) != LE_OK)
+    {
+        char backupPath[RFS_MAX_BACKUP_FILENAME];
+        GetBackupPath(actualPath, backupPath, sizeof(backupPath));
+
+        if (ValidateFileMD5WithExtendedAttr(backupPath) == LE_OK)
+        {
+            LE_ERROR("Primary is invalid while backup is valid for %s; defer primary restore to next open",
+                     actualPath);
+        }
+        else
+        {
+            LE_ERROR("Primary and backup are both invalid for %s", actualPath);
+        }
+    }
+
+    return 0;
 }
 
 extern "C" LE_SHARED int taf_rfs_Read
@@ -727,6 +945,7 @@ extern "C" LE_SHARED int taf_rfs_Write
 )
 {
     LE_DEBUG("%s", __FUNCTION__);
+
     return write(fd, bufPtr, sizePtr);
 }
 

@@ -28,7 +28,7 @@ sandboxed: false
 
 executables:
 {
-        tafSimCardSvc = ( $TELAF_ROOT/simulation/bypass/telsdk/sdkSimCardSvcBypass $TELAF_ROOT/components/tafSimCardSvc )
+        tafSimCardSvc = ( $SIMULATION_ROOT/bypass/telsdk/sdkSimCardSvcBypass $TELAF_ROOT/components/tafSimCardSvc )
 }
 start: auto
 

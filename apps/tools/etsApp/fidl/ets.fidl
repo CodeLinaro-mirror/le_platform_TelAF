@@ -1,0 +1,1078 @@
+/*
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
+package someip.testability
+
+interface ETS {
+	version {
+		major 1
+		minor 0
+	}
+
+	enumeration Enum {
+		UNKNOWN = 1
+		ONE = 2
+		TWO = 3
+		THREE = 4
+		FOUR = 5
+	}
+
+	struct VersionType {
+		UInt8 majorVersion
+		UInt32 minorVersion
+	}
+
+	array uint8ArrayArray of UInt8
+
+	array uint8ArrayReturnArray of UInt8
+
+	<**
+		@description : Check byte order handling of parameters.
+	**>
+	method checkByteOrder {
+		in {
+			<**
+				@description : The first summand parameter.
+			**>
+			UInt8 checkByteOrder_ReqArg1
+			<**
+				@description : The second summand parameter.
+			**>
+			UInt16 checkByteOrder_ReqArg2
+		}
+		out {
+			<**
+				@description : The summation of input parameters.
+			**>
+			UInt32 checkByteOrder_ResArg1
+		}
+	}
+
+	<**
+		@description : Activates the remote client prxoy in the server side.
+	**>
+	method clientServiceActivate fireAndForget {
+		in {
+			<**
+				@description : Wait time before triggering client proxy start.
+			**>
+			UInt8 clientServiceActivate_ReqArg1
+		}
+	}
+
+	<**
+		@description : Deactivates the remote client prxoy in the server side.
+	**>
+	method clientServiceDeactivate fireAndForget {
+		in {
+			<**
+				@description : Wait time before triggering client proxy stop.
+			**>
+			UInt8 clientServiceDeactivate_ReqArg1
+		}
+	}
+
+	<**
+		@description : Get last value of multicast event triggered by service running in client side.
+	**>
+	method clientServiceGetLastValueOfEventUDPMulticast {
+		out {
+			<**
+				@description : The multicast event value.
+			**>
+			UInt8 clientServiceGetLastValueOfEventUDPMulticast_ResArg1
+		}
+	}
+
+	<**
+		@description : Get last value of unicast event triggered by service launched in client side.
+	**>
+	method clientServiceGetLastValueOfEventUDPUnicast {
+		out {
+			<**
+				@description : The unicast event value.
+			**>
+			UInt8 clientServiceGetLastValueOfEventUDPUnicast_ResArg1
+		}
+	}
+
+	<**
+		@description : Subscribe to the event offered by service launched in client side.
+	**>
+	method clientServiceSubscribeEventgroup fireAndForget {
+		in {
+			<**
+				@description : Wait time before sending the subscription request.
+			**>
+			UInt32 clientServiceSubscribeEventgroup_ReqArg1
+			<**
+				@description : After this duration subscription should be canceled.
+			**>
+			UInt32 clientServiceSubscribeEventgroup_ReqArg2
+		}
+	}
+
+	<**
+		@description : Reverse the bits of all the input parameters and return it back.
+	**>
+	method echoBitfields {
+		in {
+			<**
+				@description : 8 bit parameter.
+			**>
+			UInt8 echoBitfields_ReqArg1
+			<**
+				@description : 16 bit parameter.
+			**>
+			UInt16 echoBitfields_ReqArg2
+			<**
+				@description : 32 bit parameter.
+			**>
+			UInt32 echoBitfields_ReqArg3
+		}
+		out {
+			<**
+				@description : parameter with reverse bit pattern of 8 bit input parameter.
+			**>
+			UInt8 echoBitfields_ResArg1
+			<**
+				@description : parameter with reverse bit pattern of 16 bit input parameter.
+			**>
+			UInt16 echoBitfields_ResArg2
+			<**
+				@description : parameter with reverse bit pattern of 32 bit input parameter.
+			**>
+			UInt32 echoBitfields_ResArg3
+		}
+	}
+
+	<**
+		@description : Returns the input parameters in reverse order.
+	**>
+	method echoCommonDatatypes {
+		in {
+			<**
+				@description : A boolean parameter.
+			**>
+			Boolean EchoCommonDatatypes_ReqArg1
+			<**
+				@description : An uint8 parameter.
+			**>
+			UInt8 EchoCommonDatatypes_ReqArg2
+			<**
+				@description : An uint16 parameter.
+			**>
+			UInt16 EchoCommonDatatypes_ReqArg3
+			<**
+				@description : An uint32 parameter.
+			**>
+			UInt32 EchoCommonDatatypes_ReqArg4
+			<**
+				@description : A int8 parameter.
+			**>
+			Int8 EchoCommonDatatypes_ReqArg5
+			<**
+				@description : A int16 parameter.
+			**>
+			Int16 EchoCommonDatatypes_ReqArg6
+			<**
+				@description : A int32 parameter.
+			**>
+			Int32 EchoCommonDatatypes_ReqArg7
+			<**
+				@description : A float parameter.
+			**>
+			Float EchoCommonDatatypes_ReqArg8
+			<**
+				@description : A double parameter.
+			**>
+			Double EchoCommonDatatypes_ReqArg9
+		}
+		out {
+			<**
+				@description : A double parameter.
+			**>
+			Double EchoCommonDatatypes_ResArg1
+			<**
+				@description : A float parameter.
+			**>
+			Float EchoCommonDatatypes_ResArg2
+			<**
+				@description : A int32 parameter.
+			**>
+			Int32 EchoCommonDatatypes_ResArg3
+			<**
+				@description : A int16 parameter.
+			**>
+			Int16 EchoCommonDatatypes_ResArg4
+			<**
+				@description : A int8 parameter.
+			**>
+			Int8 EchoCommonDatatypes_ResArg5
+			<**
+				@description : An uint32 parameter.
+			**>
+			UInt32 EchoCommonDatatypes_ResArg6
+			<**
+				@description : An uint16 parameter.
+			**>
+			UInt16 EchoCommonDatatypes_ResArg7
+			<**
+				@description : An uint8 parameter.
+			**>
+			UInt8 EchoCommonDatatypes_ResArg8
+			<**
+				@description : A boolean parameter.
+			**>
+			Boolean EchoCommonDatatypes_ResArg9
+		}
+	}
+
+	<**
+		@description : Returns back the ENUM passed as input parameter.
+	**>
+	method echoENUM {
+		in {
+			<**
+				@description : The input enum parameter.
+			**>
+			Enum echoENUM_ReqArg1
+		}
+		out {
+			<**
+				@description : The returned enum parameter.
+			**>
+			Enum echoENUM_ResArg1
+		}
+	}
+
+	<**
+		@description : Returns back the double passed as input parameter.
+	**>
+	method echoFLOAT64 {
+		in {
+			<**
+				@description : The input double parameter.
+			**>
+			Double echoFLOAT64_ReqArg1
+		}
+		out {
+			<**
+				@description : The returned double parameter.
+			**>
+			Double echoFLOAT64_ResArg1
+		}
+	}
+
+	<**
+		@description : Returns back the int8 passed as input parameter.
+	**>
+	method echoINT8 {
+		in {
+			<**
+				@description : The input int8 parameter.
+			**>
+			Int8 echoINT8_ReqArg1
+		}
+		out {
+			<**
+				@description : The returned int8 parameter.
+			**>
+			Int8 echoINT8_ResArg1
+		}
+	}
+
+	<**
+		@description : Returns back the static array of uint8 passed as input parameter.
+	**>
+	method echoStaticUINT8Array {
+		in {
+			<**
+				@description : The input uint8 static array.
+			**>
+			UInt8 [ ] echoStaticUINT8Array_ReqArg1
+		}
+		out {
+			<**
+				@description : The returned uint8 static array.
+			**>
+			UInt8 [ ] echoStaticUINT8Array_ResArg1
+		}
+	}
+
+	<**
+		@description : Returns back the uint8 passed as input parameter.
+	**>
+	method echoUINT8 {
+		in {
+			<**
+				@description : The input uint8 parameter.
+			**>
+			UInt8 echoUINT8_ReqArg1
+		}
+		out {
+			<**
+				@description : The returned uint8 parameter.
+			**>
+			UInt8 echoUINT8_ResArg1
+		}
+	}
+
+	<**
+		@description : Returns back the array of uint8 passed as input parameter.
+	**>
+	method echoUINT8Array {
+		in {
+			<**
+				@description : The input uint8 array.
+			**>
+			UInt32 echoUINT8Array_ReqArg1
+			UInt8 [ ] echoUINT8Array_ReqArg2
+		}
+		out {
+			<**
+				@description : The returned uint8 array.
+			**>
+			UInt32 echoUINT8Array_ResArg1
+			UInt8 [ ] echoUINT8Array_ResArg2
+		}
+	}
+
+	<**
+		@description :  Returns back the input array of uint8 having 16th bit length field.
+	**>
+	method echoUINT8Array16BitLength {
+		in {
+			<**
+				@description : The input uint8 array.
+			**>
+			UInt16 echoUINT8Array16BitLength_ReqArg1
+			UInt8 [ ] echoUINT8Array16BitLength_ReqArg2
+		}
+		out {
+			<**
+				@description : The returned uint8 array.
+			**>
+			UInt16 echoUINT8Array16BitLength_ResArg1
+			UInt8 [ ] echoUINT8Array16BitLength_ResArg2
+		}
+	}
+
+	<**
+		@description : Returns back the 2D-array of uint8 passed as input parameter.
+	**>
+	method echoUINT8Array2Dim {
+		in {
+			<**
+				@description : The input 2D uint8 array.
+			**>
+			UInt32 echoUINT8Array2Dim_ReqArg1
+			uint8ArrayArray [ ] echoUINT8Array2Dim_ReqArg2
+		}
+		out {
+			<**
+				@description : The returned 2D uint8 array.
+			**>
+			UInt32 echoUINT8Array2Dim_ResArg1
+			uint8ArrayReturnArray [ ] echoUINT8Array2Dim_ResArg2
+		}
+	}
+
+	<**
+		@description : Returns back the input array of uint8 having 8th bit length field.
+	**>
+	method echoUINT8Array8BitLength {
+		in {
+			<**
+				@description : The input uint8 array.
+			**>
+			UInt8 echoUINT8Array8BitLength_ReqArg1
+			UInt8 [ ] echoUINT8Array8BitLength_ReqArg2
+		}
+		out {
+			<**
+				@description : The returned uint8 array.
+			**>
+			UInt8 echoUINT8Array8BitLength_ResArg1
+			UInt8 [ ] echoUINT8Array8BitLength_ResArg2
+		}
+	}
+
+	<**
+		@description : Returns back the input array of uint8 having at least 3 entries back.
+	**>
+	method echoUINT8ArrayMinSize {
+		in {
+			<**
+				@description : The input uint8 array.
+			**>
+			UInt32 echoUINT8ArrayMinSize_ReqArg1
+			UInt8 [ ] echoUINT8ArrayMinSize_ReqArg2
+		}
+		out {
+			<**
+				@description : The returned uint8 array.
+			**>
+			UInt32 echoUINT8ArrayMinSize_ResArg1
+			UInt8 [ ] echoUINT8ArrayMinSize_ResArg2
+		}
+	}
+
+	<**
+		@description : Returns back the UTF16 string of dynamic length passed as input parameter.
+	**>
+	method echoUTF16DYNAMIC {
+		in {
+			<**
+				@description : The input UTF16 string parameter.
+			**>
+			UInt32 echoUTF16DYNAMIC_ReqArg1
+            String  echoUTF16DYNAMIC_ReqArg2
+		}
+		out {
+			<**
+				@description : The returned UTF16 string parameter.
+			**>
+			UInt32 echoUTF16DYNAMIC_ResArg1
+            String  echoUTF16DYNAMIC_ResArg2
+		}
+	}
+
+	<**
+		@description : Returns back the UTF16 string of fixed length passed as input parameter.
+	**>
+	method echoUTF16FIXED {
+		in {
+			<**
+				@description : The input UTF16 string parameter.
+			**>
+			String echoUTF16FIXED_ReqArg1
+		}
+		out {
+			<**
+				@description : The returned UTF16 string parameter.
+			**>
+			String echoUTF16FIXED_ResArg1
+		}
+	}
+
+	<**
+		@description : Returns back the UTF8 string of dynamic length passed as input parameter.
+	**>
+	method echoUTF8DYNAMIC {
+		in {
+			<**
+				@description : The input UTF8 string parameter.
+			**>
+			UInt32 echoUTF8DYNAMIC_ReqArg1
+			String echoUTF8DYNAMIC_ReqArg2
+		}
+		out {
+			<**
+				@description : The returned UTF8 string parameter.
+			**>
+			UInt32 echoUTF8DYNAMIC_ResArg1
+			String echoUTF8DYNAMIC_ResArg2
+		}
+	}
+
+	<**
+		@description : Returns back the UTF8 string of fixed length passed as input parameter.
+	**>
+	method echoUTF8FIXED {
+		in {
+			<**
+				@description : The input UTF8 string parameter.
+			**>
+			String echoUTF8FIXED_ReqArg1
+		}
+		out {
+			<**
+				@description : The returned UTF8 string parameter.
+			**>
+			String echoUTF8FIXED_ResArg1
+		}
+	}
+
+	<**
+		@description : Reset interface to default values.
+	**>
+	method resetInterface fireAndForget { }
+
+	<**
+		@description : Suspend inteface by stopping offer and resume afterwards. 
+	**>
+	method suspendInterface fireAndForget {
+		in {
+			<**
+				@description : Wait time before triggering the suspend request.
+			**>
+			UInt32 suspendInterface_ReqArg1
+			<**
+				@description : After this time resume the offer service.
+			**>
+			UInt32 suspendInterface_ReqArg2
+		}
+	}
+
+	<**
+		@description : Requests to trigger an broadcast event of type uint8.
+	**>
+	method triggerEventUINT8 fireAndForget {
+		in {
+			<**
+				@description : Wait time before triggering the event.
+			**>
+			UInt32 triggerEventUINT8_ReqArg1
+			<**
+				@description : Trigger event shall be active for this period.
+			**>
+			UInt32 triggerEventUINT8_ReqArg2
+			<**
+				@description : Event shall be triggered with ths periodicity.
+			**>
+			UInt32 triggerEventUINT8_ReqArg3
+		}
+	}
+
+	<**
+		@description : Requests to trigger an broadcast event of type array of uint8.
+	**>
+	method triggerEventUINT8Array fireAndForget {
+		in {
+			<**
+				@description : Wait time before triggering the event.
+			**>
+			UInt32 triggerEventUINT8Array_ReqArg1
+			<**
+				@description : Trigger event shall be active for this period.
+			**>
+			UInt32 triggerEventUINT8Array_ReqArg2
+			<**
+				@description : Event shall be triggered with ths periodicity.
+			**>
+			UInt32 triggerEventUINT8Array_ReqArg3
+		}
+	}
+
+	<**
+		@description : Requests to trigger an broadcast event of e2e data.
+	**>
+	method triggerEventUINT8E2E fireAndForget {
+		in {
+			<**
+				@description : Wait time before triggering the event.
+			**>
+			UInt32 triggerEventUINT8E2E_ReqArg1
+			<**
+				@description : Trigger event shall be active for this period.
+			**>
+			UInt32 triggerEventUINT8E2E_ReqArg2
+			<**
+				@description : Event shall be triggered with ths periodicity.
+			**>
+			UInt32 triggerEventUINT8E2E_ReqArg3
+		}
+	}
+
+	<**
+		@description : Requests to trigger an broadcast event of multicast type.
+	**>
+	method triggerEventUINT8Multicast fireAndForget {
+		in {
+			<**
+				@description : Wait time before triggering the event.
+			**>
+			UInt32 triggerEventUINT8Multicast_ReqArg1
+			<**
+				@description : Trigger event shall be active for this period.
+			**>
+			UInt32 triggerEventUINT8Multicast_ReqArg2
+			<**
+				@description : Event shall be triggered with ths periodicity.
+			**>
+			UInt32 triggerEventUINT8Multicast_ReqArg3
+		}
+	}
+
+	<**
+		@description : A broadcast event of type uint8 triggered on triggerEventUINT8 method request.
+	**>
+	broadcast TestEventUINT8 {
+		out {
+			<**
+				@description : An uint8 parameter.
+			**>
+			UInt8 uINT8Value
+		}
+	}
+
+	<**
+		@description : A broadcast event of type array of uint8 triggered on triggerEventUINT8Array method request.
+	**>
+	broadcast TestEventUINT8Array {
+		out {
+			<**
+				@description : An array of uint8 type.
+			**>
+			UInt8 [ ] uINT8Array
+		}
+	}
+
+	<**
+		@description : A broadcast e2e event triggered on triggerEventUINT8E2E method request.
+	**>
+	broadcast TestEventUINT8E2E {
+		out {
+			<**
+				@description : The e2e header length.
+			**>
+			UInt16 length
+			<**
+				@description : The e2e counter value.
+			**>
+			UInt16 counter
+			<**
+				@description : The e2e data Identifier.
+			**>
+			UInt32 dataID
+			<**
+				@description : The crc value.
+			**>
+			UInt32 CRC
+			<**
+				@description : The uint8 payload parameter.
+			**>
+			UInt8 uINT8Value
+		}
+	}
+
+	<**
+		@description : Returns back the e2e data passed as input parameter.
+	**>
+	method echoUINT8E2E{
+        in {
+			<**
+				@description : The e2e header length.
+			**>
+            UInt16 echoUINT8E2E_ReqArg1
+			<**
+				@description : The e2e counter value.
+			**>
+            UInt16 echoUINT8E2E_ReqArg2
+			<**
+				@description : The e2e data Identifier.
+			**>
+            UInt32 echoUINT8E2E_ReqArg3
+			<**
+				@description : The crc value.
+			**>
+            UInt32 echoUINT8E2E_ReqArg4
+			<**
+				@description : The uint8 payload parameter.
+			**>
+            UInt8 echoUINT8E2E_ReqArg5
+        }
+        out {
+			<**
+				@description : The e2e header length.
+			**>
+            UInt16 echoUINT8E2E_ResArg1
+			<**
+				@description : The e2e counter value.
+			**>
+            UInt16 echoUINT8E2E_ResArg2
+			<**
+				@description : The e2e data Identifier.
+			**>
+            UInt32 echoUINT8E2E_ResArg3
+			<**
+				@description : The crc value.
+			**>
+            UInt32 echoUINT8E2E_ResArg4
+			<**
+				@description : The uint8 payload parameter.
+			**>
+            UInt8 echoUINT8E2E_ResArg5
+        }
+    }
+
+	<**
+		@description : A broadcast e2e event triggered on triggerEventUINT8Multicast method request.
+	**>
+	broadcast TestEventUINT8Multicast {
+		out {
+			<**
+				@description : The uint8 event parameter.
+			**>
+			UInt8 uINT8Value
+		}
+	}
+
+	<** 
+	    @description : Sends the uint8 array over SOME/IP TP.
+	**>
+	method echoUINT8ArrayLengthTP {
+		in {
+			<**
+				@description : An array of uint8 type.
+			**>
+			UInt8 [ ] inUINT8Array_ReqArg1
+		}
+		out {
+			<**
+				@description : An array of uint8 type.
+			**>
+			UInt8 [ ] outUINT8Array_ResArg1
+		}
+	}
+
+	<** 
+	    @description : Sends the uint8 array as input over SOME/IP TP.
+	**>
+	method echoUINT8ArrayLengthInTP {
+		in {
+			<**
+				@description : An array of uint8 type.
+			**>
+			UInt8 [ ] inUINT8Array_ReqArg1
+		}
+		out {
+			<**
+				@description : A uint32 type value for in array size.
+			**>
+			UInt32 outUINT32_ResArg1
+		}
+	}
+
+	<** 
+	    @description : Sends the uint8 array as reply over SOME/IP TP.
+	**>
+	method echoUINT8ArrayLengthOutTP {
+		in {
+			<**
+				@description : An uint32 type value for out array size.
+			**>
+			UInt32 inUINT32_ReqArg1
+		}
+		out {
+			<**
+				@description : An array of uint8 type.
+			**>
+			UInt8 [ ] outUINT8Array_ResArg1
+		}
+	}
+
+	<**
+		@description : Sends the uint8 array as input over SOME/IP TP.
+	**>
+	method echoUINT8ArrayLengthTPNoResponse fireAndForget {
+		in {
+			<**
+				@description : The uint8 array input parameter for event.
+			**>
+			UInt8 [ ] echoUINT8ArrayLengthTPNoResponse_ReqArg1
+		}
+	}
+
+	<**
+		@description : Requests to triggers an TP Event of type uint8 array.
+	**>
+	method triggerEventUINT8ArrayTP fireAndForget {
+		in {
+			<**
+				@description : The uint8 array input parameter for event.
+			**>
+			UInt8 [ ] triggerEventUINT8ArrayTP_ReqArg1
+		}
+	}
+
+	<**
+		@description : A broadcast TP event triggered on triggerEventUINT8ArrayTP method request.
+	**>
+	broadcast TestEventUINT8ArrayTP {
+		out {
+			<**
+				@description : An array of UINT8 elements.
+			**>
+			UInt8 [ ] outUINT8EventArray
+		}
+	}
+
+	<**
+		@description : Requests to triggers an TP Event of type uint8 array.
+	**>
+	method triggerEventUINT8ArrayTPNoReqTPPayload fireAndForget {
+		in {
+			<**
+				@description : The uint32 input parameter for TP event size.
+			**>
+			UInt32 triggerEventUINT32_ReqArg1
+		}
+	}
+
+	<**
+		@description : Requests to triggers an periodic event of type uint32.
+	**>
+	method triggerEventUINT32Periodic fireAndForget {
+		in {
+			<**
+				@description : The uint32 event parameter.
+			**>
+			UInt32 triggerEventUINT32_ReqArg1
+		}
+	}
+
+	<**
+		@description : A broadcast periodic event triggered on triggerEventUINT32Periodic method request.
+	**>
+	broadcast TestEventUINT32Periodic {
+		out {
+			<**
+				@description : The uint32 event parameter.
+			**>
+			UInt32 uINT32Value
+		}
+	}
+
+	<**
+		@description : Requests to triggers an on change event of type uint32.
+	**>
+	method triggerEventUINT32UpdateOnChange fireAndForget {
+		in {
+			<**
+				@description : The event value.
+			**>
+			UInt32 triggerEventUINT32_ReqArg1
+		}
+	}
+
+	<**
+		@description : A broadcast periodic event triggered on triggerEventUINT32UpdateOnChange method request.
+	**>
+	broadcast TestEventUINT32UpdateOnChange {
+		out {
+			<**
+				@description : An UINT32 value.
+			**>
+			UInt32 uINT32Value
+		}
+	}
+
+	<**
+		@description : Activates Test Service in the server side.
+	**>
+	method activateTestSerivce fireAndForget {
+		in {
+			<**
+				@description : Service Id.
+			**>
+			UInt32 activateTestSerivce_ReqArg1
+			<**
+				@description : Instance Id.
+			**>
+			UInt32 activateTestSerivce_ReqArg2
+		}
+	}
+
+	<**
+		@description : Deactivates Test Service in the server side.
+	**>
+	method deactivateTestSerivce fireAndForget {
+		in {
+			<**
+				@description : Service Id.
+			**>
+			UInt32 activateTestSerivce_ReqArg1
+			<**
+				@description : Instance Id.
+			**>
+			UInt32 activateTestSerivce_ReqArg2
+		}
+	}
+
+	<**
+		@description : A field for notifying version information.
+	**>
+	attribute VersionType ETSInterfaceVersion readonly
+
+	<**
+		@description : A field of UINT8 type.
+	**>
+	attribute UInt8 TestFieldUINT8
+
+	<**
+		@description : A field of UINT8 array.
+	**>
+	attribute UInt8 [ ] TestFieldUINT8Array
+
+	<**
+		@description : A field of UINT8 type over reliable endpoint.
+	**>
+	attribute UInt8 TestFieldUINT8Reliable
+
+	<**
+		@description : The method returns the transfered UINT8 value back to the invoker over reliable endpoint.
+	**>
+	method echoUINT8RELIABLE {
+		in {
+			<**
+				@description : The input uint8 parameter.
+			**>
+			UInt8 echoUINT8RELIABLE_ReqArg1
+		}
+		out {
+			<**
+				@description : The output uint8 parameter.
+			**>
+			UInt8 echoUINT8RELIABLE_ResArg1
+		}
+	}
+
+	<**
+		@description : A broadcast event of type uint8 triggered on triggerEventUINT8Reliable method request over tcp endpoint.
+	**>
+	broadcast TestEventUINT8Reliable {
+		out {
+			<**
+				@description : An uint8 parameter.
+			**>
+			UInt8 uINT8Value
+		}
+	}
+
+	<**
+		@description : Get last value of TestEventUINT8Reliable.
+	**>
+	method clientServiceGetLastValueOfEventTCP {
+		out {
+			<**
+				@description : The unicast event value.
+			**>
+			UInt8 clientServiceGetLastValueOfEventTCP_ResArg1
+		}
+	}
+
+	<**
+		@description : Requests to trigger an broadcast event of type uint8 over reliable endpoint.
+	**>
+	method triggerEventUINT8Reliable fireAndForget {
+		in {
+			<**
+				@description : Wait time before triggering the event.
+			**>
+			UInt32 triggerEventUINT8Reliable_ReqArg1
+			<**
+				@description : Trigger event shall be active for this period.
+			**>
+			UInt32 triggerEventUINT8Reliable_ReqArg2
+			<**
+				@description : Event shall be triggered with ths periodicity.
+			**>
+			UInt32 triggerEventUINT8Reliable_ReqArg3
+		}
+	}
+}
+
+<** 
+	@description : Testability Service to be activated on client side on clientServiceActivate request. 
+**>
+interface ETSSecondaryService {
+	version {
+		major 1
+		minor 0
+	}
+
+	<**
+		@description : A broadcast event to support clientServiceSubscribeEventgroup request.
+	**>
+	broadcast SecondaryEventUINT8 {
+		out {
+			<**
+				@description : An event of type uint8.
+			**>
+			UInt8 uINT8Value
+		}
+	}
+
+	<**
+		@description : A broadcast event of type multicast to support clientServiceSubscribeEventgroup request.
+	**>
+	broadcast SecondaryMulticastEventUINT8 {
+		out {
+			<**
+				@description : An event of type uint8.
+			**>
+			UInt8 uINT8Value
+		}
+	}
+
+	<**
+		@description : A Reliable type broadcast event to support clientServiceSubscribeEventgroup request.
+	**>
+	broadcast SecondaryEventUINT8Reliable {
+		out {
+			<**
+				@description : An event of type uint8.
+			**>
+			UInt8 uINT8ValueReliable
+		}
+	}
+}
+
+<**
+	@description : First Test Service for service port validation.
+**>
+interface ETSTestService1 {
+	version {
+		major 1
+		minor 0
+	}
+
+	<**
+	    @description : Sends the uint32 value as reply.
+	**>
+	method echoUINT32 {
+		in {
+			<**
+				@description : An uint32 type value.
+			**>
+			UInt32 inUINT32_ReqArg1
+		}
+		out {
+			<**
+				@description : An uint32 type value.
+			**>
+			UInt32 outUINT32_ResArg1
+		}
+	}
+}
+
+<**
+	@description : Second Test Service for service port validation.
+**>
+interface ETSTestService2 {
+	version {
+		major 1
+		minor 0
+	}
+
+	<**
+	    @description : Sends the uint32 value as reply.
+	**>
+	method echoUINT32 {
+		in {
+			<**
+				@description : An uint32 type value.
+			**>
+			UInt32 inUINT32_ReqArg1
+		}
+		out {
+			<**
+				@description : An uint32 type value.
+			**>
+			UInt32 outUINT32_ResArg1
+		}
+	}
+}

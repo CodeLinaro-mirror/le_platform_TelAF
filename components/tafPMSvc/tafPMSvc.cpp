@@ -16,7 +16,7 @@
 using namespace std;
 
 // provided: Actual PA layer APIs
-#include "taf_pa_pms.hpp"
+#include "tafPmsPa.hpp"
 
 #define TAF_TAG_PREFIX   "taf"
 #define TAF_WS_NAME_FORMAT TAF_TAG_PREFIX"_%s_%p"
@@ -1168,6 +1168,8 @@ void taf_PM::Handle_sig_SIGTERM
     le_event_RemoveHandler(pm.ref_PaEventHandler);
 
     taf_pa_pms_Deinit(&pm.pa);
+
+    exit(EXIT_SUCCESS);
 }
 
 void taf_PM::PaHandler_evt_ServiceAvailable
@@ -2018,16 +2020,15 @@ void API(SendStateChangeAck)
     {
         if (pm.GetCurrentState() == TAF_PM_STATE_RESTART)
         {
-            // Before system 'reboot', sync all buffered to ROM
-            sync();
-
-            if (reboot(RB_AUTOBOOT))
+            LE_INFO("Try to reboot system by supervisor");
+            le_result_t rst = le_framework_Reboot();
+            if (rst != LE_OK)
             {
-                LE_INFO("System is rebooting...");
+                LE_ERROR("Failed to le_framework_Reboot: %s", LE_RESULT_TXT(rst));
             }
             else
             {
-                LE_ERROR("System reboot failed");
+                LE_INFO("Successfully triggered, waiting system reboot ...");
             }
         }
         else

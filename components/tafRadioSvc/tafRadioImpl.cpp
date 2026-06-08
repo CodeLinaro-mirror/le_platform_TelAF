@@ -39,7 +39,7 @@ using namespace std;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Static pool for common lists
+ * Static pool for common lists.
  */
 //--------------------------------------------------------------------------------------------------
 LE_MEM_DEFINE_STATIC_POOL(commonList, COMMON_LIST_MAX_COUNT, sizeof(CommonList_t));
@@ -67,7 +67,7 @@ LE_MEM_DEFINE_STATIC_POOL(plmnId, PLMN_ID_MAX_COUNT, sizeof(PlmnId_t));
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Static pool for PLMN infomation.
+ * Static pool for PLMN information.
  */
 //--------------------------------------------------------------------------------------------------
 LE_MEM_DEFINE_STATIC_POOL(plmnInfo, PLMN_INFO_MAX_COUNT, sizeof(PlmnInfo_t));
@@ -142,11 +142,16 @@ LE_REF_DEFINE_STATIC_MAP(caInfo, CA_INFO_MAX_COUNT);
  * Static map for connection status.
  */
 //--------------------------------------------------------------------------------------------------
-LE_REF_DEFINE_STATIC_MAP(connStatus, CA_INFO_MAX_COUNT);
+LE_REF_DEFINE_STATIC_MAP(connStatus, CONN_STATUS_MAX_COUNT);
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Registers radio indications from the platform adaptor for all supported instances.
+ */
+//--------------------------------------------------------------------------------------------------
 static void RegisterIndication
 (
-    uint8_t registration
+    uint8_t registration ///< [IN] Registration mask.
 )
 {
     for (uint32_t i = 0; i < INSTANCE_MAX_COUNT; i++)
@@ -162,6 +167,7 @@ static void RegisterIndication
                 break;
             case -ENOTSUP:
             case -ENOSYS:
+            case PA_NOT_IMPLEMENTED:
                 break;
             default:
                 LE_ERROR("Failed to register indication for instance %d.", i);
@@ -169,10 +175,18 @@ static void RegisterIndication
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for power state change notifications.
+ *
+ * When the system resumes, indications are re-enabled. When the system suspends, indications are
+ * disabled.
+ */
+//--------------------------------------------------------------------------------------------------
 static void PowerStateChangeHandler
 (
-    taf_pm_State_t state,
-    void* contextPtr
+    taf_pm_State_t state, ///< [IN] Power management state.
+    void* contextPtr      ///< [IN] Context.
 )
 {
     if (state == TAF_PM_STATE_RESUME)
@@ -187,11 +201,16 @@ static void PowerStateChangeHandler
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for data available system status indications (ENDC availability).
+ */
+//--------------------------------------------------------------------------------------------------
 static void DataAvailSysStatusHandler
 (
-    uint32_t instance,
-    taf_pa_radio_DataAvailSysStatusIndication_t indication,
-    void* contextPtr
+    uint32_t instance,                                      ///< [IN] Instance index.
+    taf_pa_radio_DataAvailSysStatusIndication_t indication, ///< [IN] Indication payload.
+    void* contextPtr                                        ///< [IN] Context.
 )
 {
     taf_radio_NREndcAvailability_t availability = TAF_RADIO_NR_ENDC_UNAVAILABLE;
@@ -218,11 +237,17 @@ static void DataAvailSysStatusHandler
     }
 }
 
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for network reject indications.
+ */
+//--------------------------------------------------------------------------------------------------
 static void NetworkRejectHandler
 (
-    uint32_t instance,
-    taf_pa_radio_NetworkRejectIndication_t indication,
-    void* contextPtr
+    uint32_t instance,                                 ///< [IN] Instance index.
+    taf_pa_radio_NetworkRejectIndication_t indication, ///< [IN] Indication payload.
+    void* contextPtr                                   ///< [IN] Context.
 )
 {
     auto& factory = Factory::GetInstance();
@@ -257,11 +282,16 @@ static void NetworkRejectHandler
     le_event_ReportWithRefCounting(factory.events.networkRejection, (void*)indPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for RAT change indications.
+ */
+//--------------------------------------------------------------------------------------------------
 static void RatChangeHandler
 (
-    uint32_t instance,
-    taf_pa_radio_RatChangeIndication_t indication,
-    void* contextPtr
+    uint32_t instance,                             ///< [IN] Instance index.
+    taf_pa_radio_RatChangeIndication_t indication, ///< [IN] Indication payload.
+    void* contextPtr                               ///< [IN] Context.
 )
 {
     auto& factory = Factory::GetInstance();
@@ -277,31 +307,20 @@ static void RatChangeHandler
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for voice service information indications.
+ */
+//--------------------------------------------------------------------------------------------------
 static void VoiceServiceInfoHandler
 (
-    uint32_t instance,
-    taf_pa_radio_VoiceServiceInfoIndication_t indication,
-    void* contextPtr
+    uint32_t instance,                                    ///< [IN] Instance index.
+    taf_pa_radio_VoiceServiceInfoIndication_t indication, ///< [IN] Indication payload.
+    void* contextPtr                                      ///< [IN] Context.
 )
 {
-    auto& factory = Factory::GetInstance();
+    (void)contextPtr;
 
-    taf_radio_NetRegStateInd_t* indPtr = (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(
-        factory.pools.netRegState);
-
-    indPtr->phoneId = Utility::Convert::InstanceToPhone(instance);
-    indPtr->state = Utility::Convert::NetRegState(&indication.info);
-
-    le_event_ReportWithRefCounting(factory.events.netRegState, (void*)indPtr);
-}
-
-static void DataServiceStatusHandler
-(
-    uint32_t instance,
-    taf_pa_radio_DataServiceStatusIndication_t indication,
-    void* contextPtr
-)
-{
     if (instance >= INSTANCE_MAX_COUNT)
     {
         LE_ERROR("Invalid instance %d.", instance);
@@ -309,45 +328,156 @@ static void DataServiceStatusHandler
     }
 
     auto& factory = Factory::GetInstance();
+    uint8_t phoneId = Utility::Convert::InstanceToPhone(instance);
+
+    taf_radio_NetRegState_t vState = Utility::Convert::NetRegState(&indication.info);
+
+    taf_radio_NetRegState_t dState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+    if (taf_radio_GetPacketSwitchedState(&dState, phoneId) != LE_OK)
+    {
+        LE_WARN("Failed to get Data Service Info for phoneId %d", phoneId);
+    }
+
+    taf_radio_NetRegState_t combinedState =
+        Utility::Convert::CombineNetRegState(vState, dState);
+
+    bool changed = false;
+    {
+        std::lock_guard<std::mutex> lock(factory.cache.sNetRegStateMutex[instance]);
+
+        if (combinedState != factory.cache.netRegState[instance])
+        {
+            factory.cache.netRegState[instance] = combinedState;
+            changed = true;
+        }
+    }
+
+    if (changed)
+    {
+        taf_radio_NetRegStateInd_t* indPtr =
+            (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(factory.pools.netRegState);
+
+        indPtr->phoneId = phoneId;
+        indPtr->state = combinedState;
+
+        le_event_ReportWithRefCounting(factory.events.netRegState, (void*)indPtr);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for data service status indications.
+ */
+//--------------------------------------------------------------------------------------------------
+static void DataServiceStatusHandler
+(
+    uint32_t instance,                                     ///< [IN] Instance index.
+    taf_pa_radio_DataServiceStatusIndication_t indication, ///< [IN] Indication payload.
+    void* contextPtr                                       ///< [IN] Context.
+)
+{
+    (void)contextPtr;
+
+    if (instance >= INSTANCE_MAX_COUNT)
+    {
+        LE_ERROR("Invalid instance %d.", instance);
+        return;
+    }
+
+    auto& factory = Factory::GetInstance();
+    uint8_t phoneId = Utility::Convert::InstanceToPhone(instance);
+
     factory.cache.dataServiceState[instance] = indication.state;
+
     taf_radio_NetRegState_t state = TAF_RADIO_NET_REG_STATE_UNKNOWN;
     switch (indication.state)
     {
         case TAF_PA_RADIO_DATA_SERVICE_STATE_IN_SERVICE:
         {
-            taf_pa_radio_DataRoamingStatus_t status = TAF_PA_RADIO_DATA_ROAMING_STATUS_UNKNOWN;
-            pa_result_t result = taf_pa_radio_GetDataCurrRoamingStatus(instance, &status);
-            if (result == 0 && status == TAF_PA_RADIO_DATA_ROAMING_STATUS_ON)
-                state = TAF_RADIO_NET_REG_STATE_ROAMING;
-            else
-                state = TAF_RADIO_NET_REG_STATE_HOME;
+            taf_pa_radio_DataRoamingStatus_t status =
+                TAF_PA_RADIO_DATA_ROAMING_STATUS_UNKNOWN;
 
+            pa_result_t result =
+                taf_pa_radio_GetDataCurrRoamingStatus(instance, &status);
+
+            if (result == 0 &&
+                status == TAF_PA_RADIO_DATA_ROAMING_STATUS_ON)
+            {
+                state = TAF_RADIO_NET_REG_STATE_ROAMING;
+            }
+            else
+            {
+                state = TAF_RADIO_NET_REG_STATE_HOME;
+            }
             break;
         }
+
         case TAF_PA_RADIO_DATA_SERVICE_STATE_OUT_OF_SERVICE:
             state = TAF_RADIO_NET_REG_STATE_NONE;
             break;
+
         default:
             state = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+            break;
     }
 
     if (state != factory.cache.packetSwitchedState[instance])
     {
         factory.cache.packetSwitchedState[instance] = state;
 
-        taf_radio_NetRegStateInd_t* indPtr = (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(
-            factory.pools.netRegState);
-        indPtr->phoneId = Utility::Convert::InstanceToPhone(instance);
+        taf_radio_NetRegStateInd_t* indPtr =
+            (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(factory.pools.netRegState);
+
+        indPtr->phoneId = phoneId;
         indPtr->state = state;
+
         le_event_ReportWithRefCounting(factory.events.packetSwitchedState, (void*)indPtr);
+    }
+
+    taf_pa_radio_VoiceServiceInfo_t voiceInfo;
+    taf_radio_NetRegState_t vState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+
+    if (taf_pa_radio_GetVoiceServiceInfo(phoneId, &voiceInfo) == LE_OK)
+    {
+        vState = Utility::Convert::NetRegState(&voiceInfo);
+    }
+
+    taf_radio_NetRegState_t combinedState =
+        Utility::Convert::CombineNetRegState(vState, state);
+
+    bool changed = false;
+    {
+        std::lock_guard<std::mutex> lock(factory.cache.sNetRegStateMutex[instance]);
+
+        if (combinedState != factory.cache.netRegState[instance])
+        {
+            factory.cache.netRegState[instance] = combinedState;
+            changed = true;
+        }
+    }
+
+    if (changed)
+    {
+        taf_radio_NetRegStateInd_t* indPtr =
+            (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(factory.pools.netRegState);
+
+        indPtr->phoneId = phoneId;
+        indPtr->state = combinedState;
+
+        le_event_ReportWithRefCounting(factory.events.netRegState, (void*)indPtr);
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for data roaming status indications.
+ */
+//--------------------------------------------------------------------------------------------------
 static void DataRoamingStatusHandler
 (
-    uint32_t instance,
-    taf_pa_radio_DataRoamingStatusIndication_t indication,
-    void* contextPtr
+    uint32_t instance,                                     ///< [IN] Instance index.
+    taf_pa_radio_DataRoamingStatusIndication_t indication, ///< [IN] Indication payload.
+    void* contextPtr                                       ///< [IN] Context.
 )
 {
     if (instance >= INSTANCE_MAX_COUNT)
@@ -378,11 +508,19 @@ static void DataRoamingStatusHandler
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for signal strength change indications.
+ *
+ * The platform adaptor reports a combined bitmask for multiple RATs; this handler fans out
+ * indications to the corresponding layered events.
+ */
+//--------------------------------------------------------------------------------------------------
 static void SignalStrengthInfoChangeHandler
 (
-    uint32_t instance,
-    taf_pa_radio_SignalStrengthInfoChangeIndication_t indication,
-    void* contextPtr
+    uint32_t instance,                                            ///< [IN] Instance index.
+    taf_pa_radio_SignalStrengthInfoChangeIndication_t indication, ///< [IN] Indication payload.
+    void* contextPtr                                              ///< [IN] Context.
 )
 {
     auto& factory = Factory::GetInstance();
@@ -455,11 +593,16 @@ static void SignalStrengthInfoChangeHandler
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for IMS registration status change indications.
+ */
+//--------------------------------------------------------------------------------------------------
 static void ImsRegStatusChangeHandler
 (
-    uint32_t instance,
-    taf_pa_radio_ImsRegStatusChangeIndication_t indication,
-    void* contextPtr
+    uint32_t instance,                                      ///< [IN] Instance index.
+    taf_pa_radio_ImsRegStatusChangeIndication_t indication, ///< [IN] Indication payload.
+    void* contextPtr                                        ///< [IN] Context.
 )
 {
     auto& factory = Factory::GetInstance();
@@ -473,11 +616,16 @@ static void ImsRegStatusChangeHandler
     le_event_ReportWithRefCounting(factory.events.imsRegStatusChange, (void*)indPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for operating mode change indications.
+ */
+//--------------------------------------------------------------------------------------------------
 static void OperatingModeChangeHandler
 (
-    uint32_t instance,
-    taf_pa_radio_OperatingModeChangeIndication_t indication,
-    void* contextPtr
+    uint32_t instance,                                       ///< [IN] Instance index.
+    taf_pa_radio_OperatingModeChangeIndication_t indication, ///< [IN] Indication payload.
+    void* contextPtr                                         ///< [IN] Context.
 )
 {
     auto& factory = Factory::GetInstance();
@@ -495,11 +643,16 @@ static void OperatingModeChangeHandler
     le_event_ReportWithRefCounting(factory.events.operatingModeChange, (void*)modePtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for RAT service status indications.
+ */
+//--------------------------------------------------------------------------------------------------
 static void RatSvcStatusHandler
 (
-    uint32_t instance,
-    taf_pa_radio_RatSvcStatusIndication_t indication,
-    void* contextPtr
+    uint32_t instance,                                ///< [IN] Instance index.
+    taf_pa_radio_RatSvcStatusIndication_t indication, ///< [IN] Indication payload.
+    void* contextPtr                                  ///< [IN] Context.
 )
 {
     taf_pa_radio_RatServiceStatus_t status = TAF_PA_RADIO_RAT_SERVICE_STATUS_UNKNOWN;
@@ -535,11 +688,16 @@ static void RatSvcStatusHandler
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for service domain indications.
+ */
+//--------------------------------------------------------------------------------------------------
 static void ServiceDomainHandler
 (
-    uint32_t instance,
-    taf_pa_radio_ServiceDomainIndication_t indication,
-    void* contextPtr
+    uint32_t instance,                                 ///< [IN] Instance index.
+    taf_pa_radio_ServiceDomainIndication_t indication, ///< [IN] Indication payload.
+    void* contextPtr                                   ///< [IN] Context.
 )
 {
     auto& factory = Factory::GetInstance();
@@ -555,11 +713,16 @@ static void ServiceDomainHandler
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for LTE CS capability indications.
+ */
+//--------------------------------------------------------------------------------------------------
 static void LteCsCapabilityHandler
 (
-    uint32_t instance,
-    taf_pa_radio_LteCsCapabilityIndication_t indication,
-    void* contextPtr
+    uint32_t instance,                                   ///< [IN] Instance index.
+    taf_pa_radio_LteCsCapabilityIndication_t indication, ///< [IN] Indication payload.
+    void* contextPtr                                     ///< [IN] Context.
 )
 {
     auto& factory = Factory::GetInstance();
@@ -574,11 +737,16 @@ static void LteCsCapabilityHandler
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for IMS service information indications.
+ */
+//--------------------------------------------------------------------------------------------------
 static void ImsServiceInfoHandler
 (
-    uint32_t instance,
-    taf_pa_radio_ImsServiceInfoIndication_t indication,
-    void* contextPtr
+    uint32_t instance,                                  ///< [IN] Instance index.
+    taf_pa_radio_ImsServiceInfoIndication_t indication, ///< [IN] Indication payload.
+    void* contextPtr                                    ///< [IN] Context.
 )
 {
     auto& factory = Factory::GetInstance();
@@ -594,11 +762,16 @@ static void ImsServiceInfoHandler
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for IMS PDP error indications.
+ */
+//--------------------------------------------------------------------------------------------------
 static void ImsPdpErrorHandler
 (
-    uint32_t instance,
-    taf_pa_radio_ImsPdpErrorIndication_t indication,
-    void* contextPtr
+    uint32_t instance,                               ///< [IN] Instance index.
+    taf_pa_radio_ImsPdpErrorIndication_t indication, ///< [IN] Indication payload.
+    void* contextPtr                                 ///< [IN] Context.
 )
 {
     auto& factory = Factory::GetInstance();
@@ -613,11 +786,16 @@ static void ImsPdpErrorHandler
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for cell information change indications.
+ */
+//--------------------------------------------------------------------------------------------------
 static void CellInfoChangeHandler
 (
-    uint32_t instance,
-    taf_pa_radio_CellInfoChangeIndication_t indication,
-    void* contextPtr
+    uint32_t instance,                                  ///< [IN] Instance index.
+    taf_pa_radio_CellInfoChangeIndication_t indication, ///< [IN] Indication payload.
+    void* contextPtr                                    ///< [IN] Context.
 )
 {
     auto& factory = Factory::GetInstance();
@@ -633,11 +811,16 @@ static void CellInfoChangeHandler
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for NR icon change indications.
+ */
+//--------------------------------------------------------------------------------------------------
 static void NrIconChangeHandler
 (
-    uint32_t instance,
-    taf_pa_radio_NrIconChangeIndication_t indication,
-    void* contextPtr
+    uint32_t instance,                                ///< [IN] Instance index.
+    taf_pa_radio_NrIconChangeIndication_t indication, ///< [IN] Indication payload.
+    void* contextPtr                                  ///< [IN] Context.
 )
 {
     auto& factory = Factory::GetInstance();
@@ -647,11 +830,16 @@ static void NrIconChangeHandler
     le_event_ReportWithRefCounting(factory.events.nrIconChange, (void*)indPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for LTE CPHY carrier aggregation indications.
+ */
+//--------------------------------------------------------------------------------------------------
 static void LteCphyCaHandler
 (
-    uint32_t instance,
-    taf_pa_radio_LteCphyCaIndication_t indication,
-    void* contextPtr
+    uint32_t instance,                             ///< [IN] Instance index.
+    taf_pa_radio_LteCphyCaIndication_t indication, ///< [IN] Indication payload.
+    void* contextPtr                               ///< [IN] Context.
 )
 {
     uint32_t count = 0;
@@ -692,9 +880,23 @@ static void LteCphyCaHandler
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA result to Legato result.
+ *
+ * @return
+ *      - LE_OK if the PA layer returned 0.
+ *      - LE_FAULT if the PA layer returned -EFAULT, or any unmapped error.
+ *      - LE_TIMEOUT if the PA layer returned -ETIMEDOUT.
+ *      - LE_OUT_OF_RANGE if the PA layer returned -ERANGE.
+ *      - LE_BAD_PARAMETER if the PA layer returned -EINVAL.
+ *      - LE_UNSUPPORTED if the PA layer returned -ENOTSUP.
+ *      - LE_NOT_IMPLEMENTED if the PA layer returned -ENOSYS or PA_NOT_IMPLEMENTED.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t Utility::Convert::Result
 (
-    pa_result_t result
+    pa_result_t result ///< [IN] PA result.
 )
 {
     switch (result)
@@ -712,6 +914,7 @@ le_result_t Utility::Convert::Result
         case -ENOTSUP:
             return LE_UNSUPPORTED;
         case -ENOSYS:
+        case PA_NOT_IMPLEMENTED:
             return LE_NOT_IMPLEMENTED;
         default:
             LE_INFO("Unknown result %d.", result);
@@ -720,10 +923,20 @@ le_result_t Utility::Convert::Result
     return LE_FAULT;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts an ASCII digit string to uint16_t.
+ *
+ * @return
+ *      - LE_OK if conversion succeeds.
+ *      - LE_BAD_PARAMETER if stringPtr/valuePtr is null, empty, or contains non-digits.
+ *      - LE_OUT_OF_RANGE if the value is outside [0, 999].
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t Utility::Convert::StringToU16
 (
-    const char* stringPtr,
-    uint16_t* valuePtr
+    const char* stringPtr, ///< [IN] Null-terminated ASCII digit string.
+    uint16_t* valuePtr     ///< [OUT] Converted value.
 )
 {
     if (stringPtr == nullptr)
@@ -766,12 +979,22 @@ le_result_t Utility::Convert::StringToU16
     return LE_OK;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts uint16_t in range [0, 999] to a null-terminated ASCII digit string.
+ *
+ * @return
+ *      - LE_OK if conversion succeeds.
+ *      - LE_BAD_PARAMETER if stringPtr is null.
+ *      - LE_OUT_OF_RANGE if value is outside [0, 999].
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t Utility::Convert::U16ToString
 (
-    uint16_t value,
-    char* stringPtr,
-    size_t length,
-    bool padding
+    uint16_t value,   ///< [IN] Value to convert.
+    char* stringPtr,  ///< [OUT] Output buffer.
+    size_t length,    ///< [IN] Output buffer size in bytes.
+    bool padding      ///< [IN] If true, left-pad single digit numbers with '0'.
 )
 {
     if (value > 999)
@@ -799,9 +1022,18 @@ le_result_t Utility::Convert::U16ToString
     return LE_OK;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts public API phone ID (1-based) to internal instance index (0-based).
+ *
+ * @return
+ *      - Instance index in range [0, INSTANCE_MAX_COUNT).
+ *      - INSTANCE_MAX_COUNT when phone is invalid.
+ */
+//--------------------------------------------------------------------------------------------------
 uint32_t Utility::Convert::PhoneToInstance
 (
-    uint8_t phone
+    uint8_t phone ///< [IN] Phone ID.
 )
 {
     switch (phone)
@@ -817,9 +1049,18 @@ uint32_t Utility::Convert::PhoneToInstance
     return INSTANCE_MAX_COUNT;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts internal instance index (0-based) to public API phone ID (1-based).
+ *
+ * @return
+ *      - Phone ID (1..INSTANCE_MAX_COUNT) for valid instances.
+ *      - 0 when instance is invalid.
+ */
+//--------------------------------------------------------------------------------------------------
 uint8_t Utility::Convert::InstanceToPhone
 (
-    uint32_t instance
+    uint32_t instance ///< [IN] Instance index.
 )
 {
     switch (instance)
@@ -835,10 +1076,19 @@ uint8_t Utility::Convert::InstanceToPhone
     return 0;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Resolves a cached network status reference to its instance index.
+ *
+ * @return
+ *      - LE_OK if found.
+ *      - LE_NOT_FOUND if reference does not match any instance.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t Utility::Convert::ReferenceToInstance
 (
-     taf_radio_NetStatusRef_t reference,
-     uint32_t* instancePtr
+     taf_radio_NetStatusRef_t reference, ///< [IN] Network status reference.
+     uint32_t* instancePtr               ///< [OUT] Instance index.
 )
 {
     auto& factory = Factory::GetInstance();
@@ -855,10 +1105,19 @@ le_result_t Utility::Convert::ReferenceToInstance
     return LE_NOT_FOUND;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Resolves a cached IMS status reference to its instance index.
+ *
+ * @return
+ *      - LE_OK if found.
+ *      - LE_NOT_FOUND if reference does not match any instance.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t Utility::Convert::ReferenceToInstance
 (
-     taf_radio_ImsRef_t reference,
-     uint32_t* instancePtr
+     taf_radio_ImsRef_t reference, ///< [IN] IMS reference.
+     uint32_t* instancePtr         ///< [OUT] Instance index.
 )
 {
     auto& factory = Factory::GetInstance();
@@ -875,10 +1134,14 @@ le_result_t Utility::Convert::ReferenceToInstance
     return LE_NOT_FOUND;
 }
 
-
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts a public RAT bitmask to the PA RAT bitmask.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_pa_radio_RatBitMask_t Utility::Convert::Rat
 (
-    taf_radio_RatBitMask_t bitmask
+    taf_radio_RatBitMask_t bitmask ///< [IN] Public RAT bitmask.
 )
 {
     if (bitmask & TAF_RADIO_RAT_BIT_MASK_ALL)
@@ -909,9 +1172,14 @@ taf_pa_radio_RatBitMask_t Utility::Convert::Rat
     return result;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts a PA RAT bitmask to the public RAT bitmask.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_RatBitMask_t Utility::Convert::Rat
 (
-    taf_pa_radio_RatBitMask_t bitmask
+    taf_pa_radio_RatBitMask_t bitmask ///< [IN] PA RAT bitmask.
 )
 {
     taf_radio_RatBitMask_t result = 0x0;
@@ -937,9 +1205,14 @@ taf_radio_RatBitMask_t Utility::Convert::Rat
     return result;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA RAT to public RAT.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_Rat_t Utility::Convert::Rat
 (
-    taf_pa_radio_Rat_t rat
+    taf_pa_radio_Rat_t rat ///< [IN] PA RAT.
 )
 {
     switch (rat)
@@ -963,9 +1236,14 @@ taf_radio_Rat_t Utility::Convert::Rat
     return TAF_RADIO_RAT_UNKNOWN;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA service domain to public service domain state.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_ServiceDomainState_t Utility::Convert::ServiceDomain
 (
-    taf_pa_radio_ServiceDomain_t domain
+    taf_pa_radio_ServiceDomain_t domain ///< [IN] PA service domain.
 )
 {
     switch (domain)
@@ -987,9 +1265,14 @@ taf_radio_ServiceDomainState_t Utility::Convert::ServiceDomain
     return TAF_RADIO_SERVICE_DOMAIN_STATE_UNKNOWN;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA service domain bitmask to public service domain state.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_ServiceDomainState_t Utility::Convert::ServiceDomain
 (
-    taf_pa_radio_ServiceDomainBitMask_t bitmask
+    taf_pa_radio_ServiceDomainBitMask_t bitmask ///< [IN] PA service domain bitmask.
 )
 {
     if (bitmask & TAF_PA_RADIO_BITMASK_SERVICE_DOMAIN_CS_ONLY)
@@ -1004,9 +1287,14 @@ taf_radio_ServiceDomainState_t Utility::Convert::ServiceDomain
     return TAF_RADIO_SERVICE_DOMAIN_STATE_UNKNOWN;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts public service domain to PA service domain bitmask.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_pa_radio_ServiceDomainBitMask_t Utility::Convert::ServiceDomain
 (
-    taf_radio_ServiceDomainState_t domain
+    taf_radio_ServiceDomainState_t domain ///< [IN] Public service domain.
 )
 {
     switch (domain)
@@ -1024,9 +1312,14 @@ taf_pa_radio_ServiceDomainBitMask_t Utility::Convert::ServiceDomain
     return 0;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA voice service info to public registration state.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_NetRegState_t Utility::Convert::NetRegState
 (
-    taf_pa_radio_VoiceServiceInfo_t* infoPtr
+    taf_pa_radio_VoiceServiceInfo_t* infoPtr ///< [IN] PA voice service info.
 )
 {
     if (infoPtr == nullptr)
@@ -1069,10 +1362,15 @@ taf_radio_NetRegState_t Utility::Convert::NetRegState
     return TAF_RADIO_NET_REG_STATE_UNKNOWN;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA data service state/roaming status to public registration state.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_NetRegState_t Utility::Convert::NetRegState
 (
-    taf_pa_radio_DataServiceState_t state,
-    taf_pa_radio_DataRoamingStatus_t status
+    taf_pa_radio_DataServiceState_t state,  ///< [IN] Data service state.
+    taf_pa_radio_DataRoamingStatus_t status ///< [IN] Roaming status.
 )
 {
     switch (state)
@@ -1091,9 +1389,14 @@ taf_radio_NetRegState_t Utility::Convert::NetRegState
     return TAF_RADIO_NET_REG_STATE_UNKNOWN;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA signal strength level to the corresponding integer level (1..5).
+ */
+//--------------------------------------------------------------------------------------------------
 uint32_t Utility::Convert::SignalStrengthLevel
 (
-    taf_pa_radio_SignalStrengthLevel_t level
+    taf_pa_radio_SignalStrengthLevel_t level ///< [IN] PA signal strength level.
 )
 {
     switch (level)
@@ -1115,11 +1418,16 @@ uint32_t Utility::Convert::SignalStrengthLevel
     return 0;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Builds the PA signal strength indication config based on cached hysteresis settings.
+ */
+//--------------------------------------------------------------------------------------------------
 void Utility::Convert::SignalStrengthIndConfig
 (
-    uint32_t instance,
-    taf_radio_SigType_t metric,
-    taf_pa_radio_SignalStrengthIndConfig_t* configPtr
+    uint32_t instance,                                ///< [IN] Instance index.
+    taf_radio_SigType_t metric,                       ///< [IN] Signal type.
+    taf_pa_radio_SignalStrengthIndConfig_t* configPtr ///< [OUT] Config to populate.
 )
 {
     if (configPtr == nullptr)
@@ -1181,9 +1489,14 @@ void Utility::Convert::SignalStrengthIndConfig
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA band bitmask to the public band bitmask.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_BandBitMask_t Utility::Convert::ToBand
 (
-    taf_pa_radio_BandBitMask_t bitmask
+    taf_pa_radio_BandBitMask_t bitmask ///< [IN] PA band bitmask.
 )
 {
     taf_radio_BandBitMask_t result = 0x0;
@@ -1251,9 +1564,14 @@ taf_radio_BandBitMask_t Utility::Convert::ToBand
     return result;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts public band bitmask to the PA band bitmask.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_pa_radio_BandBitMask_t Utility::Convert::ToPaBand
 (
-    taf_radio_BandBitMask_t bitmask
+    taf_radio_BandBitMask_t bitmask ///< [IN] Public band bitmask.
 )
 {
     taf_pa_radio_BandBitMask_t result = 0x0;
@@ -1321,9 +1639,14 @@ taf_pa_radio_BandBitMask_t Utility::Convert::ToPaBand
     return result;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA bandwidth value to public RF bandwidth value.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_RFBandWidth_t Utility::Convert::Bandwidth
 (
-    taf_pa_radio_Bandwidth_t bandwidth
+    taf_pa_radio_Bandwidth_t bandwidth ///< [IN] PA bandwidth.
 )
 {
     switch (bandwidth)
@@ -1385,9 +1708,14 @@ taf_radio_RFBandWidth_t Utility::Convert::Bandwidth
     return TAF_RADIO_RF_BANDWIDTH_INVALID;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA IMS registration status to public IMS registration status.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_ImsRegStatus_t Utility::Convert::ImsRegistrationStatus
 (
-     taf_pa_radio_ImsRegistrationStatus_t status
+    taf_pa_radio_ImsRegistrationStatus_t status ///< [IN] PA IMS status.
 )
 {
     switch (status)
@@ -1407,10 +1735,19 @@ taf_radio_ImsRegStatus_t Utility::Convert::ImsRegistrationStatus
     return TAF_RADIO_IMS_REG_STATUS_UNKNOWN ;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA operating mode to public operating mode.
+ *
+ * @return
+ *      - LE_OK if conversion succeeds.
+ *      - LE_BAD_PARAMETER for unsupported mode values.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t Utility::Convert::OperatingMode
 (
-    taf_pa_radio_OperatingMode_t mode,
-    taf_radio_OpMode_t* modePtr
+    taf_pa_radio_OperatingMode_t mode, ///< [IN] PA operating mode.
+    taf_radio_OpMode_t* modePtr        ///< [OUT] Public operating mode.
 )
 {
     switch (mode)
@@ -1442,9 +1779,14 @@ le_result_t Utility::Convert::OperatingMode
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts public operating mode to PA operating mode.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_pa_radio_OperatingMode_t Utility::Convert::OperatingMode
 (
-    taf_radio_OpMode_t mode
+    taf_radio_OpMode_t mode ///< [IN] Public operating mode.
 )
 {
     switch (mode)
@@ -1470,9 +1812,14 @@ taf_pa_radio_OperatingMode_t Utility::Convert::OperatingMode
     return TAF_PA_RADIO_OPERATING_MODE_UNKNOWN;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA LTE CS capability to public LTE CS capability.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_CsCap_t Utility::Convert::LteCsCapability
 (
-    taf_pa_radio_LteCsCapability_t capability
+    taf_pa_radio_LteCsCapability_t capability ///< [IN] PA capability.
 )
 {
     switch (capability)
@@ -1494,10 +1841,19 @@ taf_radio_CsCap_t Utility::Convert::LteCsCapability
     return TAF_RADIO_CS_CAP_UNKNOWN;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts public IMS service type to PA IMS service.
+ *
+ * @return
+ *      - LE_OK if conversion succeeds.
+ *      - LE_BAD_PARAMETER for unsupported service values.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t Utility::Convert::ImsService
 (
-    taf_radio_ImsSvcType_t service,
-    taf_pa_radio_ImsService_t* servicePtr
+    taf_radio_ImsSvcType_t service,        ///< [IN] Public service type.
+    taf_pa_radio_ImsService_t* servicePtr  ///< [OUT] PA service.
 )
 {
     switch (service)
@@ -1524,9 +1880,14 @@ le_result_t Utility::Convert::ImsService
     return LE_BAD_PARAMETER;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA IMS service status to public IMS service status.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_ImsSvcStatus_t Utility::Convert::ImsServiceStatus
 (
-    taf_pa_radio_ImsServiceStatus_t status
+    taf_pa_radio_ImsServiceStatus_t status ///< [IN] PA service status.
 )
 {
     switch (status)
@@ -1544,9 +1905,14 @@ taf_radio_ImsSvcStatus_t Utility::Convert::ImsServiceStatus
     return TAF_RADIO_IMS_SVC_STATUS_UNKNOWN;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts public IMS service type to PA IMS service setting bitmask.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_pa_radio_ImsServiceSettingBitMask_t Utility::Convert::ImsService
 (
-    taf_radio_ImsSvcType_t service
+    taf_radio_ImsSvcType_t service ///< [IN] Public service type.
 )
 {
     switch (service)
@@ -1568,9 +1934,14 @@ taf_pa_radio_ImsServiceSettingBitMask_t Utility::Convert::ImsService
     return 0x0;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA IMS PDP failure error code to public PDP error.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_PdpError_t Utility::Convert::PdpError
 (
-    taf_pa_radio_ImsPdpFailureErrorCode_t code
+    taf_pa_radio_ImsPdpFailureErrorCode_t code ///< [IN] PA error code.
 )
 {
     switch (code)
@@ -1596,9 +1967,14 @@ taf_radio_PdpError_t Utility::Convert::PdpError
     return TAF_RADIO_PDP_ERROR_UNKNOWN;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA ENDC availability to public ENDC availability.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_NREndcAvailability_t Utility::Convert::EndcAvailability
 (
-    taf_pa_radio_EndcAvailability_t availability
+    taf_pa_radio_EndcAvailability_t availability ///< [IN] PA availability.
 )
 {
     switch (availability)
@@ -1614,9 +1990,14 @@ taf_radio_NREndcAvailability_t Utility::Convert::EndcAvailability
     return TAF_RADIO_NR_ENDC_UNKNOWN;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA DCNR restriction to public DCNR restriction.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_NRDcnrRestriction_t Utility::Convert::DcnrRestriction
 (
-    taf_pa_radio_DcnrRestriction_t restriction
+    taf_pa_radio_DcnrRestriction_t restriction ///< [IN] PA restriction.
 )
 {
     switch (restriction)
@@ -1632,10 +2013,19 @@ taf_radio_NRDcnrRestriction_t Utility::Convert::DcnrRestriction
     return TAF_RADIO_NR_DCNR_UNKNOWN;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA cell role bitmask to public cell info status.
+ *
+ * @return
+ *      - LE_OK if conversion succeeds.
+ *      - LE_BAD_PARAMETER if statusPtr is null or bitmask is unsupported.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t Utility::Convert::CellInfoStatus
 (
-    taf_pa_radio_CellRoleBitMask_t bitmask,
-    taf_radio_CellInfoStatus_t* statusPtr
+    taf_pa_radio_CellRoleBitMask_t bitmask, ///< [IN] PA cell role bitmask.
+    taf_radio_CellInfoStatus_t* statusPtr   ///< [OUT] Public status.
 )
 {
     if (statusPtr == nullptr)
@@ -1667,9 +2057,14 @@ le_result_t Utility::Convert::CellInfoStatus
     return LE_BAD_PARAMETER;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA NR icon to public NR icon type.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_NrIconType_t Utility::Convert::NrIcon
 (
-    taf_pa_radio_NrIcon_t icon
+    taf_pa_radio_NrIcon_t icon ///< [IN] PA NR icon.
 )
 {
     switch (icon)
@@ -1684,9 +2079,14 @@ taf_radio_NrIconType_t Utility::Convert::NrIcon
     return TAF_RADIO_NR_ICON_TYPE_NONE;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA RAT service status to public RAT service status.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_RatSvcStatus_t Utility::Convert::RatServiceStatus
 (
-    taf_pa_radio_RatServiceStatus_t status
+    taf_pa_radio_RatServiceStatus_t status ///< [IN] PA RAT service status.
 )
 {
     switch (status)
@@ -1708,9 +2108,14 @@ taf_radio_RatSvcStatus_t Utility::Convert::RatServiceStatus
     return TAF_RADIO_RAT_SVC_STATUS_UNKNOWN;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Determines ENDC availability based on PA data available system status.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_NREndcAvailability_t Utility::Convert::EndcStatus
 (
-    taf_pa_radio_DataAvailSysStatus_t* statusPtr
+    taf_pa_radio_DataAvailSysStatus_t* statusPtr ///< [IN] PA status.
 )
 {
     if (statusPtr == nullptr)
@@ -1736,10 +2141,15 @@ taf_radio_NREndcAvailability_t Utility::Convert::EndcStatus
     return TAF_RADIO_NR_ENDC_UNAVAILABLE;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Populates cached CA info from a PA LTE CPHY CA info structure.
+ */
+//--------------------------------------------------------------------------------------------------
 void Utility::Convert::LteCphyCaInfo
 (
-    taf_pa_radio_LteCphyCaInfo_t* paInfoPtr,
-    CAInfo_t* infoPtr
+    taf_pa_radio_LteCphyCaInfo_t* paInfoPtr, ///< [IN] PA CA info.
+    CAInfo_t* infoPtr                        ///< [OUT] Cached CA info.
 )
 {
     if (paInfoPtr == nullptr)
@@ -1769,10 +2179,62 @@ void Utility::Convert::LteCphyCaInfo
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Combines the voice and data network registration states into a single
+ * registration state based on priority and emergency availability.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_NetRegState_t Utility::Convert::CombineNetRegState(taf_radio_NetRegState_t voiceState, taf_radio_NetRegState_t dataState)
+{
+    auto getPriorityScore = [](taf_radio_NetRegState_t state) -> int {
+        switch(state) {
+            case TAF_RADIO_NET_REG_STATE_ROAMING: return 5;
+            case TAF_RADIO_NET_REG_STATE_HOME: return 4;
+            case TAF_RADIO_NET_REG_STATE_DENIED: 
+            case TAF_RADIO_NET_REG_STATE_DENIED_AND_EMERGENCY_AVAILABLE: return 3;
+            case TAF_RADIO_NET_REG_STATE_SEARCHING:
+            case TAF_RADIO_NET_REG_STATE_SEARCHING_AND_EMERGENCY_AVAILABLE: return 2;
+            case TAF_RADIO_NET_REG_STATE_UNKNOWN:
+            case TAF_RADIO_NET_REG_STATE_UNKNOWN_AND_EMERGENCY_AVAILABLE: return 1;
+            case TAF_RADIO_NET_REG_STATE_NONE:
+            case TAF_RADIO_NET_REG_STATE_NONE_AND_EMERGENCY_AVAILABLE: return 0;
+            default: return 0;
+        }
+    };
+
+    auto hasEmergency = [](taf_radio_NetRegState_t state) -> bool {
+        return (state == TAF_RADIO_NET_REG_STATE_NONE_AND_EMERGENCY_AVAILABLE ||
+                state == TAF_RADIO_NET_REG_STATE_SEARCHING_AND_EMERGENCY_AVAILABLE ||
+                state == TAF_RADIO_NET_REG_STATE_DENIED_AND_EMERGENCY_AVAILABLE ||
+                state == TAF_RADIO_NET_REG_STATE_UNKNOWN_AND_EMERGENCY_AVAILABLE);
+    };
+
+    int vScore = getPriorityScore(voiceState);
+    int dScore = getPriorityScore(dataState);
+    int maxScore = std::max(vScore, dScore);
+
+    bool emerg = hasEmergency(voiceState) || hasEmergency(dataState);
+
+    if (maxScore == 5) return TAF_RADIO_NET_REG_STATE_ROAMING;
+    if (maxScore == 4) return TAF_RADIO_NET_REG_STATE_HOME;
+
+    if (maxScore == 3) return emerg ? TAF_RADIO_NET_REG_STATE_DENIED_AND_EMERGENCY_AVAILABLE : TAF_RADIO_NET_REG_STATE_DENIED;
+    if (maxScore == 2) return emerg ? TAF_RADIO_NET_REG_STATE_SEARCHING_AND_EMERGENCY_AVAILABLE : TAF_RADIO_NET_REG_STATE_SEARCHING;
+    if (maxScore == 1) return emerg ? TAF_RADIO_NET_REG_STATE_UNKNOWN_AND_EMERGENCY_AVAILABLE : TAF_RADIO_NET_REG_STATE_UNKNOWN;
+
+    return emerg ? TAF_RADIO_NET_REG_STATE_NONE_AND_EMERGENCY_AVAILABLE : TAF_RADIO_NET_REG_STATE_NONE;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Dispatches network rejection indications and releases the ref-counted payload.
+ */
+//--------------------------------------------------------------------------------------------------
 void Utility::LayeredFunction::NetworkRejection
 (
-    void* reportPtr,
-    void* handlerFuncPtr
+    void* reportPtr,     ///< [IN] Ref-counted payload.
+    void* handlerFuncPtr ///< [IN] Client callback.
 )
 {
     if (reportPtr == nullptr)
@@ -1789,10 +2251,15 @@ void Utility::LayeredFunction::NetworkRejection
     le_mem_Release(reportPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Dispatches RAT change indications and releases the ref-counted payload.
+ */
+//--------------------------------------------------------------------------------------------------
 void Utility::LayeredFunction::RatChange
 (
-    void* reportPtr,
-    void* handlerFuncPtr
+    void* reportPtr,     ///< [IN] Ref-counted payload.
+    void* handlerFuncPtr ///< [IN] Client callback.
 )
 {
     if (reportPtr == nullptr)
@@ -1809,10 +2276,15 @@ void Utility::LayeredFunction::RatChange
     le_mem_Release(reportPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Dispatches network registration state indications and releases the ref-counted payload.
+ */
+//--------------------------------------------------------------------------------------------------
 void Utility::LayeredFunction::NetRegState
 (
-    void* reportPtr,
-    void* handlerFuncPtr
+    void* reportPtr,     ///< [IN] Ref-counted payload.
+    void* handlerFuncPtr ///< [IN] Client callback.
 )
 {
     if (reportPtr == nullptr)
@@ -1829,10 +2301,15 @@ void Utility::LayeredFunction::NetRegState
     le_mem_Release(reportPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Dispatches signal strength indications and releases the ref-counted payload.
+ */
+//--------------------------------------------------------------------------------------------------
 void Utility::LayeredFunction::SignalStrengthInfoChange
 (
-    void* reportPtr,
-    void* handlerFuncPtr
+    void* reportPtr,     ///< [IN] Ref-counted payload.
+    void* handlerFuncPtr ///< [IN] Client callback.
 )
 {
     if (reportPtr == nullptr)
@@ -1852,10 +2329,15 @@ void Utility::LayeredFunction::SignalStrengthInfoChange
     le_mem_Release(reportPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Dispatches IMS registration status indications and releases the ref-counted payload.
+ */
+//--------------------------------------------------------------------------------------------------
 void Utility::LayeredFunction::ImsRegStatusChange
 (
-    void* reportPtr,
-    void* handlerFuncPtr
+    void* reportPtr,     ///< [IN] Ref-counted payload.
+    void* handlerFuncPtr ///< [IN] Client callback.
 )
 {
     if (reportPtr == nullptr)
@@ -1875,10 +2357,15 @@ void Utility::LayeredFunction::ImsRegStatusChange
     le_mem_Release(reportPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Dispatches operating mode change indications and releases the ref-counted payload.
+ */
+//--------------------------------------------------------------------------------------------------
 void Utility::LayeredFunction::OperatingModeChange
 (
-    void* reportPtr,
-    void* handlerFuncPtr
+    void* reportPtr,     ///< [IN] Ref-counted payload.
+    void* handlerFuncPtr ///< [IN] Client callback.
 )
 {
     if (reportPtr == nullptr)
@@ -1898,10 +2385,15 @@ void Utility::LayeredFunction::OperatingModeChange
     le_mem_Release(reportPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Dispatches network status indications and releases the ref-counted payload.
+ */
+//--------------------------------------------------------------------------------------------------
 void Utility::LayeredFunction::NetStatusChange
 (
-    void* reportPtr,
-    void* handlerFuncPtr
+    void* reportPtr,     ///< [IN] Ref-counted payload.
+    void* handlerFuncPtr ///< [IN] Client callback.
 )
 {
     if (reportPtr == nullptr)
@@ -1921,10 +2413,15 @@ void Utility::LayeredFunction::NetStatusChange
     le_mem_Release(reportPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Dispatches IMS status indications and releases the ref-counted payload.
+ */
+//--------------------------------------------------------------------------------------------------
 void Utility::LayeredFunction::ImsStatusChange
 (
-    void* reportPtr,
-    void* handlerFuncPtr
+    void* reportPtr,     ///< [IN] Ref-counted payload.
+    void* handlerFuncPtr ///< [IN] Client callback.
 )
 {
     if (reportPtr == nullptr)
@@ -1944,10 +2441,15 @@ void Utility::LayeredFunction::ImsStatusChange
     le_mem_Release(reportPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Dispatches cell info change indications and releases the ref-counted payload.
+ */
+//--------------------------------------------------------------------------------------------------
 void Utility::LayeredFunction::CellInfoChange
 (
-    void* reportPtr,
-    void* handlerFuncPtr
+    void* reportPtr,     ///< [IN] Ref-counted payload.
+    void* handlerFuncPtr ///< [IN] Client callback.
 )
 {
     if (reportPtr == nullptr)
@@ -1967,10 +2469,15 @@ void Utility::LayeredFunction::CellInfoChange
     le_mem_Release(reportPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Dispatches NR icon indications and releases the ref-counted payload.
+ */
+//--------------------------------------------------------------------------------------------------
 void Utility::LayeredFunction::NrIconChange
 (
-    void* reportPtr,
-    void* handlerFuncPtr
+    void* reportPtr,     ///< [IN] Ref-counted payload.
+    void* handlerFuncPtr ///< [IN] Client callback.
 )
 {
     if (reportPtr == nullptr)
@@ -1990,10 +2497,15 @@ void Utility::LayeredFunction::NrIconChange
     le_mem_Release(reportPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Dispatches carrier aggregation info indications and releases the ref-counted payload.
+ */
+//--------------------------------------------------------------------------------------------------
 void Utility::LayeredFunction::CAInfoChange
 (
-    void* reportPtr,
-    void* handlerFuncPtr
+    void* reportPtr,     ///< [IN] Ref-counted payload.
+    void* handlerFuncPtr ///< [IN] Client callback.
 )
 {
     if (reportPtr == nullptr)
@@ -2012,10 +2524,15 @@ void Utility::LayeredFunction::CAInfoChange
     le_mem_Release(reportPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Dispatches connection status indications and releases the ref-counted payload.
+ */
+//--------------------------------------------------------------------------------------------------
 void Utility::LayeredFunction::ConnStatusChange
 (
-    void* reportPtr,
-    void* handlerFuncPtr
+    void* reportPtr,     ///< [IN] Ref-counted payload.
+    void* handlerFuncPtr ///< [IN] Client callback.
 )
 {
     if (reportPtr == nullptr)
@@ -2035,10 +2552,19 @@ void Utility::LayeredFunction::ConnStatusChange
     le_mem_Release(reportPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Performs a PCI network scan synchronously and returns a list reference.
+ *
+ * @return
+ *      - A valid list reference on success.
+ *      - nullptr if the scan fails.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_PciScanInformationListRef_t Utility::Common::PciNetworkScan
 (
-    uint8_t phone,
-    taf_radio_RatBitMask_t bitmask
+    uint8_t phone,                 ///< [IN] Phone ID.
+    taf_radio_RatBitMask_t bitmask ///< [IN] RAT bitmask for the scan.
 )
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
@@ -2090,9 +2616,18 @@ taf_radio_PciScanInformationListRef_t Utility::Common::PciNetworkScan
         (void*)listPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Performs a PLMN network scan synchronously and returns a list reference.
+ *
+ * @return
+ *      - A valid list reference on success.
+ *      - nullptr if the scan fails.
+ */
+//--------------------------------------------------------------------------------------------------
 taf_radio_ScanInformationListRef_t Utility::Common::PlmnNetworkScan
 (
-    uint8_t phone
+    uint8_t phone ///< [IN] Phone ID.
 )
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
@@ -2128,11 +2663,22 @@ taf_radio_ScanInformationListRef_t Utility::Common::PlmnNetworkScan
     return (taf_radio_ScanInformationListRef_t)le_ref_CreateRef(factory.maps.commonList, (void*)listPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Performs manual network selection with the given MCC/MNC.
+ *
+ * @return
+ *      - LE_OK on success.
+ *      - LE_BAD_PARAMETER on invalid inputs.
+ *      - LE_OUT_OF_RANGE if MCC/MNC is outside [0, 999].
+ *      - LE_FAULT/LE_TIMEOUT/LE_UNSUPPORTED/LE_NOT_IMPLEMENTED depending on PA error.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t Utility::Common::ManualNetworkSelection
 (
-    uint8_t phone,
-    const char* mccPtr,
-    const char* mncPtr
+    uint8_t phone,      ///< [IN] Phone ID.
+    const char* mccPtr, ///< [IN] MCC string.
+    const char* mncPtr  ///< [IN] MNC string.
 )
 {
     if (mccPtr == nullptr)
@@ -2171,9 +2717,18 @@ le_result_t Utility::Common::ManualNetworkSelection
     return Utility::Convert::Result(paResult);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Finds the serving cell index within a PA cell location list.
+ *
+ * @return
+ *      - Index of the serving cell.
+ *      - TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT if not found or input is null.
+ */
+//--------------------------------------------------------------------------------------------------
 uint32_t Utility::Common::FindServingCell
 (
-    taf_pa_radio_CellLocationListInfo_t* infoPtr
+    taf_pa_radio_CellLocationListInfo_t* infoPtr ///< [IN] Cell location list.
 )
 {
     if (infoPtr == nullptr)
@@ -2201,11 +2756,21 @@ uint32_t Utility::Common::FindServingCell
     return TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static events.
+ */
+//--------------------------------------------------------------------------------------------------
 StaticEvent_t Factory::staticEvents = 
 {
     .request = nullptr
 };
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for data available system status indications (ENDC availability).
+ */
+//--------------------------------------------------------------------------------------------------
 Factory& Factory::GetInstance
 (
     void
@@ -2215,9 +2780,17 @@ Factory& Factory::GetInstance
     return instance;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Internal request event handler.
+ *
+ * Invoked on the request event loop thread. Dispatches the request based on the command and
+ * invokes the client-provided completion callback (if any).
+ */
+//--------------------------------------------------------------------------------------------------
 static void RequestHandler
 (
-    void* contextPtr
+    void* contextPtr ///< [IN] Event payload pointer.
 )
 {
     Request_t* requestPtr = (Request_t*)contextPtr;
@@ -2276,9 +2849,20 @@ static void RequestHandler
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Request processing thread entry.
+ *
+ * Creates a dedicated Legato event loop for serialized request processing and signals the creator
+ * (via the provided semaphore) once the loop is ready.
+ *
+ * @return
+ *      nullptr (the thread runs the event loop indefinitely).
+ */
+//--------------------------------------------------------------------------------------------------
 static void* RequestThread
 (
-    void* contextPtr
+    void* contextPtr ///< [IN] Event payload pointer.
 )
 {
     le_event_AddHandler("RequestHandler", Factory::staticEvents.request, RequestHandler);
@@ -2290,6 +2874,45 @@ static void* RequestThread
     return nullptr;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * SIGTERM signal event handler.
+ *
+ * Invoked by the Legato signal event framework when the process receives SIGTERM. Disables all
+ * active radio indications, deinitializes the radio platform adaptor, and exits cleanly.
+ */
+//--------------------------------------------------------------------------------------------------
+static void SigTermEventHandler
+(
+    int sigNum ///< [IN] Signal number received (expected: SIGTERM).
+)
+{
+    LE_INFO("SigTermEventHandler signal : %d", sigNum);
+
+    RegisterIndication(DISABLE_INDICATION);
+
+    pa_result_t result = taf_pa_radio_Deinit();
+    if (result != PA_OK)
+    {
+        LE_ERROR("Failed to deinitialize radio platform adaptor, result: %d", result);
+    }
+    else
+    {
+        LE_INFO("Radio platform adaptor shutdown complete.");
+    }
+
+    exit(EXIT_SUCCESS);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Component initializer.
+ *
+ * Creates internal event IDs and memory pools, initializes reference maps and per-instance cached
+ * references, starts the request thread, initializes the platform adaptor, and registers PA
+ * indication handlers.
+ */
+//--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
     Factory::staticEvents.request = le_event_CreateId("request", sizeof(Request_t));
@@ -2393,27 +3016,77 @@ COMPONENT_INIT
         return;
     }
 
-    taf_pa_radio_AddNetworkRejectHandler(0, NetworkRejectHandler, nullptr);
-    taf_pa_radio_AddRatChangeHandler(0, RatChangeHandler, nullptr);
-    taf_pa_radio_AddVoiceServiceInfoHandler(0, VoiceServiceInfoHandler, nullptr);
-    taf_pa_radio_AddDataServiceStatusHandler(0, DataServiceStatusHandler, nullptr);
-    taf_pa_radio_AddDataRoamingStatusHandler(0, DataRoamingStatusHandler, nullptr);
-    taf_pa_radio_AddSignalStrengthInfoChangeHandler(0, SignalStrengthInfoChangeHandler, nullptr);
-    taf_pa_radio_AddImsRegStatusChangeHandler(0, ImsRegStatusChangeHandler, nullptr);
-    taf_pa_radio_AddOperatingModeChangeHandler(0, OperatingModeChangeHandler, nullptr);
-    taf_pa_radio_AddRatSvcStatusHandler(0, RatSvcStatusHandler, nullptr);
-    taf_pa_radio_AddServiceDomainHandler(0, ServiceDomainHandler, nullptr);
-    taf_pa_radio_AddLteCsCapabilityHandler(0, LteCsCapabilityHandler, nullptr);
-    taf_pa_radio_AddImsServiceInfoHandler(0, ImsServiceInfoHandler, nullptr);
-    taf_pa_radio_AddImsPdpErrorHandler(0, ImsPdpErrorHandler, nullptr);
-    taf_pa_radio_AddCellInfoChangeHandler(0, CellInfoChangeHandler, nullptr);
-    taf_pa_radio_AddNrIconChangeHandler(0, NrIconChangeHandler, nullptr);
-    taf_pa_radio_AddLteCphyCaHandler(0, LteCphyCaHandler, nullptr);
-    taf_pa_radio_AddDataAvailSysStatusHandler(0, DataAvailSysStatusHandler, nullptr);
+    taf_pa_radio_NetworkRejectHandlerRef_t networkRejectHandlerRef = nullptr;
+    taf_pa_radio_RatChangeHandlerRef_t ratChangeHandlerRef = nullptr;
+    taf_pa_radio_VoiceServiceInfoHandlerRef_t voiceServiceInfoHandlerRef = nullptr;
+    taf_pa_radio_DataServiceStatusHandlerRef_t dataServiceStatusHandlerRef = nullptr;
+    taf_pa_radio_DataRoamingStatusHandlerRef_t dataRoamingStatusHandlerRef = nullptr;
+    taf_pa_radio_SignalStrengthInfoChangeHandlerRef_t signalStrengthInfoChangeHandlerRef = nullptr;
+    taf_pa_radio_ImsRegStatusChangeHandlerRef_t imsRegStatusChangeHandlerRef = nullptr;
+    taf_pa_radio_OperatingModeChangeHandlerRef_t operatingModeChangeHandlerRef = nullptr;
+    taf_pa_radio_RatSvcStatusHandlerRef_t ratSvcStatusHandlerRef = nullptr;
+    taf_pa_radio_ServiceDomainHandlerRef_t serviceDomainHandlerRef = nullptr;
+    taf_pa_radio_LteCsCapabilityHandlerRef_t lteCsCapabilityHandlerRef = nullptr;
+    taf_pa_radio_ImsServiceInfoHandlerRef_t imsServiceInfoHandlerRef = nullptr;
+    taf_pa_radio_ImsPdpErrorHandlerRef_t imsPdpErrorHandlerRef = nullptr;
+    taf_pa_radio_CellInfoChangeHandlerRef_t cellInfoChangeHandlerRef = nullptr;
+    taf_pa_radio_NrIconChangeHandlerRef_t nrIconChangeHandlerRef = nullptr;
+    taf_pa_radio_LteCphyCaHandlerRef_t lteCphyCaHandlerRef = nullptr;
+    taf_pa_radio_DataAvailSysStatusHandlerRef_t dataAvailSysStatusHandlerRef = nullptr;
+
+#define ADD_PA_RADIO_HANDLER(addFunc, handlerFunc, handlerRef) \
+    do \
+    { \
+        pa_result_t _addRes  = addFunc(0, handlerFunc, nullptr, &(handlerRef)); \
+        if (_addRes  != PA_OK) \
+        { \
+            LE_ERROR("Failed to add PA radio handler " #addFunc ", result=%d.", _addRes); \
+        } \
+    } while (0)
+
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddNetworkRejectHandler, NetworkRejectHandler,
+        networkRejectHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddRatChangeHandler, RatChangeHandler,
+        ratChangeHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddVoiceServiceInfoHandler, VoiceServiceInfoHandler,
+        voiceServiceInfoHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddDataServiceStatusHandler, DataServiceStatusHandler,
+        dataServiceStatusHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddDataRoamingStatusHandler, DataRoamingStatusHandler,
+        dataRoamingStatusHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddSignalStrengthInfoChangeHandler,
+        SignalStrengthInfoChangeHandler, signalStrengthInfoChangeHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddImsRegStatusChangeHandler, ImsRegStatusChangeHandler,
+        imsRegStatusChangeHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddOperatingModeChangeHandler, OperatingModeChangeHandler,
+        operatingModeChangeHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddRatSvcStatusHandler, RatSvcStatusHandler,
+        ratSvcStatusHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddServiceDomainHandler, ServiceDomainHandler,
+        serviceDomainHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddLteCsCapabilityHandler, LteCsCapabilityHandler,
+        lteCsCapabilityHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddImsServiceInfoHandler, ImsServiceInfoHandler,
+        imsServiceInfoHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddImsPdpErrorHandler, ImsPdpErrorHandler,
+        imsPdpErrorHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddCellInfoChangeHandler, CellInfoChangeHandler,
+        cellInfoChangeHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddNrIconChangeHandler, NrIconChangeHandler,
+        nrIconChangeHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddLteCphyCaHandler, LteCphyCaHandler,
+        lteCphyCaHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddDataAvailSysStatusHandler, DataAvailSysStatusHandler,
+        dataAvailSysStatusHandlerRef);
+
+#undef ADD_PA_RADIO_HANDLER
 
     taf_pm_AddStateChangeHandler(PowerStateChangeHandler, nullptr);
     if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
         RegisterIndication(ENABLE_INDICATION);
+
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);
 
     LE_INFO("Radio service is ready.");
 }

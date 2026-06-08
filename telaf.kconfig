@@ -103,7 +103,7 @@ rsource "framework/daemons/linux/deviceManager/KConfig"
 endmenu # end "framework"
 
 menu "simulation"
-rsource "simulation/simulation.kconfig"
+rsource "$(SIMULATION_ROOT)/simulation.kconfig"
 endmenu # end "simulation"
 
 endmenu # end "TelAF"

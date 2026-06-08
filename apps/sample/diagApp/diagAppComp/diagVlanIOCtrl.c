@@ -1,14 +1,27 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #include "diagPrivate.h"
 
-//Diag IOCtrl
-static taf_diagIOCtrl_ServiceRef_t svcRef[2] = {NULL};
-static taf_diagIOCtrl_RxMsgHandlerRef_t diagIOCtrlMsgRef[2] = {NULL};
+// Supported DIDs
+#define DIAG_IOCTRL_DID_CNT 2
+static const uint16_t diagIOCtrlDids[DIAG_IOCTRL_DID_CNT] = {0x9006, 0x9007};
 
-static le_sem_Ref_t semRef[2];
+// Diag IOCtrl: first dimension = DID index, second dimension = VLAN index
+#define DIAG_IOCTRL_VLAN_CNT 2
+static taf_diagIOCtrl_ServiceRef_t    svcRef[DIAG_IOCTRL_DID_CNT][DIAG_IOCTRL_VLAN_CNT];
+static taf_diagIOCtrl_RxMsgHandlerRef_t diagIOCtrlMsgRef[DIAG_IOCTRL_DID_CNT][DIAG_IOCTRL_VLAN_CNT];
+
+// Semaphores: one per thread (DID_COUNT * VLAN_COUNT threads)
+static le_sem_Ref_t semRef[DIAG_IOCTRL_DID_CNT * DIAG_IOCTRL_VLAN_CNT];
+
+// Thread context passed to each worker thread
+typedef struct
+{
+    unsigned int didIdx;  ///< Index into diagIOCtrlDids[]
+    unsigned int vlanIdx; ///< 0 = TEST_VLAN_ID_0, 1 = TEST_VLAN_ID_1
+} IOCtrlThreadCtx_t;
 
 //Control state data response.
 static const uint8_t data[] = {0x0C};
@@ -42,8 +55,7 @@ static void IOCtrlMsgHandler
     LE_TEST_INFO("Received a IO control request from vlan0x%x", vlanId);
 
     // Send IO control service positive response.
-    size_t dataSize = 0;
-    dataSize = sizeof(data);
+    size_t dataSize = sizeof(data);
     result = taf_diagIOCtrl_SendResp(rxMsgRef, TAF_DIAGIOCTRL_NO_ERROR, data, dataSize);
     if (result == LE_OK)
     {
@@ -59,40 +71,37 @@ static void IOCtrlMsgHandler
 
 static void* diagIOCtrlMsgThread(void* ctxPtr)
 {
-    unsigned long idx = (unsigned long)(uintptr_t)ctxPtr;
-    uint16_t vlanId;
+    IOCtrlThreadCtx_t* ctx = (IOCtrlThreadCtx_t*)ctxPtr;
+    unsigned int didIdx  = ctx->didIdx;
+    unsigned int vlanIdx = ctx->vlanIdx;
+    unsigned int semIdx  = didIdx * DIAG_IOCTRL_VLAN_CNT + vlanIdx;
+    uint16_t dataId      = diagIOCtrlDids[didIdx];
+    uint16_t vlanId      = (vlanIdx == 0) ? TEST_VLAN_ID_0 : TEST_VLAN_ID_1;
+
     taf_diagIOCtrl_ConnectService();
 
-    uint16_t dataId = 0x9006;
-    //get diag IOCtrl svc reference
-    svcRef[idx] = taf_diagIOCtrl_GetService(dataId);
-    if(svcRef[idx] == NULL)
+    // Get diag IOCtrl svc reference for this DID
+    svcRef[didIdx][vlanIdx] = taf_diagIOCtrl_GetService(dataId);
+    if (svcRef[didIdx][vlanIdx] == NULL)
     {
-        LE_ERROR("Get IO control service error");
+        LE_ERROR("Get IO control service error for DID 0x%x", dataId);
         return (void*)LE_FAULT;
     }
 
-    if (idx == 0ul)
-    {
-        vlanId = TEST_VLAN_ID_0;
-    }
-    else
-    {
-        vlanId = TEST_VLAN_ID_1;
-    }
-
-    le_result_t result;
-    result = taf_diagIOCtrl_SetVlanId(svcRef[idx], vlanId);
+    le_result_t result = taf_diagIOCtrl_SetVlanId(svcRef[didIdx][vlanIdx], vlanId);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to set vlan id for this service");
+        LE_ERROR("Failed to set vlan id for DID 0x%x, vlan 0x%x", dataId, vlanId);
         return (void*)LE_FAULT;
     }
 
-    diagIOCtrlMsgRef[idx] = taf_diagIOCtrl_AddRxMsgHandler(svcRef[idx], IOCtrlMsgHandler, NULL);
-    LE_TEST_OK(diagIOCtrlMsgRef[idx] != NULL, "Registered successfully for IOCtrlMsgHandler");
+    diagIOCtrlMsgRef[didIdx][vlanIdx] = taf_diagIOCtrl_AddRxMsgHandler(
+            svcRef[didIdx][vlanIdx], IOCtrlMsgHandler, NULL);
+    LE_TEST_OK(diagIOCtrlMsgRef[didIdx][vlanIdx] != NULL,
+            "Registered successfully for IOCtrlMsgHandler DID 0x%x vlan 0x%x",
+            dataId, vlanId);
 
-    le_sem_Post(semRef[idx]);
+    le_sem_Post(semRef[semIdx]);
     le_event_RunLoop();
     return NULL;
 }
@@ -101,22 +110,31 @@ le_result_t diagVlanIOControl_Init(void)
 {
     LE_TEST_INFO("Init");
 
-    semRef[0] = le_sem_Create("SemRef0", 0);
-    semRef[1] = le_sem_Create("SemRef1", 0);
+    // Create semaphores and threads for each DID + VLAN combination
+    for (unsigned int didIdx = 0; didIdx < DIAG_IOCTRL_DID_CNT; didIdx++)
+    {
+        for (unsigned int vlanIdx = 0; vlanIdx < DIAG_IOCTRL_VLAN_CNT; vlanIdx++)
+        {
+            unsigned int semIdx = didIdx * DIAG_IOCTRL_VLAN_CNT + vlanIdx;
+            char semName[32];
+            char threadName[32];
 
-    // Create diag IOCtrl message handle thread to handle IOCtrl request(0x2F)
-    le_thread_Ref_t ioCtrlThreadRef = le_thread_Create("ioControlThread0",
-            diagIOCtrlMsgThread, (void *)(uintptr_t)0);
+            snprintf(semName,    sizeof(semName),    "SemRef%u",        semIdx);
+            snprintf(threadName, sizeof(threadName), "ioControlThread%u", semIdx);
 
-    le_thread_Start(ioCtrlThreadRef);
-    le_sem_Wait(semRef[0]);
+            semRef[semIdx] = le_sem_Create(semName, 0);
 
-    // Create diag IOCtrl message handle thread to handle IOCtrl request(0x2F)
-    le_thread_Ref_t ioCtrlThreadRef1 = le_thread_Create("ioControlThread1",
-            diagIOCtrlMsgThread, (void *)(uintptr_t)1);
+            IOCtrlThreadCtx_t* ctx = malloc(sizeof(IOCtrlThreadCtx_t));
+            LE_ASSERT(ctx != NULL);
+            ctx->didIdx  = didIdx;
+            ctx->vlanIdx = vlanIdx;
 
-    le_thread_Start(ioCtrlThreadRef1);
-    le_sem_Wait(semRef[1]);
+            le_thread_Ref_t threadRef = le_thread_Create(threadName,
+                    diagIOCtrlMsgThread, ctx);
+            le_thread_Start(threadRef);
+            le_sem_Wait(semRef[semIdx]);
+        }
+    }
 
     return LE_OK;
 }

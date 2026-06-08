@@ -11,13 +11,15 @@
 
 using namespace tafsvc;
 
-/*======================================================================
- FUNCTION        taf_fwupdate_RebootToActive
- DESCRIPTION     Reboot to active slot
- PARAMETERS      void
- RETURN VALUE    void
-======================================================================*/
-void taf_fwupdate_RebootToActive()
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reboot the system to the active bank.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_fwupdate_RebootToActive
+(
+    void
+)
 {
     if (reboot(RB_AUTOBOOT) == -1)
     {
@@ -30,9 +32,10 @@ void taf_fwupdate_RebootToActive()
  * Get current firmware version.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_OK             The firmware version string was retrieved successfully.
+ *  - LE_BAD_PARAMETER  versionPtr is null.
+ *  - LE_FAULT          The service-level request failed because taf_FwUpdate::GetFirmwareVersion()
+ *                      could not parse or obtain the current firmware version.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_fwupdate_GetFirmwareVersion
@@ -59,11 +62,17 @@ le_result_t taf_fwupdate_GetFirmwareVersion
  * Install firmware.
  *
  * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ *  - LE_OK    The firmware installation request was queued successfully.
+ *
+ * @note This API reports synchronous request-queuing success only. Final install success or failure
+ *       is delivered asynchronously through update state indications driven by the firmware update
+ *       workflow.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_fwupdate_Install()
+le_result_t taf_fwupdate_Install
+(
+    void
+)
 {
     taf_FwUpdateReq_t fwupdateReq;
 

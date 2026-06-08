@@ -7,7 +7,7 @@ provides:
 {
     api:
     {
-        taf_hms.api
+        taf_hms.api [manual-start]
     }
 }
 

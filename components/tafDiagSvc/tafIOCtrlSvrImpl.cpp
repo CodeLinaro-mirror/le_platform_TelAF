@@ -36,30 +36,35 @@ taf_diagIOCtrl_ServiceRef_t taf_IOCtrlSvr::GetService
     uint16_t dataID
 )
 {
-    LE_DEBUG("Gets the IOCtrl service!");
+    LE_DEBUG("Gets the IOCtrl service for DataID 0x%x", dataID);
 
-    // Data ID check. Exception if can't get node from config file.
     try
     {
-        cfg::Node node = cfg::top_IO_all<int>("identifier", dataID);
+        // If get_io_entry() cannot find the dataID, it will throw std::out_of_range,
+        cfg::get_io_entry(dataID);
     }
     catch (const std::exception& e)
     {
-        LE_ERROR("DataId 0x%x is not configured in YAML file.", dataID);
+        LE_ERROR("DataId 0x%x is not configured in YAML file. Exception: %s",
+                 dataID, e.what());
         return NULL;
     }
 
+    // Check if a service object already exists for this client session.
     taf_IOCtrlSvc_t* servicePtr = GetServiceObj(dataID, taf_diagIOCtrl_GetClientSessionRef());
 
     // Create a service object if it doesn't exist in the list.
     if (servicePtr == NULL)
     {
-        servicePtr = (taf_IOCtrlSvc_t *)le_mem_ForceAlloc(SvcPool);
+        servicePtr = (taf_IOCtrlSvc_t*)le_mem_ForceAlloc(SvcPool);
+        if (servicePtr == nullptr) {
+            LE_CRIT("Memory allocation failed for new IO Control service object!");
+            return NULL;
+        }
         memset(servicePtr, 0, sizeof(taf_IOCtrlSvc_t));
 
         // Init the service Rx Handler.
         servicePtr->handlerRef = NULL;
-
         servicePtr->dataID = dataID;
 
         // Init message list.
@@ -72,9 +77,9 @@ taf_diagIOCtrl_ServiceRef_t taf_IOCtrlSvr::GetService
         // Create a Safe Reference for this service object
         servicePtr->svcRef = (taf_diagIOCtrl_ServiceRef_t)le_ref_CreateRef(SvcRefMap,
                 servicePtr);
+        LE_DEBUG("svcRef %p of client %p is created for DataId 0x%x.",
+                servicePtr->svcRef, servicePtr->sessionRef, servicePtr->dataID);
     }
-
-    LE_DEBUG("Get serviceRef %p for Diag IOCtrl service.", servicePtr->svcRef);
 
     return servicePtr->svcRef;
 }
@@ -184,62 +189,54 @@ void taf_IOCtrlSvr::UDSMsgHandler
 
         try
         {
-            cfg::Node & node = cfg::top_IO_all<int>("identifier", dataId);
-            cfg::Node & enableNode = node.get_child("data_enable_condition");
+            const EnableConditionData& cond = cfg::get_event_enable_conditions(dataId);
 
-            for (const auto & enable: enableNode)
+            if (!cond.and_conditions.empty())
             {
-                // Get the defined enable operation type: "and" or "or"
-                std::string enableOperation = enable.first;
-                if (enableOperation == "and")
+                LE_DEBUG("Check IO Ctrl enable condition status based on AND operation");
+                for (uint8_t enableId : cond.and_conditions)
                 {
-                    cfg::Node & optNodeList = enableNode.get_child("and");
-                    for (const auto & optNode: optNodeList)
-                    {
-                        uint8_t enableId = optNode.second.get_value<uint8_t>();
-
-                        if (!diag.GetEnableConditionStatus(enableId))
-                        {
-                            errCode = cfg::get_nrc_by_condition_id(enableId);
-                            LE_WARN("Enable id %d condition is false, send nrc 0x%x",
-                                    enableId, errCode);
-                            SendNRCResp(sid, addrPtr, errCode);
-                            return;
-                        }
-                    }
-                }
-                else if (enableOperation == "or")
-                {
-                    cfg::Node & optNodeList = enableNode.get_child("or");
-                    bool enableStatus = false;
-                    uint8_t enableId = 0;
-
-                    for (const auto & optNode: optNodeList)
-                    {
-                        enableId = optNode.second.get_value<uint8_t>();
-
-                        if(diag.GetEnableConditionStatus(enableId))
-                        {
-                            enableStatus = true;
-                            break;
-                        }
-                    }
-
-                    if(!enableStatus && enableId != 0)
+                    LE_DEBUG("Enable condition id = 0x%x", enableId);
+                    if (!diag.GetEnableConditionStatus(enableId))
                     {
                         errCode = cfg::get_nrc_by_condition_id(enableId);
                         LE_WARN("Enable id %d condition is false, send nrc 0x%x",
-                                enableId, errCode);
+                            enableId, errCode);
                         SendNRCResp(sid, addrPtr, errCode);
                         return;
                     }
                 }
             }
+            else if (!cond.or_conditions.empty())
+            {
+                LE_DEBUG("Check IO ctrl enable condition status based on OR operation");
+                bool enableStatus = false;
+                uint8_t failingId = 0;
+
+                for (uint8_t enableId : cond.or_conditions)
+                {
+                    if (diag.GetEnableConditionStatus(enableId))
+                    {
+                        enableStatus = true;
+                        break;
+                    }
+                    failingId = enableId;   // remember the last id for error reporting
+                }
+
+                if (!enableStatus && failingId != 0)
+                {
+                    errCode = cfg::get_nrc_by_condition_id(failingId);
+                    LE_WARN("Enable id %d condition is false, send nrc 0x%x",
+                        failingId, errCode);
+                    SendNRCResp(sid, addrPtr, errCode);
+                    return;
+                }
+            }
         }
         catch (const std::exception& e)
         {
-            LE_WARN("Enable condition does not define for IO ctrol ID: 0x%x, Exception: %s",
-                    dataId, e.what());
+            LE_WARN("Enable condition does not define for IO ctrl ID: 0x%x, Exception: %s",
+                dataId, e.what());
         }
 #endif
 
@@ -283,9 +280,7 @@ void taf_IOCtrlSvr::UDSMsgHandler
             // Get the controlState size from config module
             try
             {
-                cfg::Node & ioNode = cfg::top_IO_all<int>("identifier", rxIOCtrlMsgPtr->dataID);
-                uint32_t byteSize = ioNode.get<uint32_t>("request.control_option_record.did_size");
-
+                uint32_t byteSize = cfg::get_io_control_state_size(rxIOCtrlMsgPtr->dataID);
                 rxIOCtrlMsgPtr->controlStateSize = byteSize;
             }
             catch (const std::exception& e)
@@ -361,7 +356,6 @@ taf_diagIOCtrl_RxMsgHandlerRef_t taf_IOCtrlSvr::AddRxMsgHandler
     void* contextPtr
 )
 {
-    LE_DEBUG("AddRxMsgHandler!");
 
     taf_IOCtrlSvc_t* servicePtr = (taf_IOCtrlSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, NULL, "Invalid service reference provided");
@@ -388,6 +382,8 @@ taf_diagIOCtrl_RxMsgHandlerRef_t taf_IOCtrlSvr::AddRxMsgHandler
 
     // Attach handler to service.
     servicePtr->handlerRef = handlerObjPtr->handlerRef;
+
+    LE_DEBUG("IOCtrl: Registered Rx Handler for data ID 0x%x", servicePtr->dataID);
 
     return handlerObjPtr->handlerRef;
 }

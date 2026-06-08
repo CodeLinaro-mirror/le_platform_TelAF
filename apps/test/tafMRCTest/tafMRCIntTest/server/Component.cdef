@@ -1,0 +1,20 @@
+sources:
+{
+    main.c
+}
+
+provides:
+{
+    api:
+    {
+        tafMRCIntTest.api
+    }
+}
+
+requires:
+{
+    api:
+    {
+        taf_mrc.api
+    }
+}

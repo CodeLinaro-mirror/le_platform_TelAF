@@ -47,7 +47,7 @@
 #include "AsyncCallbackUtils.hpp"
 #include "tafSmsHlos.hpp"
 #include "tafSmsPdu.hpp"
-#include "taf_pa_sms.hpp"
+#include "tafSmsPa.hpp"
 
 #define MIN_SIM_SLOT_COUNT 1
 #define MAX_SIM_SLOT_COUNT 2
@@ -176,6 +176,12 @@ typedef struct
 }
 SessionNode_t;
 
+typedef struct
+{
+    taf_sms_MsgRef_t msgRef;
+    pa_result_t      result;
+}tafSmsSendStatus_t;
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler node structure used for the handlerList list
@@ -260,6 +266,7 @@ namespace tafsvc
       le_mem_PoolRef_t MsgRefNodePool = NULL;    // Memory Pool for message references
       le_mem_PoolRef_t HandlerNodePool = NULL;   // Memory Pool for sessions context
       le_mem_PoolRef_t SessionNodePool = NULL;   // Memory Pool for sessions context
+      le_mem_PoolRef_t SmsSendStatusPool = NULL; // Memory Pool for SMS send status
 
       le_dls_List_t  SessionList;
 
@@ -296,7 +303,7 @@ namespace tafsvc
          static void ProcessSendMessage(void* context);
 
          // handler for the sending status
-         static void ProcessSendingStateEvent(void* context);
+         static void ProcessSendingStateEvent(void* reportPtr);
 
          static void CloseSessionEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
 

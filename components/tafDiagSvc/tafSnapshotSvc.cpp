@@ -5,6 +5,7 @@
  */
 
 #include "tafSnapshotSvc.hpp"
+#include "serialization.hpp"
 
 using namespace tafsvc;
 using namespace std;
@@ -41,15 +42,17 @@ bool taf_SnapshotSvr::NeedToBeTriggered
     cfg::freeze_frame_trigger_type_t typeOfTrigger
 )
 {
-    cfg::Node & dtc = cfg::get_dtc_node(dtcCode);
+     DTCEntry & dtcEntry = cfg::get_dtc_node(dtcCode);
 
-    cfg::Node & ff = dtc.get_child("snapshots.freeze_frames");
-    for (auto & f : ff)
+    const std::vector<std::string>& freezeFrameShortNames = dtcEntry.snapshots.freeze_frames;
+
+    for (const std::string& shortName_ff : freezeFrameShortNames)
     {
-        string item = f.second.get_value<string>("");
+        std::string item = shortName_ff;
 
-        cfg::Node & ffNode = cfg::top_freeze_frames<string>("short_name", item);
-        string triggerType = ffNode.get<string>("trigger");
+        FreezeFrameEntry & ffEntry = cfg::get_freeze_frame_entry_by_short_name(item);
+
+        std::string triggerType = ffEntry.trigger;
 
         if (typeOfTrigger == cfg::s_to_freeze_frame_trigger_type(triggerType))
         {
@@ -327,16 +330,23 @@ void taf_SnapshotSvr::SendRequestToCollectDids
     size_t supplierFaultCodeSize
 )
 {
-    cfg::Node & dtc = cfg::get_dtc_node(dtcCode);
-    string didType = dtc.get<string>("snapshots.snapshot_record_content");
-    cfg::Node & root = cfg::get_root_node();
-    cfg::Node & dids = root.get_child("data_identifier_set").get_child(didType);
+    DTCEntry & dtcEntry = cfg::get_dtc_node(dtcCode);
+    std::string didType = dtcEntry.snapshots.snapshot_record_content;
+    DiagConf & diagConfigRoot = cfg::get_diag_config_root();
     std::vector<uint16_t> didRequestList;
 
-    for (auto & did : dids)
-    {
-        uint16_t didCode = (uint16_t) did.second.get_value<int>();
-        didRequestList.push_back(didCode);
+    auto dataidSetIt = diagConfigRoot.dataid_set.find(didType);
+    if (dataidSetIt != diagConfigRoot.dataid_set.end()) {
+        // The found DataIdSetEntry contains the dataId vector
+        const DataIdSetEntry& dataIdSetEntry = dataidSetIt->second;
+
+        for (const int& didCodeInt : dataIdSetEntry.dataId)
+        {
+            uint16_t didCode = (uint16_t) didCodeInt;
+            didRequestList.push_back(didCode);
+        }
+    } else {
+        LE_WARN("Data Identifier Set '%s' not found in configuration.", didType.c_str());
     }
 
     LE_DEBUG("DID size: %d", (int) didRequestList.size());
@@ -362,10 +372,12 @@ void taf_SnapshotSvr::_triggerSnapshot
 #ifndef LE_CONFIG_DIAG_FEATURE_A
     if (! NeedToBeTriggered(dtcCode, typeOfTrigger))
     {
-        LE_INFO("No matching type to trigger snapshot for dtc [0x%03X].", dtcCode);
+        LE_DEBUG("No matching type for %d to trigger snapshot for dtc [0x%03X].", typeOfTrigger,
+            dtcCode);
         return;
     }
 #endif
+    LE_INFO("Collect snapshot data for DTC:%d, type:%d", dtcCode, typeOfTrigger);
     SendRequestToCollectDids(dtcCode,
                              supplierFaultCodePtr,
                              supplierFaultCodeSize);

@@ -81,12 +81,6 @@
             "unreliable" : "31000"
         },
         {
-            "service" : "0xED85",
-            "instance" : "0x0001",
-            "reliable" : { "port" : "30509", "enable-magic-cookies" : "false" },
-            "unreliable" : "31000"
-        },
-        {
             "service" : "0xEE00",
             "instance" : "0x01",
             "unreliable" : "30501",

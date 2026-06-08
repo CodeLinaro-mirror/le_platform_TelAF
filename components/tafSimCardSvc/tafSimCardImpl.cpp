@@ -36,18 +36,14 @@
 
 #include "legato.h"
 #include "interfaces.h"
-#include "telux/tel/PhoneFactory.hpp"
 #include "tafSimCard.hpp"
 #include <unistd.h>
 
-using namespace telux::tel;
-using namespace telux::common;
 using namespace tafsvc;
 using namespace std;
 
 static taf_sim_info_t simList[TAF_SIM_ID_MAX];
 static int fplmnListIndex = 0;
-static taf_sim_FPLMNListRef_t fplmnListRefs = nullptr;
 
 taf_pa_common_LogLevel_t Utility::Convert::Level
 (
@@ -88,310 +84,199 @@ le_result_t Utility::Convert::Result
             return LE_FAULT;
         case TAF_PA_SIM_RESULT_BAD_PARAMETER:
             return LE_BAD_PARAMETER ;
+        case TAF_PA_SIM_RESULT_UNSUPPORTED:
+            return LE_UNSUPPORTED;
+        case TAF_PA_SIM_RESULT_TIMEOUT:
+            return LE_TIMEOUT;
+        case PA_NOT_IMPLEMENTED:
+            return LE_NOT_IMPLEMENTED;
         default:
             LE_DEBUG("Unknown result %d.", result);
     }
     return LE_FAULT;
 }
 
-void tafCardListener:: onCardInfoChanged(int slotId)
-{
-    LE_INFO("Card info changed for slot: %d", slotId);
-    auto &sim = taf_sim::GetInstance();
-    sim_event_t simEvent;
-    auto slotWithCard = slotId;
-    if(sim.cards[slotWithCard] == nullptr && slotWithCard == DEFAULT_SLOT_ID){
-        // Map sdk logical slot to physical slot.
-        slotWithCard = SLOT_ID_2;
-    }
-    simEvent.simId = (taf_sim_Id_t)slotWithCard;
-    simEvent.state =  sim.getState((taf_sim_Id_t)slotWithCard);
-    if (simEvent.state == TAF_SIM_ABSENT) {
-        // Revert to original slotId for initialization
-        slotWithCard = slotId;
-        simEvent.simId = (taf_sim_Id_t)slotWithCard;
-        sim.InitializeSimInfo(nullptr, (taf_sim_Id_t)slotWithCard);
-    }
-    le_event_Report(sim.NewStateEventId, &simEvent, sizeof(simEvent));
-    if(simEvent.state == TAF_SIM_PRESENT) {
-        sim.CheckAndSendRefreshEvent((taf_sim_Id_t)simEvent.simId);
+taf_pa_sim_AppType_t taf_sim::ConvertTafappTypeToPaappType(taf_sim_AppType_t appType) {
+    switch (appType)
+    {
+        case TAF_SIM_APPTYPE_USIM:
+          return TAF_PA_APPTYPE_USIM;
+
+        case TAF_SIM_APPTYPE_SIM:
+            return TAF_PA_APPTYPE_SIM;
+
+        case TAF_SIM_APPTYPE_ISIM:
+            return TAF_PA_APPTYPE_ISIM;
+
+        default:
+            LE_INFO("Unsupported appType");
+            return TAF_PA_APPTYPE_UNKNOWN;
     }
 }
 
-void tafSubscriptionListener:: onSubscriptionInfoChanged
-                         (std::shared_ptr<telux::tel::ISubscription> subscription) {
-    LE_INFO("onSubscriptionInfoChanged");
-    auto &sim = taf_sim::GetInstance();
-    taf_sim_info_t* simPtr = NULL;
-    telux::common::Status status;
-    if(subscription) {
-        auto slotWithCard = subscription->getSlotId();
-        if(sim.cards[slotWithCard] == nullptr && slotWithCard == DEFAULT_SLOT_ID){
-            slotWithCard = SLOT_ID_2;
-            auto card = sim.cardManager->getCard(DEFAULT_SLOT_ID, &status);
-            LE_INFO("Update cards[%d] as %s", slotWithCard, card == nullptr ? "null" : "non-null");
-            sim.cards[slotWithCard] = card;
-        }
-        sim.InitializeSimInfo(subscription,(taf_sim_Id_t)slotWithCard);
-        simPtr = sim.GetSimContext((taf_sim_Id_t)slotWithCard);
-    } else {
-        LE_INFO("Subscription is empty");
-        sim.InitializeSimInfo(nullptr, (taf_sim_Id_t)sim.slot);
-        simPtr = sim.GetSimContext((taf_sim_Id_t)sim.slot);
+void Handler::onCardInfoChanged
+(
+    const std::shared_ptr<taf_pa_sim_CardInfo_t>& cardInfo
+)
+{
+    if (!cardInfo) {
+        LE_ERROR("Received null cardInfo");
+        return;
     }
-    sim_iccid_event_t simIccidEvent;
-    simIccidEvent.simId = (taf_sim_Id_t)simPtr->simId;
-    le_utf8_Copy(simIccidEvent.ICCID, simPtr->ICCID, sizeof(simIccidEvent.ICCID), NULL);
-
-    LE_DEBUG("simIccidEvent simId: %d, ICCID: %s", simIccidEvent.simId, simIccidEvent.ICCID);
-
-    le_event_Report(sim.IccidChangeEventId, &simIccidEvent, sizeof(simIccidEvent));
-
-    if(!sim.IsPsEventInProgress)
+    auto &sim = taf_sim::GetInstance();
+    sim_event_t simEvent;
+    simEvent.simId = (taf_sim_Id_t)cardInfo->slotId;
+    simEvent.state =  (taf_sim_States_t)cardInfo->state;
+    LE_INFO("Card info changed for slotid: %d, State: %d",  simEvent.simId , simEvent.state);
+    if(simEvent.state == TAF_SIM_PRESENT)
     {
+        sim.CheckAndSendRefreshEvent((taf_sim_Id_t)simEvent.simId);
+    }
+    else if (simEvent.state == TAF_SIM_ABSENT)
+    {
+        taf_sim_info_t* simPtr = sim.GetSimContext(simEvent.simId);
+        if (simPtr) {
+            sim.UpdateLocalSimState(simPtr, nullptr);
+        }
+    }
+    le_event_Report(sim.NewStateEventId, &simEvent, sizeof(simEvent));
+}
 
+void Handler::onSubscriptionInfoChanged
+(
+    const std::shared_ptr<taf_pa_sim_Iccid_t>& iccidDataInfo
+)
+{
+    LE_INFO("onSubscriptionInfoChanged received from PA");
+    if (!iccidDataInfo) {
+        LE_ERROR("Received null iccidDataInfo from PA layer");
+        return;
+    }
+    taf_sim_Id_t simId = (taf_sim_Id_t)iccidDataInfo->simId;
+    if (iccidDataInfo->ICCID.empty()) {
+        LE_WARN("Received empty ICCID for simId %d", simId);
+    }
+    auto &sim = taf_sim::GetInstance();
+    taf_sim_info_t* simPtr = sim.GetSimContext(simId);
+    if (!simPtr) {
+        LE_ERROR("Failed to get SimContext for simId: %d. Aborting update.", simId);
+        return;
+    }
+    sim.UpdateLocalSimState(simPtr, iccidDataInfo);
+    sim_iccid_event_t simIccidEvent;
+    memset(&simIccidEvent, 0, sizeof(simIccidEvent));
+    simIccidEvent.simId = simId;
+    le_result_t res = le_utf8_Copy(simIccidEvent.ICCID, iccidDataInfo->ICCID.c_str(), sizeof(simIccidEvent.ICCID), NULL);
+    if (res != LE_OK) {
+        LE_WARN("ICCID truncated while copying");
+    }
+    LE_DEBUG("simIccidEvent simId: %d, ICCID: %s", simIccidEvent.simId, simIccidEvent.ICCID);
+    // 6. Report Event
+    le_event_Report(sim.IccidChangeEventId, &simIccidEvent, sizeof(simIccidEvent));
+    if(!sim.IsPsEventInProgress) {
         sim.IsPsEventInProgress = true;
         sim.CheckAndSendProfileSwitchEvent();
     }
 }
 
-void tafMultiSimListener:: onSlotStatusChanged(std::map<SlotId, telux::tel::SlotStatus> slotStatus) {
-    LE_INFO("onSlotStatusChanged: %" PRIuS, slotStatus.size());
+void Handler::ChangeCardPinResponseCb
+(
+    const std::shared_ptr<taf_pa_sim_ResponseInfo_t>& responseInfo
+)
+{
+    if (!responseInfo) {
+        LE_ERROR("ChangeCardPinResponseCb received null responseInfo");
+        return;
+    }
     auto &sim = taf_sim::GetInstance();
-    int activeSlotCount = 0;
-    telux::common::Status status;
-    int activeSlots = 0;
-
-    for(auto it = slotStatus.begin(); it != slotStatus.end(); ++it) {
-        auto slotStatus = it->second;
-        if (slotStatus.slotState == telux::tel::SlotState::ACTIVE) {
-            activeSlots++;
-        }
-    }
-
-    sim.cardManager->getSlotCount(activeSlotCount);
-    if(activeSlotCount == 1){
-        sim.isSingleActive = true;
-    }
-
-    LE_INFO("activeSlotCount: %d, isSingleActive: %d", activeSlots, (int) sim.isSingleActive);
-
-    for(auto it = slotStatus.begin(); it != slotStatus.end(); ++it) {
-        auto slotId = it->first;
-        auto slotStatus = it->second;
-
-        LE_INFO("Slot: %d, slotState: %d, cardState: %d, cardError: %d", slotId,
-                (int) slotStatus.slotState, (int) slotStatus.cardState,
-                (int) slotStatus.cardError);
-
-        if(activeSlots == 1) { //Single Active slot
-            if (slotStatus.slotState == telux::tel::SlotState::ACTIVE) {
-                sim.slot = slotId;
-            }
-            if (slotStatus.cardState != telux::tel::CardState::CARDSTATE_UNKNOWN
-                    && slotStatus.cardState != telux::tel::CardState::CARDSTATE_ABSENT) {
-                LE_INFO("Find card for single active in slot: %d", slotId);
-                auto card = sim.cardManager->getCard(DEFAULT_SLOT_ID, &status);
-                sim.cards[slotId] = card;
-                LE_INFO("Put card as %s in cards[%d]", card == nullptr ? "null" : "non-null", slotId);
-            } else {
-                sim.cards[slotId] = nullptr;
-                LE_INFO("Update card as null in cards[%d]", slotId);
-            }
-        } else if((slotStatus.slotState == telux::tel::SlotState::ACTIVE)
-                && (activeSlots == 2)){
-            LE_INFO("Find card for dual active in slot: %d", slotId);
-            auto card = sim.cardManager->getCard(slotId, &status);
-            sim.cards[slotId] = card;
-        } else {
-            LE_INFO("Find no card for slot: %d", slotId);
-            sim.cards[slotId] = nullptr;
-        }
-    }
-}
-
-void taf_sim::requestsSlotsStatusResponse(std::map<SlotId,
-         telux::tel::SlotStatus> slotStatus, telux::common::ErrorCode error) {
-    auto &sim = taf_sim::GetInstance();
-    sim.slotCount = slotStatus.size();
-    LE_INFO("requestsSlotsStatusResponse: slotCount: %d", sim.slotCount);
-    telux::common::Status status;
-    int activeSlots = 0;
-    for(auto it = slotStatus.begin(); it != slotStatus.end(); ++it) {
-        auto slotStatus = it->second;
-        if (slotStatus.slotState == telux::tel::SlotState::ACTIVE) {
-            activeSlots++;
-        }
-    }
-    int activeSlotCount = 0;
-    sim.cardManager->getSlotCount(activeSlotCount);
-    if(activeSlotCount == 1){
-        sim.isSingleActive = true;
-    }
-    LE_INFO("activeSlotCount: %d, isSingleActive: %d", activeSlots, (int) sim.isSingleActive);
-    for(auto it = slotStatus.begin(); it != slotStatus.end(); ++it) {
-        auto slotId = it->first;
-        auto slotStatus = it->second;
-        LE_INFO("Slot: %d, slotState: %d, cardState: %d, cardError: %d", slotId,
-                (int) slotStatus.slotState, (int) slotStatus.cardState,
-                (int) slotStatus.cardError);
-        if(activeSlots == 1) {
-            if (slotStatus.slotState == telux::tel::SlotState::ACTIVE) {
-                sim.slot = slotId;
-            }
-            if (slotStatus.cardState != telux::tel::CardState::CARDSTATE_UNKNOWN
-                && slotStatus.cardState != telux::tel::CardState::CARDSTATE_ABSENT) {
-                LE_INFO("Find card for single active in slot: %d", slotId);
-                auto card = sim.cardManager->getCard(DEFAULT_SLOT_ID, &status);
-                sim.cards[slotId] = card;
-                LE_INFO("Put card as %s in cards[%d]",
-                card == nullptr ? "null" : "non-null", slotId);
-            }
-            else {
-                sim.cards[slotId] = nullptr;
-                LE_INFO("Update card as null in cards[%d]", slotId);
-            }
-        }
-        else if((slotStatus.slotState == telux::tel::SlotState::ACTIVE)
-                    && (activeSlots == 2)){
-            LE_INFO("Find card for dual active in slot: %d", slotId);
-            auto card = sim.cardManager->getCard(slotId, &status);
-            sim.cards.emplace(slotId, card);
-        }
-        else {
-            LE_INFO("Find no card for slot: %d", slotId);
-            sim.cards.emplace(slotId, nullptr);
-        }
-    }
-}
-
-void tafAuthenticationResponseCallback:: ChangeCardPinResponseCb(int retryCount, telux::common::ErrorCode error) {
-    auto &sim = taf_sim::GetInstance();
-    taf_sim_info_t* simPtr = sim.GetSimContext((taf_sim_Id_t)sim.slot);
     sim_response_event_t simResponsePtr;
-    simResponsePtr.simId = (taf_sim_Id_t) sim.slot;
-    simResponsePtr.responseType = TAF_SIM_CHANGE_PIN;
-    if(error != telux::common::ErrorCode::SUCCESS) {
-        LE_INFO("Change Card Pin Request failed with errorCode: %d",(int) error);
-        LE_INFO("Change Card Pin Request failed retryCount:%d",retryCount);
-        simPtr->pinTryCount = retryCount;
-        simResponsePtr.result = LE_FAULT ;
-    } else {
-        LE_INFO("Change Card Pin Request successful retryCount:%d",retryCount);
-        simPtr->pinTryCount = retryCount;
-        simResponsePtr.result = LE_OK;
+    memset(&simResponsePtr, 0, sizeof(simResponsePtr));
+    simResponsePtr.simId = (taf_sim_Id_t) responseInfo->simId;
+    if (!taf_sim::isValidSimId(simResponsePtr.simId)) {
+        LE_WARN("Invalid simId: %d", (int)simResponsePtr.simId);
+        return;
     }
+    simResponsePtr.responseType = (taf_sim_LockResponse_t)responseInfo->responseType;
+    simResponsePtr.result = Utility::Convert::Result(responseInfo->result);
+    LE_INFO("ChangeCardPinResponse: simId=%d type=%d result=%d",simResponsePtr.simId,
+            simResponsePtr.responseType,
+            simResponsePtr.result);
     le_event_Report(sim.ResponseEventId, &simResponsePtr,sizeof(simResponsePtr));
 }
 
-void tafAuthenticationResponseCallback:: unlockCardByPukResponseCb(int retryCount, telux::common::ErrorCode error) {
-    auto &sim = taf_sim::GetInstance();
-    taf_sim_info_t* simPtr = sim.GetSimContext((taf_sim_Id_t)sim.slot);
-    sim_response_event_t simResponsePtr;
-    simResponsePtr.simId = (taf_sim_Id_t) sim.slot;
-    simResponsePtr.responseType = TAF_SIM_UNLOCK_BY_PUK;
-
-    if(error != telux::common::ErrorCode::SUCCESS) {
-        LE_INFO("Unlock Card By Puk Request failed with errorCode:%d ",(int)error);
-        LE_INFO("Unlock Card By Puk request failed retryCount:%d",retryCount);
-        simPtr->pukTryCount = retryCount;
-        simResponsePtr.result = LE_FAULT ;
-    } else {
-        LE_INFO("Unlock Card By Puk request successful retryCount:%d",retryCount);
-        simPtr->pinTryCount = 3;
-        simPtr->pukTryCount = 10;
-        simResponsePtr.result = LE_OK;
+void Handler::unlockCardByPukResponseCb
+(
+    const std::shared_ptr<taf_pa_sim_UnlockCardPukResponseInfo_t>& responseInfo
+)
+{
+    if (!responseInfo) {
+        LE_ERROR("unlockCardByPukResponseCb received null responseInfo");
+        return;
     }
+    auto &sim = taf_sim::GetInstance();
+    sim_response_event_t simResponsePtr;
+    memset(&simResponsePtr, 0, sizeof(simResponsePtr));
+    simResponsePtr.simId = (taf_sim_Id_t) responseInfo->simId;
+     if (!taf_sim::isValidSimId(simResponsePtr.simId)) {
+        LE_WARN("Invalid simId: %d", (int)simResponsePtr.simId);
+        return;
+    }
+    simResponsePtr.responseType = (taf_sim_LockResponse_t)responseInfo->responseType;
+    simResponsePtr.result = Utility::Convert::Result(responseInfo->result);
+    LE_INFO("unlockCardByPukResponseCb: simId=%d type=%d result=%d",simResponsePtr.simId,
+            simResponsePtr.responseType,
+            simResponsePtr.result);
     le_event_Report(sim.ResponseEventId, &simResponsePtr,sizeof(simResponsePtr));
 }
 
-void tafAuthenticationResponseCallback:: unlockCardByPinResponseCb(int retryCount, telux::common::ErrorCode error) {
-    auto &sim = taf_sim::GetInstance();
-    taf_sim_info_t* simPtr = sim.GetSimContext((taf_sim_Id_t)sim.slot);
-    sim_response_event_t simResponsePtr;
-    simResponsePtr.simId = (taf_sim_Id_t) sim.slot;
-    simResponsePtr.responseType = TAF_SIM_UNLOCK_BY_PIN;
-    if(error != telux::common::ErrorCode::SUCCESS) {
-        simPtr->pinTryCount = retryCount;
-        LE_INFO("Unlock Card By Pin Request failed with errorCode: %d ",(int)error);
-        LE_INFO( "Unlock Card By Pin Request failed retryCount: %d",retryCount);
-        simResponsePtr.result = LE_FAULT ;
-    } else {
-        simPtr->pinTryCount = retryCount;
-        simResponsePtr.result = LE_OK;
-        LE_INFO( "Unlock Card By Pin Request successful retryCount: %d",retryCount);
+void Handler::unlockCardByPinResponseCb
+(
+    const std::shared_ptr<taf_pa_sim_UnlockCardResponseInfo_t>& responseInfo
+)
+{
+    if (!responseInfo) {
+        LE_ERROR("unlockCardByPinResponseCb received null responseInfo");
+        return;
     }
+    auto &sim = taf_sim::GetInstance();
+    sim_response_event_t simResponsePtr;
+    memset(&simResponsePtr, 0, sizeof(simResponsePtr));
+    simResponsePtr.simId = (taf_sim_Id_t) responseInfo->simId;
+    if (!taf_sim::isValidSimId(simResponsePtr.simId)) {
+        LE_WARN("Invalid simId: %d", (int)simResponsePtr.simId);
+        return;
+    }
+    simResponsePtr.responseType = (taf_sim_LockResponse_t)responseInfo->responseType;
+    simResponsePtr.result = Utility::Convert::Result(responseInfo->result);
+    LE_INFO("unlockCardByPinResponseCb: simId=%d type=%d result=%d",simResponsePtr.simId,
+            simResponsePtr.responseType,
+            simResponsePtr.result);
     le_event_Report(sim.ResponseEventId, &simResponsePtr,sizeof(simResponsePtr));
 }
 
-void tafAuthenticationResponseCallback::setCardLockResponseCb(int retryCount, telux::common::ErrorCode error) {
+void Handler::setCardLockResponseCb
+(
+    const std::shared_ptr<taf_pa_sim_CardLockResponseInfo_t>& responseInfo
+)
+{
+    if (!responseInfo) {
+        LE_ERROR("setCardLockResponseCb received null responseInfo");
+        return;
+    }
     auto &sim = taf_sim::GetInstance();
     sim_response_event_t simResponsePtr;
-    simResponsePtr.simId = (taf_sim_Id_t) sim.slot;
-    simResponsePtr.responseType = TAF_SIM_SET_LOCK;
-    taf_sim_info_t* simPtr = sim.GetSimContext((taf_sim_Id_t)sim.slot);
-    if(error != telux::common::ErrorCode::SUCCESS) {
-        LE_INFO("Set card lock Request failed with errorCode: %d ",(int)error);
-        LE_INFO( "Set card lock Request failed retryCount: %d",retryCount);
-        simPtr->pinTryCount = retryCount;
-        simResponsePtr.result = LE_FAULT ;
-    } else {
-        LE_INFO( "Set card lock Request successful retryCount: %d",retryCount);
-        simPtr->pinTryCount = retryCount;
-        simResponsePtr.result = LE_OK;
+    memset(&simResponsePtr, 0, sizeof(simResponsePtr));
+    simResponsePtr.simId = (taf_sim_Id_t) responseInfo->simId;
+    if (!taf_sim::isValidSimId(simResponsePtr.simId)) {
+        LE_WARN("Invalid simId: %d", (int)simResponsePtr.simId);
+        return;
     }
+    simResponsePtr.responseType = (taf_sim_LockResponse_t)responseInfo->responseType;
+    simResponsePtr.result = Utility::Convert::Result(responseInfo->result);
+    LE_INFO("setCardLockResponseCb: simId=%d type=%d result=%d",simResponsePtr.simId,
+            simResponsePtr.responseType,
+            simResponsePtr.result);
     le_event_Report(sim.ResponseEventId, &simResponsePtr,sizeof(simResponsePtr));
-}
-
-void tafOpenLogicalChannelCallback::onChannelResponse(int channel, IccResult result,
-                                                     ErrorCode error) {
-    auto &sim = taf_sim::GetInstance();
-   std::unique_lock<std::mutex> lock(sim.eventMutex);
-   sim.errorCode = error;
-   sim.openChannel = (uint8_t)channel;
-   sim.cardRespReceived = true;
-   if(sim.cardEventExpected == CardEvent::OPEN_LOGICAL_CHANNEL) {
-       LE_INFO("OpenLogicalChannel callback response sw1: %d, sw2: %d", (uint8_t)result.sw1, (uint8_t)result.sw2);
-       if(error == telux::common::ErrorCode::SUCCESS && (uint8_t)result.sw1 == 0x90 && (uint8_t)result.sw2 == 0x00) {
-           LE_INFO("OpenLogicalChannel successful channel = %d", channel);
-       } else {
-           sim.errorCode = telux::common::ErrorCode::SIM_BUSY;
-           LE_INFO("OpenLogicalChannel failed");
-       }
-       LE_INFO("Card Event OPEN_LOGICAL_CHANNEL found with code : %d", int(error));
-       sim.eventCV.notify_one();
-   }
-}
-
-
-void tafCloseLogicalChannelCallback::commandResponse(telux::common::ErrorCode error) {
-   if(error == telux::common::ErrorCode::SUCCESS) {
-      LE_INFO("onCloseLogicalChannel successful.");
-   } else {
-      LE_INFO( "onCloseLogicalChannel failed\n error: %d ", static_cast<int>(error));
-   }
-   auto &sim = taf_sim::GetInstance();
-   std::unique_lock<std::mutex> lock(sim.eventMutex);
-   sim.errorCode = error;
-   sim.cardRespReceived = true;
-   if(sim.cardEventExpected == CardEvent::CLOSE_LOGICAL_CHANNEL) {
-      LE_INFO("Card Event CLOSE_LOGICAL_CHANNEL found with code : %d", int(error));
-      sim.eventCV.notify_one();
-   }
-}
-
-void tafTransmitApduResponseCallback::onResponse(IccResult result, ErrorCode error) {
-   LE_INFO("onResponse, error: %d ",(int)error);
-   auto &sim = taf_sim::GetInstance();
-   std::unique_lock<std::mutex> lock(sim.eventMutex);
-   sim.errorCode = error;
-   sim.apduResponse = result;
-   sim.cardRespReceived = true;
-   LE_INFO("onResponse: %s " , result.toString().c_str());
-   if(sim.cardEventExpected == CardEvent::TRANSMIT_APDU_CHANNEL) {
-      LE_INFO("Card Event TRANSMIT_APDU_CHANNEL found with code : %d", int(error));
-      sim.eventCV.notify_one();
-   }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -401,286 +286,18 @@ void tafTransmitApduResponseCallback::onResponse(IccResult result, ErrorCode err
 //--------------------------------------------------------------------------------------------------
 void RegisterListeners()
 {
-    auto &sim = taf_sim::GetInstance();
-    telux::common::Status status;
-
-    LE_DEBUG("RegisterListeners");
-    if ((sim.multiSimMgr != nullptr) && (sim.multiSimListener != nullptr))
+    pa_result_t result = taf_pa_sim_RegisterListeners();
+    if (result != TAF_PA_SIM_RESULT_OK)
     {
-        status = sim.multiSimMgr->registerListener(sim.multiSimListener);
-        if (status != telux::common::Status::SUCCESS)
-        {
-            LE_ERROR("Fail to register multi sim listener.");
-        }
+        LE_ERROR("Fail to register listeners via PA OSS API.");
     }
-
-    if ((sim.cardManager != nullptr) && (sim.cardListener != nullptr))
-    {
-        status = sim.cardManager->registerListener(sim.cardListener);
-        if (status != telux::common::Status::SUCCESS)
-        {
-            LE_ERROR("Fail to register card listener.");
-        }
-    }
-
-    if ((sim.subMgr != nullptr) && (sim.subscriptionListener != nullptr))
-    {
-        status = sim.subMgr->registerListener(sim.subscriptionListener);
-        if (status != telux::common::Status::SUCCESS)
-        {
-            LE_ERROR("Fail to register subscription listener.");
-        }
-    }
-}
-
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Deregister listeners.
- */
-//--------------------------------------------------------------------------------------------------
-void DeregisterListeners()
-{
-    auto &sim = taf_sim::GetInstance();
-    telux::common::Status status;
-
-    LE_DEBUG("RegisterListeners");
-    if ((sim.multiSimMgr != nullptr) && (sim.multiSimListener != nullptr))
-    {
-        status = sim.multiSimMgr->deregisterListener(sim.multiSimListener);
-        if (status != telux::common::Status::SUCCESS)
-        {
-            LE_ERROR("Fail to deregister multi sim listener.");
-        }
-    }
-
-    if ((sim.cardManager != nullptr) && (sim.cardListener != nullptr))
-    {
-        status = sim.cardManager->removeListener(sim.cardListener);
-        if (status != telux::common::Status::SUCCESS)
-        {
-            LE_ERROR("Fail to deregister card delistener.");
-        }
-    }
-
-    if ((sim.subMgr != nullptr) && (sim.subscriptionListener != nullptr))
-    {
-        status = sim.subMgr->removeListener(sim.subscriptionListener);
-        if (status != telux::common::Status::SUCCESS)
-        {
-            LE_ERROR("Fail to deregister subscription listener.");
-        }
-    }
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Handler for power state changes
- */
-//--------------------------------------------------------------------------------------------------
-void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr)
-{
-    if (state == TAF_PM_STATE_RESUME)
-    {
-        LE_INFO("Power state change to RESUME");
-        RegisterListeners();
-    }
-    else if (state == TAF_PM_STATE_SUSPEND)
-    {
-        LE_INFO("Power state change to SUSPEND");
-        DeregisterListeners();
-    }
+    LE_INFO("registered all listeners succesfully");
 }
 
 void taf_sim::Init(void)
 {
-    auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
-    telux::common::ServiceStatus subMgrStatus = telux::common::ServiceStatus::SERVICE_UNAVAILABLE;
-    LE_INFO("Subscription subsystem is not ready, waiting for it to be ready...");
-    std::promise<telux::common::ServiceStatus> subMgrProm;
-    subMgr = phoneFactory.getSubscriptionManager([&](telux::common::ServiceStatus status)
-    {
-        LE_INFO("Getting status:%d from subscription manager", (int)status);
-        try{
-            if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-            {
-                subMgrProm.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
-            }
-            else {
-                subMgrProm.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
-            }
-        }
-        catch (const std::future_error &e) {
-            LE_ERROR("Future error in subscription callback: %s",e.what());
-        }
-        catch (const std::exception& e)
-        {
-            LE_ERROR("Exception in subscription callback: %s", e.what());
-        }
-    });
-    if(!subMgr)
-    {
-        LE_FATAL("Failed to get Subscription Manager");
-    }
-    std::future<telux::common::ServiceStatus>subInitFuture = subMgrProm.get_future();
-    std::future_status subWaitStatus =subInitFuture.wait_for(std::chrono::seconds(
-        TAF_SIM_SUBSYSTEM_TIMEOUT));
-    if (std::future_status::timeout == subWaitStatus){
-        LE_FATAL("Timeout waiting for subscription susbsytem");
-    }
-    else{
-        try{
-            subMgrStatus =subInitFuture.get();
-        }
-        catch (const std::exception& e)
-        {
-            LE_ERROR("Exception in subscription callback: %s", e.what());
-        }
-    }
-    if (subMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE){
-        LE_INFO("Subscription subsystem is ready.");
-    }
-    else{
-        LE_FATAL("Fail to init subscription subsystem");
-    }
-
-    telux::common::ServiceStatus cardMgrStatus = telux::common::ServiceStatus::SERVICE_UNAVAILABLE;
-    LE_INFO("Card subsystem is not ready, waiting for it to be ready...");
-    std::promise<telux::common::ServiceStatus> cardMgrProm;
-    cardManager = phoneFactory.getCardManager([&](telux::common::ServiceStatus status) {
-        LE_INFO("Getting status:%d from card manager", (int)status);
-        try{
-            if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-            {
-                cardMgrProm.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
-            }
-            else
-            {
-                cardMgrProm.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
-            }
-        }
-        catch (const std::future_error &e) {
-            LE_ERROR("Future error in cardManager callback: %s", e.what());
-        }
-        catch (const std::exception &e) {
-            LE_ERROR("Exception in cardManager callback: %s", e.what());
-        }
-    });
-    if(!cardManager)
-    {
-        LE_FATAL("Failed to get CardManager");
-    }
-    std::future<telux::common::ServiceStatus> cardInitFuture = cardMgrProm.get_future();
-    std::future_status cardWaitStatus = cardInitFuture.wait_for(std::chrono::seconds(
-        TAF_SIM_SUBSYSTEM_TIMEOUT));
-    if (std::future_status::timeout == cardWaitStatus  )
-    {
-        LE_FATAL("Timeout waiting for card susbsytem.");
-    }
-    else
-    {
-        try{
-            cardMgrStatus = cardInitFuture.get();
-        }
-        catch (const std::exception &e) {
-            LE_ERROR("Exception in cardManager callback: %s", e.what());
-        }
-    }
-    if (cardMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-    {
-        LE_INFO("Card subsystem is ready.");
-    }
-    else
-    {
-        LE_FATAL("Fail to init card subsystem");
-    }
-
-    telux::common::ServiceStatus multiSimMgrStatus = telux::common::ServiceStatus::SERVICE_UNAVAILABLE;
-    LE_INFO("Multi sim subsystem is not ready, waiting for it to be ready...");
-    std::promise<telux::common::ServiceStatus> multiSimMgrProm;
-    multiSimMgr = phoneFactory.getMultiSimManager([&](telux::common::ServiceStatus status) {
-        LE_INFO("Getting status:%d from multi sim manager", (int)status);
-        try{
-            if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-            {
-                multiSimMgrProm.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
-            } else {
-                multiSimMgrProm.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
-            }
-        }
-        catch (const std::future_error &e) {
-            LE_ERROR("Future Exception in MultiSim callback %s", e.what());
-        }
-        catch (const std::exception& e)
-        {
-            LE_ERROR("Exception in MultiSim callback: %s", e.what());
-        }
-    });
-
-    std::future<telux::common::ServiceStatus> multiSimInitFuture = multiSimMgrProm.get_future();
-    std::future_status multiSimwaitStatus = multiSimInitFuture.wait_for(std::chrono::seconds(
-            TAF_SIM_SUBSYSTEM_TIMEOUT));
-    if (std::future_status::timeout == multiSimwaitStatus)
-    {
-        LE_FATAL ("Timeout waiting for multi sim susbsytem");
-    }
-    else
-    {
-        try
-        {
-            multiSimMgrStatus = multiSimInitFuture.get();
-        }
-        catch (const std::exception& e)
-        {
-            LE_ERROR("Exception in MultiSim callback: %s", e.what());
-        }
-    }
-
-    if (multiSimMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-    {
-        LE_INFO("Multi sim subsystem is ready.");
-        std::promise<telux::common::ErrorCode> slotStatusCbPromise;
-        std::future<telux::common::ErrorCode> errorStatus = slotStatusCbPromise.get_future();
-        auto callback = [&](std::map<SlotId,
-                telux::tel::SlotStatus> slotStatus, telux::common::ErrorCode error) {
-            auto &sim = taf_sim::GetInstance();
-            if (error == telux::common::ErrorCode::SUCCESS){
-                sim.requestsSlotsStatusResponse(slotStatus, error);
-            }
-            else {
-                LE_ERROR("Request slot status failed with error: %d", (int)error);
-            }
-            try{
-                slotStatusCbPromise.set_value(error);
-            }
-            catch (const std::future_error &e) {
-                LE_ERROR("Future error in slot status callback: %s", e.what());
-            }
-            catch (const std::exception &e) {
-                LE_ERROR("Exception in slot status callback: %s", e.what());
-            }
-        };
-        auto ret = multiSimMgr->requestSlotStatus(callback);
-        if(ret != telux::common::Status::SUCCESS){
-            LE_FATAL("Request slot status failed with error: %d", (int)ret);
-        }
-        try{
-            telux::common::ErrorCode errorCode = errorStatus.get();
-            if(errorCode != telux::common::ErrorCode::SUCCESS){
-                LE_FATAL("Initialize slot card map failed with error:%d",(int)errorCode);
-            }
-        }
-        catch (const std::exception &e) {
-            LE_ERROR("Exception in requestSlotStatus: %s", e.what());
-        }
-    }
-    else
-    {
-        LE_FATAL("Fail to init multi sim subsystem");
-    }
-
     FPLMNNodePool = le_mem_CreatePool("FPLMNNodePool", sizeof(FPLMNNode_t));
-    le_mem_ExpandPool(FPLMNNodePool, TAF_SIM_FPLMN_MAX_LISTS * TAF_SIM_FPLMN_MAX_OPERATORS_PER_LIST);
+    le_mem_ExpandPool(FPLMNNodePool, TAF_SIM_FPLMN_MAX_OPERATORS_PER_LIST);
     FPLMNListPool = le_mem_CreatePool("FPLMNListPool", sizeof(taf_sim_FPLMNList_t));
     le_mem_ExpandPool(FPLMNListPool, TAF_SIM_FPLMN_MAX_LISTS);
     FPLMNListRefMap = le_ref_CreateMap("FPLMNListRefMap", TAF_SIM_FPLMN_MAX_LISTS);
@@ -690,28 +307,21 @@ void taf_sim::Init(void)
     SessionRefMap = le_ref_CreateMap("SessionRefMapRefMap", 10);
     fplmnListIndex = 0;
 
-    subscriptionListener = std::make_shared<tafSubscriptionListener>();
-    cardListener = std::make_shared<tafCardListener>();
-    multiSimListener = std::make_shared<tafMultiSimListener>();
-
     NewStateEventId = le_event_CreateId("NewStateEventId", sizeof(sim_event_t));
     ResponseEventId = le_event_CreateId("ResponseEventId", sizeof(sim_response_event_t));
     IccidChangeEventId = le_event_CreateId("IccidChangeEventId", sizeof(sim_iccid_event_t));
-
-    for (auto i = 0; i < TAF_SIM_ID_MAX; i++)
+    RegisterListeners();
+    eventListener.onSubscriptionInfoChanged = &Handler::onSubscriptionInfoChanged;
+    eventListener.onCardInfoChanged = &Handler::onCardInfoChanged;
+    eventListener.ChangeCardPinResponseCb = &Handler::ChangeCardPinResponseCb;
+    eventListener.unlockCardByPinResponseCb = &Handler::unlockCardByPinResponseCb;
+    eventListener.unlockCardByPukResponseCb = &Handler::unlockCardByPukResponseCb;
+    eventListener.setCardLockResponseCb = &Handler::setCardLockResponseCb;
+    pa_result_t regEvtRes = taf_pa_sim_RegisterEventListener(&eventListener,nullptr);
+    if (regEvtRes != PA_OK)
     {
-        simList[i].simId = (taf_sim_Id_t)(i + 1);
-        simList[i].ICCID[0] = '\0';
-        simList[i].IMSI[0] = '\0';
-        simList[i].phoneNumber[0] = '\0';
-        simList[i].pinTryCount = 3;
-        simList[i].pukTryCount = 10;
-    }
-
-    taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
-    if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
-    {
-        RegisterListeners();
+        LE_ERROR("Listener register failed for");
+        return;
     }
 }
 
@@ -721,145 +331,17 @@ taf_sim &taf_sim::GetInstance()
     return instance;
 }
 
-taf_sim_States_t taf_sim::getState(taf_sim_Id_t simId) {
-    LE_INFO("Input sim Id: %d, cards size: %" PRIuS, (int)simId, cards.size());
-
-    if (simId >= TAF_SIM_ID_MAX || simId <= 0) {
-        LE_INFO("Invalid sim Id");
-        return TAF_SIM_STATE_UNKNOWN;
+taf_sim_States_t taf_sim::getState(taf_sim_Id_t simId)
+{
+    taf_pa_sim_States_t state = TAF_PA_SIM_STATE_UNKNOWN;
+    pa_result_t result = taf_pa_sim_GetState((taf_pa_sim_Id_t) simId, &state);
+    if (result != TAF_PA_SIM_RESULT_OK) {
+        LE_ERROR("taf_pa_sim_GetState failed or returned error for simId: %d", simId);
+        state = TAF_PA_SIM_STATE_UNKNOWN;
     }
-
-    if (simId != TAF_SIM_UNSPECIFIED) {
-        if (simId > cards.size()) {
-            return TAF_SIM_STATE_UNKNOWN;
-        }
-    }
-    if(simId == TAF_SIM_UNSPECIFIED) {
-        LE_INFO("Sim Id as Unknown");
-        simId = taf_sim_GetSelectedCard();
-    }
-    auto card = cards[simId];
-    telux::tel::CardState cardState = telux::tel::CardState::CARDSTATE_UNKNOWN;
-    if(card != nullptr) {
-        card->getState(cardState);
-        LE_INFO( "CardState : %s\n ",  cardStateToString(cardState)) ;
-        if(cardState == telux::tel::CardState::CARDSTATE_PRESENT) {
-            std::vector<std::shared_ptr<telux::tel::ICardApp>> applications;
-            applications = card->getApplications();
-            if(applications.size() != 0)  {
-                for(auto cardApp : applications) {
-                    if(cardApp->getAppType() == telux::tel::AppType::APPTYPE_USIM) {
-                        auto appState = cardApp->getAppState();
-                        if (appState == telux::tel::AppState::APPSTATE_READY) {
-                            return TAF_SIM_READY;
-                        } else if (appState == telux::tel::AppState::APPSTATE_ILLEGAL) {
-                            return TAF_SIM_ERROR;
-                        }
-                    }
-                }
-            }
-            return TAF_SIM_PRESENT;
-        }
-    } else {
-        return TAF_SIM_ABSENT;
-    }
-    return cardStateToTafSimStates(cardState);
-}
-
-const char* taf_sim::statusToString(telux::common::Status status) {
-    const char *statusString;
-    switch(status) {
-        case telux::common::Status::SUCCESS:
-            statusString = "SUCCESS";
-            break;
-        case telux::common::Status::FAILED:
-            statusString = "FAILED";
-            break;
-        case telux::common::Status::NOCONNECTION:
-            statusString = "NOCONNECTION";
-            break;
-        case telux::common::Status::NOSUBSCRIPTION:
-            statusString = "NOSUBSCRIPTION";
-            break;
-        case telux::common::Status::INVALIDPARAM:
-            statusString = "INVALIDPARAM";
-            break;
-        case telux::common::Status::INVALIDSTATE:
-            statusString = "INVALIDSTATE";
-            break;
-        case telux::common::Status::NOTREADY:
-            statusString = "NOTREADY";
-            break;
-        case telux::common::Status::NOTALLOWED:
-            statusString = "NOTALLOWED";
-            break;
-        case telux::common::Status::NOTIMPLEMENTED:
-            statusString = "NOTIMPLEMENTED";
-            break;
-        case telux::common::Status::CONNECTIONLOST:
-            statusString = "CONNECTIONLOST";
-            break;
-        case telux::common::Status::EXPIRED:
-            statusString = "EXPIRED ";
-            break;
-        case telux::common::Status::ALREADY:
-            statusString = "ALREADY";
-            break;
-        case telux::common::Status::NOSUCH:
-            statusString = "NOSUCH";
-            break;
-        case telux::common::Status::NOTSUPPORTED:
-            statusString = "NOTSUPPORTED";
-            break;
-        case telux::common::Status::NOMEMORY:
-            statusString = "NOMEMORY";
-            break;
-        default:
-            statusString = "Unknown State";
-            break;
-    }
-    return statusString;
-}
-
-const char* taf_sim::cardStateToString(CardState state) {
-    const char *cardState;
-    switch(state) {
-        case telux::tel::CardState::CARDSTATE_ABSENT:
-            cardState = "Absent";
-            break;
-        case telux::tel::CardState::CARDSTATE_PRESENT:
-            cardState = "Present";
-            break;
-        case telux::tel::CardState::CARDSTATE_ERROR:
-            cardState = "Either error or absent";
-            break;
-        case telux::tel::CardState::CARDSTATE_RESTRICTED:
-            cardState = "Restricted";
-            break;
-        default:
-            cardState = "Unknown card state";
-            break;
-    }
-    return cardState;
-}
-
-taf_sim_States_t taf_sim::cardStateToTafSimStates(CardState state) {
-    taf_sim_States_t simState;
-    switch(state) {
-        case telux::tel::CardState::CARDSTATE_ABSENT:
-            simState = TAF_SIM_ABSENT;
-            break;
-        case telux::tel::CardState::CARDSTATE_ERROR:
-            simState = TAF_SIM_ERROR;
-            break;
-        case telux::tel::CardState::CARDSTATE_RESTRICTED:
-            simState = TAF_SIM_RESTRICTED;
-            break;
-        default:
-            simState = TAF_SIM_STATE_UNKNOWN;
-            break;
-    }
-    return simState;
+    taf_sim_States_t sim_state = Utility::Convert::taf_Common_State_Result(state);
+    LE_INFO("taf_pa_sim_GetState returned simId: %d, state is: %d", simId, sim_state);
+    return sim_state;
 }
 
 taf_sim_NewStateHandlerRef_t taf_sim::AddStateHandler(taf_sim_NewStateHandlerFunc_t handlerPtr,
@@ -936,6 +418,13 @@ taf_sim_info_t* taf_sim::GetSimContext(taf_sim_Id_t simId) {
 }
 
 bool taf_sim::isValidSimId(taf_sim_Id_t simId) {
+    int slotCount = 0;
+    pa_result_t paResult = taf_pa_sim_getSlotCount(&slotCount);
+    if (paResult != TAF_PA_SIM_RESULT_OK)
+    {
+        LE_INFO("Fail to get slot count via PA OSS API.");
+        return false;
+    }
     LE_INFO("isValidSimId: slot count: %d, input simId: %d", slotCount, (int)simId);
     if ((simId > 0 && simId <= slotCount) || simId == TAF_SIM_UNSPECIFIED ) {
         return true;
@@ -982,42 +471,31 @@ taf_sim_RefreshStatus_t taf_sim::ConvertPaRefreshStageToTafRefreshStatus
 
     return TAF_SIM_REFRESH_STATUS_FAILURE;
 }
-
 void taf_sim::CheckAndSendProfileSwitchEvent() {
     auto &sim = taf_sim::GetInstance();
 
     char iccid1[TAF_SIM_ICCID_BYTES];
     char iccid2[TAF_SIM_ICCID_BYTES];
-
+    char iccid[TAF_SIM_ICCID_BYTES]  = {0};
     sim_refresh_event_t simRefreshEvent;
     simRefreshEvent.refreshStatus = 0;
 
     LE_DEBUG("ICCID change and profile swap");
 
     le_result_t result = LE_FAULT;
-    string iccId = "";
     memset(iccid1, 0, TAF_SIM_ICCID_BYTES);
     memset(iccid2, 0, TAF_SIM_ICCID_BYTES);
 
-    auto subscription = getSubscription((taf_sim_Id_t) DEFAULT_SLOT_ID);
-
-    if (!subscription) {
-        LE_ERROR("subscription is null for slot1");
-    } else {
-        iccId = subscription->getIccId();
-        le_utf8_Copy(iccid1, iccId.c_str(), TAF_SIM_ICCID_BYTES, NULL);
+    if (getICCID(TAF_SIM_SLOT_ID_1, iccid, sizeof(iccid)) == LE_OK)
+    {
+        le_utf8_Copy(iccid1, iccid, TAF_SIM_ICCID_BYTES, NULL);
+    }
+    memset(iccid, 0, sizeof(iccid));
+    if (getICCID(TAF_SIM_SLOT_ID_2, iccid, sizeof(iccid)) == LE_OK)
+    {
+        le_utf8_Copy(iccid2, iccid, TAF_SIM_ICCID_BYTES, NULL);
     }
 
-    iccId = "";
-
-    subscription = getSubscription((taf_sim_Id_t) (DEFAULT_SLOT_ID+1));
-
-    if (!subscription) {
-        LE_ERROR("subscription is null for slot2");
-    } else {
-        iccId = subscription->getIccId();
-        le_utf8_Copy(iccid2, iccId.c_str(), TAF_SIM_ICCID_BYTES, NULL);
-    }
     std::unique_lock<std::mutex> lock(sim.eventMutex);
     le_ref_IterRef_t iterRef = le_ref_GetIterator(sim.SessionRefMap);
     result = le_ref_NextNode(iterRef);
@@ -1027,13 +505,15 @@ void taf_sim::CheckAndSendProfileSwitchEvent() {
         taf_sim_Session_t* sessionPtr = (taf_sim_Session_t*) le_ref_GetValue(iterRef);
         if(sessionPtr == NULL) {
             LE_INFO("CheckAndSendProfileSwitchEvent sessionPtr null!");
+            result = le_ref_NextNode(iterRef);
             continue;
         }
 
         LE_INFO("ClientSessionRef %p, refreshResetStart: %d", sessionPtr->clientSessionRef, (int) sessionPtr->refreshResetStart);
 
             //Send profile switch notification.
-        if (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV)
+        if (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV && iccid1[0] != '\0'
+              && sessionPtr->simProfileIccid1[0] != '\0')
         {
             if (strncmp(iccid1, sessionPtr->simProfileIccid1, TAF_SIM_ICCID_BYTES) != 0)
             {
@@ -1043,7 +523,8 @@ void taf_sim::CheckAndSendProfileSwitchEvent() {
                 le_event_Report(sessionPtr->RefreshChangeEventId, &simRefreshEvent, sizeof(simRefreshEvent));
             }
         }
-        else if (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_SEC_GW_PROV)
+        if (sessionPtr->sessionType == TAF_SIM_SESSION_TYPE_SEC_GW_PROV  &&
+                 sessionPtr->simProfileIccid2[0] != '\0' && iccid2[0] != '\0')
         {
             if (strncmp(iccid2, sessionPtr->simProfileIccid2, TAF_SIM_ICCID_BYTES) != 0)
             {
@@ -1053,16 +534,6 @@ void taf_sim::CheckAndSendProfileSwitchEvent() {
                 le_event_Report(sessionPtr->RefreshChangeEventId, &simRefreshEvent, sizeof(simRefreshEvent));
             }
         }
-
-        if (strncmp(iccid1, sessionPtr->simProfileIccid1, TAF_SIM_ICCID_BYTES) != 0)
-        {
-            le_utf8_Copy(sessionPtr->simProfileIccid1, iccid1, TAF_SIM_ICCID_BYTES, NULL);
-        }
-        if (strncmp(iccid2, sessionPtr->simProfileIccid2, TAF_SIM_ICCID_BYTES) != 0)
-        {
-            le_utf8_Copy(sessionPtr->simProfileIccid2, iccid2, TAF_SIM_ICCID_BYTES, NULL);
-        }
-
         result = le_ref_NextNode(iterRef);
     }
     sim.IsPsEventInProgress = false;
@@ -1080,6 +551,7 @@ void taf_sim::CheckAndSendRefreshEvent(taf_sim_Id_t SimId) {
         taf_sim_Session_t* sessionPtr = (taf_sim_Session_t*) le_ref_GetValue(iterRef);
         if(sessionPtr == NULL) {
             LE_INFO("CheckAndSendRefreshEvent sessionPtr null!");
+            result = le_ref_NextNode(iterRef);
             continue;
         }
         if(isSingleActive ||
@@ -1219,9 +691,19 @@ taf_sim_RefreshChangeHandlerRef_t taf_sim::AddRefreshChangeHandler(taf_sim_Refre
     handlerRef = le_event_AddLayeredHandler("RefreshChangeHandler", clientRequestPtr->RefreshChangeEventId,
             FirstLayerNewRefreshChangeHandler, (void*)handlerPtr);
 
-    clientRequestPtr->paHandlerRef = taf_pa_sim_AddRefreshChangeHandler((taf_pa_sim_RefreshChangeHandlerFunc_t)&onRefreshEvent, sessionRef);
+    pa_result_t addRes = taf_pa_sim_AddRefreshChangeHandler(
+        (taf_pa_sim_RefreshChangeHandlerFunc_t)&onRefreshEvent,
+        sessionRef,
+        &clientRequestPtr->paHandlerRef);
+    if (addRes != PA_OK)
+    {
+        LE_ERROR("taf_pa_sim_AddRefreshChangeHandler returned: %d", (int)addRes);
+        le_event_RemoveHandler(handlerRef);
+        return NULL;
+    }
 
-    LE_INFO("taf_pa_sim_AddRefreshChangeHandler done. paHandlerRef: %p, handlerRef: %p", clientRequestPtr->paHandlerRef, handlerRef);
+    LE_INFO("taf_pa_sim_AddRefreshChangeHandler done. paHandlerRef: %p, handlerRef: %p",
+        clientRequestPtr->paHandlerRef, handlerRef);
 
     return (taf_sim_RefreshChangeHandlerRef_t)(handlerRef);
 }
@@ -1233,7 +715,11 @@ void taf_sim::RemoveRefreshChangeHandler(taf_sim_RefreshChangeHandlerRef_t handl
     clientRequestPtr = DiscoverSessionRef(sessionRef);
 
     TAF_ERROR_IF_RET_NIL( NULL == clientRequestPtr, "clientRequestPtr is NULL");
-    taf_pa_sim_RemoveRefreshChangeHandler(clientRequestPtr->paHandlerRef);
+    pa_result_t removeRes = taf_pa_sim_RemoveRefreshChangeHandler(clientRequestPtr->paHandlerRef);
+    if (removeRes != PA_OK)
+    {
+        LE_WARN("taf_pa_sim_RemoveRefreshChangeHandler returned: %d", (int)removeRes);
+    }
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
     le_ref_DeleteRef(SessionRefMap, clientRequestPtr->ref);
     mClientRefCount--;
@@ -1309,28 +795,17 @@ le_result_t taf_sim::CreateSession(taf_sim_SessionType_t sessionType, taf_sim_Re
     res->semaphore = le_sem_Create("IccidCheckSem", 0);
     LE_INFO("res->sessionRef %p, *reference %p", res->ref, *refreshSessionRef);
 
-    string iccId = "";
+    char iccid[TAF_SIM_ICCID_BYTES]  = {0};
     memset(res->simProfileIccid1, 0, TAF_SIM_ICCID_BYTES);
     memset(res->simProfileIccid2, 0, TAF_SIM_ICCID_BYTES);
-
-    auto subscription = getSubscription((taf_sim_Id_t) DEFAULT_SLOT_ID);
-
-    if (!subscription) {
-        LE_ERROR("subscription is null for slot1");
-    } else {
-        iccId = subscription->getIccId();
-        le_utf8_Copy(res->simProfileIccid1, iccId.c_str(), TAF_SIM_ICCID_BYTES, NULL);
+    if (getICCID(TAF_SIM_SLOT_ID_1, iccid, sizeof(iccid)) == LE_OK)
+    {
+        le_utf8_Copy(res->simProfileIccid1, iccid, TAF_SIM_ICCID_BYTES, NULL);
     }
-
-    iccId = "";
-
-    subscription = getSubscription((taf_sim_Id_t) (DEFAULT_SLOT_ID+1));
-
-    if (!subscription) {
-        LE_ERROR("subscription is null for slot2");
-    } else {
-        iccId = subscription->getIccId();
-        le_utf8_Copy(res->simProfileIccid2, iccId.c_str(), TAF_SIM_ICCID_BYTES, NULL);
+    memset(iccid, 0, sizeof(iccid));
+    if (getICCID(TAF_SIM_SLOT_ID_2, iccid, sizeof(iccid)) == LE_OK)
+    {
+        le_utf8_Copy(res->simProfileIccid2, iccid, TAF_SIM_ICCID_BYTES, NULL);
     }
 
     LE_INFO("Refresh create session done: iccid1: %s, iccid2: %s", res->simProfileIccid1, res->simProfileIccid2);
@@ -1434,303 +909,155 @@ le_result_t taf_sim::selectSimSlot(taf_sim_Id_t simId) {
         LE_WARN("Invalid simId: %d", (int)simId);
         return LE_FAULT;
     }
-
-    if (simId == TAF_SIM_UNSPECIFIED || simId == slot) {
-        LE_INFO("No slot switch needed. Requested: %d, Current: %d", (int)simId, (int)slot);
+    pa_result_t paResult = taf_pa_sim_selectSimSlot((taf_pa_sim_Id_t)simId);
+    if (paResult == TAF_PA_SIM_RESULT_OK)
+    {
+        auto &sim = taf_sim::GetInstance();
+        sim.slot= simId;
         return LE_OK;
     }
-
-    LE_INFO("Switch slot to %d, current slot: %d", (int)simId, (int)slot);
-    if (isSingleActive) {
-        auto cbPromise = std::make_shared<std::promise<telux::common::ErrorCode>>();
-        multiSimMgr->switchActiveSlot(SlotId((int)simId), [cbPromise](telux::common::ErrorCode error){
-        try {
-            cbPromise->set_value(error);
-        }
-        catch (const std::future_error &e) {
-            LE_ERROR("Promise already satisfied or broken: %s", e.what());
-        }
-        });
-        try {
-            std::future<telux::common::ErrorCode> future = cbPromise->get_future();
-            if (future.wait_for(std::chrono::seconds(DEFAULT_TIMEOUT_IN_SECONDS)) ==
-                  std::future_status::ready) {
-                    telux::common::ErrorCode errorStatus = future.get();
-                    if (errorStatus == telux::common::ErrorCode::SUCCESS ||
-                        errorStatus == telux::common::ErrorCode::NO_EFFECT)
-                        {
-                            LE_INFO("Select slot: %d successfully", (int)simId);
-                            slot = simId;
-                            return LE_OK;
-                        } else {
-                            LE_ERROR("Failed to switch to slot %d. Error: %d", int(simId), (int)errorStatus);
-                            return LE_FAULT;
-                        }
-                    }
-            else {
-                LE_ERROR("Timeout waiting for slot switch response");
-                return LE_TIMEOUT;
-            }
-        }
-        catch (const std::future_error &e) {
-            LE_ERROR("Future error while getting result: %s", e.what());
-            return LE_FAULT;
-        }
-        catch (const std::exception &e) {
-            LE_ERROR("Exception while getting future result: %s", e.what());
-            return LE_FAULT;
-        }
+    else if (paResult == TAF_PA_SIM_RESULT_TIMEOUT)
+    {
+        LE_ERROR("Timeout waiting to select Sim Slot %d", simId);
+        return LE_TIMEOUT;
     }
-    else {
-        slot = simId;
-        return LE_OK;
+    else
+    {
+        LE_ERROR("Failed to select Sim Slot %d via PA (Error %d)", simId, paResult);
+        return LE_FAULT;
     }
 }
 
-void taf_sim::InitializeSimInfo(std::shared_ptr<telux::tel::ISubscription> subscription,
-                             taf_sim_Id_t simId) {
-    LE_INFO("InitializeSimInfo for simId: %d", (int)simId);
-    taf_sim_info_t* simPtr = NULL;
-    simPtr = GetSimContext(simId);
-    if (subscription) {
-        simPtr->simId = simId;
-         le_utf8_Copy(simPtr->ICCID, subscription->getIccId().c_str() ,TAF_SIM_ICCID_BYTES, NULL);
-         le_utf8_Copy(simPtr->IMSI, subscription->getImsi().c_str() ,TAF_SIM_IMSI_BYTES, NULL);
-         le_utf8_Copy(simPtr->phoneNumber, subscription->getPhoneNumber().c_str() ,TAF_SIM_PHONE_NUM_MAX_BYTES, NULL);
-    } else {
-        simPtr->simId = simId;
-        simPtr->ICCID[0] = '\0';
-        simPtr->IMSI[0] = '\0';
-        simPtr->phoneNumber[0] = '\0';
-        simPtr->pinTryCount = 3;
-        simPtr->pukTryCount = 10;
-    }
-}
-
-std::shared_ptr<telux::tel::ISubscription> taf_sim::getSubscription(taf_sim_Id_t simId){
-    telux::common::Status status;
-    if(isSingleActive && cards[(int)simId] != nullptr){
-        LE_INFO("Single active, card found for simId: %d", (int)simId);
-        // In the case of single active sim slot, the logical slot Id for querying subscription is always DEFAULT_SLOT_ID
-        auto subscription = subMgr->getSubscription(DEFAULT_SLOT_ID, &status);
-        return subscription;
-    }
-    if(!isSingleActive && cards[simId] != nullptr){
-        auto subscription = subMgr->getSubscription((int)simId, &status);
-        return subscription;
-    }
-
-    return nullptr;
-}
-
-le_result_t taf_sim::getICCID(taf_sim_Id_t simId, char *iccid, int length ) {
-    string iccId = "";
-    taf_sim_info_t* simPtr = NULL;
+le_result_t taf_sim::getICCID(taf_sim_Id_t simId, char *iccid, int length)
+{
+    std::string iccIdStr = "";
     if (selectSimSlot(simId) != LE_OK) {
         return LE_BAD_PARAMETER;
     }
-    simPtr = GetSimContext(simId);
-    if (simPtr->ICCID[0] != 0) {
-        return le_utf8_Copy(iccid, simPtr->ICCID, length, NULL);
-    }
-    auto subscription = getSubscription(simId);
-    if (!subscription) {
-        LE_ERROR("subscription is null");
-        return LE_NOT_FOUND;
-    }
+    pa_result_t paResult = taf_pa_sim_GetIccid((taf_pa_sim_Id_t)simId, iccIdStr);
+    if (paResult != TAF_PA_SIM_RESULT_OK)
+    {
+        LE_ERROR("Fail to get ICCID via PA OSS API for simId %d", simId);
+        return LE_FAULT;
 
-    iccId = subscription->getIccId();
-
-    le_utf8_Copy(simPtr->ICCID, iccId.c_str(), length, NULL);
-    return le_utf8_Copy(iccid, iccId.c_str(), length, NULL);
+    }
+    LE_INFO("iccIdStr: %s", iccIdStr.c_str());
+    return le_utf8_Copy(iccid, iccIdStr.c_str(), length, NULL);
 }
 
 le_result_t taf_sim::getSubscriberPhoneNumber(taf_sim_Id_t simId, char *phoneNumber, int length) {
     string phoneNumberString = "";
-    taf_sim_info_t* simPtr = NULL;
     if (selectSimSlot(simId) != LE_OK) {
         return LE_BAD_PARAMETER;
     }
-
-    simPtr = GetSimContext(simId);
-    if (simPtr->phoneNumber[0] != 0) {
-        return le_utf8_Copy(phoneNumber, simPtr->phoneNumber, length, NULL);
+    pa_result_t paResult = taf_pa_sim_GetSubscriberPhoneNumber(
+                                 (taf_pa_sim_Id_t) simId,phoneNumberString);
+    if (paResult != TAF_PA_SIM_RESULT_OK)
+    {
+        LE_ERROR("Fail to register subscription listener via PA OSS API.");
+        return LE_FAULT;
     }
-
-    auto subscription = getSubscription(simId);
-    if (!subscription) {
-        LE_ERROR("subscription is null");
-        return LE_NOT_FOUND;
-    }
-
-    phoneNumberString = subscription->getPhoneNumber();
-
-    le_utf8_Copy(simPtr->phoneNumber, phoneNumberString.c_str(), length, NULL);
+    LE_INFO("phoneNumberString.c_str()-> %s",phoneNumberString.c_str());
     return le_utf8_Copy(phoneNumber, phoneNumberString.c_str(), length, NULL);
 }
 
 le_result_t taf_sim::getIMSI(taf_sim_Id_t simId, char *imsi, int length) {
     string imsiString = "";
-    taf_sim_info_t* simPtr = NULL;
     if (selectSimSlot(simId) != LE_OK) {
         return LE_BAD_PARAMETER;
     }
-    simPtr = GetSimContext(simId);
-    if (simPtr->IMSI[0] != 0) {
-        return le_utf8_Copy(imsi, simPtr->IMSI, length, NULL);
+    pa_result_t paResult = taf_pa_sim_GetImsi((taf_pa_sim_Id_t)simId,imsiString);
+    if (paResult != TAF_PA_SIM_RESULT_OK)
+    {
+       LE_ERROR("Fail to get IMSI via PA OSS API.");
+       return LE_FAULT;
     }
-    auto subscription = getSubscription(simId);
-    if (!subscription) {
-        LE_ERROR("subscription is null");
-        return LE_NOT_FOUND;
-    }
-
-    imsiString = subscription->getImsi();
-
-    le_utf8_Copy(simPtr->IMSI, imsiString.c_str(), length, NULL);
+    LE_INFO("imsiString.c_str()-> %s",imsiString.c_str());
     return le_utf8_Copy(imsi, imsiString.c_str(), length, NULL);
 }
 
 le_result_t taf_sim::getHomeNetworkOperator(taf_sim_Id_t simId, char *name, int length) {
-    taf_sim_info_t* simPtr = NULL;
     string nameString = "";
     if (selectSimSlot(simId) != LE_OK) {
         return LE_BAD_PARAMETER;
     }
-    simPtr = GetSimContext(simId);
-    if(simPtr != NULL)
+    pa_result_t paResult = taf_pa_sim_GetCarrierName((taf_pa_sim_Id_t)simId,nameString);
+    if (paResult != TAF_PA_SIM_RESULT_OK)
     {
-        auto subscription = getSubscription(simPtr->simId);
-        if (!subscription) {
-            LE_ERROR("subscription is null");
-            return LE_NOT_FOUND;
-        }
-        nameString = subscription->getCarrierName();
+        LE_ERROR("Fail to get carrier name via PA OSS API.");
+        return LE_FAULT;
     }
-    else
-    {
-        return LE_BAD_PARAMETER;
-    }
+    LE_INFO("nameString.c_str()-> %s",nameString.c_str());
     return le_utf8_Copy(name, nameString.c_str(), length, NULL);
 }
 
 le_result_t taf_sim::getHomeNetworkMccMnc(taf_sim_Id_t simId, char *mccPtr,
-        int mccPtrSize, char *mncPtr, int mncPtrSize) {
-    taf_sim_info_t* simPtr = NULL;
-    int mcc = 0;
-    int mnc = 0;
+        int mccPtrSize, char *mncPtr, int mncPtrSize)
+{
+    std::string mcc;
+    std::string mnc;
+    LE_INFO("getHomeNetworkMccMnc for simId %d", simId);
     if (selectSimSlot(simId) != LE_OK) {
+        LE_ERROR("Invalid simId or failed to select SIM slot");
         return LE_BAD_PARAMETER;
     }
-
-    simPtr = GetSimContext(simId);
-    if(simPtr != NULL)
+    pa_result_t paResult = taf_pa_sim_GetHomeNetworkMccMncStr((taf_pa_sim_Id_t)simId, mcc, mnc);
+    if (paResult != TAF_PA_SIM_RESULT_OK)
     {
-        auto subscription = getSubscription(simPtr->simId);
-        if (!subscription) {
-            LE_ERROR("subscription is null");
-            return LE_NOT_FOUND;
-        }
-        mcc = subscription->getMcc();
-        mnc = subscription->getMnc();
+        LE_ERROR("Failed to get HomeNetworkMccMnc via PA for simId %d", simId);
+        return LE_FAULT;
     }
-    else
+    LE_INFO("Retrieved MCC: %s, MNC: %s", mcc.c_str(), mnc.c_str());
+    if (mcc.empty() || mnc.empty())
     {
-        return LE_BAD_PARAMETER;
+        LE_ERROR("PA returned empty MCC or MNC for simId %d", simId);
+        return LE_FAULT;
     }
-    le_utf8_Copy(mccPtr, to_string(mcc).c_str(), mccPtrSize, NULL);
-    le_utf8_Copy(mncPtr, to_string(mnc).c_str(), mncPtrSize, NULL);
+    if (le_utf8_Copy(mccPtr, mcc.c_str(), mccPtrSize, nullptr) != LE_OK)
+    {
+        LE_ERROR("Failed to copy MCC to output buffer");
+        return LE_FAULT;
+    }
+    if (le_utf8_Copy(mncPtr, mnc.c_str(), mncPtrSize, nullptr) != LE_OK)
+    {
+        LE_ERROR("Failed to copy MNC to output buffer");
+        return LE_FAULT;
+    }
     return LE_OK;
 }
 
-le_result_t taf_sim::UnlockCardByPin(taf_sim_Id_t  simId,
-             taf_sim_LockType_t lockType, const char* pinPtr) {
-    if(selectSimSlot(simId) != LE_OK) {
+le_result_t taf_sim::UnlockCardByPin(taf_sim_Id_t simId,taf_sim_LockType_t lockType,
+        const char* pinPtr)
+{
+    if(selectSimSlot(simId) != LE_OK)
+    {
         return LE_BAD_PARAMETER;
     }
-    auto card = cards[slot];
-    string newPin = (string) pinPtr;
-    telux::tel::CardLockType cardLockType;
+    pa_result_t paResult = taf_pa_sim_UnlockCardByPin((taf_pa_sim_LockType_t)lockType, pinPtr,
+                nullptr,std::any());
 
-    if(!card) {
-        LE_ERROR( "ERROR: Unable to get card instance");
-        return LE_NOT_FOUND;
-    }
-
-    if(lockType == TAF_SIM_PIN1 || lockType == TAF_SIM_PIN2) {
-        cardLockType = (telux::tel::CardLockType)lockType;
-    } else {
-        cardLockType = telux::tel::CardLockType::PIN1;
-    }
-
-    std::vector<std::shared_ptr<telux::tel::ICardApp>> applications;
-    applications = card->getApplications();
-    if(applications.size() != 0)  {
-        for(auto cardApp : applications) {
-            if(cardApp->getAppType() == telux::tel::AppType::APPTYPE_USIM
-                    && cardApp->getAppState() == telux::tel::AppState::APPSTATE_PIN) {
-                auto ret = cardApp->unlockCardByPin(cardLockType, newPin,
-                        tafAuthenticationResponseCallback::unlockCardByPinResponseCb);
-                if(ret == telux::common::Status::SUCCESS) {
-                    LE_INFO("Unlock card by pin request sent successfully\n");
-                    return LE_OK;
-                } else {
-                    LE_INFO("Unlock card by pin request failed\n");
-                    return LE_FAULT;
-                }
-            }
-        }
-    } else {
-        LE_INFO("Unlock card by PIN request failed\n");
+    if (paResult != TAF_PA_SIM_RESULT_OK)
+    {
+        LE_ERROR("Fail to unlock card by PIN via PA OSS API.");
         return LE_FAULT;
     }
-    return LE_FAULT;
+    return LE_OK;
 }
 
 le_result_t taf_sim::ChangeCardPin( taf_sim_Id_t simId, taf_sim_LockType_t lockType,
-        const char* oldpinPtr, const char* newpinPtr) {
+        const char* oldpinPtr, const char* newpinPtr)
+{
     if(selectSimSlot(simId) != LE_OK) {
         return LE_BAD_PARAMETER;
     }
-
-    auto card = cards[slot];
-
-    telux::tel::CardLockType cardLockType;
-
-    if(!card) {
-        LE_INFO( "ERROR: Unable to get card instance");
-        return LE_NOT_FOUND;
-    }
-
-    if(lockType == TAF_SIM_PIN1 || lockType == TAF_SIM_PIN2) {
-        cardLockType = (telux::tel::CardLockType)lockType;
-    } else {
-        cardLockType = telux::tel::CardLockType::PIN1;
-    }
-
-    std::vector<std::shared_ptr<telux::tel::ICardApp>> applications;
-    applications = card->getApplications();
-    if(applications.size() != 0)  {
-        for(auto cardApp : applications) {
-            if((cardApp->getAppType() == telux::tel::AppType::APPTYPE_USIM)
-                    && (cardApp->getAppState() == telux::tel::AppState::APPSTATE_READY)) {
-                auto ret
-                    = cardApp->changeCardPassword(cardLockType, (string)oldpinPtr, (string)newpinPtr,
-                            tafAuthenticationResponseCallback::ChangeCardPinResponseCb);
-                if(ret == telux::common::Status::SUCCESS) {
-                    LE_INFO( "Change card PIN request sent successfully\n");
-                    return LE_OK;
-                } else {
-                    LE_INFO( "Change card PIN request failed\n");
-                    return LE_FAULT;
-                }
-            }
-        }
-    } else {
-        LE_INFO("Change card PIN request failed");
+    pa_result_t paResult = taf_pa_sim_ChangeCardPin((taf_pa_sim_LockType_t)lockType,oldpinPtr,newpinPtr,
+                          nullptr,std::any());
+    if (paResult != TAF_PA_SIM_RESULT_OK)
+    {
+        LE_ERROR("fail to change card Pin");
         return LE_FAULT;
     }
-    return LE_FAULT;
+    return LE_OK;
 }
 
 le_result_t taf_sim::UnlockCardByPuk(taf_sim_Id_t  simId, taf_sim_LockType_t lockType,
@@ -1738,106 +1065,116 @@ le_result_t taf_sim::UnlockCardByPuk(taf_sim_Id_t  simId, taf_sim_LockType_t loc
     if(selectSimSlot(simId) != LE_OK) {
         return LE_BAD_PARAMETER;
     }
-    auto card = cards[slot];
-    telux::tel::CardLockType cardLockType;
-
-    if(!card) {
-        LE_ERROR( "ERROR: Unable to get card instance");
-        return LE_NOT_FOUND;
-    }
-    if(lockType == TAF_SIM_PUK1 || lockType == TAF_SIM_PUK2) {
-        cardLockType = (telux::tel::CardLockType)lockType;
-    } else {
-        cardLockType = telux::tel::CardLockType::PUK1;
-    }
-
-    std::vector<std::shared_ptr<telux::tel::ICardApp>> applications;
-    applications = card->getApplications();
-    if(applications.size() != 0)  {
-        for(auto cardApp : applications) {
-            if(cardApp->getAppType() == telux::tel::AppType::APPTYPE_USIM) {
-                if (cardApp->getAppState() == telux::tel::AppState::APPSTATE_PUK) {
-                    auto ret = cardApp->unlockCardByPuk(cardLockType,(string) pukPtr, newpinPtr,
-                            tafAuthenticationResponseCallback::unlockCardByPukResponseCb);
-                    if(ret == telux::common::Status::SUCCESS) {
-                        LE_INFO("Unlock card by PUK request sent successfully\n");
-                        return LE_OK;
-                    } else {
-                        LE_INFO("Unlock card by PUK request failed\n");
-                        return LE_FAULT;
-                    }
-                }else {
-                    LE_INFO("Unlock card by PUK request failed\n");
-                    return LE_FAULT;
-                }
-            }
-        }
-    } else {
-        LE_INFO("Unlock card by PUK request failed\n");
+    pa_result_t paResult = taf_pa_sim_UnlockCardByPuk((taf_pa_sim_LockType_t)lockType,pukPtr,newpinPtr,
+                           nullptr,std::any());
+    if (paResult != TAF_PA_SIM_RESULT_OK)
+    {
+        LE_ERROR("Fail to UnlockCardByPuk via PA OSS API.");
         return LE_FAULT;
     }
-    return LE_FAULT;
+    return LE_OK;
 }
 
+taf_sim_States_t Utility::Convert::taf_Common_State_Result
+(
+    taf_pa_sim_States_t state
+)
+{
+    switch (state)
+    {
+        case TAF_PA_SIM_PRESENT:
+            return TAF_SIM_PRESENT;
+        case TAF_PA_SIM_ABSENT:
+            return TAF_SIM_ABSENT;
+        case TAF_PA_SIM_READY:
+            return TAF_SIM_READY;
+        case TAF_PA_SIM_BLOCKED:
+            return TAF_SIM_BLOCKED;
+        case TAF_PA_SIM_BUSY:
+            return TAF_SIM_BUSY;
+        case TAF_PA_SIM_POWER_DOWN:
+            return TAF_SIM_POWER_DOWN;
+        case TAF_PA_SIM_STATE_UNKNOWN:
+            return TAF_SIM_STATE_UNKNOWN;
+        case TAF_PA_SIM_RESTRICTED:
+            return TAF_SIM_RESTRICTED;
+        case TAF_PA_SIM_ERROR:
+            return TAF_SIM_ERROR;
+        default:
+            LE_DEBUG("Unknown state %d.", state);
+    }
+    return TAF_SIM_STATE_UNKNOWN;
+}
 
 le_result_t taf_sim::SetCardLock(taf_sim_Id_t  simId, taf_sim_LockType_t lockType,
-        const char* pinPtr, bool lockEnable) {
+        const char* pinPtr, bool lockEnable)
+{
     if(selectSimSlot(simId) != LE_OK) {
         return LE_BAD_PARAMETER;
     }
-    auto card = cards[slot];
-    telux::tel::CardLockType cardLockType;
-
-    if(!card) {
-        LE_ERROR( "ERROR: Unable to get card instance");
-        return LE_NOT_FOUND;
-    }
-    if(lockType == TAF_SIM_PIN1 || lockType == TAF_SIM_FDN) {
-        cardLockType = (telux::tel::CardLockType)lockType;
-    } else {
-        cardLockType = telux::tel::CardLockType::PIN1;
-    }
-
-    std::vector<std::shared_ptr<telux::tel::ICardApp>> applications;
-    applications = card->getApplications();
-    if(applications.size() != 0)  {
-        for(auto cardApp : applications) {
-            if(cardApp->getAppType() == telux::tel::AppType::APPTYPE_USIM){
-                auto ret = cardApp->setCardLock(cardLockType, pinPtr, lockEnable,
-                        tafAuthenticationResponseCallback::setCardLockResponseCb);
-                if(ret == telux::common::Status::SUCCESS) {
-                    LE_INFO("Set card lock request sent successfully\n");
-                    return LE_OK;
-                } else {
-                    LE_INFO("Set card lock request failed\n");
-                    return LE_FAULT;
-                }
-            }
+    if(lockEnable)
+    {
+        pa_result_t paResult = taf_pa_sim_SetCardLock((taf_pa_sim_LockType_t)lockType,pinPtr,
+                          nullptr,std::any());
+        if (paResult != TAF_PA_SIM_RESULT_OK)
+        {
+            LE_ERROR("fail to SetCardLock");
+            return LE_FAULT;
         }
-    } else {
-        LE_INFO("Set card lock request failed\n");
-        return LE_FAULT;
+        return LE_OK;
     }
-    return LE_FAULT;
+    else
+    {
+        pa_result_t paResult =taf_pa_sim_SetCardUnLock((taf_pa_sim_LockType_t)lockType,pinPtr,
+                          nullptr,std::any());
+        if (paResult != TAF_PA_SIM_RESULT_OK)
+        {
+            LE_ERROR("fail to SetCardUnLock");
+            return LE_FAULT;
+        }
+        return LE_OK;
+    }
 }
 
 int32_t taf_sim::GetRemainingPINTries(taf_sim_Id_t simId) {
-    taf_sim_info_t* simPtr = NULL;
     if(selectSimSlot(simId) != LE_OK) {
         return LE_BAD_PARAMETER;
     }
-    simPtr = GetSimContext(simId );
-    return simPtr->pinTryCount;
+    int32_t retryCount=-1;
+    pa_result_t paResult =taf_pa_sim_GetRemainingPINTries((taf_pa_sim_Id_t) simId, &retryCount);
+    if(paResult != TAF_PA_SIM_RESULT_OK)
+    {
+        LE_ERROR("Failed GetRemainingPINTries");
+        return retryCount;
+    }
+    return retryCount;
 }
 
-le_result_t taf_sim::GetRemainingPukTries(taf_sim_Id_t simId, uint32_t* remainingPukTriesPtr) {
-    taf_sim_info_t* simPtr = NULL;
-    if(selectSimSlot(simId) != LE_OK) {
+le_result_t taf_sim::GetRemainingPukTries(taf_sim_Id_t simId,uint32_t* remainingPukTriesPtr)
+{
+    if (!remainingPukTriesPtr) {
+        LE_ERROR("remainingPukTriesPtr is NULL");
         return LE_BAD_PARAMETER;
     }
-    simPtr = GetSimContext(simId);
-    *remainingPukTriesPtr = simPtr->pukTryCount;
-    return LE_OK;
+
+    if (selectSimSlot(simId) != LE_OK) {
+        LE_ERROR("Failed to select SIM slot %d", simId);
+        return LE_BAD_PARAMETER;
+    }
+
+    uint32_t remainingPukTries = 0;
+    pa_result_t paResult = taf_pa_sim_GetRemainingPukTries((taf_pa_sim_Id_t) simId,&remainingPukTries);
+
+    le_result_t result = Utility::Convert::Result(paResult);
+
+    if (result == LE_OK) {
+        *remainingPukTriesPtr = remainingPukTries;
+        LE_INFO("Remaining PUK tries for simId %d: %u",simId, remainingPukTries);
+    } else {
+        LE_WARN("Failed to get remaining PUK tries for simId %d (paResult=%d)",
+                simId, paResult);
+    }
+    return result;
 }
 
 taf_sim_AuthenticationResponseHandlerRef_t taf_sim::AddAuthenticationResponseHandler(
@@ -1869,14 +1206,12 @@ void taf_sim::FirstLayerAuthenticationResponseHandler(void* reportPtr,
         void* secondLayerHandlerFunc)
 {
     sim_response_event_t* simResponsePtr = (sim_response_event_t*)reportPtr;
-
-    LE_INFO("FirstLayerNewSimStateHandler simId = %d", simResponsePtr->simId);
     if (!simResponsePtr)
     {
         LE_ERROR("Null pointer provided!");
         return;
     }
-
+    LE_INFO("FirstLayerNewSimStateHandler simId = %d", simResponsePtr->simId);
     taf_sim_AuthenticationResponseHandlerFunc_t clientHandlerFunc =
         (taf_sim_AuthenticationResponseHandlerFunc_t)secondLayerHandlerFunc;
 
@@ -1884,8 +1219,23 @@ void taf_sim::FirstLayerAuthenticationResponseHandler(void* reportPtr,
             simResponsePtr->result, le_event_GetContextPtr());
 }
 
-le_result_t  taf_sim::GetEID( taf_sim_Id_t slotId, char* eidPtr, size_t eidLen) {
-    return LE_UNSUPPORTED;
+le_result_t taf_sim::GetEID(taf_sim_Id_t simId, char *eidPtr, size_t eidLen)
+{
+    eidPtr[0] = '\0';
+    std::string eidStr;
+    pa_result_t paResult =taf_pa_sim_GetEID((taf_pa_sim_Id_t) simId, eidStr);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK) {
+        LE_ERROR("taf_pa_sim_GetEID failed for simId: %d, result: %d", simId, result);
+        return LE_FAULT;
+    }
+    if (eidStr.size() + 1 > eidLen) {
+        LE_ERROR("EID buffer overflow for simId: %d, required: %zu, provided: %zu",simId, eidStr.size() + 1, eidLen);
+        return LE_OVERFLOW;
+    }
+    le_utf8_Copy(eidPtr, eidStr.c_str(), eidLen, nullptr);
+    LE_INFO("taf_sim::GetEID successful for simId: %d, EID: %s", simId, eidPtr);
+    return LE_OK;
 }
 
 le_result_t taf_sim::SetAutomaticSelection( bool enable) {
@@ -1898,275 +1248,146 @@ le_result_t taf_sim::GetAutomaticSelection( bool* enablePtr) {
     return LE_OK;
 }
 
-// We are making a synchronized APDU card requests. So added wait logic
-// std::condition_variable
-bool taf_sim::waitForCardEvent(CardEvent cardEvent, int timeout) {
-   std::unique_lock<std::mutex> lock(eventMutex);
-   cardEventExpected = cardEvent;
-
-   if (cardRespReceived)
-   {
-       LE_INFO("Card response already received before wait");
-       cardRespReceived = false;
-       return true;
-   }
-
-   auto cvStatus = eventCV.wait_for(lock, std::chrono::seconds(DEFAULT_TIMEOUT_IN_SECONDS));
-   if(cvStatus == std::cv_status::timeout) {
-      LE_INFO("Event: %d not found with in %d second(s)",  (int)cardEvent, DEFAULT_TIMEOUT_IN_SECONDS);
-   }
-   cardEventExpected = (CardEvent)0;  // reset message id to avoid further notifications
-   cardRespReceived = false;
-   if(cvStatus != std::cv_status::timeout) {
-      if(cardEvent == CardEvent::OPEN_LOGICAL_CHANNEL
-         || cardEvent == CardEvent::CLOSE_LOGICAL_CHANNEL
-         || cardEvent == CardEvent::TRANSMIT_APDU_CHANNEL) {
-
-         if(errorCode == ErrorCode::SUCCESS)
-            return true;
-      }
-   } else {
-      LE_INFO("Unable to get the events, so timing out");
-      return false;
-   }
-   return false;
-}
-
 le_result_t taf_sim::GetAppTypes(taf_sim_Id_t slotId, taf_sim_AppType_t* appTypePtr, size_t* appTypeNumElementsPtr) {
     *appTypeNumElementsPtr = 0;
     if (selectSimSlot(slotId) != LE_OK) {
         LE_INFO("Selecting sim slot failed");
         return LE_NOT_FOUND;
     }
-
-    auto card = cards[slot];
-
-    if(card) {
-        std::vector<std::shared_ptr<ICardApp>> applications;
-        applications = card->getApplications();
-        LE_INFO("Card found with given simId. num of cardApps: %d", (int) applications.size());
-        int i = 0;
-        for(auto cardApp : applications) {
-            if (i < TAF_SIM_MAX_APP_TYPE) {
-                appTypePtr[i] = (taf_sim_AppType_t) cardApp->getAppType();
-                LE_DEBUG("Card Application type: %d", (int) appTypePtr[i]);
-                i++;
-            }
-        }
-        *appTypeNumElementsPtr = i;
-    } else {
-        LE_ERROR("No Card. Error to get app types!");
+    pa_result_t paResult = taf_pa_sim_GetAppTypes((taf_pa_sim_AppType_t*)appTypePtr,appTypeNumElementsPtr);
+    if (paResult != TAF_PA_SIM_RESULT_OK)
+    {
+        LE_ERROR("Fail to GetAppTypes via PA OSS API.");
         return LE_FAULT;
     }
-
     return LE_OK;
 }
 
 le_result_t taf_sim::OpenLogicalChannel( taf_sim_Id_t simId, taf_sim_AppType_t appType, uint8_t* channelPtr) {
+    if (channelPtr == nullptr)
+    {
+        LE_INFO("channelPtr is null");
+        return LE_BAD_PARAMETER;
+    }
+
     if (selectSimSlot(simId) != LE_OK) {
         LE_INFO("Selecting sim slot failed");
         return LE_NOT_FOUND;
     }
-    auto card = cards[slot];
-    std::vector<std::shared_ptr<ICardApp>> applications;
-    auto openLogicalCb = std::make_shared<tafOpenLogicalChannelCallback>();
-    std::string aid;
-    if(!card) {
-        LE_INFO("Card not found!");
-        return LE_BAD_PARAMETER;
+    taf_pa_sim_AppType_t  paAppType = ConvertTafappTypeToPaappType(appType);
+    if(paAppType != TAF_PA_APPTYPE_UNKNOWN)
+    {
+        pa_result_t paResult = taf_pa_sim_OpenLogicalChannel(paAppType,channelPtr,nullptr,{});
+        le_result_t result =Utility::Convert::Result(paResult);
+        return result;
     }
-    if(card) {
-        LE_INFO("card found with given simId");
-        applications = card->getApplications();
-        for(auto cardApp : applications) {
-            LE_INFO("Applications exist for given card");
-            if(cardApp->getAppType() == (AppType) appType) {
-                aid = cardApp->getAppId();
-                break;
-            }
-        }
-    }
-    if (aid.empty()) {
-        LE_INFO("Getting app id failed");
-        return LE_BAD_PARAMETER;
-    }
-    card->openLogicalChannel(aid, openLogicalCb);
-    if(!waitForCardEvent(CardEvent::OPEN_LOGICAL_CHANNEL)) {
-        LE_INFO("Opening Logical Channel failed ");
-        return LE_FAULT;
-    }
-    LE_INFO("Open Logical channel done channel = %d", openChannel);
-    *channelPtr = openChannel;
-    return LE_OK;
+    return LE_FAULT;
 }
 
 le_result_t taf_sim::OpenLogicalChannelByAid( taf_sim_Id_t simId, const char* aid, uint8_t* channelPtr) {
+    if (channelPtr == nullptr)
+    {
+        LE_INFO("channelPtr is null");
+        return LE_BAD_PARAMETER;
+    }
+    if (aid == nullptr || aid[0] == '\0')
+    {
+        LE_INFO("Invalid aid");
+        return LE_BAD_PARAMETER;
+    }
     if (selectSimSlot(simId) != LE_OK) {
         LE_INFO("Selecting sim slot failed");
         return LE_NOT_FOUND;
     }
-    auto card = cards[slot];
-
-    auto openLogicalCb = std::make_shared<tafOpenLogicalChannelCallback>();
-
-    if(!card) {
-        LE_INFO("Card not found!");
-        return LE_BAD_PARAMETER;
-    }
-
-    card->openLogicalChannel(aid, openLogicalCb);
-    if(!waitForCardEvent(CardEvent::OPEN_LOGICAL_CHANNEL)) {
-        LE_INFO("Opening Logical Channel by AID failed!");
-        return LE_FAULT;
-    }
-    LE_INFO("Open Logical channel by AID success channel = %d", openChannel);
-    *channelPtr = openChannel;
-    return LE_OK;
+    pa_result_t paResult = taf_pa_sim_OpenLogicalChannelByAid(aid,channelPtr,nullptr,{});
+    le_result_t result =Utility::Convert::Result(paResult);
+    return result;
 }
 
 le_result_t taf_sim::CloseLogicalChannel( taf_sim_Id_t simId, uint8_t channel) {
     if (selectSimSlot(simId) != LE_OK) {
         return LE_NOT_FOUND;
     }
-    auto closeLogicalChannelCb = std::make_shared<tafCloseLogicalChannelCallback>();
-    auto card = cards[slot];
-    if(card) {
-        auto ret = card->closeLogicalChannel(channel, closeLogicalChannelCb);
-        if(ret != telux::common::Status::SUCCESS) {
-            return LE_FAULT;
-        }
-        if(!waitForCardEvent(CardEvent::CLOSE_LOGICAL_CHANNEL)) {
-            LE_INFO("Closing Logical Channel failed ");
-            return LE_FAULT;
-        }
-        return LE_OK;
-    }  else {
-        return LE_FAULT;
-    }
+    pa_result_t paResult = taf_pa_sim_CloseLogicalChannel(channel,nullptr,{});
+    le_result_t result =Utility::Convert::Result(paResult);
+    return result;
 }
 
 le_result_t taf_sim::SendApduOnChannel( taf_sim_Id_t simId, uint8_t channel,
             const uint8_t* commandApduPtr, size_t commandApduNumElements,
              uint8_t* responseApduPtr,size_t* responseApduNumElementsPtr){
+
+    if ((commandApduPtr == nullptr) ||(responseApduPtr == nullptr) ||
+            (responseApduNumElementsPtr == nullptr))
+    {
+        return LE_BAD_PARAMETER;
+    }
+
+    if (commandApduNumElements < 5)
+    {
+        LE_ERROR("Invalid APDU length");
+        return LE_BAD_PARAMETER;
+    }
+
     uint8_t cla, instruction, p1, p2, p3;
     std::vector<uint8_t> data;
-    auto tafTransmitApduCb = std::make_shared<tafTransmitApduResponseCallback>();
     cla = commandApduPtr[0];
     instruction = commandApduPtr[1];
     p1 = commandApduPtr[2];
     p2 = commandApduPtr[3];
     p3 = commandApduPtr[4];
 
-    LE_DEBUG("SendApduOnChannel: Data size(p3) = %d and commandApduNumElements: %d", (int)p3, (int)commandApduNumElements);
+    if (selectSimSlot(simId) != LE_OK) {
+        return LE_NOT_FOUND;
+    }
+    LE_DEBUG("SendApduOnChannel: Data size(p3) = %d and commandApduNumElements: %d,channel id: %d", (int)p3, (int)commandApduNumElements,channel);
+
     if (commandApduNumElements > 5) {
         for(int i = 0; i < p3; i++) {
           data.emplace_back(commandApduPtr[i+ 5]);
         }
     }
 
-    if (selectSimSlot(simId) != LE_OK) {
-        return LE_NOT_FOUND;
-    }
-    LE_DEBUG("SendApduOnChannel: channel id: %d", channel);
-    auto card = cards[slot];
-
-    if (card == nullptr) {
-        LE_ERROR("Card not found so SendApduOnChannel failed!");
-        return LE_NOT_FOUND;
-    }
-
-    auto ret = card->transmitApduLogicalChannel(channel, cla, instruction,
-                                                   p1, p2, p3, data,
-                                                       tafTransmitApduCb);
-    if (ret != Status::SUCCESS) {
-        return LE_FAULT;
-    }
-
-    if(!waitForCardEvent(CardEvent::TRANSMIT_APDU_CHANNEL)) {
-        LE_INFO("Transmit APDU failed ");
-        return LE_FAULT;
-    }
-
-    LE_DEBUG("sw1: %d, sw2: %d, payload: %s", (uint8_t)apduResponse.sw1, (uint8_t)apduResponse.sw2, apduResponse.payload.c_str());
-
-    if ((apduResponse.data.size()) > (TAF_SIM_RESPONSE_MAX_BYTES-2))
-    {
-        LE_ERROR("The size of APDU response exceeds the max length.");
-        return LE_FAULT;
-    }
-
-    size_t i = 0;
-    for (i=0; i<(apduResponse.data.size()); i++)
-    {
-        responseApduPtr[i] = apduResponse.data[i];
-        LE_DEBUG("Response APDU data = %d", responseApduPtr[i]);
-    }
-
-    responseApduPtr[i++] = (uint8_t)apduResponse.sw1;
-    responseApduPtr[i++] = (uint8_t)apduResponse.sw2;
-    *responseApduNumElementsPtr = i;
-    LE_INFO("Response APDU length = %ld", (size_t)i);
-
-    return LE_OK;
+    pa_result_t paResult = taf_pa_sim_SendApduOnLogicalChannel(channel,responseApduPtr,responseApduNumElementsPtr,
+                            p1,p2,p3,cla,instruction,data,nullptr,{});
+    le_result_t result =Utility::Convert::Result(paResult);
+    return result;
 }
 
 le_result_t taf_sim::SendApdu( taf_sim_Id_t simId,const uint8_t* commandApduPtr, size_t commandApduNumElements,
              uint8_t* responseApduPtr,size_t* responseApduNumElementsPtr){
+    if ((commandApduPtr == nullptr) ||(responseApduPtr == nullptr) ||
+            (responseApduNumElementsPtr == nullptr))
+    {
+        return LE_BAD_PARAMETER;
+    }
+
+    if (commandApduNumElements < 5)
+    {
+        LE_ERROR("Invalid APDU length");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (selectSimSlot(simId) != LE_OK) {
+        return LE_NOT_FOUND;
+    }
     uint8_t cla, instruction, p1, p2, p3;
     std::vector<uint8_t> data;
-    auto tafTransmitApduCb = std::make_shared<tafTransmitApduResponseCallback>();
     cla = commandApduPtr[0];
     instruction = commandApduPtr[1];
     p1 = commandApduPtr[2];
     p2 = commandApduPtr[3];
     p3 = commandApduPtr[4];
+
     if (commandApduNumElements > 5) {
-        for(int i = 0; i < p3; i++) {
-          data.emplace_back(commandApduPtr[i+ 5]);
+       for(int i = 0; i < p3; i++) {
+           data.emplace_back(commandApduPtr[i+ 5]);
         }
     }
-    if (selectSimSlot(simId) != LE_OK) {
-        return LE_NOT_FOUND;
-    }
-    auto card = cards[slot];
-
-    if (card == nullptr) {
-        LE_ERROR("Card not found so SendApdu failed!");
-        return LE_NOT_FOUND;
-    }
-
-    auto ret = card->transmitApduBasicChannel(cla, instruction,
-                                                   p1, p2, p3, data,
-                                                       tafTransmitApduCb);
-    if (ret != Status::SUCCESS) {
-        return LE_FAULT;
-    }
-    if(!waitForCardEvent(CardEvent::TRANSMIT_APDU_CHANNEL)) {
-        LE_ERROR("Transmit APDU failed failed ");
-        return LE_FAULT;
-    }
-
-    LE_DEBUG("sw1: %d, sw2: %d, payload: %s", (uint8_t)apduResponse.sw1, (uint8_t)apduResponse.sw2, apduResponse.payload.c_str());
-
-    if ((apduResponse.data.size()) > (TAF_SIM_RESPONSE_MAX_BYTES-2))
-    {
-        LE_ERROR("The size of APDU response exceeds the max length.");
-        return LE_FAULT;
-    }
-
-    size_t i = 0;
-    for (i=0; i<(apduResponse.data.size()); i++)
-    {
-        responseApduPtr[i] = apduResponse.data[i];
-        LE_INFO("Response APDU data = %d", responseApduPtr[i]);
-    }
-
-    responseApduPtr[i++] = (uint8_t)apduResponse.sw1;
-    responseApduPtr[i++] = (uint8_t)apduResponse.sw2;
-    *responseApduNumElementsPtr = i;
-    LE_DEBUG("Response APDU length = %ld", (size_t)i);
-
-    return LE_OK;
+    pa_result_t paResult = taf_pa_sim_SendApdu(responseApduPtr,responseApduNumElementsPtr, p1, p2, p3, cla, instruction,data,
+         nullptr,{});
+    le_result_t result =Utility::Convert::Result(paResult);
+    return result;
 }
 
 le_result_t taf_sim::SendCommand(
@@ -2183,79 +1404,37 @@ le_result_t taf_sim::SendCommand(
         LE_INFO("Issue with simId");
         return LE_NOT_FOUND;
     }
-    char* fileId_end=(char*)fileIdentifierPtr+4;
-    uint16_t field = strtol(fileIdentifierPtr, &fileId_end , 16);
-    LE_INFO("field: %d", field);
+    TAF_ERROR_IF_RET_VAL(fileIdentifierPtr == NULL, LE_BAD_PARAMETER, "fileIdentifierPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(p1 == NULL, LE_BAD_PARAMETER, "p1 is NULL");
+    TAF_ERROR_IF_RET_VAL(p2 == NULL, LE_BAD_PARAMETER, "p2 is NULL");
+    TAF_ERROR_IF_RET_VAL(p3 == NULL, LE_BAD_PARAMETER, "p3 is NULL");
+    TAF_ERROR_IF_RET_VAL(sw1 == NULL, LE_BAD_PARAMETER, "sw1 is NULL");
+    TAF_ERROR_IF_RET_VAL(sw2 == NULL, LE_BAD_PARAMETER, "sw2 is NULL");
+    TAF_ERROR_IF_RET_VAL(responsePtr == NULL, LE_BAD_PARAMETER, "responsePtr is NULL");
+    TAF_ERROR_IF_RET_VAL(responseNumElementsPtr == NULL, LE_BAD_PARAMETER, "responseNumElementsPtr is NULL");
 
-    auto card = cards[slot];
-    std::string aid;
-    if (card == nullptr) {
-        LE_ERROR("Card not found so SendCommand failed!");
-        return LE_NOT_FOUND;
-    }
-    if (card)
+    if ((dataNumElements > 0) && (dataPtr == NULL))
     {
-        LE_INFO("card found with given simId");
-        std::vector<std::shared_ptr<ICardApp>> applications;
-        applications = card->getApplications();
-        for (auto cardApp : applications)
-        {
-            LE_INFO("Applications exist for given card");
-            if (cardApp->getAppType() == (AppType)TAF_SIM_APPTYPE_USIM)
-            {
-                aid = cardApp->getAppId();
-                break;
-            }
-        }
+        LE_ERROR("dataPtr is NULL while dataNumElements > 0");
+        return LE_BAD_PARAMETER;
     }
-    if(aid.empty())
+    char *endPtr = nullptr;
+    unsigned long value = std::strtoul(fileIdentifierPtr, &endPtr, 16);
+
+    if ((endPtr == fileIdentifierPtr) || (*endPtr != '\0') || (value > 0xFFFF))
     {
-        LE_ERROR("AID is NULL");
-        return LE_FAULT;
-
-    }
-    string filePath = std::string(pathPtr);
-    std::vector<uint8_t> data(dataPtr, dataPtr+dataNumElements);
-    auto tafTransmitApduCb = std::make_shared<tafTransmitApduResponseCallback>();
-    auto returnStatus = card->exchangeSimIO(field,
-                                            command,
-                                            *p1,
-                                            *p2,
-                                            *p3,
-                                            filePath,
-                                            data,
-                                            "",
-                                            aid,
-                                            tafTransmitApduCb);
-    if(returnStatus != Status::SUCCESS){
-        return LE_FAULT;
-    }
-    if(!waitForCardEvent(CardEvent::TRANSMIT_APDU_CHANNEL)){
-        LE_INFO("Command SIM IO failed");;
-        return LE_FAULT;
-    }
-    *sw1 = (uint8_t)apduResponse.sw1;
-    *sw2 = (uint8_t)apduResponse.sw2;
-
-    LE_DEBUG("sw1: %d, sw2: %d, payload: %s", (uint8_t)apduResponse.sw1, (uint8_t)apduResponse.sw2, apduResponse.payload.c_str());
-
-    if ((apduResponse.data.size()) > (TAF_SIM_RESPONSE_MAX_BYTES-2))
-    {
-        LE_ERROR("The size of APDU response exceeds the max length.");
-        return LE_FAULT;
+        LE_ERROR("Invalid file identifier: %s", fileIdentifierPtr);
+        return LE_BAD_PARAMETER;
     }
 
-    size_t i = 0;
-    for (i=0; i<(apduResponse.data.size()); i++)
-    {
-        responsePtr[i] = apduResponse.data[i];
-        LE_DEBUG("Response APDU data = %d", responsePtr[i]);
-    }
+    uint16_t field = static_cast<uint16_t>(value);
+    LE_INFO("field: %u", field);
 
-    *responseNumElementsPtr = i;
-    LE_DEBUG("Response APDU length = %ld", (size_t)i);
+    pa_result_t paResult = taf_pa_sim_ExchangeSimIO(static_cast<taf_pa_sim_Command_t>(command),p1,p2,p3,dataPtr,
+        dataNumElements,(pathPtr != nullptr) ? pathPtr : "",sw1,sw2,responsePtr,responseNumElementsPtr,field,nullptr,{});
 
-    return LE_OK;
+    return Utility::Convert::Result(paResult);
+
 }
 
 le_result_t taf_sim::SetPower(taf_sim_Id_t simId, le_onoff_t powerState)
@@ -2270,49 +1449,14 @@ le_result_t taf_sim::SetPower(taf_sim_Id_t simId, le_onoff_t powerState)
         LE_INFO("Invalid powerState given %d", powerState);
         return LE_BAD_PARAMETER;
     }
-    telux::common::Status status;
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-    auto ICard = cards[slot];
-
-    if (ICard == nullptr) {
-        LE_ERROR("Card not found so set power failed!");
-        return LE_NOT_FOUND;
-    }
-
-    SlotId slotId_for_card = SlotId(ICard->getSlotId());
-    auto p = std::make_shared<std::promise<telux::common::ErrorCode>>();
-    telux::common::ResponseCallback setPowerResponseCb = [p](telux::common::ErrorCode error) {
-        try
-        {
-            p->set_value(error);
-        }
-        catch (const std::future_error &e) {
-            LE_ERROR("Promise already satisfied or broken: %s", e.what());
-        }
-    };
-    status = (powerState==LE_OFF)?cardManager->cardPowerDown(slotId_for_card, setPowerResponseCb):
-            cardManager->cardPowerUp(slotId_for_card, setPowerResponseCb);
-    if(status == Status::SUCCESS)
+    pa_result_t paResult = taf_pa_sim_SetPower((taf_pa_sim_Id_t)simId,(taf_pa_sim_power_state_t)powerState);
+    if (paResult != TAF_PA_SIM_RESULT_OK)
     {
-        auto future = p->get_future();
-        std::future_status waitStatus = future.wait_for(std::chrono::seconds(DEFAULT_TIMEOUT_IN_SECONDS));
-        if (waitStatus == std::future_status::timeout) {
-            LE_ERROR("Timeout waiting for response");
-            return LE_TIMEOUT ;
-        }
-        telux::common::ErrorCode error =future.get();
-        if(error == ErrorCode::SUCCESS)
-        {
-            return LE_OK;
-        }
+        LE_ERROR("Set Power operation failed,simId %d , powerState %d",
+                simId, powerState);
+        return LE_FAULT;
     }
-#endif
-#ifdef TARGET_SA415M
-    status = Status::NOTSUPPORTED;
-#endif
-    LE_INFO("Set Power operation failed, with status %s , simId %d , powerState %d",
-            statusToString(status), simId, powerState);
-    return LE_FAULT;
+    return LE_OK;
 }
 
 le_result_t taf_sim::Reset(taf_sim_Id_t simId)
@@ -2363,9 +1507,21 @@ bool taf_sim::FindProfileByType(taf_pa_sim_SlotId_t paSlot,
                               taf_pa_sim_ProfileType_t wantType,
                               taf_pa_sim_ProfileInfo_t* outInfo)
 {
-    uint8_t n = taf_pa_sim_GetProfileNum(paSlot);
+    uint8_t n = 0;
+    pa_result_t res = taf_pa_sim_GetProfileNum(paSlot, &n);
+    if (res != PA_OK)
+    {
+        LE_WARN("taf_pa_sim_GetProfileNum returned: %d", (int)res);
+        return false;
+    }
     for (uint8_t i = 0; i < n; ++i) {
-        taf_pa_sim_ProfileInfo_t info = taf_pa_sim_GetProfile(paSlot, i);
+        taf_pa_sim_ProfileInfo_t info = {};
+        pa_result_t getRes = taf_pa_sim_GetProfile(paSlot, i, &info);
+        if (getRes != PA_OK)
+        {
+            LE_WARN("taf_pa_sim_GetProfile[%u] returned: %d", i, (int)getRes);
+            continue;
+        }
         if (info.type == wantType) {
             if (outInfo) {
                 *outInfo = info;
@@ -2400,7 +1556,13 @@ le_result_t taf_sim::IsEmergencyCallSubscriptionSelected
         return LE_BAD_PARAMETER;
     }
 
-    uint8_t profileCount = taf_pa_sim_GetProfileNum(paSlot);
+    uint8_t profileCount = 0;
+    pa_result_t profileNumRes = taf_pa_sim_GetProfileNum(paSlot, &profileCount);
+    if (profileNumRes != PA_OK)
+    {
+        LE_WARN("IsEmergencyCallSubscriptionSelected: taf_pa_sim_GetProfileNum returned: %d", (int)profileNumRes);
+        return LE_FAULT;
+    }
     if (profileCount == 0) {
         LE_INFO("IsEmergencyCallSubscriptionSelected: profiles list is empty");
         return LE_FAULT;
@@ -2416,404 +1578,537 @@ le_result_t taf_sim::IsEmergencyCallSubscriptionSelected
     return LE_OK;
 }
 
-
-
-taf_sim_FPLMNListRef_t taf_sim::CreateInternalFPLMNList
-(
-)
+uint8_t taf_sim::CharToDigit(char c)
 {
-    taf_sim_FPLMNList_t* res = (taf_sim_FPLMNList_t* )le_mem_ForceAlloc(FPLMNListPool);
-    if(res == NULL) {
-        LE_INFO("CreateInternalFPLMNList failed!");
-        return NULL;
-    }
-    res->link = LE_DLS_LIST_INIT;
-    res->ref = (taf_sim_FPLMNListRef_t)le_ref_CreateRef(FPLMNListRefMap, res);
-    return (taf_sim_FPLMNListRef_t)(res->ref);
+    return (c >= '0' && c <= '9') ? (c - '0') : 0xF;
 }
 
-taf_sim_FPLMNListRef_t taf_sim::CreateFPLMNList
-(
-)
+bool taf_sim::DecodePlmnBytes(const uint8_t* data, char* mccStr, char* mncStr)
 {
-    if (fplmnListRefs != nullptr) {
-        taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, fplmnListRefs);
-        if (!ListReference) {
-            return NULL;
+    uint8_t b1 = data[0];
+    uint8_t b2 = data[1];
+    uint8_t b3 = data[2];
+
+    if (b1 == 0xFF && b2 == 0xFF && b3 == 0xFF) return false;
+
+    mccStr[0] = (char)((b1 & 0x0F) + '0');
+    mccStr[1] = (char)(((b1 & 0xF0) >> 4) + '0');
+    mccStr[2] = (char)((b2 & 0x0F) + '0');
+    mccStr[3] = '\0';
+
+    uint8_t mnc3_val = (b2 & 0xF0) >> 4;
+    uint8_t mnc1_val = (b3 & 0x0F);
+    uint8_t mnc2_val = (b3 & 0xF0) >> 4;
+
+    mncStr[0] = (char)(mnc1_val + '0');
+    mncStr[1] = (char)(mnc2_val + '0');
+
+    if (mnc3_val != 0xF) {
+        mncStr[2] = (char)(mnc3_val + '0');
+        mncStr[3] = '\0';
+    } else {
+        mncStr[2] = '\0';
+    }
+    return true;
+}
+
+void taf_sim::EncodePlmnBytes(const char* mccStr, const char* mncStr, uint8_t* outData)
+{
+    uint8_t mcc[3];
+    uint8_t mnc[3] = {0xF, 0xF, 0xF};
+
+    for(int i=0; i<3 && mccStr[i]; i++) mcc[i] = CharToDigit(mccStr[i]);
+    for(int i=0; i<3 && mncStr[i]; i++) mnc[i] = CharToDigit(mncStr[i]);
+
+    outData[0] = (mcc[1] << 4) | mcc[0];
+    outData[1] = (mnc[2] << 4) | mcc[2];
+    outData[2] = (mnc[1] << 4) | mnc[0];
+}
+
+bool taf_sim::GetFileSizeFromFcp(const uint8_t* fcp, size_t fcpLen, uint16_t* fileSizePtr)
+{
+    if (!fcp || fcpLen < 2 || !fileSizePtr) return false;
+    size_t i = 0;
+    if (fcp[0] == 0x62) i = 2;
+
+    while (i + 2 <= fcpLen) {
+        uint8_t tag = fcp[i++];
+        uint8_t len = fcp[i++];
+        if (i + len > fcpLen) break;
+        if ((tag == 0x80 || tag == 0x81) && len >= 2) {
+            *fileSizePtr = ((uint16_t)fcp[i] << 8) | fcp[i + 1];
+            return true;
         }
-        LE_INFO("CreateFPLMNList: Already created fplmnListRefs, so use the existing one.");
-        return (taf_sim_FPLMNListRef_t)(ListReference->ref);
+        i += len;
     }
-
-    return CreateInternalFPLMNList();
+    return false;
 }
 
-le_result_t taf_sim::AddFPLMNOperator
-(
-    taf_sim_FPLMNListRef_t FPLMNListRef,
-    char* mccPtr,
-    char* mncPtr
+le_result_t taf_sim::SelectFileAndGetFCP(
+    taf_sim_Id_t simId,
+    uint8_t channel,
+    const uint8_t* fileId,
+    uint16_t* outFileSize
 )
 {
-    if ((mccPtr == NULL) || (mncPtr == NULL)) {
-        LE_INFO("MCC or MNC pointer is NULL");
-        return LE_OVERFLOW;
-    }
-    fplmnListRefs = FPLMNListRef;
-    return AddFPLMNOperatorInternal(FPLMNListRef, mccPtr, mncPtr);
-}
+    uint8_t selectApdu[] = { channel, 0xA4, 0x08, 0x04, 0x04, 0x7F, 0xFF, fileId[0], fileId[1]};
+    uint8_t respBuf[TAF_SIM_RESPONSE_MAX_BYTES];
+    size_t  respLen = 0;
 
-le_result_t taf_sim::AddFPLMNOperatorInternal
-(
-    taf_sim_FPLMNListRef_t FPLMNListRef,
-    char* mccPtr,
-    char* mncPtr
-)
-{
-    if (!IsValidMCCAndMNC(mccPtr, mncPtr)) {
-        return LE_OVERFLOW;
-    }
+    le_result_t res = SendApduOnChannel(simId, channel, selectApdu, sizeof(selectApdu), respBuf, &respLen);
+    if (res != LE_OK || respLen < 2) return LE_FAULT;
 
-    taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
-    if((ListReference == NULL)) {
-        LE_INFO("Issue with ListReference ");
-        return LE_OVERFLOW;
+    uint8_t sw1 = respBuf[respLen - 2];
+    uint8_t sw2 = respBuf[respLen - 1];
+
+    uint8_t* fcpPtr = NULL;
+    size_t   fcpLen = 0;
+
+    if (sw1 == 0x90 && sw2 == 0x00)
+    {
+        if (respLen > 2) {
+            fcpPtr = respBuf;
+            fcpLen = respLen - 2;
+        }
     }
-    FPLMNNode_t* nodeFPLMN = (FPLMNNode_t*)le_mem_ForceAlloc(FPLMNNodePool);
-    if (nodeFPLMN == NULL) {
+    else if (sw1 == 0x61)
+    {
+        uint8_t le = sw2;
+        uint8_t getRespApdu[] = { channel, 0xC0, 0x00, 0x00, le };
+
+        respLen = sizeof(respBuf);
+        res = SendApduOnChannel(simId, channel, getRespApdu, sizeof(getRespApdu), respBuf, &respLen);
+        if (res == LE_OK && respLen >= 2) {
+            uint8_t grSw1 = respBuf[respLen - 2];
+            uint8_t grSw2 = respBuf[respLen - 1];
+            if (grSw1 == 0x90 && grSw2 == 0x00) {
+                fcpPtr = respBuf;
+                fcpLen = respLen - 2;
+            } else {
+                LE_ERROR("GetFCP: GET RESP SW=%02X%02X", grSw1, grSw2);
+                return LE_FAULT;
+            }
+        } else {
+            return LE_FAULT;
+        }
+    }
+    else
+    {
+        LE_ERROR("SelectFile: Failed SW=%02X%02X", sw1, sw2);
         return LE_FAULT;
     }
 
-    le_utf8_Copy(nodeFPLMN->mcc, mccPtr, sizeof(nodeFPLMN->mcc), NULL);
-    le_utf8_Copy(nodeFPLMN->mnc, mncPtr, sizeof(nodeFPLMN->mnc), NULL);
-    nodeFPLMN->link = LE_DLS_LINK_INIT;
-    le_dls_Queue(&(ListReference->link), &(nodeFPLMN->link));
+    if (fcpPtr && outFileSize) {
+        if (!GetFileSizeFromFcp(fcpPtr, fcpLen, outFileSize)) {
+            *outFileSize = 0;
+        }
+    }
+
+    return LE_OK;
+}
+
+taf_sim_FPLMNListRef_t taf_sim::CreateFPLMNList(void)
+{
+    taf_sim_FPLMNList_t* listRef = (taf_sim_FPLMNList_t*)le_mem_ForceAlloc(FPLMNListPool);
+    listRef->list = LE_DLS_LIST_INIT;
+    listRef->iter = NULL;
+    listRef->ref  = (taf_sim_FPLMNListRef_t)le_ref_CreateRef(FPLMNListRefMap, listRef);
+    return (taf_sim_FPLMNListRef_t)(listRef->ref);
+}
+
+le_result_t taf_sim::AddFPLMNOperator(taf_sim_FPLMNListRef_t FPLMNListRef, char* mccPtr, char* mncPtr)
+{
+    if (!mccPtr || !mncPtr) {
+        LE_INFO("Invalid input");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (!IsValidMCCAndMNC(mccPtr, mncPtr))
+    {
+        LE_ERROR("Invalid MCC/MNC %s/%s", mccPtr, mncPtr);
+        return LE_BAD_PARAMETER;
+    }
+
+    taf_sim_FPLMNList_t* listRef = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
+    if (!listRef) return LE_FAULT;
+
+    FPLMNNode_t* node = (FPLMNNode_t*)le_mem_ForceAlloc(FPLMNNodePool);
+    if (!node) return LE_FAULT;
+
+    le_utf8_Copy(node->mcc, mccPtr, sizeof(node->mcc), NULL);
+    le_utf8_Copy(node->mnc, mncPtr, sizeof(node->mnc), NULL);
+    node->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&listRef->list, &node->link);
     return LE_OK;
 }
 
 le_result_t taf_sim::GetFirstFPLMNOperator
 (
     taf_sim_FPLMNListRef_t FPLMNListRef,
-    char* mccPtr,
-    size_t mccLen,
-    char* mncPtr,
-    size_t mncLen
+    char* mccPtr, size_t mccLen,
+    char* mncPtr, size_t mncLen
 )
 {
-    if ((mccPtr == NULL) || (mncPtr == NULL)) {
-        LE_INFO("MCC or MNC pointer is NULL");
-        return LE_OVERFLOW;
+    if (!mccPtr || !mncPtr) {
+        LE_ERROR("GetFirstFPLMNOperator: MCC/MNC buffer NULL");
+        return LE_BAD_PARAMETER;
     }
-    taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
-    if((ListReference == NULL)) {
-        LE_INFO("Issue with ListReference ");
-        return LE_OVERFLOW;
-    }
-    le_dls_Link_t* linkPtr = le_dls_Peek(&(ListReference->link));
-    if (linkPtr == NULL) {
+
+    taf_sim_FPLMNList_t* listRef = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
+    if (!listRef) {
+        LE_ERROR("GetFirstFPLMNOperator: invalid listRef");
         return LE_FAULT;
     }
+
+    le_dls_Link_t* linkPtr = le_dls_Peek(&listRef->list);
+    if (!linkPtr) {
+        return LE_NOT_FOUND;
+    }
+
     FPLMNNode_t* node = CONTAINER_OF(linkPtr, FPLMNNode_t, link);
-    if (node == NULL) {
-        return LE_FAULT;
-    }
-    le_utf8_Copy(mccPtr, node->mcc, mccLen, &mccLen);
-    le_utf8_Copy(mncPtr, node->mnc, mncLen, &mncLen);
-    fplmnListIndex = 1;
+
+    le_result_t res;
+    res = le_utf8_Copy(mccPtr, node->mcc, mccLen, NULL);
+    if (res != LE_OK) return res;
+    res = le_utf8_Copy(mncPtr, node->mnc, mncLen, NULL);
+    if (res != LE_OK) return res;
+
+    listRef->iter = linkPtr;
     return LE_OK;
 }
 
 le_result_t taf_sim::GetNextFPLMNOperator
 (
     taf_sim_FPLMNListRef_t FPLMNListRef,
-    char* mccPtr,
-    size_t mccLen,
-    char* mncPtr,
-    size_t mncLen
+    char* mccPtr, size_t mccLen,
+    char* mncPtr, size_t mncLen
 )
 {
-    if ((mccPtr == NULL) || (mncPtr == NULL)) {
-        LE_INFO("MCC or MNC pointer is NULL");
-        return LE_OVERFLOW;
-    }
-    taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
-    if((ListReference == NULL)) {
-        LE_INFO("Issue with ListReference ");
-        return LE_OVERFLOW;
-    }
-    le_dls_Link_t* linkPtr = le_dls_Peek(&(ListReference->link));
-    if (linkPtr == NULL) {
-        return LE_FAULT;
-    }
-    FPLMNNode_t* node;
-
-    for (int i = 0; i < fplmnListIndex && linkPtr!=NULL; i++) {
-        linkPtr = le_dls_PeekNext(&(ListReference->link), (linkPtr));
+    if (!mccPtr || !mncPtr) {
+        LE_ERROR("GetNextFPLMNOperator: MCC/MNC buffer NULL");
+        return LE_BAD_PARAMETER;
     }
 
-    if(linkPtr == NULL) {
+    taf_sim_FPLMNList_t* listRef = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
+    if (!listRef) {
+        LE_ERROR("GetNextFPLMNOperator: invalid listRef");
         return LE_FAULT;
     }
-    node = CONTAINER_OF(linkPtr, FPLMNNode_t, link);
-    if (node == NULL) {
-        return LE_FAULT;
+
+    if (!listRef->iter) {
+        return LE_NOT_FOUND;
     }
-    le_utf8_Copy(mccPtr, node->mcc, mccLen, &mccLen);
-    le_utf8_Copy(mncPtr, node->mnc, mncLen, &mncLen);
-    fplmnListIndex++;
+
+    le_dls_Link_t* next = le_dls_PeekNext(&listRef->list, listRef->iter);
+    if (!next) {
+        return LE_NOT_FOUND;
+    }
+
+    FPLMNNode_t* node = CONTAINER_OF(next, FPLMNNode_t, link);
+
+    le_result_t res;
+    res = le_utf8_Copy(mccPtr, node->mcc, mccLen, NULL);
+    if (res != LE_OK) return res;
+    res = le_utf8_Copy(mncPtr, node->mnc, mncLen, NULL);
+    if (res != LE_OK) return res;
+
+    listRef->iter = next;
     return LE_OK;
 }
 
-taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(
-    taf_sim_Id_t simId
-)
+void taf_sim::DeleteFPLMNList(taf_sim_FPLMNListRef_t FPLMNListRef)
 {
-    //First select the file using APDU commands
-    //Then read from it in binary form and use payload to get the response as a hex string
-    uint8_t selectFPLMNApdu[] = {0x00, 0xA4, 0x08, 0x04, 0x04, 0x7F, 0xFF, 0x6F, 0x7B};
-    uint8_t responseAPDU[TAF_SIM_RESPONSE_MAX_BYTES];
-    size_t responseLength = 0;
+    taf_sim_FPLMNList_t* listRef = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
+    if (!listRef) return;
+
+    while (!le_dls_IsEmpty(&listRef->list))
+    {
+        le_dls_Link_t* link = le_dls_Peek(&listRef->list);
+        le_dls_Remove(&listRef->list, link);
+
+        FPLMNNode_t* node = CONTAINER_OF(link, FPLMNNode_t, link);
+        le_mem_Release(node);
+    }
+
+    listRef->iter = NULL;
+    le_ref_DeleteRef(FPLMNListRefMap, FPLMNListRef);
+    le_mem_Release(listRef);
+}
+
+taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(taf_sim_Id_t simId)
+{
+    taf_sim_FPLMNListRef_t listRef = CreateFPLMNList();
+    if (!listRef) return NULL;
+
+    if (selectSimSlot(simId) != LE_OK) return NULL;
+
     uint8_t channel = 0;
-    LE_INFO("Entered here");
-    if((selectSimSlot(simId))!=LE_OK) {
-        return NULL;
-    }
-    LE_INFO("Sim slot selected");
-    le_result_t res = OpenLogicalChannel((taf_sim_Id_t)slot, TAF_SIM_APPTYPE_USIM, &channel);
-    if(res != LE_OK) {
-        return NULL;
-    }
-    LE_INFO("Logical channel opened channel id: %d", channel);
-    selectFPLMNApdu[0] = channel;
-    res = SendApduOnChannel((taf_sim_Id_t)slot, channel, selectFPLMNApdu, sizeof(selectFPLMNApdu), responseAPDU, &responseLength);
+    if (OpenLogicalChannel(simId, TAF_SIM_APPTYPE_USIM, &channel) != LE_OK) return NULL;
 
-    if(res != LE_OK || (uint8_t)responseAPDU[responseLength-2] != 0x61) {
-        res = CloseLogicalChannel((taf_sim_Id_t)slot, channel);
-        LE_INFO("ReadFplmnList: CloseLogicalChannel channel_id: %d res: %d", channel, res);
-        return NULL;
-    }
-    LE_DEBUG("ReadFplmnList: After selectFPLMNApdu channel id: %d", channel);
-    LE_INFO("selectFPLMNApdu sw1: %d, sw2: %d", (uint8_t)responseAPDU[responseLength-2], (uint8_t)responseAPDU[responseLength-1]);
+    uint8_t fileId[] = { 0x6F, 0x7B };
+    uint16_t fileSize = 0;
 
-    uint8_t readBinaryFPLMNApdu[] = {0x00, 0xB0, 0x00, 0x00, 0x00};
-    readBinaryFPLMNApdu[0] = channel;
-    res = SendApduOnChannel((taf_sim_Id_t)slot, channel, readBinaryFPLMNApdu, sizeof(readBinaryFPLMNApdu), responseAPDU, &responseLength);
-
-    if(res != LE_OK || (uint8_t)responseAPDU[responseLength-2] != 0x90 || (uint8_t)responseAPDU[responseLength-1] != 0x00) {
-        res = CloseLogicalChannel((taf_sim_Id_t)slot, channel);
-        LE_INFO("ReadFplmnList: CloseLogicalChannel channel_id: %d res: %d", channel, res);
-        return NULL;
-    }
-    LE_INFO("ReadFplmnList: After readFPLMNApdu channel id: %d", channel);
-    res = CloseLogicalChannel((taf_sim_Id_t)slot, channel);
-    if(res != LE_OK) {
+    if (SelectFileAndGetFCP(simId, channel, fileId, &fileSize) != LE_OK) {
+        LE_ERROR("ReadFPLMNList: Select Failed");
+        CloseLogicalChannel(simId, channel);
         return NULL;
     }
 
-    taf_sim_FPLMNListRef_t listRef = CreateInternalFPLMNList();
-    int size = responseLength - 2;
+    uint8_t p3 = 0x00;
+    if (fileSize > 0 && fileSize < 256) {
+        p3 = (uint8_t)fileSize;
+    }
 
-    for(int i=0; i<size/3; i++) {
-        int k=3*i;
-        char mcc[4], mnc[4];
+    uint8_t readBinaryApdu[] = { channel, 0xB0, 0x00, 0x00, p3 };
+    uint8_t respBuf[TAF_SIM_RESPONSE_MAX_BYTES];
+    size_t  respLen = sizeof(respBuf);
 
-        //1st byte:mcc[1] mcc[0]
-        //2th byte:mnc[2] mcc[2]
-        //3th byte:mnc[1] mnc[0]
-        //42 F6 18 = mcc:246 mnc:81
-        //60 f5 34 = mcc:65 mnc:43
-        //e.g. mcc:246 mnc:81 = 42 F6 18. Here mcc[0] = 2, mcc[1] = 4, mcc[2] = 6 and mnc[0] = 8, mnc[1] = 1
-        //e.g. mcc:65 mnc:43 = 40 65 91. Here mcc[0] = 0, mcc[1] = 6, mcc[2] = 5 and mnc[0] = 4, mnc[1] = 3
+    le_result_t res = SendApduOnChannel(simId, channel, readBinaryApdu, sizeof(readBinaryApdu), respBuf, &respLen);
 
-        if ((k+2) >= TAF_SIM_RESPONSE_MAX_BYTES)
-        {
-            LE_ERROR("Exceeds the max response bytes");
-            return NULL;
-        }
-        if (responseAPDU[k] == 0xFF && responseAPDU[k+1] == 0xFF && responseAPDU[k+2] == 0xFF) {
-            LE_INFO("Skipping invalid MCC/MNC due to all FF values");
+    CloseLogicalChannel(simId, channel);
+
+    if (res != LE_OK || respLen < 2) {
+        LE_ERROR("ReadFPLMNList: APDU Send Failed");
+        return NULL;
+    }
+
+    uint8_t sw1 = respBuf[respLen - 2];
+    uint8_t sw2 = respBuf[respLen - 1];
+
+    if (sw1 != 0x90 || sw2 != 0x00) {
+        LE_ERROR("ReadFPLMNList: READ BINARY SW=%02X%02X", sw1, sw2);
+        return NULL;
+    }
+
+    size_t payloadLen = respLen - 2;
+    if (payloadLen < 3) {
+        return CreateFPLMNList();
+    }
+
+    uint32_t nodeCount = 0;
+
+    for (size_t i = 0; i + 3 <= payloadLen; i += 3)
+    {
+        uint8_t b1 = respBuf[i];
+        uint8_t b2 = respBuf[i+1];
+        uint8_t b3 = respBuf[i+2];
+
+        if (b1 == 0xFF && b2 == 0xFF && b3 == 0xFF) {
+            LE_INFO("ReadFPLMNList: skip FF entry at index %zu", i/3);
             continue;
         }
-        mcc[0] = (responseAPDU[k] & 0x0F) + '0';
-        mcc[1] = ((responseAPDU[k] & 0xF0) >> 4) + '0';
-        mcc[2] = (responseAPDU[k+1] & 0x0F) + '0';
 
-        mnc[0] = (responseAPDU[k+2] & 0x0F) + '0';
-        mnc[1] = ((responseAPDU[k+2] & 0xF0) >> 4) + '0';
+        char mcc[4] = {0};
+        char mnc[4] = {0};
 
-        if(((responseAPDU[k+1] & 0xF0) >> 4) == 15) {
-            mnc[2] = '\0';
-        } else {
-            mnc[2]=((responseAPDU[k+1] & 0xF0) >> 4) + '0';
+        if (!DecodePlmnBytes(&respBuf[i], mcc, mnc)) {
+            continue;
         }
-        mcc[3] = '\0';
-        mnc[3] = '\0';
 
-        res = AddFPLMNOperatorInternal(listRef, mcc, mnc);
-        if(res!=LE_OK) {
+        if (!IsValidMCCAndMNC(mcc, mnc))
+        {
+            LE_WARN("ReadFPLMNList: invalid decoded MCC/MNC %s/%s, skip", mcc, mnc);
+            continue;
+        }
+
+        if (nodeCount >= TAF_SIM_FPLMN_MAX_OPERATORS_PER_LIST) {
+            LE_WARN("ReadFPLMNList: Limit reached (%u), truncating rest", TAF_SIM_FPLMN_MAX_OPERATORS_PER_LIST);
+            break;
+        }
+
+        if (AddFPLMNOperator(listRef, mcc, mnc) != LE_OK) {
+            LE_ERROR("ReadFPLMNList: Add failed");
             DeleteFPLMNList(listRef);
             return NULL;
         }
-        LE_INFO("FPLMN #%d - MCC:%s MNC:%s", i+1, mcc, mnc);
+
+        nodeCount++;
+        LE_INFO("ReadFPLMNList: Found #%u %s/%s", nodeCount, mcc, mnc);
     }
 
     return listRef;
 }
 
-void taf_sim::DeleteFPLMNList
-(
-    taf_sim_FPLMNListRef_t FPLMNListRef
-)
+le_result_t taf_sim::ClearFPLMNToFF(taf_sim_Id_t simId)
 {
-    taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
-    if(ListReference == NULL) {
-        LE_WARN("Cannot find the FPLMNList with ref: %p", FPLMNListRef);
-        return;
+    LE_INFO("ClearFPLMNToFF: Start");
+    if (selectSimSlot(simId) != LE_OK) return LE_FAULT;
+
+    uint8_t channel = 0;
+    if (OpenLogicalChannel(simId, TAF_SIM_APPTYPE_USIM, &channel) != LE_OK) return LE_FAULT;
+
+    uint8_t fileId[] = { 0x6F, 0x7B };
+    uint16_t fileSize = 0;
+
+    if (SelectFileAndGetFCP(simId, channel, fileId, &fileSize) != LE_OK) {
+        CloseLogicalChannel(simId, channel);
+        return LE_FAULT;
     }
 
-    // Release all nodes in the list before releasing the list itself
-    while(!le_dls_IsEmpty(&(ListReference->link))) {
-        le_dls_Link_t* link = le_dls_Peek(&(ListReference->link));
-        if (link != NULL) {
-            le_dls_Remove(&(ListReference->link), link);
-            FPLMNNode_t* node = CONTAINER_OF(link, FPLMNNode_t, link);
-            if (node != NULL)
-            {
-                le_mem_Release(node);
-            }
-        }
-    }
-    le_ref_DeleteRef(FPLMNListRefMap, FPLMNListRef);
-    fplmnListIndex = 0;
-    le_mem_Release(ListReference);
+    uint16_t writeLen = (fileSize > 0 && fileSize < 255) ? fileSize : 255;
+    std::vector<uint8_t> data(writeLen, 0xFF);
 
-    // Clear fplmnListRefs if it points to the deleted list
-    if (fplmnListRefs == FPLMNListRef) {
-        fplmnListRefs = nullptr;
-    }
+    std::vector<uint8_t> apdu;
+    apdu.reserve(5 + data.size());
+    apdu.push_back(channel);
+    apdu.push_back(0xD6);
+    apdu.push_back(0x00);
+    apdu.push_back(0x00);
+    apdu.push_back((uint8_t)data.size());
+    apdu.insert(apdu.end(), data.begin(), data.end());
+
+    uint8_t resp[TAF_SIM_RESPONSE_MAX_BYTES];
+    size_t  rLen = sizeof(resp);
+    le_result_t res = SendApduOnChannel(simId, channel, apdu.data(), apdu.size(), resp, &rLen);
+
+    CloseLogicalChannel(simId, channel);
+    return res;
 }
 
 le_result_t taf_sim::WriteFPLMNList
 (
-    taf_sim_Id_t simId,
+    taf_sim_Id_t           simId,
     taf_sim_FPLMNListRef_t FPLMNListRef
 )
 {
-    //Select the EF
-    uint8_t selectFPLMNApdu[] = {0x00, 0xA4, 0x08, 0x04, 0x04, 0x7F, 0xFF, 0x6F, 0x7B};
-    uint8_t responseAPDU[TAF_SIM_RESPONSE_MAX_BYTES];
-    size_t responseLength = 0;
+    taf_sim_FPLMNList_t* listPtr = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
+    if (!listPtr) {
+        LE_ERROR("WriteFPLMNList: invalid listRef");
+        return LE_FAULT;
+    }
+
+    if (le_dls_IsEmpty(&listPtr->list))
+    {
+        LE_INFO("WriteFPLMNList: list empty, redirecting to ClearFPLMNToFF");
+        return ClearFPLMNToFF(simId);
+    }
+
+    if (selectSimSlot(simId) != LE_OK) return LE_FAULT;
+
     uint8_t channel = 0;
-    if(selectSimSlot(simId) != LE_OK) {
-        return LE_FAULT;
-    }
-    le_result_t res = OpenLogicalChannel((taf_sim_Id_t)slot, TAF_SIM_APPTYPE_USIM, &channel);
-    if(res != LE_OK) {
-        return LE_FAULT;
-    }
-    LE_INFO("WriteFPLMNList: OpenLogicalChannel channel id: %d", channel);
-    const uint8_t channel_id = channel;
-    selectFPLMNApdu[0] = channel;
-    res = SendApduOnChannel((taf_sim_Id_t)slot, channel, selectFPLMNApdu, sizeof(selectFPLMNApdu), responseAPDU, &responseLength);
-    if(res != LE_OK || (uint8_t)responseAPDU[responseLength-2] != 0x61) {
-        res = CloseLogicalChannel((taf_sim_Id_t)slot, channel_id);
-        LE_INFO("WriteFPLMNList: CloseLogicalChannel channel_id: %d res: %d", channel_id, res);
-        return LE_FAULT;
-    }
-    LE_DEBUG("WriteFPLMNList: After selectFPLMNApdu channel id: %d and channel_id: %d", channel, channel_id);
-    LE_INFO("selectFPLMNApdu sw1: %d, sw2: %d", (uint8_t)responseAPDU[responseLength-2], (uint8_t)responseAPDU[responseLength-1]);
+    if (OpenLogicalChannel(simId, TAF_SIM_APPTYPE_USIM, &channel) != LE_OK) return LE_FAULT;
 
-    taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
-    if(ListReference == NULL) {
-        res = CloseLogicalChannel((taf_sim_Id_t)slot, channel_id);
-        LE_INFO("WriteFPLMNList: CloseLogicalChannel channel_id: %d res: %d", channel_id, res);
+    uint8_t fileId[] = { 0x6F, 0x7B };
+    uint16_t fileSize = 0;
+
+    if (SelectFileAndGetFCP(simId, channel, fileId, &fileSize) != LE_OK) {
+        LE_ERROR("WriteFPLMNList: Select Failed");
+        CloseLogicalChannel(simId, channel);
         return LE_FAULT;
     }
 
-    std::vector<uint8_t> writeFPLMNListApdu = {0x00, 0xD6, 0x00, 0x00, 0x00};
+    if (fileSize == 0) {
+        LE_WARN("WriteFPLMNList: Unknown fileSize, defaulting to 0 behavior");
+    }
 
-    auto nodeLink=le_dls_Peek(&(ListReference->link));
+    uint32_t listCount = 0;
+    for (le_dls_Link_t* l = le_dls_Peek(&listPtr->list); l != NULL; l = le_dls_PeekNext(&listPtr->list, l)) {
+        ++listCount;
+    }
 
-    while (nodeLink != NULL) {
-        FPLMNNode_t* node=CONTAINER_OF(nodeLink, FPLMNNode_t, link);
-        LE_INFO("WriteFPLMNList: node->mcc:%s, node->mnc:%s", node->mcc, node->mnc);
+    uint32_t maxRecords = (fileSize > 0) ? (fileSize / 3) : listCount;
+    uint32_t recordsToWrite = (listCount < maxRecords) ? listCount : maxRecords;
 
-        //1st byte:mcc[1] mcc[0]
-        //2th byte:mnc[2] mcc[2]
-        //3th byte:mnc[1] mnc[0]
-        //mcc:246 mnc:81 = 42 F6 18
-        //mcc:65 mnc:43 = 60 f5 34
-        //e.g. mcc:246 mnc:81 = 42 F6 18. Here mcc[0] = 2, mcc[1] = 4, mcc[2] = 6 and mnc[0] = 8, mnc[1] = 1
-        //e.g. mcc:65 mnc:43 = 40 65 91. Here mcc[0] = 0, mcc[1] = 6, mcc[2] = 5 and mnc[0] = 4, mnc[1] = 3
+    LE_INFO("WriteFPLMNList: listCount=%u fileSize=%u maxRecords=%u toWrite=%u",
+            listCount, fileSize, maxRecords, recordsToWrite);
 
-        int mccInt = atoi(node->mcc);
-        int mncInt = atoi(node->mnc);
-        uint8_t mcc0 = (int) mccInt/100;
-        uint8_t mcc1 = (int) (mccInt%100)/10;
-        uint8_t mcc2 = (int) mccInt%10;
-        uint8_t mnc0, mnc1, mnc2;
-        if (mncInt > 99) {
-            mnc0 = (int) mncInt/100;
-            mnc1 = (int) (mncInt%100)/10;
-            mnc2 = (int) mncInt%10;
-        } else {
-            mnc0 = (int) mncInt/10;
-            mnc1 = (int) mncInt%10;
-            mnc2 = 0x0F;
+    std::vector<uint8_t> data;
+    data.reserve(fileSize > 0 ? fileSize : (3 * recordsToWrite));
+
+    uint32_t writtenRecords = 0;
+    for (le_dls_Link_t* nodeLink = le_dls_Peek(&listPtr->list);
+         nodeLink != NULL && writtenRecords < recordsToWrite;
+         nodeLink = le_dls_PeekNext(&listPtr->list, nodeLink))
+    {
+        FPLMNNode_t* node = CONTAINER_OF(nodeLink, FPLMNNode_t, link);
+
+        uint8_t encoded[3];
+        EncodePlmnBytes(node->mcc, node->mnc, encoded);
+
+        data.push_back(encoded[0]);
+        data.push_back(encoded[1]);
+        data.push_back(encoded[2]);
+
+        ++writtenRecords;
+    }
+
+    if (fileSize > 0)
+    {
+        if (data.size() < fileSize) {
+            data.resize(fileSize, 0xFF);
+        } else if (data.size() > fileSize) {
+            data.resize(fileSize);
         }
-
-        LE_DEBUG("WriteFPLMNList: mcc0:%d, mcc1:%d, mcc2:%d and mnc0:%d, mnc1:%d, mnc2:%d", (int) mcc0, (int) mcc1,
-                (int) mcc2, (int) mnc0, (int) mnc1, (int) mnc2);
-
-        writeFPLMNListApdu.emplace_back(mcc1*16+mcc0);
-        writeFPLMNListApdu.emplace_back(mnc2*16+mcc2);
-        writeFPLMNListApdu.emplace_back(mnc1*16+mnc0);
-
-        nodeLink = le_dls_PeekNext(&(ListReference->link), nodeLink);
     }
-    uint8_t sizeOfwriteFPLMNListApdu = writeFPLMNListApdu.size();
-    LE_INFO("WriteFPLMNList: Total no of data(p3): %d", sizeOfwriteFPLMNListApdu);
-    writeFPLMNListApdu.at(4) = sizeOfwriteFPLMNListApdu - 5;
-    writeFPLMNListApdu[0] = channel_id;
-    res = SendApduOnChannel((taf_sim_Id_t)slot, channel_id, writeFPLMNListApdu.data(), sizeOfwriteFPLMNListApdu, responseAPDU, &responseLength);
-    if(res != LE_OK || (uint8_t)responseAPDU[responseLength-2] != 0x90 || (uint8_t)responseAPDU[responseLength-1] != 0x00) {
-        res = CloseLogicalChannel((taf_sim_Id_t)slot, channel_id);
-        LE_INFO("WriteFPLMNList: CloseLogicalChannel channel_id: %d res: %d", channel_id, res);
+
+    if (data.empty() || data.size() > 255)
+    {
+        LE_ERROR("WriteFPLMNList: Data size %zu invalid for Short APDU (Max 255)", data.size());
+        CloseLogicalChannel(simId, channel);
         return LE_FAULT;
     }
 
-    res = CloseLogicalChannel((taf_sim_Id_t)slot, channel_id);
-    LE_INFO("WriteFPLMNList: CloseLogicalChannel channel_id: %d res: %d", channel_id, res);
-    if(res != LE_OK) {
+    std::vector<uint8_t> writeApdu;
+    writeApdu.reserve(5 + data.size());
+    writeApdu.push_back(channel);
+    writeApdu.push_back(0xD6);
+    writeApdu.push_back(0x00);
+    writeApdu.push_back(0x00);
+    writeApdu.push_back((uint8_t)data.size());
+    writeApdu.insert(writeApdu.end(), data.begin(), data.end());
+
+    uint8_t respBuf[TAF_SIM_RESPONSE_MAX_BYTES];
+    size_t respLen = sizeof(respBuf);
+
+    le_result_t res = SendApduOnChannel(simId, channel, writeApdu.data(), writeApdu.size(), respBuf, &respLen);
+    if (res != LE_OK || respLen < 2) {
+        CloseLogicalChannel(simId, channel);
         return LE_FAULT;
     }
 
-    return LE_OK;
+    uint8_t sw1 = respBuf[respLen - 2];
+    uint8_t sw2 = respBuf[respLen - 1];
+    CloseLogicalChannel(simId, channel);
+
+    if (sw1 == 0x90 && sw2 == 0x00) {
+        return LE_OK;
+    } else {
+        LE_ERROR("WriteFPLMNList: Write Failed SW=%02X%02X", sw1, sw2);
+        return LE_FAULT;
+    }
 }
 
 le_result_t taf_sim::getSlotCount(int *count) {
-    bool isReady = multiSimMgr->isSubsystemReady();
-    LE_INFO("getSlotCount: is multi SIM subSystem ready: %d", isReady);
+    bool isReady;
     if (count == NULL) {
         LE_ERROR("GetSlotCount failed! as count is NULL");
         return LE_FAULT;
     }
+    pa_result_t result = taf_pa_sim_IsSubsystemReady(&isReady);
     *count = 1; //Single SIM by default
-    if (isReady) {
-        int slotCount;
-        if (telux::common::Status::SUCCESS == multiSimMgr->getSlotCount(slotCount)) {
-            *count = slotCount;
-            LE_INFO("getSlotCount: success, Slot Count: %d", slotCount);
-            return LE_OK;
-        } else {
-            LE_ERROR("GetSlotCount failed!!!");
-            return LE_FAULT;
+    if(result == TAF_PA_SIM_RESULT_OK)
+    {
+        if (isReady)
+        {
+            int slotCount;
+            pa_result_t paResult = taf_pa_sim_getSlotCount(&slotCount);
+            if (paResult != TAF_PA_SIM_RESULT_OK)
+            {
+                LE_ERROR("Fail to get slot count via PA OSS API.");
+                return LE_FAULT;
+            }
+            else
+            {
+                LE_INFO("getSlotCount: success, Slot Count: %d", slotCount);
+                *count = slotCount;
+                return LE_OK;
+            }
         }
     }
-
     LE_ERROR("GetSlotCount failed because multi sim sub system is not ready");
     return LE_FAULT;
 }
+
 le_result_t taf_sim::CheckRefreshAllow(taf_pa_sim_RefreshChangeInd_t* ind)
 {
     auto &sim = taf_sim::GetInstance();
@@ -2838,6 +2133,7 @@ le_result_t taf_sim::CheckRefreshAllow(taf_pa_sim_RefreshChangeInd_t* ind)
     }
     return LE_OK;
 }
+
 void taf_sim::ResetRefreshVote(taf_sim_Session_t* ClientRequestPtr)
 {
    if(ClientRequestPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV){
@@ -2906,7 +2202,13 @@ le_result_t taf_sim::SwapSubscriptionInternal
         return LE_BAD_PARAMETER;
     }
 
-    uint8_t profileCount = taf_pa_sim_GetProfileNum(paSlot);
+    uint8_t profileCount = 0;
+    pa_result_t profileNumRes2 = taf_pa_sim_GetProfileNum(paSlot, &profileCount);
+    if (profileNumRes2 != PA_OK)
+    {
+        LE_WARN("taf_pa_sim_GetProfileNum returned: %d", (int)profileNumRes2);
+        return LE_FAULT;
+    }
     if (profileCount == 0) {
         LE_INFO("profiles list is empty");
         return LE_FAULT;
@@ -2965,4 +2267,38 @@ le_result_t taf_sim::LocalSwapToCommercialCallSubscription
 {
     LE_INFO("LocalSwapToCommercialCallSubscription for sim:%d", (int)simId);
     return SwapSubscriptionInternal(simId, manufacturer, false);
+}
+
+void taf_sim::UpdateLocalSimState(taf_sim_info_t* simPtr, const std::shared_ptr<taf_pa_sim_Iccid_t>& iccidDataInfo)
+{
+    if (!simPtr) {
+        LE_ERROR("simPtr is NULL, cannot update local SIM state");
+        return;
+    }
+    if (!iccidDataInfo ||iccidDataInfo->ICCID.empty()) {
+        simPtr->ICCID[0] = '\0';
+        simPtr->IMSI[0] = '\0';
+        simPtr->phoneNumber[0] = '\0';
+        simPtr->pinTryCount = 3;
+        simPtr->pukTryCount = 10;
+        LE_INFO("Cleared local SIM info for simId %d", simPtr->simId);
+    }
+    else {
+        taf_sim_Id_t simId = (taf_sim_Id_t)iccidDataInfo->simId;
+        le_utf8_Copy(simPtr->ICCID, iccidDataInfo->ICCID.c_str(), TAF_SIM_ICCID_BYTES, NULL);
+        std::string imsiStr;
+        if (taf_pa_sim_GetImsi((taf_pa_sim_Id_t)simId, imsiStr) == TAF_PA_SIM_RESULT_OK) {
+            le_utf8_Copy(simPtr->IMSI, imsiStr.c_str(), TAF_SIM_IMSI_BYTES, NULL);
+        } else {
+            LE_WARN("Failed to fetch IMSI from PA for simId %d", simId);
+            simPtr->IMSI[0] = '\0';
+        }
+        std::string phoneStr;
+        if (taf_pa_sim_GetSubscriberPhoneNumber((taf_pa_sim_Id_t)simId, phoneStr) == TAF_PA_SIM_RESULT_OK) {
+            le_utf8_Copy(simPtr->phoneNumber, phoneStr.c_str(), TAF_SIM_PHONE_NUM_MAX_BYTES, NULL);
+        } else {
+            LE_WARN("Failed to fetch Phone Number from PA for simId %d", simId);
+            simPtr->phoneNumber[0] = '\0';
+        }
+    }
 }

@@ -24,10 +24,17 @@ SE_MODS = $(shell find $(CURDIR)/security/selinux/sepolicy/ -name tmp -type d)
 
 PA_BUILD_DIRS := $(TELAF_PA)/build $(TELAF_PA)/staging $(TELAF_PA_DEFAULT)/build $(TELAF_PA_DEFAULT)/staging
 
+export SIMULATION_ROOT := $(wildcard $(CURDIR)/../telaf-simulation)
+ifeq ($(SIMULATION_ROOT),)
+  SIMULATION_ROOT := $(CURDIR)/simulation
+endif
+$(info simulation root path @ $(SIMULATION_ROOT))
+
 # Sub-Makefile for TelAF Simulation, but we need to
 # prevent 'simulation' target from affecting other targets.
 ifneq ($(filter simula%,$(MAKECMDGOALS)),)
-  include simulation/simulation.mk
+  $(info import the simulation build flow)
+  include $(SIMULATION_ROOT)/simulation.mk
 endif
 
 # SDK configurations
@@ -35,33 +42,6 @@ include config.mk
 
 default:
 	@echo "Nothing to do, without any target"
-
-# No PA for the LXC contianer
-ifneq ($(BUILD_FLAVOR),lxc)
-# Macro to check and copy stub directories
-define PREBUILD_PA
-	@echo "Finding and creating stub PA.."
-	@find $(TELAF_ROOT) -name '.ssh' -prune -o -name Component.cdef | while read -r cdef_file; do \
-		base_name=""; \
-		while IFS= read -r line; do \
-			if echo "$$line" | grep -q '$$LEGATO_BUILD/stub/component/'; then \
-				base_name=$$(echo "$$line" | sed -n 's|.*$$LEGATO_BUILD/stub/component/\([^ ]*\).*|\1|p'); \
-				echo "Required stub PA: $$base_name"; \
-				target_stub_dir=$(LEGATO_RELATIVE_PATH)/build/$(1)/stub/component/$$base_name; \
-				if [ ! -d "$$target_stub_dir" ]; then \
-					mkdir -p $$target_stub_dir; \
-				else \
-					echo "PA folder is created: $$target_stub_dir"; \
-				fi; \
-				stub_dir=$(TELAF_PA_DEFAULT)/component/taf_pa_stub; \
-				echo "Copy $$stub_dir to $$target_stub_dir"; \
-				cp -r $$stub_dir/* $$target_stub_dir; \
-			fi; \
-		done < "$$cdef_file"; \
-	done
-endef
-endif # ($(BUILD_FLAVOR),lxc)
-
 
 $(TARGETS): TARGET=$@
 $(TARGETS):

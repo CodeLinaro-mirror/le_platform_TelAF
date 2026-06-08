@@ -194,7 +194,7 @@ void TryToCreateStorageFromTree(AO_SecurityAccess_t *self)
 
     if (le_cfg_NodeExists(iteratorRef, nodePath))
     {
-        LE_INFO("Tree for security_access already exists. if:%s", self->ifname);
+        LE_DEBUG("Tree for security_access already exists. if:%s", self->ifname);
 
         /* FIXME: Now, if we want to update the configuration from YAML to configTree
          *        use the target-tool 'config' to delete the 'tafDiagSvc:' subTree,
@@ -240,61 +240,65 @@ static void AO_SecurityAccess_ctor
 )
 {
     MFsm_ctor(&self->super, (MStateHandler_t)&State_initial);
+
+    // Initialize non-config members first
+    self->session_list = LE_SLS_LIST_INIT;
+    self->current_session = NULL;
+    self->default_session = NULL;
+    self->last_pending_session_id = SEC_ACC_DEFAULT_SESSION_ID;
+    self->last_pending_signal = INVALID_SIG;
+    self->mMgr = mgr;
+    self->delay_timer_ref = NULL;
+
+    SECACC_ASSERT_FATAL(strlen(ifname) + 1 <= IF_NAME_MAX_LEN);
+    le_utf8_Copy(self->ifname, ifname, IF_NAME_MAX_LEN, NULL);
+
     try
     {
+        // Access the global serialized configuration root
+        auto &diagConf = cfg::get_diag_config_root();
 
-        cfg::Node & sec_binding = cfg::get_root_node().get_child("security_binding");
+        // Iterate through serialized security bindings
+        for (const auto& bindingPair : diagConf.secur_binding)
+        {
+            const auto& bindingEntry = bindingPair.second;
 
-        self->session_list = LE_SLS_LIST_INIT;
-        self->current_session = NULL;
-        self->default_session = NULL; /* Allocated dynamically */
-        self->last_pending_session_id = SEC_ACC_DEFAULT_SESSION_ID;
-        self->last_pending_signal = INVALID_SIG;
-        self->mMgr = mgr; /* To the manager instance */
-        self->delay_timer_ref = NULL; /* Will be filled soon */
-
-        SECACC_ASSERT_FATAL(strlen(ifname) + 1 <= IF_NAME_MAX_LEN);
-        le_utf8_Copy(self->ifname, ifname, IF_NAME_MAX_LEN, NULL);
-
-        for (auto & binding: sec_binding) {
-            std::string sname = binding.first;
             SecuritySession_t * sess = (SecuritySession_t*)le_mem_ForceAlloc(SecuritySessionPool);
-
-            cfg::Node & attr = binding.second;
-            sess->session_id = attr.get<int>("session_id");
+            sess->session_id = bindingEntry.session_id;
             sess->active_level = NULL;
             sess->unlocked_level = NULL;
             sess->level_list = LE_SLS_LIST_INIT;
-            cfg::Node & sec_level = attr.get_child("security_level");
 
-            for (auto & level_item: sec_level) {
-                std::string level_name = level_item.second.get<std::string>("");
-                cfg::Node & level_node = cfg::top_diagnostic_session_security_level<std::string>(
-                        "short_name", level_name);
+            // Iterate through the security levels map nested inside this binding
+            for (const auto& levelPair : bindingEntry.security_level)
+            {
+                const auto& levelEntry = levelPair.second;
 
                 SecurityLevel_t* level = (SecurityLevel_t*) le_mem_ForceAlloc(SecurityLevelPool);
-                level->Att_Cnt_Limit = level_node.get<int>("num_failed_security_access");
-                level->Delay_Timer = level_node.get<int>("security_delay_time");
-                level->Static_Seed = level_node.get<bool>("static_seed");
-                level->Security_Level = level_node.get<int>("level_id");
-                level->seed_size = level_node.get<int>("seed_size");
-                level->key_size = level_node.get<int>("key_size");
-                level->request_seed_id = level_node.get<int>("request_seed_id");
+                level->Att_Cnt_Limit   = levelEntry.num_failed_security_access;
+                level->Delay_Timer     = levelEntry.security_delay_time;
+                level->Static_Seed     = levelEntry.static_seed;
+                level->Security_Level  = levelEntry.level_id;
+                level->seed_size       = levelEntry.seed_size;
+                level->key_size        = levelEntry.key_size;
+                level->request_seed_id = levelEntry.request_seed_id;
+                level->Att_Cnt         = 0;
 
-                level->Att_Cnt = 0; /* Zero is required */
                 level->link = LE_SLS_LINK_INIT;
                 le_sls_Queue(&sess->level_list, &(level->link));
             }
+
+            // Queue the session into the AO's session list
             sess->link = LE_SLS_LINK_INIT;
             le_sls_Queue(&self->session_list, &(sess->link));
         }
 
+        // Setup default session
         self->default_session = GetDefaultSession();
         SECACC_ASSERT_FATAL(self->default_session != NULL);
-
-        /* Add dummy default session to session-list */
         le_sls_Queue(&self->session_list, &(self->default_session->link));
-    }
+
+    } // End of try block
     catch (const std::exception& e)
     {
         LE_FATAL("Bad configuration for security access service init: %s", e.what());
@@ -872,7 +876,7 @@ static void CaptureIgnoreEvent
     MEvent_t const *ev
 )
 {
-    LE_INFO("Ignore event: %s ?", to_EventString(ev->sig));
+    LE_DEBUG("Ignore event: %s ?", to_EventString(ev->sig));
 }
 
 /* Dispatch the task to the Diag-Application */
@@ -1454,7 +1458,7 @@ void SecurityAccess_Init(void * u, void * p)
     /* Be used in UDS Manager Thread */
     le_cfg_ConnectService();
 
-    LE_INFO("[%s] Done", __FUNCTION__);
+    LE_DEBUG("[%s] Done", __FUNCTION__);
 }
 
 void SecurityAccess_CreateActiveObject(void * mgr_, void * ifname)
@@ -1492,7 +1496,7 @@ void SecurityAccess_CreateActiveObject(void * mgr_, void * ifname)
     /* Trigger the initial stage */
     MFsm_init((MFsm_t *)mgr->mSecurityAccess, (MEvent_t*)0);
 
-    LE_INFO("[%s] -> if-name: %s /AO created", __FUNCTION__, (char *)ifname);
+    LE_DEBUG("[%s] -> if-name: %s /AO created", __FUNCTION__, (char *)ifname);
 }
 
 void SecurityAccess_StartWorker(void * u, void *p)

@@ -24,6 +24,8 @@ static void TafSigTermEventHandler(int tafSigNum)
     taf_devMgr_UnloadDrv(gpioInf);
     LE_INFO("unload successful");
     gpioInf = nullptr;
+
+    exit(EXIT_SUCCESS);
 }
 
 static void* Test_taf_gpio_ChangeCallback(void* ctxPtr)

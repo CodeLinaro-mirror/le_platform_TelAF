@@ -32,6 +32,6 @@ bindings:
 
 extern:
 {
-    tafMngdPmTestDaemon.tafMngdPmTestDaemonComp.taf_mpms_test
+    tafMngdPmTestDaemon.tafMngdPmTestDaemonComp.taf_mngdPmTest
 }
 

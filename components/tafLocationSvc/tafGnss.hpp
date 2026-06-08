@@ -49,7 +49,7 @@
 #include <bitset>
 #include <fstream>
 #include "tafSvcIF.hpp"
-#include "taf_pa_location.hpp"
+#include "tafLocationPa.hpp"
 
 using GnssReportTypeMask = uint32_t;
 using LocReqEngine = uint16_t;
@@ -237,6 +237,18 @@ namespace tafsvc {
         uint8_t  dgnssStationIdsCount;
         uint32_t navSolutionMask;
         bool     navSolutionMaskValid;
+        double protectionLevelAlongTrack;
+        double protectionLevelCrossTrack;
+        double protectionLevelVertical;
+        double baselineLength;
+        uint64_t ageCorrections;
+        uint32_t integrityRiskUsed;
+        bool protectionLevelAlongTrackValid;
+        bool protectionLevelCrossTrackValid;
+        bool protectionLevelVerticalValid;
+        bool baselineLengthValid;
+        bool ageCorrectionsValid;
+        bool integrityRiskUsedValid;
         le_dls_Link_t   next;
     }
     taf_locGnss_PositionSample_t;
@@ -323,6 +335,7 @@ namespace tafsvc {
     typedef struct
     {
         taf_locGnss_LocCapabilityType_t locCapability;
+        le_msg_SessionRef_t*          clientSessionRefPtr;
     }
     CapabilityChangeEvent_t;
 
@@ -330,6 +343,7 @@ namespace tafsvc {
     {
         uint64_t timestamp;
         char nmeaMask[TAF_LOCGNSS_NMEA_STRING_MAX];
+        le_msg_SessionRef_t*          clientSessionRefPtr;
     }
     NmeaInfoEvent_t;
 
@@ -452,6 +466,26 @@ namespace tafsvc {
     }
     taf_locGnss_Client_t;
 
+    typedef struct taf_locGnss_NmeaHandler
+    {
+        taf_locGnss_NmeaHandlerRef_t handlerRef;
+        taf_locGnss_NmeaHandlerFunc_t handlerFuncPtr;
+        void*                         handlerContextPtr;
+        le_msg_SessionRef_t           sessionRef;
+        le_dls_Link_t                 next;
+    }
+    taf_locGnss_NmeaHandler_t;
+
+    typedef struct taf_locGnss_CapHandler
+    {
+        taf_locGnss_CapabilityChangeHandlerRef_t handlerRef;
+        taf_locGnss_CapabilityChangeHandlerFunc_t handlerFuncPtr;
+        void*                         handlerContextPtr;
+        le_msg_SessionRef_t           sessionRef;
+        le_dls_Link_t                 next;
+    }
+    taf_locGnss_CapHandler_t;
+
     class taf_locGnss: public ITafSvc
     {
         public:
@@ -487,11 +521,11 @@ namespace tafsvc {
 
             taf_locGnss_CapabilityChangeHandlerRef_t AddCapabilityHandler(
                     taf_locGnss_CapabilityChangeHandlerFunc_t handlerPtr, void* contextPtr);
-            static void FirstLayerCapabilityHandler(void* reportPtr, void* secondLayerHandlerFunc);
+            static void GnssCapabilityHandler(void* reportPtr);
             void RemoveCapabilityHandler(taf_locGnss_CapabilityChangeHandlerRef_t handlerRef);
             taf_locGnss_NmeaHandlerRef_t AddNmeaHandler(taf_locGnss_NmeaHandlerFunc_t handlerPtr, void* contextPtr);
             void RemoveNmeaHandler(taf_locGnss_NmeaHandlerRef_t handlerRef);
-            static void FirstLayerNmeaHandler(void* reportPtr, void* secondLayerHandlerFunc);
+            static void GnssNmeaHandler(void* reportPtr);
 
             taf_locGnss_SampleRef_t GetLastSampleRef(void);
             void ReleaseClientRef( void* RefPtr);
@@ -637,6 +671,16 @@ namespace tafsvc {
             le_result_t GetMeasDataValidityMask(taf_locGnss_MeasSampleRef_t measSampleRef,
                 uint32_t* measDataValidityMaskPtr, size_t* measDataValidityMaskSizePtr);
 
+            le_result_t InjectMerkleData(const char* merkleTreeFilePath);
+            le_result_t ConfigureOsnma(bool galOsnma);
+
+            le_result_t SetEngineIntegrityRisk(taf_locGnss_EngineType_t engtype, uint32_t integrityRisk);
+            le_result_t GetProtectionLevels(taf_locGnss_SampleRef_t positionSampleRef,double* protectionLevelAlongTrackPtr,
+                    double* protectionLevelCrossTrackPtr,double* protectionLevelVerticalPtr);
+            le_result_t GetBaselineLength(taf_locGnss_SampleRef_t positionSampleRef, double* baselineLengthPtr);
+            le_result_t GetAgeOfCorrections(taf_locGnss_SampleRef_t positionSampleRef, uint64_t* ageCorrectionsPtr);
+            le_result_t GetIntegrityRiskUsed(taf_locGnss_SampleRef_t positionSampleRef, uint32_t* integrityRiskUsedPtr);
+
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionExHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
@@ -650,6 +694,10 @@ namespace tafsvc {
             le_ref_MapRef_t PositionHandlerRefMap;
             le_ref_MapRef_t MeasurementHandlerRefMap;
             le_ref_MapRef_t PositionExHandlerRefMap;
+            le_mem_PoolRef_t   NmeaHandlerPoolRef;
+            le_mem_PoolRef_t   NmeaSamplePoolRef;
+            le_mem_PoolRef_t   CapabilityHandlerPoolRef;
+            le_mem_PoolRef_t   CapSamplePoolRef;
             int32_t NumOfPositionHandlers;
             int32_t NumOfPositionExHandlers;
             int32_t NumOfCapabilityHandlers;
@@ -673,11 +721,16 @@ namespace tafsvc {
             le_event_HandlerRef_t HandlerRef;
             le_event_HandlerRef_t MeasurementHandlerRef;
             le_event_HandlerRef_t HandlerExRef;
+            le_event_HandlerRef_t NmeaHandlerRef;
+            le_event_HandlerRef_t CapHandlerRef;
+
 
             taf_locGnss_ConstellationBitMask_t mConstellationMask;
             taf_locGnss_NmeaBitMask_t mNmeaMask = 0;
             uint8_t mMinSvEle;
             std::mutex mtx;
+            le_ref_MapRef_t NmeaHandlerRefMap;
+            le_ref_MapRef_t CapHandlerRefMap;
 
             tafpa::location::taf_pa_location_DgnssEventListener dgnssListener;
             le_ref_MapRef_t DgnssSourceRefMap;

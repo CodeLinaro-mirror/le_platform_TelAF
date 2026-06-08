@@ -14,5 +14,5 @@ requires:
 cflags:
 {
     -I$LEGATO_ROOT/framework/liblegato/
-    -I$TELAF_ROOT/simulation/stub/keyStore/taf_pa_fscrypt
+    -I$SIMULATION_ROOT/stub/keyStore/taf_pa_fscrypt
 }

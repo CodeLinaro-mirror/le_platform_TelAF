@@ -7,182 +7,621 @@ package com.qualcomm.qti.telephony
 
 /**
     @description :
-
+        Sensor service type collection.
+        Contains all enumerations and struct definitions for sensor management.
 **/
 typeCollection SensorSvcTypes {
     version { major 1 minor 0 }
 
     /**
         @description :
+            Sensor operation result code.
 
         @experimental: type : uint8
     **/
-    enumeration TelephonyResultT {
-        /** Unknow result.  **/
-        TELEPHONY_RESULT_T_UNKNOWN = 0
+    enumeration SensorReturnT {
+        /** Unknown result  **/
+        SENSOR_RETURN_UNKNOWN = 0
 
-        /** Successful.  **/
-        TELEPHONY_RESULT_T_OK = 1
+        /** Success  **/
+        SENSOR_RETURN_SUCCESS = 1
 
-        /** Referenced item does not exist or could not be found.  **/
-        TELEPHONY_RESULT_T_NOT_FOUND = 2
+        /** Client registration failed  **/
+        SENSOR_RETURN_ERROR_CLIENT_REGISTER_FAILED = 2
 
-        /** An index or other value is out of range.  **/
-        TELEPHONY_RESULT_T_OUT_OF_RANGE = 3
+        /** Invalid client  **/
+        SENSOR_RETURN_ERROR_INVALID_CLIENT = 3
 
-        /** Insufficient memory is available.  **/
-        TELEPHONY_RESULT_T_NO_MEMORY = 4
+        /** Invalid input parameter  **/
+        SENSOR_RETURN_ERROR_INVALID_INPUT_PARAMETER = 4
 
-        /** Current user does not have permission to perform requested action.  **/
-        TELEPHONY_RESULT_T_NOT_PERMITTED = 5
+        /** Sensor enable/disable failed  **/
+        SENSOR_RETURN_ERROR_CONTROL_FAILED = 5
 
-        /** Unspecified internal error.  **/
-        TELEPHONY_RESULT_T_FAULT = 6
+        /** Sensor configuration failed  **/
+        SENSOR_RETURN_ERROR_CONFIG_FAILED = 6
 
-        /** Communications error.  **/
-        TELEPHONY_RESULT_T_COMM_ERROR = 7
+        /** No sensors found  **/
+        SENSOR_RETURN_ERROR_NO_SENSORS_FOUND = 7
 
-        /** A time-out occurred.  **/
-        TELEPHONY_RESULT_T_TIMEOUT = 8
+        /** Sensor tracking failed  **/
+        SENSOR_RETURN_ERROR_TRACKING_FAILED = 8
 
-        /** An overflow occurred or would have occurred.  **/
-        TELEPHONY_RESULT_T_OVERFLOW = 9
+        /** Unknown error  **/
+        SENSOR_RETURN_ERROR_UNKNOWN = 9
 
-        /** An underflow occurred or would have occurred.  **/
-        TELEPHONY_RESULT_T_UNDERFLOW = 10
-
-        /** Would have blocked if non-blocking behaviour was not requested.  **/
-        TELEPHONY_RESULT_T_WOULD_BLOCK = 11
-
-        /** Would have caused a deadlock.  **/
-        TELEPHONY_RESULT_T_DEADLOCK = 12
-
-        /** Format error.  **/
-        TELEPHONY_RESULT_T_FORMAT_ERROR = 13
-
-        /** Duplicate entry found or operation already performed.  **/
-        TELEPHONY_RESULT_T_DUPLICATE = 14
-
-        /** Parameter is invalid.  **/
-        TELEPHONY_RESULT_T_BAD_PARAMETER = 15
-
-        /** The resource is closed.  **/
-        TELEPHONY_RESULT_T_CLOSED = 16
-
-        /** The resource is busy.  **/
-        TELEPHONY_RESULT_T_BUSY = 17
-
-        /** The underlying resource does not support this operation.  **/
-        TELEPHONY_RESULT_T_UNSUPPORTED = 18
-
-        /** An IO operation failed.  **/
-        TELEPHONY_RESULT_T_IO_ERROR = 19
-
-        /** Unimplemented functionality.  **/
-        TELEPHONY_RESULT_T_NOT_IMPLEMENTED = 20
-
-        /** A transient or temporary loss of a service or resource.  **/
-        TELEPHONY_RESULT_T_UNAVAILABLE = 21
-
-        /** The process, operation, data stream, session, etc. has stopped.  **/
-        TELEPHONY_RESULT_T_TERMINATED = 22
-
-        /** The operation is in progress.  **/
-        TELEPHONY_RESULT_T_IN_PROGRESS = 23
-
-        /** The operation is suspended.  **/
-        TELEPHONY_RESULT_T_SUSPENDED = 24
-
-        /** @deprecated It is not possible to perform the requested action.  **/
-        TELEPHONY_RESULT_T_NOT_POSSIBLE = 25
     }
 
     /**
-        @description : Types of sensor.
+        @description :
+            Sensor type enumeration.
 
         @experimental: type : uint8
     **/
     enumeration SensorTypeT {
-        /** Unknow type.  **/
+        /** Unknown type  **/
         SENSOR_TYPE_T_UNKNOWN = 0
 
-        /** ID for the accelerometer sensor.  **/
-        SENSOR_TYPE_T_ACCELEROMETER = 1
+        /** Metadata type  **/
+        SENSOR_TYPE_T_META_DATA = 1
 
-        /** ID for the gyroscope sensor  **/
-        SENSOR_TYPE_T_GYROSCOPE = 2
+        /** Accelerometer (calibrated)  **/
+        SENSOR_TYPE_T_ACCELEROMETER = 2
+
+        /** Gyroscope (calibrated)  **/
+        SENSOR_TYPE_T_GYROSCOPE = 4
+
+        /** Gyroscope (uncalibrated)  **/
+        SENSOR_TYPE_T_GYROSCOPE_UNCALIBRATED = 16
+
+        /** Accelerometer (uncalibrated)  **/
+        SENSOR_TYPE_T_ACCELEROMETER_UNCALIBRATED = 35
+
+        /** Heading sensor (from GNSS dead reckoning DR engine)  **/
+        SENSOR_TYPE_T_HEADING = 42
+
     }
 
     /**
-        @description : The sensor info.
+        @description :
+            Sensor enable state enumeration, used by SensorControl method.
+
+        @experimental: type : uint8
+    **/
+    enumeration SensorStateT {
+        /** Unknown state  **/
+        SENSOR_STATE_T_UNKNOWN = 0
+
+        /** Disable sensor  **/
+        SENSOR_STATE_T_DISABLE = 1
+
+        /** Enable sensor  **/
+        SENSOR_STATE_T_ENABLE = 2
+
+    }
+
+    /**
+        @description :
+            Sensor service state mask, broadcast via SensorCapabilities to notify clients.
+
+        @experimental: type : uint8
+    **/
+    enumeration SensorServiceStateMaskT {
+        /** Unknown / not ready  **/
+        SENSOR_SERVICE_STATE_MASK_T_UNKNOWN = 0
+
+        /** Sensor service ready  **/
+        SENSOR_SERVICE_STATE_MASK_T_READY = 1
+
+    }
+
+    /**
+        @description :
+            Sensor detailed information with full capability parameters.
+            Returned by the GetSensorList method.
 
     **/
     struct SensorInfoT {
         /**
-            @description : Sensor ID.
+            @description : Sensor version number (integer)
         **/
-        UInt32 sensorId
+        Int32 sensorVersion
 
         /**
-            @description :  Sensor name.
+            @description : Sensor name
             @experimental : variable_type_max_size: 50
         **/
-        String sensorName
+        String name
 
         /**
-            @description : Sensor vendor name.
+            @description : Sensor vendor name
             @experimental : variable_type_max_size: 50
         **/
-        String sensorVendorName
+        String vendor
 
         /**
-            @description : Sensor version.
-            @experimental : variable_type_max_size: 50
+            @description : Sensor unique identifier
         **/
-        String sensorVersion
+        Int32 sensorId
 
         /**
-            @description : Sensor Type.
+            @description : Sensor type (Int32)
         **/
-        SensorTypeT sensorType
+        Int32 sensorType
+
+        /**
+            @description : Maximum sampling rate (Hz)
+        **/
+        Float maxSamplingRate
+
+        /**
+            @description : Minimum batch count
+        **/
+        Int32 minBatchCount
+
+        /**
+            @description : Maximum batch count
+        **/
+        Int32 maxBatchCount
+
+        /**
+            @description : Supported sampling rate list (ODR, Output Data Rate), up to 6 entries
+            @experimental : repeated_field_max_count: 6
+        **/
+        Float [] odr
+
+        /**
+            @description : Sensor resolution
+        **/
+        Float resolution
+
+        /**
+            @description : Sensor maximum range
+        **/
+        Float maxRange
+
+    }
+
+    /**
+        @description :
+            Uncalibrated sensor raw data with three-axis values and bias.
+
+    **/
+    struct SensorUncalibratedEventT {
+        /**
+            @description : X-axis uncalibrated value
+        **/
+        Float xUncalib
+
+        /**
+            @description : Y-axis uncalibrated value
+        **/
+        Float yUncalib
+
+        /**
+            @description : Z-axis uncalibrated value
+        **/
+        Float zUncalib
+
+        /**
+            @description : X-axis bias
+        **/
+        Float xBias
+
+        /**
+            @description : Y-axis bias
+        **/
+        Float yBias
+
+        /**
+            @description : Z-axis bias
+        **/
+        Float zBias
+
+    }
+
+    /**
+        @description :
+            IMU sensor event with complete information for a single sample.
+            Reported in batches via SensorImuDataRead broadcast.
+
+    **/
+    struct SensorImuEventT {
+        /**
+            @description : Sensor ID
+        **/
+        Int32 sensorId
+
+        /**
+            @description : Sensor type, see SensorTypeT
+        **/
+        Int32 type
+
+        /**
+            @description : Hardware event timestamp (nanoseconds, boot time)
+        **/
+        UInt64 timestamp
+
+        /**
+            @description : GPTP timestamp (nanoseconds)
+        **/
+        UInt64 gptpTimestamp
+
+        /**
+            @description : Uncalibrated sensor data (three-axis values and bias)
+        **/
+        SensorUncalibratedEventT data
+
+    }
+
+    /**
+        @description :
+            Heading data with heading angle and accuracy.
+            Source: body frame yaw from GNSS dead reckoning (DR) engine.
+
+    **/
+    struct SensorHeadingEventT {
+        /**
+            @description : Heading angle (degrees, clockwise positive)
+        **/
+        Float heading
+
+        /**
+            @description : Heading angle accuracy (degrees, 68% confidence)
+        **/
+        Float accuracy
+
+    }
+
+    /**
+        @description :
+            Heading sensor event with complete information for a single sample.
+            Reported via SensorHeadingDataRead broadcast.
+
+    **/
+    struct SensorHeadEventT {
+        /**
+            @description : Sensor ID (fixed as 5, SENSOR_TYPE_T_HEADING)
+        **/
+        Int32 sensorId
+
+        /**
+            @description : Sensor type (fixed as 42, SENSOR_TYPE_T_HEADING)
+        **/
+        Int32 type
+
+        /**
+            @description : Hardware event timestamp (nanoseconds, elapsed real time)
+        **/
+        UInt64 timestamp
+
+        /**
+            @description : GPTP timestamp (nanoseconds)
+        **/
+        UInt64 gptpTimestamp
+
+        /**
+            @description : Heading data (angle and accuracy)
+        **/
+        SensorHeadingEventT data
+
     }
 
 }
 
 /**
     @description :
+        Sensor service interface.
 
+        Provides sensor data acquisition and management capabilities:
+        - Client registration/deregistration (multi-client safe)
+        - Sensor list query
+        - Sensor configuration (sampling rate, batch count)
+        - Sensor enable/disable control
+        - Service ready state broadcast
+        - Configuration update notification broadcast
+        - IMU data push (accelerometer/gyroscope, uncalibrated with bias)
+        - Heading data push (body frame yaw from GNSS DR engine)
 **/
 interface SensorSvc {
     version { major 1 minor 0 }
 
+
+    /**
+
+        @description :
+            Sensor service capability state broadcast.
+            Triggered when service ready state changes, notifying all registered clients.
+            Clients should wait for SENSOR_SERVICE_STATE_MASK_T_READY before
+            configuring and enabling sensors.
+
+        @experimental: asil-level  : ASIL_QM
+
+        @experimental: exclusion_time  : 100
+    **/
+    broadcast SensorCapabilities {
+        out {
+
+            /**
+                @description : Sensor service state mask, see SensorServiceStateMaskT
+            **/
+            SensorSvcTypes.SensorServiceStateMaskT SensorCapabilitiesMask
+
+        }
+    }
+
+    /**
+
+        @description :
+            Sensor configuration update broadcast.
+            Triggered when actual sampling rate or batch count changes,
+            notifying clients of the effective configuration parameters.
+
+        @experimental: asil-level  : ASIL_QM
+
+        @experimental: exclusion_time  : 100
+    **/
+    broadcast SensorConfigUpdate {
+        out {
+
+            /**
+                @description : Sensor ID
+            **/
+            Int32 sensorId
+
+            /**
+                @description : Effective sampling rate (Hz)
+            **/
+            Float samplingRate
+
+            /**
+                @description : Effective batch count
+            **/
+            Int32 batchCount
+
+        }
+    }
+
+    /**
+
+        @description :
+            IMU sensor data broadcast (accelerometer/gyroscope).
+            Triggered when batch count is reached, reporting sensor events in batches.
+            Each event contains: sensor ID, type, boot timestamp, GPTP timestamp,
+            uncalibrated three-axis data and corresponding bias.
+
+            Note: gptpTimestamp is converted from boot time via taf_gptpTime.
+
+        @experimental: asil-level  : ASIL_QM
+
+        @experimental: exclusion_time  : 10
+    **/
+    broadcast SensorImuDataRead {
+        out {
+
+            /**
+                @description : IMU sensor event array, up to 50 events per report
+
+                @experimental: size: 50
+
+            **/
+            SensorSvcTypes.SensorImuEventT [] SensorImuEvent
+
+            /**
+                @description : Total number of events in this report
+            **/
+            Int32 count
+
+        }
+    }
+
+    /**
+
+        @description :
+            Heading sensor data broadcast.
+            Reports body frame yaw at 10Hz from GNSS QDR Dead Reckoning engine,
+            obtained via taf_locGnss_GetBodyFrameData(), valid when stationary.
+
+            Each event contains:
+            - heading: body frame yaw (degrees)
+            - accuracy: yaw uncertainty (degrees, 68% confidence)
+            - timestamp: elapsed real time (nanoseconds)
+            - gptpTimestamp: GPTP timestamp (nanoseconds)
+
+        @experimental: asil-level  : ASIL_QM
+
+        @experimental: exclusion_time  : 10
+    **/
+    broadcast SensorHeadingDataRead {
+        out {
+
+            /**
+                @description : Heading sensor event array, up to 50 events per report
+
+                @experimental: size: 50
+
+            **/
+            SensorSvcTypes.SensorHeadEventT [] sensorHeadEvent
+
+            /**
+                @description : Total number of events in this report
+            **/
+            Int32 count
+
+        }
+    }
+
+
     /**
         @description :
-            Gets the list of available sensors.
+            Register a sensor client.
+            Creates a new client session supporting concurrent multi-client access.
+            After registration, service notifies ready state via SensorCapabilities.
+            Clients must register before calling other sensor interfaces.
 
         @experimental: asil-level  :
         @experimental: periodicity :
         @experimental: exclusion-time :
     **/
-    method GetSensorList {
+    method RegisterSensorClientReq {
+
+
         out {
-            /**
-                @description : Total number of sensors returned in sensorInfo.
-            **/
-            UInt32 sensorNum
 
             /**
-                @description : Contains details for each available sensor.
+                @description : Result code, SENSOR_RETURN_SUCCESS on success
             **/
-            SensorSvcTypes.SensorInfoT [] sensorInfo
+            SensorSvcTypes.SensorReturnT SensorResponse
 
-            /**
-                @description : result code defined in Result.
-                - TELEPHONY_RESULT_T_OK            Succeeded.
-                - TELEPHONY_RESULT_T_FAULT         Failed.
-            **/
-            SensorSvcTypes.TelephonyResultT result
         }
+
+    }
+
+    /**
+        @description :
+            Deregister a sensor client.
+            Deletes the client session and cleans up all sensor states.
+            When the last client deregisters, service stops all data acquisition.
+
+        @experimental: asil-level  :
+        @experimental: periodicity :
+        @experimental: exclusion-time :
+    **/
+    method DeRegisterSensorClientReq {
+
+
+        out {
+
+            /**
+                @description : Result code, SENSOR_RETURN_SUCCESS on success
+            **/
+            SensorSvcTypes.SensorReturnT SensorResponse
+
+        }
+
+    }
+
+    /**
+        @description :
+            Get the list of hardware-supported sensors.
+            Returns full capability info: version, name, vendor, ID, type,
+            max sampling rate, batch count range, ODR list, resolution, max range.
+            Heading sensor (SENSOR_TYPE_T_HEADING) is included if supported.
+            Note: no SensorResponse return value.
+
+        @experimental: asil-level  :
+        @experimental: periodicity :
+        @experimental: exclusion-time :
+    **/
+    method GetSensorListReq {
+
+
+        out {
+
+            /**
+                @description : Sensor info array with full capability parameters
+
+                @experimental: size: 10
+
+            **/
+            SensorSvcTypes.SensorInfoT [] SensorList
+
+            /**
+                @description : Total number of sensors returned
+            **/
+            Int32 count
+
+        }
+
+    }
+
+    /**
+        @description :
+            Configure sampling rate and batch count for a sensor.
+            Sampling rate must be one of the values in SensorInfoT.odr[].
+            Batch count must be in [minBatchCount, maxBatchCount] and a multiple of 10.
+            On success, service sends SensorConfigUpdate broadcast.
+
+        @experimental: asil-level  :
+        @experimental: periodicity :
+        @experimental: exclusion-time :
+    **/
+    method SensorConfigReq {
+
+        in {
+
+            /**
+                @description : Sensor ID from SensorInfoT.sensorId
+            **/
+            Int32 sensorId
+
+            /**
+                @description : Requested sampling rate (Hz), must be in SensorInfoT.odr[]
+            **/
+            Float samplingRate
+
+            /**
+                @description : Requested batch count, in [minBatchCount, maxBatchCount],
+                               multiple of 10
+            **/
+            Int32 batchCount
+
+        }
+
+        out {
+
+            /**
+                @description : Result code
+                - SENSOR_RETURN_SUCCESS                        Success
+                - SENSOR_RETURN_ERROR_INVALID_INPUT_PARAMETER  Invalid parameter
+                - SENSOR_RETURN_ERROR_CONFIG_FAILED            Configuration failed
+            **/
+            SensorSvcTypes.SensorReturnT SensorResponse
+
+        }
+
+    }
+
+    /**
+        @description :
+            Enable or disable a sensor.
+            SensorConfigReq must be called first to configure sampling rate and batch count.
+            Service maintains reference count; sensor stops only when all clients disable it.
+            For heading sensor (SENSOR_TYPE_T_HEADING), enable starts taf_locGnss session
+            at 10Hz; disable stops the session.
+
+        @experimental: asil-level  :
+        @experimental: periodicity :
+        @experimental: exclusion-time :
+    **/
+    method SensorControlReq {
+
+        in {
+
+            /**
+                @description : Sensor ID from SensorInfoT.sensorId
+            **/
+            Int32 sensorId
+
+            /**
+                @description : Target state: SENSOR_STATE_T_ENABLE or SENSOR_STATE_T_DISABLE
+            **/
+            SensorSvcTypes.SensorStateT sensorState
+
+        }
+
+        out {
+
+            /**
+                @description : Result code
+                - SENSOR_RETURN_SUCCESS                        Success
+                - SENSOR_RETURN_ERROR_INVALID_INPUT_PARAMETER  Sensor ID not found
+                - SENSOR_RETURN_ERROR_CONTROL_FAILED           Enable/disable failed
+            **/
+            SensorSvcTypes.SensorReturnT SensorResponse
+
+        }
+
     }
 
 }

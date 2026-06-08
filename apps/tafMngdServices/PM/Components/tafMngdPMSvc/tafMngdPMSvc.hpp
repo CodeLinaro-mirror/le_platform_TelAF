@@ -29,9 +29,9 @@
 #define INFO_REPORT_MASK_BUB 1
 #define AUTHORIZE_ALL_STAY_AWAKE_REASON 0xFFFFFFFF
 #define TAF_MNGDPM_PROCNAME_LEN 30
+
 #define WAKE_SOURCE_ACQUIRED 1
 #define WAKE_SOURCE_NOT_ACQUIRED 0
-#define WAKE_SOURCE_IGNORED 2
 
 #define MAIN_THREAD_KICK_INTERVAL 13
 #define MONITOR_MAIN_THREAD_LOOP 0
@@ -105,10 +105,10 @@ typedef struct
 
 typedef struct
 {
-    const char* vhalTag;                   // VhalTag to be sent to VHAL
-    taf_mngdPm_wsRef_t wsRef;              // New wakeup source reference
+    const char* wsTag;                     // VhalTag to be sent to VHAL
+    taf_mngdPm_wsNodeRef_t wsRef;          // New wakeup source reference
     uint8_t pmNodeId;                      // NodeId given
-    taf_mngdPm_WakeupType_t wakeupType;    // WakeupType for the wake source
+    taf_mngdPm_WsOpt_t option;             // wake source option for calling stay awake and relax
     le_dls_Link_t link;                    // Link to handler list
     le_msg_SessionRef_t sessionRef;        // Session reference of a client
     bool isAcquiredLock;                   // boolean to check wakelock acquired
@@ -133,6 +133,7 @@ typedef struct
     bool isRestart;
     bool isSuspend;
     bool isWsAcquired;
+    bool isWsNodeAcquired;
 }taf_powerMode_t;
 
 typedef struct
@@ -178,12 +179,6 @@ typedef struct
     taf_mngdPm_NodePowerState_t state;
     bool isAcked;
 }taf_mngdPm_NodePowerStateChangeCtxt_t;
-
-typedef struct
-{
-    uint32_t wakeupType;
-    le_msg_SessionRef_t sessionRef;
-}taf_mngdPm_WakeupSourceCtxt_t;
 
 typedef struct
 {
@@ -234,6 +229,19 @@ typedef struct
     mngdPmEventType_Ready_t type;
 }taf_mngdPm_readyEvtType_t;
 
+typedef enum
+{
+    EVT_NODE_EVENT_STAYAWAKE,
+    EVT_NODE_EVENT_RELAX,
+    EVT_NODE_EVENT_SHUTDOWN
+} taf_mngdPm_InternalEventType_t;
+
+typedef struct
+{
+    taf_mngdPm_InternalEventType_t type;
+} taf_mngdPm_NodeEventData_t;
+
+
 class tafMngdPMSvc: public ITafSvc
 {
     public:
@@ -277,6 +285,9 @@ class tafMngdPMSvc: public ITafSvc
         static le_result_t AcquireWakeLock();
         static le_result_t ReleaseWakeLock();
 
+        static le_result_t AcquireNodeWakeLock();
+        static le_result_t ReleaseNodeWakeLock();
+
         static le_result_t RequestStateChange(uint8_t requestedState);
         static void ProcessStateChange(uint8_t toState);
 
@@ -285,8 +296,7 @@ class tafMngdPMSvc: public ITafSvc
         static le_mem_PoolRef_t vmStatePool;
         static le_hashmap_Ref_t vmStateHashmap;
 
-        //cached awake requests ws reference set
-        static std::unordered_set<taf_mngdPm_wsRef_t>  wsCachedReqsRefSet;
+        static int8_t vhalWsState; // VHAL-held wake source state
 
         //List for system level wake sources
         static le_mem_PoolRef_t wsRefPool;
@@ -303,12 +313,14 @@ class tafMngdPMSvc: public ITafSvc
         static taf_pm_StateChangeExHandlerRef_t handlerExRef;
         static taf_pm_PowerStateRef_t powerStateRef;
         static taf_pm_WakeupSourceRef_t ws;
+        static taf_pm_WakeupSourceRef_t wsNode;
 
         // resources to manage power state change requests
         static taf_mngdPm_TargetedPowerMode_t targetedPowerMode;
         static taf_mngdPm_RestartCb_t restartCB;
         static taf_mngdPm_ShutdownCb_t shutdownCB;
         static uint8_t wsCount;
+        static uint8_t wsNodeCount;
         static taf_powerMode_t powerMode;
         static taf_stateMachine_t stateMachine;
 
@@ -347,8 +359,6 @@ class tafMngdPMSvc: public ITafSvc
         static int8_t ackClientrecrdSize;
         static int8_t clientSize;
 
-        static void ProcessCachedAwakeReqs();
-
         static void SendAckToPms(taf_mngdPm_NodePowerState_t state, taf_pm_ClientAck_t ackType);
         bool IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, uint8_t tafState);
         bool IsConfiguredBitMask(taf_mngdPm_NodePowerState_t state, taf_mngdPm_NodePowerStateChangeBitMask_t stateMask);
@@ -359,7 +369,8 @@ class tafMngdPMSvc: public ITafSvc
 
         //authorize stayawake reason
         static std::bitset<32> stayAwakeReasonMask;
-        bool IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stayAwakeReason);
+        static std::bitset<32> previousStayAwakeReasonMask;
+        bool IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stayAwakeReason, std::bitset<32> mask);
         void RefreshWakeSources();
         static le_result_t ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
         le_result_t AcquireWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
@@ -393,5 +404,18 @@ class tafMngdPMSvc: public ITafSvc
         static void GetPmVhalReady(void *p1, void *p2);
         static void RetryHandler(le_timer_Ref_t timerRef);
         static void PMVhalReadyEvtHandler(void * reportPtr);
+
+        // Single snapshot used for immediate notification to newly registered handlers.
+        // Initialized at service start via taf_pm_GetPowerState and updated on nodePowerStateChange events.
+        static taf_mngdPm_NodePowerState_t currentNodePowerState;
+
+        // Helpers for snapshot mapping and initialization
+        static taf_mngdPm_NodePowerState_t ToNodePowerStateFromPm(taf_pm_State_t s);
+        static void InitializeCurrentNodePowerState();
+        // Internal event ID for node events, to be processed on the main thread
+        static le_event_Id_t nodeInternalEvent;
+
+        // Handler for node internal events
+        static void NodeInternalEventHandler(void *reportPtr);
 };
 }

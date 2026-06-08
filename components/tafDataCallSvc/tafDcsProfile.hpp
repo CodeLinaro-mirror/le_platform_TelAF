@@ -13,7 +13,7 @@
 
 #include "legato.h"
 #include "interfaces.h"
-#include "taf_pa_data.hpp"
+#include "tafDataPa.hpp"
 
 #include <map>
 #include <string>
@@ -45,6 +45,23 @@
 namespace taf{
 namespace svc{
 namespace datacall{
+
+/**
+ * Internal structure to hold the list.
+ */
+struct TafDcsThroughputList_t
+{
+    std::vector<taf::pa::data::ThroughputInfo_t> infoList;
+
+    // Track created ThroughputInfo refs, invalidate/cleanup on list delete
+    std::vector<taf_dcs_ThroughputInfoRef_t> infoRefs;
+    std::vector<taf::pa::data::ThroughputInfo_t*> infoObjs; // heap copies
+};
+
+// Structure to hold a single info entry (used for Reference)
+struct TafDcsThroughputInfoEntry_t {
+    taf::pa::data::ThroughputInfo_t info;
+};
 
 /**
  * The invalid profile ID
@@ -220,6 +237,16 @@ struct taf_dcs_HwAccelerationEvent_t
 };
 
 /**
+ * The structure for taf_dcs_ThroughputInfoHandlerFunc_t.
+ * This is an internal structure as such an external struct is not defined.
+ */
+struct TafDcsThroughputInfoChangeEvent_t
+{
+    uint8_t phoneId;
+    taf_dcs_ThroughputInfoInd_t ind;
+};
+
+/**
  * The structure for paQosTftEvtId_.
  */
 struct TafDcsQosTftEventInfo_t
@@ -230,6 +257,15 @@ struct TafDcsQosTftEventInfo_t
     taf_dcs_QosFlowState_t state;       ///< The QoS flow state.
     taf_dcs_QosFlowBitMask_t paramMask; ///< The mask to check for valid parameters in the flow.
 };
+
+typedef struct
+{
+    uint8_t phoneId;                    ///< The phone id.
+    uint32_t profileId;                 ///< The profile id.
+    uint32_t qosFlowId;                 ///< The QoS flow id.
+    taf_dcs_QosFlowState_t state;       ///< The QoS flow state.
+    taf_dcs_QosFlowBitMask_t paramMask; ///< The mask to check for valid parameters in the flow.
+} QOSFlowCtxStatus_t;
 
 /**
  * The structure for taf_dcs_QosStatusHandlerFunc_t.
@@ -248,6 +284,13 @@ struct taf_dcs_QosTftEvent_t
 class TafDcsProfile
 {
 public:
+
+    le_result_t sendQosTftEvent(const TafDcsQosTftEventInfo_t *eventPtr, taf_dcs_QosFlowRef_t qosRef);
+
+    // Profile getters/setters for handling multiple flows
+    const std::vector<taf_dcs_QosFlowRef_t>& GetQosFlowRefs() const;
+    void AddQosFlowRef(taf_dcs_QosFlowRef_t ref);
+    void RemoveQosFlowRef(taf_dcs_QosFlowRef_t ref);
 
     // Block copying so that thisPtr_ will not become invalid
     TafDcsProfile(const TafDcsProfile &) = delete;
@@ -399,7 +442,17 @@ public:
     le_event_Id_t GetHwAccelStateChangedEventId();
     static le_event_Id_t GetRoamingStateChangedEventId();
 
+    void SetCustomInterface(const std::string& name);
+    bool GetCustomInterface(std::string& outInterface) const;
+
 private:
+    //QOS flow references
+    std::vector<taf_dcs_QosFlowRef_t> qosFlowRefs_;
+
+    // Interface Implementation Additions
+    bool isInterfaceValid_ = false; ///< Flag indicating if custom interface is set
+    std::string interface_; ///< Stored custom interface name
+
     // static getter to get the profiler reference map.
     static le_ref_MapRef_t getProfileRefMap();
 
@@ -523,7 +576,7 @@ public:
 
     le_result_t SvcCreateProfile(taf_dcs_ProfileRef_t profileRef);
     le_result_t SvcDeleteProfile(taf_dcs_ProfileRef_t profileRef);
-
+    le_result_t SvcSetInterface(taf_dcs_ProfileRef_t profileRef, const char *namePtr);
     le_result_t SvcGetAPN(taf_dcs_ProfileRef_t, char *apnName, size_t apnNameSize);
     le_result_t SvcGetProfileName(taf_dcs_ProfileRef_t, char *name, size_t nameSize);
     le_result_t SvcGetTechPreference(taf_dcs_ProfileRef_t profileRef,taf_dcs_Tech_t *techPrefPtr);
@@ -656,6 +709,24 @@ public:
         size_t mncSize
     );
 
+    le_result_t SvcGetQosProfile
+    (
+        taf_dcs_QosFlowRef_t qosFlowRef,
+        taf_dcs_ProfileRef_t* profileRefPtr
+    );
+
+    le_result_t SvcGetQosId
+    (
+        taf_dcs_QosFlowRef_t qosFlowRef,
+        uint32_t* qosFlowIdPtr
+    );
+
+    le_result_t SvcGetQosParameterMask
+    (
+        taf_dcs_QosFlowRef_t qosFlowRef,
+        taf_dcs_QosFlowBitMask_t* qosFlowMaskPtr
+    );
+
     // External event handlers
     taf_dcs_RoamingStatusHandlerRef_t SvcAddRoamingStatusHandler
     (
@@ -700,11 +771,33 @@ public:
     // Function to find all TafDcsProfile entries for a specific Phone ID
     std::vector<std::shared_ptr<TafDcsProfile>> FindProfilesByPhoneId(uint8_t phoneId);
 
+    // Throughput API Implementations
+    le_result_t SvcSetThroughputReport(uint8_t phoneId, taf_dcs_LinkDirection_t direction, bool enabled, uint32_t interval);
+    le_result_t SvcGetLastThroughputInfoList(uint8_t phoneId, taf_dcs_ThroughputInfoListRef_t* listRefPtr);
+    le_result_t SvcDeleteLastThroughputInfoList(taf_dcs_ThroughputInfoListRef_t listRef);
+    le_result_t SvcGetThroughputInfoCount(taf_dcs_ThroughputInfoListRef_t listRef, uint32_t* countPtr);
+    le_result_t SvcGetThroughputInfo(taf_dcs_ThroughputInfoListRef_t listRef, uint32_t index, taf_dcs_ThroughputInfoRef_t* infoRefPtr);
+
+    // Throughput Info Getters
+    le_result_t SvcGetThroughputApnName(taf_dcs_ThroughputInfoRef_t infoRef, char* name, size_t nameSize);
+    le_result_t SvcGetThroughputActualRate(taf_dcs_ThroughputInfoRef_t infoRef, taf_dcs_LinkDirection_t direction, uint32_t* ratePtr);
+    le_result_t SvcGetThroughputAllowedRate(taf_dcs_ThroughputInfoRef_t infoRef, taf_dcs_LinkDirection_t direction, uint32_t* ratePtr);
+    le_result_t SvcGetThroughputQueueSize(taf_dcs_ThroughputInfoRef_t infoRef, taf_dcs_LinkDirection_t direction, uint32_t* sizePtr);
+    le_result_t SvcGetThroughputQuality(taf_dcs_ThroughputInfoRef_t infoRef, taf_dcs_LinkDirection_t direction, taf_dcs_ThroughputQuality_t* qualityPtr);
+
+    // Client-facing throughput indication registration
+    taf_dcs_ThroughputInfoChangeHandlerRef_t SvcAddThroughputInfoChangeHandler(
+        uint8_t phoneId,
+        taf_dcs_ThroughputInfoHandlerFunc_t handlerPtr,
+        void *contextPtr);
+
+    void SvcRemoveThroughputInfoChangeHandler(
+        taf_dcs_ThroughputInfoChangeHandlerRef_t handlerRef);
+
 private:
     /**
      * Private functions.
      */
-
     // Initialize internal events and memory
     void
     registerInternalEventCallbacks();
@@ -802,7 +895,11 @@ private:
     static void firstHwAccelerationStateHandler  (void *reportPtr, void *clientHandlerFunc);
     le_result_t sendHwAccelerationEvent(const TafDcsHwAccelerationChangeEvent_t *eventPtr);
     static void firstQosStatusHandler(void *reportPtr, void *clientHandlerFunc);
-    le_result_t sendQosTftEvent(const TafDcsQosTftEventInfo_t *eventPtr);
+
+    // Helper to find an existing QoS flow reference in the Legato map
+    taf_dcs_QosFlowRef_t findQosRef(uint8_t phoneId, uint32_t profileId, uint32_t qosId);
+    // To automatically release QoS resources when transitioning to TAF_DCS_DISCONNECTED
+    void releaseAllQosFlowsForProfile(uint8_t phoneId, uint32_t profileId);
 
     // Forward declarations for internal event handlers
     static void getProfilesAsyncCb
@@ -879,9 +976,38 @@ private:
     // Promise to synchronize commands.
     std::promise<le_result_t> syncCmdPromise_;
     // Flag to check if the promise is waiting for the future or not.
-    std::atomic<bool> isSyncCmdPromiseWaiting_ = true;
+    std::atomic<bool> isSyncCmdPromiseWaiting_ = false;
     // TODO: Make this configurable
     const uint16_t syncSessionCmdTimeout_ = 60; // 60s timeout for Start and Stop session sync cmd.`
+
+    // PA throughput callback id
+    uint16_t throughputEventsCallbackId_ = 0;
+
+    // PA callback -> OSS
+    static void tafPaThroughputEventsCb(
+        const std::vector<taf::pa::data::ThroughputInfo_t> &throughputInfoList,
+        std::shared_ptr<void> context);
+
+    // Internal DCS event thread handler for PA throughput event
+    static void registerPaThroughputEvtHandler(void *param1Ptr, void *param2Ptr);
+    static void paThroughputEvtHandler(void *reqPtr);
+
+    // Event IDs for client indication dispatch: one event-id per phone
+    le_event_Id_t getThroughputInfoEventId(uint8_t phone);
+
+    std::map<uint8_t, le_event_Id_t> throughputEvtIdByPhone_;
+    std::shared_mutex throughputEvtIdByPhoneMtx_;
+
+    // Layered handler for client callbacks
+    static void firstThroughputInfoHandler(void *reportPtr, void *clientHandlerFunc);
+
+    // Reference Maps for Throughput Lists and Info objects
+    le_ref_MapRef_t throughputInfoListRefMap_ = nullptr;
+    le_ref_MapRef_t throughputInfoRefMap_ = nullptr;
+
+    // Helper to get Ref Maps
+    le_ref_MapRef_t getThroughputInfoListRefMap();
+    le_ref_MapRef_t getThroughputInfoRefMap();
 
     // Private constructor to prevent instantiation from outside the class.
     TafDcsProfileManager() {};

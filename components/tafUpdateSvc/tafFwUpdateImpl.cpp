@@ -55,13 +55,18 @@ static taf_FwUpdateParition_t partitonTableInfo[] =
     {"lxcrootfs", true, "lxcrootfs.new.dat", "lxcrootfs.patch.dat"}
 };
 
-/*======================================================================
- FUNCTION        taf_FwUpdate::GetInstance
- DESCRIPTION     Get a instance of taf_FwUpdate
- PARAMETERS      void
- RETURN VALUE    taf_FwUpdate: Instance reference
-======================================================================*/
-taf_FwUpdate &taf_FwUpdate::GetInstance()
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the singleton instance of taf_FwUpdate.
+ *
+ * @return
+ *  - Reference to the singleton taf_FwUpdate instance.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_FwUpdate &taf_FwUpdate::GetInstance
+(
+    void
+)
 {
     static taf_FwUpdate instance;
     return instance;
@@ -129,6 +134,12 @@ bool taf_FwUpdate::GetUnpackDir
 //--------------------------------------------------------------------------------------------------
 /**
  * Get post script.
+ *
+ * @return
+ *  - LE_OK             The script path for the requested post-processing state was returned successfully.
+ *  - LE_BAD_PARAMETER  state does not map to a supported post-processing stage.
+ *  - LE_FAULT          The configuration file could not be loaded or parsed, or the expected JSON nodes
+ *                      for the selected post-processing hook are missing.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::GetPostScript
@@ -205,6 +216,92 @@ le_result_t taf_FwUpdate::GetPostScript
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Get cancel post script.
+ *
+ * @return
+ *  - LE_OK             The cancel-hook script path was returned successfully.
+ *  - LE_BAD_PARAMETER  state does not map to a supported cancel-hook stage.
+ *  - LE_FAULT          The configuration file could not be loaded or parsed, or the expected JSON nodes
+ *                      for the cancel hook are missing.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::GetCancelPostScript
+(
+    taf_update_State_t state, ///< [IN] Update state.
+    char* scriptPath,         ///< [OUT] Script path.
+    size_t pathLen            ///< [IN] Script path length.
+)
+{
+    json_t *root;
+    json_error_t error;
+
+    // Load entire JSON file.
+    root = json_load_file(TAF_FWUPDATE_CFG_FILE, 0, &error);
+    if (root == NULL)
+    {
+        LE_ERROR("JSON file error: line: %d, column: %d, position: %d, source: '%s', error: %s",
+            error.line, error.column, error.position, error.source, error.text);
+        return LE_FAULT;
+    }
+
+    // Check if "root" is an object.
+    if (!json_is_object(root))
+    {
+        LE_ERROR("root is not an object.");
+        json_decref(root);
+        return LE_FAULT;
+    }
+
+    // Load the 'firmware' object.
+    json_t* js_firmware = json_object_get(root, "firmware");
+    if (!json_is_object(js_firmware))
+    {
+        LE_ERROR("firmware object is not set in JSON file %s.", TAF_FWUPDATE_CFG_FILE);
+        return LE_FAULT;
+    }
+
+    json_t* js_post;
+    if (state == TAF_UPDATE_INSTALLING)
+    {
+        // Load the 'post-install' object.
+        js_post = json_object_get(js_firmware, "post-install");
+    }
+    else
+    {
+        LE_ERROR("Invalid state for hook function.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (!json_is_object(js_post))
+    {
+        LE_ERROR("post-install object is not set in JSON file %s.",
+            TAF_FWUPDATE_CFG_FILE);
+        return LE_FAULT;
+    }
+
+    // Load the 'cancel' object.
+    json_t* js_cancel = json_object_get(js_post, "cancel");
+    if (!json_is_object(js_cancel))
+    {
+        LE_ERROR("cancel object is not set in JSON file %s.", TAF_FWUPDATE_CFG_FILE);
+        return LE_FAULT;
+    }
+
+    // Load the 'user-script' object.
+    json_t* js_user_script = json_object_get(js_cancel, "user-script");
+    if (!json_is_string(js_user_script))
+    {
+        LE_ERROR("user-script string is not set in JSON file %s.", TAF_FWUPDATE_CFG_FILE);
+        return LE_FAULT;
+    }
+
+    le_utf8_Copy(scriptPath, json_string_value(js_user_script), pathLen, NULL);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Set update state.
  */
 //--------------------------------------------------------------------------------------------------
@@ -223,6 +320,7 @@ void taf_FwUpdate::SetState
     {
         fwrite(&state, sizeof(taf_update_State_t), 1, fp);
         fflush(fp);
+        fsync(fileno(fp));
         fclose(fp);
     }
 }
@@ -986,6 +1084,14 @@ uint32_t taf_FwUpdate::GetActivationItemCount
 //--------------------------------------------------------------------------------------------------
 /**
  * Intialize partition list.
+ *
+ * @return
+ *  - LE_OK    The partition list was initialized successfully or had already been initialized.
+ *  - LE_FAULT Flash access initialization failed, /proc/mtd could not be opened, or partition
+ *             discovery could not proceed.
+ *
+ * @note This function depends on taf_pa_flash_Init(); lower-layer failure reasons depend on the
+ *       adaptor implementation.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::InitPartitionList
@@ -1296,14 +1402,20 @@ void taf_FwUpdate::UpdateProgress
     tafFwUpdate.ReportStatus(state, tafFwUpdate.percent, tafFwUpdate.error);
 }
 
-/*======================================================================
- FUNCTION        taf_FwUpdate::SendPipeCmd
- DESCRIPTION     Report FOTA result to server
- PARAMETERS      [IN] cmd: Pipe command
-                 [IN] mode: Pipe open mode.
- RETURN VALUE    le_result_t: Result of sending pipe command
-======================================================================*/
-le_result_t taf_FwUpdate::SendPipeCmd(const char* cmd, const char* mod)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Send a pipe command.
+ *
+ * @return
+ *  - LE_OK    The command was executed successfully.
+ *  - LE_FAULT popen failed or the command exited with a non-zero status.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::SendPipeCmd
+(
+    const char* cmd, ///< [IN] Pipe command.
+    const char* mod  ///< [IN] Open mode.
+)
 {
     FILE* fp = popen(cmd, mod);
     TAF_ERROR_IF_RET_VAL(fp == NULL, LE_FAULT, "popen failed.");
@@ -1375,8 +1487,9 @@ void taf_FwUpdate::GetTelafVersion
  * Get firmware version.
  *
  * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ *  - LE_OK    The firmware version string was parsed and copied successfully.
+ *  - LE_FAULT The version file could not be opened, or the expected firmware version tokens could
+ *             not be parsed from its contents.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::GetFirmwareVersion
@@ -1424,8 +1537,9 @@ le_result_t taf_FwUpdate::GetFirmwareVersion
  * Firmware installation pre-check.
  *
  * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ *  - LE_OK    Pre-check completed successfully or was bypassed by the special bypass tag.
+ *  - LE_FAULT The manifest could not be opened, current firmware information could not be obtained,
+ *             manifest version lines could not be parsed, or downgrade detection failed.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::InstallPreCheck
@@ -2035,6 +2149,29 @@ void taf_FwUpdate::UpdateImage
         }
     }
 
+    // Post process for install success.
+    result = tafFwUpdate.PostProcess(TAF_UPDATE_INSTALL_SUCCESS);
+    if (result != LE_OK)
+    {
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+        return;
+    }
+
+    if (tafFwUpdate.GetCancelAction(TAF_UPDATE_INSTALLING))
+    {
+        LE_INFO("Cancelled during post installation.");
+        result = tafFwUpdate.CancelPostInstall();
+        if (result != LE_OK)
+        {
+            LE_INFO("Failed to cancel post installation.");
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+            return;
+        }
+
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_IDLE);
+        return;
+    }
+
     taf_update_Bank_t bank = TAF_UPDATE_BANK_UNKNOWN;
     result = tafFwUpdate.GetActiveBank(&bank);
     if (result != LE_OK)
@@ -2060,17 +2197,11 @@ void taf_FwUpdate::UpdateImage
             tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
             return;
         }
-        // Post process for install success.
-        result = tafFwUpdate.PostProcess(TAF_UPDATE_INSTALL_SUCCESS);
-        if (result != LE_OK)
-        {
-            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
-            return;
-        }
-        tafFwUpdate.SetActivationContext(TAF_UPDATE_INSTALL_SUCCESS, bank);
-
-        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_SUCCESS);
     }
+
+    tafFwUpdate.SetActivationContext(TAF_UPDATE_INSTALL_SUCCESS, bank);
+
+    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_SUCCESS);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2141,6 +2272,7 @@ void taf_FwUpdate::SyncPartition
                 else
                     srcPartition[strlen(srcPartition) - 2] = '\0';
 
+                LE_INFO("Sync MTD from %s to %s with %d bytes.", srcPartition, partition, pages * TAF_FWUPDATE_FLASH_PAGE_SIZE);
                 ret = taf_pa_flash_CopyMtd(srcPartition, partition,
                     pages * TAF_FWUPDATE_FLASH_PAGE_SIZE);
             }
@@ -2343,12 +2475,22 @@ void taf_FwUpdate::StartSync
             }
             else
             {
+                char partition[TAF_FLASH_PARTITION_NAME_MAX_BYTES];
+                le_utf8_Copy(partition, tafFwUpdate.partitions[i].name,
+                    TAF_FLASH_PARTITION_NAME_MAX_BYTES, NULL);
+                if (tafFwUpdate.partitions[i].bank == TAF_UPDATE_BANK_A)
+                {
+                    le_utf8_Append(partition, "_b", TAF_FLASH_PARTITION_NAME_MAX_BYTES, NULL);
+                }
+                else
+                    partition[strlen(tafFwUpdate.partitions[i].name) - 2] = '\0';
+
                 taf_pa_flash_MtdRef_t mtdRef = nullptr;
-                ret = taf_pa_flash_OpenMtd(tafFwUpdate.partitions[i].name,
-                    TAF_PA_FLASH_BITMASK_OPEN_MODE_READ_ONLY, &mtdRef);
+                ret = taf_pa_flash_OpenMtd(partition, TAF_PA_FLASH_BITMASK_OPEN_MODE_READ_ONLY,
+                    &mtdRef);
                 if (ret)
                 {
-                    LE_ERROR("Fail to open mtd %s.", tafFwUpdate.partitions[i].name);
+                    LE_ERROR("Fail to open mtd %s.", partition);
                     continue;
                 }
 
@@ -2356,17 +2498,41 @@ void taf_FwUpdate::StartSync
                 ret = taf_pa_flash_GetMtdInfo(mtdRef, &info);
                 if (ret)
                 {
-                    LE_ERROR("Fail to get info of mtd %s.", tafFwUpdate.partitions[i].name);
+                    LE_ERROR("Fail to get info of mtd %s.", partition);
                     ret = taf_pa_flash_CloseMtd(mtdRef);
                     if (ret)
                         LE_ERROR("Fail to close mtd %s.", tafFwUpdate.partitions[i].name);
                     continue;
                 }
 
+                uint8_t buffer[TAF_FWUPDATE_FLASH_PAGE_SIZE];
+                uint32_t blocks = info.size / info.eraseSize;
+                uint32_t pagesPerBlock = info.eraseSize / info.writeSize;
+                for (uint32_t j = 0; j < blocks; j++)
+                {
+                    bool isGood = false;
+                    ret = taf_pa_flash_CheckMtdGoodBlock(mtdRef, j, &isGood);
+                    if (ret != 0 || !isGood)
+                        continue;
+                    else
+                    {
+                        size_t bytes = TAF_FWUPDATE_FLASH_PAGE_SIZE;
+                        ret = taf_pa_flash_ReadMtdPage(mtdRef, j * pagesPerBlock, buffer, &bytes);
+                        if (ret == TAF_FWUPDATE_FLASH_PAGE_ERASED)
+                            break;
+
+                        partitionSize += info.eraseSize;
+                    }
+                }
+
                 ret = taf_pa_flash_CloseMtd(mtdRef);
                 if (ret)
-                    LE_ERROR("Fail to close mtd %s.", tafFwUpdate.partitions[i].name);
-                partitionSize = info.size;
+                {
+                    LE_ERROR("Fail to close mtd %s, ret = %d.", partition, ret);
+                    tafFwUpdate.SetErrorCode(errno);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+                    return;
+                }
             }
 
             partitionPage =  partitionSize / TAF_FWUPDATE_FLASH_PAGE_SIZE;
@@ -2482,7 +2648,12 @@ void taf_FwUpdate::InstallFirmware
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Calculate Hash of a file
+ * Calculate Hash of a file.
+ *
+ * @return
+ *  - LE_OK    The file hash was calculated successfully.
+ *  - LE_FAULT The digest context could not be created or initialized, or the source file could not
+ *             be opened.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::CalFileHash
@@ -2539,6 +2710,17 @@ le_result_t taf_FwUpdate::CalFileHash
 //--------------------------------------------------------------------------------------------------
 /**
  * Calculate Hash of a partition
+ *
+ * @return
+ *  - LE_OK    The partition hash was calculated successfully.
+ *  - LE_FAULT Partition discovery failed, the target partition could not be found, digest context
+ *             creation/initialization failed, or one of the lower-layer open/info/read/close
+ *             operations failed.
+ *
+ * @note This function depends on taf_pa_flash_OpenUbiVolume(), taf_pa_flash_ReadUbiVolume(),
+ *       taf_pa_flash_CloseUbiVolume(), taf_pa_flash_OpenMtd(), taf_pa_flash_GetMtdInfo(),
+ *       taf_pa_flash_CheckMtdGoodBlock(), taf_pa_flash_ReadMtdPage(), and taf_pa_flash_CloseMtd();
+ *       actual lower-layer failure reasons depend on the adaptor implementation.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::CalPartitionHash
@@ -2894,8 +3076,9 @@ void taf_FwUpdate::InstallPostCheck
  * Get active bank.
  *
  * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ *  - LE_OK    The active bank was parsed successfully.
+ *  - LE_FAULT The boot-slot command could not be executed, its output could not be read, or the
+ *             returned slot string was not recognized.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::GetActiveBank
@@ -2941,8 +3124,8 @@ le_result_t taf_FwUpdate::GetActiveBank
  * Set active bank.
  *
  * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ *  - LE_OK    The boot-slot switch command was issued successfully.
+ *  - LE_FAULT The bank argument is invalid or the boot-slot command could not be started.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::SetActiveBank
@@ -2976,8 +3159,15 @@ le_result_t taf_FwUpdate::SetActiveBank
  * Erase bank.
  *
  * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ *  - LE_OK    The requested inactive bank erase traversal completed successfully.
+ *  - LE_FAULT Partition discovery failed, one of the lower-layer erase operations failed, or the
+ *             lower layer rejected an open/info/erase/close request.
+ *
+ * @note This function depends on taf_pa_flash_OpenMtd(), taf_pa_flash_GetMtdInfo(),
+ *       taf_pa_flash_CheckMtdGoodBlock(), taf_pa_flash_EraseMtdBlock(),
+ *       taf_pa_flash_MarkMtdBadBlock(), taf_pa_flash_CloseMtd(), and
+ *       taf_pa_flash_EraseUbiVolume(); actual lower-layer failure reasons depend on the adaptor
+ *       implementation.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::EraseBank
@@ -3053,8 +3243,15 @@ le_result_t taf_FwUpdate::EraseBank
  * PerformBankSync.
  *
  * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ *  - LE_OK    The bank synchronization traversal completed successfully.
+ *  - LE_FAULT The active bank could not be determined, partition discovery failed, or a lower-layer
+ *             open/info/copy/close request failed while processing one of the partitions.
+ *
+ * @note This function depends on taf_pa_flash_OpenUbiVolume(), taf_pa_flash_GetUbiVolumeInfo(),
+ *       taf_pa_flash_CloseUbiVolume(), taf_pa_flash_CopyUbiVolume(), taf_pa_flash_OpenMtd(),
+ *       taf_pa_flash_GetMtdInfo(), taf_pa_flash_CheckMtdGoodBlock(), taf_pa_flash_ReadMtdPage(),
+ *       taf_pa_flash_CloseMtd(), and taf_pa_flash_CopyMtd(); actual lower-layer failure reasons
+ *       depend on the adaptor implementation.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::PerformBankSync
@@ -3119,9 +3316,28 @@ le_result_t taf_FwUpdate::PerformBankSync
                 TAF_ERROR_IF_RET_VAL(ret, LE_FAULT, "Can not open MTD %s, ret = %d.", tafFwUpdate.partitions[i].name, ret);
 
                 taf_pa_flash_MtdInfo_t info;
+                uint8_t buffer[TAF_FWUPDATE_FLASH_PAGE_SIZE];
                 ret = taf_pa_flash_GetMtdInfo(mtdRef, &info);
                 TAF_ERROR_IF_RET_VAL(ret, LE_FAULT, "Can not get MTD %s info, ret = %d.", tafFwUpdate.partitions[i].name, ret);
-                imageSize = info.size;
+                imageSize = 0;
+                uint32_t blocks = info.size / info.eraseSize;
+                uint32_t pagesPerBlock = info.eraseSize / info.writeSize;
+                for (uint32_t i = 0; i < blocks; i++)
+                {
+                    bool isGood = false;
+                    ret = taf_pa_flash_CheckMtdGoodBlock(mtdRef, i, &isGood);
+                    if (ret != 0 || ! isGood)
+                        continue;
+                    else
+                    {
+                        size_t bytes = TAF_FWUPDATE_FLASH_PAGE_SIZE;
+                        ret = taf_pa_flash_ReadMtdPage(mtdRef, i * pagesPerBlock, buffer, &bytes);
+                        if (ret == TAF_FWUPDATE_FLASH_PAGE_ERASED)
+                            break;
+
+                        imageSize += info.eraseSize;
+                    }
+                }
 
                 ret = taf_pa_flash_CloseMtd(mtdRef);
                 TAF_ERROR_IF_RET_VAL(ret, LE_FAULT, "Can not close MTD %s, ret = %d.",
@@ -3148,8 +3364,9 @@ le_result_t taf_FwUpdate::PerformBankSync
  * Rollback.
  *
  * @return
- *  - LE_FAULT On failure.
- *  - LE_OK    On success.
+ *  - LE_OK    The rollback bank switch request completed successfully.
+ *  - LE_FAULT The bank had not been switched yet, the active bank could not be determined, or the
+ *             service failed to select the previous bank as active.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::Rollback
@@ -3429,7 +3646,7 @@ void taf_FwUpdate::ActivateComponent
 //--------------------------------------------------------------------------------------------------
 void taf_FwUpdate::FwUpdateHandler
 (
-    void* reqPtr
+    void* reqPtr ///< [IN] Update request.
 )
 {
     taf_FwUpdateReq_t* updateReq = (taf_FwUpdateReq_t*)reqPtr;
@@ -3562,7 +3779,7 @@ void taf_FwUpdate::FwUpdateHandler
 //--------------------------------------------------------------------------------------------------
 void* taf_FwUpdate::FwUpdateThread
 (
-    void* contextPtr ///< [IN] Context
+    void* contextPtr ///< [IN] Context.
 )
 {
     le_cfg_ConnectService();
@@ -3577,6 +3794,10 @@ void* taf_FwUpdate::FwUpdateThread
 //--------------------------------------------------------------------------------------------------
 /**
  * Post process.
+ *
+ * @return
+ *  - LE_OK    Post-processing completed successfully or was skipped because no script exists.
+ *  - LE_FAULT The script path could not be obtained or the post-processing command failed.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FwUpdate::PostProcess
@@ -3593,14 +3814,11 @@ le_result_t taf_FwUpdate::PostProcess
         return LE_FAULT;
     }
 
-    if (access(TAF_FWUPDATE_POST_HOOK, 0) == 0 && access(script, 0) == 0)
+    if (access(script, 0) == 0)
     {
         LE_INFO("Post processing...");
 
-        char cmd[TAF_FWUPDATE_CMD_LEN];
-        snprintf(cmd, sizeof(cmd), "%s %s", TAF_FWUPDATE_POST_HOOK, script);
-
-        result = tafFwUpdate.SendPipeCmd(cmd, "w");
+        result = tafFwUpdate.SendPipeCmd(script, "w");
         if (result != LE_OK)
         {
             LE_ERROR("Post processing failed.");
@@ -3612,6 +3830,50 @@ le_result_t taf_FwUpdate::PostProcess
     }
 
     LE_INFO("Skip post processing.");
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cancel the post installation.
+ *
+ * @return
+ *  - LE_OK    Cancel-post-install processing completed successfully or was skipped because no
+ *             script exists.
+ *  - LE_FAULT The cancel-hook script path could not be obtained or the cancel command failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::CancelPostInstall
+(
+    void
+)
+{
+    char script[TAF_FWUPDATE_POST_SCRIPT_PATH_LEN];
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    le_result_t result = tafFwUpdate.GetCancelPostScript(TAF_UPDATE_INSTALLING, script,
+        TAF_FWUPDATE_POST_SCRIPT_PATH_LEN);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Can not get user script.");
+        return LE_FAULT;
+    }
+
+    if (access(script, 0) == 0)
+    {
+        LE_INFO("Cancel post installation...");
+
+        result = tafFwUpdate.SendPipeCmd(script, "w");
+        if (result != LE_OK)
+        {
+            LE_ERROR("Cancel post installation failed.");
+            return LE_FAULT;
+        }
+
+        LE_INFO("Cancel Post installation successfully.");
+        return LE_OK;
+    }
+
+    LE_INFO("Skip cancel post installation.");
     return LE_OK;
 }
 

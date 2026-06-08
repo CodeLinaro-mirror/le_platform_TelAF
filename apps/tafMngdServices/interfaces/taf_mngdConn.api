@@ -71,6 +71,7 @@
                     "Name": "Data1",        ///< Data object name. Name should be unique among data
                                             ///  objects.
                     "Use_Network_ID": 1,    ///< Network ID which is used for this data connection.
+                    "Interface": null,      ///< The interface specified for starting the data call.
                     "Profile":{
                         "Number": 1,        ///< Profile number.
                         "APN": null         ///< Profile APN. If APN is valid, profile will be
@@ -111,6 +112,7 @@
                     "ID": 2,
                     "Name": "Data2",
                     "Use_Network_ID": 1,
+                    "Interface": null,
                     "Profile":{
                         "Number": 2,
                         "APN": null
@@ -367,6 +369,15 @@
          object depends. </td>
    </tr>
    <tr>
+     <td>Interface</td>
+     <td>Interface</td>
+     <td>char</td>
+     <td>null</td>
+     <td>128</td>
+     <td> If this value is null, starting data call with an automatically assigned interface.
+         <br> Otherwise, it uses the specified interface.</td>
+   </tr>
+   <tr>
      <td rowspan="2">Profile  </td>
      <td>Number</td>
      <td>unit8_t</td>
@@ -427,8 +438,8 @@
      <td>uint16_t</td>
      <td>30</td>
      <td>30</td>
-     <td>The time in seconds to wait before the first data start retry attempt. Only 30s is
-          supported.
+     <td>The time in seconds to wait before the first data start retry attempt. Supported valid
+          range is 1-30s.
       </td>
    </tr>
    <tr>
@@ -939,10 +950,11 @@ REFERENCE Data;
  */
 //--------------------------------------------------------------------------------------------------
 ENUM DataState{
-    DATA_DISCONNECTED,      ///< Transition state to CONNECTED or FAILED.
-    DATA_CONNECTED,         ///< Data connected state.
-    DATA_CONNECTION_FAILED, ///< The service is not able to reconnect data even after retries.
-    DATA_CONNECTION_STALLED ///< Transition state to CONNECTED or DISCONNECTED.
+    DATA_DISCONNECTED,               ///< Transition state to CONNECTED or FAILED.
+    DATA_CONNECTED,                  ///< Data connected state.
+    DATA_CONNECTION_FAILED,          ///< The service is not able to reconnect data even after
+                                     ///  retries.
+    DATA_CONNECTION_STALLED         ///< Transition state to CONNECTED or DISCONNECTED.
 };
 
 //--------------------------------------------------------------------------------------------------

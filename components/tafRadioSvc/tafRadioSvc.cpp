@@ -311,11 +311,12 @@ int32_t taf_radio_GetPlatformSpecificRegistrationErrorCode
  * Adds a preferred operator.
  *
  * @return
- *  - LE_NOT_IMPLEMENTED -- Not implemented.
- *  - LE_TIMEOUT -- Timeout.
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters (null pointer or invalid MCC/MNC string).
+ *  - LE_OUT_OF_RANGE -- MCC or MNC value out of range [0, 999].
+ *  - LE_FAULT -- Failed.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_AddPreferredOperator
@@ -367,12 +368,13 @@ le_result_t taf_radio_AddPreferredOperator
  * Removes a preferred operator.
  *
  * @return
- *  - LE_NOT_IMPLEMENTED -- Not implemented.
- *  - LE_NOT_FOUND -- Not found.
- *  - LE_TIMEOUT -- Timeout.
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters (null pointer or invalid MCC/MNC string).
+ *  - LE_OUT_OF_RANGE -- MCC or MNC value out of range [0, 999].
+ *  - LE_NOT_FOUND -- Operator not found in the preferred network list.
+ *  - LE_FAULT -- Failed.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_RemovePreferredOperator
@@ -931,16 +933,29 @@ le_result_t taf_radio_GetNetRegState
     }
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
-    taf_pa_radio_VoiceServiceInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetVoiceServiceInfo(instance, &info);
+
+    taf_pa_radio_VoiceServiceInfo_t voiceInfo;
+
+    taf_radio_NetRegState_t vState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+    taf_radio_NetRegState_t dState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+
+    pa_result_t paResult = taf_pa_radio_GetVoiceServiceInfo(instance, &voiceInfo);
     le_result_t result = Utility::Convert::Result(paResult);
-    if (result != LE_OK)
-    {
-        LE_ERROR("Failed to get voice service information.");
-        return result;
+    if ( result == LE_OK) {
+        vState = Utility::Convert::NetRegState(&voiceInfo);
+    } else {
+        LE_WARN("Failed to get Voice Service Info for phoneId %d", phone);
     }
 
-    *statePtr =  Utility::Convert::NetRegState(&info);
+    result = taf_radio_GetPacketSwitchedState(&dState, phone);
+    if (result != LE_OK) {
+        LE_WARN("Failed to get Data Service Info for phoneId %d", phone);
+    }
+
+    *statePtr = Utility::Convert::CombineNetRegState(vState, dState);
+
+    LE_DEBUG("PhoneId %d NetRegState: Voice(%d) + Data(%d) -> Combined(%d)", 
+             phone, vState, dState, *statePtr);
 
     return LE_OK;
 }
@@ -2463,11 +2478,9 @@ le_result_t taf_radio_GetCellularNetworkMccMnc
  * Gets the the namework name of a scanned PLMN network
  *
  * @return
- *  - LE_NOT_FOUND -- Not found.
- *  - LE_OUT_OF_RANGE -- Out of range.
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters (null pointer).
+ *  - LE_NOT_FOUND -- Scan information reference not found.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCellularNetworkName
@@ -4292,7 +4305,7 @@ le_result_t taf_radio_GetRatSvcStatus
     if (paResult != 0)
     {
         LE_ERROR("Failed to get serving RAT.");
-        return LE_FAULT;
+        return Utility::Convert::Result(paResult);
     }
 
     taf_pa_radio_RatServiceStatus_t status = TAF_PA_RADIO_RAT_SERVICE_STATUS_UNKNOWN;
@@ -4314,7 +4327,7 @@ le_result_t taf_radio_GetRatSvcStatus
  * Adds handler for the network status changes.
  *
  * @return
- *  - af_radio_NetStatusChangeHandlerRef_t handler reference for the network status changes.
+ *  - taf_radio_NetStatusChangeHandlerRef_t handler reference for the network status changes.
  */
 //--------------------------------------------------------------------------------------------------
 taf_radio_NetStatusChangeHandlerRef_t taf_radio_AddNetStatusChangeHandler
@@ -5635,9 +5648,10 @@ void taf_radio_RemoveConnectionStatusHandler
  * Gets the reference of connection status.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters (null pointer).
+ *  - LE_FAULT -- Failed to get data available system status.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetConnStatus
@@ -5680,9 +5694,8 @@ le_result_t taf_radio_GetConnStatus
  *  Deletes the connection status.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters (null reference or reference not found in map).
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeleteConnStatus
@@ -5718,9 +5731,8 @@ le_result_t taf_radio_DeleteConnStatus
  *  Gets the ENDC connection status.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters (reference not found in map or null statusPtr).
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetEndcConnectionStatus

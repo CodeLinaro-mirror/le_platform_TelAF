@@ -15,7 +15,7 @@
 #include "tafNetUtility.hpp"
 #include <arpa/inet.h>
 #include "tafSvcIF.hpp"
-#include "taf_pa_nat.hpp"
+#include "tafNatPa.hpp"
 
 using namespace tafsvc;
 

@@ -11,7 +11,8 @@
 #include <vector>
 #include <iostream>
 #include "tafSvcIF.hpp"
-#include "taf_pa_vlan.hpp"
+#include "tafVlanPa.hpp"
+#include "tafNetPa.hpp"
 
 #define MIN_VLAN_ID                         1  /*vlan 0 is reserved as per RFC*/
 #define MAX_VLAN_ID                         4094/*vlan 4095 is max and it is reserved*/
@@ -168,12 +169,11 @@ namespace tafsvc {
             static void ClientCloseSessionHandler(le_msg_SessionRef_t sessionRef, void *contextPtr);
             le_result_t BindVlanWithProfile(taf_net_VlanRef_t vlanRef, uint8_t slotId, uint32_t profileId);
             le_result_t UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef);
-            uint16_t GetBackhaulVlanIdBoundWithVlan(uint16_t vlanId,
-                                         taf_net_BackhaulType_t backhaulType, uint8_t slot);
-            uint16_t GetBoundVlanIdFromSlotAndProfile(uint8_t slotId, uint32_t profileId);
+            le_result_t GetBackhaulInfoBoundWithVlan(uint16_t vlanId,
+                taf_VlanBHBindConfig_t *vlanBindCfg);
+
             le_result_t GetBoundSlotIdProfileIdFromVlan(uint16_t vlanId, uint8_t* slotId,
                                                         uint32_t* profileId);
-            le_result_t GetBindingInfo(uint8_t slotId);
 
             taf_net_VlanRef_t CreateVlan(uint16_t vlanId, bool isAccelerated,
                                          le_msg_SessionRef_t sessionRef);
@@ -289,7 +289,6 @@ namespace tafsvc {
             le_event_Id_t vlanHwAccelerationStateEvtId;
             le_mem_PoolRef_t vlanHwAccelerationStateEvtPool;
 
-            static std::map<uint8_t, std::list<std::pair<int, int>>> slotVlanMappingInfo;
             static std::vector<taf_pa_Vlan_t> vlanPAEntryInfo;
 
     };

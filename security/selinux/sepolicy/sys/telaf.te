@@ -75,6 +75,8 @@ gen_require(`
   type shell_exec_t;
   type loc_socket_t;
   type sysctl_t;
+  type sysctl_vm_t;
+  type sysctl_vm_overcommit_t;
   type sysfs_t;
   type syslogd_t;
   type system_dbusd_t;
@@ -491,6 +493,11 @@ allow data_t tmpfs_t:filesystem { associate };
 allow telaf_app_domain coredump_data_t:file { relabelfrom relabelto };
 allow telaf_app_domain data_t:file { relabelfrom relabelto };
 
+# Allow telaf_app_domain to access sysctl vm overcommit settings
+allow telaf_app_domain sysctl_t:dir { search };
+allow telaf_app_domain sysctl_vm_t:dir { search };
+allow telaf_app_domain sysctl_vm_overcommit_t:file { read open };
+
 # Define core domain
 allow telaf_core_domain telaf_fw_t : dir { manage_dir_perms };
 allow telaf_core_domain telaf_lib_t : { file dir lnk_file } { read execute getattr };
@@ -687,9 +694,10 @@ if (telaf_external_dependencies) {
     allow telaf_overlay_t policy_config_t:dir { search read getattr };
 
     #=========== Update Service Command =============
-    allow telaf_sdir_t user_tmp_t:file { manage_file_perms };
-    allow telaf_admin_t user_tmp_t:file { manage_file_perms };
-    allow telaf_admin_t user_tmp_t:dir { manage_dir_perms };
+    allow { telaf_admin_domain telaf_app_domain telaf_core_domain } user_tmp_t:file { manage_file_perms };
+    allow { telaf_admin_domain telaf_app_domain telaf_core_domain } user_tmp_t:dir { manage_dir_perms };
+    allow telaf_sdir_t tmp_t:dir { manage_dir_perms };
+    allow telaf_sdir_t tmp_t:file { manage_file_perms };
 
     #============ persist path ==================
     allow telaf_admin_t persist_t:dir { write add_name remove_name create setattr getattr};
@@ -717,4 +725,6 @@ if (telaf_external_dependencies) {
     #============ To support telaf restart ===================
     allow telaf_sdir_t telaf_apptmp_rw_t:dir { remove_name };
     allow telaf_sdir_t telaf_apptmp_rw_t:sock_file { unlink };
+    allow telaf_sdir_t telaf_app_t:fd use;
+    allow telaf_sdir_t telaf_app_t:file { read write getattr };
 }

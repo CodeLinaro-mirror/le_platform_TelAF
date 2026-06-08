@@ -34,6 +34,7 @@
 // DID length definition
 #define DID_LEN  2
 
+#define TAF_POSITIVE_RESPONSE 0
 #define TAF_REQ_OUT_OF_RANGE 0x31
 #define TAF_CONDITION_NOT_CORRECT 0x22
 #define TAF_GENERAL_PROGRAMMING_FAILURE 0x72
@@ -126,6 +127,7 @@ typedef struct {
     void* readDIDRef;
     void* writeDIDRef;
     le_thread_Ref_t requestingThreadRef;
+    uint32_t cnt;
 } ReadWriteRequest_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -166,11 +168,9 @@ class taf_diagDidStore: public ITafSvc
                     taf_diagDidStore_ServiceRef_t svcRef, uint16_t dataId,
                         taf_diagDidStore_DataIdChangeHandlerFunc_t handlerPtr, void* contextPtr);
             void RemoveDataIdChangeHandler(taf_diagDidStore_DataIdChangeHandlerRef_t handlerRef);
-            taf_diagDidStore_DIDChangeHandlerRef_t GetDIDHandlerRef(
-                    taf_diagDidStore_ServiceRef_t svcRef);
-            le_result_t AddDIDToHandler(taf_diagDidStore_DIDChangeHandlerRef_t handlerRef,
+            le_result_t AddDIDToHandler(taf_diagDidStore_ServiceRef_t svcRef,
                     uint16_t dataId);
-            le_result_t RemoveDIDFromHandler(taf_diagDidStore_DIDChangeHandlerRef_t handlerRef,
+            le_result_t RemoveDIDFromHandler(taf_diagDidStore_ServiceRef_t svcRef,
                     uint16_t dataId);
 
             le_result_t ParseDidStoreJsonConfig(const char* configPathPtr);
@@ -190,6 +190,12 @@ class taf_diagDidStore: public ITafSvc
             static void readDataIDMsgHandler(taf_diagDataID_RxReadDIDMsgRef_t rxMsgRef,
                     const uint16_t* dataIdPtr, size_t dataIdSize,void* contextPtr);
 
+            static size_t HashComputeCnt(const void* voidToHashPtr);
+            static bool HashCompareCnt(const void* firstVoidPtr, const void* secondVoidPtr);
+
+            uint32_t callPluginWrCnt = 1;
+            uint32_t callPluginRdCnt = 1;
+
             le_event_Id_t evtReady;
             bool isPluginReady = false;
             bool isDiagSvcReady = false;
@@ -203,6 +209,8 @@ class taf_diagDidStore: public ITafSvc
             static taf_diagDataID_RxReadDIDMsgHandlerRef_t DiagReadDataIDMsgRef;
             static taf_diagDataID_RxWriteDIDMsgHandlerRef_t DiagWriteDataIDMsgRef;
 
+            le_hashmap_Ref_t RdDIDReqCntRef;
+            le_hashmap_Ref_t WrDIDReqCntRef;
         private:
             // Internal search function.
             taf_DidStore_t* GetServiceObj(le_msg_SessionRef_t sessionRef);

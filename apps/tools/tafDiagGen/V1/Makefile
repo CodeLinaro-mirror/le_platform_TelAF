@@ -2,6 +2,20 @@
 top_of_project=$(CURDIR)/../../../..
 
 diagcfg_of_project=$(shell realpath $(top_of_project)/components/tafDiagSvc/tafDiagCfg)
+SERIALIZATION_SRC := $(diagcfg_of_project)/serialization.cpp
+SERIALIZATION_HOST_TARGET := $(diagcfg_of_project)/serialization.host
+
+BUILD_CXX      ?= g++
+BUILD_CXXFLAGS ?= -O2
+BUILD_LDFLAGS  ?=
+
+STAGING_INCDIR_NATIVE ?=
+STAGING_LIBDIR_NATIVE ?=
+
+HOST_CPPFLAGS += $(if $(STAGING_INCDIR_NATIVE),-I$(STAGING_INCDIR_NATIVE),)
+
+HOST_LDFLAGS := $(if $(STAGING_LIBDIR_NATIVE),-L$(STAGING_LIBDIR_NATIVE),) -lboost_serialization
+
 
 ifeq ($(DGTOOL_TARGET),)
   PY=python3
@@ -10,7 +24,7 @@ else
   PY=$(top_of_project)/apps/tools/tafDiagGen/venv/$(DGTOOL_TARGET)/bin/python3
 endif
 
-.PHONY: full default install
+.PHONY: full default install serialize
 
 default: full
 
@@ -58,9 +72,25 @@ install: do-install
 do-install:
 	@echo "[Install] configuration ..full.. feature installed"
 	@cp -f build/* $(diagcfg_of_project)/
+	@cp -af $(CURDIR)/serialization/serialization.cpp $(diagcfg_of_project)/
+	@cp -af $(CURDIR)/serialization/serialization.hpp $(diagcfg_of_project)/
+	@echo "[Install] Done."
+
+serialize: do-serialize
+do-serialize: $(SERIALIZATION_HOST_TARGET)
+	@LD_LIBRARY_PATH="$(STAGING_LIBDIR_NATIVE):$$LD_LIBRARY_PATH" \
+	$(SERIALIZATION_HOST_TARGET) $(diagcfg_of_project)/
+	@tree_data_md5=$$(md5sum "$(diagcfg_of_project)/tree_data" | awk '{print $$1}'); \
+	sed -i 's|^inline std::string tree_data_md5 = ".*";|inline std::string tree_data_md5 = "'"$$tree_data_md5"'";|' "$(diagcfg_of_project)/serialization.hpp"
+	@echo "[Serialize] Done."
+
+$(SERIALIZATION_HOST_TARGET): $(SERIALIZATION_SRC)
+	mkdir -p $(dir $@)
+	$(BUILD_CXX) $(BUILD_CXXFLAGS) -o $@ $^ $(BUILD_LDFLAGS) $(HOST_CPPFLAGS) $(HOST_LDFLAGS)
 
 clean:
-	@rm -rf build backtrace.log record.log
+	@rm -rf build
+	@rm -rf $(SERIALIZATION_HOST_TARGET)
 
 test:
 	@$(PY) $(CURDIR)/run_tests.py

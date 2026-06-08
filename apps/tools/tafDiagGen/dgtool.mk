@@ -35,12 +35,13 @@ $(TELAF_ROOT)/apps/tools/tafDiagGen/venv/$(DGTOOL_TARGET):
 cleanall-venv:
 	@echo "Clean the python virtual environment for dgtool"
 	rm -rf $(TELAF_ROOT)/apps/tools/tafDiagGen/venv
+	rm -rf $(TELAF_ROOT)/components/tafDiagSvc/tafDiagCfg/serialization.host
 
 # !! We didn't intend to use advanced syntax for Makefile, but made sure the file was readable!
 
 # --- Version 1 ---
 
-dgtool-V1: dgtool-V1-setup dgtool-V1-build dgtool-V1-install
+dgtool-V1: dgtool-V1-setup dgtool-V1-build dgtool-V1-install dgtool-V1-serialize
 	@echo "[$@] <-- Done"
 
 dgtool-V1-setup: $(TELAF_ROOT)/apps/tools/tafDiagGen/venv/$(DGTOOL_TARGET)
@@ -55,6 +56,10 @@ dgtool-V1-install:
 	@echo "[$@] <--"
 	@$(MAKE) --no-print-directory -C V1 install
 
+dgtool-V1-serialize:
+	@echo "[$@] <--"
+	@$(MAKE) --no-print-directory -C V1 serialize
+
 dgtool-V1-clean:
 	@echo "[$@] <--"
 	@$(MAKE) --no-print-directory -C V1 clean
@@ -62,7 +67,7 @@ dgtool-V1-clean:
 
 # --- Version 2 ---
 
-dgtool-V2: dgtool-V2-setup dgtool-V2-build dgtool-V2-install
+dgtool-V2: dgtool-V2-setup dgtool-V2-build dgtool-V2-install dgtool-V2-serialize
 	@echo "[$@] <-- Done"
 
 dgtool-V2-setup: $(TELAF_ROOT)/apps/tools/tafDiagGen/venv/$(DGTOOL_TARGET)
@@ -76,6 +81,10 @@ dgtool-V2-build:
 dgtool-V2-install:
 	@echo "[$@] <--"
 	@$(MAKE) --no-print-directory -C V2 install
+
+dgtool-V2-serialize:
+	@echo "[$@] <--"
+	@$(MAKE) --no-print-directory -C V2 serialize
 
 dgtool-V2-clean:
 	@echo "[$@] <--"

@@ -1,5 +1,7 @@
 # Build Products
 /build
 /security/selinux/sepolicy/files/
-/.cache
 /interfaces
+compile_commands.json
+/.cache
+.clangd

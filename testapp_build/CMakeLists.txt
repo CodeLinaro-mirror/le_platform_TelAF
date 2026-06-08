@@ -41,12 +41,13 @@ foreach( unittestfile  ${UNITTEST_ADEF_FILES} )
     mkapp (${unittestfile} -i ${Interfaces} -i ${Interfaces}/staging ${MKAPP_CFLAGS_LIST})
 endforeach()
 
+set(MrcTestApiDir $ENV{TELAF_ROOT}/apps/test/tafMRCTest/tafMRCIntTest)
 # Build integration test apps
 set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Integration_testapp)
 file(GLOB_RECURSE UNITTEST_ADEF_FILES ${TESTAPP_PATH}/*Int*Test.adef)
 foreach( unittestfile  ${UNITTEST_ADEF_FILES} )
     message(STATUS "adef file: ${unittestfile}")
-    mkapp( ${unittestfile} -i ${Interfaces} -i ${Interfaces}/staging ${MKAPP_CFLAGS_LIST})
+    mkapp( ${unittestfile} -i ${Interfaces} -i ${Interfaces}/staging -i ${MrcTestApiDir} ${MKAPP_CFLAGS_LIST})
 endforeach()
 
 # Build console test apps

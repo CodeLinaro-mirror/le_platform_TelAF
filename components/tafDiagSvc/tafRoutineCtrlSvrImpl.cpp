@@ -38,100 +38,85 @@ void taf_RoutinCtrlSvr::UDSMsgHandler
     }
 
 #ifndef LE_CONFIG_DIAG_FEATURE_A
-
     uint8_t errCode = 0;
-
-    // diag service instance
     auto &diag = taf_DiagSvr::GetInstance();
-    uint16_t routineId = ((msgPtr[2]) << 8) + msgPtr[3];
+    uint16_t routineId = (static_cast<uint16_t>(msgPtr[2]) << 8) + msgPtr[3];
 
-    // check enable condition
     try
     {
-        cfg::Node & node = cfg::top_routines_all<uint16_t>("identifier", routineId);
-        cfg::Node & enableNode = node.get_child("data_enable_condition");
+        const EnableConditionData& cond =
+            cfg::get_routine_enable_conditions(routineId);
 
-        for (const auto & enable: enableNode)
+        if (!cond.and_conditions.empty())
         {
-            // Get the defined enable operation type: "and" or "or"
-            std::string enableOperation = enable.first;
-            if (enableOperation == "and")
+            for (uint8_t enableId : cond.and_conditions)
             {
-                cfg::Node & optNodeList = enableNode.get_child("and");
-                for (const auto & optNode: optNodeList)
-                {
-                    uint8_t enableId = optNode.second.get_value<uint8_t>();
-
-                    if (!diag.GetEnableConditionStatus(enableId))
-                    {
-                        errCode = cfg::get_nrc_by_condition_id(enableId);
-                        LE_WARN("Enable id %d condition is false, send nrc 0x%x",
-                                enableId, errCode);
-                        SendNRCResp(svcId, addrPtr, errCode);
-                        return;
-                    }
-                }
-            }
-            else if (enableOperation == "or")
-            {
-                cfg::Node & optNodeList = enableNode.get_child("or");
-                bool enableStatus = false;
-                uint8_t enableId = 0;
-
-                for (const auto & optNode: optNodeList)
-                {
-                    enableId = optNode.second.get_value<uint8_t>();
-
-                    if(diag.GetEnableConditionStatus(enableId))
-                    {
-                        enableStatus = true;
-                        break;
-                    }
-                }
-
-                if(!enableStatus && enableId != 0)
+                if (!diag.GetEnableConditionStatus(enableId))
                 {
                     errCode = cfg::get_nrc_by_condition_id(enableId);
-                    LE_WARN("Enable id %d condition is false, send nrc 0x%x",
+                    LE_WARN("Enable id %d (AND) condition is false, send nrc 0x%x",
                             enableId, errCode);
-                    SendNRCResp(svcId, addrPtr, errCode);
+                    SendNRCResp(sid, addrPtr, errCode);
                     return;
                 }
+            }
+        }
+        else if (!cond.or_conditions.empty())
+        {
+            bool enableStatus = false;
+            uint8_t failingId = 0;
+            for (uint8_t enableId : cond.or_conditions)
+            {
+                if (diag.GetEnableConditionStatus(enableId))
+                {
+                    enableStatus = true;
+                    break;
+                }
+                failingId = enableId;
+            }
+            if (!enableStatus && failingId != 0)
+            {
+                errCode = cfg::get_nrc_by_condition_id(failingId);
+                LE_WARN("Enable id %d (OR) condition is false, send nrc 0x%x",
+                        failingId, errCode);
+                SendNRCResp(sid, addrPtr, errCode);
+                return;
             }
         }
     }
     catch (const std::exception& e)
     {
-        LE_WARN("Enable condition does not define for routine ctrol ID: 0x%x, Exception: %s",
+        LE_WARN("Enable condition check failed for routine 0x%x: %s",
                 routineId, e.what());
     }
-#endif
+#endif   // LE_CONFIG_DIAG_FEATURE_A
 
-    rcMsgPtr = (taf_RoutineCtrlReqMsg_t*)le_mem_ForceAlloc(reqMsgPool);
+    rcMsgPtr = static_cast<taf_RoutineCtrlReqMsg_t*>(
+                    le_mem_ForceAlloc(reqMsgPool));
     memset(rcMsgPtr, 0, sizeof(taf_RoutineCtrlReqMsg_t));
 
-    rcMsgPtr->subFunc = msgPtr[1] & 0x7F;
-    rcMsgPtr->routineId = ntohs(*((uint16_t*)(msgPtr + 2)));
+    rcMsgPtr->subFunc   = msgPtr[1] & 0x7F;
+    rcMsgPtr->routineId = ntohs(*reinterpret_cast<uint16_t*>(msgPtr + 2));
 
-    copyLen = msgLen - 4 > TAF_DIAG_ROUTINE_CTRL_RECORD_LEN
-        ? TAF_DIAG_ROUTINE_CTRL_RECORD_LEN : msgLen - 4;
-
+    copyLen = (msgLen - 4 > TAF_DIAG_ROUTINE_CTRL_RECORD_LEN)
+                ? TAF_DIAG_ROUTINE_CTRL_RECORD_LEN
+                : (msgLen - 4);
     memcpy(rcMsgPtr->recordData, msgPtr + 4, copyLen);
     rcMsgPtr->recordSize = copyLen;
+
     memcpy(&rcMsgPtr->addrInfo, addrPtr, sizeof(taf_uds_AddrInfo_t));
     rcMsgPtr->link = LE_DLS_LINK_INIT;
-    rcMsgPtr->ref = (taf_diagRoutineCtrl_RxMsgRef_t)le_ref_CreateRef(reqMsgRefMap, rcMsgPtr);
+    rcMsgPtr->ref  = static_cast<taf_diagRoutineCtrl_RxMsgRef_t>(
+                        le_ref_CreateRef(reqMsgRefMap, rcMsgPtr));
 
     LE_DEBUG("Receive message(%p) for service(identifier:0x%x, subFunction:0x%x from 0x%x)",
-        rcMsgPtr->ref, rcMsgPtr->routineId, rcMsgPtr->subFunc, sid);
+             rcMsgPtr->ref, rcMsgPtr->routineId, rcMsgPtr->subFunc, sid);
 
-    // Report the request message to message handler in service layer.
+    /* Report the request message to the service‑layer event handler. */
     taf_UdsEvent_t event;
     event.type = 0;
-    event.ref = rcMsgPtr->ref;
+    event.ref  = rcMsgPtr->ref;
     le_event_Report(rxReqEvent, &event, sizeof(event));
-
-    return;
 }
 
 void taf_RoutinCtrlSvr::ServiceObjDestructor
@@ -544,18 +529,19 @@ taf_diagRoutineCtrl_ServiceRef_t taf_RoutinCtrlSvr::FindOrCreateService
     uint16_t identifier
 )
 {
-    // Verify the identifier which is defined in configuration file.
     try
     {
-        // Check if RID supported in active session.
-        cfg::top_routines_all<uint16_t>("identifier", identifier);
+        // If get_routine_entry() cannot find the routine, it will throw an exception,
+        cfg::get_routine_entry(identifier);
     }
     catch (const std::exception& e)
     {
-        LE_ERROR("The RID(0x%x) is not defined in configuration file", identifier);
+        LE_ERROR("The RID(0x%x) is not defined in configuration file. Exception: %s",
+                 identifier, e.what());
         return NULL;
     }
 
+    // Check if a service object already exists for this client session.
     taf_RoutineCtrlSvc_t* servicePtr = GetServiceObj(identifier,
         taf_diagRoutineCtrl_GetClientSessionRef());
     if (servicePtr != NULL)
@@ -563,7 +549,12 @@ taf_diagRoutineCtrl_ServiceRef_t taf_RoutinCtrlSvr::FindOrCreateService
         return servicePtr->ref;
     }
 
+    // If it doesn't exist, create and initialize a new service object.
     servicePtr = (taf_RoutineCtrlSvc_t*)le_mem_ForceAlloc(svcPool);
+    if (servicePtr == nullptr) {
+        LE_CRIT("Memory allocation failed for new routine control service object!");
+        return NULL;
+    }
     memset(servicePtr, 0, sizeof(taf_RoutineCtrlSvc_t));
 
     // Initialize service object.
@@ -701,7 +692,7 @@ taf_diagRoutineCtrl_RxMsgHandlerRef_t taf_RoutinCtrlSvr::AddRxReqMsgHandler
     // Attach handler to service.
     servicePtr->rxHandlerRef = (taf_diagRoutineCtrl_RxMsgHandlerRef_t)handlerObjPtr->safeRef;
 
-    LE_INFO("Routine control: Registered Rx Handler for identifier0x%x",
+    LE_DEBUG("Routine control: Registered Rx Handler for identifier0x%x",
         servicePtr->identifier);
 
     return (taf_diagRoutineCtrl_RxMsgHandlerRef_t)handlerObjPtr->safeRef;

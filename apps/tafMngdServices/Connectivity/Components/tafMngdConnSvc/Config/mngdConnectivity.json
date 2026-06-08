@@ -27,6 +27,7 @@
                     "ID": 1,
                     "Name": "Data1",
                     "Use_Network_ID": 1,
+                    "Interface": null,
                     "Profile":{
                         "Number": 1,
                         "APN": null
@@ -52,6 +53,7 @@
                     "ID": 2,
                     "Name": "Data2",
                     "Use_Network_ID": 1,
+                    "Interface": null,
                     "Profile":{
                         "Number": 2,
                         "APN": null

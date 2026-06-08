@@ -55,7 +55,19 @@ taf_FlashAccess &taf_FlashAccess::GetInstance
     return instance;
 }
 
-bool IsValidPartitionName(const std::string& name)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Check if a partition name is valid by looking it up in /proc/mtd.
+ *
+ * @return
+ *  - true   The partition name was found in /proc/mtd.
+ *  - false  The partition name was not found in /proc/mtd.
+ */
+//--------------------------------------------------------------------------------------------------
+bool IsValidPartitionName
+(
+    const std::string& name ///< [IN] Partition name to validate.
+)
 {
     static std::unordered_set<std::string> partitionNameSet;
     static std::once_flag initFlag;
@@ -112,6 +124,9 @@ void taf_FlashAccess::Init
 //--------------------------------------------------------------------------------------------------
 /**
  * Intiates MTD partitions and UBI volumes for flash access.
+ *
+ * @note This function has no return value. Underlying taf_pa_flash_Init() failures are reported
+ *       through logs only.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_flash_Init
@@ -130,9 +145,12 @@ void taf_flash_Init
  * reference.
  *
  * @return
- *      - LE_OK            On success
- *      - LE_BAD_PARAMETER If a parameter is invalid
- *      - LE_FAULT         On other error
+ *  - LE_OK             The partition was opened and a safe reference was created.
+ *  - LE_BAD_PARAMETER  partitionNameStr is null, partitionRef is null, or the partition name is
+ *                      not present in /proc/mtd.
+ *  - LE_FAULT          The lower-layer open request failed. This depends on the flash adaptor
+ *                      implementation and includes translated taf_pa_flash_OpenMtd() failures
+ *                      from both supported implementation paths after de-duplication.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_MtdOpen
@@ -184,9 +202,12 @@ le_result_t taf_flash_MtdOpen
  * Close a MTD partition.
  *
  * @return
- *      - LE_OK            On success
- *      - LE_BAD_PARAMETER If a parameter is invalid
- *      - LE_NOT_FOUND     If a partition reference is not found.
+ *  - LE_OK             The partition was closed and its safe reference was released.
+ *  - LE_BAD_PARAMETER  partitionRef is null.
+ *  - LE_NOT_FOUND      partitionRef does not resolve to a known partition reference.
+ *  - LE_FAULT          The lower-layer close request failed. This depends on the flash adaptor
+ *                      implementation and includes translated taf_pa_flash_CloseMtd() failures
+ *                      from both supported implementation paths after de-duplication.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_MtdClose
@@ -229,10 +250,14 @@ le_result_t taf_flash_MtdClose
  * the size of a block and the size of a page.
  *
  * @return
- *      - LE_OK            On success
- *      - LE_BAD_PARAMETER If a parameter is invalid
- *      - LE_NOT_FOUND     If a partition reference is not found.
- *      - LE_FAULT         On other error
+ *  - LE_OK             Partition information was returned successfully.
+ *  - LE_BAD_PARAMETER  partitionRef is null or one of the output pointers is null.
+ *  - LE_NOT_FOUND      partitionRef does not resolve to a known partition reference.
+ *  - LE_FAULT          The lower layer failed to provide MTD information, reported an invalid
+ *                      erase size, or returned an unrecoverable error while probing bad blocks.
+ *                      This depends on the flash adaptor implementation and includes translated
+ *                      taf_pa_flash_GetMtdInfo() / taf_pa_flash_CheckMtdGoodBlock() failures
+ *                      from both supported implementation paths after de-duplication.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_MtdInformation
@@ -304,10 +329,13 @@ le_result_t taf_flash_MtdInformation
  * Erase a block in MTD partition.
  *
  * @return
- *      - LE_OK            On success
- *      - LE_BAD_PARAMETER If a parameter is invalid
- *      - LE_NOT_FOUND     If a partition reference is not found.
- *      - LE_FAULT         On other error
+ *  - LE_OK             The requested block was erased.
+ *  - LE_BAD_PARAMETER  partitionRef is null.
+ *  - LE_NOT_FOUND      partitionRef does not resolve to a known partition reference.
+ *  - LE_FAULT          The erase request failed in the lower layer. This depends on the flash
+ *                      adaptor implementation and includes translated
+ *                      taf_pa_flash_EraseMtdBlock() failures from both supported implementation
+ *                      paths after de-duplication.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_MtdEraseBlock
@@ -346,10 +374,15 @@ le_result_t taf_flash_MtdEraseBlock
  * Erase a MTD partition, this function will skip the bad blocks.
  *
  * @return
- *      - LE_OK            On success
- *      - LE_BAD_PARAMETER If a parameter is invalid
- *      - LE_NOT_FOUND     If a partition reference is not found.
- *      - LE_FAULT         On other error
+ *  - LE_OK             The partition erase traversal completed; bad blocks are skipped and
+ *                      logged.
+ *  - LE_BAD_PARAMETER  partitionRef is null.
+ *  - LE_NOT_FOUND      partitionRef does not resolve to a known partition reference.
+ *  - LE_FAULT          The lower layer failed to query geometry or reported an invalid erase
+ *                      size before erase traversal could proceed. This depends on the flash
+ *                      adaptor implementation and includes translated
+ *                      taf_pa_flash_GetMtdInfo() failures from both supported implementation
+ *                      paths after de-duplication.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_MtdErase
@@ -415,10 +448,13 @@ le_result_t taf_flash_MtdErase
  * Read data from a MTD page.
  *
  * @return
- *      - LE_OK            On success
- *      - LE_BAD_PARAMETER If a parameter is invalid
- *      - LE_NOT_FOUND     If a partition reference is not found.
- *      - LE_FAULT         On other error
+ *  - LE_OK             The requested page was read successfully, including erased-page results.
+ *  - LE_BAD_PARAMETER  partitionRef is null.
+ *  - LE_NOT_FOUND      partitionRef does not resolve to a known partition reference.
+ *  - LE_FAULT          The lower layer failed to read the page and did not report PAGE_ERASED.
+ *                      This depends on the flash adaptor implementation and includes translated
+ *                      taf_pa_flash_ReadMtdPage() failures from both supported implementation
+ *                      paths after de-duplication.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_MtdReadPage
@@ -459,10 +495,14 @@ le_result_t taf_flash_MtdReadPage
  * Read data from a MTD partition.
  *
  * @return
- *      - LE_OK            On success
- *      - LE_BAD_PARAMETER If a parameter is invalid
- *      - LE_NOT_FOUND     If a partition reference is not found.
- *      - LE_FAULT         On other error
+ *  - LE_OK             The requested byte range was read successfully.
+ *  - LE_BAD_PARAMETER  partitionRef is null.
+ *  - LE_NOT_FOUND      partitionRef does not resolve to a known partition reference.
+ *  - LE_FAULT          The lower layer failed to query geometry, reported an invalid page size,
+ *                      or failed to read one of the required pages without PAGE_ERASED. This
+ *                      depends on the flash adaptor implementation and includes translated
+ *                      taf_pa_flash_GetMtdInfo() and taf_pa_flash_ReadMtdPage() failures from
+ *                      both supported implementation paths after de-duplication.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_MtdRead
@@ -561,10 +601,13 @@ le_result_t taf_flash_MtdRead
  * Write data to a MTD page.
  *
  * @return
- *      - LE_OK            On success
- *      - LE_BAD_PARAMETER If a parameter is invalid
- *      - LE_NOT_FOUND     If a partition reference is not found.
- *      - LE_FAULT         On other error
+ *  - LE_OK             The requested page data was written successfully.
+ *  - LE_BAD_PARAMETER  partitionRef is null.
+ *  - LE_NOT_FOUND      partitionRef does not resolve to a known partition reference.
+ *  - LE_FAULT          The lower layer failed to write the page. This depends on the flash
+ *                      adaptor implementation and includes translated
+ *                      taf_pa_flash_WriteMtdPage() failures from both supported implementation
+ *                      paths after de-duplication.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_MtdWritePage
@@ -605,10 +648,15 @@ le_result_t taf_flash_MtdWritePage
  * Write data to a MTD partition.
  *
  * @return
- *      - LE_OK            On success
- *      - LE_BAD_PARAMETER If a parameter is invalid
- *      - LE_NOT_FOUND     If a partition reference is not found.
- *      - LE_FAULT         On other error
+ *  - LE_OK             The requested byte range was written successfully.
+ *  - LE_BAD_PARAMETER  partitionRef is null.
+ *  - LE_NOT_FOUND      partitionRef does not resolve to a known partition reference.
+ *  - LE_FAULT          The lower layer failed to query geometry, reported an invalid page size,
+ *                      or failed during the read-modify-write sequence. This depends on the flash
+ *                      adaptor implementation and includes translated
+ *                      taf_pa_flash_GetMtdInfo(), taf_pa_flash_ReadMtdPage(), and
+ *                      taf_pa_flash_WriteMtdPage() failures from both supported implementation
+ *                      paths after de-duplication.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_MtdWrite
@@ -712,8 +760,9 @@ le_result_t taf_flash_MtdWrite
  * Check if a block is good block in MTD partition.
  *
  * @return
- *      - ture             Good block
- *      - false            Bad block or other error
+ *  - true   The block is reported as good by the lower layer.
+ *  - false  The block is bad, the reference is invalid, or the lower-layer query
+ *           failed.
  */
 //--------------------------------------------------------------------------------------------------
 bool taf_flash_MtdIsBlockGood
@@ -752,10 +801,12 @@ bool taf_flash_MtdIsBlockGood
  * reference.
  *
  * @return
- *      - LE_OK            On success
- *      - LE_BAD_PARAMETER If a parameter is invalid
- *      - LE_NOT_FOUND     If a volume reference is not found.
- *      - LE_FAULT         On other error
+ *  - LE_OK             The volume was opened and a safe reference was created.
+ *  - LE_BAD_PARAMETER  volumeNameStr, volumeRef, or mode is invalid, or the volume name is not
+ *                      present in /proc/mtd parsing results.
+ *  - LE_FAULT          The lower-layer open request failed. This depends on the flash adaptor
+ *                      implementation and includes translated taf_pa_flash_OpenUbiVolume()
+ *                      failures from both supported implementation paths after de-duplication.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_UbiOpen
@@ -824,9 +875,12 @@ le_result_t taf_flash_UbiOpen
  * Close UBI volume.
  *
  * @return
- *      - LE_OK            On success
- *      - LE_BAD_PARAMETER If a parameter is invalid
- *      - LE_NOT_FOUND     If a volume reference is not found.
+ *  - LE_OK             The volume was closed and its safe reference was released.
+ *  - LE_BAD_PARAMETER  volumeRef is null.
+ *  - LE_NOT_FOUND      volumeRef does not resolve to a known volume reference.
+ *  - LE_FAULT          The lower-layer close request failed. This depends on the flash adaptor
+ *                      implementation and includes translated taf_pa_flash_CloseUbiVolume()
+ *                      failures from both supported implementation paths after de-duplication.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_UbiClose
@@ -868,9 +922,13 @@ le_result_t taf_flash_UbiClose
  * free lebs and the size of the volume.
  *
  * @return
- *      - LE_OK            On success
- *      - LE_BAD_PARAMETER If a parameter is invalid
- *      - LE_NOT_FOUND     If a volume reference is not found.
+ *  - LE_OK             Volume information was returned successfully.
+ *  - LE_BAD_PARAMETER  volumeRef is null or one of the output pointers is null.
+ *  - LE_NOT_FOUND      volumeRef does not resolve to a known volume reference.
+ *  - LE_FAULT          The lower layer failed to provide UBI volume information. This depends on
+ *                      the flash adaptor implementation and includes translated
+ *                      taf_pa_flash_GetUbiVolumeInfo() failures from both supported
+ *                      implementation paths after de-duplication.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_UbiInformation
@@ -922,10 +980,13 @@ le_result_t taf_flash_UbiInformation
  * Read data from a UBI volume.
  *
  * @return
- *      - LE_OK            On success
- *      - LE_BAD_PARAMETER If a parameter is invalid
- *      - LE_NOT_FOUND     If a volume reference is not found.
- *      - LE_FAULT         On other error
+ *  - LE_OK             The requested byte range was read successfully.
+ *  - LE_BAD_PARAMETER  volumeRef is null.
+ *  - LE_NOT_FOUND      volumeRef does not resolve to a known volume reference.
+ *  - LE_FAULT          The lower layer failed to read the volume at the requested offset. This
+ *                      depends on the flash adaptor implementation and includes translated
+ *                      taf_pa_flash_ReadUbiVolume() failures from both supported implementation
+ *                      paths after de-duplication.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_UbiRead
@@ -967,10 +1028,13 @@ le_result_t taf_flash_UbiRead
  * @note This function should be called once before writting a UBI volume.
  *
  * @return
- *      - LE_OK            On success
- *      - LE_BAD_PARAMETER If a parameter is invalid
- *      - LE_NOT_FOUND     If a volume reference is not found.
- *      - LE_FAULT         On other error
+ *  - LE_OK             The expected write size was registered successfully.
+ *  - LE_BAD_PARAMETER  volumeRef is null.
+ *  - LE_NOT_FOUND      volumeRef does not resolve to a known volume reference.
+ *  - LE_FAULT          The lower layer rejected the update-size request. This depends on the
+ *                      flash adaptor implementation and includes translated
+ *                      taf_pa_flash_SetUbiVolumeUpdateSize() failures from both supported
+ *                      implementation paths after de-duplication.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_UbiInitWrite
@@ -1010,10 +1074,13 @@ le_result_t taf_flash_UbiInitWrite
  * @note User should aware of the context when writing data to a UBI volume.
  *
  * @return
- *      - LE_OK            On success
- *      - LE_BAD_PARAMETER If a parameter is invalid
- *      - LE_NOT_FOUND     If a volume reference is not found.
- *      - LE_FAULT         On other error
+ *  - LE_OK             The supplied write buffer was appended successfully.
+ *  - LE_BAD_PARAMETER  volumeRef is null.
+ *  - LE_NOT_FOUND      volumeRef does not resolve to a known volume reference.
+ *  - LE_FAULT          The lower layer failed while updating the UBI volume. This depends on the
+ *                      flash adaptor implementation and includes translated
+ *                      taf_pa_flash_UpdateUbiVolume() failures from both supported
+ *                      implementation paths after de-duplication.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_UbiWrite
@@ -1052,9 +1119,14 @@ le_result_t taf_flash_UbiWrite
  * Erase UBI volume.
  *
  * @return
- *      - LE_OK            On success
- *      - LE_BAD_PARAMETER If a parameter is invalid
- *      - LE_NOT_FOUND     If a volume reference is not found.
+ *  - LE_OK             The volume was closed, erased, and reopened successfully.
+ *  - LE_BAD_PARAMETER  volumeRef is null.
+ *  - LE_NOT_FOUND      volumeRef does not resolve to a known volume reference.
+ *  - LE_FAULT          The lower layer failed while closing, erasing, or reopening the volume.
+ *                      This depends on the flash adaptor implementation and includes translated
+ *                      taf_pa_flash_CloseUbiVolume(), taf_pa_flash_EraseUbiVolume(), and
+ *                      taf_pa_flash_OpenUbiVolume() failures from both supported implementation
+ *                      paths after de-duplication.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_UbiErase

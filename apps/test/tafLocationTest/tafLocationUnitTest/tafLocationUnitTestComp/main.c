@@ -452,11 +452,12 @@ static void PositionHandlerFunction
         {
             if((svInfo[i].satId != 0)&&(svInfo[i].satId != UINT8_MAX))
             {
-                LE_TEST_INFO("[%02d] SVid %03d - C%01d - U%d - T%d - SNR%02d - Azim%03d - Elev%02d\n"
+                LE_TEST_INFO("[%02d] SVid %03d - C%01d - U%d - DgnssU%d - T%d - SNR%02d - Azim%03d - Elev%02d\n"
                         , index++
                         , svInfo[i].satId
                         , svInfo[i].satConst
                         , svInfo[i].satUsed
+                        , svInfo[i].satUsedDgnss
                         , svInfo[i].satTracked
                         , svInfo[i].satSnr
                         , svInfo[i].satAzim
@@ -5169,6 +5170,43 @@ cleanup:
     LE_INFO("===== DGNSS API TEST END =====");
 }
 
+
+static void TestTafGnssConfigureOsnma
+(
+    void
+)
+{
+    bool osnma;
+    le_result_t result = LE_FAULT;
+
+    LE_TEST_INFO("taf_locGnss_ConfigureOsnma() API is triggered enable Galileo OSNMA");
+    osnma = true;
+    result = taf_locGnss_ConfigureOsnma(osnma);
+    LE_TEST_OK(result == LE_OK, "taf_locGnss_ConfigureOsnma-enable-LE_OK");
+
+    LE_TEST_INFO("taf_locGnss_ConfigureOsnma() API is triggered disable Galileo OSNMA");
+    osnma = false;
+    result = taf_locGnss_ConfigureOsnma(osnma);
+    LE_TEST_OK(result == LE_OK, "taf_locGnss_ConfigureOsnma-Disable-LE_OK");
+}
+
+static void TestTafGnssInjectMerkleTree
+(
+    void
+)
+{
+    le_result_t result = LE_FAULT;
+
+    LE_TEST_INFO("taf_locGnss_InjectMerkleTreeInformationByPath() API is triggered to inject Merkle data");
+    result = taf_locGnss_InjectMerkleTreeInformationByPath(MERKLE_XML_PATH);
+    LE_TEST_OK(result == LE_OK, "taf_locGnss_InjectMerkleTreeInformationByPath-LE_OK");
+
+    LE_TEST_INFO("Inject Merkle data with empty path");
+    result = taf_locGnss_InjectMerkleTreeInformationByPath("");
+    LE_TEST_OK(result == LE_BAD_PARAMETER,
+               "InjectMerkleTree-EmptyPath-LE_BAD_PARAMETER");
+}
+
 COMPONENT_INIT
 {
    PositionHandlerSem = le_sem_Create("PosHandlerSem", 0);
@@ -5253,6 +5291,12 @@ COMPONENT_INIT
 
    LE_TEST_INFO("======== TestTafDgnss API ======");
    TestTafDgnssAPI();
+
+   LE_TEST_INFO("====TestTafGnssConfigureOsnma====");
+   TestTafGnssConfigureOsnma();
+
+   LE_TEST_INFO("====TestTafGnssInjectMerkleTree====");
+   TestTafGnssInjectMerkleTree();
 
    LE_TEST_INFO("======== LE_TEST_EXIT  ========");
    LE_TEST_EXIT;

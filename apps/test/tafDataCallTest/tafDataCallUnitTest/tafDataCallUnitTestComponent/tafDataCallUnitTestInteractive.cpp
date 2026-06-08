@@ -16,6 +16,8 @@
 #include <future>
 #include <iostream>
 #include <map>
+#include <algorithm>
+#include <vector>
 #include <chrono>
 #include <iomanip> // for std::fixed and std::setprecision
 
@@ -26,9 +28,13 @@ static bool bPrintNotifLogsOnConsole = true;
 static taf_dcs_RoamingStatusHandlerRef_t                                g_roamingStatusHandlerRef;
 static std::map<uint32_t, taf_dcs_SessionStateHandlerRef_t>  g_Profile_SessionStateHandlerRef_Map;
 static std::map<uint32_t, taf_dcs_QosStatusHandlerRef_t>    g_Profile_QosStatusHandlerRef_Map;
+// Container for multiple active QoS flows to support Coat Check ticket tracking
+static std::vector<taf_dcs_QosFlowRef_t> g_ActiveQosFlowRefs;
 static std::map<uint32_t, taf_dcs_HwAccelerationStateHandlerRef_t> g_Profile_HwAccelHandlerRef_Map;
 static std::map<uint32_t, taf_dcs_ThrottledStatusHandlerRef_t>
                                                             g_Profile_ThrottledStatusHandlerRef_Map;
+
+static taf_dcs_ThroughputInfoChangeHandlerRef_t gTputHdlrRefByPhone[3] = { NULL, NULL, NULL };
 
 // Callback thread reference
 le_thread_Ref_t callbackThreadRef = nullptr;
@@ -87,7 +93,10 @@ typedef enum
     SESSION_GET_IPV6_SUBNET_MASK,    // 68
     SESSION_GET_INTERFACE_NAME,      // 69
     SESSION_GET_PH_ID_BY_INTF_NAME,  // 70
-    SESSION_GET_PROF_ID_BY_INTF_NAME // 71
+    SESSION_GET_PROF_ID_BY_INTF_NAME, // 71
+    SESSION_GET_THPUT_INFO,           // 72
+    SESSION_ENABLE_THPUT_REPORT,      // 73
+    SESSION_DISABLE_THPUT_REPORT      // 74
 } dcsAPIs;
 
 static void ShowMenu()
@@ -186,6 +195,12 @@ static void ShowMenu()
               << SESSION_GET_PH_ID_BY_INTF_NAME   << " -> Session: Get phone Id by interface name"
               << std::endl
               << SESSION_GET_PROF_ID_BY_INTF_NAME << " -> Session: Get profile Id by interface name"
+              << std::endl
+              << SESSION_GET_THPUT_INFO              << " -> Session: Get throughput info"
+              << std::endl
+              << SESSION_ENABLE_THPUT_REPORT          << " -> Session: Enable throughput report"
+              << std::endl
+              << SESSION_DISABLE_THPUT_REPORT         << " -> Session: Disbale throughput report"
               << std::endl
               << std::endl;
 }
@@ -1624,6 +1639,15 @@ static le_result_t GetProfileIdByInterfaceName()
     return result;
 }
 
+// Helper to get integer input
+static int GetIntInput(const char* prompt)
+{
+    int value;
+    std::cout << prompt;
+    std::cin >> value;
+    return value;
+}
+
 static void HwAccStateHandlerFunc(  taf_dcs_ProfileRef_t profileRef,
                                     taf_dcs_HwAccelerationState_t state,
                                     void *contextPtr)
@@ -1774,6 +1798,24 @@ void QosStatusHandlerFunc
       LE_TEST_INFO("----Qos Mask : %d", (int)mask);
       if (bPrintNotifLogsOnConsole)
           std::cout << "\t\tQos Mask: " << mask << std::endl;
+
+        // Track Active Flows for Interactive Testing
+        if (qosState == TAF_DCS_QOS_ACTIVATED)
+        {
+            g_ActiveQosFlowRefs.push_back(qosFlowRef);
+            if (bPrintNotifLogsOnConsole)
+                std::cout << "\t\t[+] Tracked new QosFlowRef. Total active: " << g_ActiveQosFlowRefs.size() << std::endl;
+        }
+        else if (qosState == TAF_DCS_QOS_DELETED)
+        {
+            auto it = std::find(g_ActiveQosFlowRefs.begin(), g_ActiveQosFlowRefs.end(), qosFlowRef);
+            if (it != g_ActiveQosFlowRefs.end()) {
+                g_ActiveQosFlowRefs.erase(it);
+                if (bPrintNotifLogsOnConsole)
+                    std::cout << "\t\t[-] Removed QosFlowRef. Total active: " << g_ActiveQosFlowRefs.size() << std::endl;
+            }
+        }
+
     }
     else
     {
@@ -1860,6 +1902,59 @@ static le_result_t SetDefaultProfileIndex()
     return result;
 }
 
+static void ThroughputInfoHandlerFunc(
+    uint8_t phoneId,
+    const taf_dcs_ThroughputInfoInd_t* indPtr,
+    void* contextPtr)
+{
+    (void)contextPtr;
+
+    if (!indPtr)
+    {
+        LE_ERROR("ThroughputInfoHandlerFunc: indPtr is NULL");
+        return;
+    }
+
+    LE_TEST_INFO("TPUT FROM OSS: phoneId=%u profileId:%u apn=%s ipFamily=%d techFamily=%d",
+                indPtr->phoneId, (int)indPtr->profileId, indPtr->apnName,
+                (int)indPtr->ipFamily, (int)indPtr->techFamily);
+    LE_TEST_INFO("OSS TPUT STATS: actUL=%uKB/s allowedUL=%uKB/s ulQ=%uB actDL=%uKB/s quality=%d",
+                indPtr->actualUplinkRate, indPtr->allowedUplinkRate, indPtr->uplinkQueueSize,
+                indPtr->actualDownlinkRate, (int)indPtr->quality);
+}
+
+static void RegisterThroughputCallback()
+{
+    for (uint8_t phoneId = 1; phoneId < 3; ++phoneId)
+    {
+        if (gTputHdlrRefByPhone[phoneId] == NULL)
+        {
+            gTputHdlrRefByPhone[phoneId] =
+                taf_dcs_AddThroughputInfoChangeHandler(phoneId, ThroughputInfoHandlerFunc, NULL);
+
+            if (!gTputHdlrRefByPhone[phoneId])
+            {
+                LE_ERROR("taf_dcs_AddThroughputInfoChangeHandler failed for phone %u", phoneId);
+            }
+            else
+            {
+                LE_INFO("Registered throughput handler for phone %u", phoneId);
+            }
+        }
+    }
+}
+
+static void UnregisterThroughputCallback()
+{
+    for (uint8_t phoneId = 1; phoneId < 3; ++phoneId)
+    {
+        taf_dcs_RemoveThroughputInfoChangeHandler(gTputHdlrRefByPhone[phoneId]);
+        gTputHdlrRefByPhone[phoneId] = NULL;
+
+        LE_INFO("Removed throughput handler for phone %u", phoneId);
+    }
+}
+
 static void *callback_thread_handler(void *ctxPtr)
 {
     taf_dcs_ConnectService();
@@ -1871,6 +1966,8 @@ static void *callback_thread_handler(void *ctxPtr)
 
     // Add roaming status handler
     g_roamingStatusHandlerRef  = taf_dcs_AddRoamingStatusHandler(RoamingStatusHandlerFunc, NULL);
+
+    RegisterThroughputCallback();
 
     // Add session state handler for all existing profiles for PHONE_ID_1
     result = taf_dcs_GetProfileListEx(phoneId, profilesInfoPtr, &listSize);
@@ -1993,6 +2090,7 @@ static void UnRegister_Callbacks()
 
     // Remove handlers
     taf_dcs_RemoveRoamingStatusHandler(g_roamingStatusHandlerRef);
+    UnregisterThroughputCallback();
 
     for (const auto &pair : g_Profile_SessionStateHandlerRef_Map)
     {
@@ -2046,6 +2144,89 @@ static void *async_cmd_thread_handler(void *ctxPtr)
     le_sem_Post((le_sem_Ref_t)ctxPtr);
     le_event_RunLoop();
     return NULL;
+}
+
+// ----------------------------------------------------------------------------
+// Throughput Test Cases
+// ----------------------------------------------------------------------------
+static void GetThroughputInfo()
+{
+    int phoneId = GetIntInput("Enter Phone ID (Default 1): ");
+    taf_dcs_ThroughputInfoListRef_t listRef = NULL;
+    le_result_t result = LE_FAULT;
+    // 1. Get the snapshot
+    result = taf_dcs_GetLastThroughputInfoList(phoneId, &listRef);
+    if (result != LE_OK || listRef == NULL) {
+        std::cout << "Failed to get throughput list: " << LE_RESULT_TXT(result) << std::endl;
+        return;
+    }
+
+    // 2. Get the count
+    uint32_t count = 0;
+    result = taf_dcs_GetThroughputInfoCount(listRef, &count);
+    if (result != LE_OK) {
+        std::cout << "Failed to get throughput info count: " << LE_RESULT_TXT(result) << std::endl;
+        return;
+    }
+
+    if (count == 0) {
+        std::cout << "The throughput info list is empty." << std::endl;
+        taf_dcs_DeleteLastThroughputInfoList(listRef);
+        return;
+    }
+
+    std::cout << "Retrieved " << count << " throughput info entries:" << std::endl;
+
+    // 3. Loop and Print all entries
+    for (uint32_t index = 0; index < count; index++)
+    {
+        taf_dcs_ThroughputInfoRef_t infoRef = NULL;
+        result = taf_dcs_GetThroughputInfo(listRef, index, &infoRef);
+
+        if (result == LE_OK && infoRef != NULL) {
+            char apn[100] = {0};
+            uint32_t ulActual = 0, ulAllowed = 0, ulQueue = 0, dlActual = 0;
+            taf_dcs_ThroughputQuality_t quality = TAF_DCS_THROUGHPUT_QUALITY_UNKNOWN;
+
+            taf_dcs_GetThroughputApnName(infoRef, apn, sizeof(apn));
+            taf_dcs_GetThroughputActualRate(infoRef, TAF_DCS_LINK_DIRECTION_UPLINK, &ulActual);
+            taf_dcs_GetThroughputAllowedRate(infoRef, TAF_DCS_LINK_DIRECTION_UPLINK, &ulAllowed);
+            taf_dcs_GetThroughputQueueSize(infoRef, TAF_DCS_LINK_DIRECTION_UPLINK, &ulQueue);
+            taf_dcs_GetThroughputActualRate(infoRef, TAF_DCS_LINK_DIRECTION_DOWNLINK, &dlActual);
+            taf_dcs_GetThroughputQuality(infoRef, TAF_DCS_LINK_DIRECTION_UPLINK, &quality);
+
+            std::cout << "\n--- Entry Index: " << index << " ---" << std::endl;
+            std::cout << "  APN: " << apn << std::endl;
+            std::cout << "  UL Actual: " << ulActual << " KB/s, Allowed: " << ulAllowed << " KB/s, Queue: " << ulQueue << " bytes" << std::endl;
+            std::cout << "  DL Actual: " << dlActual << " KB/s" << std::endl;
+            std::cout << "  Throughput Quality: " << (int)quality << std::endl;
+        } else {
+            std::cout << "Failed to get info for index " << index << ": " << LE_RESULT_TXT(result) << std::endl;
+        }
+    }
+
+    // 4. Cleanup immediately after printing
+    taf_dcs_DeleteLastThroughputInfoList(listRef);
+    std::cout << "\nThroughput list reference cleaned up." << std::endl;
+}
+
+static void EnableThroughputReport(uint8_t phone, uint32_t intervalMs)
+{
+    le_result_t res;
+
+    // Enable both directions so that indication has UL + DL updated
+    res = taf_dcs_SetThroughputReport(phone, TAF_DCS_LINK_DIRECTION_UPLINK, true, intervalMs);
+    LE_INFO("SetThroughputReport UL: %d", res);
+
+    res = taf_dcs_SetThroughputReport(phone, TAF_DCS_LINK_DIRECTION_DOWNLINK, true, intervalMs);
+    LE_INFO("SetThroughputReport DL: %d", res);
+}
+
+static void DisableThroughputReport(uint8_t phone)
+{
+    (void)taf_dcs_SetThroughputReport(phone, TAF_DCS_LINK_DIRECTION_UPLINK, false, 0);
+    (void)taf_dcs_SetThroughputReport(phone, TAF_DCS_LINK_DIRECTION_DOWNLINK, false, 0);
+    LE_INFO("Throughput report disabled for phoneId %u", phone);
 }
 
 void tafDCSUnitTest_RunInteractiveTests()
@@ -2544,6 +2725,24 @@ void tafDCSUnitTest_RunInteractiveTests()
                          std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
                 LE_TEST_INFO("%s", logStr.c_str());
                 std::cout << logStr << std::endl;
+                break;
+            }
+            case SESSION_GET_THPUT_INFO:
+            {
+                GetThroughputInfo();
+                break;
+            }
+            case SESSION_ENABLE_THPUT_REPORT:
+            {
+                int phoneId = GetIntInput("Enter Phone ID (Default 1): ");
+                int intervalMs = GetIntInput("Enter Interval (ms, e.g., minimum 100): ");
+                EnableThroughputReport(phoneId, intervalMs);
+                break;
+            }
+            case SESSION_DISABLE_THPUT_REPORT:
+            {
+                int phoneId = GetIntInput("Enter Phone ID (Default 1): ");
+                DisableThroughputReport(phoneId);
                 break;
             }
             default:

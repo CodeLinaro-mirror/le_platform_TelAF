@@ -36,7 +36,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
 #include "tafHalAudio.h"
-#include "taf_pa_audio.hpp"
+#include "tafAudioPa.hpp"
 #include <queue>
 #include <unordered_map>
 #include <thread>
@@ -301,7 +301,7 @@ typedef struct {
     int32_t slotId;
     double dtmfGain;
     std::vector<std::pair<int, int>> frequencyList{};
-    const char* dtmfChars;
+    std::string dtmfChars;
     le_result_t result;
     le_msg_SessionRef_t sessionRef;
     taf_audio_StreamRef_t streamRef;
@@ -372,12 +372,16 @@ class taf_Audio : public ITafSvc
         bool isRxRecMuteSet = false;
         bool mIsLoopbackActive = false;
         le_sem_Ref_t mPlayCompletedSemRef;
-        le_thread_Ref_t bufferHandlingThreadRef;
+        le_thread_Ref_t bufferHandlingThreadRef = nullptr;
+        le_thread_Ref_t dtmfThreadRef = nullptr;
+        le_thread_Ref_t dtmfThreadTxRef = nullptr;
         le_dls_List_t  EventIdList = LE_DLS_LIST_INIT;
         taf_audio_StreamRef_t mDtmfAudioRef = NULL;
         taf_audio_Stream_t* mTxRecStreamPtr = NULL;
         taf_audio_Stream_t* mRxRecStreamPtr = NULL;
         le_event_Id_t bufferEventId;
+        le_event_Id_t subsystemStateEventId;
+        le_event_HandlerRef_t subsystemStateHandlerRef;
 
         void Init(void);
 
@@ -437,17 +441,18 @@ class taf_Audio : public ITafSvc
         bool mVoiceEnabled1 = false;
         bool mDtmfStarted = false;
         bool mDtmfStartedTx = false;
+        bool mDtmfTxPaused = false;
         bool mModemRx = false;
         bool mSpeaker = false;
         bool mModemTx = false;
         bool mMic = false;
         bool mIsCaptureStreamCreated = false, mIsRxCaptureStreamCreated = false;
-        bool mIsPlayStreamCreated = false;
         bool mIsRecording = false, mIsRxRecording = false;
         uint32_t mBufferRecordedTillNow, mRxBufferRecordedTillNow;
         uint32_t maxFileBytes;
         int32_t  currentRepeat;
         uint32_t mpmsTimerRepeat = 0;
+        uint16_t subSystemStatusChangelistenerId = 0;
         FILE *mFile, // File ptr for local recording
                 *mRxFile; //File ptr for incall downlink recording
         le_sem_Ref_t mRecordSemRef, mRxRecordSemRef, mPbStartedSemRef,
@@ -510,6 +515,8 @@ class taf_Audio : public ITafSvc
         void AdvertiseAndRegisterHandler();
         void StartMpmsRetryTimer();
         void CleanUpBeforeExit();
+        void CleanupAudioResources();
+        void CleanUpThreadsTimers();
 
         static void ClientSessionCloseEventHandler( le_msg_SessionRef_t sessionRef,
                             void* contextPtr);
@@ -529,6 +536,8 @@ class taf_Audio : public ITafSvc
         static void* playAllDtmfTones(void* dtmfTones);
         static void* playDTMFonTX(void* dtmfTones);
         static void BufferEventHandler(void* contextPtr);
+        static void RemoveBufferHandler(void* param1, void* param2);
+        static void SubsystemStateChangeHandler(void* contextPtr);
         static void VhalRetryHandler(le_timer_Ref_t timerRef);
         static void MpmsConnectHandler(le_timer_Ref_t timerRef);
         static void MpmsDelayHandler(le_timer_Ref_t timerRef);

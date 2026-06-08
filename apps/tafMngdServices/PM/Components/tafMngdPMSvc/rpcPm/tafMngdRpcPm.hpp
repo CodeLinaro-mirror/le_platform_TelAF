@@ -32,11 +32,12 @@ class tafMngdRpcPm: public ITafSvc
         static le_result_t  RestartRpcNAD();
         static le_result_t SuspendRpcNAD();
         static bool IsRpcConnected;
-        static le_result_t StayAwakeRpcNode(taf_mngdPm_wsRef_t wsRef);
-        static taf_mngdPm_wsRef_t NewRpcNodeWakeupSource( uint8_t pmNodeId, taf_mngdPm_WakeupType_t wakeupType);
+        static le_result_t StayAwakeRpcNode(taf_mngdPm_wsNodeRef_t wsRef);
+        static taf_mngdPm_wsNodeRef_t CreateRpcNodeWakeupSource(uint8_t pmNodeId, taf_mngdPm_WsOpt_t option, const char* wsTag);
+        static le_result_t DeleteRpcNodeWakeupSource(taf_mngdPm_wsNodeRef_t wsRef);
         static le_result_t AcquireRpcNodeWakeLock();
         static le_result_t ReleaseRpcNodeWakeLock();
-        static le_result_t RelaxRpcNode(taf_mngdPm_wsRef_t wsRef);
+        static le_result_t RelaxRpcNode(taf_mngdPm_wsNodeRef_t wsRef);
 
         static void RpcPmStateChangeExHandler(taf_rpcPm_PowerStateRef_t rpcPowerStateRef,
                 taf_rpcPm_NadVm_t rpcVm_id, taf_rpcPm_State_t rpcState, void* contextPtr);

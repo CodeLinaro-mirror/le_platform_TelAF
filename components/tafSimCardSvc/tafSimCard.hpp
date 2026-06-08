@@ -37,16 +37,13 @@
 
 #include "legato.h"
 #include "interfaces.h"
-#include <telux/tel/PhoneFactory.hpp>
-#include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
-#include "taf_pa_sim.hpp"
+#include "tafSimPa.hpp"
+#include <mutex>
 
 #define DEFAULT_TIMEOUT_IN_SECONDS 10
 #define TAF_SIM_SUBSYSTEM_TIMEOUT 30
 
-using namespace telux::tel;
-using namespace telux::common;
 using namespace std;
 
     namespace tafsvc {
@@ -61,7 +58,8 @@ using namespace std;
         typedef struct taf_sim_FPLMNList
         {
             taf_sim_FPLMNListRef_t ref;
-            le_dls_List_t          link;
+            le_dls_List_t          list;
+            le_dls_Link_t*         iter;
         }taf_sim_FPLMNList_t;
 
         typedef struct taf_sim_Session
@@ -134,55 +132,20 @@ using namespace std;
                     public:
                         static le_result_t Result(int32_t result);
                         static taf_pa_common_LogLevel_t Level(le_log_Level_t level);
+                        static taf_sim_States_t taf_Common_State_Result(taf_pa_sim_States_t state);
                 };
         };
-
-        class tafCardListener : public telux::tel::ICardListener {
+        class Handler : public ITafSvc
+        {
             public:
-                void onCardInfoChanged(int slotId) override;
+            static void onSubscriptionInfoChanged(const std::shared_ptr<taf_pa_sim_Iccid_t>& iccidDataInfo);
+            static void onCardInfoChanged(const std::shared_ptr<taf_pa_sim_CardInfo_t>& cardInfo);
+            static void ChangeCardPinResponseCb(const std::shared_ptr<taf_pa_sim_ResponseInfo_t>& responseInfo);
+            static void unlockCardByPinResponseCb(const std::shared_ptr<taf_pa_sim_UnlockCardResponseInfo_t>& responseInfo);
+            static void unlockCardByPukResponseCb(const std::shared_ptr<taf_pa_sim_UnlockCardPukResponseInfo_t>& responseInfo);
+            static void setCardLockResponseCb(const std::shared_ptr<taf_pa_sim_CardLockResponseInfo_t>& responseInfo);
         };
 
-        class tafSubscriptionListener : public telux::tel::ISubscriptionListener {
-            public:
-                void onSubscriptionInfoChanged(std::shared_ptr<telux::tel::ISubscription> subscription) override;
-        };
-
-        class tafMultiSimListener : public telux::tel::IMultiSimListener {
-            public:
-                void onSlotStatusChanged(
-                std::map<SlotId, telux::tel::SlotStatus> slotStatus) override;
-        };
-
-        class tafOpenLogicalChannelCallback : public ICardChannelCallback {
-            public:
-                void onChannelResponse(int channel, IccResult result, ErrorCode error) override;
-        };
-
-        class tafCloseLogicalChannelCallback : public ICommandResponseCallback {
-            public:
-                void commandResponse(ErrorCode error) override;
-        };
-
-        class tafTransmitApduResponseCallback : public ICardCommandCallback {
-            public:
-                void onResponse(IccResult result, ErrorCode error) override;
-        };
-
-        class tafMultiSimCallback {
-            public:
-                static void requestsSlotsStatusResponse(std::map<SlotId,
-                                            telux::tel::SlotStatus> slotStatus,
-                                            telux::common::ErrorCode error);
-        };
-
-        class tafAuthenticationResponseCallback {
-            public:
-             static void unlockCardByPinResponseCb(int retryCount, telux::common::ErrorCode error);
-            static void ChangeCardPinResponseCb(int retryCount, telux::common::ErrorCode error);
-            static void unlockCardByPukResponseCb(int retryCount, telux::common::ErrorCode error);
-            static void setCardLockResponseCb(int retryCount, telux::common::ErrorCode error);
-
-        };
         class taf_sim :public ITafSvc {
             private:
                 le_mem_PoolRef_t FPLMNNodePool = NULL;
@@ -190,8 +153,12 @@ using namespace std;
                 le_ref_MapRef_t FPLMNListRefMap;
                 le_mem_PoolRef_t SessionPool = NULL;
                 le_ref_MapRef_t SessionRefMap;
-                le_result_t AddFPLMNOperatorInternal(taf_sim_FPLMNListRef_t FPLMNListRef, char* mccPtr, char* mncPtr);
-                taf_sim_FPLMNListRef_t CreateInternalFPLMNList();
+                static uint8_t CharToDigit(char c);
+                static bool DecodePlmnBytes(const uint8_t* data, char* mccStr, char* mncStr);
+                static void EncodePlmnBytes(const char* mccStr, const char* mncStr, uint8_t* outData);
+                static bool GetFileSizeFromFcp(const uint8_t* fcp, size_t fcpLen, uint16_t* fileSizePtr);
+                le_result_t SelectFileAndGetFCP(taf_sim_Id_t simId, uint8_t channel, const uint8_t* fileId, uint16_t* outFileSize);
+                le_result_t ClearFPLMNToFF(taf_sim_Id_t simId);
                 taf_sim_RefreshStatus_t ConvertPaRefreshStageToTafRefreshStatus(taf_pa_sim_RefreshStage_t refreshStage);
                 taf_pa_sim_SessionType_t ConvertTafSessionTypeToPaSessionType(taf_sim_SessionType_t sessionType);
 
@@ -201,23 +168,11 @@ using namespace std;
                 taf_sim() {};
                 ~taf_sim() {};
 
-                std::shared_ptr<telux::tel::ICardManager> cardManager = nullptr;
-                std::shared_ptr<telux::tel::ICardListener> cardListener;
-                std::map<int, std::shared_ptr<telux::tel::ICard>> cards;
-                std::shared_ptr<telux::tel::ISubscriptionManager> subMgr = nullptr;
-                std::shared_ptr<telux::tel::ISubscriptionListener> subscriptionListener;
-                std::shared_ptr<telux::tel::IMultiSimManager> multiSimMgr = nullptr;
-                std::shared_ptr<telux::tel::IMultiSimListener> multiSimListener;
-
-                int slot = DEFAULT_SLOT_ID;
-                int slotCount = 0;
+                int slot = TAF_SIM_SLOT_ID_1;
                 bool isSingleActive = false;
-                std::condition_variable eventCV;
                 CardEvent cardEventExpected;
                 std::mutex eventMutex;
-                ErrorCode errorCode;
                 uint8_t openChannel = 0;
-                IccResult apduResponse;
                 bool cardRespReceived = false;
                 bool isEcs=false;
                 int32_t mClientRefCount;
@@ -230,18 +185,13 @@ using namespace std;
                 bool RefreshVoteSent_Slot2 = false;
                 void RemoveStateHandler(taf_sim_NewStateHandlerRef_t handlerRef);
                 taf_sim_States_t getState(taf_sim_Id_t simId);
-                const char* cardStateToString(CardState state);
-                const char* statusToString(telux::common::Status status);
-                taf_sim_States_t cardStateToTafSimStates(CardState state);
                 static void FirstLayerNewSimStateHandler(void* reportPtr, void* secondLayerHandlerFunc);
                 taf_sim_NewStateHandlerRef_t AddStateHandler(taf_sim_NewStateHandlerFunc_t handlerPtr,
                         void* contextPtr);
-                bool isValidSimId(taf_sim_Id_t simId);
+                static bool isValidSimId(taf_sim_Id_t simId);
                 le_result_t selectSimSlot(taf_sim_Id_t simId);
                 taf_sim_info_t* GetSimContext(taf_sim_Id_t simId);
                 static taf_sim_Session_t* DiscoverSessionRef(taf_sim_RefreshRef_t sessionRef);
-                void InitializeSimInfo(std::shared_ptr<telux::tel::ISubscription> subscription, taf_sim_Id_t simId);
-                std::shared_ptr<telux::tel::ISubscription> getSubscription(taf_sim_Id_t simId);
                 le_result_t getICCID(taf_sim_Id_t simId, char *iccid, int length);
                 le_result_t getSubscriberPhoneNumber(taf_sim_Id_t simId, char *phoneNumber, int length);
                 le_result_t getIMSI(taf_sim_Id_t simId, char *imsi, int length);
@@ -264,7 +214,7 @@ using namespace std;
                         taf_sim_AuthenticationResponseHandlerFunc_t handlerPtr, void* contextPtr);
                 void RemoveAuthenticationResponseHandler(taf_sim_AuthenticationResponseHandlerRef_t handlerRef);
 
-                le_result_t GetEID( taf_sim_Id_t slotId, char* eidPtr, size_t eidLen);
+                le_result_t GetEID(taf_sim_Id_t simId, char* eidPtr, size_t eidLen);
                 le_result_t SetAutomaticSelection( bool enable);
                 le_result_t GetAutomaticSelection( bool* enablePtr);
                 bool waitForCardEvent(CardEvent cardEvent, int timeout = DEFAULT_TIMEOUT_IN_SECONDS);
@@ -284,7 +234,6 @@ using namespace std;
                         uint8_t* responsePtr, size_t* responseNumElementsPtr);
                 le_result_t SetPower( taf_sim_Id_t simId, le_onoff_t powerState);
                 le_result_t Reset(taf_sim_Id_t simId);
-                void requestsSlotsStatusResponse(std::map<SlotId,telux::tel::SlotStatus> slotStatus,telux::common::ErrorCode error);
                 le_result_t IsEmergencyCallSubscriptionSelected (taf_sim_Id_t simId, bool* isEcs);
                 le_result_t LocalSwapToEmergencyCallSubscription(taf_sim_Id_t simId, taf_sim_Manufacturer_t manufacturer);
                 le_result_t LocalSwapToCommercialCallSubscription(taf_sim_Id_t simId, taf_sim_Manufacturer_t manufacturer);
@@ -317,5 +266,8 @@ using namespace std;
                 void ResetRefreshVote(taf_sim_Session_t* sessionPtr);
                 bool IsValidMCCAndMNC(const char* mccPtr, const char* mncPtr);
                 le_result_t SwapSubscriptionInternal(taf_sim_Id_t simId, taf_sim_Manufacturer_t manufacturer ,bool toEmergency);
+                void  UpdateLocalSimState(taf_sim_info_t* simPtr, const std::shared_ptr<taf_pa_sim_Iccid_t>& iccidDataInfo);
+                taf_pa_sim_AppType_t ConvertTafappTypeToPaappType(taf_sim_AppType_t appType);
+                taf_pa_sim_EventListener eventListener;
         };
     }

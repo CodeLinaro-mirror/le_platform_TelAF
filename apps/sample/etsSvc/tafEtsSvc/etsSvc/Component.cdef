@@ -1,0 +1,47 @@
+requires:
+{
+    component:
+    {
+        $CURDIR/../etsIdl
+    }
+
+    api:
+    {
+    }
+}
+
+sources:
+{
+    etsSvcMain.cpp
+    etsStubImpl.cpp
+}
+
+cxxflags:
+{
+    -I$LEGATO_SYSROOT/usr/include/CommonAPI-3.2
+    -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/apps/sample/etsSvc/common/include
+}
+
+ldflags:
+{
+    -lvsomeip3
+    -lCommonAPI
+    -lCommonAPI-SomeIP
+}
+
+bundles:
+{
+    file:
+    {
+        // Include a default vsomeip JSON config file that contains
+        // the minimal configurations that vsomeip requires. Shall
+        // be modified accordingly based on target device's unicast
+        // and multicast addresses.
+        [rw] $TELAF_ROOT/apps/sample/etsSvc/common/conf/ets_someip_server.json   /
+
+        // Include a CommonAPI ini config file that contains 4
+        // optional sections: logging, bindings, proxy and stub.
+        [rw] $TELAF_ROOT/apps/sample/etsSvc/common/conf/commonapiRef.ini   /
+    }
+}

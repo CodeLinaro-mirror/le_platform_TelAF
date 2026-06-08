@@ -1379,6 +1379,145 @@ void ut_ipv6_datacall_test()
     ut_restore_apn_test();
 }
 
+static void throughput_info_handler(
+    uint8_t phoneId,
+    const taf_dcs_ThroughputInfoInd_t* infoPtr,
+    void* contextPtr
+)
+{
+    LE_TEST_INFO("==== [Callback] Throughput Indication ====");
+    LE_TEST_INFO(" Phone ID    : %d", phoneId);
+    LE_TEST_INFO(" APN         : %s", infoPtr->apnName);
+    LE_TEST_INFO(" IP Type     : %d", infoPtr->ipFamily);
+    LE_TEST_INFO(" Tech        : %d", infoPtr->techFamily);
+    // Print Uplink Stats
+    LE_TEST_INFO(" UL Actual   : %u KB/s", infoPtr->actualUplinkRate);
+    LE_TEST_INFO(" UL Allowed  : %u KB/s", infoPtr->allowedUplinkRate);
+    LE_TEST_INFO(" UL Queue    : %u",      infoPtr->uplinkQueueSize);
+    // Print Downlink Stats
+    LE_TEST_INFO(" DL Actual   : %u KB/s", infoPtr->actualDownlinkRate);
+    LE_TEST_INFO(" Quality     : %d",      infoPtr->quality);
+    LE_TEST_INFO("==========================================");
+}
+
+static bool WaitForConnected(taf_dcs_ProfileRef_t profRef, int timeoutSec)
+{
+    for (int i = 0; i < timeoutSec; i++)
+    {
+        taf_dcs_ConState_t st = TAF_DCS_DISCONNECTED;
+        if (taf_dcs_GetSessionState(profRef, &st) == LE_OK && st == TAF_DCS_CONNECTED)
+        {
+            return true;
+        }
+
+        // Accept partial connectivity
+        if (taf_dcs_IsIPv4(profRef) || taf_dcs_IsIPv6(profRef))
+        {
+            return true;
+        }
+
+        sleep(1);
+    }
+    return false;
+}
+
+void ut_throughput_datacall_test()
+{
+    le_result_t result;
+    taf_dcs_ThroughputInfoChangeHandlerRef_t throughputHandlerRef = NULL;
+    taf_dcs_ThroughputInfoListRef_t listRef = NULL;
+    uint32_t listCount = 0;
+    uint8_t phoneId = 1; // Default Phone ID
+
+    LE_TEST_INFO("--------------------------------------------------");
+    LE_TEST_INFO("START: Throughput Reporting Test");
+    LE_TEST_INFO("--------------------------------------------------");
+
+    // 1. Setup APN and PDP
+    ut_set_pdp_test(TAF_DCS_PDP_IPV4V6);
+    ut_set_apn_test();
+
+    // 2. Set Throughput Report (Enable)
+    LE_TEST_INFO("Enabling Throughput Report (1000ms)");
+    result = taf_dcs_SetThroughputReport(phoneId, TAF_DCS_LINK_DIRECTION_UPLINK, true, 1000);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetThroughputReport - LE_OK");
+
+    // 3. Register Handler
+    throughputHandlerRef = taf_dcs_AddThroughputInfoChangeHandler(phoneId, throughput_info_handler, NULL);
+    LE_TEST_OK(throughputHandlerRef != NULL, "Handler Registered");
+
+    // 4. Start Data Session
+    ut_start_session_sync_test();
+
+    // Check if connected
+    if (WaitForConnected(TestProfileRef, 60))
+    {
+        LE_TEST_INFO("Session Connected(IPV4/IPV6). Waiting 15secs to get the traffic load.");
+        // Sleep to allow modem to generate stats.
+        // NOTE: If no data flows, Actual Rate will be 0.
+        sleep(15);
+
+        // 5. Get Last Throughput Info List (Polling API)
+        LE_TEST_INFO("Polling Last Throughput Info List...");
+        result = taf_dcs_GetLastThroughputInfoList(phoneId, &listRef);
+
+        if (result == LE_OK && listRef != NULL)
+        {
+            taf_dcs_GetThroughputInfoCount(listRef, &listCount);
+            LE_TEST_INFO("List Count: %u", listCount);
+
+            // 5b. Iterate List and DUMP ALL INFO
+            for(uint32_t i = 0; i < listCount; i++)
+            {
+                taf_dcs_ThroughputInfoRef_t infoRef = NULL;
+                result = taf_dcs_GetThroughputInfo(listRef, i, &infoRef);
+
+                if (result == LE_OK && infoRef != NULL)
+                {
+                    char apnName[100] = {0};
+                    uint32_t ulActual = 0, ulAllowed = 0, ulQueue = 0;
+                    uint32_t dlActual = 0;
+                    taf_dcs_ThroughputQuality_t quality = TAF_DCS_THROUGHPUT_QUALITY_UNKNOWN;
+
+                    // Extract all fields
+                    taf_dcs_GetThroughputApnName(infoRef, apnName, sizeof(apnName));
+
+                    // Uplink Data
+                    taf_dcs_GetThroughputActualRate(infoRef, TAF_DCS_LINK_DIRECTION_UPLINK, &ulActual);
+                    taf_dcs_GetThroughputAllowedRate(infoRef, TAF_DCS_LINK_DIRECTION_UPLINK, &ulAllowed);
+                    taf_dcs_GetThroughputQueueSize(infoRef, TAF_DCS_LINK_DIRECTION_UPLINK, &ulQueue);
+                    // Quality
+                    taf_dcs_GetThroughputQuality(infoRef, TAF_DCS_LINK_DIRECTION_UPLINK, &quality);
+
+                    // Downlink Data (Allowed/Queue not supported for DL in API)
+                    taf_dcs_GetThroughputActualRate(infoRef, TAF_DCS_LINK_DIRECTION_DOWNLINK, &dlActual);
+
+                    LE_TEST_INFO("TPUT:: [%u] APN: %s | UL Actual: %u | UL Allowed: %u | UL Queue: %u | DL Actual: %u | Quality : %d",
+                        i, apnName, ulActual, ulAllowed, ulQueue, dlActual, quality);
+                }
+            }
+            taf_dcs_DeleteLastThroughputInfoList(listRef);
+        }
+        else
+        {
+            LE_TEST_INFO("GetLastThroughputInfoList returned: %d (No reports yet)", result);
+        }
+    }
+    else
+    {
+        LE_TEST_INFO("Skipping Throughput checks due to session failure");
+    }
+
+    // Cleanup
+    ut_stop_session_sync_test();
+    if (throughputHandlerRef) taf_dcs_RemoveThroughputInfoChangeHandler(throughputHandlerRef);
+    taf_dcs_SetThroughputReport(phoneId, TAF_DCS_LINK_DIRECTION_UPLINK, false, 0);
+    ut_restore_apn_test();
+
+    LE_TEST_INFO("END: Throughput Reporting Test");
+}
+
+
 static void* UnitTestThread(void* contextPtr)
 {
 
@@ -1433,6 +1572,8 @@ static void* UnitTestThread(void* contextPtr)
     le_thread_Start(qosStatusThRef);
 
     le_sem_Wait(TestSemRef);
+
+    ut_throughput_datacall_test();
 
     ut_ipv4v6_datacall_test();
 

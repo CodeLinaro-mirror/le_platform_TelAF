@@ -19,7 +19,7 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
-#include "taf_pa_wlan.hpp"
+#include "tafWlanPa.hpp"
 #include "tafWlanAP.hpp"
 #include "tafWlanSTA.hpp"
 

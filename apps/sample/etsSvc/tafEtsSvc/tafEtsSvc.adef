@@ -1,0 +1,46 @@
+maxThreads: 600
+sandboxed: false
+
+start: manual
+
+username: telaf
+
+capability:
+{
+    CAP_WAKE_ALARM
+    CAP_NET_RAW
+    CAP_IPC_LOCK
+    CAP_SYS_NICE
+    CAP_SYS_RESOURCE
+    CAP_NET_ADMIN
+    CAP_BLOCK_SUSPEND
+
+#if ${LE_CONFIG_TEST_COVERAGE} = y
+    CAP_DAC_READ_SEARCH
+    CAP_DAC_OVERRIDE
+#endif
+}
+
+executables:
+{
+    tafEtsSvc = ( etsSvc )
+}
+
+processes:
+{
+    envVars:
+    {
+        VSOMEIP_CONFIGURATION = ets_someip_server.json
+        COMMONAPI_CONFIG = commonapiRef.ini
+    }
+
+    run:
+    {
+        ( tafEtsSvc )
+    }
+    maxFileBytes: 8192K
+}
+
+bindings:
+{
+}

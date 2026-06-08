@@ -6,6 +6,7 @@ policy_module(tafLocationSvc, 1.0)
 gen_require(`
   type debugfs_t;
   type etc_t;
+  type osnma_merkle_tree_xml_t;
 ')
 
 # Framework definition for telaf
@@ -33,5 +34,6 @@ allow telaf_tafLocationSvc_t etc_t:file { read_file_perms };
 telaf_admin_manage_all_files_perms(telaf_tafLocationSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafLocationSvc_exec_t)
 
-
+# Allow to read xml file data in /etc
+allow telaf_tafLocationSvc_t osnma_merkle_tree_xml_t:file { read open getattr };
 

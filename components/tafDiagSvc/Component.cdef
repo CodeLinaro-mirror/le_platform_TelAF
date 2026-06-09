@@ -26,7 +26,7 @@ requires:
         $TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
         $TELAF_ROOT/components/tafUDSStack
-        $TELAF_ROOT/components/tafDataAccessComp
+        $TELAF_ROOT/components/tafDataAccessComp/tafDTCDataAccessComp
 #endif
     }
 #if ${LE_CONFIG_DIAG_VSTACK} = y
@@ -44,7 +44,7 @@ cxxflags:
     -I$TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
     -I$TELAF_ROOT/components/tafUDSStack
-    -I$TELAF_ROOT/components/tafDataAccessComp
+    -I$TELAF_ROOT/components/tafDataAccessComp/tafDTCDataAccessComp
     -I$TELAF_ROOT/components/tafDoIPStack
 #endif
 }
@@ -55,7 +55,7 @@ cflags:
     -I$TELAF_ROOT/include
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
     -I$TELAF_ROOT/components/tafUDSStack
-    -I$TELAF_ROOT/components/tafDataAccessComp
+    -I$TELAF_ROOT/components/tafDataAccessComp/tafDTCDataAccessComp
     -I$TELAF_ROOT/components/tafDoIPStack
 #endif
 }

@@ -8,18 +8,21 @@ requires:
 {
     component:
     {
-        $TELAF_ROOT/components/tafDataAccessComp
+        $TELAF_ROOT/components/tafDataAccessComp/tafDTCDataAccessComp
+        $TELAF_ROOT/components/tafDataAccessComp/tafDIDDataAccessComp
         $TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
     }
 }
 
 cflags:
 {
-    -I$TELAF_ROOT/components/tafDataAccessComp
+    -I$TELAF_ROOT/components/tafDataAccessComp/tafDTCDataAccessComp
+    -I$TELAF_ROOT/components/tafDataAccessComp/tafDIDDataAccessComp
 }
 
 cxxflags:
 {
-    -I$TELAF_ROOT/components/tafDataAccessComp
+    -I$TELAF_ROOT/components/tafDataAccessComp/tafDTCDataAccessComp
+    -I$TELAF_ROOT/components/tafDataAccessComp/tafDIDDataAccessComp
     -I$TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
 }

@@ -14,6 +14,13 @@
             "AppName": "app3",
             "WriteAccessibleDID": ["0xA5A5"],
             "ReadAccessibleDID": ["0xA5A5", "0xA5A6"]
+        },
+        {
+            "AppName": "tafDidStoreInitDB",
+            "WriteAccessibleDID": ["0xA5A5", "0xA5A6", "0xA0A0", "0xA0A1", "0xACC0", "0xACC1",
+            "0xACC2", "0xACC3", "0xACC4", "0xACC8", "0xACC9", "0xF011", "0xF0D0", "0xF0D2"],
+            "ReadAccessibleDID": ["0xA5A5", "0xA5A6", "0xA0A0", "0xA0A1", "0xACC0", "0xACC1",
+            "0xACC2", "0xACC3", "0xACC4", "0xACC8", "0xACC9", "0xF011", "0xF0D0", "0xF0D2"]
         }
     ]
 }

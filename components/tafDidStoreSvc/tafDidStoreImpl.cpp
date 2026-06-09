@@ -7,6 +7,7 @@
 #include "interfaces.h"
 #include "tafDidStore.hpp"
 #include <setjmp.h>
+#include "tafDIDDataAccessComp.h"
 
 namespace pt = boost::property_tree;
 using namespace tafsvc;
@@ -1332,6 +1333,8 @@ void taf_diagDidStore::ReadyEvtHandler(void * reportPtr)
             // Set session close handler
             le_msg_AddServiceCloseHandler(taf_diagDidStore_GetServiceRef(), OnClientDisconnection,
                     NULL);
+            //Init database after plugin loaded
+            taf_DIDDataAccess_Init();
         break;
         case EVT_CONNECT_DIAG_SVC_READY:
             // Diag service Client request-response handling

@@ -63,6 +63,7 @@ apps:
     $TELAF_ROOT/apps/sample/diagCancelFileXfer/tafDiagCancelFileXfer
     $TELAF_ROOT/apps/sample/diagState/tafDiagState.adef
     $TELAF_ROOT/apps/sample/diagIDPSStatus/tafDiagIDPSStatus.adef
+    $TELAF_ROOT/apps/sample/didStoreInitDB/tafDidStoreInitDB.adef
     $TELAF_ROOT/apps/test/tafDidStoreTest/tafDidStoreUnitTest
     $TELAF_ROOT/apps/test/tafDataAccessTest/tafDataAccessTest
     $TELAF_ROOT/apps/test/tafAdefTest/tafAdefUnitTest

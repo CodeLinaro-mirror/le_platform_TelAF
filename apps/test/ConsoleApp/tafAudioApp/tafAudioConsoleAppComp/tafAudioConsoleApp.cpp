@@ -85,6 +85,11 @@ static void AudioServerDisconnectHandler(void* contextPtr)
         le_thread_Cancel(node_thread_ref);
         node_thread_ref = NULL;
     }
+    if (Dtmf_detect_thread_ref)
+    {
+        le_thread_Cancel(Dtmf_detect_thread_ref);
+        Dtmf_detect_thread_ref = NULL;
+    }
     routeId = (taf_audio_RouteId_t)-1;
     isVoiceActive = false;
     isPbActive = false;

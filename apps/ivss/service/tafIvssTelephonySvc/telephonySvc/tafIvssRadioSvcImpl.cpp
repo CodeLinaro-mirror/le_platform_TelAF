@@ -550,17 +550,19 @@ void tafIvssRadioSvc::GetNetRegStateHandler
     TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
 
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
-    indPtr->result = taf_radio_GetRadioAccessTechInUse(&indPtr->getNetRegState.rat,
+    indPtr->result = taf_radio_GetNetRegState(&indPtr->getNetRegState.netReg,
         indPtr->getNetRegState.phoneId);
     TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
-        "taf_radio_GetRadioAccessTechInUse failed - %s", LE_RESULT_TXT(indPtr->result));
+        "taf_radio_GetNetRegState failed - %s", LE_RESULT_TXT(indPtr->result));
 
-    indPtr->getNetRegState.cellId = taf_radio_GetServingCellId(indPtr->getNetRegState.phoneId);
-    if (indPtr->getNetRegState.cellId == UINT32_MAX)
+    // Only query MCC/MNC, RAT and CellId when registered (HOME or ROAMING).
+    if (indPtr->getNetRegState.netReg != TAF_RADIO_NET_REG_STATE_HOME &&
+        indPtr->getNetRegState.netReg != TAF_RADIO_NET_REG_STATE_ROAMING)
     {
-        indPtr->result = LE_FAULT;
-        TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
-            "taf_radio_GetServingCellId failed - %s", LE_RESULT_TXT(indPtr->result));
+        LE_INFO("Not registered (state=%d), skip MCC/MNC/RAT/CellId queries.",
+            static_cast<int>(indPtr->getNetRegState.netReg));
+        le_sem_Post(indPtr->semRef);
+        return;
     }
 
     indPtr->result = taf_radio_GetCurrentNetworkMccMnc(indPtr->getNetRegState.mcc,
@@ -569,10 +571,12 @@ void tafIvssRadioSvc::GetNetRegStateHandler
     TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
         "taf_radio_GetCurrentNetworkMccMnc failed - %s", LE_RESULT_TXT(indPtr->result));
 
-    indPtr->result = taf_radio_GetNetRegState(&indPtr->getNetRegState.netReg,
+    indPtr->result = taf_radio_GetRadioAccessTechInUse(&indPtr->getNetRegState.rat,
         indPtr->getNetRegState.phoneId);
     TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
-        "taf_radio_GetNetRegState failed - %s", LE_RESULT_TXT(indPtr->result));
+        "taf_radio_GetRadioAccessTechInUse failed - %s", LE_RESULT_TXT(indPtr->result));
+
+    indPtr->getNetRegState.cellId = taf_radio_GetServingCellId(indPtr->getNetRegState.phoneId);
 
     le_sem_Post(indPtr->semRef);
 }

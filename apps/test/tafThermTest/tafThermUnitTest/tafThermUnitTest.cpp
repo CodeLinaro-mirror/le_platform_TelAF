@@ -37,7 +37,7 @@ void TestZoneInformation(taf_therm_ThermalZoneRef_t tZone)
     LE_TEST_OK((result == LE_OK),"Thermal Zone PassiveTemp : %d", passiveTemp);
 }
 
-void TestTripPointInformation(taf_therm_ThermalZoneRef_t tZone)
+void TestTripPointInformation(taf_therm_ThermalZoneRef_t tZone, uint32_t listSize)
 {
     le_result_t result;
     LE_TEST_INFO("Testing TelAF First Trip Point Reference Retrieval with -"
@@ -45,11 +45,7 @@ void TestTripPointInformation(taf_therm_ThermalZoneRef_t tZone)
     taf_therm_TripPointRef_t tripPoint = taf_therm_GetFirstTripPoint(tZone);
     LE_TEST_OK((tripPoint != NULL), "taf_therm_GetFirstTripPoint - LE_OK");
 
-    uint32_t listSize;
-    result = taf_therm_GetTripPointListSize(tZone, &listSize);
-    LE_TEST_OK(result == LE_OK || result == LE_NOT_FOUND, "TripPoint ListSize : %d", listSize);
-
-    if(result != LE_OK || listSize <= 0)
+    if (listSize <= 0)
     {
         LE_ERROR("No trip points are associated with the thermal zone");
         return;
@@ -190,8 +186,7 @@ void TestThermalZoneInformation(void)
     uint32_t thermalZoneListSize;
     result = taf_therm_GetThermalZonesListSize(tZoneListRef, &thermalZoneListSize);
     LE_TEST_OK(result == LE_OK || result == LE_NOT_FOUND,
-        "taf_therm_GetThermalZonesListSize -LE_OK");
-    LE_INFO("Thermal zone list size: %d", thermalZoneListSize);
+        "taf_therm_GetThermalZonesListSize - LE_OK, ListSize: %d", thermalZoneListSize);
     if(result != LE_OK || thermalZoneListSize <= 0)
     {
         LE_ERROR("No thermal zones present");
@@ -207,12 +202,12 @@ void TestThermalZoneInformation(void)
             "taf_therm_GetTripPointListSize - LE_OK");
         if(result != LE_OK || tripPointListSize <= 0)
         {
-            LE_ERROR("No trip points are associated with the thermal zone");
+            LE_WARN("No trip points are associated with the thermal zone");
         }
         else if (tripPointListSize > 0)
         {
             LE_INFO("TRIP POINT LIST SIZE %d", tripPointListSize);
-            TestTripPointInformation(tZone);
+            TestTripPointInformation(tZone, tripPointListSize);
         }
         uint32_t boundCDevListSize;
         result = taf_therm_GetBoundCoolingDeviceListSize(tZone, &boundCDevListSize);
@@ -220,7 +215,7 @@ void TestThermalZoneInformation(void)
             "taf_therm_GetBoundCoolingDeviceListSize - LE_OK");
         if(result != LE_OK || boundCDevListSize <= 0)
         {
-            LE_ERROR("No cooling devices bounded with thermal zone");
+            LE_WARN("No cooling devices bounded with thermal zone");
         }
         else if (boundCDevListSize > 0)
         {
@@ -260,8 +255,7 @@ void TestCoolingDeviceInformation(void)
     uint32_t coolingDeviceListSize;
     result = taf_therm_GetCoolingDeviceListSize(cDevListRef, &coolingDeviceListSize);
     LE_TEST_OK(result == LE_OK || result == LE_NOT_FOUND,
-        "taf_therm_GetCoolingDeviceListSize - LE_OK");
-    LE_INFO("Cooling device list size: %d", coolingDeviceListSize);
+        "taf_therm_GetCoolingDeviceListSize - LE_OK, ListSize: %d", coolingDeviceListSize);
     if(result != LE_OK || coolingDeviceListSize <= 0)
     {
         LE_ERROR("No cooling device present");
@@ -270,7 +264,6 @@ void TestCoolingDeviceInformation(void)
     while (cDev != NULL and coolingDeviceListSize--)
     {
         char description[TYPE_SIZE] = {0};
-        memset(description, 0, TYPE_SIZE);
         result = taf_therm_GetCDevDescription(cDev, description, sizeof(description));
         LE_TEST_OK(result == LE_OK, "CDev Description : %s", description);
 
@@ -312,9 +305,8 @@ void TestThermalZoneByName(void)
 
     for (auto thermalZoneName: ThermalZoneNameList)
     {
-        LE_TEST_INFO("Testing TelAF getting thermal zone by name with -"
-                "taf_therm_GetThermalZoneByName");
-        LE_INFO("Testing thermal zone by name : %s", thermalZoneName.c_str());
+        LE_TEST_INFO("Testing taf_therm_GetThermalZoneByName - Getting thermal zone by name: %s",
+                thermalZoneName.c_str());
         thermalZone =taf_therm_GetThermalZoneByName(thermalZoneName.c_str());
         LE_TEST_OK((thermalZone != NULL), "taf_therm_GetThermalZoneByName - LE_OK");
 
@@ -325,25 +317,26 @@ void TestThermalZoneByName(void)
             result = taf_therm_GetTripPointListSize(thermalZone, &tripPointListSize);
             LE_TEST_OK(result == LE_OK || result == LE_NOT_FOUND,
                 "taf_therm_GetTripPointListSize - LE_OK");
-            if(result != LE_OK || tripPointListSize <= 0)
+            if(tripPointListSize <= 0)
             {
-                LE_ERROR("No trip points are associated with the thermal zone");
+                LE_WARN("No trip points are associated with the thermal zone");
             }
-            else if (tripPointListSize > 0)
+            else
             {
                 LE_INFO("TRIP POINT LIST SIZE %d", tripPointListSize);
-                TestTripPointInformation(thermalZone);
+                TestTripPointInformation(thermalZone, tripPointListSize);
             }
             uint32_t boundCDevListSize;
             result = taf_therm_GetBoundCoolingDeviceListSize(thermalZone, &boundCDevListSize);
             LE_TEST_OK(result == LE_OK || result == LE_NOT_FOUND,
                 "taf_therm_GetBoundCoolingDeviceListSize - LE_OK.");
-            if(result != LE_OK || boundCDevListSize <= 0)
+            if(boundCDevListSize <= 0)
             {
-                LE_ERROR("No cooling devices bounded with thermal zone");
+                LE_WARN("No cooling devices bounded with thermal zone");
             }
-            else if (boundCDevListSize > 0)
+            else
             {
+                LE_INFO("Bound Coolin gDevice ListSize %d", boundCDevListSize);
                 TestBoundCoolingDevicesInformation(thermalZone);
             }
         }
@@ -363,12 +356,12 @@ void TestThermalZoneByName(void)
             "taf_therm_GetTripPointListSize - LE_OK");
         if(result != LE_OK || tripPointListSize <= 0)
         {
-            LE_ERROR("No trip points are associated with the thermal zone");
+            LE_WARN("No trip points are associated with the thermal zone");
         }
         else if (tripPointListSize > 0)
         {
             LE_INFO("TRIP POINT LIST SIZE %d", tripPointListSize);
-            TestTripPointInformation(thermalZone);
+            TestTripPointInformation(thermalZone, tripPointListSize);
         }
         uint32_t boundCDevListSize;
         result = taf_therm_GetBoundCoolingDeviceListSize(thermalZone, &boundCDevListSize);
@@ -376,14 +369,17 @@ void TestThermalZoneByName(void)
             "taf_therm_GetBoundCoolingDeviceListSize - LE_OK.");
         if(result != LE_OK || boundCDevListSize <= 0)
         {
-            LE_ERROR("No cooling devices bounded with thermal zone");
+            LE_WARN("No cooling devices bounded with thermal zone");
         }
         else if (boundCDevListSize > 0)
         {
             TestBoundCoolingDevicesInformation(thermalZone);
         }
     }
-    taf_therm_ReleaseThermalZoneRef(thermalZone);
+    if (thermalZone != NULL)
+    {
+        taf_therm_ReleaseThermalZoneRef(thermalZone);
+    }
     LE_INFO("===== UnitTest Completed for getting thermal zone by name =====");
 }
 
@@ -395,9 +391,8 @@ void TestCoolingDeviceByName()
 
     for (auto cDevName: CDevNameList)
     {
-        LE_TEST_INFO("Testing TelAF getting cooling device by name with -"
-                "taf_therm_GetCoolingDeviceByName");
-        LE_INFO("Testing Cooling Device by name for : %s", cDevName.c_str());
+        LE_TEST_INFO("Testing taf_therm_GetCoolingDeviceByName - Getting cooling device by name: %s",
+                cDevName.c_str());
         cDev = taf_therm_GetCoolingDeviceByName(cDevName.c_str());
         LE_TEST_OK((cDev != NULL), "taf_therm_GetCoolingDeviceByName - LE_OK");
 
@@ -423,11 +418,10 @@ void TestCoolingDeviceByName()
         result = taf_therm_ReleaseCoolingDeviceRef(cDev);
         LE_TEST_OK(result == LE_OK, "taf_therm_ReleaseCoolingDeviceRef - LE_OK");
     }
+
     LE_TEST_INFO("Testing for unavailable cooling device");
     cDev = taf_therm_GetCoolingDeviceByName("UnavailableCoolingDev");
     LE_TEST_OK((cDev == NULL), "Negative assertion taf_therm_GetCoolingDeviceByName - LE_OK");
-    LE_TEST_OK((cDev == nullptr), "Negative assertion taf_therm_GetCoolingDeviceByName - LE_OK");
-    LE_TEST_OK(!cDev, "Negative assertion taf_therm_GetCoolingDeviceByName - LE_OK");
     result = taf_therm_ReleaseCoolingDeviceRef(cDev);
     LE_TEST_OK(result != LE_OK, "taf_therm_ReleaseCoolingDeviceRef - LE_OK");
     LE_INFO("===== UnitTest Completed for getting cooling device by name =====");

@@ -22,6 +22,7 @@ void ThermalPrintHelpMenu()
         "\n"
         "SYNOPSIS:\n"
         "    app runProc tafThermIntTest tafThermIntTest -- help\n"
+        "    app runProc tafThermIntTest tafThermIntTest -- GetZoneAndCoolingDevInfo\n"
         "    app runProc tafThermIntTest tafThermIntTest -- ThermalZoneInfo thermalZoneName\n"
         "    app runProc tafThermIntTest tafThermIntTest -- CDevInfo cDevName\n"
         "    app runProc tafThermIntTest tafThermIntTest -- TripEventHandler 500\n"
@@ -33,6 +34,9 @@ void ThermalPrintHelpMenu()
         "\n"
         "    app runProc tafThermIntTest tafThermIntTest -- ThermalZoneInfo thermalZoneName\n"
         "       Gets information about thermal zone 'thermalZoneName'"
+        "\n"
+        "    app runProc tafThermIntTest tafThermIntTest -- GetZoneAndCoolingDevInfo\n"
+        "       Print all thermal zone type and its binding cooling device."
         "\n"
         "    app runProc tafThermIntTest tafThermIntTest -- CDevInfo cDevName\n"
         "       Gets information about cooling device 'cDevName'"
@@ -58,18 +62,14 @@ void ThermalCheckArgs(uint8_t argNum)
     }
 }
 
-void TestTripPointInformation(taf_therm_ThermalZoneRef_t tZone)
+void TestTripPointInformation(taf_therm_ThermalZoneRef_t tZone, uint32_t listSize)
 {
     le_result_t result;
     LE_TEST_INFO("Retrieving first trip point");
     taf_therm_TripPointRef_t tripPoint = taf_therm_GetFirstTripPoint(tZone);
     LE_TEST_OK((tripPoint != NULL), "taf_therm_GetFirstTripPoint - LE_OK");
 
-    uint32_t listSize;
-    result = taf_therm_GetTripPointListSize(tZone, &listSize);
-    LE_TEST_OK(result == LE_OK || result == LE_NOT_FOUND,
-        "TripPoint ListSize : %d", listSize);
-    if(result != LE_OK || listSize <= 0)
+    if (listSize <= 0)
     {
         LE_ERROR("No trip points are associated with the thermal zone");
         return;
@@ -114,7 +114,7 @@ void TestBoundCoolingDevicesInformation(taf_therm_ThermalZoneRef_t tZone)
     uint32_t listSize;
     result = taf_therm_GetBoundCoolingDeviceListSize(tZone, &listSize);
     LE_TEST_OK(result == LE_OK || result == LE_NOT_FOUND,
-        "taf_therm_GetBoundCoolingDeviceListSize - LE_OK");
+        "taf_therm_GetBoundCoolingDeviceListSize - LE_OK, ListSize: %d", listSize);
     if(result != LE_OK || listSize <= 0)
     {
         LE_ERROR("No Bound CoolingDevices are associated with the thermal zone");
@@ -130,7 +130,7 @@ void TestBoundCoolingDevicesInformation(taf_therm_ThermalZoneRef_t tZone)
         uint32_t tripPointListSize;
         result = taf_therm_GetBoundTripPointListSize(boundCDev, &tripPointListSize);
         LE_TEST_OK(result == LE_OK || result == LE_NOT_FOUND,
-            "taf_therm_GetBoundTripPointListSize - LE_OK");
+            "taf_therm_GetBoundTripPointListSize - LE_OK, ListSize: %d", tripPointListSize);
         if(result != LE_OK || tripPointListSize <= 0)
         {
             //Do not return if no trip point is bounded to Cdev here
@@ -192,7 +192,7 @@ void TestZoneInformation(taf_therm_ThermalZoneRef_t tZone)
     char thermalZoneType[TYPE_SIZE];
     memset(thermalZoneType, 0, TYPE_SIZE);
     result = taf_therm_GetThermalZoneType(tZone, thermalZoneType, sizeof(thermalZoneType));
-    LE_TEST_OK(result == LE_OK, "Thermal Zone Name: %s", thermalZoneType);
+    LE_TEST_OK(result == LE_OK, "Thermal Zone Type: %s", thermalZoneType);
 
     uint32_t currTemp;
     result = taf_therm_GetThermalZoneCurrentTemp(tZone, &currTemp);
@@ -232,12 +232,12 @@ void ThermalZoneInfoTest(void)
             "taf_therm_GetTripPointListSize - LE_OK");
         if(result != LE_OK || tripPointListSize <= 0)
         {
-            LE_ERROR("No trip points are associated with the thermal zone");
+            LE_WARN("No trip points are associated with the thermal zone");
         }
         else if (tripPointListSize > 0)
         {
             LE_INFO("TRIP POINT LIST SIZE %d", tripPointListSize);
-            TestTripPointInformation(thermalZone);
+            TestTripPointInformation(thermalZone, tripPointListSize);
         }
         uint32_t boundCDevListSize;
         result = taf_therm_GetBoundCoolingDeviceListSize(thermalZone, &boundCDevListSize);
@@ -245,7 +245,7 @@ void ThermalZoneInfoTest(void)
             "taf_therm_GetBoundCoolingDeviceListSize - LE_OK");
         if(result != LE_OK || boundCDevListSize <= 0)
         {
-            LE_ERROR("No cooling devices bounded with thermal zone");
+            LE_WARN("No cooling devices bounded with thermal zone");
         }
         else if (boundCDevListSize > 0)
         {
@@ -293,9 +293,118 @@ void CDevInfoTest()
         uint32_t currCooling;
         result = taf_therm_GetCDevCurrentCoolingLevel(cDev, &currCooling);
         LE_TEST_OK(result == LE_OK, "Cooling Device current cooling: %d", currCooling);
+
+        result = taf_therm_ReleaseCoolingDeviceRef(cDev);
+        LE_TEST_OK(result == LE_OK, "taf_therm_ReleaseCoolingDeviceRef - LE_OK");
     }
-    result = taf_therm_ReleaseCoolingDeviceRef(cDev);
-    LE_TEST_OK(result == LE_OK, "taf_therm_ReleaseCoolingDeviceRef - LE_OK");
+}
+
+void GetZoneAndCoolingDevInfoTest()
+{
+    le_result_t result;
+    uint32_t thermalZoneListSize = 0;
+
+    LE_TEST_INFO("===== Print All Thermal Sensor Types =====");
+
+    taf_therm_ThermalZoneListRef_t tZoneListRef = taf_therm_GetThermalZonesList();
+    if (tZoneListRef == NULL)
+    {
+        LE_ERROR("tZoneListRef is NULL");
+        return;
+    }
+    result = taf_therm_GetThermalZonesListSize(tZoneListRef, &thermalZoneListSize);
+    if (result != LE_OK || thermalZoneListSize == 0)
+    {
+        LE_WARN("No thermal zones present");
+        taf_therm_DeleteThermalZoneList(tZoneListRef);
+        return;
+    }
+
+    taf_therm_ThermalZoneRef_t tZone = taf_therm_GetFirstThermalZone(tZoneListRef);
+    if (tZone == NULL)
+    {
+        LE_ERROR("taf_therm_GetFirstThermalZone failed");
+        taf_therm_DeleteThermalZoneList(tZoneListRef);
+        return;
+    }
+
+    while ((tZone != NULL) && thermalZoneListSize--)
+    {
+        char thermalZoneType[TYPE_SIZE] = {0};
+
+        result = taf_therm_GetThermalZoneType(tZone, thermalZoneType, sizeof(thermalZoneType));
+        if (result != LE_OK)
+        {
+            LE_ERROR("taf_therm_GetThermalZoneType failed");
+            if (thermalZoneListSize > 0)
+            {
+                tZone = taf_therm_GetNextThermalZone(tZoneListRef);
+            }
+            continue;
+        }
+
+        LE_INFO("Therm Zone Type: '%s'", thermalZoneType);
+
+        // Get trip point for thermal zone if any
+        uint32_t tripPointListSize = 0;
+        result = taf_therm_GetTripPointListSize(tZone, &tripPointListSize);
+        if (result == LE_OK && tripPointListSize > 0)
+        {
+            taf_therm_TripPointRef_t tripPoint = taf_therm_GetFirstTripPoint(tZone);
+            if (tripPoint != NULL)
+            {
+                uint32_t tripPointTZoneID = 0;
+                result = taf_therm_GetTripPointThermalZoneID(tripPoint, &tripPointTZoneID);
+                if (result == LE_OK)
+                {
+                    LE_INFO("Trip Point ID: %d", tripPointTZoneID);
+                }
+            }
+        }
+
+        // Get bound cooling device for thermal zone if any
+        uint32_t boundCDevListSize = 0;
+        result = taf_therm_GetBoundCoolingDeviceListSize(tZone, &boundCDevListSize);
+        if (result == LE_OK && boundCDevListSize > 0)
+        {
+            LE_INFO("boundCDevListSize: %d", boundCDevListSize);
+
+            taf_therm_BoundCoolingDeviceRef_t boundCDev = taf_therm_GetFirstBoundCDev(tZone);
+            while ((boundCDev != NULL) && boundCDevListSize--)
+            {
+                uint32_t coolingID = 0;
+                result = taf_therm_GetBoundCoolingId(boundCDev, &coolingID);
+                if (result != LE_OK){
+                    LE_ERROR("taf_therm_GetBoundCoolingId failed");
+                    break;
+                }
+
+                LE_INFO("Therm Zone Type: '%s', Bound Cooling ID: %d", thermalZoneType, coolingID);
+
+                if (boundCDevListSize > 0)
+                {
+                    boundCDev = taf_therm_GetNextBoundCDev(tZone);
+                    if (boundCDev == NULL)
+                    {
+                        LE_ERROR("taf_therm_GetNextBoundCDev failed");
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (thermalZoneListSize > 0)
+        {
+            tZone = taf_therm_GetNextThermalZone(tZoneListRef);
+
+        }
+    }
+
+    result = taf_therm_DeleteThermalZoneList(tZoneListRef);
+    if (result != LE_OK)
+    {
+        LE_ERROR("taf_therm_DeleteThermalZoneList failed");
+    }
 }
 
 const char* TripEventToString(taf_therm_TripEventType_t state)
@@ -436,7 +545,7 @@ static void* AddCoolingLevelChangeEventHandler(void* contextPtr)
 
     cooolingLevelChangeHandlerRef =
             taf_therm_AddCoolingLevelChangeEventHandler(TestCoolingLevelChangeHandler, NULL);
-    LE_TEST_OK(tripEventHandlerRef != NULL,
+    LE_TEST_OK(cooolingLevelChangeHandlerRef != NULL,
             "Register AddCoolingLevelChangeEventHandler change handler is successfull");
 
     le_sem_Post((le_sem_Ref_t)contextPtr);
@@ -487,6 +596,10 @@ COMPONENT_INIT
     if (strncmp(cmd, "ThermalZoneInfo", strlen(cmd)) == 0)
     {
         ThermalZoneInfoTest();
+    }
+    else if (strncmp(cmd, "GetZoneAndCoolingDevInfo", strlen(cmd)) == 0)
+    {
+        GetZoneAndCoolingDevInfoTest();
     }
     else if (strncmp(cmd, "CDevInfo", strlen(cmd)) == 0)
     {

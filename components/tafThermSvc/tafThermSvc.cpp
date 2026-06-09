@@ -6,11 +6,6 @@
 #include "tafTherm.hpp"
 #include "legato.h"
 #include "interfaces.h"
-#include <iostream>
-#include <string>
-#include <memory>
-#include <vector>
-#include <unistd.h>
 
 using namespace tafsvc;
 using namespace telux::therm;
@@ -985,7 +980,7 @@ taf_therm_TripEventHandlerRef_t taf_therm_AddTripEventHandler(
 */
 void taf_therm_RemoveTripEventHandler(taf_therm_TripEventHandlerRef_t handlerRef)
 {
-    LE_DEBUG("taf_therm_RemoveStateChangeHandler");
+    LE_DEBUG("Remove trip event handler");
     auto& tafTherm = taf_Therm::GetInstance();
     tafTherm.RemoveTripEventHandler(handlerRef);
 }
@@ -1002,7 +997,7 @@ taf_therm_CoolingLevelChangeEventHandlerRef_t taf_therm_AddCoolingLevelChangeEve
    taf_therm_CoolingLevelChangeEventHandlerFunc_t handlerPtr, void* contextPtr
 )
 {
-    LE_DEBUG("AddStateChangeHandler for trip type change");
+    LE_DEBUG("Register cooling level change handler");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.AddCoolingLevelChangeEventHandler(handlerPtr,contextPtr);
 }
@@ -1020,7 +1015,7 @@ void taf_therm_RemoveCoolingLevelChangeEventHandler
     taf_therm_CoolingLevelChangeEventHandlerRef_t handlerRef
 )
 {
-    LE_DEBUG("taf_therm_RemoveStateChangeHandler");
+    LE_DEBUG("Remove cooling level change handler");
     auto& tafTherm = taf_Therm::GetInstance();
     tafTherm.RemoveCoolingLevelChangeEventHandler(handlerRef);
 }

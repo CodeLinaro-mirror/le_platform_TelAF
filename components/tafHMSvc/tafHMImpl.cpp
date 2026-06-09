@@ -43,7 +43,7 @@ LE_MEM_DEFINE_STATIC_POOL(MtdListPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hm
 LE_MEM_DEFINE_STATIC_POOL(MtdInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_mtdInfo_t));
 LE_MEM_DEFINE_STATIC_POOL(ModemEventInfoPool, TAF_HMS_MAX_EVENT_POOL_SIZE,
     sizeof(taf_hms_modemEventInfo_t));
-LE_MEM_DEFINE_STATIC_POOL(ModemInfoPool, TAF_HMS_MAX_EVENT_POOL_SIZE,
+LE_MEM_DEFINE_STATIC_POOL(ModemInfoPool, TAF_HMS_MAX_REF_POOL_SIZE,
     sizeof(taf_hms_modemInfo_t));
 
 
@@ -54,7 +54,7 @@ LE_REF_DEFINE_STATIC_MAP(UbiVolRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
 LE_REF_DEFINE_STATIC_MAP(MtdListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
 LE_REF_DEFINE_STATIC_MAP(MtdRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
 LE_REF_DEFINE_STATIC_MAP(ModemEventInfoRefMap, TAF_HMS_MAX_EVENT_POOL_SIZE);
-LE_REF_DEFINE_STATIC_MAP(ModemInfoRefMap, TAF_HMS_MAX_EVENT_POOL_SIZE);
+LE_REF_DEFINE_STATIC_MAP(ModemInfoRefMap, TAF_HMS_MAX_REF_POOL_SIZE);
 
 bool tafHmsListener::ModemAvailability = false;
 
@@ -69,6 +69,76 @@ taf_Hms &taf_Hms::GetInstance()
     return instance;
 }
 
+void taf_Hms::AdvertiseService()
+{
+    taf_hms_AdvertiseService();
+    le_msg_AddServiceCloseHandler(taf_hms_GetServiceRef(), OnClientDisconnection, NULL);
+    LE_INFO("taf_hms service advertised");
+}
+
+void taf_Hms::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *contextPtr)
+{
+    auto &hms = taf_Hms::GetInstance();
+    LE_INFO("HMS client session closed: %p", sessionRef);
+    LE_UNUSED(contextPtr);
+
+    std::vector<taf_hms_UbiDevInfoListRef_t> UbiRefToRemove;
+    le_ref_IterRef_t ubiIterRef = le_ref_GetIterator(hms.UbiDevListRefMap);
+    while (le_ref_NextNode(ubiIterRef) == LE_OK)
+    {
+        taf_hms_ubiDevInfoList_t* ubiListPtr =
+            (taf_hms_ubiDevInfoList_t*)le_ref_GetValue(ubiIterRef);
+
+        if ((ubiListPtr != nullptr) && (ubiListPtr->sessionRef == sessionRef))
+        {
+            LE_DEBUG("Deleting UBI device list ref %p for closed session %p",
+                ubiListPtr->ref, sessionRef);
+            UbiRefToRemove.push_back(ubiListPtr->ref);
+        }
+    }
+    for (taf_hms_UbiDevInfoListRef_t ubiRef : UbiRefToRemove)
+    {
+        hms.DeleteUbiDevInfoList(ubiRef);
+    }
+
+    std::vector<taf_hms_MtdDevInfoListRef_t> mtdRefToRemove;
+    le_ref_IterRef_t mtdIterRef = le_ref_GetIterator(hms.MtdListRefMap);
+    while (le_ref_NextNode(mtdIterRef) == LE_OK)
+    {
+        taf_hms_mtdInfoList_t* mtdListPtr =
+            (taf_hms_mtdInfoList_t*)le_ref_GetValue(mtdIterRef);
+
+        if ((mtdListPtr != nullptr) && (mtdListPtr->sessionRef == sessionRef))
+        {
+            LE_DEBUG("Deleting MTD device list ref %p for closed session %p",
+                mtdListPtr->ref, sessionRef);
+            mtdRefToRemove.push_back(mtdListPtr->ref);
+        }
+    }
+    for (taf_hms_MtdDevInfoListRef_t mtdRef : mtdRefToRemove)
+    {
+        hms.DeleteMtdDevInfoList(mtdRef);
+    }
+
+    std::vector<taf_hms_ModemEvtHandlerRef_t> ModemInfoRefToRemove;
+    le_ref_IterRef_t infoIterRef = le_ref_GetIterator(hms.ModemInfoRefMap);
+    while (le_ref_NextNode(infoIterRef) == LE_OK)
+    {
+        taf_hms_modemInfo_t* infoPtr =
+            (taf_hms_modemInfo_t*)le_ref_GetValue(infoIterRef);
+
+        if ((infoPtr != nullptr) && (infoPtr->sessionRef == sessionRef))
+        {
+            LE_DEBUG("Removing modem handler ref %p for closed session %p",
+                infoPtr->handlerRef, sessionRef);
+            ModemInfoRefToRemove.push_back(infoPtr->handlerRef);
+        }
+    }
+    for (taf_hms_ModemEvtHandlerRef_t handlerRef : ModemInfoRefToRemove)
+    {
+        hms.RemoveModemEvtHandler(handlerRef);
+    }
+}
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -544,6 +614,7 @@ taf_hms_UbiDevInfoListRef_t taf_Hms::GetUbiDevInfoList
     memset(ubiDevList, 0, sizeof(taf_hms_ubiDevInfoList_t));
     ubiDevList->ubiDevInfoList = LE_SLS_LIST_INIT;
     ubiDevList->currPtr = NULL;
+    ubiDevList->sessionRef = taf_hms_GetClientSessionRef();
 
     taf_hms_ubiDevInfo_t* ubiDevInfoPtr;
 
@@ -599,6 +670,11 @@ le_result_t taf_Hms::DeleteUbiDevInfoList
     while ((linkPtr = le_sls_Pop(&(listPtr->ubiDevInfoList))) != NULL)
     {
         ubiDevInfoPtr = CONTAINER_OF(linkPtr, taf_hms_ubiDevInfo_t, link);
+        if (ubiDevInfoPtr->ref != NULL)
+        {
+            le_ref_DeleteRef(UbiDevRefMap, ubiDevInfoPtr->ref);
+            ubiDevInfoPtr->ref = NULL;
+        }
         le_mem_Release(ubiDevInfoPtr);
     }
     le_ref_DeleteRef(UbiDevListRefMap, ubiDevInfoListRef);
@@ -956,6 +1032,7 @@ taf_hms_MtdDevInfoListRef_t taf_Hms::GetMtdDevInfoList
     memset(mtdDevList, 0, sizeof(taf_hms_mtdInfoList_t));
     mtdDevList->mtdInfoList = LE_SLS_LIST_INIT;
     mtdDevList->currPtr = NULL;
+    mtdDevList->sessionRef = taf_hms_GetClientSessionRef();
 
     taf_hms_mtdInfo_t* mtdInfoPtr;
 
@@ -1021,6 +1098,11 @@ le_result_t taf_Hms::DeleteMtdDevInfoList
     while ((linkPtr = le_sls_Pop(&(listPtr->mtdInfoList))) != NULL)
     {
         mtdInfoPtr = CONTAINER_OF(linkPtr, taf_hms_mtdInfo_t, link);
+        if (mtdInfoPtr->ref != NULL)
+        {
+            le_ref_DeleteRef(MtdRefMap, mtdInfoPtr->ref);
+            mtdInfoPtr->ref = NULL;
+        }
         le_mem_Release(mtdInfoPtr);
     }
     le_ref_DeleteRef(MtdListRefMap, mtdDevInfoListRef);
@@ -1454,6 +1536,7 @@ taf_hms_ModemEvtHandlerRef_t taf_Hms::AddModemEvtHandler
     newEvt->handlerFunc = handlerFuncPtr;
     newEvt->contextPtr = contextPtr;
     newEvt->reqEventBits = reqEventBits;
+    newEvt->sessionRef = taf_hms_GetClientSessionRef();
     newEvt->handlerRef = (taf_hms_ModemEvtHandlerRef_t)le_ref_CreateRef(ModemInfoRefMap, newEvt);
 
     TAF_ERROR_IF_RET_VAL(newEvt->handlerRef == NULL, NULL, "Failed to create handler reference!");
@@ -1524,12 +1607,39 @@ void taf_Hms::RemoveModemEvtHandler(taf_hms_ModemEvtHandlerRef_t handlerRef)
 
     taf_hms_modemInfo_t* handlerPtr =
         (taf_hms_modemInfo_t*)le_ref_Lookup(ModemInfoRefMap, handlerRef);
-    TAF_ERROR_IF_RET_NIL(handlerPtr == nullptr, "Invalid para(null reference ptr)");
+    // RemoveModemEvtHandler will be triggered by both OnClientDisconnection and stub code
+    // generated by taf_hms_AdvertiseService, which ever is triggered first will delete the
+    // handlerPtr.
+    if (handlerPtr == nullptr)
+    {
+        LE_WARN("Invalid para(null reference ptr)");
+        return;
+    }
+
+    // Release any modem event objects still pointing to this handler info.
+    le_ref_IterRef_t eventIterRef = le_ref_GetIterator(ModemEventInfoRefMap);
+    while (le_ref_NextNode(eventIterRef) == LE_OK)
+    {
+        taf_hms_modemEventInfo_t* evtPtr =
+            (taf_hms_modemEventInfo_t*)le_ref_GetValue(eventIterRef);
+
+        if ((evtPtr != nullptr) && (evtPtr->modemInfo == handlerPtr))
+        {
+            LE_DEBUG("Releasing modem event ref %p linked to handler ref %p",
+                evtPtr->ref, handlerRef);
+            le_ref_DeleteRef(ModemEventInfoRefMap, evtPtr->ref);
+            le_mem_Release(evtPtr);
+        }
+    }
+
+    handlerPtr->handlerFunc = NULL;
+    handlerPtr->contextPtr = NULL;
+    handlerPtr->reqEventBits = 0;
+    handlerPtr->sessionRef = NULL;
 
     //Remove the 'de-register' handler from ModemInfoRefMap
     le_ref_DeleteRef(ModemInfoRefMap, handlerRef);
     le_mem_Release(handlerPtr);
-    LE_INFO("Removed ModemStatusHandler");
 
     // Update all remained modem event maps and delete the timer if no events remain.
     if (IsModemEventMapEmpty())
@@ -1984,7 +2094,7 @@ void taf_Hms::Init()
         sizeof(taf_hms_mtdInfo_t));
     ModemEventInfoPool = le_mem_InitStaticPool(ModemEventInfoPool, TAF_HMS_MAX_EVENT_POOL_SIZE,
         sizeof(taf_hms_modemEventInfo_t));
-    ModemInfoPool = le_mem_InitStaticPool(ModemInfoPool, TAF_HMS_MAX_EVENT_POOL_SIZE,
+    ModemInfoPool = le_mem_InitStaticPool(ModemInfoPool, TAF_HMS_MAX_REF_POOL_SIZE,
             sizeof(taf_hms_modemInfo_t));
 
     UbiDevListRefMap = le_ref_InitStaticMap(UbiDevListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
@@ -1993,8 +2103,8 @@ void taf_Hms::Init()
     UbiVolRefMap = le_ref_InitStaticMap(UbiVolRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
     MtdListRefMap = le_ref_InitStaticMap(MtdListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
     MtdRefMap = le_ref_InitStaticMap(MtdRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
-    ModemInfoRefMap = le_ref_InitStaticMap(ModemInfoRefMap, TAF_HMS_MAX_EVENT_POOL_SIZE);
-    ModemEventInfoRefMap = le_ref_InitStaticMap(ModemEventInfoRefMap, TAF_HMS_MAX_EVENT_POOL_SIZE*3);
+    ModemInfoRefMap = le_ref_InitStaticMap(ModemInfoRefMap, TAF_HMS_MAX_REF_POOL_SIZE);
+    ModemEventInfoRefMap = le_ref_InitStaticMap(ModemEventInfoRefMap, TAF_HMS_MAX_EVENT_POOL_SIZE);
 
 
     //Modem monitor
@@ -2054,4 +2164,6 @@ void taf_Hms::Init()
 
     le_event_AddHandler("MDStatusOnChangeCBIdHandlerRef",
         MdStatusOnChangeCBId, MdStatusOnChangeCBNotify);
+
+    AdvertiseService();
 }

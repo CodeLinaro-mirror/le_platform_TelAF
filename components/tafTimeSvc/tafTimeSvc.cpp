@@ -4,10 +4,6 @@
  */
 
 
-#include <iostream>
-#include <string>
-#include <memory>
-#include <ctime>
 #include <setjmp.h>
 #include "tafTime.hpp"
 
@@ -388,6 +384,7 @@ le_result_t taf_time_GetSystemTimeSourceID
    taf_time_TimeSources_t *sourceId
 )
 {
+    TAF_ERROR_IF_RET_VAL(sourceId == NULL, LE_BAD_PARAMETER, "sourceId is NULL");
     auto& tafTime = taf_Time::GetInstance();
     return tafTime.GetSystemTimeSourceID(sourceId);
 }
@@ -579,6 +576,7 @@ le_result_t taf_time_SetTrustTime
     bool validity
 )
 {
+    TAF_ERROR_IF_RET_VAL(timeValPtr == NULL, LE_BAD_PARAMETER, "timeValPtr is NULL");
     auto& tafTime = taf_Time::GetInstance();
     taf_time_TimeSpec_t time;
     time.sec = timeValPtr->sec;

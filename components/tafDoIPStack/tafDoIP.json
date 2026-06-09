@@ -10,7 +10,7 @@
     "parameters":
     {
         "MCTS": 10,
-        "MDS": 10485760,
+        "MDS": 65536,
         "timer":
         {
             "A_DoIP_Announce_Num": 3,

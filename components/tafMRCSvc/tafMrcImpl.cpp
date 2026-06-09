@@ -177,7 +177,7 @@ void taf_Mrc::OpStatusHandler
             break;
         case TAF_PA_MRC_OP_ABSYNC:
             LE_INFO("MRC indicates AB sync.");
-            le_sem_Post(tafMrc.syncSem);
+            sem_post(&tafMrc.syncSem);
             break;
         default:
             LE_WARN("MRC indicates Unknown operation.");
@@ -234,7 +234,7 @@ void taf_Mrc::Init(void)
     otaOperationsListener = std::make_shared<taf_MrcOtaOperationsListener>();
     fsManager->registerListener(otaOperationsListener);
 
-    syncSem = le_sem_Create("syncSem", 0);
+    sem_init(&syncSem, 0, 0);
     le_result_t result = taf_pa_mrc_Initialize(TAF_MRC_SVC_READY_TIMEOUT, TAF_MRC_MSG_RESP_TIMEOUT);
     if (result != LE_OK)
     {

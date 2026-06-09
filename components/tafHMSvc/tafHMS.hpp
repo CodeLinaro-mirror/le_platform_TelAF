@@ -21,11 +21,11 @@
 #include <telux/tel/PhoneDefines.hpp>
 #include <telux/tel/PhoneFactory.hpp>
 #include <telux/tel/PhoneListener.hpp>
+#include <atomic>
 
 using namespace std;
 
 // Max number of Handler
-#define MAX_HMS_HANLDER 32
 #define MAX_CORES 8
 #define MAX_FIELDS 10
 
@@ -67,7 +67,7 @@ using namespace std;
 #define TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_MEDIUM 2
 #define TAF_HMS_MODEM_EVENT_SEVERITY_COUNT_HIGH 3
 #define TAF_HMS_SUBSYSTEM_MANAGER_TIMEOUT 30
-#define TAF_HMS_PHONE_MANAGER_TIMEOUT     30
+#define TAF_HMS_PHONE_MANAGER_TIMEOUT     10
 
 // For reset reason
 #define TAF_HMS_BOOT_REASON_PATH "/sys/kernel/reboot_reason/reason"
@@ -86,17 +86,6 @@ using namespace std;
 #define MODEM_CHECK_STATUS_INTERVAL 3000   //Time interval for checking the modem status
 #define COUNTER_RESPONSE_TIME_OUT   2 //Report event to client if the counter equal to this macro
 #define COUNTER_EVENT_REPORT_DONE   3 //Stop requesting the status if event reported to the client
-
-//-------------------------------------------------------------------------------------------------
-/**
-* Structure to hold the HmsInfo
-*/
-//-------------------------------------------------------------------------------------------------
-typedef struct
-{
-    double cpuLoadInfo;
-    uint32_t ramMemfreeInfo;
-}tafHmsInfo_t;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -217,12 +206,13 @@ typedef struct
     taf_hms_ModemEvtHandlerFunc_t handlerFunc = NULL;
     taf_hms_ModemEvtBitmask_t     reqEventBits;  // Client only needs the registered event type.
     le_msg_SessionRef_t           sessionRef = NULL;
+    uint32_t                      clientId = 0;       // Monotonic ID for log correlation.
     void* contextPtr;
 }taf_hms_modemInfo_t;
 
 //-------------------------------------------------------------------------------------------------
 /**
-* Structure to hold the Modem Info
+* Structure to hold the Modem Event Info
 */
 //-------------------------------------------------------------------------------------------------
 typedef struct
@@ -244,9 +234,19 @@ taf_hms_operationStatus_t;
 
 typedef struct
 {
-    taf_hms_operationStatus_t   status;
-    uint8_t      ModemCrashCounter = 0;
+    int operationalStatus;
 }taf_hms_modemOperaInfo_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Internal payload struct used to marshal operatingModeResponse data to the main thread.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    int operatingMode;  ///< telux::tel::OperatingMode cast to int
+    int error;          ///< telux::common::ErrorCode cast to int
+} taf_hms_operModeRespData_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -261,8 +261,7 @@ namespace tafsvc {
         int counter {0};
         uint64_t AllModemEventMap = 0x0;
         uint8_t ModemCrashCounter = 0;
-
-        le_timer_Ref_t ModemResetTimer = NULL;
+        static std::atomic<bool> ModemAvailability;
 
         static tafHmsListener& GetInstance()
         {
@@ -274,9 +273,6 @@ namespace tafsvc {
 
         void StartResetTimer(void);
         void DeleteResetTime(void);
-
-        private:
-            static bool ModemAvailability;
     };
 
     class ModemStatus : public telux::tel::IOperatingModeCallback,
@@ -284,23 +280,34 @@ namespace tafsvc {
     public:
         ModemStatus() {};
         ~ModemStatus() {};
-        static ModemStatus& GetInstance()
-        {
-            static ModemStatus instance;
-            return instance;
-        }
-        bool PhoneInit(void);
-        void CheckOperModeStatus(void);
-        void ReqsOperatingMode(void);
+        // Called by main thread to start/stop the worker thread and main timer.
+        void StartWorkerThread(void);
+        void StopWorkerThread(void);
+
+        // Called by main thread to dispatch modem status events to clients.
+        void ReportModemStatus(taf_hms_ModemEvtType_t eventType,
+                               taf_hms_ModemEvtSeverity_t eventLevel);
+
+        // SDK callback - called from telux SDK thread, marshals to main thread.
         void operatingModeResponse(telux::tel::OperatingMode operatingMode,
                                    telux::common::ErrorCode error) override;
-        void ReportModemStatus(taf_hms_ModemEvtType_t eventType,
-                                     taf_hms_ModemEvtSeverity_t eventLevel);
+
+        // Called on the worker thread - queued by the main-thread timer each tick.
+        void DoRequestOperatingMode(void);
+
+        le_thread_Ref_t GetWorkerThread(void) const { return workerThread_; }
 
     private:
+        // Worker thread entry point and PhoneInit helper (run on worker thread).
+        static void* WorkerThreadFunc(void* ctx);
+        bool         PhoneInit(void);
+
         std::shared_ptr<telux::tel::IPhoneManager> phoneManager_{nullptr};
-        std::shared_ptr<std::promise<bool>> responsePromise_{nullptr};
-        int pendingCount_{0};  // Counter for consecutive requests without response
+
+        // Worker thread handle.
+        le_thread_Ref_t   workerThread_{nullptr};
+        // Main-thread timer (3s repeating) - owns pendingCount.
+        le_timer_Ref_t    mainTimer_{nullptr};
     };
 
     class taf_Hms: public ITafSvc
@@ -339,8 +346,6 @@ namespace tafsvc {
                 size_t ubiVolNameSize);
             le_result_t GetUbiVolSize(taf_hms_UbiVolInfoRef_t ubiVolInfoRef,
                 uint32_t* ubiVolSizePtr);
-            le_result_t GetUbiVolNum(taf_hms_UbiVolInfoRef_t ubiVolInfoRef,
-                uint32_t* ubiVolMajNumPtr, uint32_t* ubiVolMinNumPtr);
             taf_hms_MtdDevInfoListRef_t GetMtdDevInfoList();
             le_result_t DeleteMtdDevInfoList(taf_hms_MtdDevInfoListRef_t mtdDevInfoListRef);
             taf_hms_MtdDevInfoRef_t GetFirstMtdDevInfo(taf_hms_MtdDevInfoListRef_t mtdDevInfoListRef);
@@ -356,13 +361,14 @@ namespace tafsvc {
             taf_hms_ModemEvtHandlerRef_t AddModemEvtHandler(
                                        taf_hms_ModemEvtBitmask_t reqEventbits,
                                        taf_hms_ModemEvtHandlerFunc_t handlerPtr, void* contextPtr);
-            static void ModemStatusChangeNotify(void* reportPtr);
+            static void ModemStatusChNotifyClient(void* reportPtr);
             void RemoveModemEvtHandler(taf_hms_ModemEvtHandlerRef_t handlerRef);
             bool IsModemEventMapEmpty(void);
             le_result_t ReleaseModemEvt(taf_hms_ModemEventRef_t  eventRef);
 
-            le_event_Id_t ModemStatusChangeId;
+            le_event_Id_t MdStatusChNotifyCliId;
             le_event_Id_t MdStatusOnChangeCBId;
+            le_event_Id_t OperModeRespId;
             le_ref_MapRef_t ModemInfoRefMap;
             le_ref_MapRef_t ModemEventInfoRefMap;
             le_mem_PoolRef_t ModemEventInfoPool;

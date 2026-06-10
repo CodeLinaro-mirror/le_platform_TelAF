@@ -183,9 +183,6 @@ void tafMRCIntTest_SetGpioToggleStatus
     
     switch(status)
     {
-        case TAFMRCINTTEST_TOGGLE_STATUS_REQUESTED:
-            mrcStatus = TAF_MRC_TOGGLE_STATUS_REQUESTED;
-            break;
         case TAFMRCINTTEST_TOGGLE_STATUS_SUCCEEDED:
             mrcStatus = TAF_MRC_TOGGLE_STATUS_SUCCEEDED;
             break;

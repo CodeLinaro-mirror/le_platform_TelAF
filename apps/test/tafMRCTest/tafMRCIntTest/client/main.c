@@ -24,7 +24,6 @@
 #define EFS_DIST    "dist"
 #define EFS_RANGE   "range"
 
-#define TOGGLE_REQUESTED "requested"
 #define TOGGLE_SUCCEEDED "succeeded"
 #define TOGGLE_FAILED    "failed"
 
@@ -96,7 +95,7 @@ static void PrintHelpMenu
         "\n"
         "    toggle <status>\n"
         "        Sets the GPIO toggle status.\n"
-        "        <status>: 'requested', 'succeeded', or 'failed'\n"
+        "        <status>: 'succeeded', or 'failed'\n"
     );
 
     exit(EXIT_SUCCESS);
@@ -405,12 +404,7 @@ static void HandleToggleCommand
     CheckArgs(2);
     const char* status = GetArg(1);
 
-    if (IsCommand(status, TOGGLE_REQUESTED))
-    {
-        tafMRCIntTest_SetGpioToggleStatus(TAFMRCINTTEST_TOGGLE_STATUS_REQUESTED);
-        LE_TEST_INFO("tafMRCIntTest_SetGpioToggleStatus(REQUESTED) called");
-    }
-    else if (IsCommand(status, TOGGLE_SUCCEEDED))
+    if (IsCommand(status, TOGGLE_SUCCEEDED))
     {
         tafMRCIntTest_SetGpioToggleStatus(TAFMRCINTTEST_TOGGLE_STATUS_SUCCEEDED);
         LE_TEST_INFO("tafMRCIntTest_SetGpioToggleStatus(SUCCEEDED) called");

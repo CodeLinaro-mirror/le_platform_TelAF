@@ -297,16 +297,19 @@ void taf_radio_SetManualRegisterModeAsync
     uint8_t phoneId
 )
 {
-    taf_RadioCmdReq_t cmdReq;
-    memset(&cmdReq, 0, sizeof(taf_RadioCmdReq_t));
-    cmdReq.cmdType = TAF_RADIO_CMD_TYPE_ASYNC_REG_MANUAL;
-    cmdReq.handlerFuncPtr = (void*)handlerPtr;
-    cmdReq.contextPtr = contextPtr;
-    cmdReq.phoneId = phoneId;
-    le_utf8_Copy(cmdReq.mccPtr, mccPtr, TAF_RADIO_MCC_BYTES, NULL);
-    le_utf8_Copy(cmdReq.mncPtr, mncPtr, TAF_RADIO_MNC_BYTES, NULL);
-
-    le_event_Report(taf_Radio::radioCmdEvId, &cmdReq, sizeof(taf_RadioCmdReq_t));
+    auto &tafRadio = taf_Radio::GetInstance();
+    taf_RadioCmdReq_t* cmdReqPtr = (taf_RadioCmdReq_t*)le_mem_ForceAlloc(tafRadio.cmdReqPool);
+    memset(cmdReqPtr, 0, sizeof(taf_RadioCmdReq_t));
+    cmdReqPtr->cmdType = TAF_RADIO_CMD_TYPE_ASYNC_REG_MANUAL;
+    cmdReqPtr->handlerFuncPtr = (void*)handlerPtr;
+    cmdReqPtr->contextPtr = contextPtr;
+    cmdReqPtr->sessionRef = taf_radio_GetClientSessionRef();
+    cmdReqPtr->phoneId = phoneId;
+    le_utf8_Copy(cmdReqPtr->mccPtr, mccPtr, TAF_RADIO_MCC_BYTES, NULL);
+    le_utf8_Copy(cmdReqPtr->mncPtr, mncPtr, TAF_RADIO_MNC_BYTES, NULL);
+    cmdReqPtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&tafRadio.pendingCmdList, &cmdReqPtr->link);
+    le_event_ReportWithRefCounting(taf_Radio::radioCmdEvId, cmdReqPtr);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2787,14 +2790,17 @@ void taf_radio_PerformCellularNetworkScanAsync
     TAF_ERROR_IF_RET_NIL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM,
         "Invalid para(phoneId:%d)", phoneId);
 
-    taf_RadioCmdReq_t cmdReq;
-    memset(&cmdReq, 0, sizeof(taf_RadioCmdReq_t));
-    cmdReq.cmdType = TAF_RADIO_CMD_TYPE_ASYNC_NETWORK_SCAN;
-    cmdReq.handlerFuncPtr = (void*)handlerPtr;
-    cmdReq.contextPtr = contextPtr;
-    cmdReq.phoneId = phoneId;
-
-    le_event_Report(taf_Radio::radioCmdEvId, &cmdReq, sizeof(taf_RadioCmdReq_t));
+    auto &tafRadio = taf_Radio::GetInstance();
+    taf_RadioCmdReq_t* cmdReqPtr = (taf_RadioCmdReq_t*)le_mem_ForceAlloc(tafRadio.cmdReqPool);
+    memset(cmdReqPtr, 0, sizeof(taf_RadioCmdReq_t));
+    cmdReqPtr->cmdType = TAF_RADIO_CMD_TYPE_ASYNC_NETWORK_SCAN;
+    cmdReqPtr->handlerFuncPtr = (void*)handlerPtr;
+    cmdReqPtr->contextPtr = contextPtr;
+    cmdReqPtr->sessionRef = taf_radio_GetClientSessionRef();
+    cmdReqPtr->phoneId = phoneId;
+    cmdReqPtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&tafRadio.pendingCmdList, &cmdReqPtr->link);
+    le_event_ReportWithRefCounting(taf_Radio::radioCmdEvId, cmdReqPtr);
 }
 
 /*======================================================================
@@ -4406,15 +4412,18 @@ void taf_radio_PerformPciNetworkScanAsync
     TAF_ERROR_IF_RET_NIL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM,
         "Invalid para(phoneId:%d)", phoneId);
 
-    taf_RadioCmdReq_t cmdReq;
-    memset(&cmdReq, 0, sizeof(taf_RadioCmdReq_t));
-    cmdReq.cmdType = TAF_RADIO_CMD_TYPE_ASYNC_PCI_NETWORK_SCAN;
-    cmdReq.handlerFuncPtr = (void*)handlerPtr;
-    cmdReq.contextPtr = contextPtr;
-    cmdReq.phoneId = phoneId;
-    cmdReq.ratMask = ratMask;
-
-    le_event_Report(taf_Radio::radioCmdEvId, &cmdReq, sizeof(taf_RadioCmdReq_t));
+    auto &tafRadio = taf_Radio::GetInstance();
+    taf_RadioCmdReq_t* cmdReqPtr = (taf_RadioCmdReq_t*)le_mem_ForceAlloc(tafRadio.cmdReqPool);
+    memset(cmdReqPtr, 0, sizeof(taf_RadioCmdReq_t));
+    cmdReqPtr->cmdType = TAF_RADIO_CMD_TYPE_ASYNC_PCI_NETWORK_SCAN;
+    cmdReqPtr->handlerFuncPtr = (void*)handlerPtr;
+    cmdReqPtr->contextPtr = contextPtr;
+    cmdReqPtr->sessionRef = taf_radio_GetClientSessionRef();
+    cmdReqPtr->phoneId = phoneId;
+    cmdReqPtr->ratMask = ratMask;
+    cmdReqPtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&tafRadio.pendingCmdList, &cmdReqPtr->link);
+    le_event_ReportWithRefCounting(taf_Radio::radioCmdEvId, cmdReqPtr);
 }
 
 //--------------------------------------------------------------------------------------------------

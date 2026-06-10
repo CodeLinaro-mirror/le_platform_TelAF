@@ -565,6 +565,7 @@ void taf_RadioNetworkSelectionListener::onNetworkScanResults
 )
 {
     LE_DEBUG("<SDK Listener> taf_RadioNetworkSelectionListener --> onNetworkScanResults");
+
     if (scanStatus == telux::tel::NetworkScanStatus::FAILED)
     {
         LE_ERROR("Network scan failed.");
@@ -2635,6 +2636,7 @@ LE_REF_DEFINE_STATIC_MAP(caInfoMap, TAF_RADIO_CA_INFO_MAX_NUM);
 LE_REF_DEFINE_STATIC_MAP(connStatusMap, TAF_RADIO_CONN_STATUS_MAX_NUM);
 
 le_event_Id_t taf_Radio::radioCmdEvId = nullptr;
+le_event_Id_t taf_Radio::radioCmdCompleteEvId = nullptr;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3169,37 +3171,53 @@ taf_Radio &taf_Radio::GetInstance()
 void taf_Radio::RadioProcCmdHandler(void* cmdReqPtr)
 {
     taf_RadioCmdReq_t* cmdReq = (taf_RadioCmdReq_t*)cmdReqPtr;
-    uint8_t phoneId = cmdReq->phoneId;
     auto &tafRadio = taf_Radio::GetInstance();
 
     le_result_t res = LE_OK;
     le_clk_Time_t timeToWait = {1, 0};
+    taf_radio_ScanInformationListRef_t scanListRef = NULL;
+    taf_radio_PciScanInformationListRef_t pciScanListRef = NULL;
 
     switch (cmdReq->cmdType)
     {
         case TAF_RADIO_CMD_TYPE_ASYNC_REG_MANUAL:
         {
-            TAF_ERROR_IF_RET_NIL(phoneId > tafRadio.networkManagers.size(),
-                "Invalid para(phoneId:%d > %" PRIuS ")", phoneId, tafRadio.networkManagers.size());
+            if (cmdReq->phoneId == 0 || cmdReq->phoneId > tafRadio.networkManagers.size())
+            {
+                LE_ERROR("Invalid para(phoneId:%d > %" PRIuS ")", cmdReq->phoneId,
+                    tafRadio.networkManagers.size());
+                res = LE_BAD_PARAMETER;
+                break;
+            }
 
-            auto networkManager = tafRadio.networkManagers[phoneId - 1];
-            TAF_ERROR_IF_RET_NIL(networkManager == nullptr, "Invalid para(null ptr, phoneId:%d)", phoneId);
+            auto networkManager = tafRadio.networkManagers[cmdReq->phoneId - 1];
+            if (networkManager == nullptr)
+            {
+                LE_ERROR("Invalid para(null ptr, phoneId:%d)", cmdReq->phoneId);
+                res = LE_FAULT;
+                break;
+            }
 
             std::string mcc(cmdReq->mccPtr);
             std::string mnc(cmdReq->mncPtr);
 
-            if (networkManager->setNetworkSelectionMode(telux::tel::NetworkSelectionMode::MANUAL, mcc, mnc,
-                &taf_RadioNetworkResponseCallback::setNetworkSelectionModeResponseCb) != telux::common::Status::SUCCESS)
+            auto selModeStatus = networkManager->setNetworkSelectionMode(
+                telux::tel::NetworkSelectionMode::MANUAL, mcc, mnc,
+                &taf_RadioNetworkResponseCallback::setNetworkSelectionModeResponseCb);
+            if (selModeStatus != telux::common::Status::SUCCESS)
             {
-                LE_ERROR("setNetworkSelectionMode failed.");
+                LE_ERROR("setNetworkSelectionMode failed, status:%d", static_cast<int>(selModeStatus));
                 res = LE_FAULT;
+                break;
             }
 
             res = le_sem_WaitWithTimeOut(taf_RadioNetworkResponseCallback::selModeSem, timeToWait);
             if (res != LE_OK)
             {
                 LE_ERROR("Wait semaphore timeout.");
+                le_sem_TryWait(taf_RadioNetworkResponseCallback::selModeSem);
                 res = LE_TIMEOUT;
+                break;
             }
 
             if (taf_RadioNetworkResponseCallback::selModeRes != LE_OK)
@@ -3207,57 +3225,87 @@ void taf_Radio::RadioProcCmdHandler(void* cmdReqPtr)
                 LE_ERROR("Error response when setting network selection mode.");
                 res = LE_FAULT;
             }
-
-            taf_radio_ManualSelectionHandlerFunc_t handlerFunc = (taf_radio_ManualSelectionHandlerFunc_t)cmdReq->handlerFuncPtr;
-            if (handlerFunc != nullptr)
-            {
-                LE_DEBUG("Handler function:%p, result:%d", handlerFunc, res);
-                handlerFunc(res, cmdReq->contextPtr);
-            }
-            else
-            {
-                LE_WARN("No handler function, result:%d", res);
-            }
             break;
         }
+
         case TAF_RADIO_CMD_TYPE_ASYNC_NETWORK_SCAN:
         {
-            TAF_ERROR_IF_RET_NIL(phoneId > tafRadio.networkManagers.size(),
-                "Invalid para(phoneId:%d > %" PRIuS ")", phoneId, tafRadio.networkManagers.size());
+            if (cmdReq->phoneId == 0 || cmdReq->phoneId > tafRadio.networkManagers.size())
+            {
+                LE_ERROR("Invalid para(phoneId:%d > %" PRIuS ")", cmdReq->phoneId,
+                    tafRadio.networkManagers.size());
+                res = LE_BAD_PARAMETER;
+                break;
+            }
 
-            auto networkManager = tafRadio.networkManagers[phoneId - 1];
-            TAF_ERROR_IF_RET_NIL(networkManager == NULL,
-                "Invalid network manager(null ptr, phoneId:%d)", phoneId);
+            auto networkManager = tafRadio.networkManagers[cmdReq->phoneId - 1];
+            if (networkManager == nullptr)
+            {
+                LE_ERROR("Invalid network manager(null ptr, phoneId:%d)", cmdReq->phoneId);
+                res = LE_FAULT;
+                break;
+            }
 
-            auto networkListener = tafRadio.networkListeners[phoneId - 1];
-            TAF_ERROR_IF_RET_NIL(networkListener == NULL,
-                "Invalid network listener(null ptr, phoneId:%d)", phoneId);
+            auto networkListener = tafRadio.networkListeners[cmdReq->phoneId - 1];
+            if (networkListener == nullptr)
+            {
+                LE_ERROR("Invalid network listener(null ptr, phoneId:%d)", cmdReq->phoneId);
+                res = LE_FAULT;
+                break;
+            }
             networkListener->opInfos.clear();
 
             auto status = networkManager->registerListener(networkListener);
-            TAF_ERROR_IF_RET_NIL(status != telux::common::Status::SUCCESS,
-                "Fail to register listener with phoneId:%d)", phoneId);
+            if (status != telux::common::Status::SUCCESS)
+            {
+                LE_ERROR("Fail to register listener with phoneId:%d, status:%d",
+                    cmdReq->phoneId, static_cast<int>(status));
+                res = LE_FAULT;
+                break;
+            }
 
             telux::tel::NetworkScanInfo info;
             info.scanType = telux::tel::NetworkScanType::ALL_RATS;
-            if (networkManager->performNetworkScan(info,
-                taf_RadioPerformNetworkScanCallback::performNetworkScanResponse) !=
-                telux::common::Status::SUCCESS)
+            auto scanStatus = networkManager->performNetworkScan(info,
+                taf_RadioPerformNetworkScanCallback::performNetworkScanResponse);
+            if (scanStatus != telux::common::Status::SUCCESS)
             {
-                LE_ERROR("Call sdk function failed");
+                LE_ERROR("Call sdk function failed, status:%d", static_cast<int>(scanStatus));
                 status = networkManager->deregisterListener(networkListener);
-                TAF_ERROR_IF_RET_NIL(status != telux::common::Status::SUCCESS,
-                    "Fail to deregister listener with phoneId:%d)", phoneId);
-            };
+                if (status != telux::common::Status::SUCCESS)
+                {
+                    LE_ERROR("Fail to deregister listener with phoneId:%d, status:%d",
+                        cmdReq->phoneId, static_cast<int>(status));
+                }
+                res = LE_FAULT;
+                break;
+            }
 
-            res = le_sem_WaitWithTimeOut(taf_RadioPerformNetworkScanCallback::semaphore,
-                timeToWait);
-            if (res != LE_OK || taf_RadioPerformNetworkScanCallback::result != LE_OK)
+            res = le_sem_WaitWithTimeOut(taf_RadioPerformNetworkScanCallback::semaphore, timeToWait);
+            if (res != LE_OK)
+            {
+                LE_ERROR("Perform network scan submit timeout.");
+                le_sem_TryWait(taf_RadioPerformNetworkScanCallback::semaphore);
+                status = networkManager->deregisterListener(networkListener);
+                if (status != telux::common::Status::SUCCESS)
+                {
+                    LE_ERROR("Fail to deregister listener with phoneId:%d, status:%d",
+                        cmdReq->phoneId, static_cast<int>(status));
+                }
+                res = LE_TIMEOUT;
+                break;
+            }
+            if (taf_RadioPerformNetworkScanCallback::result != LE_OK)
             {
                 LE_ERROR("Perform network scan failed.");
                 status = networkManager->deregisterListener(networkListener);
-                TAF_ERROR_IF_RET_NIL(status != telux::common::Status::SUCCESS,
-                    "Fail to deregister listener with phoneId:%d)", phoneId);
+                if (status != telux::common::Status::SUCCESS)
+                {
+                    LE_ERROR("Fail to deregister listener with phoneId:%d, status:%d",
+                        cmdReq->phoneId, static_cast<int>(status));
+                }
+                res = LE_FAULT;
+                break;
             }
 
             le_clk_Time_t timeToScan = {TAF_RADIO_SCAN_INTERVAL, 0};
@@ -3265,74 +3313,174 @@ void taf_Radio::RadioProcCmdHandler(void* cmdReqPtr)
             if (res != LE_OK)
             {
                 LE_ERROR("Network scan timeout");
+                le_sem_TryWait(networkListener->semaphore);
                 status = networkManager->deregisterListener(networkListener);
-                TAF_ERROR_IF_RET_NIL(status != telux::common::Status::SUCCESS,
-                    "Fail to deregister listener with phoneId:%d)", phoneId);
-            };
+                if (status != telux::common::Status::SUCCESS)
+                {
+                    LE_ERROR("Fail to deregister listener with phoneId:%d, status:%d",
+                        cmdReq->phoneId, static_cast<int>(status));
+                }
+                res = LE_TIMEOUT;
+                break;
+            }
 
             status = networkManager->deregisterListener(networkListener);
-            TAF_ERROR_IF_RET_NIL(status != telux::common::Status::SUCCESS,
-                "Fail to deregister listener with phoneId:%d)", phoneId);
+            if (status != telux::common::Status::SUCCESS)
+            {
+                LE_ERROR("Fail to deregister listener with phoneId:%d, status:%d",
+                    cmdReq->phoneId, static_cast<int>(status));
+                res = LE_FAULT;
+                break;
+            }
 
-            TAF_ERROR_IF_RET_NIL(networkListener->opInfos.size() == 0,
-                "Phone%d has no operators after scanning", phoneId);
+            if (networkListener->opInfos.size() == 0)
+            {
+                LE_ERROR("Phone%d has no operators after scanning", cmdReq->phoneId);
+                res = LE_NOT_FOUND;
+                break;
+            }
 
-            taf_RadioScanOpList_t* opsList = (taf_RadioScanOpList_t*)le_mem_ForceAlloc(tafRadio.scanOpsListPool);
-            TAF_ERROR_IF_RET_NIL(opsList == NULL, "Null ptr(opsList)");
+            taf_RadioScanOpList_t* opsList =
+                (taf_RadioScanOpList_t*)le_mem_ForceAlloc(tafRadio.scanOpsListPool);
 
             opsList->scanOpList = LE_SLS_LIST_INIT;
             opsList->safeRefList = LE_SLS_LIST_INIT;
             opsList->currPtr = NULL;
+            scanListRef = (taf_radio_ScanInformationListRef_t)le_ref_CreateRef(
+                tafRadio.scanOpListRefMap, (void*)opsList);
 
-            taf_RadioScanOp_t* opPtr;
-            for (auto info : networkListener->opInfos)
+            for (auto opInfo : networkListener->opInfos)
             {
-                opPtr = (taf_RadioScanOp_t*)le_mem_ForceAlloc(tafRadio.scanOpPool);
-                le_utf8_Copy(opPtr->name, info.getName().c_str(), TAF_RADIO_NETWORK_NAME_MAX_LEN, NULL);
-                le_utf8_Copy(opPtr->mcc, info.getMcc().c_str(), TAF_RADIO_MCC_BYTES, NULL);
-                le_utf8_Copy(opPtr->mnc, info.getMnc().c_str(), TAF_RADIO_MNC_BYTES, NULL);
-                opPtr->status.inUse = info.getStatus().inUse;
-                opPtr->status.roaming = info.getStatus().roaming;
-                opPtr->status.forbidden = info.getStatus().forbidden;
-                opPtr->status.preferred = info.getStatus().preferred;
-                opPtr->rat = info.getRat();
+                taf_RadioScanOp_t* opPtr = (taf_RadioScanOp_t*)le_mem_ForceAlloc(tafRadio.scanOpPool);
+                le_utf8_Copy(opPtr->name, opInfo.getName().c_str(), TAF_RADIO_NETWORK_NAME_MAX_LEN, NULL);
+                le_utf8_Copy(opPtr->mcc, opInfo.getMcc().c_str(), TAF_RADIO_MCC_BYTES, NULL);
+                le_utf8_Copy(opPtr->mnc, opInfo.getMnc().c_str(), TAF_RADIO_MNC_BYTES, NULL);
+                opPtr->status.inUse = opInfo.getStatus().inUse;
+                opPtr->status.roaming = opInfo.getStatus().roaming;
+                opPtr->status.forbidden = opInfo.getStatus().forbidden;
+                opPtr->status.preferred = opInfo.getStatus().preferred;
+                opPtr->rat = opInfo.getRat();
                 opPtr->link = LE_SLS_LINK_INIT;
                 le_sls_Queue(&(opsList->scanOpList), &(opPtr->link));
             }
+            break;
+        }
 
-            taf_radio_ScanInformationListRef_t listRef =
-                (taf_radio_ScanInformationListRef_t)le_ref_CreateRef(tafRadio.scanOpListRefMap, (void*)opsList);
+        case TAF_RADIO_CMD_TYPE_ASYNC_PCI_NETWORK_SCAN:
+        {
+            pciScanListRef = taf_pa_radio_PerformPciNetworkScan(cmdReq->ratMask, cmdReq->phoneId);
+            if (pciScanListRef == nullptr)
+            {
+                LE_ERROR("taf_pa_radio_PerformPciNetworkScan failed (phoneId:%d)", cmdReq->phoneId);
+                res = LE_FAULT;
+            }
+            break;
+        }
+
+        default:
+            LE_ERROR("Unsupported async radio cmd type: %d", cmdReq->cmdType);
+            res = LE_UNSUPPORTED;
+            break;
+    }
+
+    taf_RadioCmdComplete_t complete = {cmdReq, res, scanListRef, pciScanListRef};
+    le_event_Report(taf_Radio::radioCmdCompleteEvId, &complete, sizeof(complete));
+}
+
+/*======================================================================
+
+ FUNCTION        taf_Radio::RadioCmdCompleteHandler
+
+ DESCRIPTION     async command completion events, executed in the MAIN thread's event loop.
+                 Removes cmdReq from pendingCmdList, then calls the IPC client callback
+                 if the session is still open (handlerFuncPtr != nullptr).
+
+ DEPENDENCIES    The initialization of Radio.
+
+ PARAMETERS      [IN] void* contextPtr: Context pointer.
+
+ RETURN VALUE    void*
+                     NULL: Success.
+
+ SIDE EFFECTS
+
+======================================================================*/
+void taf_Radio::RadioCmdCompleteHandler(void* reportPtr)
+{
+    taf_RadioCmdComplete_t* complete = (taf_RadioCmdComplete_t*)reportPtr;
+    taf_RadioCmdReq_t* cmdReq = complete->cmdPtr;
+
+    auto &tafRadio = taf_Radio::GetInstance();
+    le_dls_Remove(&tafRadio.pendingCmdList, &cmdReq->link);
+
+    switch (cmdReq->cmdType)
+    {
+        case TAF_RADIO_CMD_TYPE_ASYNC_REG_MANUAL:
+        {
+            taf_radio_ManualSelectionHandlerFunc_t handlerFunc =
+                (taf_radio_ManualSelectionHandlerFunc_t)cmdReq->handlerFuncPtr;
+            if (handlerFunc != nullptr)
+            {
+                LE_DEBUG("Handler function:%p, result:%d", handlerFunc, complete->result);
+                handlerFunc(complete->result, cmdReq->contextPtr);
+            }
+            else
+            {
+                LE_WARN("Session closed or no handler, skip callback for ASYNC_REG_MANUAL, result:%d",
+                    complete->result);
+            }
+            break;
+        }
+
+        case TAF_RADIO_CMD_TYPE_ASYNC_NETWORK_SCAN:
+        {
             taf_radio_CellularNetworkScanHandlerFunc_t handlerFunc =
                 (taf_radio_CellularNetworkScanHandlerFunc_t)cmdReq->handlerFuncPtr;
             if (handlerFunc != nullptr)
             {
-                LE_DEBUG("Handler function:%p listRef:%p", handlerFunc, listRef);
-                handlerFunc(listRef, cmdReq->contextPtr);
+                LE_DEBUG("Handler function:%p listRef:%p", handlerFunc, complete->scanListRef);
+                handlerFunc(complete->scanListRef, cmdReq->contextPtr);
+                complete->scanListRef = NULL;
             }
             else
             {
-                LE_WARN("No handler function");
+                LE_WARN("Session closed or no handler, skip callback for ASYNC_NETWORK_SCAN");
+            }
+            if (complete->scanListRef != NULL)
+            {
+                taf_radio_DeleteCellularNetworkScan(complete->scanListRef);
             }
             break;
         }
+
         case TAF_RADIO_CMD_TYPE_ASYNC_PCI_NETWORK_SCAN:
         {
-            taf_radio_PciScanInformationListRef_t listRef =
-                taf_pa_radio_PerformPciNetworkScan(cmdReq->ratMask, cmdReq->phoneId);
             taf_radio_PciNetworkScanHandlerFunc_t handlerFunc =
                 (taf_radio_PciNetworkScanHandlerFunc_t)cmdReq->handlerFuncPtr;
-            if (handlerFunc)
+            if (handlerFunc != nullptr)
             {
                 LE_DEBUG("Handler function:%p", handlerFunc);
-                handlerFunc(listRef, phoneId, cmdReq->contextPtr);
+                handlerFunc(complete->pciScanListRef, cmdReq->phoneId, cmdReq->contextPtr);
+                complete->pciScanListRef = NULL;
             }
             else
             {
-                LE_WARN("No handler function.");
+                LE_WARN("Session closed or no handler, skip callback for ASYNC_PCI_NETWORK_SCAN");
+            }
+            if (complete->pciScanListRef != NULL)
+            {
+                taf_radio_DeletePciNetworkScan(complete->pciScanListRef);
             }
             break;
         }
+
+        default:
+            LE_ERROR("RadioCmdCompleteHandler: unknown cmdType %d, releasing cmdReq.",
+                cmdReq->cmdType);
+            break;
     }
+
+    le_mem_Release(cmdReq);
 }
 
 /*======================================================================
@@ -3962,7 +4110,12 @@ void taf_Radio::Init(void)
     {
         // 13. Create and start command thread.
         le_sem_Ref_t radioCmdThreadSem = le_sem_Create("radioCmdThreadSem", 0);
-        radioCmdEvId = le_event_CreateId("radioCmd", sizeof(taf_RadioCmdReq_t));
+        radioCmdEvId = le_event_CreateIdWithRefCounting("radioCmd");
+        radioCmdCompleteEvId = le_event_CreateId("radioCmdComplete", sizeof(taf_RadioCmdComplete_t));
+        le_event_AddHandler("RadioCmdCompleteHandler", radioCmdCompleteEvId, RadioCmdCompleteHandler);
+        pendingCmdList = LE_DLS_LIST_INIT;
+        cmdReqPool = le_mem_CreatePool("cmdReqPool", sizeof(taf_RadioCmdReq_t));
+        le_msg_AddServiceCloseHandler(taf_radio_GetServiceRef(), ClientSessionCloseHandler, NULL);
         le_thread_Ref_t radioCmdThreadRef = le_thread_Create("radioCmdThread", RadioCmdThread, (void*)radioCmdThreadSem);
         le_thread_SetStackSize(radioCmdThreadRef, TAF_RADIO_THREAD_STACK_SIZE);
         le_thread_Start(radioCmdThreadRef);
@@ -3977,6 +4130,32 @@ void taf_Radio::Init(void)
         {
             RegisterListener();
             taf_pa_radio_EnableIndication();
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler called when a client session is closed.
+ * Clears handlerFuncPtr of any pending async cmd belonging to the closed session,
+ * preventing callbacks into freed client memory.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Radio::ClientSessionCloseHandler(le_msg_SessionRef_t sessionRef, void* contextPtr)
+{
+    LE_INFO("Client session %p closed, checking pending async cmds.", sessionRef);
+    auto &tafRadio = taf_Radio::GetInstance();
+    le_dls_Link_t* linkPtr = le_dls_Peek(&tafRadio.pendingCmdList);
+    while (linkPtr != NULL)
+    {
+        taf_RadioCmdReq_t* cmdPtr = CONTAINER_OF(linkPtr, taf_RadioCmdReq_t, link);
+        linkPtr = le_dls_PeekNext(&tafRadio.pendingCmdList, linkPtr);
+        if (cmdPtr->sessionRef == sessionRef)
+        {
+            LE_WARN("Clearing handler for pending cmd type %d due to session %p close.",
+                cmdPtr->cmdType, sessionRef);
+            cmdPtr->handlerFuncPtr = NULL;
+            cmdPtr->contextPtr = NULL;
         }
     }
 }

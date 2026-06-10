@@ -418,7 +418,7 @@ void taf_ecall::HandleIncomingCall(int phoneId, const RxECallIncomingCallParam_t
     telux::tel::CallState callState = incomingCall.callState;
 
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
-    auto cb = [promisePtr, &phone_Id](telux::common::ErrorCode error, int phoneId, ECallHlapTimerStatus hlapTimerStatus) {
+    auto cb = [promisePtr, phone_Id](telux::common::ErrorCode error, int phoneId, ECallHlapTimerStatus hlapTimerStatus) {
         try
         {
             if((error == telux::common::ErrorCode::SUCCESS) &&
@@ -1621,20 +1621,21 @@ le_result_t taf_ecall::GetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t
         return LE_BAD_PARAMETER;
     }
 
-    telux::tel::ECallMode eCallOpMode;
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
-    auto cb = [promisePtr,  &eCallOpMode](telux::tel::ECallMode eCallMode, telux::common::ErrorCode error)
+    auto resultMode = std::make_shared<telux::tel::ECallMode>();
+    std::future<le_result_t> futResult = promisePtr->get_future();
+    auto cb = [promisePtr, resultMode](telux::tel::ECallMode eCallMode, telux::common::ErrorCode error)
     {
         try
         {
             if (error == telux::common::ErrorCode::SUCCESS)
             {
-                eCallOpMode = eCallMode;
+                *resultMode = eCallMode;
                 promisePtr->set_value(LE_OK);
             }
             else
             {
-                LE_ERROR("requestECallHlapTimerStatus failed errorCode: %d ", int(error));
+                LE_ERROR("requestECallOperatingMode failed errorCode: %d ", int(error));
                 promisePtr->set_value(LE_FAULT);
             }
         }
@@ -1655,16 +1656,14 @@ le_result_t taf_ecall::GetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t
     telux::common::Status status = phone->requestECallOperatingMode(cb);
     if (status == telux::common::Status::SUCCESS) {
         LE_INFO("Get eCall op mode request sent successfully in phoneId: %d\n", phoneId);
-        std::future<le_result_t> futResult = promisePtr->get_future();
-        le_result_t res = futResult.get();
-        if (res == LE_OK)
+        if (futResult.get() == LE_OK)
         {
             LE_INFO("Get eCall op mode successfully done");
-            if (telux::tel::ECallMode::NORMAL == eCallOpMode)
+            if (telux::tel::ECallMode::NORMAL == *resultMode)
             {
                 *opMode = TAF_ECALL_MODE_NORMAL;
                 return LE_OK;
-            } else if (telux::tel::ECallMode::ECALL_ONLY == eCallOpMode) {
+            } else if (telux::tel::ECallMode::ECALL_ONLY == *resultMode) {
                 *opMode = TAF_ECALL_MODE_ECALL;
                 return LE_OK;
             } else {
@@ -2913,19 +2912,21 @@ le_result_t taf_ecall::GetNadDeregistrationTime(uint16_t* deregTime)
         LE_ERROR("deregTime is null.");
         return LE_FAULT;
     }
-    uint32_t dereg_Time;
+
     int phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
 
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
-    auto cb = [promisePtr, &dereg_Time](telux::common::ErrorCode error, uint32_t timeDuration)
+    auto resultTime = std::make_shared<uint32_t>(0);
+    std::future<le_result_t> futResult = promisePtr->get_future();
+    auto cb = [promisePtr, resultTime](telux::common::ErrorCode error, uint32_t timeDuration)
     {
         try
         {
             if(error == telux::common::ErrorCode::SUCCESS)
             {
-                promisePtr->set_value(LE_OK);
-                dereg_Time = timeDuration;
                 LE_INFO("Get NAD deregistration time (T10 in minutes) fetched as: %d", timeDuration);
+                *resultTime = timeDuration;
+                promisePtr->set_value(LE_OK);
             }
             else
             {
@@ -2950,9 +2951,8 @@ le_result_t taf_ecall::GetNadDeregistrationTime(uint16_t* deregTime)
     telux::common::Status status = CallManager->requestEcallHlapTimer(phoneId, HlapTimerType::T10_TIMER, cb);
 
     if (status == telux::common::Status::SUCCESS) {
-        std::future<le_result_t> futResult = promisePtr->get_future();
         if (futResult.get() == LE_OK) {
-            *deregTime =  (uint16_t) dereg_Time;
+            *deregTime = (uint16_t)(*resultTime);
             return LE_OK;
         }
     } else {
@@ -3256,16 +3256,17 @@ le_result_t taf_ecall::GetHlapTimerState(taf_ecall_HlapTimerType_t timerType, ta
 
 taf_ecall_HlapTimerStatus_t taf_ecall::GetHlapTimerStatus(taf_ecall_HlapTimerType_t timerType) {
     taf_ecall_HlapTimerStatus_t timerStatus;
-    ECallHlapTimerStatus receivedTimerStatus;
     int phone_id = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
 
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
-    auto cb = [promisePtr, &phone_id, &receivedTimerStatus](telux::common::ErrorCode error, int phoneId, ECallHlapTimerStatus hlapTimerStatus) {
+    auto resultStatus = std::make_shared<ECallHlapTimerStatus>();
+    std::future<le_result_t> futResult = promisePtr->get_future();
+    auto cb = [promisePtr, resultStatus, phone_id](telux::common::ErrorCode error, int phoneId, ECallHlapTimerStatus hlapTimerStatus) {
         try
         {
             if((error == telux::common::ErrorCode::SUCCESS) && (phone_id == phoneId))
             {
-                receivedTimerStatus = hlapTimerStatus;
+                *resultStatus = hlapTimerStatus;
                 promisePtr->set_value(LE_OK);
             }
             else
@@ -3291,19 +3292,17 @@ taf_ecall_HlapTimerStatus_t taf_ecall::GetHlapTimerStatus(taf_ecall_HlapTimerTyp
     telux::common::Status status = CallManager->requestECallHlapTimerStatus(phone_id, cb);
     if (status == telux::common::Status::SUCCESS) {
         LE_INFO("Get eCall hlap timer successfully.");
-        std::future<le_result_t> futResult = promisePtr->get_future();
-
         if (futResult.get() == LE_OK) {
             switch (timerType)
             {
                 case TAF_ECALL_TIMER_TYPE_T2:
-                    timerStatus = ConvertHlapTimerStatus(receivedTimerStatus.t2);
+                    timerStatus = ConvertHlapTimerStatus(resultStatus->t2);
                     break;
                 case TAF_ECALL_TIMER_TYPE_T9:
-                    timerStatus = ConvertHlapTimerStatus(receivedTimerStatus.t9);
+                    timerStatus = ConvertHlapTimerStatus(resultStatus->t9);
                     break;
                 case TAF_ECALL_TIMER_TYPE_T10:
-                    timerStatus = ConvertHlapTimerStatus(receivedTimerStatus.t10);
+                    timerStatus = ConvertHlapTimerStatus(resultStatus->t10);
                     break;
                 case TAF_ECALL_TIMER_TYPE_UNKNOWN:
                 default:

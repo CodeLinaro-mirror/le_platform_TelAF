@@ -131,6 +131,10 @@ void VehicleManager::ParseJsonConfig
 
         vehicleMgr.doipConfigPtr->maxDataSize
                 = root.get<uint32_t>("parameters.MDS");
+        if (vehicleMgr.doipConfigPtr->maxDataSize > MAX_MDS)
+        {
+            vehicleMgr.doipConfigPtr->maxDataSize = MAX_MDS;
+        }
 
         vehicleMgr.doipConfigPtr->maxAnnounceCount
                 = root.get<uint32_t>("parameters.timer.A_DoIP_Announce_Num");

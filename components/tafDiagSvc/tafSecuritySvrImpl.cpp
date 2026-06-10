@@ -6,9 +6,6 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSecuritySvr.hpp"
-#ifndef LE_CONFIG_DIAG_VSTACK
-#include "tafUpdateSvr.hpp"
-#endif
 
 using namespace tafsvc;
 
@@ -204,16 +201,6 @@ void taf_SecuritySvr::UDSMsgHandler
         LE_DEBUG("Previous session type: %X and Current session type: %x",
                 sesChangePtr->previousSesType, sesChangePtr->currentSesType);
 
-#ifndef LE_CONFIG_DIAG_VSTACK
-        if ((sesChangePtr->previousSesType == TAF_DIAGSECURITY_PROGRAMMING ||
-                sesChangePtr->previousSesType == TAF_DIAGSECURITY_FOTA ||
-                        sesChangePtr->previousSesType
-                                == TAF_DIAGSECURITY_DOWNLOADED_ENUMLATION_SESSION)
-                                        &&  sesChangePtr->currentSesType  == 0x01)
-        {
-            taf_UpdateSvr::GetInstance().programmingInterrupt(addrPtr->vlanId);
-        }
-#endif
         // Report the session control request message to message handler in service layer.
         le_event_ReportWithRefCounting(SesChangeEvent, sesChangePtr);
     }

@@ -103,15 +103,9 @@ typedef struct {
         static struct sigaction oldAct2; \
         static int safeRun = 0;	\
         static void handler(int signum){ \
-            LE_INFO("receive signal %d",signum); \
-            \
             if(safeRun == 1) \
             { \
                 siglongjmp(env , 1); \
-            } \
-            else \
-            { \
-                LE_INFO("ignore non safe run invoke!"); \
             } \
         } \
 

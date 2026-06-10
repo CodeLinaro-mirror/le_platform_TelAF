@@ -814,6 +814,7 @@ le_result_t taf_update_CancelInstall
                     }
                     else
                         tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
+                    break;
                 case TAF_UPDATE_INSTALL_PAUSED:
                     LE_INFO("Cancel the installation while in the paused state.");
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);

@@ -87,40 +87,43 @@ taf_sms_hlos_GetLockStatus(taf_sms_Storage_t storage, uint32_t index)
  * @return void
  */
 //--------------------------------------------------------------------------------------------------
-LE_SHARED void taf_sms_hlos_StoreNewMsgToHLOS(void* newMsg)
+LE_SHARED le_result_t taf_sms_hlos_StoreNewMsgToHLOS(void* newMsg)
 {
     LE_DEBUG("taf_sms_hlos_StoreNewMsgToHLOS");
 
-    auto& hlosSms = taf_sms_hlos::GetInstance();
-    if (hlosSms.sysPrefStorage == TAF_SMS_STORAGE_HLOS)
+    taf_sms_Pdu_t* pduPtr = (taf_sms_Pdu_t*)newMsg;
+    uint32_t occupiedSlot = 0;
+    le_result_t storeRes = taf_sms_hlos_storeRxMsg(pduPtr->data, pduPtr->length,
+        &pduPtr->index, &occupiedSlot);
+    LE_DEBUG("storeRes: %d, index: %u, occupiedSlot: %u", storeRes, pduPtr->index, occupiedSlot);
+
+    if (storeRes == LE_FAULT)
     {
-        taf_sms_Pdu_t* pduPtr = (taf_sms_Pdu_t*)newMsg;
-
-        uint32_t idx = 0;
-        uint32_t msgCount = taf_sms_hlos_storeRxMsg(pduPtr->data, pduPtr->length, &idx);
-
-        LE_DEBUG("msgCount: %d", msgCount);
-
-        taf_sms_hlos_StorageInd_t storageInd;
-        storageInd.fullType = TAF_SMS_FULL_UNKNOWN;
-
-        if (msgCount >= MAX_OF_SMS_MSG_IN_HLOS)
-        {
-            LE_INFO("TAF_SMS_FULL_HLOS");
-            storageInd.fullType = TAF_SMS_FULL_HLOS;
-        }
-        else if (msgCount >= HLOS_ALERT_THRESHOLD)
-        {
-            LE_INFO("TAF_SMS_FULL_HLOS_ALERT");
-            storageInd.fullType = TAF_SMS_FULL_HLOS_ALERT;
-        }
-
-        if (storageInd.fullType != TAF_SMS_FULL_UNKNOWN)
-        {
-            auto &smsInstance = tafsvc::taf_Sms::GetInstance();
-            le_event_Report(smsInstance.StorageEvent, (void*)&storageInd, sizeof(storageInd));
-        }
+        LE_ERROR("Failed to store new SMS to HLOS, res: %d", storeRes);
+        return LE_FAULT;
     }
+
+    taf_sms_hlos_StorageInd_t storageInd;
+    storageInd.fullType = TAF_SMS_FULL_UNKNOWN;
+
+    if (storeRes == LE_NO_MEMORY || occupiedSlot >= MAX_OF_SMS_MSG_IN_HLOS)
+    {
+        LE_INFO("TAF_SMS_FULL_HLOS");
+        storageInd.fullType = TAF_SMS_FULL_HLOS;
+    }
+    else if (occupiedSlot >= HLOS_ALERT_THRESHOLD)
+    {
+        LE_INFO("TAF_SMS_FULL_HLOS_ALERT");
+        storageInd.fullType = TAF_SMS_FULL_HLOS_ALERT;
+    }
+
+    if (storageInd.fullType != TAF_SMS_FULL_UNKNOWN)
+    {
+        auto &smsInstance = tafsvc::taf_Sms::GetInstance();
+        le_event_Report(smsInstance.StorageEvent, (void*)&storageInd, sizeof(storageInd));
+    }
+
+    return storeRes;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -144,12 +147,15 @@ taf_sms_hlos& taf_sms_hlos::GetInstance()
     return instance;
 }
 
-uint32_t taf_sms_hlos_storeRxMsg(uint8_t pduData[TAF_SMS_PDU_BYTES],
+le_result_t taf_sms_hlos_storeRxMsg(uint8_t pduData[TAF_SMS_PDU_BYTES],
     uint32_t dataLen,
-    uint32_t* index)
+    uint32_t* index,
+    uint32_t* occupiedSlot)
 {
     TAF_ERROR_IF_RET_VAL(dataLen > TAF_SMS_PDU_BYTES, LE_FAULT,
         "dataLen(%u) overflow", dataLen);
+    TAF_ERROR_IF_RET_VAL(index == NULL || occupiedSlot == NULL, LE_FAULT,
+        "invalid null parameter");
 
     for (uint i = 0; i < dataLen; i++)
     {
@@ -157,7 +163,8 @@ uint32_t taf_sms_hlos_storeRxMsg(uint8_t pduData[TAF_SMS_PDU_BYTES],
     }
 
     bool findSlot = false;
-    uint32_t occupiedSlot = 0;
+    *index = 0;
+    *occupiedSlot = 0;
     le_result_t res = LE_OK;
 
     char smsFileStr[SMS_MAX_FILE_LEN * 2 + 1] = { 0 };
@@ -182,49 +189,52 @@ uint32_t taf_sms_hlos_storeRxMsg(uint8_t pduData[TAF_SMS_PDU_BYTES],
 
         if (le_fs_Exists(smsPath))
         {
-            occupiedSlot++;
+            (*occupiedSlot)++;
         }
         else if (findSlot == false)
         {
             res = le_fs_Open(smsPath, LE_FS_CREAT | LE_FS_WRONLY, &fileRef);
 
-            TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Fail to open state file.");
+            if (res != LE_OK)
+            {
+                LE_ERROR("Fail to open state file, slot[%u], res=%d, try next.", i, res);
+                continue;
+            }
 
             size_t size = ((size_t)dataLen) * sizeof(char) * 2;
             res = le_fs_Write(fileRef, (uint8_t*)smsFileStr, size);
+            le_fs_Close(fileRef);
 
             if (res != LE_OK)
             {
-                LE_DEBUG("Fail to write state.");
-            }
-            else
-            {
-                LE_DEBUG("Write to slot [%u]", i);
-
-                *index = i;
-                findSlot = true;
-                occupiedSlot++;
+                LE_ERROR("Fail to write state, slot[%u], res=%d, try next.", i, res);
+                le_fs_Delete(smsPath);
+                continue;
             }
 
-            le_fs_Close(fileRef);
+            LE_DEBUG("Write to slot [%u]", i);
+            *index = i;
+            findSlot = true;
+            (*occupiedSlot)++;
         }
     }
 
-    LE_DEBUG("occupied slots = %d", occupiedSlot);
+    LE_DEBUG("occupied slots = %d", *occupiedSlot);
 
     if (findSlot == false)
     {
-        occupiedSlot = MAX_OF_SMS_MSG_IN_HLOS + 1;
+        LE_ERROR("No available slot in HLOS storage");
+        return LE_NO_MEMORY;
     }
 
-    if (occupiedSlot >= HLOS_RECYCLING_THRESHOLD)
+    if (*occupiedSlot >= HLOS_RECYCLING_THRESHOLD)
     {
         LE_DEBUG("Recycling threshold = %d, enter mechanism",
             HLOS_RECYCLING_THRESHOLD);
         taf_sms_hlos_recycling();
     }
 
-    return occupiedSlot;
+    return LE_OK;
 }
 
 uint32_t taf_sms_hlos_recycling()
@@ -453,7 +463,7 @@ le_result_t taf_sms_hlos_ReadPDUMsgFromStorage(uint32_t index,
     le_fs_FileRef_t fileRef;
     le_result_t res = le_fs_Open(smsPath, LE_FS_RDONLY, &fileRef);
 
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Fail to open sms file");
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Fail to open sms file, res=%d", res);
 
     char smsFileStr[SMS_MAX_FILE_LEN * 2 + 1] = { 0 };
     uint8_t cypherData[SMS_AES_PKCS7_ENCRYPTED_LEN] = { 0 };
@@ -463,7 +473,7 @@ le_result_t taf_sms_hlos_ReadPDUMsgFromStorage(uint32_t index,
 
     if (res != LE_OK)
     {
-        LE_DEBUG("Fail to read sms file");
+        LE_ERROR("Fail to read sms file, res=%d", res);
         le_fs_Close(fileRef);
         return res;
     }
@@ -593,7 +603,7 @@ le_result_t SetHeaderStatus(uint32_t index, uint8_t statusMask, bool enable)
     le_fs_FileRef_t fileRef;
     le_result_t res = le_fs_Open(smsPath, LE_FS_RDONLY, &fileRef);
 
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Fail to open sms file");
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Fail to open sms file, res=%d", res);
 
     uint8_t header[HLOS_SMS_HEADER_LEN] = { 0 };
     size_t headerSize = sizeof(header);
@@ -604,7 +614,7 @@ le_result_t SetHeaderStatus(uint32_t index, uint8_t statusMask, bool enable)
 
     if (res != LE_OK)
     {
-        LE_DEBUG("Fail to read sms file");
+        LE_ERROR("Fail to read sms file, res=%d", res);
         le_fs_Close(fileRef);
         return LE_FAULT;
     }
@@ -649,14 +659,14 @@ le_result_t SetHeaderStatus(uint32_t index, uint8_t statusMask, bool enable)
 
     res = le_fs_Open(smsPath, LE_FS_WRONLY, &fileRef);
 
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Fail to open sms file");
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Fail to open sms file, res=%d", res);
 
     fHeaderSize = (HLOS_SMS_HEADER_LEN * 2); // Force set writing length as SMS header length
     res = le_fs_Write(fileRef, (uint8_t*)fHeader, fHeaderSize);
 
     if (res != LE_OK)
     {
-        LE_DEBUG("Fail to write sms file");
+        LE_ERROR("Fail to write sms file, res=%d", res);
         le_fs_Close(fileRef);
         return LE_FAULT;
     }
@@ -674,7 +684,7 @@ bool IsHeaderStatusEnable(uint32_t index, uint8_t statusMask)
     le_fs_FileRef_t fileRef;
     le_result_t res = le_fs_Open(smsPath, LE_FS_RDONLY, &fileRef);
 
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, false, "Fail to open sms file");
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, false, "Fail to open sms file, res=%d", res);
 
     uint8_t header[HLOS_SMS_HEADER_LEN] = { 0 };
     size_t headerSize = sizeof(header);
@@ -685,7 +695,7 @@ bool IsHeaderStatusEnable(uint32_t index, uint8_t statusMask)
 
     if (res != LE_OK)
     {
-        LE_DEBUG("Fail to read sms file");
+        LE_ERROR("Fail to read sms file, res=%d", res);
         le_fs_Close(fileRef);
         return false;
     }
@@ -853,8 +863,8 @@ le_result_t taf_sms_hlos_EncryptFromStorage(uint32_t index)
     le_fs_FileRef_t fileRef_src, fileRef_dest;
 
     le_result_t res = le_fs_Open(smsPath_src, LE_FS_RDONLY, &fileRef_src);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Fail to open sms file %s",
-        smsPath_src);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Fail to open sms file %s, res=%d",
+        smsPath_src, res);
 
     char smsFileStr[SMS_MAX_FILE_LEN * 2 + 1] = { 0 };
     size_t fHeaderSize = (HLOS_SMS_HEADER_LEN)*2 + 1;
@@ -863,7 +873,7 @@ le_result_t taf_sms_hlos_EncryptFromStorage(uint32_t index)
 
     if (res != LE_OK)
     {
-        LE_DEBUG("Fail to read sms file");
+        LE_ERROR("Fail to read sms file %s, res=%d", smsPath_src, res);
         le_fs_Close(fileRef_src);
         return LE_FAULT;
     }
@@ -885,13 +895,17 @@ le_result_t taf_sms_hlos_EncryptFromStorage(uint32_t index)
         index, SMS_STORAGE_ENCRYPTED_SUFFIX);
 
     res = le_fs_Open(smsPath_dest, LE_FS_CREAT | LE_FS_WRONLY, &fileRef_dest);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Fail to open sms file %s",
-        smsPath_dest);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Fail to open sms file %s, res=%d",
+        smsPath_dest, res);
 
     size_t size = ((size_t)dataLen) * sizeof(char) * 2;
     res = le_fs_Write(fileRef_dest, (uint8_t*)smsFileStr, size);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Fail to write sms file %s",
-        smsPath_dest);
+    if (res != LE_OK)
+    {
+        LE_ERROR("Fail to write sms file %s, res %d", smsPath_dest, res);
+        le_fs_Close(fileRef_dest);
+        return LE_FAULT;
+    }
 
     le_fs_Close(fileRef_dest);
 

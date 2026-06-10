@@ -1888,6 +1888,11 @@ void tafMngdConnAdmin::EventDataConnected(uint8_t dataId)
     if(result != LE_OK)
     {
         LE_ERROR("Getting interface name failed for dataID %d",dataCtxPtr->dataId);
+        dataCtxPtr->adminState = MCS_DATA_CONNECTED_INACTIVE_RETRYING;
+        stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
+        stateMachineEvt.event = MCS_EVT_DATA_STOP;
+        stateMachineEvt.dataId = dataCtxPtr->dataId;
+        le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
         return;
     }
     LE_INFO("Interface Name for DataID: %d is %s", dataId, dataCtxPtr->intfName);
@@ -2000,6 +2005,11 @@ void tafMngdConnAdmin::EventDataDisconnected(uint8_t dataId)
             le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
             break;
 
+        case MCS_DATA_CONNECTED_INACTIVE:
+            // Data disconnected before connection test started (e.g. DCS disconnect arrived
+            // before TAF_DCS_CONNECTED event was processed). Fall through to ACTIVE handling.
+            LE_INFO("Data call disconnected in INACTIVE state");
+            // fall through
         case MCS_DATA_CONNECTED_ACTIVE:
         {
             // Check if autoStart or needReConn are true before starting the retry mechanism

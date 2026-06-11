@@ -154,7 +154,9 @@ static void PrintUsage ()
         "------------To Test PMVHAL stayawake after while suspending through MPMS-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestPmvhalStayAwakeAfterMpmsSuspendTrigger\n"
         "------------To register a client for power state notifications which does not acknowledges-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- RegisterClientForPowerStateNotificationWithoutAcknowledgement\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- RegisterClientForPowerStateNotificationWithoutAcknowledgement\n"
+        "------------To Test node power state handler registration with state mask 0-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestAddNodePowerStateChangeHandlerStateMask\n");
 }
 
 void NodePowerStateChangeHandlerCB(
@@ -2698,6 +2700,45 @@ void NotifyVhalOnClientDisconnectionForReleaseWS()
     }
 }
 
+void StateMaskNodePowerStateChangeHandler
+(
+    uint8_t pmNodeId,
+    taf_mngdPm_nodePowerStateRef_t nodePowerStateRef,
+    taf_mngdPm_NodePowerState_t state,
+    void *contextPtr
+)
+{
+    LE_UNUSED(pmNodeId);
+    LE_UNUSED(nodePowerStateRef);
+    LE_UNUSED(state);
+    LE_UNUSED(contextPtr);
+
+    LE_INFO("Callback for NodePowerStateChange handler");
+    exit(EXIT_FAILURE);
+}
+
+void TestAddNodePowerStateChangeHandlerStateMask(taf_mngdPm_NodePowerStateChangeBitMask_t inputStateMask)
+{
+    uint8_t pmNodeId = 0;
+
+    LE_INFO("Registering NodePowerStateChangeHandler with state mask %d", inputStateMask);
+    taf_mngdPm_NodePowerStateChangeHandlerRef_t ref =
+        taf_mngdPm_AddNodePowerStateChangeHandler(
+        StateMaskNodePowerStateChangeHandler, NULL, pmNodeId, inputStateMask);
+
+    if (ref == NULL)
+    {
+        LE_ERROR("AddNodePowerStateChangeHandler failed for state mask %d", inputStateMask);
+        exit(EXIT_FAILURE);
+    }
+
+    // Wait briefly to ensure no immediate callback is triggered for empty mask.
+    le_thread_Sleep(1);
+    taf_mngdPm_RemoveNodePowerStateChangeHandler(ref);
+    LE_INFO("Add/Remove NodePowerStateChangeHandler succeeded for state mask 0");
+    exit(EXIT_SUCCESS);
+}
+
 static void TestGetCurrentPowerStateFromPrimaryNad()
 {
     taf_mngdPm_NodePowerState_t pwrState = TAF_MNGDPM_NODE_STATE_RESUME;
@@ -3030,6 +3071,15 @@ COMPONENT_INIT
         else if(strcmp(testType, "get.current.state") == 0)
         {
             TestGetCurrentPowerStateFromPrimaryNad();
+        }
+        else if(strcmp(testType, "TestAddNodePowerStateChangeHandlerStateMask") == 0)
+        {
+            if (testPar)
+            TestAddNodePowerStateChangeHandlerStateMask(atoi(testPar));
+            else {
+                printf("Enter statemask value, an unsigned intergre");
+                exit(EXIT_FAILURE);
+            }
         }
         else if(strcmp(testType, "RegisterClientForPowerStateNotificationWithoutAcknowledgement") == 0)
         {

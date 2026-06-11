@@ -1871,7 +1871,6 @@ bool tafMngdPMSvc::IsConfiguredBitMask(taf_mngdPm_NodePowerState_t state, taf_mn
     }
     else
     {
-        LE_ERROR("IsConfiguredBitMask: false");
         isSameBitMask = false;
     }
     LE_INFO("IsConfiguredBitMask: %d", isSameBitMask);

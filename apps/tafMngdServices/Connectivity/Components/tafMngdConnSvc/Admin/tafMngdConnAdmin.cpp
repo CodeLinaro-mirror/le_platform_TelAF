@@ -1647,8 +1647,17 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
                 dataCtxPtr->dataStartRetryCount = dataCtxPtr->dataConnTestFailedRetryCount;
                 //Set the retry count to 1
                 dataCtxPtr->dataConnTestFailedRetryCount += 1;
-                //If manually stopped the data successfully. Set reconnection flag to false.
                 dataCtxPtr->needReConn = false;
+
+                dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_RETRYING;
+                LE_DEBUG("DataID: %d - Session already stopped/disconnected in connectivity-test "
+                    "retry path. Firing MCS_EVT_DATA_START_RETRY to continue retry.",
+                dataCtxPtr->dataId);
+                stateMachineEvent_t retryEvt = {MCS_EVT_INIT, 0};
+                retryEvt.event = MCS_EVT_DATA_START_RETRY;
+                retryEvt.dataId = dataCtxPtr->dataId;
+                le_event_Report(StateMachineEventId, &retryEvt, sizeof(stateMachineEvent_t));
+
                 return LE_OK;
             }
             else if(result == LE_TIMEOUT)

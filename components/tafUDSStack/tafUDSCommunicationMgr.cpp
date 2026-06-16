@@ -3012,6 +3012,17 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
             return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
         }
     }
+    else
+    {
+        // Check the total length for other inputOutputControlParameter. UDS_0x2F_NRC_13
+        uint16_t ctrlEnableMaskRecordSize = cfg::get_ioctrl_en_mask_record_size(dataId);
+        //ControlState byte length is 0, only compare with mask size + UDS_IOCBID_REQ_MIN_LEN
+        if(recvDataLen != ctrlEnableMaskRecordSize + UDS_IOCBID_REQ_MIN_LEN)
+        {
+            LE_WARN("The received length mismatches the length configured.");
+            return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+        }
+    }
 
     // Step 6: Authentication check. UDS_0x2F_NRC_34
     try

@@ -377,7 +377,10 @@ static le_result_t ReplaceFileWithBackup(const char* filePath)
         return LE_FAULT;
     }
 
-    int outputFd = open(filePath, O_WRONLY | O_CREAT | O_TRUNC, stat_buf.st_mode);
+    // Strip execute bits: secStorage holds inherently non-executable data files,
+    // so never propagate any execute permission inherited from the source (CR 4551772).
+    mode_t destMode = stat_buf.st_mode & ~(S_IXUSR | S_IXGRP | S_IXOTH);
+    int outputFd = open(filePath, O_WRONLY | O_CREAT | O_TRUNC, destMode);
     if (outputFd == -1)
     {
         LE_ERROR("Failed to open original file for writing");
@@ -446,7 +449,10 @@ static le_result_t BackUpFileAndSELinuxContext(const char* sourcePath, const cha
         return LE_FAULT;
     }
 
-    int outputFd = open(targetPath, O_WRONLY | O_CREAT | O_TRUNC, stat_buf.st_mode);
+    // Strip execute bits: the backup of a secStorage data file must not carry
+    // execute permission inherited from the source (CR 4551772).
+    mode_t destMode = stat_buf.st_mode & ~(S_IXUSR | S_IXGRP | S_IXOTH);
+    int outputFd = open(targetPath, O_WRONLY | O_CREAT | O_TRUNC, destMode);
     if (outputFd < 0)
     {
         LE_ERROR("Failed to open target file for copying");

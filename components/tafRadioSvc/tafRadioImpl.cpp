@@ -1202,6 +1202,14 @@ taf_radio_RatBitMask_t Utility::Convert::Rat
     if (bitmask & TAF_PA_RADIO_BITMASK_RAT_NR5G)
         result |= TAF_RADIO_RAT_BIT_MASK_NR5G;
 
+    const taf_radio_RatBitMask_t allRatMask = TAF_RADIO_RAT_BIT_MASK_GSM |
+        TAF_RADIO_RAT_BIT_MASK_CDMA | TAF_RADIO_RAT_BIT_MASK_UMTS |
+        TAF_RADIO_RAT_BIT_MASK_TDSCDMA | TAF_RADIO_RAT_BIT_MASK_LTE |
+        TAF_RADIO_RAT_BIT_MASK_NR5G;
+
+    if ((result & allRatMask) == allRatMask)
+        return TAF_RADIO_RAT_BIT_MASK_ALL;
+
     return result;
 }
 

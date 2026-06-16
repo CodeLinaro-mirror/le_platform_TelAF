@@ -294,7 +294,7 @@ void UdsCommunicationMgr::UdsTimerHandler
                     remainingTime, eventReq->interval);
                 if(remainingTime >= eventReq->interval)
                 {
-                    LE_DEBUG("11111No need to restart S3 timer");
+                    LE_DEBUG("No need to restart S3 timer");
                     return;
                 }
 
@@ -3069,6 +3069,17 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
         {
             // Control Option record check not define. Don't check it.
             LE_WARN("Exception: %s. ControlRec check not define for dataId 0x%x", e.what(), dataId);
+        }
+    }
+    else
+    {
+        // Check the total length for other inputOutputControlParameter. UDS_0x2F_NRC_13
+        uint16_t ctrlEnableMaskRecordSize = cfg::get_ioctrl_en_mask_record_size(dataId);
+        //ControlState byte length is 0, only compare with mask size + UDS_IOCBID_REQ_MIN_LEN
+        if(recvDataLen != ctrlEnableMaskRecordSize + UDS_IOCBID_REQ_MIN_LEN)
+        {
+            LE_WARN("The received length mismatches the length configured.");
+            return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
         }
     }
 

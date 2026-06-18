@@ -170,6 +170,14 @@ void PrintHelpMenu
         "    app runProc tafRadioIntTest tafRadioIntTest -- cellularCapability <phone>\n"
         "       To show hardware capabilities related to SIM and hardware RAT.\n"
         "\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- endc <phone>\n"
+        "       To show ENDC (E-UTRA NR Dual Connectivity) connection status.\n"
+	    "       phone : '1' or '2'.\n"
+        "\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- lte-ca <phone>\n"
+        "       To show LTE Carrier Aggregation (CA) information (PCell/SCell).\n"
+        "       phone : '1' or '2'.\n"
+        "\n"
     );
 
     exit(EXIT_SUCCESS);
@@ -1063,40 +1071,147 @@ void PrintRFBandwidth
     }
 }
 
-void PrintCAStatus
-(
-    uint8_t phoneId,             ///< [IN] Phone ID.
-    taf_radio_CAStatus_t status ///< [IN] CA status.
-)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts LTE CA status to a printable string.
+ */
+//--------------------------------------------------------------------------------------------------
+static const char* CaStatusToStr(taf_radio_CAStatus_t status)
 {
     switch (status)
     {
-        case TAF_RADIO_CA_STATUS_DEACTIVATED:
-            LE_INFO("Phone %d CA status : Deactivated.", phoneId);
-            break;
-        case TAF_RADIO_CA_STATUS_ACTIVATED:
-            LE_INFO("Phone %d CA status : Activated.", phoneId);
-            break;
-        default:
-            LE_INFO("Phone %d CA status : Unknown.", phoneId);
-            break;
+        case TAF_RADIO_CA_STATUS_DEACTIVATED: return "DEACTIVATED";
+        case TAF_RADIO_CA_STATUS_ACTIVATED:   return "ACTIVATED";
+        default:                              return "UNKNOWN";
     }
 }
 
-void PrintLteCAInfo
-(
-    uint8_t phoneId,              ///< [IN] Phone ID.
-    taf_radio_CAInfoRef_t infoRef ///< [IN] CA information reference.
-)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts LTE CA SCell state to a printable string.
+ */
+//--------------------------------------------------------------------------------------------------
+static const char* CaScellStateToStr(taf_radio_CAScellState_t state)
 {
-    taf_radio_CAStatus_t status = TAF_RADIO_CA_STATUS_DEACTIVATED;
-    uint32_t count = 0;
-    le_result_t result =  taf_radio_GetLteCAStatus(infoRef, &status, &count);
-    LE_TEST_OK(result == LE_OK, "taf_radio_GetLteCAStatus - OK");
-    if (result == LE_OK)
+    switch (state)
     {
-        PrintCAStatus(phoneId, status);
-        LE_INFO("Phone %d CA activated CC number : %d", phoneId, count);
+        case TAF_RADIO_CA_SCELL_STATE_DECONFIGURED:
+            return "DECONFIGURED";
+        case TAF_RADIO_CA_SCELL_STATE_CONFIGURED_DEACTIVATED:
+            return "CONFIGURED_DEACTIVATED";
+        case TAF_RADIO_CA_SCELL_STATE_CONFIGURED_ACTIVATED:
+            return "CONFIGURED_ACTIVATED";
+        case TAF_RADIO_CA_SCELL_STATE_INVALID:
+        default:
+            return "INVALID";
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts LTE CA bandwidth to a printable string.
+ */
+//--------------------------------------------------------------------------------------------------
+static inline const char* LteCphyCaBandwidthToStr(taf_radio_RFBandWidth_t bandwidth)
+{
+    switch (bandwidth)
+    {
+        case TAF_RADIO_RF_BANDWIDTH_LTE_BW_1_4:   return "NRB_6 (1.4MHz)";
+        case TAF_RADIO_RF_BANDWIDTH_LTE_BW_3:  return "NRB_15 (3MHz)";
+        case TAF_RADIO_RF_BANDWIDTH_LTE_BW_5:  return "NRB_25 (5MHz)";
+        case TAF_RADIO_RF_BANDWIDTH_LTE_BW_10:  return "NRB_50 (10MHz)";
+        case TAF_RADIO_RF_BANDWIDTH_LTE_BW_15:  return "NRB_75 (15MHz)";
+        case TAF_RADIO_RF_BANDWIDTH_LTE_BW_20: return "NRB_100 (20MHz)";
+        case TAF_RADIO_RF_BANDWIDTH_INVALID: return "UNKNOWN";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Prints LTE CA PCell/SCell information for a CA information reference.
+ */
+//--------------------------------------------------------------------------------------------------
+static void PrintLteCAInfo(uint8_t phoneId, taf_radio_CAInfoRef_t infoRef)
+{
+    le_result_t result;
+    taf_radio_CAStatus_t caStatus = TAF_RADIO_CA_STATUS_DEACTIVATED;
+    uint32_t ccCount = 0;
+    uint16_t pPci = 0;
+    uint32_t pFreq = 0;
+    taf_radio_RFBandWidth_t pDlBw = 0;
+    uint16_t pBand = 0;
+
+    result = taf_radio_GetLteCAStatus(infoRef, &caStatus, &ccCount);
+    if (result == LE_OK) LE_TEST_INFO("LTE CA Status: %s, Active CC Count: %u", CaStatusToStr(caStatus), ccCount);
+    else LE_TEST_INFO("GetLteCAStatus failed: %d", result);
+
+    result = taf_radio_GetLteCAPCellPci(infoRef, &pPci);
+    if (result == LE_OK) LE_TEST_INFO("PCell PCI: %u", pPci);
+    else LE_TEST_INFO("GetLteCAPCellPci failed: %d", result);
+
+    result = taf_radio_GetLteCAPCellFreq(infoRef, &pFreq);
+    if (result == LE_OK) LE_TEST_INFO("PCell Freq: %u", pFreq);
+    else LE_TEST_INFO("GetLteCAPCellFreq failed: %d", result);
+
+    result = taf_radio_GetLteCAPCellDlBandwidth(infoRef, &pDlBw);
+    if (result == LE_OK) LE_TEST_INFO("PCell DL BW: %s", LteCphyCaBandwidthToStr(pDlBw));
+    else LE_TEST_INFO("GetLteCAPCellDlBandwidth failed: %d", result);
+
+    result = taf_radio_GetLteCAPCellBand(infoRef, &pBand);
+    if (result == LE_OK) LE_TEST_INFO("PCell Band: %u", pBand);
+    else LE_TEST_INFO("GetLteCAPCellBand failed: %d", result);
+
+    uint32_t scellCount = 0;
+    result = taf_radio_GetLteCASCellCount(infoRef, &scellCount);
+    if (result != LE_OK)
+    {
+        LE_TEST_INFO("GetLteCASCellCount failed: %d", result);
+        return;
+    }
+
+    LE_TEST_INFO("SCell Count: %u", scellCount);
+
+    for (uint32_t i = 0; i < scellCount; i++)
+    {
+        uint16_t sPci = 0;
+        uint32_t sFreq = 0;
+        taf_radio_RFBandWidth_t sDlBw = 0;
+        uint16_t sBand = 0;
+        taf_radio_CAScellState_t sState = 0;
+        uint8_t  sIndex = 0;
+        bool     sUlCfg = false;
+
+        LE_TEST_INFO("---- SCell[%u] ----", i);
+
+        result = taf_radio_GetLteCASCellPci(infoRef, i, &sPci);
+        if (result == LE_OK) LE_TEST_INFO("PCI: %u", sPci);
+        else LE_TEST_INFO("GetLteCASCellPci failed: %d", result);
+
+        result = taf_radio_GetLteCASCellFreq(infoRef, i, &sFreq);
+        if (result == LE_OK) LE_TEST_INFO("Freq: %u", sFreq);
+        else LE_TEST_INFO("GetLteCASCellFreq failed: %d", result);
+
+        result = taf_radio_GetLteCASCellDlBandwidth(infoRef, i, &sDlBw);
+        if (result == LE_OK) LE_TEST_INFO("DL BW: %s", LteCphyCaBandwidthToStr(sDlBw));
+        else LE_TEST_INFO("GetLteCASCellDlBandwidth failed: %d", result);
+
+        result = taf_radio_GetLteCASCellBand(infoRef, i, &sBand);
+        if (result == LE_OK) LE_TEST_INFO("Band: %u", sBand);
+        else LE_TEST_INFO("GetLteCASCellBand failed: %d", result);
+
+        result = taf_radio_GetLteCASCellState(infoRef, i, &sState);
+        if (result == LE_OK) LE_TEST_INFO("State: %s", CaScellStateToStr(sState));
+        else LE_TEST_INFO("GetLteCASCellState failed: %d", result);
+
+        result = taf_radio_GetLteCASCellIndex(infoRef, i, &sIndex);
+        if (result == LE_OK) LE_TEST_INFO("SCellIndex: %u", sIndex);
+        else LE_TEST_INFO("GetLteCASCellIndex failed: %d", result);
+
+        result = taf_radio_GetLteCASCellUlConfigured(infoRef, i, &sUlCfg);
+        if (result == LE_OK) LE_TEST_INFO("UL Configured: %s", sUlCfg ? "true" : "false");
+        else LE_TEST_INFO("GetLteCASCellUlConfigured failed: %d", result);
     }
 }
 
@@ -1155,6 +1270,7 @@ void LteCaInfoHandler
     void* contextPtr                  ///< [IN] Handler context.
 )
 {
+    LE_INFO("LTE CA Info changed: Phone %d, infoRef: %p.", phoneId, infoRef);
     PrintLteCAInfo(phoneId, infoRef);
 }
 
@@ -2634,9 +2750,13 @@ COMPONENT_INIT
             {
                 int32_t rssi;
                 uint32_t ber;
+                int32_t ss;
                 result = taf_radio_GetGsmSignalMetrics(metrics, &rssi, &ber);
                 LE_TEST_OK(result == LE_OK, "taf_radio_GetGsmSignalMetrics - OK");
-                LE_INFO("GSM signal strength %d dBm.", rssi);
+                result = taf_radio_GetGsmSignalMetricsSs(metrics, &ss);
+                LE_TEST_OK(result == LE_OK, "taf_radio_GetGsmSignalMetricsSs - OK");
+                LE_INFO("GSM RSSI %d dBm.", rssi);
+                LE_INFO("GSM signal strength %d dBm.", ss);
                 LE_INFO("GSM bit error rate %d.", ber);
             }
 
@@ -2645,11 +2765,18 @@ COMPONENT_INIT
                 int32_t ss;
                 uint32_t bler;
                 int32_t rscp;
+                int32_t ecio;
                 result = taf_radio_GetUmtsSignalMetrics(metrics, &ss, &bler, &rscp);
                 LE_TEST_OK(result == LE_OK, "taf_radio_GetUmtsSignalMetrics - OK");
+                if (ratMask & TAF_RADIO_RAT_BIT_MASK_UMTS)
+                {
+                    result = taf_radio_GetUmtsSignalMetricsEcio(metrics, &ecio);
+                    LE_TEST_OK(result == LE_OK, "taf_radio_GetUmtsSignalMetricsEcio - OK");
+                }
                 LE_INFO("UMTS signal strength %d dBm.", ss);
                 LE_INFO("UMTS block error rate %d.", bler);
                 LE_INFO("UMTS received signal channel power %d dBm.", rscp);
+                LE_INFO("UMTS Ec/Io %d dB.", ecio);
             }
 
             if (ratMask & TAF_RADIO_RAT_BIT_MASK_LTE)
@@ -2658,9 +2785,13 @@ COMPONENT_INIT
                 int32_t rsrq;
                 int32_t rsrp;
                 int32_t snr;
+                int32_t rssi;
                 result = taf_radio_GetLteSignalMetrics(metrics, &ss, &rsrq, &rsrp, &snr);
                 LE_TEST_OK(result == LE_OK, "taf_radio_GetLteSignalMetrics - OK");
+                result = taf_radio_GetLteSignalMetricsRssi(metrics, &rssi);
+                LE_TEST_OK(result == LE_OK, "taf_radio_GetLteSignalMetricsRssi - OK");
                 LE_INFO("LTE signal strength %d dBm.", ss);
+                LE_INFO("LTE RSSI %d dBm.", rssi);
                 LE_INFO("LTE reference signal receive quality %d dB.", rsrq);
                 LE_INFO("LTE reference signal receive power %d dBm.", rsrp);
                 LE_INFO("LTE signal to noise ratio %f dB.", (float)snr / 10);

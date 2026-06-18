@@ -142,7 +142,7 @@ LE_REF_DEFINE_STATIC_MAP(caInfo, CA_INFO_MAX_COUNT);
  * Static map for connection status.
  */
 //--------------------------------------------------------------------------------------------------
-LE_REF_DEFINE_STATIC_MAP(connStatus, CA_INFO_MAX_COUNT);
+LE_REF_DEFINE_STATIC_MAP(connStatus, CONN_STATUS_MAX_COUNT);
 
 static void RegisterIndication
 (
@@ -169,6 +169,47 @@ static void RegisterIndication
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Posts an internal LTE CPHY CA cache refresh request to the service event loop.
+ */
+//--------------------------------------------------------------------------------------------------
+static void PostLteCphyCaRefresh
+(
+    uint32_t instance,                                           ///< [IN] Instance index.
+    bool reportChange,                                           ///< [IN] Report status/count change.
+    bool queryPa,                                                ///< [IN] Query PA for full snapshot.
+    const taf_pa_radio_LteCphyCaIndication_t* indicationPtr      ///< [IN] Optional indication.
+)
+{
+    if (instance >= INSTANCE_MAX_COUNT)
+    {
+        LE_ERROR("Invalid instance %u.", instance);
+        return;
+    }
+
+    auto& factory = Factory::GetInstance();
+    LteCphyCaRefresh_t refresh = {};
+    refresh.instance = instance;
+    refresh.reportChange = reportChange;
+    refresh.queryPa = queryPa;
+    refresh.reference = factory.cache.caInfoRefs[instance];
+    if (indicationPtr != nullptr)
+    {
+        refresh.indication = *indicationPtr;
+    }
+
+    le_event_Report(Factory::staticEvents.lteCphyCaRefresh, &refresh, sizeof(refresh));
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for power state change notifications.
+ *
+ * When the system resumes, indications are re-enabled. When the system suspends, indications are
+ * disabled.
+ */
+//--------------------------------------------------------------------------------------------------
 static void PowerStateChangeHandler
 (
     taf_pm_State_t state,
@@ -179,6 +220,10 @@ static void PowerStateChangeHandler
     {
         LE_INFO("Power state change to RESUME");
         RegisterIndication(ENABLE_INDICATION);
+        for (uint32_t i = 0; i < INSTANCE_MAX_COUNT; i++)
+        {
+            PostLteCphyCaRefresh(i, true, true, nullptr);
+        }
     }
     else if (state == TAF_PM_STATE_SUSPEND)
     {
@@ -647,49 +692,166 @@ static void NrIconChangeHandler
     le_event_ReportWithRefCounting(factory.events.nrIconChange, (void*)indPtr);
 }
 
-static void LteCphyCaHandler
+//--------------------------------------------------------------------------------------------------
+/**
+ * Builds a cached CA snapshot from an LTE CPHY CA indication.
+ */
+//--------------------------------------------------------------------------------------------------
+static void LteCphyCaIndicationToInfo
 (
-    uint32_t instance,
-    taf_pa_radio_LteCphyCaIndication_t indication,
-    void* contextPtr
+    const taf_pa_radio_LteCphyCaIndication_t* indicationPtr, ///< [IN] Cached indication.
+    CAInfo_t* infoPtr                                        ///< [OUT] Cached CA info.
 )
 {
-    uint32_t count = 0;
-    taf_radio_CAStatus_t status = TAF_RADIO_CA_STATUS_DEACTIVATED;
-
-    if (indication.pcellInfoValid)
-        count++;
-
-    if (indication.scellInfoValid)
+    if (indicationPtr == nullptr || infoPtr == nullptr)
     {
-        for (uint32_t i = 0; i < indication.scellInfoCount &&
-            i < TAF_PA_RADIO_LTE_CPHY_SCELL_INFO_MAX_COUNT; i++)
+        LE_ERROR("Bad parameters.");
+        return;
+    }
+
+    *infoPtr = {};
+    infoPtr->status = TAF_RADIO_CA_STATUS_DEACTIVATED;
+    infoPtr->cellCount = indicationPtr->pcellInfoValid ? 1 : 0;
+
+    if (indicationPtr->pcellInfoValid)
+    {
+        infoPtr->pcellInfo.pci = indicationPtr->pcellInfo.pci;
+        infoPtr->pcellInfo.freq = indicationPtr->pcellInfo.freq;
+        infoPtr->pcellInfo.dlBw = Utility::Convert::LteCphyCaBandwidth(
+            indicationPtr->pcellInfo.cphyCaDlBandwidth);
+        infoPtr->pcellInfo.band = (uint16_t)indicationPtr->pcellInfo.band;
+    }
+
+    if (indicationPtr->scellInfoValid)
+    {
+        uint32_t max = TAF_PA_RADIO_LTE_CPHY_SCELL_INFO_MAX_COUNT;
+        uint32_t n = (indicationPtr->scellInfoCount < max) ? indicationPtr->scellInfoCount : max;
+
+        for (uint32_t i = 0; i < n; i++)
         {
-            if (indication.scellInfo[i].scellState ==
+            infoPtr->scellInfo[i].pci = indicationPtr->scellInfo[i].pci;
+            infoPtr->scellInfo[i].freq = indicationPtr->scellInfo[i].freq;
+            infoPtr->scellInfo[i].dlBw = Utility::Convert::LteCphyCaBandwidth(
+                indicationPtr->scellInfo[i].cphyCaDlBandwidth);
+            infoPtr->scellInfo[i].band = (uint16_t)indicationPtr->scellInfo[i].band;
+            infoPtr->scellInfo[i].scellState = Utility::Convert::LteCphyCaScellState(
+                indicationPtr->scellInfo[i].scellState);
+            infoPtr->scellInfo[i].scellIndex = indicationPtr->scellInfo[i].scellIndex;
+            infoPtr->scellInfo[i].ulConfigured = (indicationPtr->scellInfo[i].ulConfigured != 0);
+
+            if (indicationPtr->scellInfo[i].scellState ==
                 TAF_PA_RADIO_LTE_CPHY_SCELL_STATE_CONFIGURED_ACTIVATED)
             {
-                status = TAF_RADIO_CA_STATUS_ACTIVATED;
-                count++;
+                infoPtr->status = TAF_RADIO_CA_STATUS_ACTIVATED;
+                infoPtr->cellCount++;
             }
         }
+
+        infoPtr->scellInfoCount = n;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Refreshes the cached LTE CPHY CA snapshot on the service event loop.
+ *
+ * PA indication requests carry an indication snapshot in the internal payload. Reinit/PM-resume
+ * requests set queryPa=true to refresh the complete snapshot from PA. The public CAInfo event is
+ * reported only when LTE CA activation status or active CC count changes.
+ */
+//--------------------------------------------------------------------------------------------------
+static void LteCphyCaRefreshHandler
+(
+    void* contextPtr ///< [IN] Event payload pointer.
+)
+{
+    LteCphyCaRefresh_t* refreshPtr = (LteCphyCaRefresh_t*)contextPtr;
+    if (refreshPtr == nullptr)
+    {
+        LE_ERROR("refreshPtr is nullptr.");
+        return;
+    }
+
+    uint32_t instance = refreshPtr->instance;
+    if (instance >= INSTANCE_MAX_COUNT)
+    {
+        LE_ERROR("Invalid instance %u.", instance);
+        return;
     }
 
     auto& factory = Factory::GetInstance();
-    if (instance < INSTANCE_MAX_COUNT)
+    taf_radio_CAInfoRef_t reference = refreshPtr->reference;
+    if (reference == nullptr)
     {
-        CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo,
-            factory.cache.caInfoRefs[instance]);
-        if (count != infoPtr->cellCount || infoPtr->status != status)
-        {
-            infoPtr->status = status;
-            infoPtr->cellCount = count;
-
-            CAInfoInd_t* indPtr = (CAInfoInd_t*)le_mem_ForceAlloc(factory.pools.caInfoChange);
-            indPtr->phone = Utility::Convert::InstanceToPhone(instance);
-            indPtr->reference = factory.cache.caInfoRefs[instance];
-            le_event_ReportWithRefCounting(factory.events.caInfoChange, (void*)indPtr);
-        }
+        reference = factory.cache.caInfoRefs[instance];
     }
+
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("CA info cache is nullptr for instance %u.", instance);
+        return;
+    }
+
+    taf_radio_CAStatus_t oldStatus = infoPtr->status;
+    uint32_t oldCellCount = infoPtr->cellCount;
+
+    CAInfo_t newInfo = {};
+    if (refreshPtr->queryPa)
+    {
+        taf_pa_radio_LteCphyCaInfo_t paInfo = {};
+        pa_result_t paResult = taf_pa_radio_GetLteCphyCaInfo(instance, &paInfo);
+        if (paResult != 0)
+        {
+            LE_ERROR("Failed to refresh LTE CPHY CA info for instance %u, result=%d.",
+                instance, paResult);
+            return;
+        }
+
+        Utility::Convert::LteCphyCaInfo(&paInfo, &newInfo);
+    }
+    else
+    {
+        LteCphyCaIndicationToInfo(&refreshPtr->indication, &newInfo);
+    }
+
+    *infoPtr = newInfo;
+
+    if (refreshPtr->reportChange &&
+        (oldStatus != newInfo.status || oldCellCount != newInfo.cellCount))
+    {
+        CAInfoInd_t* indPtr = (CAInfoInd_t*)le_mem_ForceAlloc(factory.pools.caInfoChange);
+        indPtr->phone = Utility::Convert::InstanceToPhone(instance);
+        indPtr->reference = reference;
+        le_event_ReportWithRefCounting(factory.events.caInfoChange, (void*)indPtr);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for LTE CPHY carrier aggregation indications.
+ *
+ * This PA callback only validates the instance, puts the indication snapshot in an internal event,
+ * and schedules processing on the service event loop. It intentionally avoids safe-reference map
+ * access here because the callback thread is owned by the PA layer.
+ */
+//--------------------------------------------------------------------------------------------------
+static void LteCphyCaHandler
+(
+    uint32_t instance,                             ///< [IN] Instance index.
+    taf_pa_radio_LteCphyCaIndication_t indication, ///< [IN] Indication payload.
+    void* contextPtr                               ///< [IN] Context.
+)
+{
+    (void)contextPtr;
+
+    if (instance >= INSTANCE_MAX_COUNT)
+    {
+        LE_ERROR("Invalid instance %u.", instance);
+        return;
+    }
+
+    PostLteCphyCaRefresh(instance, true, false, &indication);
 }
 
 le_result_t Utility::Convert::Result
@@ -1385,6 +1547,44 @@ taf_radio_RFBandWidth_t Utility::Convert::Bandwidth
     return TAF_RADIO_RF_BANDWIDTH_INVALID;
 }
 
+taf_radio_RFBandWidth_t Utility::Convert::LteCphyCaBandwidth
+(
+    taf_pa_radio_LteCphyCaBandwidth_t bandwidth
+)
+{
+    switch (bandwidth)
+    {
+        case TAF_PA_RADIO_LTE_CPHY_CA_BANDWIDTH_NRB_6:   return TAF_RADIO_RF_BANDWIDTH_LTE_BW_1_4;
+        case TAF_PA_RADIO_LTE_CPHY_CA_BANDWIDTH_NRB_15:  return TAF_RADIO_RF_BANDWIDTH_LTE_BW_3;
+        case TAF_PA_RADIO_LTE_CPHY_CA_BANDWIDTH_NRB_25:  return TAF_RADIO_RF_BANDWIDTH_LTE_BW_5;
+        case TAF_PA_RADIO_LTE_CPHY_CA_BANDWIDTH_NRB_50:  return TAF_RADIO_RF_BANDWIDTH_LTE_BW_10;
+        case TAF_PA_RADIO_LTE_CPHY_CA_BANDWIDTH_NRB_75:  return TAF_RADIO_RF_BANDWIDTH_LTE_BW_15;
+        case TAF_PA_RADIO_LTE_CPHY_CA_BANDWIDTH_NRB_100: return TAF_RADIO_RF_BANDWIDTH_LTE_BW_20;
+        case TAF_PA_RADIO_LTE_CPHY_CA_BANDWIDTH_UNKNOWN:
+        default:
+            LE_ERROR("Unknown LTE CPHY CA bandwidth %d.", (int)bandwidth);
+            return TAF_RADIO_RF_BANDWIDTH_INVALID;
+    }
+}
+taf_radio_CAScellState_t Utility::Convert::LteCphyCaScellState
+(
+	taf_pa_radio_LteCphyScellState_t state
+)
+{
+    switch (state)
+    {
+        case TAF_PA_RADIO_LTE_CPHY_SCELL_STATE_DECONFIGURED:
+            return TAF_RADIO_CA_SCELL_STATE_DECONFIGURED;
+        case TAF_PA_RADIO_LTE_CPHY_SCELL_STATE_CONFIGURED_DEACTIVATED:
+            return TAF_RADIO_CA_SCELL_STATE_CONFIGURED_DEACTIVATED;
+        case TAF_PA_RADIO_LTE_CPHY_SCELL_STATE_CONFIGURED_ACTIVATED:
+            return TAF_RADIO_CA_SCELL_STATE_CONFIGURED_ACTIVATED;
+        case TAF_PA_RADIO_LTE_CPHY_SCELL_STATE_UNKNOWN:
+        default:
+            LE_ERROR("Unknown LTE CPHY CA scell state %d.", (int)state);
+            return TAF_RADIO_CA_SCELL_STATE_INVALID;
+    }
+}
 taf_radio_ImsRegStatus_t Utility::Convert::ImsRegistrationStatus
 (
      taf_pa_radio_ImsRegistrationStatus_t status
@@ -1754,12 +1954,33 @@ void Utility::Convert::LteCphyCaInfo
         return;
     }
 
-    infoPtr->cellCount = 1;
     infoPtr->status = TAF_RADIO_CA_STATUS_DEACTIVATED;
+    infoPtr->cellCount = 1;
+    infoPtr->scellInfoCount = 0;
 
-    for (uint32_t i = 0; i < paInfoPtr->scellInfoCount &&
-        i < TAF_PA_RADIO_LTE_CPHY_SCELL_INFO_MAX_COUNT; i++)
+    infoPtr->pcellInfo.pci = paInfoPtr->pcellInfo.pci;
+    infoPtr->pcellInfo.freq = paInfoPtr->pcellInfo.freq;
+    infoPtr->pcellInfo.dlBw =
+        Utility::Convert::LteCphyCaBandwidth(paInfoPtr->pcellInfo.cphyCaDlBandwidth);
+
+    infoPtr->pcellInfo.band = (uint16_t)paInfoPtr->pcellInfo.band;
+
+    uint32_t max = TAF_PA_RADIO_LTE_CPHY_SCELL_INFO_MAX_COUNT;
+    uint32_t n = (paInfoPtr->scellInfoCount < max) ? paInfoPtr->scellInfoCount : max;
+
+    for (uint32_t i = 0; i < n; i++)
     {
+        infoPtr->scellInfo[i].pci = paInfoPtr->scellInfo[i].pci;
+        infoPtr->scellInfo[i].freq = paInfoPtr->scellInfo[i].freq;
+        infoPtr->scellInfo[i].dlBw =
+            Utility::Convert::LteCphyCaBandwidth(paInfoPtr->scellInfo[i].cphyCaDlBandwidth);
+        infoPtr->scellInfo[i].band = (uint16_t)paInfoPtr->scellInfo[i].band;
+
+        infoPtr->scellInfo[i].scellState =
+            Utility::Convert::LteCphyCaScellState(paInfoPtr->scellInfo[i].scellState);
+        infoPtr->scellInfo[i].scellIndex = paInfoPtr->scellInfo[i].scellIndex;
+        infoPtr->scellInfo[i].ulConfigured = (paInfoPtr->scellInfo[i].ulConfigured != 0);
+
         if (paInfoPtr->scellInfo[i].scellState ==
             TAF_PA_RADIO_LTE_CPHY_SCELL_STATE_CONFIGURED_ACTIVATED)
         {
@@ -1767,6 +1988,8 @@ void Utility::Convert::LteCphyCaInfo
             infoPtr->cellCount++;
         }
     }
+
+    infoPtr->scellInfoCount = n;
 }
 
 void Utility::LayeredFunction::NetworkRejection
@@ -2203,7 +2426,8 @@ uint32_t Utility::Common::FindServingCell
 
 StaticEvent_t Factory::staticEvents = 
 {
-    .request = nullptr
+    .request = nullptr,
+    .lteCphyCaRefresh = nullptr
 };
 
 Factory& Factory::GetInstance
@@ -2293,6 +2517,10 @@ static void* RequestThread
 COMPONENT_INIT
 {
     Factory::staticEvents.request = le_event_CreateId("request", sizeof(Request_t));
+    Factory::staticEvents.lteCphyCaRefresh = le_event_CreateId("LteCphyCaRefresh",
+        sizeof(LteCphyCaRefresh_t));
+    le_event_AddHandler("LteCphyCaRefreshHandler", Factory::staticEvents.lteCphyCaRefresh,
+        LteCphyCaRefreshHandler);
 
     auto& factory = Factory::GetInstance();
 
@@ -2371,6 +2599,10 @@ COMPONENT_INIT
             factory.maps.safeRef, (void*)imsRefPtr);
 
         CAInfo_t* caInfoPtr = (CAInfo_t*)le_mem_ForceAlloc(factory.pools.caInfo);
+        caInfoPtr->status = TAF_RADIO_CA_STATUS_DEACTIVATED;
+        caInfoPtr->cellCount = 0;
+        caInfoPtr->pcellInfo = {};
+        caInfoPtr->scellInfoCount = 0;
         factory.cache.caInfoRefs[i] = (taf_radio_CAInfoRef_t)le_ref_CreateRef(
             factory.maps.caInfo, (void*)caInfoPtr);
 

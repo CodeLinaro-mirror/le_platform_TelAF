@@ -1553,6 +1553,111 @@ void TestTafRadioLteCaInformation
         TAF_RADIO_RAT_LTE, (taf_radio_CAInfoHandlerFunc_t)LteCaInfoHandler, NULL);
     LE_TEST_OK(lteCaInfoHandlerRef != NULL, "taf_radio_AddCAInfoHandler - !NULL");
 
+    taf_radio_CAInfoHandlerRef_t invalidHandlerRef = taf_radio_AddCAInfoHandler(
+        TAF_RADIO_RAT_UNKNOWN, (taf_radio_CAInfoHandlerFunc_t)LteCaInfoHandler, NULL);
+    LE_TEST_OK(invalidHandlerRef == NULL, "taf_radio_AddCAInfoHandler unsupported RAT - NULL");
+
+    taf_radio_CAInfoRef_t infoRef = NULL;
+    le_result_t result = taf_radio_GetCAInformation(DEFAULT_PHONE_ID, TAF_RADIO_RAT_LTE, NULL);
+    LE_TEST_OK(result == LE_BAD_PARAMETER, "taf_radio_GetCAInformation null output - LE_BAD_PARAMETER");
+
+    result = taf_radio_GetCAInformation(DEFAULT_PHONE_ID, TAF_RADIO_RAT_UNKNOWN, &infoRef);
+    LE_TEST_OK(result == LE_UNSUPPORTED, "taf_radio_GetCAInformation unsupported RAT - LE_UNSUPPORTED");
+
+    result = taf_radio_GetCAInformation(0, TAF_RADIO_RAT_LTE, &infoRef);
+    LE_TEST_OK(result == LE_BAD_PARAMETER, "taf_radio_GetCAInformation invalid phone - LE_BAD_PARAMETER");
+
+    result = taf_radio_DeleteCAInformation(NULL);
+    LE_TEST_OK(result == LE_BAD_PARAMETER, "taf_radio_DeleteCAInformation null ref - LE_BAD_PARAMETER");
+
+    result = taf_radio_GetLteCAStatus(NULL, NULL, NULL);
+    LE_TEST_OK(result == LE_BAD_PARAMETER, "taf_radio_GetLteCAStatus null ref - LE_BAD_PARAMETER");
+
+    result = taf_radio_GetCAInformation(DEFAULT_PHONE_ID, TAF_RADIO_RAT_LTE, &infoRef);
+    if (result == LE_OK)
+    {
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetCAInformation - LE_OK");
+
+        taf_radio_CAStatus_t status = TAF_RADIO_CA_STATUS_DEACTIVATED;
+        uint32_t count = 0;
+        result =  taf_radio_GetLteCAStatus(infoRef, &status, &count);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetLteCAStatus - OK");
+        if (result == LE_OK)
+        {
+            switch (status)
+            {
+                case TAF_RADIO_CA_STATUS_DEACTIVATED:
+                    LE_INFO("CA status : Deactivated.");
+                    break;
+                case TAF_RADIO_CA_STATUS_ACTIVATED:
+                    LE_INFO("CA status : Activated.");
+                    break;
+                default:
+                    LE_INFO("CA status : Unknown.");
+                break;
+            }
+            LE_INFO("CA activated CC number : %d", count);
+        }
+
+        uint16_t pcellPci = 0;
+        uint32_t pcellFreq = 0;
+        taf_radio_RFBandWidth_t pcellDlBw = TAF_RADIO_RF_BANDWIDTH_INVALID;
+        uint16_t pcellBand = 0;
+        uint32_t scellCount = 0;
+
+        result = taf_radio_GetLteCAPCellPci(infoRef, &pcellPci);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetLteCAPCellPci - OK");
+        result = taf_radio_GetLteCAPCellFreq(infoRef, &pcellFreq);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetLteCAPCellFreq - OK");
+        result = taf_radio_GetLteCAPCellDlBandwidth(infoRef, &pcellDlBw);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetLteCAPCellDlBandwidth - OK");
+        result = taf_radio_GetLteCAPCellBand(infoRef, &pcellBand);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetLteCAPCellBand - OK");
+        LE_INFO("CA PCell: pci=%u freq=%u dlBw=%d band=%u", pcellPci, pcellFreq, pcellDlBw,
+            pcellBand);
+
+        result = taf_radio_GetLteCASCellCount(infoRef, &scellCount);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetLteCASCellCount - OK");
+        for (uint32_t i = 0; result == LE_OK && i < scellCount; i++)
+        {
+            uint16_t scellPci = 0;
+            uint32_t scellFreq = 0;
+            taf_radio_RFBandWidth_t scellDlBw = TAF_RADIO_RF_BANDWIDTH_INVALID;
+            uint16_t scellBand = 0;
+            taf_radio_CAScellState_t scellState = TAF_RADIO_CA_SCELL_STATE_INVALID;
+            uint8_t scellIndex = 0;
+            bool ulConfigured = false;
+
+            LE_TEST_OK(taf_radio_GetLteCASCellPci(infoRef, i, &scellPci) == LE_OK,
+                "taf_radio_GetLteCASCellPci - OK");
+            LE_TEST_OK(taf_radio_GetLteCASCellFreq(infoRef, i, &scellFreq) == LE_OK,
+                "taf_radio_GetLteCASCellFreq - OK");
+            LE_TEST_OK(taf_radio_GetLteCASCellDlBandwidth(infoRef, i, &scellDlBw) == LE_OK,
+                "taf_radio_GetLteCASCellDlBandwidth - OK");
+            LE_TEST_OK(taf_radio_GetLteCASCellBand(infoRef, i, &scellBand) == LE_OK,
+                "taf_radio_GetLteCASCellBand - OK");
+            LE_TEST_OK(taf_radio_GetLteCASCellState(infoRef, i, &scellState) == LE_OK,
+                "taf_radio_GetLteCASCellState - OK");
+            LE_TEST_OK(taf_radio_GetLteCASCellIndex(infoRef, i, &scellIndex) == LE_OK,
+                "taf_radio_GetLteCASCellIndex - OK");
+            LE_TEST_OK(taf_radio_GetLteCASCellUlConfigured(infoRef, i, &ulConfigured) == LE_OK,
+                "taf_radio_GetLteCASCellUlConfigured - OK");
+            LE_INFO("CA SCell[%u]: pci=%u freq=%u dlBw=%d band=%u state=%d index=%u ul=%d",
+                i, scellPci, scellFreq, scellDlBw, scellBand, scellState, scellIndex,
+                ulConfigured);
+        }
+
+        result = taf_radio_GetLteCASCellPci(infoRef, scellCount, &pcellPci);
+        LE_TEST_OK(result == LE_OUT_OF_RANGE, "taf_radio_GetLteCASCellPci - LE_OUT_OF_RANGE");
+        result = taf_radio_GetLteCAStatus(infoRef, NULL, &count);
+        LE_TEST_OK(result == LE_BAD_PARAMETER, "taf_radio_GetLteCAStatus null status - LE_BAD_PARAMETER");
+        result = taf_radio_GetLteCAPCellPci(infoRef, NULL);
+        LE_TEST_OK(result == LE_BAD_PARAMETER, "taf_radio_GetLteCAPCellPci null output - LE_BAD_PARAMETER");
+
+        result = taf_radio_DeleteCAInformation(infoRef);
+        LE_TEST_OK(result == LE_OK, "taf_radio_DeleteCAInformation - LE_OK");
+    }
+
     taf_radio_RemoveCAInfoHandler(lteCaInfoHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveCAInfoHandler - void");
 

@@ -143,6 +143,7 @@ typedef struct
 typedef struct
 {
     le_event_Id_t request;
+    le_event_Id_t lteCphyCaRefresh; ///< Event used to refresh LTE CPHY CA info cache.
 } StaticEvent_t;
 
 typedef struct
@@ -241,12 +242,36 @@ typedef struct
     taf_radio_NrIconType_t icon;
 } NrIconInd_t;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Payload forwarded through layered events for carrier aggregation indications.
+ */
+//--------------------------------------------------------------------------------------------------
 typedef struct
 {
-    uint8_t phone;
-    taf_radio_CAInfoRef_t reference;
+    uint8_t phone;                 ///< Phone ID as exposed by the public API (1-based).
+    taf_radio_CAInfoRef_t reference; ///< Cached CA info reference.
 } CAInfoInd_t;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Payload used to request an LTE CPHY CA cache refresh on the service event loop.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint32_t instance;                         ///< Internal instance index (0-based).
+    bool reportChange;                         ///< True to report CA event if status/count changed.
+    bool queryPa;                              ///< True to refresh from PA instead of indication.
+    taf_radio_CAInfoRef_t reference;           ///< Cached CA info reference to refresh.
+    taf_pa_radio_LteCphyCaIndication_t indication; ///< CA indication snapshot, used when queryPa=false.
+} LteCphyCaRefresh_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Payload forwarded through layered events for connection status indications.
+ */
+//--------------------------------------------------------------------------------------------------
 typedef struct
 {
     uint8_t phone;
@@ -256,8 +281,33 @@ typedef struct
 
 typedef struct
 {
+    uint16_t pci;                  ///< Physical cell ID.
+    uint32_t freq;                 ///< Frequency/EARFCN.
+    taf_radio_RFBandWidth_t dlBw;  ///< Downlink bandwidth.
+    uint16_t band;                 ///< LTE band.
+} CA_PCellInfo_t;
+typedef struct
+{
+    uint16_t pci;                         ///< Physical cell ID.
+    uint32_t freq;                        ///< Frequency/EARFCN.
+    taf_radio_RFBandWidth_t  dlBw;        ///< Downlink bandwidth.
+    uint16_t band;                        ///< LTE band.
+    taf_radio_CAScellState_t scellState;  ///< SCell activation state.
+    uint8_t  scellIndex;                  ///< Modem SCell index.
+    bool     ulConfigured;                ///< True if uplink is configured for this SCell.
+} CA_SCellInfo_t;
+//--------------------------------------------------------------------------------------------------
+/**
+ * Carrier aggregation information cached per instance.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
     taf_radio_CAStatus_t status;
     uint32_t cellCount;
+    CA_PCellInfo_t pcellInfo; ///< Primary cell information.
+    uint32_t scellInfoCount;  ///< Number of valid entries in scellInfo[].
+    CA_SCellInfo_t scellInfo[TAF_PA_RADIO_LTE_CPHY_SCELL_INFO_MAX_COUNT]; ///< SCell info.
 } CAInfo_t;
 
 typedef struct
@@ -396,6 +446,14 @@ class Utility
                     taf_pa_radio_Bandwidth_t bandwidth
                 );
 
+                static taf_radio_RFBandWidth_t LteCphyCaBandwidth
+                (
+                    taf_pa_radio_LteCphyCaBandwidth_t bandwidth ///< [IN] PA LTE CA bandwidth.
+                );
+                static taf_radio_CAScellState_t LteCphyCaScellState
+                (
+                    taf_pa_radio_LteCphyScellState_t state ///< [IN] PA LTE CA SCell state.
+                );
                 static taf_radio_ImsRegStatus_t ImsRegistrationStatus
                 (
                     taf_pa_radio_ImsRegistrationStatus_t status

@@ -298,6 +298,7 @@ void Handler::onCallInfoChange(std::shared_ptr<taf_pa_ecall_CallInfo_t> callInfo
             isCallStateSet = true;
             eCall.SetCallIndex(-1);
             eCall.SetCallPhoneId(-1);
+            eCallPtr->redialReason = TAF_ECALL_TERMINATION_REDIAL_REASON_NONE;
         }
 
         eCallPtr->waitForALACKPos = false;
@@ -305,6 +306,7 @@ void Handler::onCallInfoChange(std::shared_ptr<taf_pa_ecall_CallInfo_t> callInfo
         eCall.CallEndError = callInfo->endCause;
         LE_INFO("ECall ENDed terminate reason = %d", (int) eCall.CallEndError);
     }
+
     eCall.SetSessionState(sessionState);
     eCall.SetECallState(state);
     if (isCallStateSet)
@@ -415,8 +417,19 @@ void Handler::onMsdUpdateRequest(int32_t phoneId,std::any context)
 void Handler::onRedial(int32_t phoneId,
     std::shared_ptr<taf_pa_ecall_redial_info_t> redialInfo,std::any context)
 {
-    LE_DEBUG("onECallRedial");
+    LE_DEBUG("Redial Event: phoneId=%d, willRedial=%d, redialReason=%d",phoneId,
+                redialInfo->willEcallRedial,(int)redialInfo->reason);
+
     auto &eCall = taf_ecall::GetInstance();
+    taf_ecall_CallRef_t callRef = eCall.GetECallReference();
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(eCall.ECallPtrRefMap, callRef);
+    if (!eCallPtr)
+    {
+        LE_ERROR("HandleRedial: invalid eCallRef");
+        return;
+    }
+    eCallPtr->redialReason = eCall.MapRedialReason(redialInfo->reason);
+
     taf_ecall_State_t state = TAF_ECALL_STATE_UNKNOWN;
     StateChangeEvent_t stateEvent;
 
@@ -733,6 +746,7 @@ void taf_ecall::InitializeECallPtr()
     ECallObject.callIndex = -1;
     ECallObject.phoneId = -1;
     ECallObject.waitForALACKPos = false;
+    ECallObject.redialReason = TAF_ECALL_TERMINATION_REDIAL_REASON_NONE;
     UpdateMsd();
 }
 
@@ -3389,6 +3403,39 @@ le_result_t taf_ecall::SetInitialDialIntervalBetweenDialAttempts(const uint16_t*
         return LE_OK;
     }
     return LE_FAULT;
+}
+
+taf_ecall_TerminationRedialReason_t taf_ecall::MapRedialReason(taf_pa_ecall_reason_type_t redialReason)
+{
+    switch (redialReason)
+    {
+        case taf_pa_ecall_reason_type_t::NONE:
+            return TAF_ECALL_TERMINATION_REDIAL_REASON_NONE;
+        case taf_pa_ecall_reason_type_t::ORIG_FAILURE:
+            return TAF_ECALL_TERMINATION_REDIAL_REASON_CALL_ORIG_FAILURE;
+        case taf_pa_ecall_reason_type_t::DROP:
+            return TAF_ECALL_TERMINATION_REDIAL_REASON_CALL_DROP;
+        case taf_pa_ecall_reason_type_t::MAX_REDIAL_ATTEMPTED:
+            return TAF_ECALL_TERMINATION_REDIAL_REASON_MAX_REDIAL_ATTEMPTED;
+        case taf_pa_ecall_reason_type_t::CONNECTED:
+            return TAF_ECALL_TERMINATION_REDIAL_REASON_CALL_CONNECTED;
+        default:
+            return TAF_ECALL_TERMINATION_REDIAL_REASON_NONE;
+    }
+}
+
+le_result_t taf_ecall::GetTerminationRedialReason( taf_ecall_CallRef_t ecallRef, taf_ecall_TerminationRedialReason_t* reason)
+{
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+    TAF_ERROR_IF_RET_VAL(reason == NULL, LE_BAD_PARAMETER, "Invalid parameter");
+
+    TAF_ERROR_IF_RET_VAL(ECALL_ENDED != eCallPtr->eCallSession,
+            LE_FAULT, "The eCall is not ENDed");
+
+    *reason = eCallPtr->redialReason;
+    return LE_OK;
 }
 
 taf_ecall_StateChangeHandlerRef_t taf_ecall::AddStateChangeHandler

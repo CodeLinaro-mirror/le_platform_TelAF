@@ -117,6 +117,7 @@ using namespace std;
             taf_DialRedial_t                    dialRedial;
             bool                                waitForALACKPos;
             int8_t                              phoneId;
+            taf_ecall_TerminationRedialReason_t redialReason;
         }
         taf_ECall_t;
 
@@ -269,6 +270,8 @@ using namespace std;
                 le_result_t ConfigureInitialDialRedial(std::vector<int> redialPara);
                 le_result_t SetInitialDialAttempts(uint8_t attempts);
                 le_result_t SetInitialDialIntervalBetweenDialAttempts(const uint16_t* interval, size_t intervalLength);
+                taf_ecall_TerminationRedialReason_t MapRedialReason(taf_pa_ecall_reason_type_t redialReson);
+                le_result_t GetTerminationRedialReason(taf_ecall_CallRef_t ecallRef, taf_ecall_TerminationRedialReason_t* reason);
                 taf_ecall_StateChangeHandlerRef_t AddStateChangeHandler (taf_ecall_StateChangeHandlerFunc_t handlerPtr,
                                                                                         void* contextPtr);
                 void RemoveStateChangeHandler (taf_ecall_StateChangeHandlerRef_t handlerRef);

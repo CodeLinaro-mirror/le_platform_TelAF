@@ -795,7 +795,7 @@ le_result_t tafMngdConnAdmin::Stopdata(taf_mngdConn_DataRef_t dataRef)
 
     // Regardless of data stop result, check if connectivity recovery is scheduled and send
     // request to stop L1, L2 and L3 recovery. These will be handled asynchronously
-    if (dataCtxPtr->isConnectivityRecoveryScheduled)
+    if (dataCtxPtr->isConnectivityRecoveryScheduled && !dataCtxPtr->autoStart)
     {
         auto &admin = tafMngdConnAdmin::GetInstance();
         // Send an event to check and cancel recovery, if scheduled

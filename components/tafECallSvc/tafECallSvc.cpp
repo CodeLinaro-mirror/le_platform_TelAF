@@ -1598,6 +1598,32 @@ taf_ecall_TerminationReason_t taf_ecall_GetTerminationReason
 
 /*======================================================================
 
+ FUNCTION       taf_ecall_GetTerminationRedialReason
+
+ DESCRIPTION    Get eCall termination redial reason
+
+ DEPENDENCIES   Initialization of ECall service
+
+ PARAMETERS     [IN]  ecallRef: ecall reference
+                [OUT] reason: termination redial reason
+
+ RETURN VALUE   LE_OK on success, error code otherwise
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_GetTerminationRedialReason
+(
+    taf_ecall_CallRef_t ecallRef,
+    taf_ecall_TerminationRedialReason_t* reason
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.GetTerminationRedialReason(ecallRef, reason);
+}
+
+/*======================================================================
+
  FUNCTION       taf_eCall_GetType
 
  DESCRIPTION    Get the current type of the given eCall
@@ -2012,14 +2038,4 @@ le_result_t taf_ecall_SetInitialDialIntervalBetweenDialAttempts
 
     auto &ecall = taf_ecall::GetInstance();
     return ecall.SetInitialDialIntervalBetweenDialAttempts(interval, intervalLength);
-}
-
-le_result_t taf_ecall_GetTerminationRedialReason
-(
-    taf_ecall_CallRef_t ecallRef,
-    taf_ecall_TerminationRedialReason_t* reason
-)
-{
-    auto &ecall = taf_ecall::GetInstance();
-    return ecall.GetTerminationRedialReason(ecallRef, reason);
 }

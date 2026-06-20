@@ -1084,6 +1084,11 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             LE_INFO("TAF_ECALL_STATE_T9_RESUMED");
             break;
         }
+        case TAF_ECALL_STATE_T10_RESUMED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T10_RESUMED");
+            break;
+        }
         default:
         {
             LE_INFO("Unknown state");

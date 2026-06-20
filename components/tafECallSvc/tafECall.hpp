@@ -236,6 +236,12 @@ using namespace std;
             } param;
         } RxECallEvent_t;
 
+        struct PendingECallEvent {
+            RxECallEventType_t eventType;
+            int phoneId;
+            int32_t callIndex;
+            void* eventData;
+        };
 
         class tafCallCommandCallback{
             public:
@@ -353,6 +359,10 @@ using namespace std;
                 void HandleRedial(int phoneId, taf_pa_ecall_redial_info_t redialInfo);
                 void HandleMakeCallResp(int phoneId, RxECallMakeCallResponse resp);
                 static void ProcessRxECallEvent(void* msgPtr);
+                void* CloneEventData(const RxECallEvent_t* eventPtr);
+                void FreeEventData(RxECallEventType_t eventType, void* data);
+                void HandleCallEnd(int phoneId, int callIndex);
+                void ProcessPendingCallEvents(int phoneId, int callIndex);
                 taf_ecall_StateChangeHandlerRef_t AddStateChangeHandler (taf_ecall_StateChangeHandlerFunc_t handlerPtr,
                                                                                         void* contextPtr);
                 void RemoveStateChangeHandler (taf_ecall_StateChangeHandlerRef_t handlerRef);
@@ -415,6 +425,8 @@ using namespace std;
                 std::mutex callMtx_;
                 std::unordered_map<uint64_t, std::shared_ptr<taf_pa_ecall_CallInfo_t>> callStore_;
                 std::atomic<uint64_t> callNextToken_{1};
+                std::vector<PendingECallEvent> pendingECallEvents;
+                std::mutex pendingECallEventsMtx;
                 taf_ECall_t ECallObject;
                 taf_pa_ecall_event_listener_t eventListener;
                 void InitializeECallPtr();

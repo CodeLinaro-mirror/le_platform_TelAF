@@ -196,33 +196,10 @@
  *
  * @section taf_mngdPm_callflow Typical application call flow
  *
- * **Forced system shutdown**
  *
  * @rstblock
- *   .. image:: /rst/flow_diagrams/mpms_forced_shutdown.jpeg
+ * .. include:: /rst/mpms.rst
  * @endrst
- *
- * The forced system shutdown is triggered from the OEM application depending on MPMS.
- * MPMS coordinates with PM VHAL to achieve the TCU level system shutdown.
- *
- * #1 -- Client requests forceful TCU shutdown. MPMS requests VHAL to confirm whether the shutdown can be accepted or not.
- *
- * #2 -- VHAL will respond if it is ready or not, or if the request is invalid. In a successful forceful shutdown scenario, VHAL will respond in the callback with READY.
- *
- * #3 -- MPMS responds to the client on the confirmation result via the asynchronous callback.
- *
- * #4 -- MPMS notifies PM VHAL to prepare for shutdown which does not require acknowledgement.
- *
- * #5 -- MPMS notifies the OEM client application to prepare for shutdown which requires acknowledgement.
- *
- * #6 -- OEM client application acknowledges that it is prepared to shut down.
- *
- * #7 -- MPMS notifies VHAL for NAD shutdown execution after detecting all notifications are ACKed and VHAL will respond via a callback.
- *
- * #8 -- MPMS executes the NAD Linux shutdown.
- *
- * <HR>
- *
  */
 //--------------------------------------------------------------------------------------------------
 

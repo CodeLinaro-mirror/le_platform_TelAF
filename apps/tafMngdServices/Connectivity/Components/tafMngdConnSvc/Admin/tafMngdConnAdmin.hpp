@@ -85,6 +85,9 @@ namespace tafsvc {
         MCS_EVT_GET_CONNECTION_INFO_SYNC,
         MCS_EVT_DATA_START_CONNECTIONTEST,
         MCS_EVT_DATA_PERIODIC_CONNECTIONTEST,
+        // Completion events posted back by the connectivity-test worker thread.
+        MCS_EVT_DATA_START_CONNECTIONTEST_DONE,
+        MCS_EVT_DATA_PERIODIC_CONNECTIONTEST_DONE,
         MCS_EVT_CONN_RECOVERY_SCHEDULE_L1, // Schedule L1 connectivity recovery
         MCS_EVT_CONN_RECOVERY_START_L1,
         MCS_EVT_CONN_RECOVERY_SCHEDULE_L2, // Schedule L2 connectivity recovery
@@ -107,6 +110,8 @@ namespace tafsvc {
             uint8_t                                 phoneId;
         };
         le_msg_SessionRef_t sessionRef;
+        // Result of an asynchronous connectivity test.
+        bool                boolResult;
     } stateMachineEvent_t;
 
     /* Internal structure to report Data State */
@@ -154,6 +159,16 @@ namespace tafsvc {
         le_msg_SessionRef_t sessionRef;
         bool flag;
     } mcs_RetryClientNode_t;
+
+    // Context passed to the connectivity-test worker thread.
+    typedef struct
+    {
+        uint8_t                       dataId;
+        mcs_EventType_t               doneEvent;   // completion event to post back
+        char                          url[MCS_MAX_CONNECTION_URL_LEN];
+        char                          ipv4Addr[MCS_MAX_IPV4_LEN];
+        char                          intfName[TAF_DCS_NAME_MAX_LEN];
+    } mcs_ConnTestCtx_t;
 
 //Context to maintain the state for each data id.
     typedef struct tag_mcs_DataCtx_t
@@ -299,6 +314,11 @@ namespace tafsvc {
             le_mem_PoolRef_t recoveryEventPool;
             le_event_Id_t recoveryEvent; // Recovery event
 
+            // Long-lived connectivity-test worker thread and the event used to dispatch tests to
+            // it. The test (blocking curl/ping) runs here instead of on the state machine thread.
+            le_thread_Ref_t connTestThreadRef = NULL;
+            le_event_Id_t   connTestEventId = NULL;
+
             // resources for multi-client management
             static mcs_Clients_t ConnectedClients;
             static mcs_RetryClients_t RetryClients;
@@ -349,6 +369,12 @@ namespace tafsvc {
             //Connectiontest
             void EventDataStartConnectionTest(uint8_t dataId);
             void EventDataPeriodicConnectivityTest(uint8_t dataId);
+            // Completion handlers, run on MngdEvtThread when the worker reports a result.
+            void EventDataStartConnectionTestDone(uint8_t dataId, bool passed);
+            void EventDataPeriodicConnectivityTestDone(uint8_t dataId, bool passed);
+            // Dispatch the (blocking) connectivity test to the worker thread; doneEvent carries
+            // the result back to the state machine thread.
+            void ScheduleConnectivityTest(uint8_t dataId, mcs_EventType_t doneEvent);
             bool DataConnectivityTest_URL(std::string url, std::string interfaceName);
             bool DataConnectivityTest_IPv4(std::string ipv4, std::string interfaceName);
 
@@ -391,6 +417,9 @@ namespace tafsvc {
             static void StateMachineEvtHandlerFunc(void *reqPtr);
             // State machine thread destructor function
             static void StateMachineEvtThreadDestructorFunc(void *contextPtr);
+            // Long-lived connectivity-test worker thread entry function and its event handler.
+            static void *ConnectivityTestThreadFunc(void *contextPtr);
+            static void ConnTestEvtHandlerFunc(void *reqPtr);
 
             // Timer handler
             static void PeriodicConnectivityTestTimerHandler(le_timer_Ref_t timerRef);

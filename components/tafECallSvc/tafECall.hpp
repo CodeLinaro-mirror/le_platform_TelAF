@@ -68,6 +68,8 @@ using namespace std;
 #define MIN_PHONE_ID  1
 #define MAX_PHONE_ID  2
 #define RX_ECALL_EVENT_POOL_SIZE 50
+#define MAX_T9_T10_ELAPSED_TIME_SEC 43200
+#define NSEC_PER_SEC 1000000000L
 
     namespace tafsvc {
 
@@ -329,7 +331,7 @@ using namespace std;
                 le_result_t GetHlapTimerState(taf_ecall_HlapTimerType_t timerType, taf_ecall_HlapTimerStatus_t* timerStatus, uint16_t* elapsedTime);
                 taf_ecall_HlapTimerStatus_t GetHlapTimerStatus(taf_ecall_HlapTimerType_t timerType);
                 taf_ecall_HlapTimerStatus_t ConvertHlapTimerStatus(taf_pa_ecall_hlap_timer_state_t status);
-                uint16_t ConvertElapsedTime(std::chrono::time_point<std::chrono::steady_clock> startTime);
+                uint16_t ConvertElapsedTime(const timespec& start);
                 static void T9TimerExpiryHandler(le_timer_Ref_t timerRef);
                 static void T10TimerExpiryHandler(le_timer_Ref_t timerRef);
                 static void ResumeHlapTimerModeWaitHandler(le_timer_Ref_t timerRef);
@@ -398,22 +400,12 @@ using namespace std;
                 std::promise<pa_result_t> makePrieCallProm;
                 taf_pa_ecall_termination_t CallEndError = taf_pa_ecall_termination_t::NORMAL;
 
-                std::chrono::time_point<std::chrono::steady_clock> t2StartTime;
-                std::chrono::time_point<std::chrono::steady_clock> t9StartTime;
-                std::chrono::time_point<std::chrono::steady_clock> t10StartTime;
-                bool t2StartTimeSet = false;
-                bool t9StartTimeSet = false;
-                bool t10StartTimeSet = false;
-                uint16_t ElapsedTimeT9 = 0;
-                uint16_t ElapsedTimeT10 = 0;
                 eCall_Inf_t *eCallInf = nullptr;
                 bool isDrvPresent = false;
 
                 le_ref_MapRef_t ECallPtrRefMap = NULL;
 
                 le_event_Id_t ResumeHlapTimerEventId;
-                le_timer_Ref_t elapsedTimeT9Ref;
-                le_timer_Ref_t elapsedTimeT10Ref;
                 le_timer_Ref_t resumeModeWaitTimerRef;
                 bool pendingResumeT9 = false;
                 bool pendingResumeT10 = false;
@@ -429,6 +421,17 @@ using namespace std;
                 std::mutex pendingECallEventsMtx;
                 taf_ECall_t ECallObject;
                 taf_pa_ecall_event_listener_t eventListener;
+
+                timespec t2StartTime{};
+                timespec t9StartTime{};
+                timespec t10StartTime{};
+                bool t2StartTimeSet = false;
+                bool t9StartTimeSet = false;
+                bool t10StartTimeSet = false;
+                uint16_t ElapsedTimeT9 = 0;
+                uint16_t ElapsedTimeT10 = 0;
+                le_timer_Ref_t elapsedTimeT9Ref;
+                le_timer_Ref_t elapsedTimeT10Ref;
                 void InitializeECallPtr();
 
         };

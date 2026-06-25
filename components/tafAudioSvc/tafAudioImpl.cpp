@@ -2114,7 +2114,7 @@ le_result_t taf_Audio::RecordFile
     TAF_ERROR_IF_RET_VAL((streamPtr->direction == TAF_AUDIO_TX) ? mIsRecording : mIsRxRecording,
             LE_BUSY, "Another file recording is in progress");
 
-    if (((streamPtr->direction == TAF_AUDIO_TX) && !mIsCaptureStreamCreated)
+    if (((streamPtr->direction == TAF_AUDIO_TX) && !mIsTxCaptureStreamCreated)
             || ((streamPtr->direction == TAF_AUDIO_RX) && !mIsRxCaptureStreamCreated)) {
         PaStreamConfig config = {};
         config.type = PaStreamType::CAPTURE;
@@ -2170,7 +2170,7 @@ le_result_t taf_Audio::RecordFile
         res = StartAudio(config);
         TAF_ERROR_IF_RET_VAL( (res != LE_OK), LE_FAULT, "Config failed");
         if(streamPtr->direction == TAF_AUDIO_TX)
-            mIsCaptureStreamCreated = true; // local capture stream created.
+            mIsTxCaptureStreamCreated = true; // local capture stream created.
         else
             mIsRxCaptureStreamCreated = true; // incall downlink capture stream created.
     }
@@ -2816,7 +2816,7 @@ le_result_t taf_Audio::DeleteAudioStream(taf_audio_Stream_t* streamPtr)
 
     if (streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE) {
         std::promise<bool> p;
-        if(streamPtr->direction == TAF_AUDIO_TX)
+        if(streamPtr->direction == TAF_AUDIO_TX && mIsTxCaptureStreamCreated)
         {
             config.type = PaStreamType::CAPTURE;
             status = taf_pa_audio_DeleteStream(config, cb, context);
@@ -2826,7 +2826,7 @@ le_result_t taf_Audio::DeleteAudioStream(taf_audio_Stream_t* streamPtr)
                 if(cbRes == PA_OK)
                 {
                     LE_DEBUG("Successfully deleted the capture stream");
-                    mIsCaptureStreamCreated = false;
+                    mIsTxCaptureStreamCreated = false;
                 }
                 else
                 {
@@ -2838,7 +2838,7 @@ le_result_t taf_Audio::DeleteAudioStream(taf_audio_Stream_t* streamPtr)
                 return LE_FAULT;
             }
         }
-        else if (streamPtr->direction == TAF_AUDIO_RX)
+        else if (streamPtr->direction == TAF_AUDIO_RX && mIsRxCaptureStreamCreated)
         {
             config.type = PaStreamType::CAPTURE;
             config.streamDir.emplace_back(PaStreamDirection::RX);
@@ -3523,7 +3523,7 @@ le_result_t taf_Audio::SetVolume
         LE_DEBUG("Set volume to recorder stream reference");
         TAF_ERROR_IF_RET_VAL(streamPtr->direction == TAF_AUDIO_RX, LE_UNSUPPORTED,
                 "Volume API is not supported on remote stream");
-        if(!mIsCaptureStreamCreated) {
+        if(!mIsTxCaptureStreamCreated) {
             LE_DEBUG("Stream is not active, update the volume level to stream reference");
             streamPtr->volLevel = volLevel;
             return LE_OK;
@@ -4013,7 +4013,7 @@ void taf_Audio::CleanupAudioResources()
     mIsRxRecording = false;
     mIsPlaying = false;
     mIsTxPlaying = false;
-    mIsCaptureStreamCreated = false;
+    mIsTxCaptureStreamCreated = false;
     mIsRxCaptureStreamCreated = false;
 
     pa_result_t result = taf_pa_audio_Deinit();

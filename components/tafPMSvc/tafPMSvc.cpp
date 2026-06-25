@@ -2339,7 +2339,8 @@ le_result_t API(GetModemAwakeReason)
 
     mask = (TAF_PM_NODE_MODEM_WS_BIT_MASK_SMS |
             TAF_PM_NODE_MODEM_WS_BIT_MASK_VOICE_CALL |
-            TAF_PM_NODE_MODEM_WS_BIT_MASK_REMOTE_SIM_PROFILE_SWAP);
+            TAF_PM_NODE_MODEM_WS_BIT_MASK_REMOTE_SIM_PROFILE_SWAP |
+            TAF_PM_NODE_MODEM_WS_BIT_MASK_NAS_SYS_INFO);
 
     LE_INFO("mask: 0x%08x, value: 0x%08x [get]",
             mask,

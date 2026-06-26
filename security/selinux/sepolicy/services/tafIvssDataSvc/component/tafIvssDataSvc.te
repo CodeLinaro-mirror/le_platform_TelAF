@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafIvssDataSvc, 1.0)
@@ -24,21 +24,12 @@ files_type(telaf_tafIvssDataSvc_data_t);
 # Run the service in its own confined domain
 init_telaf_app_domain(telaf_tafIvssDataSvc_t,telaf_tafIvssDataSvc_exec_t)
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafIvssDataSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafIvssDataSvc_t, telaf_tafIvssDataSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafIvssDataSvc_exec_t)
 
 # Allow systemd to get attribute of /tmp/vsomeip-0
 allow systemd_tmpfiles_t tmp_t:sock_file { getattr };
-
-# Allow tafIvssDataSvc to manipulate dir in tmpfs
-allow telaf_tafIvssDataSvc_t tmp_t:dir manage_dir_perms;
-
-# Allow tafIvssDataSvc to manipulate file in tmpfs
-allow telaf_tafIvssDataSvc_t tmp_t:file manage_file_perms;
-
-# Allow tafIvssDataSvc to manipulate sock file in tmpfs
-allow telaf_tafIvssDataSvc_t tmp_t:sock_file manage_sock_file_perms;
 
 # Allow tafIvssDataSvc to manipulate udp/tcp socket
 allow telaf_tafIvssDataSvc_t self:udp_socket create_socket_perms;
@@ -47,9 +38,9 @@ allow telaf_tafIvssDataSvc_t self:tcp_socket create_stream_socket_perms;
 # Allow tafIvssDataSvc to manipulate netlink_route_socket
 allow telaf_tafIvssDataSvc_t self:netlink_route_socket rw_netlink_socket_perms;
 
-# Allow telaf_tafIvssDataSvc_t to manipulate capabilites
+# sys_resource: removed -- no evidence vsomeip needs to exceed rlimits.
+# net_admin is granted via telaf_use_vsomeip_network() below.
 allow telaf_tafIvssDataSvc_t self:capability { net_admin };
-allow telaf_tafIvssDataSvc_t self:capability { sys_resource };
 
 # Misc rules for network socket
 allow telaf_tafIvssDataSvc_t proc_net_t:file read_file_perms;

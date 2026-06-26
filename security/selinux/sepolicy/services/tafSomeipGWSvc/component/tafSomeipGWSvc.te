@@ -1,15 +1,11 @@
-# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafSomeipGWSvc, 1.0)
 
 gen_require(`
-  type sysfs_t;
   type systemd_tmpfiles_t;
   type tmp_t;
-  type proc_net_t;
-  type unreserved_port_t;
-  type node_t;
 ')
 
 # Framework definition for telaf
@@ -21,44 +17,26 @@ type telaf_tafSomeipGWSvc_t;
 type telaf_tafSomeipGWSvc_data_t;
 files_type(telaf_tafSomeipGWSvc_data_t);
 
-# Setup for tmp directory
+# Setup for tmp directory: dedicated type for vsomeip shared-memory sockets.
 type telaf_someiptmp_t;
 files_tmp_file(telaf_someiptmp_t)
 files_tmp_filetrans(telaf_tafSomeipGWSvc_t,telaf_someiptmp_t, { sock_file file dir })
-manage_sock_files_pattern(telaf_tafSomeipGWSvc_t, telaf_someiptmp_t, telaf_someiptmp_t);
-manage_files_pattern(telaf_tafSomeipGWSvc_t, telaf_someiptmp_t, telaf_someiptmp_t);
-allow telaf_tafSomeipGWSvc_t telaf_someiptmp_t:sock_file { write };
 
 # Run the service in its own confined domain
 init_telaf_app_domain(telaf_tafSomeipGWSvc_t,telaf_tafSomeipGWSvc_exec_t)
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafSomeipGWSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafSomeipGWSvc_t, telaf_tafSomeipGWSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafSomeipGWSvc_exec_t)
 
-# Allow systemd to get attribute of /tmp/vsomeip-0
+# vsomeip network stack: TCP/UDP, netlink, port binding, net_admin, /proc/net.
+# sys_nice and dac_override are included via telaf_use_vsomeip_network().
+telaf_use_vsomeip_network(telaf_tafSomeipGWSvc_t)
+
+# vsomeip uses /tmp for shared-memory socket files; manage via a dedicated type.
+manage_dirs_pattern(telaf_tafSomeipGWSvc_t, telaf_someiptmp_t, telaf_someiptmp_t)
+manage_files_pattern(telaf_tafSomeipGWSvc_t, telaf_someiptmp_t, telaf_someiptmp_t)
+manage_sock_files_pattern(telaf_tafSomeipGWSvc_t, telaf_someiptmp_t, telaf_someiptmp_t)
+
+# Allow systemd to inspect /tmp/vsomeip-* socket files.
 allow systemd_tmpfiles_t tmp_t:sock_file { getattr };
-
-# Allow tafSomeipGWSvc to manipulate dir in tmpfs
-allow telaf_tafSomeipGWSvc_t tmp_t:dir manage_dir_perms;
-
-# Allow tafSomeipGWSvc to manipulate file in tmpfs
-allow telaf_tafSomeipGWSvc_t tmp_t:file manage_file_perms;
-
-# Allow tafSomeipGWSvc to manipulate sock file in tmpfs
-allow telaf_tafSomeipGWSvc_t tmp_t:sock_file manage_sock_file_perms;
-
-# Allow tafSomeipGWSvc to manipulate udp/tcp socket
-allow telaf_tafSomeipGWSvc_t self:udp_socket create_socket_perms;
-allow telaf_tafSomeipGWSvc_t self:tcp_socket create_stream_socket_perms;
-
-# Allow tafSomeipGWSvc to manipulate netlink_route_socket
-allow telaf_tafSomeipGWSvc_t self:netlink_route_socket rw_netlink_socket_perms;
-
-# Allow tafSomeipGWSvc to manipulate capabilites
-allow telaf_tafSomeipGWSvc_t self:capability { net_admin };
-
-# Misc rules for network socket
-allow telaf_tafSomeipGWSvc_t proc_net_t:file read_file_perms;
-allow telaf_tafSomeipGWSvc_t { unreserved_port_t node_t }:udp_socket { name_bind node_bind };
-allow telaf_tafSomeipGWSvc_t { unreserved_port_t node_t }:tcp_socket { name_bind node_bind name_connect };

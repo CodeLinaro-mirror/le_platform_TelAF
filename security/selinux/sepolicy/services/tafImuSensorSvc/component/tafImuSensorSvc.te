@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafImuSensorSvc, 1.0)
@@ -14,8 +14,8 @@ files_type(telaf_tafImuSensorSvc_data_t);
 
 init_telaf_app_domain(telaf_tafImuSensorSvc_t,telaf_tafImuSensorSvc_exec_t)
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafImuSensorSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafImuSensorSvc_t, telaf_tafImuSensorSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafImuSensorSvc_exec_t)
 
 ifdef(`sa525m',`

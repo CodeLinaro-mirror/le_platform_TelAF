@@ -1,0 +1,12 @@
+sources:
+{
+    tafSelinuxAllowIntTest.c
+}
+
+requires:
+{
+    api:
+    {
+        le_cfg.api
+    }
+}

@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafDiagBackendSvc, 1.0)
@@ -24,17 +24,20 @@ files_type(telaf_tafDiagBackendSvc_data_t);
 init_telaf_app_domain(telaf_tafDiagBackendSvc_t,telaf_tafDiagBackendSvc_exec_t)
 
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafDiagBackendSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafDiagBackendSvc_t, telaf_tafDiagBackendSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafDiagBackendSvc_exec_t)
 
-allow telaf_tafDiagBackendSvc_t node_t:tcp_socket { node_bind };
-allow telaf_tafDiagBackendSvc_t node_t:udp_socket { node_bind };
-allow telaf_tafDiagBackendSvc_t self:netlink_route_socket { bind create getattr nlmsg_read read write };
-allow telaf_tafDiagBackendSvc_t self:tcp_socket { accept bind create listen read setopt shutdown write ioctl };
-allow telaf_tafDiagBackendSvc_t self:udp_socket { bind create read setopt write ioctl };
+# Network routing: netlink_route_socket + net_admin + kernel network state.
+telaf_use_network_routing(telaf_tafDiagBackendSvc_t)
+# TCP/UDP socket creation.
+telaf_create_stream_sockets(telaf_tafDiagBackendSvc_t)
+# Bind to unreserved ports and node addresses.
+telaf_bind_network_ports(telaf_tafDiagBackendSvc_t)
+
+# Additional socket options not covered by the standard interfaces.
+allow telaf_tafDiagBackendSvc_t self:tcp_socket { accept listen shutdown ioctl };
+allow telaf_tafDiagBackendSvc_t self:udp_socket { ioctl };
+allow telaf_tafDiagBackendSvc_t self:netlink_route_socket { bind nlmsg_read };
 allow telaf_tafDiagBackendSvc_t telaf_admin_t:fifo_file { ioctl };
-allow telaf_tafDiagBackendSvc_t unreserved_port_t:tcp_socket { name_bind };
-allow telaf_tafDiagBackendSvc_t unreserved_port_t:udp_socket { name_bind };
-allow telaf_tafDiagBackendSvc_t self:capability { net_admin };
 allow telaf_tafDiagBackendSvc_t kernel_t:system { module_request };

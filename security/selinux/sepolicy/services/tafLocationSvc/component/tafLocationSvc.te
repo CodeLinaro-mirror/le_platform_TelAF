@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafLocationSvc, 1.0)
@@ -7,6 +7,10 @@ gen_require(`
   type debugfs_t;
   type etc_t;
   type osnma_merkle_tree_xml_t;
+  type loc_hald_t;
+  type loc_etc_t;
+  type loc_socket_t;
+  type urandom_device_t;
 ')
 
 # Framework definition for telaf
@@ -30,8 +34,17 @@ leprop_rw_props(telaf_tafLocationSvc_t)
 allow telaf_tafLocationSvc_t debugfs_t:dir { search_dir_perms };
 allow telaf_tafLocationSvc_t etc_t:file { read_file_perms };
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafLocationSvc_data_t)
+allow telaf_tafLocationSvc_t debugfs_t:file rw_file_perms;
+allow telaf_tafLocationSvc_t loc_etc_t:file rw_file_perms;
+allow telaf_tafLocationSvc_t loc_hald_t:unix_dgram_socket sendto;
+allow telaf_tafLocationSvc_t loc_socket_t:dir rw_dir_perms;
+allow telaf_tafLocationSvc_t loc_socket_t:sock_file { setattr unlink rw_file_perms create_file_perms };
+allow telaf_tafLocationSvc_t self:capability chown;
+allow telaf_tafLocationSvc_t urandom_device_t:chr_file rw_file_perms;
+allow loc_hald_t telaf_tafLocationSvc_t:unix_dgram_socket sendto;
+
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafLocationSvc_t, telaf_tafLocationSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafLocationSvc_exec_t)
 
 # Allow to read xml file data in /etc

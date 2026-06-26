@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafMngdConnSvc, 1.0)
@@ -13,6 +13,21 @@ type telaf_tafMngdConnSvc_data_t;
 files_type(telaf_tafMngdConnSvc_data_t);
 
 init_telaf_app_domain(telaf_tafMngdConnSvc_t,telaf_tafMngdConnSvc_exec_t)
+gen_require(`
+    type telaf_tafDataCallSvc_t;
+    type telaf_tafECallSvc_t;
+    type telaf_tafMngdPMSvc_t;
+    type telaf_tafNetSvc_t;
+    type telaf_tafRadioSvc_t;
+    type telaf_tafSimCardSvc_t;
+')
+telaf_ipc_bind(telaf_tafMngdConnSvc_t, telaf_tafSimCardSvc_t)
+telaf_ipc_bind(telaf_tafMngdConnSvc_t, telaf_tafRadioSvc_t)
+telaf_ipc_bind(telaf_tafMngdConnSvc_t, telaf_tafNetSvc_t)
+telaf_ipc_bind(telaf_tafMngdConnSvc_t, telaf_tafMngdPMSvc_t)
+telaf_ipc_bind(telaf_tafMngdConnSvc_t, telaf_tafECallSvc_t)
+telaf_ipc_bind(telaf_tafMngdConnSvc_t, telaf_tafDataCallSvc_t)
+telaf_use_device_manager(telaf_tafMngdConnSvc_t)
 
 
 gen_require(`
@@ -24,7 +39,6 @@ gen_require(`
     type shell_exec_t;
     type ping_exec_t;
     type systemd_resolved_var_run_t;
-    type cert_t;
 ')
 
 ifdef(`sa525m',`
@@ -42,7 +56,9 @@ allow telaf_tafMngdConnSvc_t net_conf_t:file { getattr open read };
 allow telaf_tafMngdConnSvc_t self:netlink_route_socket { bind create getattr nlmsg_read read write };
 allow telaf_tafMngdConnSvc_t self:tcp_socket { read write connect create getattr getopt setopt };
 allow telaf_tafMngdConnSvc_t self:udp_socket { connect create getattr read setopt write };
-allow telaf_tafMngdConnSvc_t shell_exec_t:file { execute execute_no_trans open read };
+# execute_no_trans removed: shell must transition to a new domain, not run in
+# telaf_tafMngdConnSvc_t.  Use corecmd_exec_shell() if a transition is defined.
+allow telaf_tafMngdConnSvc_t shell_exec_t:file { execute open read };
 allow telaf_tafMngdConnSvc_t proc_t:file { read open getattr};
 
 #Allow for running curl and ping for ConnectivityTest in sa515
@@ -51,13 +67,15 @@ allow telaf_tafMngdConnSvc_t self:icmp_socket { create ioctl getopt read setopt 
 allow telaf_tafMngdConnSvc_t systemd_resolved_var_run_t:dir search;
 allow telaf_tafMngdConnSvc_t systemd_resolved_var_run_t:file { getattr open read };
 allow telaf_tafMngdConnSvc_t self:capability net_raw;
-allow telaf_tafMngdConnSvc_t self:process { getcap setcap sigkill };
+# sigkill and setcap removed: connection manager must not kill arbitrary
+# processes or modify its own capability set.
+allow telaf_tafMngdConnSvc_t self:process { getcap };
 allow telaf_tafMngdConnSvc_t self:rawip_socket { create getopt read setopt write };
-allow telaf_tafMngdConnSvc_t cert_t:dir search;
-allow telaf_tafMngdConnSvc_t cert_t:file { getattr open read };
+# Allow TLS certificate access for outbound connectivity checks (curl/ping).
+telaf_use_cert_files(telaf_tafMngdConnSvc_t)
 
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafMngdConnSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafMngdConnSvc_t, telaf_tafMngdConnSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafMngdConnSvc_exec_t)
 

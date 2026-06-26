@@ -26,12 +26,12 @@
 # IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # Changes from Qualcomm Innovation Center are provided under the following license:
-# Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 ########################################
 ## <summary>
-##    Telaf interface
+##    TelAf SELinux interfaces
 ## </summary>
 #
 
@@ -59,13 +59,14 @@ interface(`init_telaf_app_domain',`
                 type telaf_admin_t;
                 type telaf_sys_t;
                 type telaf_bin_t;
-                type telaf_admin_t;
-                type telaf_sdir_t;
+                type telaf_logd_t;
                 type telaf_app_bundle_t;
                 type tty_device_t;
                 type user_tty_device_t;
+                type tmp_t;
+                type urandom_device_t;
+                attribute tmpfile;
                 attribute telaf_app_domain;
-                attribute telaf_core_domain;
                 attribute telaf_admin_domain;
                 attribute telaf_app_exec_attr;
         ')
@@ -74,40 +75,74 @@ interface(`init_telaf_app_domain',`
         typeattribute $1 telaf_app_domain;
         typeattribute $2 telaf_app_exec_attr;
 
+        # Supervisor auto-starts this domain when the exec type is found.
         domain_auto_transition_pattern(telaf_admin_t, $2, $1)
 
         manage_user_data_files($1, data_t)
 
-        # access telsdk files
-        manage_user_data_files($1, data_t)
-        write_telux_log_file($1)
-        telux_allow_tel($1)
-
-        dlt_allow_user_logging($1)
-
+        # Supervisor lifecycle management of this process.
         allow telaf_admin_domain $1:fd { use };
         allow telaf_admin_domain { $1 $2 }:file { all_file_perms };
         allow telaf_admin_domain { $1 $2 }:dir { all_dir_perms };
         allow telaf_admin_domain { $1 $2 }:lnk_file { read_file_perms };
 
-        allow telaf_admin_domain { $1 }:process { setsched setrlimit sigkill signal getattr };
-        allow $1 { telaf_admin_domain }:process { setsched setrlimit sigkill signal getattr };
+        # Without noatsecure, the kernel sets bprm->secureexec=1 on execve() whenever a SELinux
+        # domain transition occurs, which puts glibc into secure mode and blocks $ORIGIN
+        # expansion in RPATH, preventing private shared libs under appsWriteable/<app>/lib/
+        # from being found by the dynamic linker, causing app startup to fail.
+        allow telaf_admin_domain $1:process { setsched setrlimit sigkill signal getattr noatsecure };
+        allow telaf_admin_domain $1:process2 nosuid_transition;
+        allow $1 telaf_admin_domain:process { setsched setrlimit sigkill signal getattr };
 
-        allow telaf_admin_domain { $1 }:process2 nosuid_transition;
+        # Supervisor creates anonymous pipes (pipefs) before fork/exec and passes the
+        # write-end fd to child processes for stdout/stderr log collection.
+        # These pipes are labeled telaf_admin_t:fifo_file (pipefs label inherits from
+        # the creating process; cannot be changed via file_contexts).
+        #
+        # write   : the child writes its stdout/stderr data into the inherited pipe.
+        # getattr : the child/runtime may perform fstat() or similar fd attribute checks
+        #           on the inherited pipe, which SELinux maps to fifo_file getattr.
+        allow $1 telaf_admin_t:fifo_file { write getattr };
 
-        allow telaf_app_domain $1:file { read_file_perms };
-        allow telaf_app_domain $1:dir { search_dir_perms };
+        # Self unix socket for intra-process IPC channels.
+        allow $1 $1:unix_stream_socket { connectto read write getopt };
 
-        # Support mls
+        # MLS: allow cross-level file and socket access required by IPC.
         mls_file_read_to_clearance($1)
         mls_file_write_to_clearance($1)
         mls_socket_read_to_clearance($1)
         mls_socket_write_to_clearance($1)
-        # Allow printing output to the serial console
+
+        # Serial console output for debug logging.
         getty_use_fds($1)
         allow $1 { tty_device_t user_tty_device_t }:chr_file { read write getattr ioctl };
-')
 
+        # When launched interactively from an adb shell (rather than a serial
+        # console or the supervisor), stdio is a pseudo-terminal, so the process
+        # uses the pty multiplexor (/dev/ptmx).
+        term_use_ptmx($1)
+
+        # liblegato resolves /tmp/legato/ IPC socket path prefix at startup.
+        allow $1 tmp_t:dir { search_dir_perms };
+
+        # liblegato le_rand_Init() opens /dev/urandom at startup for PRNG seeding.
+        allow $1 urandom_device_t:chr_file { read open getattr };
+
+        dlt_allow_user_logging($1)
+        files_read_etc_files($1)
+
+        telaf_use_service_directory($1)
+        telaf_use_logd($1)
+
+        # WORKAROUND: telux log and tel access needed by some app services
+        # TODO: move to per-service .te once the exact telux types are confirmed.
+        write_telux_log_file($1)
+        telux_allow_tel($1)
+
+        # WORKAROUND: dac_override needed by apps.
+        # TODO: remove once app has its own .te/.fc and the capability is granted per-service.
+        allow $1 self:capability { dac_override };
+')
 
 ########################################
 ## <summary>
@@ -133,10 +168,8 @@ interface(`init_telaf_core_domain',`
                 type telaf_sys_t;
                 type telaf_bin_t;
                 type telaf_admin_t;
-                type telaf_sdir_t;
                 type tty_device_t;
                 type user_tty_device_t;
-                attribute telaf_app_domain;
                 attribute telaf_core_domain;
                 attribute telaf_admin_domain;
         ')
@@ -144,21 +177,27 @@ interface(`init_telaf_core_domain',`
         init_daemon_domain($1, $2)
         typeattribute $1 telaf_core_domain;
 
+        # Supervisor auto-starts core daemons.
         domain_auto_transition_pattern(telaf_admin_t, $2, $1)
 
         manage_user_data_files($1, data_t)
-
         dlt_allow_user_logging($1)
 
-        # Support mls
+        # Supervisor stdout/stderr pipes use the same anonymous pipefs mechanism as app domains.
+        allow $1 telaf_admin_t:fifo_file { write getattr };
+
+        # liblegato auto-connects to serviceDirectory at startup.
+        telaf_use_service_directory($1)
+
+        # MLS clearance.
         mls_file_read_to_clearance($1)
         mls_file_write_to_clearance($1)
         mls_socket_read_to_clearance($1)
         mls_socket_write_to_clearance($1)
-        # Allow printing output to the serial console
+
+        # Serial console output.
         getty_use_fds($1)
         allow $1 { tty_device_t user_tty_device_t }:chr_file { read write getattr ioctl };
-
 ')
 
 ########################################
@@ -200,15 +239,15 @@ interface(`init_telaf_admin_domain',`
         manage_user_data_files($1, data_t)
         write_telux_log_file($1)
         telux_allow_tel($1)
-
         dlt_allow_user_logging($1)
 
-        # Support mls
+        # MLS clearance.
         mls_file_read_to_clearance($1)
         mls_file_write_to_clearance($1)
         mls_socket_read_to_clearance($1)
         mls_socket_write_to_clearance($1)
-        # Allow printing output to the serial console
+
+        # Serial console output.
         getty_use_fds($1)
         allow $1 { tty_device_t user_tty_device_t }:chr_file { read write getattr ioctl };
 ')
@@ -216,110 +255,102 @@ interface(`init_telaf_admin_domain',`
 
 ########################################
 ## <summary>
-##              File operations for Telaf admin domain.
+##      Grant telaf_admin_domain full management access
+##      (create/read/write/delete/relabel) over all file classes of type $1.
+##      Called from each service .te to register its data and exec types
+##      with the TelAF admin domain so that the update daemon can
+##      install, upgrade, and uninstall the service.
 ## </summary>
-## <param name="source_domain">
-##              <summary>
-##              Type to be used as a source domain
-##              </summary>
-## </param>
-## <param name="target_domain">
-##              <summary>
-##              Type to be used as a target domain
-##              </summary>
-## </param>
-#
-interface(`telaf_admin_lnk_file_perms',`
-
-        allow $1 $2:dir { search add_name write };
-        allow $1 $2:file { read open write create };
-        allow $1 $2:lnk_file read;
-
-')
-
-
-########################################
-## <summary>
-##              File operations for telaf admin domain
-## </summary>
-## <param name="source_domain">
-##              <summary>
-##              Type to be used as a source domain.
-##              </summary>
-## </param>
-## <param name="target_domain">
-##              <summary>
-##              Type to be used as a target domain
-##              </summary>
-## </param>
-#
-interface(`telaf_admin_file_perms',`
-
-        allow $1 $2:dir { read write search };
-        allow $1 $2:file { read open write getattr };
-
-')
-
-########################################
-## <summary>
-##              Allow TelAF Admin to have all permissions for specified files.
-## </summary>
-## <param name="source_domain">
-##              <summary>
-##              Type to be used as a source domain
-##              </summary>
-## </param>
-## <param name="target_domain">
-##              <summary>
-##              Type to be used as a target domain
-##              </summary>
+## <param name="file_type">
+##      <summary>
+##      The file type to be managed (e.g. telaf_tafFooSvc_data_t).
+##      </summary>
 ## </param>
 #
 interface(`telaf_admin_manage_all_files_perms',`
         gen_require(`
-                type telaf_update_t;
-                type telaf_admin_t;
+                attribute telaf_admin_domain;
         ')
-
-        allow { telaf_admin_domain } $1:dir { manage_dir_perms };
+        manage_dirs_pattern(telaf_admin_domain, $1, $1)
         manage_files_pattern(telaf_admin_domain, $1, $1)
         manage_lnk_files_pattern(telaf_admin_domain, $1, $1)
         manage_blk_files_pattern(telaf_admin_domain, $1, $1)
         manage_sock_files_pattern(telaf_admin_domain, $1, $1)
         manage_fifo_files_pattern(telaf_admin_domain, $1, $1)
-
 ')
 
 ########################################
 ## <summary>
-##              File operations for telaf admin domain
+##      Allow a domain to read/write its typed storage objects.
+##      Covers the storage directory search/read/write and regular file
+##      read/write access for the given type.
 ## </summary>
-## <param name="source_domain">
-##              <summary>
-##              Type to be used as a source domain.
-##              </summary>
+## <param name="domain">
+##      <summary>
+##      The domain that should receive access.
+##      </summary>
 ## </param>
-## <param name="target_domain">
-##              <summary>
-##              Type to be used as a target domain
-##              </summary>
+## <param name="file_type">
+##      <summary>
+##      The file type to access.
+##      </summary>
 ## </param>
 #
-interface(`telaf_admin_mount_perms',`
-
-        allow $1 $2:dir { write create add_name mounton search };
-        allow $1 $2:filesystem { getattr mount remount };
-
+interface(`telaf_rw_data_files',`
+        allow $1 $2:dir { read write search };
+        rw_files_pattern($1, $2, $2)
 ')
 
 ########################################
 ## <summary>
-##              Allow to read TelAF library in
-##              /legato/systems/current/lib/
+##      Backward-compatible wrapper for legacy callers.
+##      Grants $1 management access over regular files of type $2.
+## </summary>
+## <param name="domain">
+##      <summary>
+##      The domain that should receive file permissions.
+##      </summary>
+## </param>
+## <param name="file_type">
+##      <summary>
+##      The file type to be managed.
+##      </summary>
+## </param>
+#
+interface(`telaf_admin_file_perms',`
+        telaf_rw_data_files($1, $2)
+')
+
+########################################
+## <summary>
+##      Backward-compatible wrapper for legacy callers.
+##      Grants $1 management access over symlinks of type $2.
+## </summary>
+## <param name="domain">
+##      <summary>
+##      The domain that should receive link permissions.
+##      </summary>
+## </param>
+## <param name="file_type">
+##      <summary>
+##      The file type to be managed.
+##      </summary>
+## </param>
+#
+interface(`telaf_admin_lnk_file_perms',`
+        allow $1 $2:lnk_file { manage_lnk_file_perms };
+')
+
+########################################
+## <summary>
+##      Allow a domain to traverse the TelAF framework directory tree
+##      and read shared library files under
+##      /legato/systems/current/lib/.
+##
 ## </summary>
 ## <param name="source_domain">
 ##              <summary>
-##              The source domain who need to access TelAF library
+##              The domain that needs to read TelAF library files.
 ##              </summary>
 ## </param>
 #
@@ -327,28 +358,120 @@ interface(`telaf_read_lib_files',`
         gen_require(`
                 type telaf_fw_t;
                 type telaf_sys_t;
-                type telaf_app_rw_t;
                 type telaf_lib_t;
                 type telaf_app_bundle_t;
-                type telaf_apptmp_rw_t;
-                type telaf_sdir_t;
         ')
-
         allow $1 telaf_fw_t:dir { search_dir_perms };
         allow $1 telaf_sys_t:dir { search_dir_perms };
         allow $1 telaf_sys_t:lnk_file { read_file_perms };
-        allow $1 telaf_app_rw_t:dir { search_dir_perms };
-        allow $1 telaf_app_rw_t:file { read open write getattr };
         allow $1 telaf_app_bundle_t:dir { search_dir_perms };
         allow $1 telaf_lib_t:dir { search_dir_perms };
-        allow $1 telaf_lib_t:file { read_file_perms exec_file_perms };
+        allow $1 telaf_lib_t:file { read_file_perms };
         allow $1 telaf_lib_t:lnk_file { read_file_perms };
-        allow $1 telaf_apptmp_rw_t:dir { search_dir_perms };
-        # support IPC
-        allow $1 telaf_apptmp_rw_t:sock_file { rw_file_perms };
+')
+
+########################################
+## <summary>
+##              Allow a TelAF service (client) to bind to another TelAF service (server) via IPC.
+##              Corresponds directly to a bindings: entry in the client app's .adef file:
+##              clientExe.clientComp.api -> serverApp.api
+##              Grants unix stream socket connect + fd inheritance for the IPC channel.
+## </summary>
+## <param name="source_domain">
+##              <summary>
+##              The source domain who need to access TelAF library
+##              </summary>
+## </param>
+#
+interface(`telaf_ipc_bind',`
+        allow $1 $2:unix_stream_socket { connectto read write getopt };
+        allow $1 $2:fd use;
+')
+
+########################################
+## <summary>
+##              Allow a domain to use the TelAF serviceDirectory service.
+## </summary>
+## <param name="source_domain">
+##              <summary>
+##              The source domain who need to access TelAF library
+##              </summary>
+## </param>
+#
+interface(`telaf_use_service_directory',`
+        gen_require(`
+                type telaf_sdir_t;
+        ')
         allow $1 telaf_sdir_t:unix_stream_socket { connectto read write getopt };
-        # support creating le_fs folder in fs_Init()
-        allow $1 telaf_sys_t:dir { rw_dir_perms };
+        allow $1 telaf_sdir_t:fd use;
+')
+
+########################################
+## <summary>
+##              Allow a domain to use the TelAF log daemon.
+## </summary>
+## <param name="source_domain">
+##              <summary>
+##              The source domain who need to access TelAF library
+##              </summary>
+## </param>
+#
+interface(`telaf_use_logd',`
+        gen_require(`
+                type telaf_logd_t;
+        ')
+        allow $1 telaf_logd_t:unix_stream_socket { connectto read write getopt };
+')
+
+########################################
+## <summary>
+##              Allow a domain to use the TelAF configTree service.
+## </summary>
+## <param name="source_domain">
+##              <summary>
+##              The source domain who need to access TelAF library
+##              </summary>
+## </param>
+#
+interface(`telaf_use_config_tree',`
+        gen_require(`
+                type telaf_cfgtree_t;
+        ')
+        allow $1 telaf_cfgtree_t:unix_stream_socket { connectto read write getopt };
+')
+
+########################################
+## <summary>
+##              Allow a domain to use the TelAF deviceManager service.
+## </summary>
+## <param name="source_domain">
+##              <summary>
+##              The source domain who need to access TelAF library
+##              </summary>
+## </param>
+#
+interface(`telaf_use_device_manager',`
+        gen_require(`
+                type telaf_devmgr_t;
+        ')
+        allow $1 telaf_devmgr_t:unix_stream_socket { connectto read write getopt };
+')
+
+########################################
+## <summary>
+##      Allow a domain to read per-PID process state from /proc.
+##      Grants access to /proc/PID/ entries for ALL running domains,
+##      including /proc/PID/status, /proc/PID/maps,
+##      /proc/PID/cmdline, /proc/PID/fd, etc.
+## </summary>
+## <param name="domain">
+##      <summary>
+##      The domain that needs to read other processes' /proc state.
+##      </summary>
+## </param>
+#
+interface(`telaf_app_read_proc_state',`
+        domain_read_all_domains_state($1)
 ')
 
 ########################################
@@ -362,19 +485,20 @@ interface(`telaf_read_lib_files',`
 ## </param>
 #
 interface(`telaf_load_vhal_modules',`
-    gen_require(`
-            type telaf_devmgr_t;
-            type telaf_devmgr_data_t;
-    ')
-
-    allow telaf_devmgr_t $1:lnk_file { read };
-    allow telaf_devmgr_t $1:process { signull };
-    allow $1 telaf_devmgr_data_t:dir { search };
-    allow $1 telaf_devmgr_data_t:file { open read getattr execute };
-
-    ifdef(`sa525m',`
-    allow $1 telaf_devmgr_data_t:file { map };
-    ')
+        gen_require(`
+                type telaf_devmgr_t;
+                type telaf_devmgr_data_t;
+        ')
+        # deviceManager inspects the service that loads its module.
+        allow telaf_devmgr_t $1:lnk_file { read };
+        allow telaf_devmgr_t $1:process { signull };
+        # Service finds and executes the VHAL plugin binary.
+        allow $1 telaf_devmgr_data_t:dir { search };
+        allow $1 telaf_devmgr_data_t:file { open read getattr execute };
+        ifdef(`sa525m',`
+                # sa525m requires mmap execute for VHAL plugins.
+                allow $1 telaf_devmgr_data_t:file { map };
+        ')
 ')
 
 ########################################
@@ -388,19 +512,386 @@ interface(`telaf_load_vhal_modules',`
 ## </param>
 #
 interface(`telaf_load_rfs_component',`
-    gen_require(`
-            type data_t;
-            type persist_t;
-            type cert_t;
-            type proc_t;
-    ')
+        gen_require(`
+                type data_t;
+                type persist_t;
+                type proc_t;
+        ')
+        allow $1 data_t:file { manage_file_perms relabel_file_perms };
+        allow $1 data_t:dir { remove_name create_dir_perms rw_dir_perms };
+        allow $1 persist_t:file { manage_file_perms relabel_file_perms };
+        allow $1 persist_t:dir { remove_name create_dir_perms rw_dir_perms };
+        telaf_use_cert_files($1)
+        allow $1 proc_t:file { read_file_perms };
+')
 
-    allow $1 data_t:file { manage_file_perms relabel_file_perms };
-    allow $1 data_t:dir { remove_name create_dir_perms rw_dir_perms };
-    allow $1 persist_t:file { manage_file_perms relabel_file_perms };
-    allow $1 persist_t:dir { remove_name create_dir_perms rw_dir_perms };
-    allow $1 cert_t:dir { search };
-    allow $1 cert_t:file { read_file_perms };
-    allow $1 proc_t:file { read_file_perms };
+########################################
+## <summary>
+##              Allow a domain to read TLS certificate files under /etc/ssl/certs
+##              (or equivalent cert_t-labeled paths).
+##              Used by any service that makes outbound TLS connections or
+##              verifies signatures (curl, OpenSSL, mbedTLS, etc.).
+## </summary>
+## <param name="domain">
+##              <summary>
+##              The domain that needs to read certificate files.
+##              </summary>
+## </param>
+#
+interface(`telaf_use_cert_files',`
+        miscfiles_read_generic_certs($1)
+')
 
+########################################
+## <summary>
+##              Allow a domain to manage its own data directory under /persist.
+##              Used by services that store keys, credentials or persistent
+##              state in the /persist partition.
+## </summary>
+## <param name="domain">
+##              <summary>
+##              The domain that needs read/write access to /persist.
+##              </summary>
+## </param>
+#
+interface(`telaf_use_persist_storage',`
+        gen_require(`
+                type persist_t;
+        ')
+        allow $1 persist_t:dir { manage_dir_perms };
+        allow $1 persist_t:file { manage_file_perms };
+')
+
+########################################
+## <summary>
+##      Allow a domain to read global /proc files (proc_t-labeled).
+##      Covers system-wide kernel and hardware information files such as
+##      /proc/filesystems, /proc/cpuinfo, /proc/meminfo, /proc/version,
+##      /proc/mounts, etc.
+##
+##      NOTE: This is different from telaf_app_read_proc_state().
+##      - telaf_read_proc_files()     covers /proc/GLOBAL (proc_t, system info)
+##      - telaf_app_read_proc_state() covers /proc/PID/   (domain, per-process state)
+##      Use this interface when the service only needs to read kernel/hardware
+##      information, not inspect other processes.
+## </summary>
+## <param name="domain">
+##      <summary>
+##      The domain that needs to read global /proc files.
+##      </summary>
+## </param>
+#
+interface(`telaf_read_proc_files',`
+        gen_require(`
+                type proc_t;
+        ')
+        allow $1 proc_t:dir { search_dir_perms };
+        allow $1 proc_t:file { read_file_perms };
+')
+
+########################################
+## <summary>
+##      Allow a domain to read files under /etc (etc_t-labeled).
+##      Covers configuration files such as /etc/resolv.conf, /etc/hosts,
+##      /etc/ssl/certs, /etc/timezone, etc.
+## </summary>
+## <param name="domain">
+##      <summary>
+##      The domain that needs to read /etc configuration files.
+##      </summary>
+## </param>
+#
+interface(`telaf_read_etc_files',`
+        gen_require(`
+                type etc_t;
+        ')
+        allow $1 etc_t:dir { search_dir_perms };
+        allow $1 etc_t:file { read_file_perms };
+')
+
+########################################
+## <summary>
+##      Allow a domain to read firmware files under /lib/firmware
+##      (firmware_t-labeled).
+##      Used by services that load hardware firmware blobs at startup,
+##      e.g. keystore, sensor, or modem services.
+## </summary>
+## <param name="domain">
+##      <summary>
+##      The domain that needs to read firmware files.
+##      </summary>
+## </param>
+#
+interface(`telaf_read_firmware_files',`
+        gen_require(`
+                type firmware_t;
+        ')
+        allow $1 firmware_t:dir { search_dir_perms };
+        allow $1 firmware_t:file { read_file_perms };
+')
+
+########################################
+## <summary>
+##      Allow a domain to execute /bin/sh or equivalent shell binary
+##      (shell_exec_t-labeled).
+##      Used by services that invoke shell scripts for configuration,
+##      network setup, or diagnostic commands.
+## </summary>
+## <param name="domain">
+##      <summary>
+##      The domain that needs to execute a shell.
+##      </summary>
+## </param>
+#
+interface(`telaf_exec_shell',`
+        gen_require(`
+                type shell_exec_t;
+        ')
+        allow $1 shell_exec_t:file { exec_file_perms };
+')
+
+########################################
+## <summary>
+##      Allow a domain to manage its own temporary files under /tmp
+##      and access tmpfs-backed storage.
+##
+##      tmp_t      -- generic /tmp files, directories, and sockets
+##                    (e.g. crash logs, IPC scratch files, tar unpack)
+##      user_tmp_t -- PAM / systemd-logind per-user session tmpdir
+##                    (/tmp/user/UID/); needed by services that run
+##                    under a real user session (e.g. update installer
+##                    invoked from an SSH session, or devmgr relabeling
+##                    VHAL plugin staging files).
+##      tmpfs_t    -- tmpfs filesystem and its files/dirs
+##                    (e.g. /dev/shm, sandboxed app /tmp bind mounts).
+##                    filesystem getattr : statvfs() on the mount.
+##                    file read/write/open/getattr : access tmpfs files.
+##                    dir search_dir_perms : traverse tmpfs directories.
+##                    mounton is intentionally excluded: only
+##                    telaf_admin_domain does bind mounts over tmpfs.
+##
+##      All three types are covered here so callers do not need to
+##      know which label a particular /tmp path carries at runtime.
+## </summary>
+## <param name="domain">
+##      <summary>
+##      The domain that needs to manage /tmp files.
+##      </summary>
+## </param>
+#
+interface(`telaf_manage_tmp_files',`
+        gen_require(`
+                type tmp_t;
+                type user_tmp_t;
+                type tmpfs_t;
+        ')
+        allow $1 tmp_t:dir { manage_dir_perms };
+        allow $1 tmp_t:file { manage_file_perms };
+        allow $1 tmp_t:sock_file { manage_sock_file_perms };
+        allow $1 user_tmp_t:dir { manage_dir_perms };
+        allow $1 user_tmp_t:file { manage_file_perms };
+        allow $1 tmpfs_t:filesystem getattr;
+        allow $1 tmpfs_t:file { read write open getattr };
+        allow $1 tmpfs_t:dir { search_dir_perms };
+')
+
+########################################
+## <summary>
+##      Allow a domain to use network routing: create a netlink route
+##      socket, read kernel network state, and request net_admin capability.
+##      Used by services that configure IP routes, network interfaces,
+##      or DNS settings (e.g. tafNetSvc, tafDataCallSvc, tafWlanSvc).
+## </summary>
+## <param name="domain">
+##      <summary>
+##      The domain that needs network routing access.
+##      </summary>
+## </param>
+#
+interface(`telaf_use_network_routing',`
+        allow $1 self:netlink_route_socket rw_netlink_socket_perms;
+        allow $1 self:capability { net_admin };
+        kernel_read_network_state($1)
+')
+
+########################################
+## <summary>
+##      Allow a domain to bind TCP and UDP sockets to unreserved ports
+##      and to node addresses.
+##      Used by services that listen on dynamic ports for inbound
+##      connections (e.g. diagnostic, data-call, or telephony services).
+## </summary>
+## <param name="domain">
+##      <summary>
+##      The domain that needs to bind network ports.
+##      </summary>
+## </param>
+#
+interface(`telaf_bind_network_ports',`
+        gen_require(`
+                type node_t;
+                type unreserved_port_t;
+        ')
+        allow $1 node_t:tcp_socket { node_bind };
+        allow $1 node_t:udp_socket { node_bind };
+        allow $1 unreserved_port_t:tcp_socket { name_bind };
+        allow $1 unreserved_port_t:udp_socket { name_bind };
+')
+
+########################################
+## <summary>
+##      Allow a domain to create TCP and UDP sockets for outbound or
+##      inbound communication.
+##      Use together with telaf_bind_network_ports() when the service
+##      also needs to listen on a port.
+## </summary>
+## <param name="domain">
+##      <summary>
+##      The domain that needs to create TCP/UDP sockets.
+##      </summary>
+## </param>
+#
+interface(`telaf_create_stream_sockets',`
+        allow $1 self:tcp_socket { create_stream_socket_perms };
+        allow $1 self:udp_socket { create_socket_perms };
+')
+
+########################################
+## <summary>
+##      Allow a domain to use the vsomeip network stack.
+##      Covers the full set of socket, port, and capability permissions
+##      required by vsomeip-based services: TCP/UDP socket creation,
+##      netlink route socket, unreserved port binding, node binding,
+##      net_admin capability, and /proc/net read access.
+##
+##      Also manages vsomeip's shared-memory socket files under /tmp
+##      via a per-service typed tmp transition (telaf_someiptmp_t or
+##      equivalent).  Callers that need a dedicated tmp type should
+##      declare it themselves and pass it as $2; callers that share
+##      the generic tmp_t can omit $2 and use telaf_manage_tmp_files().
+##
+## </summary>
+## <param name="domain">
+##      <summary>
+##      The domain that runs a vsomeip service.
+##      </summary>
+## </param>
+#
+interface(`telaf_use_vsomeip_network',`
+        gen_require(`
+                type proc_net_t;
+        ')
+        # TCP/UDP socket creation.
+        telaf_create_stream_sockets($1)
+        # Netlink route socket + net_admin + kernel network state.
+        telaf_use_network_routing($1)
+        # Bind to unreserved ports and node addresses.
+        telaf_bind_network_ports($1)
+        # vsomeip also needs name_connect for outbound TCP.
+        gen_require(`
+                type unreserved_port_t;
+        ')
+        allow $1 unreserved_port_t:tcp_socket { name_connect };
+        # /proc/net for interface enumeration.
+        allow $1 proc_net_t:file read_file_perms;
+        # dac_override: vsomeip shared-memory segments may be owned by
+        # other app UIDs; needed when opening /dev/shm objects.
+        allow $1 self:capability { dac_override };
+        # sys_nice: vsomeip IO threads call setpriority() to adjust their own
+        # scheduling priority for low-latency message dispatch.
+        allow $1 self:capability { sys_nice };
+')
+
+########################################
+## <summary>
+##      Grant $1 full management access over telaf_app_rw_t
+####
+## </summary>
+## <param name="domain">
+##      <summary>
+##      The service domain (e.g. telaf_tafKeyStoreSvc_t).
+##      </summary>
+## </param>
+## <param name="data_type">
+##      <summary>
+##      The per-service data file type (e.g. telaf_tafKeyStoreSvc_data_t).
+##      </summary>
+## </param>
+#
+interface(`telaf_manage_app_data_files',`
+        gen_require(`
+                type telaf_app_rw_t;
+        ')
+        manage_dirs_pattern($1, $2, $2)
+        manage_files_pattern($1, $2, $2)
+        manage_lnk_files_pattern($1, $2, $2)
+        manage_sock_files_pattern($1, $2, $2)
+        telaf_admin_manage_all_files_perms($2)
+        # type_transition: files and directories created by $1 inside any
+        # telaf_app_rw_t directory (appsWriteable/<svc>/ or /data/le_fs/)
+        # are automatically labeled $2 at creation time.
+        type_transition $1 telaf_app_rw_t:dir      $2;
+        type_transition $1 telaf_app_rw_t:file     $2;
+        type_transition $1 telaf_app_rw_t:sock_file $2;
+        type_transition $1 telaf_app_rw_t:lnk_file  $2;
+        # Files/dirs created inside the already-typed data directory
+        # also inherit $2, keeping the whole subtree consistently labeled.
+        type_transition $1 $2:dir  $2;
+        type_transition $1 $2:file $2;
+        # Migration window: files not yet relabeled by setfiles remain accessible.
+        # REMOVE once all in-field devices have completed a full OTA with setfiles.
+        allow $1 telaf_app_rw_t:{ file dir lnk_file sock_file } *;
+')
+
+########################################
+## <summary>
+##      Allow a domain to read (but not write) files of a given type.
+##      Covers directory search and regular file read access.
+##      Use this instead of telaf_rw_data_files() when the service only
+##      needs read-only access to a typed data directory, following the
+##      principle of least privilege.
+## </summary>
+## <param name="domain">
+##      <summary>
+##      The domain that needs read-only access.
+##      </summary>
+## </param>
+## <param name="file_type">
+##      <summary>
+##      The file type to read (e.g. telaf_tafFooSvc_data_t).
+##      </summary>
+## </param>
+#
+interface(`telaf_read_data_files',`
+        allow $1 $2:dir { search_dir_perms };
+        read_files_pattern($1, $2, $2)
+')
+
+########################################
+## <summary>
+##      Allow a domain to read /proc/sys/vm/overcommit_memory and
+##      /proc/sys/vm/overcommit_ratio (sysctl_vm_overcommit_t).
+##
+##      These files control the kernel memory over-commitment policy.
+##      Access requires traversing two sysctl directory levels:
+##        /proc/sys/          (sysctl_t:dir   search)
+##        /proc/sys/vm/       (sysctl_vm_t:dir search)
+##        /proc/sys/vm/overcommit_*  (sysctl_vm_overcommit_t:file read)
+##
+## </summary>
+## <param name="domain">
+##      <summary>
+##      The domain that needs to read the vm overcommit sysctl files.
+##      </summary>
+## </param>
+#
+interface(`telaf_read_vm_overcommit_sysctl',`
+        gen_require(`
+                type sysctl_t;
+                type sysctl_vm_t;
+                type sysctl_vm_overcommit_t;
+        ')
+        allow $1 sysctl_t:dir { search };
+        allow $1 sysctl_vm_t:dir { search };
+        allow $1 sysctl_vm_overcommit_t:file { read open };
 ')

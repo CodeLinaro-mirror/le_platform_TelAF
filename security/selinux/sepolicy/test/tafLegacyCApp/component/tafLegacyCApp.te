@@ -1,0 +1,70 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+policy_module(tafLegacyCApp, 1.0)
+
+# ---------------------------------------------------------------------------
+# tafLegacyCApp - SELinux policy for a plain-C "legacy" app (no .adef).
+#
+# Unlike a Legato app, this binary is NOT launched by the TelAF supervisor, so
+# the auto-transition that init_telaf_app_domain wires up from telaf_admin_t
+# never fires.  We therefore add an explicit domain transition from the login
+# shell domain (same approach used by the sdir CLI tool in sys/telaf.te), and
+# grant the typed interfaces needed to reach the TelAF IPC plane.
+# ---------------------------------------------------------------------------
+
+# Framework type declarations for telaf.
+type telaf_tafLegacyCApp_exec_t;
+files_type(telaf_tafLegacyCApp_exec_t);
+
+type telaf_tafLegacyCApp_t;
+
+type telaf_tafLegacyCApp_data_t;
+files_type(telaf_tafLegacyCApp_data_t);
+
+# Put the process in its own per-app TelAF domain.  This pulls in the baseline
+# app permissions, including telaf_use_service_directory() (connect to the
+# Service Directory's client socket).
+init_telaf_app_domain(telaf_tafLegacyCApp_t, telaf_tafLegacyCApp_exec_t)
+
+# Let the app manage its own private data dir; registers with the admin domain.
+telaf_manage_app_data_files(telaf_tafLegacyCApp_t, telaf_tafLegacyCApp_data_t)
+telaf_admin_manage_all_files_perms(telaf_tafLegacyCApp_exec_t)
+
+# ---------------------------------------------------------------------------
+# Reach the TelAF framework + the target service.
+#
+# init_telaf_app_domain already grants telaf_use_service_directory(), which lets
+# the client connect to the Service Directory's client socket (the first gate).
+#
+# This app uses the taf_time interface (tafTimeSvc) via the generated client
+# stubs, so the client domain also needs to connect to the tafTimeSvc IPC
+# socket.  telaf_ipc_bind grants the client->server connect/use on that socket.
+# ---------------------------------------------------------------------------
+gen_require(`
+    type telaf_tafTimeSvc_t;
+')
+telaf_ipc_bind(telaf_tafLegacyCApp_t, telaf_tafTimeSvc_t)
+
+# ---------------------------------------------------------------------------
+# Explicit domain transition from the shell.
+#
+# This binary is run from a root shell / init script, not by the supervisor.
+# Without an explicit transition the process stays in the caller's domain
+# (sysadm_t under MLS, or unconfined_t on permissive/debug builds) and cannot
+# connect to telaf_sdir_t:unix_stream_socket.  Mirror the sdir CLI handling.
+# ---------------------------------------------------------------------------
+ifdef(`enable_mls',`
+    gen_require(`
+        type sysadm_t;
+        role sysadm_r;
+    ')
+    domtrans_pattern(sysadm_t, telaf_tafLegacyCApp_exec_t, telaf_tafLegacyCApp_t)
+    role sysadm_r types telaf_tafLegacyCApp_t;
+')
+gen_require(`
+    type unconfined_t;
+    role unconfined_r;
+')
+domtrans_pattern(unconfined_t, telaf_tafLegacyCApp_exec_t, telaf_tafLegacyCApp_t)
+role unconfined_r types telaf_tafLegacyCApp_t;

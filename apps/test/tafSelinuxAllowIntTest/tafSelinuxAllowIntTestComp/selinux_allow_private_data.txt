@@ -1,0 +1,1 @@
+This file belongs to tafSelinuxAllowIntTest and is used for SELinux read isolation validation.

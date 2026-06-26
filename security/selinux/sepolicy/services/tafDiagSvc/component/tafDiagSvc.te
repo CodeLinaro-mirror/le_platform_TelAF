@@ -21,10 +21,16 @@ files_type(telaf_tafDiagSvc_data_t);
 type telaf_tafDiagSvc_t;
 
 init_telaf_app_domain(telaf_tafDiagSvc_t,telaf_tafDiagSvc_exec_t)
+gen_require(`
+    type telaf_tafDiagBackendSvc_t;
+')
+telaf_ipc_bind(telaf_tafDiagSvc_t, telaf_tafDiagBackendSvc_t)
 
+# Allow service to manage its own data directory; registers with admin domain.
+# telaf_manage_app_data_files subsumes telaf_admin_manage_all_files_perms(data_t)
+# and telaf_rw_data_files, so both are replaced by this single call.
+telaf_manage_app_data_files(telaf_tafDiagSvc_t, telaf_tafDiagSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafDiagSvc_exec_t)
-telaf_admin_manage_all_files_perms(telaf_tafDiagSvc_data_t)
-telaf_admin_file_perms(telaf_tafDiagSvc_t,telaf_tafDiagSvc_data_t)
 
 allow telaf_tafDiagSvc_t node_t:udp_socket { node_bind };
 allow telaf_tafDiagSvc_t unreserved_port_t:udp_socket { name_bind };
@@ -40,6 +46,6 @@ allow telaf_tafDiagSvc_t proc_t:file {read_file_perms};
 allow telaf_tafDiagSvc_t data_t:dir {relabelfrom};
 allow telaf_tafDiagSvc_t data_t:file {map};
 
-allow telaf_tafDiagSvc_t self:capability2 { mac_admin };
-
+# CRITICAL: unconfined_domain() bypasses all SELinux confinement.
+# This was a temporary workaround and must be replaced with explicit rules.
 unconfined_domain(telaf_tafDiagSvc_t)

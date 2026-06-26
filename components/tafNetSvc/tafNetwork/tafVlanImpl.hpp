@@ -18,6 +18,11 @@
 #define MAX_VLAN_ID                         4094/*vlan 4095 is max and it is reserved*/
 #define MAX_VLAN_PRIORITY                   7  /*The maxium value of vlan priority*/
 
+#define MAX_NUM_OF_PM_CONN_ATTEMPTS         3
+#define MAX_NUM_OF_PM_TIMER_REPEAT          2
+#define PM_DELAY_TIMER_INTERVAL             32000
+#define PM_CONN_RETRY_TIMER_INTERVAL        1000
+
 
 /*
  * @brief The struct of IP PASS through operation config to REMOTE with WWAN support.
@@ -264,6 +269,11 @@ namespace tafsvc {
             static bool sort_vlanId(const taf_pa_Vlan_t& s1,
                                     const taf_pa_Vlan_t& s2);
 
+            void StartPmRetryTimer();
+            static void PmConnectHandler(le_timer_Ref_t timerRef);
+            static void PmDelayHandler(le_timer_Ref_t timerRef);
+            static void PmDisconnectHandler(void* contextPtr);
+
             le_mem_PoolRef_t vlanPool;
             le_ref_MapRef_t vlanRefMap;
 
@@ -288,6 +298,10 @@ namespace tafsvc {
             // Hardware acceleration state event related declarations and functions
             le_event_Id_t vlanHwAccelerationStateEvtId;
             le_mem_PoolRef_t vlanHwAccelerationStateEvtPool;
+
+            le_timer_Ref_t pmRetryTimer = nullptr;
+            le_timer_Ref_t pmDelayTimer = nullptr;
+            uint32_t pmTimerRepeat = 0;
 
             static std::vector<taf_pa_Vlan_t> vlanPAEntryInfo;
 

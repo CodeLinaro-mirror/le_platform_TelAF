@@ -96,6 +96,131 @@ void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr)
 
 }
 
+/*
+ * Start taf_pm retry timer.
+ */
+void taf_Vlan::StartPmRetryTimer(void)
+{
+    if (pmRetryTimer == nullptr)
+    {
+        pmRetryTimer = le_timer_Create("pmRetryTimer");
+        if (pmRetryTimer == nullptr)
+        {
+            LE_ERROR("Failed to create PM retry timer");
+            return;
+        }
+        le_timer_SetHandler(pmRetryTimer, PmConnectHandler);
+        le_timer_SetWakeup(pmRetryTimer, false);
+        le_timer_SetMsInterval(pmRetryTimer, PM_CONN_RETRY_TIMER_INTERVAL);
+    }
+    le_timer_SetRepeat(pmRetryTimer, MAX_NUM_OF_PM_CONN_ATTEMPTS);
+    le_timer_Start(pmRetryTimer);
+}
+
+/*
+ * Try to connect to taf_pm for 3 times with 1 sec interval.
+ */
+void taf_Vlan::PmConnectHandler(le_timer_Ref_t timerRef)
+{
+    auto &vlan = taf_Vlan::GetInstance();
+    uint32_t expiryCount = le_timer_GetExpiryCount(timerRef);
+    taf_pa_result_t paResult;
+    le_result_t result = taf_pm_TryConnectService();
+    LE_INFO("PM retry attempt %d/%d", expiryCount, MAX_NUM_OF_PM_CONN_ATTEMPTS);
+    if (result == LE_OK)
+    {
+        LE_INFO("Successfully connected to taf_pm");
+        taf_pm_AddStateChangeHandler(PowerStateChangeHandler, nullptr);
+        taf_pm_SetNonExitServerDisconnectHandler(PmDisconnectHandler, nullptr);
+        if (taf_pm_GetPowerState() == TAF_PM_STATE_SUSPEND)
+        {
+            paResult = taf_pa_net_DeregVlanListener();
+            if (paResult != TAF_PA_OK)
+            {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_DeregVlanListener reason=%d",
+                         paResult);
+            }
+        }
+        else
+        {
+            paResult = taf_pa_net_RegVlanListener();
+            if (paResult != TAF_PA_OK)
+            {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_RegVlanListener reason=%d",
+                         paResult);
+            }
+        }
+        le_timer_Delete(vlan.pmRetryTimer);
+        vlan.pmRetryTimer = nullptr;
+        vlan.pmTimerRepeat = 0;
+        if (vlan.pmDelayTimer)
+        {
+            le_timer_Delete(vlan.pmDelayTimer);
+            vlan.pmDelayTimer = nullptr;
+        }
+    }
+    else if (expiryCount == MAX_NUM_OF_PM_CONN_ATTEMPTS
+            && vlan.pmTimerRepeat < MAX_NUM_OF_PM_TIMER_REPEAT)
+    {
+        LE_INFO("Stop timer and start after 32secs");
+        le_timer_Stop(vlan.pmRetryTimer);
+        if (vlan.pmDelayTimer == nullptr)
+        {
+            vlan.pmDelayTimer = le_timer_Create("pmDelayTimer");
+            if (vlan.pmDelayTimer == nullptr)
+            {
+                LE_ERROR("Failed to create PM delay timer");
+                return;
+            }
+            le_timer_SetHandler(vlan.pmDelayTimer, PmDelayHandler);
+            le_timer_SetWakeup(vlan.pmDelayTimer, false);
+            le_timer_SetMsInterval(vlan.pmDelayTimer, PM_DELAY_TIMER_INTERVAL);
+        }
+        le_timer_Start(vlan.pmDelayTimer);
+        vlan.pmTimerRepeat++;
+    }
+    else if (expiryCount >= MAX_NUM_OF_PM_CONN_ATTEMPTS
+            && vlan.pmTimerRepeat >= MAX_NUM_OF_PM_TIMER_REPEAT)
+    {
+        LE_ERROR("Failed to connect to taf_pm after maximum retries");
+        le_timer_Stop(vlan.pmRetryTimer);
+        le_timer_Delete(vlan.pmRetryTimer);
+        vlan.pmRetryTimer = nullptr;
+        vlan.pmTimerRepeat = 0;
+        if (vlan.pmDelayTimer)
+        {
+            le_timer_Delete(vlan.pmDelayTimer);
+            vlan.pmDelayTimer = nullptr;
+        }
+    }
+    else
+    {
+        LE_INFO("Retrying taf_pm connection...");
+    }
+}
+
+/*
+ * Start PM connect timer again after 32secs.
+ */
+void taf_Vlan::PmDelayHandler(le_timer_Ref_t timerRef)
+{
+    LE_INFO("Stop PM delay timer and start retry timer");
+    auto &vlan = taf_Vlan::GetInstance();
+    le_timer_Stop(timerRef);
+    vlan.StartPmRetryTimer();
+}
+
+/*
+ * Handle taf_pm server disconnect — re-register state change handler on reconnect.
+ */
+void taf_Vlan::PmDisconnectHandler(void* contextPtr)
+{
+    LE_ERROR("taf_pm server disconnected, starting reconnect retry");
+    auto &vlan = taf_Vlan::GetInstance();
+    vlan.pmTimerRepeat = 0;
+    vlan.StartPmRetryTimer();
+}
+
 std::vector<taf_pa_Vlan_t> taf_Vlan::vlanPAEntryInfo;
 
 //The VLAN hardware acceleration state.
@@ -208,14 +333,31 @@ void taf_Vlan::Init(void)
     le_msg_AddServiceCloseHandler( taf_net_GetServiceRef(), ClientCloseSessionHandler, NULL );
 
     // Add power state change handle.
-    taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
-    if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
+    le_result_t pmResult = taf_pm_TryConnectService();
+    if (pmResult == LE_OK)
     {
+        LE_INFO("Successfully connected to taf_pm");
+        taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
+        taf_pm_SetNonExitServerDisconnectHandler(PmDisconnectHandler, nullptr);
+        if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
+        {
+            paResult = taf_pa_net_RegVlanListener();
+            if (paResult != TAF_PA_OK)
+            {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_RegVlanListener reason=%d",
+                         paResult);
+            }
+        }
+    }
+    else
+    {
+        LE_ERROR("Failed to connect to taf_pm with result %d, starting retry", pmResult);
         paResult = taf_pa_net_RegVlanListener();
         if (paResult != TAF_PA_OK)
         {
             LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_RegVlanListener reason=%d", paResult);
         }
+        StartPmRetryTimer();
     }
 
     paResult = taf_pa_vlan_RegHwAccelarationUpdateHandler(HwAccelarationUpdatePAHandler);

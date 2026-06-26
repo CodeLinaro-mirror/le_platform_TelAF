@@ -700,42 +700,6 @@ le_result_t taf_Nat::CleanListRef
 
 /*======================================================================
 
- FUNCTION        taf_Nat::IsRmnetBringUp
-
- DESCRIPTION     Check whether the rmnet interface is bringed up or not corresponding this profile id.
-
- DEPENDENCIES    The initialization of Nat.
-
- PARAMETERS      [IN] uint32_t profileId: The profile id.
-
- RETURN VALUE    bool
-                     true:  the rmnet interface is bringed up.
-                     false: the rmnet interface is not bringed up.
-
- SIDE EFFECTS
-
-======================================================================*/
-bool taf_Nat::IsRmnetBringUp(uint32_t profileId)
-{
-    taf_dcs_ProfileRef_t profileRef=NULL;
-    le_result_t result;
-    char interfaceName[TAF_NET_INTERFACE_NAME_MAX_LEN];
-
-    profileRef=taf_dcs_GetProfile(profileId);
-
-    if(profileRef == NULL)
-        return false;
-
-    result=taf_dcs_GetInterfaceName(profileRef, interfaceName, TAF_NET_INTERFACE_NAME_MAX_LEN);
-
-    if(result != LE_OK)
-        return false;
-
-    return true;
-}
-
-/*======================================================================
-
  FUNCTION        taf_Nat::MapIPProtocol
 
  DESCRIPTION     Map the enum from uint8_t to taf_net_IpProto_t.

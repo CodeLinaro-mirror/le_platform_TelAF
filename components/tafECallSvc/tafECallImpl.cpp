@@ -1686,7 +1686,11 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
 
     //Get Selected card
-    uint8_t phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+    int8_t phoneId = GetSelectedPhoneIdForECall();
+    if (phoneId < 0) {
+        LE_ERROR("%s: failed to resolve phoneId", __func__);
+        return LE_FAULT;
+    }
 
     //Check ECall session
     if (eCallPtr->eCallSession != ECALL_INIT && (eCallPtr->eCallSession != ECALL_ENDED)) {
@@ -1838,7 +1842,11 @@ le_result_t taf_ecall::StartPrivate(taf_ecall_CallRef_t ecallRef,
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
 
     //Get Selected card
-    uint8_t phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+    int8_t phoneId = GetSelectedPhoneIdForECall();
+    if (phoneId < 0) {
+        LE_ERROR("%s: failed to resolve phoneId", __func__);
+        return LE_FAULT;
+    }
 
     //Check ECall session
     if (eCallPtr->eCallSession != ECALL_INIT && (eCallPtr->eCallSession != ECALL_ENDED)) {
@@ -2593,7 +2601,11 @@ le_result_t taf_ecall::SendMsd( taf_ecall_CallRef_t ecallRef)
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
 
     telux::common::Status status;
-    int phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+    int8_t phoneId = GetSelectedPhoneIdForECall();
+    if (phoneId < 0) {
+        LE_ERROR("%s: failed to resolve phoneId", __func__);
+        return LE_FAULT;
+    }
 
     if ((eCallPtr->msd.messageIdentifier >= MIN_MSD_MESSAGE_IDENTIFIER) && (eCallPtr->msd.messageIdentifier < MAX_MSD_MESSAGE_IDENTIFIER))
     {
@@ -2858,7 +2870,11 @@ le_result_t taf_ecall::SetNadDeregistrationTime(uint16_t deregTime)
     uint32_t t10 = (uint32_t) deregTime;
     LE_INFO("Set eCall NAD deregistration time (in minutes): %d", t10);
 
-    int phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+    int8_t phoneId = GetSelectedPhoneIdForECall();
+    if (phoneId < 0) {
+        LE_ERROR("%s: failed to resolve phoneId", __func__);
+        return LE_FAULT;
+    }
 
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
     auto cb = [promisePtr](telux::common::ErrorCode error)
@@ -2913,7 +2929,11 @@ le_result_t taf_ecall::GetNadDeregistrationTime(uint16_t* deregTime)
         return LE_FAULT;
     }
 
-    int phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+    int8_t phoneId = GetSelectedPhoneIdForECall();
+    if (phoneId < 0) {
+        LE_ERROR("%s: failed to resolve phoneId", __func__);
+        return LE_FAULT;
+    }
 
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
     auto resultTime = std::make_shared<uint32_t>(0);
@@ -2958,13 +2978,16 @@ le_result_t taf_ecall::GetNadDeregistrationTime(uint16_t* deregTime)
     } else {
         LE_ERROR("GetNadDeregistrationTime: status %d", (int) status);
     }
-
     return LE_FAULT;
 }
 
 le_result_t taf_ecall::TerminateRegistration()
 {
-    int phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+    int8_t phoneId = GetSelectedPhoneIdForECall();
+    if (phoneId < 0) {
+        LE_ERROR("%s: failed to resolve phoneId", __func__);
+        return LE_FAULT;
+    }
 
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
     auto cb = [promisePtr](telux::common::ErrorCode error)
@@ -3256,7 +3279,11 @@ le_result_t taf_ecall::GetHlapTimerState(taf_ecall_HlapTimerType_t timerType, ta
 
 taf_ecall_HlapTimerStatus_t taf_ecall::GetHlapTimerStatus(taf_ecall_HlapTimerType_t timerType) {
     taf_ecall_HlapTimerStatus_t timerStatus;
-    int phone_id = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+    int8_t phone_id = GetSelectedPhoneIdForECall();
+    if (phone_id < 0) {
+        LE_ERROR("%s: failed to resolve phoneId", __func__);
+        return TAF_ECALL_TIMER_STATUS_UNKNOWN;
+    }
 
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
     auto resultStatus = std::make_shared<ECallHlapTimerStatus>();
@@ -4407,4 +4434,30 @@ void taf_ecall::FirstLayerStateChangeHandler(void* reportPtr,
 
     clientHandlerFunc(stateEventPtr->eCallRef, stateEventPtr->state, le_event_GetContextPtr());
 
+}
+
+int taf_ecall::GetSelectedPhoneIdForECall()
+{
+    if (!PhoneManager) {
+        LE_ERROR("%s: failed to resolve phoneId", __func__);
+        return -1;
+    }
+    int slotId = (int)taf_sim_GetSelectedCard();
+    int slotCount = 0;
+    if ((LE_OK == taf_sim_GetSlotCount(&slotCount)) && (slotCount == 1))
+    {
+        LE_DEBUG("DSSS single-active: translating slotId %d -> logical slotId %d",
+             slotId, ECALL_DEFAULT_LOGICAL_SLOT);
+        slotId = ECALL_DEFAULT_LOGICAL_SLOT;
+    }
+    int phoneId = PhoneManager->getPhoneIdFromSlotId(slotId);
+    LE_DEBUG("ECall slot mapping:slotId=%d, slotCount=%d, phoneId=%d",slotId, slotCount, phoneId);
+
+    if (phoneId <= 0 || phoneId > static_cast<int>(Phones.size()))
+    {
+        LE_ERROR("GetSelectedPhoneIdForECall: invalid phoneId=%d (slotId=%d, phones=%zu)",
+             phoneId, slotId, Phones.size());
+        return -1;
+    }
+    return phoneId;
 }

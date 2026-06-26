@@ -467,6 +467,7 @@ void taf_locGnss::CopyPositionData
     LastDataPtr->realTimeUncValid = CurrentDataPtr->realTimeUncValid;
     LastDataPtr->techMask = CurrentDataPtr->techMask;
     LastDataPtr->techMaskValid = CurrentDataPtr->techMaskValid;
+    LastDataPtr->altMeanSeaLevelValid = CurrentDataPtr->altMeanSeaLevelValid;
     for(auto i=0; i<TAF_LOCGNSS_MEASUREMENT_INFO_MAX; i++)
     {
         LastDataPtr->measInfo[i].gnssSignalType = CurrentDataPtr->measInfo[i].gnssSignalType;
@@ -676,6 +677,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
             LocationData->gPtpTimeUncValid = true;
             LocationData->drSolutionStatusValid = true;
             LocationData->leapSecondsUncValid = true;
+            LocationData->altMeanSeaLevelValid = true;
             if(locationInfo->getAltitudeType() == telux::loc::AltitudeType::CALCULATED)
             {
                 clientRequestPtr->mAltType = TAF_LOCGNSS_ALT_TYPE_CALCULATED;
@@ -743,30 +745,91 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     locationInfo->getTechMask());
 
             LocationData->reportStatus = (taf_locGnss_ReportStatus_t) locationInfo->getReportStatus();
-            LocationData->altMeanSeaLevel = locationInfo->getAltitudeMeanSeaLevel();
+            locData = 0.0;
+            locData = locationInfo->getAltitudeMeanSeaLevel();
+            if (!std::isnan(locData))
+            {
+                LocationData->altMeanSeaLevel = locData;
+            }
+            else
+            {
+                LocationData->altMeanSeaLevel = 0;
+                LocationData->altMeanSeaLevelValid = false;
+            }
             locData = 0.0;
             locData = locationInfo->getLatitude();
-            roundOffLocationData(&locData,6);//round off to 6 decimal places
-            LocationData->latitude = (int32_t)locData;
+            if (!std::isnan(locData))
+            {
+                roundOffLocationData(&locData,6);//round off to 6 decimal places
+                LocationData->latitude = (int32_t)locData;
+            }
+            else
+            {
+                LocationData->latitude = 0;
+                LocationData->latitudeValid = false;
+            }
             locData = 0.0;
             locData = locationInfo->getLongitude();
-            roundOffLocationData(&locData,6);//round off to 6 decimal places
-            LocationData->longitude = (int32_t)locData;
+            if (!std::isnan(locData))
+            {
+                roundOffLocationData(&locData,6);//round off to 6 decimal places
+                LocationData->longitude = (int32_t)locData;
+            }
+            else
+            {
+                LocationData->longitude = 0;
+                LocationData->longitudeValid = false;
+            }
             locData = 0.0;
             locData = locationInfo->getHorizontalUncertainty();
-            roundOffLocationData(&locData,2);//round off to 2 decimal places
-            LocationData->hAccuracy = (int32_t)locData;
+            if (!std::isnan(locData))
+            {
+                roundOffLocationData(&locData,2);//round off to 2 decimal places
+                LocationData->hAccuracy = (int32_t)locData;
+            }
+            else
+            {
+                LocationData->hAccuracy = 0;
+                LocationData->hAccuracyValid = false;
+            }
             locData = 0.0;
             locData = locationInfo->getAltitude();
-            roundOffLocationData(&locData,3);//round off to 3 decimal places
-            LocationData->altitude = (int32_t)locData;
+            if (!std::isnan(locData))
+            {
+                roundOffLocationData(&locData,3);//round off to 3 decimal places
+                LocationData->altitude = (int32_t)locData;
+            }
+            else
+            {
+                LocationData->altitude = 0;
+                LocationData->altitudeValid = false;
+            }
             locData = 0.0;
             locData = locationInfo->getVerticalUncertainty();
-            roundOffLocationData(&locData,1);//round off to 1 decimal place
-            LocationData->vAccuracy = (int32_t)locData;
+            if (!std::isnan(locData))
+            {
+                roundOffLocationData(&locData,1);//round off to 1 decimal place
+                LocationData->vAccuracy = (int32_t)locData;
+            }
+            else
+            {
+                LocationData->vAccuracy = 0;
+                LocationData->vAccuracyValid = false;
+            }
             LocationData->altitudeOnWgs84 = 0;
             LocationData->hSpeed = locationInfo->getSpeed()*100;
-            LocationData->hSpeedAccuracy = locationInfo->getSpeedUncertainty()*1e+3;
+            {
+                const float speedUnc = locationInfo->getSpeedUncertainty();
+                if (!std::isnan(speedUnc))
+                {
+                    LocationData->hSpeedAccuracy = speedUnc * 1e+3F;
+                }
+                else
+                {
+                    LocationData->hSpeedAccuracy = 0.0F;
+                    LocationData->hSpeedAccuracyValid = false;
+                }
+            }
             if(locationInfo->getVelocityEastNorthUp(clientRequestPtr->mVerticalSpeed) ==
                     telux::common::Status::SUCCESS)
             {
@@ -805,14 +868,67 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
             {
                 LocationData->vSpeedAccuracy = 0;
             }
-            LocationData->magneticDeviation = locationInfo->getMagneticDeviation()*10;
+            {
+                const float magDev = locationInfo->getMagneticDeviation();
+                if (!std::isnan(magDev))
+                {
+                    LocationData->magneticDeviation = (int32_t)(magDev * 10.0F);
+                }
+                else
+                {
+                    LocationData->magneticDeviation = 0;
+                    LocationData->magneticDeviationValid = false;
+                }
+            }
             LocationData->epochTime = locationInfo->getTimeStamp();
-            LocationData->horUncEllipseSemiMajor =
-                    locationInfo->getHorizontalUncertaintySemiMajor();
-            LocationData->horUncEllipseSemiMinor =
-                    locationInfo->getHorizontalUncertaintySemiMinor();
-            LocationData->direction = locationInfo->getHeading()*10;
-            LocationData->directionAccuracy = locationInfo->getHeadingUncertainty()*10;
+            {
+                const float semiMajor = locationInfo->getHorizontalUncertaintySemiMajor();
+                if (!std::isnan(semiMajor))
+                {
+                    LocationData->horUncEllipseSemiMajor = semiMajor;
+                }
+                else
+                {
+                    LocationData->horUncEllipseSemiMajor = 0.0F;
+                    LocationData->horUncEllipseSemiMajorValid = false;
+                }
+            }
+            {
+                const float semiMinor = locationInfo->getHorizontalUncertaintySemiMinor();
+                if (!std::isnan(semiMinor))
+                {
+                    LocationData->horUncEllipseSemiMinor = semiMinor;
+                }
+                else
+                {
+                    LocationData->horUncEllipseSemiMinor = 0.0F;
+                    LocationData->horUncEllipseSemiMinorValid = false;
+                }
+            }
+            {
+                const float heading = locationInfo->getHeading();
+                if (!std::isnan(heading))
+                {
+                    LocationData->direction = (int32_t)(heading * 10.0F);
+                }
+                else
+                {
+                    LocationData->direction = 0;
+                    LocationData->directionValid = false;
+                }
+            }
+            {
+                const float headingUnc = locationInfo->getHeadingUncertainty();
+                if (!std::isnan(headingUnc))
+                {
+                    LocationData->directionAccuracy = (int32_t)(headingUnc * 10.0F);
+                }
+                else
+                {
+                    LocationData->directionAccuracy = 0;
+                    LocationData->directionAccuracyValid = false;
+                }
+            }
             telux::loc::SystemTime sysTime = locationInfo->getGnssSystemTime();
             telux::loc::GnssSystem system = sysTime.gnssSystemTimeSrc;
             telux::loc::SystemTimeInfo sysTimeInfo = sysTime.time;
@@ -835,11 +951,66 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LocationData->timeAccuracy = (uint32_t)((uint64_t)((value*1e+7)+5))/10;
             }
             LocationData->positionLatency = 0;
-            LocationData->hdop = locationInfo->getHorizontalDop() *1e+3;
-            LocationData->vdop = locationInfo->getVerticalDop() * 1e+3;
-            LocationData->pdop = locationInfo->getPositionDop() * 1e+3;
-            LocationData->gdop = locationInfo->getGeometricDop() * 1e+3;
-            LocationData->tdop = locationInfo->getTimeDop() * 1e+3;
+            {
+                const float hDop = locationInfo->getHorizontalDop();
+                if (!std::isnan(hDop))
+                {
+                    LocationData->hdop = (int32_t)(hDop * 1e+3F);
+                }
+                else
+                {
+                    LocationData->hdop = 0;
+                    LocationData->hdopValid = false;
+                }
+            }
+            {
+                const float vdop = locationInfo->getVerticalDop();
+                if (!std::isnan(vdop))
+                {
+                    LocationData->vdop = (int32_t)(vdop * 1e+3F);
+                }
+                else
+                {
+                    LocationData->vdop = 0;
+                    LocationData->vdopValid = false;
+                }
+            }
+            {
+                const float pDop = locationInfo->getPositionDop();
+                if (!std::isnan(pDop))
+                {
+                    LocationData->pdop = (int32_t)(pDop * 1e+3F);
+                }
+                else
+                {
+                    LocationData->pdop = 0;
+                    LocationData->pdopValid = false;
+                }
+            }
+            {
+                const float gDop = locationInfo->getGeometricDop();
+                if (gDop >= 0.0F && gDop <= 50.0F)
+                {
+                    LocationData->gdop = (int32_t)(gDop * 1e+3F);
+                }
+                else
+                {
+                    LocationData->gdop = 0;
+                    LocationData->gdopValid = false;
+                }
+            }
+            {
+                const float tDop = locationInfo->getTimeDop();
+                if (tDop >= 0.0F && tDop <= 50.0F)
+                {
+                    LocationData->tdop = (int32_t)(tDop * 1e+3F);
+                }
+                else
+                {
+                    LocationData->tdop = 0;
+                    LocationData->tdopValid = false;
+                }
+            }
             if(locationInfo->getTimeStamp() != telux::loc::UNKNOWN_TIMESTAMP) {
                 LE_DEBUG("epochTime in position handler: %" PRIu64"",locationInfo->getTimeStamp());
                 time_t realtime;
@@ -1462,7 +1633,18 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
             {
                 LocationData->vertReliablity = TAF_LOCGNSS_RELIABILITY_UNKNOWN;
             }
-            LocationData->azimuth = locationInfo->getHorizontalUncertaintyAzimuth();
+            {
+                const float hUncAzimuth = locationInfo->getHorizontalUncertaintyAzimuth();
+                if (!std::isnan(hUncAzimuth))
+                {
+                    LocationData->azimuth = hUncAzimuth;
+                }
+                else
+                {
+                    LocationData->azimuth = 0.0F;
+                    LocationData->azimuthValid = false;
+                }
+            }
             LocationData->eastDev = locationInfo->getEastStandardDeviation();
             LocationData->northDev = locationInfo->getNorthStandardDeviation();
             LocationData->realTime = locationInfo->getElapsedRealTime();
@@ -1603,8 +1785,20 @@ void tafLocationListener::onGnssSVInfo(const std::shared_ptr<telux::loc::IGnssSV
             clientRequestPtr->mSatInfo[i].satTracked = false;
         }
         clientRequestPtr->mSatInfo[i].satSnr = svInfo->getSnr();
-        clientRequestPtr->mSatInfo[i].satAzim = svInfo->getAzimuth();
-        clientRequestPtr->mSatInfo[i].satElev = svInfo->getElevation();
+        {
+            const float satAzimuth = svInfo->getAzimuth();
+            clientRequestPtr->mSatInfo[i].satAzim =
+                    (!std::isnan(satAzimuth) && (satAzimuth >= 0.0F) && (satAzimuth <= 360.0F))
+                    ? satAzimuth
+                    : UINT16_MAX;
+        }
+        {
+            const float satElevation = svInfo->getElevation();
+            clientRequestPtr->mSatInfo[i].satElev =
+                    (!std::isnan(satElevation) && (satElevation >= 0.0F) && (satElevation <= 90.0F))
+                    ? satElevation
+                    : UINT8_MAX;
+        }
         clientRequestPtr->mSatInfo[i].signalType = (uint32_t) svInfo->getSignalType();
         clientRequestPtr->mSatInfo[i].glonassFcn = svInfo->getGlonassFcn();
         clientRequestPtr->mSatInfo[i].baseBandCnr = svInfo->getBasebandCnr();
@@ -2946,7 +3140,7 @@ le_result_t taf_locGnss::GetConstellation
                     *constellationMaskPtr = 0;
                     LE_ERROR("constellation type is invalid");
                     result = LE_FAULT;
-                    LE_ERROR("Unable to get the constellation, error = %d (%s)",
+                    LE_ERROR("Unable to get the constellation, error =%d (%s)",
                           result, LE_RESULT_TXT(result));
                 }
             }
@@ -5059,7 +5253,7 @@ le_result_t taf_locGnss::SetNmeaSentences
                 }
                 if (LE_OK != result)
                 {
-                    LE_ERROR("Unable to set the enabled NMEA sentences, error = %d (%s)",
+                    LE_ERROR("Unable to set the enabled NMEA sentences, error = %d (%s)",
                               result, LE_RESULT_TXT(result));
                 }
             }
@@ -5124,7 +5318,7 @@ le_result_t taf_locGnss::GetNmeaSentences
                 *nmeaMaskPtr = 0;
                 LE_ERROR("NmeaSentence type is invalid");
                 result = LE_FAULT;
-                LE_ERROR("Unable to get the enabled NMEA sentences, error = %d (%s)",
+                LE_ERROR("Unable to get the enabled NMEA sentences, error = %d (%s)",
                           result, LE_RESULT_TXT(result));
             }
         }
@@ -5319,7 +5513,7 @@ le_result_t taf_locGnss::SetDRConfig(const taf_locGnss_DrParams_t* drParamsPtr)
 
             if (LE_OK != result)
             {
-                LE_ERROR("Unable to set the DR Configuration , error = %d (%s)",
+                LE_ERROR("Unable to set the DR Configuration , error = %d (%s)",
                           result, LE_RESULT_TXT(result));
             }
         }
@@ -7021,9 +7215,25 @@ le_result_t taf_locGnss::GetAltitudeMeanSeaLevel
         return result;
     }
 
-    *altMeanSeaLevelPtr = posSampleReqPtr->positionSampleNodePtr->altMeanSeaLevel;
+    if (altMeanSeaLevelPtr)
+    {
+        if (posSampleReqPtr->positionSampleNodePtr->altMeanSeaLevelValid)
+        {
+            *altMeanSeaLevelPtr = posSampleReqPtr->positionSampleNodePtr->altMeanSeaLevel;
+        }
+        else
+        {
+            LE_DEBUG("GetAltitudeMeanSeaLevel: altMeanSeaLevel is invalid");
+            *altMeanSeaLevelPtr = DBL_MAX;
+            result = LE_OUT_OF_RANGE;
+        }
+    }
+    else
+    {
+        result = LE_FAULT;
+    }
 
-    return LE_OK;
+    return result;
 }
 
 le_result_t taf_locGnss::GetSVIds
@@ -7387,7 +7597,7 @@ le_result_t taf_locGnss::SetNmeaConfiguration
                 }
                 if (LE_OK != result)
                 {
-                    LE_ERROR("Unable to set the enabled NMEA, error = %d (%s)",
+                    LE_ERROR("Unable to set the enabled NMEA, error = %d (%s)",
                               result, LE_RESULT_TXT(result));
                 }
             }

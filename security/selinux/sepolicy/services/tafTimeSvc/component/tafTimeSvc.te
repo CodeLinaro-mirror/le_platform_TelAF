@@ -70,3 +70,6 @@ allow telaf_tafTimeSvc_t etc_t:file { open read getattr };
 time_delta_read_write(telaf_tafTimeSvc_t)
 
 allow telaf_tafTimeSvc_t self:shm { create unix_read unix_write read write destroy };
+
+# Allow service to create/use a netlink route socket
+telaf_use_network_routing(telaf_tafTimeSvc_t)

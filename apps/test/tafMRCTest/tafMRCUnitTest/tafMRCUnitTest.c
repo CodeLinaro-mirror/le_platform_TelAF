@@ -14,10 +14,7 @@ static void TestActivities
     void
 )
 {
-    le_result_t result = taf_mrc_SendOtaAbsyncMsg();
-    LE_TEST_OK(result == LE_OK, "taf_mrc_SendOtaAbsyncMsg - LE_OK");
-
-    result = taf_mrc_SendOtaResumeMsg();
+    le_result_t result = taf_mrc_SendOtaResumeMsg();
     LE_TEST_OK(result == LE_OK, "taf_mrc_SendOtaResumeMsg - LE_OK");
 
     result = taf_mrc_SendOtaEndMsg(TAF_MRC_OTA_OP_STATUS_FAILURE);

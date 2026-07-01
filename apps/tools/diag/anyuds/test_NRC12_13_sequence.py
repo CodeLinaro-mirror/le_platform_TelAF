@@ -26,9 +26,16 @@ uds("10 04")
 print("Exp      <7f 10 12>")
 uds("10 04 03")
 print("Exp      <7f 10 12>")
+uds("10 02")
+print("Exp      <Positive resp>")
 print("-------End test-------")
 
 print("-------Test for 0x11--------")
+
+resp = uds("2701")
+key = algo_for_0x27(0x01, resp.payload[2:])
+uds("27 02" + key.hex())
+
 uds("11")
 print("Exp      <7f 11 13>")
 uds("11 02")

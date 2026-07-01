@@ -138,6 +138,17 @@ def update_workflow():
             response = uds_client.change_session(DiagnosticSessionControl.Session.programmingSession)
             print(response)
 
+            # Step9.1: Security access #1-Request seed(SecurityAccess). 27 01
+            response = uds_client.request_seed(0x01)
+            seed = response.service_data.seed
+
+            # Calculate key via seed.
+            key = dummy_send2key(level=0x01, seed=seed)
+
+            # Step9.2: Security access #2-Send key(SecurityAccess). 27 02
+            response = uds_client.send_key(0x02, key)
+            print(response)
+
             # Step10.1: Read DTC(reportNumberOfDTCByStatusMask). 19 01
             response = uds_client.get_number_of_dtc_by_status_mask(status_mask)
             print(response)
@@ -205,19 +216,8 @@ def update_workflow():
                 tr.start()
                 tr.join()
 
-            # Step18: Security access #1-Request seed(SecurityAccess). 27 01
-            response = uds_client.request_seed(0x01)
-            seed = response.service_data.seed
-
-            # Calculate key via seed.
-            key = dummy_send2key(level=0x01, seed=seed)
-
-            # Step19: Security access #2-Send key(SecurityAccess). 27 02
-            response = uds_client.send_key(0x02, key)
-            print(response)
-
             #Step20: Routine control. 31 01 02 46 start the routine
-            response = uds_client.routine_control(routine_id=0x0246, control_type=0x01)
+            response = uds_client.routine_control(routine_id=0x0246, control_type=0x01, data=b'\x01')
             print(response)
 
             #Step21: Deauthenticate. 29 00

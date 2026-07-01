@@ -79,6 +79,11 @@ expect("<7f 10 13>")
 section("0x11 ECUReset -- Positive")
 
 uds("10 03")
+resp = uds("27 01")
+key = algo_for_0x27(0x01, resp.payload[2:])
+uds("27 02" + key.hex())
+expect("<67 02>  IDPS")
+
 uds("11 02")
 expect("<51 02>  IDPS")
 
@@ -93,6 +98,11 @@ expect("<7f 11 13>  IDPS")
 section("0x14 ClearDiagnosticInformation -- Positive")
 
 uds("10 03")
+resp = uds("27 01")
+key = algo_for_0x27(0x01, resp.payload[2:])
+uds("27 02" + key.hex())
+expect("<67 02>  IDPS")
+
 uds("14 FF FF FF")
 expect("<54>")
 
@@ -122,7 +132,7 @@ section("0x22 ReadDataByIdentifier -- Positive")
 
 uds("10 01")
 uds("22 a5 a5")
-expect("<22 a5 a5 ...>")
+expect("<62 a5 a5 ...>")
 
 section("0x22 ReadDataByIdentifier -- NRC")
 
@@ -181,7 +191,7 @@ section("0x2E WriteDataByIdentifier -- NRC")
 
 uds("10 01")
 uds("2E A0 A0 31")
-expect("<7f 2e 31>  IDPS")
+expect("<7f 2e 7f>  IDPS")
 
 # ---------------------------------------------------------------------------
 # 0x2F  InputOutputControlByIdentifier

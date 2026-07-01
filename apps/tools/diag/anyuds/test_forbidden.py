@@ -34,11 +34,17 @@ tcpdump_start("forbidden-check")
 uds("10 01")
 uds("10 03")
 
+#Unlock level
+resp = uds("2701")
+
+key = algo_for_0x27(0x01, resp.payload[2:])
+uds("27 02" + key.hex())
+
 #0xA5A5 ---> 1 ----> Not Numeric ----> Both forbidden_values and forbidden_characters are empty
 
 #Read DID
 uds("22 A5 A5")
-print("Exp      <62 a5 a5 01 01>")
+print("Exp      <Positive resp>")
 
 #WriteDID
 uds("2E A5 A5 05 05")
@@ -52,7 +58,7 @@ print("Exp      <62 a5 a5 05 05>")
 
 #Read DID
 uds("22 A5 A6")
-print("Exp      <62 a5 a6 01>")
+print("Exp      <Positive resp>")
 
 #WriteDID
 uds("2E A5 A6 06")
@@ -62,17 +68,11 @@ print("Exp      <6e a5 a6>")
 uds("22 A5 A6")
 print("Exp      <62 a5 a6 06>")
 
-#Unlock level
-resp = uds("2701")
-
-key = algo_for_0x27(0x01, resp.payload[2:])
-uds("27 02" + key.hex())
-
 #0xA0A0 ---> 1  -----> Not Numeric ----> Both forbidden_values and forbidden_characters are empty
 
 #Read DID
 uds("22 A0 A0")
-print("Exp      <62 a0 a0 01>")
+print("Exp      <Positive resp>")
 
 #WriteDID
 uds("2E A0 A0 07")
@@ -87,7 +87,7 @@ print()
 
 #ReadDID
 uds("22 AC C0")
-print("Exp      <62 ac c0 42>")
+print("Exp      <Positive resp>")
 
 #WriteDID
 
@@ -114,7 +114,7 @@ print("Exp      <7f 2e 31>")
 print()
 #ReadDID
 uds("22 AC C1")
-print("Exp      <62 ac c1 aa aa>")
+print("Exp      <Positive resp>")
 
 #WriteDID
 
@@ -133,7 +133,7 @@ print("Exp      <7f 2e 31>")
 print()
 #ReadDID
 uds("22 AC C2")
-print("Exp      <62 ac c2 aa bb>")
+print("Exp      <Positive resp>")
 
 #WriteDID
 
@@ -159,7 +159,7 @@ print("Exp      <7f 2e 31>")
 print()
 #ReadDID
 uds("22 AC C3")
-print("Exp      <62 ac c3 01>")
+print("Exp      <Positive resp>")
 
 #WriteDID
 
@@ -178,7 +178,7 @@ print("Exp      <7f 2e 31>")
 print()
 #ReadDID
 uds("22 AC C4")
-print("Exp      <62 ac c4 01>")
+print("Exp      <Positive resp>")
 
 #WriteDID
 

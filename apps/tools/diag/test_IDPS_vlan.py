@@ -159,6 +159,11 @@ def run_idps_tests(conn, label):
     section(f"[{label}] 0x11 ECUReset -- Positive")
 
     uds("10 03")
+    resp = uds("27 01")
+    key = algo_for_0x27(0x01, resp.payload[2:])
+    uds("27 02" + key.hex())
+    expect("<67 02>  IDPS")
+
     uds("11 02")
     expect("<51 02>  IDPS")
 
@@ -260,7 +265,7 @@ def run_idps_tests(conn, label):
 
     uds("10 01")
     uds("2E A0 A0 31")
-    expect("<7f 2e 31>  IDPS")
+    expect("<7f 2e 7f>  IDPS")
 
     # -----------------------------------------------------------------------
     # 0x2F  InputOutputControlByIdentifier

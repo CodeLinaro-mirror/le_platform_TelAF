@@ -12,17 +12,17 @@
     "applications" :
     [
         {
-            "name" : "tafSomeipGWSvc",
+            "name" : "tafSomeipGWSvcLXC",
             "id" : "0x0102"
         }
     ],
-    "routing" : "tafSomeipGWSvc",
-    "network" : "tafSomeipGWSvc",
+    "routing" : "tafSomeipGWSvcLXC",
+    "network" : "tafSomeipGWSvcLXC",
     "service-discovery" :
     {
         "enable" : "true",
-        "multicast" : "224.0.0.1",
-        "port" : "30490",
+        "multicast" : "225.0.0.1",
+        "port" : "30491",
         "protocol" : "udp",
         "initial_delay_min" : "10",
         "initial_delay_max" : "100",

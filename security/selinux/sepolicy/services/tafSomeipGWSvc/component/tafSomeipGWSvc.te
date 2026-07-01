@@ -6,7 +6,27 @@ policy_module(tafSomeipGWSvc, 1.0)
 gen_require(`
   type systemd_tmpfiles_t;
   type tmp_t;
+  type proc_net_t;
+  type unreserved_port_t;
+  type node_t;
 ')
+
+# SELinux rules for vsomeip UDS-based communication between host routing manager
+# and LXC container routing proxy via shared /tmp/vsomeip directory.
+gen_require(`
+    type lxc_script_app_t;
+    type lxc_tmp_t;
+')
+
+# Allow vsomeip routing manager to connect back to the routing proxy's Unix stream socket
+# (lxc_script_app_t). The routing manager initiates connections to registered clients.
+allow telaf_tafSomeipGWSvc_t lxc_script_app_t:unix_stream_socket connectto;
+
+# Allow vsomeip routing manager to write to the LXC routing proxy's socket file
+# (lxc_tmp_t). The routing manager sends data to the proxy's connected client socket.
+# Also allow unlink: the routing manager cleans up stale socket files left by the
+# LXC routing proxy (lxc_tmp_t context) during shutdown or restart.
+allow telaf_tafSomeipGWSvc_t lxc_tmp_t:sock_file { write unlink };
 
 # Framework definition for telaf
 type telaf_tafSomeipGWSvc_exec_t;
@@ -17,21 +37,21 @@ type telaf_tafSomeipGWSvc_t;
 type telaf_tafSomeipGWSvc_data_t;
 files_type(telaf_tafSomeipGWSvc_data_t);
 
-# Setup for tmp directory: dedicated type for vsomeip shared-memory sockets.
+# Setup for tmp directory.
+# telaf_someiptmp_t is used for both the /tmp/vsomeip directory itself (see .fc)
+# and the socket/lock files created inside it by the routing manager.
+# The directory is created by systemd tmpfiles.d, not by telaf_tafSomeipGWSvc_t.
 type telaf_someiptmp_t;
 files_tmp_file(telaf_someiptmp_t)
-files_tmp_filetrans(telaf_tafSomeipGWSvc_t,telaf_someiptmp_t, { sock_file file dir })
+files_tmp_filetrans(telaf_tafSomeipGWSvc_t, telaf_someiptmp_t, { sock_file file dir })
+allow telaf_tafSomeipGWSvc_t telaf_someiptmp_t:sock_file { write };
 
 # Run the service in its own confined domain
 init_telaf_app_domain(telaf_tafSomeipGWSvc_t,telaf_tafSomeipGWSvc_exec_t)
 
 # Allow service to manage its own data directory; registers with admin domain.
-telaf_manage_app_data_files(telaf_tafSomeipGWSvc_t, telaf_tafSomeipGWSvc_data_t)
+telaf_admin_manage_all_files_perms(telaf_tafSomeipGWSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafSomeipGWSvc_exec_t)
-
-# vsomeip network stack: TCP/UDP, netlink, port binding, net_admin, /proc/net.
-# sys_nice and dac_override are included via telaf_use_vsomeip_network().
-telaf_use_vsomeip_network(telaf_tafSomeipGWSvc_t)
 
 # vsomeip uses /tmp for shared-memory socket files; manage via a dedicated type.
 manage_dirs_pattern(telaf_tafSomeipGWSvc_t, telaf_someiptmp_t, telaf_someiptmp_t)
@@ -40,3 +60,26 @@ manage_sock_files_pattern(telaf_tafSomeipGWSvc_t, telaf_someiptmp_t, telaf_somei
 
 # Allow systemd to inspect /tmp/vsomeip-* socket files.
 allow systemd_tmpfiles_t tmp_t:sock_file { getattr };
+
+# Allow systemd to get attribute of socket files in /tmp/vsomeip/
+allow systemd_tmpfiles_t telaf_someiptmp_t:sock_file { getattr };
+
+# Allow tafSomeipGWSvc to manage the /tmp/vsomeip directory and its contents (telaf_someiptmp_t)
+allow telaf_tafSomeipGWSvc_t telaf_someiptmp_t:dir manage_dir_perms;
+allow telaf_tafSomeipGWSvc_t telaf_someiptmp_t:file manage_file_perms;
+allow telaf_tafSomeipGWSvc_t telaf_someiptmp_t:sock_file manage_sock_file_perms;
+
+# Allow tafSomeipGWSvc to manipulate udp/tcp socket
+allow telaf_tafSomeipGWSvc_t self:udp_socket create_socket_perms;
+allow telaf_tafSomeipGWSvc_t self:tcp_socket create_stream_socket_perms;
+
+# Allow tafSomeipGWSvc to manipulate netlink_route_socket
+allow telaf_tafSomeipGWSvc_t self:netlink_route_socket rw_netlink_socket_perms;
+
+# Allow tafSomeipGWSvc to manipulate capabilites
+allow telaf_tafSomeipGWSvc_t self:capability { net_admin };
+
+# Misc rules for network socket
+allow telaf_tafSomeipGWSvc_t proc_net_t:file read_file_perms;
+allow telaf_tafSomeipGWSvc_t { unreserved_port_t node_t }:udp_socket { name_bind node_bind };
+allow telaf_tafSomeipGWSvc_t { unreserved_port_t node_t }:tcp_socket { name_bind node_bind name_connect };

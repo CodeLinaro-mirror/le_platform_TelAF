@@ -1,0 +1,22 @@
+username: telaf
+maxThreads: 600
+sandboxed: false
+executables:
+{
+    rpcLatancyServerTest = (rpcLatancyServerComp)
+}
+
+processes:
+{
+    faultAction: restart
+
+    run:
+    {
+        (rpcLatancyServerTest)
+    }
+}
+
+extern:
+{
+    rpcLatancy = rpcLatancyServerTest.rpcLatancyServerComp.rpcLatancy
+}

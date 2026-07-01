@@ -58,7 +58,7 @@ allow telaf_tafMngdConnSvc_t self:tcp_socket { read write connect create getattr
 allow telaf_tafMngdConnSvc_t self:udp_socket { connect create getattr read setopt write };
 # execute_no_trans removed: shell must transition to a new domain, not run in
 # telaf_tafMngdConnSvc_t.  Use corecmd_exec_shell() if a transition is defined.
-allow telaf_tafMngdConnSvc_t shell_exec_t:file { execute open read };
+telaf_exec_shell(telaf_tafMngdConnSvc_t)
 allow telaf_tafMngdConnSvc_t proc_t:file { read open getattr};
 
 #Allow for running curl and ping for ConnectivityTest in sa515
@@ -69,7 +69,7 @@ allow telaf_tafMngdConnSvc_t systemd_resolved_var_run_t:file { getattr open read
 allow telaf_tafMngdConnSvc_t self:capability net_raw;
 # sigkill and setcap removed: connection manager must not kill arbitrary
 # processes or modify its own capability set.
-allow telaf_tafMngdConnSvc_t self:process { getcap };
+allow telaf_tafMngdConnSvc_t self:process { getcap setcap };
 allow telaf_tafMngdConnSvc_t self:rawip_socket { create getopt read setopt write };
 # Allow TLS certificate access for outbound connectivity checks (curl/ping).
 telaf_use_cert_files(telaf_tafMngdConnSvc_t)

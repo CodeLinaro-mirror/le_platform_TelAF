@@ -32,6 +32,10 @@ ifdef(`sa525m',`
     telux_allow_data_setting(telaf_tafDataCallSvc_t)
     telux_allow_data_call_props(telaf_tafDataCallSvc_t)
     telux_allow_data_profile_ops(telaf_tafDataCallSvc_t)
+
+    # Data session setup triggers on-demand load of the rmnet data netdev
+    # kernel module (netdev-rmnet_data0)
+    kernel_request_load_module(telaf_tafDataCallSvc_t)
 ')
 
 # Allow service to manage its own data directory; registers with admin domain.

@@ -20,7 +20,7 @@ requires:
 
     api:
     {
-        taf_sim.api
+        taf_sim.api [optional]
     }
 
     component:

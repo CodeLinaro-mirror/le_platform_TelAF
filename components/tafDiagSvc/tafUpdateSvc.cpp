@@ -636,3 +636,195 @@ le_result_t taf_diagUpdate_RemoveSvc
 
     return tafUpdateSvr.RemoveUpdateSvc(svcRef);
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_diagUpdate_RxDwnldMsg'
+ *
+ * This event provides information on RequestDownload message.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_diagUpdate_RxDwnldMsgHandlerRef_t taf_diagUpdate_AddRxDwnldMsgHandler
+(
+    taf_diagUpdate_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    taf_diagUpdate_RxDwnldMsgHandlerFunc_t handlerPtr,
+        ///< [IN] Received message handler.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    auto& tafUpdateSvr = taf_UpdateSvr::GetInstance();
+
+    return tafUpdateSvr.AddRxDwnldMsgHandler(svcRef, handlerPtr, contextPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_diagUpdate_RxDwnldMsg'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_diagUpdate_RemoveRxDwnldMsgHandler
+(
+    taf_diagUpdate_RxDwnldMsgHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    auto& tafUpdateSvr = taf_UpdateSvr::GetInstance();
+
+    tafUpdateSvr.RemoveRxDwnldMsgHandler(handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data format ID of the Rx RequestDownload message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagUpdate_GetReqDwnldDataFormatID
+(
+    taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef,
+        ///< [IN] Receive message reference.
+    uint8_t* dataFormatIDPtr
+        ///< [OUT] Data format ID.
+)
+{
+    auto& tafUpdateSvr = taf_UpdateSvr::GetInstance();
+
+    return tafUpdateSvr.GetReqDwnldDataFormatID(rxMsgRef, dataFormatIDPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the length (number of bytes) of the memoryAddress parameter.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagUpdate_GetMemAddrParamLen
+(
+    taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef,
+        ///< [IN] Receive message reference.
+    uint8_t* memAddrParamLenPtr
+        ///< [OUT] Memory address parameter length (number of bytes).
+)
+{
+    auto& tafUpdateSvr = taf_UpdateSvr::GetInstance();
+
+    return tafUpdateSvr.GetMemAddrParamLen(rxMsgRef, memAddrParamLenPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the memory address.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagUpdate_GetMemAddr
+(
+    taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef,
+        ///< [IN] Receive message reference.
+    uint8_t* memAddrPtr,
+        ///< [OUT] Memory address.
+    size_t* memAddrSizePtr
+        ///< [INOUT]
+)
+{
+    auto& tafUpdateSvr = taf_UpdateSvr::GetInstance();
+
+    return tafUpdateSvr.GetMemAddr(rxMsgRef, memAddrPtr, memAddrSizePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the length (number of bytes) of the memorySize parameter.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagUpdate_GetMemSizeParamLen
+(
+    taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef,
+        ///< [IN] Receive message reference.
+    uint8_t* memSizeParamLenPtr
+        ///< [OUT] Memory size parameter length (number of bytes).
+)
+{
+    auto& tafUpdateSvr = taf_UpdateSvr::GetInstance();
+
+    return tafUpdateSvr.GetMemSizeParamLen(rxMsgRef, memSizeParamLenPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the memory size.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagUpdate_GetMemSize
+(
+    taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef,
+        ///< [IN] Receive message reference.
+    uint8_t* memSizePtr,
+        ///< [OUT] Memory size.
+    size_t* memSizeSizePtr
+        ///< [INOUT]
+)
+{
+    auto& tafUpdateSvr = taf_UpdateSvr::GetInstance();
+
+    return tafUpdateSvr.GetMemSize(rxMsgRef, memSizePtr, memSizeSizePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends a response message for the Rx RequestDownload message.
+ *
+ * @b NOTE: This function must be called to send a response
+ *       if receiving a RequestDownload message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_FAULT -- Failed.
+ *
+ * @b NOTE: The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagUpdate_SendReqDwnldResp
+(
+    taf_diagUpdate_RxDwnldMsgRef_t rxMsgRef,
+        ///< [IN] Received message reference.
+    taf_diagUpdate_ReqDwnldErrorCode_t errCode
+        ///< [IN] Error code type.
+)
+{
+    auto& tafUpdateSvr = taf_UpdateSvr::GetInstance();
+
+    return tafUpdateSvr.SendReqDwnldResp(rxMsgRef, errCode);
+}

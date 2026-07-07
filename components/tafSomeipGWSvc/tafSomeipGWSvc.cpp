@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -21,7 +21,12 @@
 #include "jansson.h"
 
 #define VSOMEIP_APP_MAX_CNT 8
+#ifdef LE_CONFIG_FLAVOR_LXC
+#define VSOMEIP_APP_NAME "tafSomeipGWSvcLXC"
+#else
 #define VSOMEIP_APP_NAME "tafSomeipGWSvc"
+#endif
+#define VSOMEIP_PROXY_APP_NAME "tafSomeipGWProxy"
 #define ROUTING_INTF_NAME_SIZE 32
 #define ROUTING_IP_ADDR_SIZE 48
 #define MAX_ADD_ROUTE_RETRIES 10
@@ -49,6 +54,23 @@ class taf_vsomeipApp
             isAppStarted(false)
         {
         };
+        // Constructor for routing proxy (UDS-based, no network interface needed).
+        // The proxy connects to the routing manager on PVM via UDS socket,
+        // so devName, uniAddr and multiAddr are not applicable.
+        taf_vsomeipApp(const uint8_t idx, const std::string appName):
+            someipThreadRef(NULL),
+            app(vsomeip::runtime::get()->create_application(appName)),
+            routingId(idx),
+            routingName(appName),
+            deviceName(""),
+            unicastAddr(""),
+            multicastAddr(""),
+            routeAdded(false),
+            addRouteRetryCount(0),
+            startRetryCount(0),
+            isAppStarted(false)
+        {
+        };
         ~taf_vsomeipApp()
         {
         };
@@ -56,7 +78,7 @@ class taf_vsomeipApp
         {
             if (!app->init())
             {
-                LE_ERROR("Couldn't initialize routing manager '%s'.", routingName.c_str());
+                LE_ERROR("Couldn't initialize vsomeip app '%s'.", routingName.c_str());
                 return false;
             }
             app->register_state_handler(std::bind(&taf_vsomeipApp::onState,
@@ -69,10 +91,18 @@ class taf_vsomeipApp
 
             vsClientId = app->get_client();
 
-            LE_INFO("vsomeip routing manager '%s'" \
-                    "(idx=%d, clientID=0x%x, unicast='%s', multicast='%s', intf='%s') initialized.",
-                    routingName.c_str(), routingId, vsClientId, unicastAddr.c_str(),
-                    multicastAddr.c_str(), deviceName.c_str());
+            if (deviceName.empty())
+            {
+                LE_INFO("vsomeip routing proxy '%s' (idx=%d, clientID=0x%x) initialized.",
+                        routingName.c_str(), routingId, vsClientId);
+            }
+            else
+            {
+                LE_INFO("vsomeip routing manager '%s'" \
+                        "(idx=%d, clientID=0x%x, unicast='%s', multicast='%s', intf='%s') initialized.",
+                        routingName.c_str(), routingId, vsClientId, unicastAddr.c_str(),
+                        multicastAddr.c_str(), deviceName.c_str());
+            }
 
             return true;
         }
@@ -188,13 +218,14 @@ class taf_vsomeipApp
         }
         void onState(vsomeip::state_type_e state)
         {
+            const char* role = deviceName.empty() ? "routing proxy" : "routing manager";
             if (state == vsomeip::state_type_e::ST_REGISTERED)
             {
-                LE_INFO("Routing manager '%s' is registered.", routingName.c_str());
+                LE_INFO("vsomeip %s '%s' is registered.", role, routingName.c_str());
             }
             else if (state == vsomeip::state_type_e::ST_DEREGISTERED)
             {
-                LE_INFO("Routing manager '%s' is de-registered.", routingName.c_str());
+                LE_INFO("vsomeip %s '%s' is de-registered.", role, routingName.c_str());
             }
         }
         void onMessage(const std::shared_ptr<vsomeip::message> &msg)
@@ -290,6 +321,21 @@ static le_mutex_Ref_t VsomeipCountMutex = NULL;
  */
 //--------------------------------------------------------------------------------------------------
 static bool AutoAddRouteFlag = false;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Vsomeip routing proxy mode.
+ */
+//--------------------------------------------------------------------------------------------------
+#ifdef LE_CONFIG_FLAVOR_LXC
+    #ifdef LE_CONFIG_ENABLE_PVM_LXC_RPC_OVER_TCP
+static bool RoutingProxyEnabled = false;
+    #else
+static bool RoutingProxyEnabled = true;
+    #endif
+#else
+static bool RoutingProxyEnabled = false;
+#endif
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -528,7 +574,14 @@ static void* VSOMEIPThread
     taf_vsomeipApp* myRoutingMgrPtr = (taf_vsomeipApp*)contextPtr;
     LE_ASSERT(myRoutingMgrPtr != NULL);
 
-    LE_INFO("vsomeip routing manager '%s' started.", myRoutingMgrPtr->getRoutingName().c_str());
+    if (myRoutingMgrPtr->getIntfName().empty())
+    {
+        LE_INFO("vsomeip routing proxy '%s' started.", myRoutingMgrPtr->getRoutingName().c_str());
+    }
+    else
+    {
+        LE_INFO("vsomeip routing manager '%s' started.", myRoutingMgrPtr->getRoutingName().c_str());
+    }
 
     le_mutex_Lock(VsomeipCountMutex);
     ActiveVsomeipAppCount++;
@@ -536,7 +589,14 @@ static void* VSOMEIPThread
 
     myRoutingMgrPtr->start();
 
-    LE_WARN("vsomeip routing manager '%s' exited.", myRoutingMgrPtr->getRoutingName().c_str());
+    if (myRoutingMgrPtr->getIntfName().empty())
+    {
+        LE_INFO("vsomeip routing proxy '%s' exited.", myRoutingMgrPtr->getRoutingName().c_str());
+    }
+    else
+    {
+        LE_WARN("vsomeip routing manager '%s' exited.", myRoutingMgrPtr->getRoutingName().c_str());
+    }
 
     le_mutex_Lock(VsomeipCountMutex);
     ActiveVsomeipAppCount--;
@@ -953,6 +1013,38 @@ static void TafSigTermEventHandler
     le_event_QueueFunction(SafeUnloadHandler, NULL, NULL);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Create and start vsomeip routing proxy.
+ * The proxy connects to the routing manager on PVM via UDS socket.
+ * No network interface, unicast or multicast address is needed.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_result_t StartRoutingProxy
+(
+    void
+)
+{
+    // Create routing proxy object (UDS-based, no NW interface needed).
+    taf_vsomeipApp* proxyPtr = new taf_vsomeipApp(0, VSOMEIP_PROXY_APP_NAME);
+    if ((proxyPtr == NULL) || !proxyPtr->init())
+    {
+        LE_ERROR("Failed to initialize routing proxy '%s'.", VSOMEIP_PROXY_APP_NAME);
+        delete proxyPtr;
+        return LE_FAULT;
+    }
+
+    RoutingManagerTable[0] = proxyPtr;
+
+    // Start the proxy thread directly (no NW check needed for UDS communication).
+    proxyPtr->someipThreadRef = le_thread_Create(VSOMEIP_PROXY_APP_NAME,
+                                                  VSOMEIPThread, (void*)proxyPtr);
+    le_thread_Start(proxyPtr->someipThreadRef);
+    LE_INFO("vsomeip routing proxy '%s' is ready.", VSOMEIP_PROXY_APP_NAME);
+
+    return LE_OK;
+}
+
 static void SetBootKpiMarker(const char* markerPtr){
     const char *kpi_file = "/sys/kernel/boot_kpi/kpi_values";
     FILE *file = fopen(kpi_file, "w");
@@ -981,30 +1073,42 @@ COMPONENT_INIT
     mySomeipSvr.Init();
     mySomeipClient.Init();
 
-    // Create vsomeip app stop semaphore.
+    memset(RoutingManagerTable, 0, sizeof(RoutingManagerTable));
+
+    // Create vsomeip app stop semaphore (needed for both routing proxy and routing manager).
     VsomeipStopSem = le_sem_Create("VsomeipStopSem", 0);
     VsomeipCountMutex = le_mutex_CreateNonRecursive("VsomeipCountMutex");
 
-    // Set auto add route flag.
-    const char* autoAddRoute = getenv("AUTO_ADD_ROUTE");
-    if (autoAddRoute != NULL && (strcmp(autoAddRoute, "YES") == 0 || strcmp(autoAddRoute, "ON") == 0
-        || strcmp(autoAddRoute, "1") == 0))
+    if (RoutingProxyEnabled)
     {
-        AutoAddRouteFlag = true;
+        // Start vsomeip as routing proxy (UDS-based connection to PVM routing manager).
+        if (LE_OK != StartRoutingProxy())
+        {
+            LE_FATAL("Failed to start routing proxy.");
+        }
     }
-
-    // Create routing managers.
-    memset(RoutingManagerTable, 0, sizeof(RoutingManagerTable));
-    if (LE_OK != StartDefaultRoutingManager())
+    else
     {
-        LE_FATAL("Failed to start default routing manager.");
-    }
-    StartAdditionalRoutingManagers();
+        // Set auto add route flag.
+        const char* autoAddRoute = getenv("AUTO_ADD_ROUTE");
+        if (autoAddRoute != NULL && (strcmp(autoAddRoute, "YES") == 0
+            || strcmp(autoAddRoute, "ON") == 0 || strcmp(autoAddRoute, "1") == 0))
+        {
+            AutoAddRouteFlag = true;
+        }
 
-    // Add routing for multicast address.
-    if (AutoAddRouteFlag)
-    {
-        AddRoutingForMulticastAddr();
+        // Create routing managers.
+        if (LE_OK != StartDefaultRoutingManager())
+        {
+            LE_FATAL("Failed to start default routing manager.");
+        }
+        StartAdditionalRoutingManagers();
+
+        // Add routing for multicast address.
+        if (AutoAddRouteFlag)
+        {
+            AddRoutingForMulticastAddr();
+        }
     }
 
     le_sig_SetEventHandler(SIGTERM, TafSigTermEventHandler);
@@ -2096,4 +2200,3 @@ void taf_someipClnt_RemoveEventMsgHandler
     taf_SomeipClient& mySomeipClient = taf_SomeipClient::GetInstance();
     return mySomeipClient.RemoveEventMsgHandler(handlerRef);
 }
-

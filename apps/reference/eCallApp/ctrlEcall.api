@@ -1,0 +1,77 @@
+// ctrlEcall.api
+//
+// Control interface for the eCall application.
+// Used by the ecall_ctrl command-line tool to trigger eCall operations.
+//
+// Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+// SPDX-License-Identifier: BSD-3-Clause-Clear
+
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Start an automatic eCall (triggered by crash sensor / AACI).
+ *
+ * @return
+ *   - LE_OK     If the eCall session was successfully initiated.
+ *   - LE_FAULT  If the session could not be started.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t StartAutomatic() = 1;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Start a manual eCall (driver-initiated, button press).
+ *
+ * @return
+ *   - LE_OK     If the eCall session was successfully initiated.
+ *   - LE_FAULT  If the session could not be started.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t StartManual() = 2;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Start a test eCall (dials the configured test number).
+ *
+ * @return
+ *   - LE_OK     If the eCall session was successfully initiated.
+ *   - LE_FAULT  If the session could not be started.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t StartTest() = 3;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * End the active eCall session.
+ *
+ * @return
+ *   - LE_OK        If the session was successfully ended.
+ *   - LE_NOT_FOUND If there is no active session to end.
+ *   - LE_FAULT     If the end request could not be processed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t End() = 4;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Start CPU profiling with built-in default parameters.
+ *
+ * @return
+ *   - LE_OK     If profiling was successfully started.
+ *   - LE_FAULT  If the request could not be processed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CpuStart() = 5;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Stop CPU profiling.
+ *
+ * @return
+ *   - LE_OK     If profiling was successfully stopped.
+ *   - LE_FAULT  If the request could not be processed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CpuStop() = 6;

@@ -451,6 +451,32 @@ static void AppUpdateHandler
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remote system subscription handler.
+ */
+//--------------------------------------------------------------------------------------------------
+static void RpcSubscriptionHandler
+(
+    taf_someipSvr_ServiceRef_t serviceRef,
+    uint16_t sysEventId,
+    bool isSubscribed,
+    void* contextPtr
+)
+{
+    RpcClientProxyNode_t* rpcClientNodePtr = contextPtr;
+
+    // Sanity check for parameters.
+    LE_ASSERT((rpcClientNodePtr != NULL) && (rpcClientNodePtr->rpcClientPtr != NULL) &&
+              (rpcClientNodePtr->rpcClientPtr->someipServer.serviceRef == serviceRef) &&
+              (rpcClientNodePtr->sysEventId == sysEventId));
+
+    // Create and send the internal event.
+    ClientNodeEvent_t myEvent;
+    myEvent.rpcClientNodePtr = rpcClientNodePtr;
+    myEvent.action = isSubscribed ? ACTION_REMOTE_SUBSCRIBED : ACTION_REMOTE_UNSUBSCRIBED;
+    le_event_Report(RpcClientNodeEvent, &myEvent, sizeof(ClientNodeEvent_t));
+}
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -483,6 +509,8 @@ static le_result_t RpcClientNodeInit
     SystemId_t systemId;
     RpcRemoteSystem_Ref_t systemRef;
     RpcClientProxyNode_t* rpcClientNodePtr;
+    taf_someipSvr_SubscriptionHandlerRef_t handlerRef;
+    taf_someipSvr_ServiceRef_t serviceRef = rpcClientProxyPtr->someipServer.serviceRef;
 
     // Check all supported remote client systems for this RPC client proxy instance.
     for (cnt = 0; cnt < number; cnt++)
@@ -523,6 +551,21 @@ static le_result_t RpcClientNodeInit
                  systemId, rpcClientProxyPtr->serviceCfg.name);
         le_utf8_Copy(rpcClientNodePtr->bindingInterface, interfaceName,
                      sizeof(rpcClientNodePtr->bindingInterface), NULL);
+
+        // Register subscription handler.
+        handlerRef = taf_someipSvr_AddSubscriptionHandler(serviceRef, rpcClientNodePtr->sysEventId,
+                                                          RpcSubscriptionHandler,
+                                                          (void*)rpcClientNodePtr);
+        if (handlerRef == NULL)
+        {
+            LE_INFO("Failed to create subscription handler for RPC client node(%p) " \
+                    "for system ID(0x%x) and sysEvent ID(0x%x) " \
+                    "of rpcClientProxy(%p).", rpcClientNodePtr, systemId,
+                    rpcClientNodePtr->sysEventId, rpcClientNodePtr->rpcClientPtr);
+            return LE_FAULT;
+        }
+
+        rpcClientNodePtr->subsHandlerRef = handlerRef;
 
         rpcClientNodePtr->baseClass.type = RPC_CLIENT_PROXY;
         rpcClientNodePtr->baseClass.link = LE_DLS_LINK_INIT;
@@ -1210,34 +1253,6 @@ static void RpcRxMessageHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remote system subscription handler.
- */
-//--------------------------------------------------------------------------------------------------
-static void RpcSubscriptionHandler
-(
-    taf_someipSvr_ServiceRef_t serviceRef,
-    uint16_t sysEventId,
-    bool isSubscribed,
-    void* contextPtr
-)
-{
-    RpcClientProxyNode_t* rpcClientNodePtr = contextPtr;
-
-    // Sanity check for parameters.
-    LE_ASSERT((rpcClientNodePtr != NULL) && (rpcClientNodePtr->rpcClientPtr != NULL) &&
-              (rpcClientNodePtr->rpcClientPtr->someipServer.serviceRef == serviceRef) &&
-              (rpcClientNodePtr->sysEventId == sysEventId));
-
-    // Create and send the internal event.
-    ClientNodeEvent_t myEvent;
-    myEvent.rpcClientNodePtr = rpcClientNodePtr;
-    myEvent.action = isSubscribed ? ACTION_REMOTE_SUBSCRIBED : ACTION_REMOTE_UNSUBSCRIBED;
-    le_event_Report(RpcClientNodeEvent, &myEvent, sizeof(ClientNodeEvent_t));
-}
-
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Enable the proxy node.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1293,20 +1308,6 @@ static le_result_t EnableProxyNode
         return LE_FAULT;
     }
 
-    // Add a subscription Handler for the remote system.
-    taf_someipSvr_SubscriptionHandlerRef_t handlerRef;
-    handlerRef = taf_someipSvr_AddSubscriptionHandler(serviceRef, groupId,
-                                                      RpcSubscriptionHandler,
-                                                      (void*)nodePtr);
-    if (handlerRef == NULL)
-    {
-        LE_ERROR("Failed to register remote system(id=0x%x) for service(0x%x/0x%x).",
-                 systemId, serviceId, instanceId);
-        return LE_FAULT;
-    }
-
-    // Finally enable this remote system.
-    nodePtr->subsHandlerRef = handlerRef;
     nodePtr->enabled = true;
 
     rpcClientProxy_CreateBinding(nodePtr);
@@ -1364,11 +1365,6 @@ static le_result_t DisableProxyNode
         return LE_FAULT;
     }
 
-    // Remove a subscription Handler for the remote system.
-    taf_someipSvr_RemoveSubscriptionHandler(nodePtr->subsHandlerRef);
-
-    // Finally disable this remote system.
-    nodePtr->subsHandlerRef = NULL;
     nodePtr->enabled = false;
 
     return LE_OK;
@@ -1395,7 +1391,7 @@ static le_result_t OfferRpcService
     SomeipServer_t* someipServerPtr = &rpcClientProxyPtr->someipServer;
     uint16_t serviceId = someipServerPtr->serviceId;
     uint16_t instanceId = someipServerPtr->instanceId;
-    taf_someipSvr_ServiceRef_t serviceRef;
+    taf_someipSvr_ServiceRef_t serviceRef = someipServerPtr->serviceRef;
     taf_someipSvr_RxMsgHandlerRef_t rxMsgHanderRef;
 
     // Check if TelAF RPC service info is retrieved.
@@ -1410,24 +1406,6 @@ static le_result_t OfferRpcService
     {
         LE_ERROR("RPC service (0x%x/0x%x) is already offered.", serviceId, instanceId);
         return LE_DUPLICATE;
-    }
-
-    // Get the SOME/IP server service reference.
-    if (rpcProxyConfig_GetRoutingName() == NULL)
-    {
-        serviceRef = taf_someipSvr_GetService(serviceId, instanceId);
-    }
-    else
-    {
-        serviceRef = taf_someipSvr_GetServiceEx(serviceId, instanceId,
-                                                rpcProxyConfig_GetRoutingName());
-    }
-
-    if ((serviceRef == NULL) ||
-       ((someipServerPtr->serviceRef != NULL) && (someipServerPtr->serviceRef != serviceRef)))
-    {
-        LE_ERROR("Failed to get SOME/IP service (0x%x/0x%x).", serviceId, instanceId);
-        return LE_FAULT;
     }
 
     // Set the port.
@@ -1474,7 +1452,6 @@ static le_result_t OfferRpcService
     }
 
     // Save the references and set the flag.
-    someipServerPtr->serviceRef = serviceRef;
     someipServerPtr->rxMsgHandlerRef = rxMsgHanderRef;
     someipServerPtr->isOffered = true;
 
@@ -2075,6 +2052,31 @@ le_result_t rpcClientProxy_Init
 
         rpcClientProxyPtr->rpcClientNodeList = LE_DLS_LIST_INIT;
         rpcClientProxyPtr->link = LE_DLS_LINK_INIT;
+
+        // Get the serviceRef by serviceId and instanceId.
+        taf_someipSvr_ServiceRef_t serviceRef;
+        if (rpcProxyConfig_GetRoutingName() == NULL)
+        {
+            serviceRef = taf_someipSvr_GetService(rpcClientProxyPtr->someipServer.serviceId,
+                                                  rpcClientProxyPtr->someipServer.instanceId);
+        }
+        else
+        {
+            serviceRef = taf_someipSvr_GetServiceEx(rpcClientProxyPtr->someipServer.serviceId,
+                                                    rpcClientProxyPtr->someipServer.instanceId,
+                                                    rpcProxyConfig_GetRoutingName());
+        }
+
+        if (serviceRef == NULL)
+        {
+            LE_ERROR("Failed to get SOME/IP service (0x%x/0x%x).",
+                     rpcClientProxyPtr->someipServer.serviceId,
+                     rpcClientProxyPtr->someipServer.instanceId);
+            return LE_FAULT;
+        }
+
+        // Update serviceRef.
+        rpcClientProxyPtr->someipServer.serviceRef = serviceRef;
 
         LE_INFO("Created rpcClientProxy object for" \
                 " svrId=0x%x/0x%x svrName='%s' user='%s' protoId='%s'",

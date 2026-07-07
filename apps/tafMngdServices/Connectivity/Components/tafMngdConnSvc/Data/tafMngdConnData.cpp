@@ -665,3 +665,19 @@ le_result_t tafMngdConnData::GetAllConnectionInfo(profileInfo_t *profileNumberLi
 
     return LE_OK;
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets interface.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdConnData::SetInterface
+(
+    uint8_t phoneId,
+    uint32_t profileId,
+    const char* namePtr
+)
+{
+    taf_dcs_ProfileRef_t profileRef = taf_dcs_GetProfileEx(phoneId, profileId);
+    return taf_dcs_SetInterface(profileRef, namePtr);
+}

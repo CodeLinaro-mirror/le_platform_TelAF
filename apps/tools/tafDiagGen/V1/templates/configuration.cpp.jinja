@@ -59,6 +59,11 @@ EXPORT_SYM bool get_init_status(void)
     return root_inited;
 }
 
+EXPORT_SYM std::string get_tree_data_md5(void)
+{
+    return tree_data_md5;
+}
+
 EXPORT_SYM void diag_config_init(const char * cfg_path)
 {
     try
@@ -453,6 +458,16 @@ EXPORT_SYM const ServiceEntry& get_service_entry(uint16_t sid)
 EXPORT_SYM bool is_service_supported(uint16_t sid)
 {
     return get_service_entry(sid).supported;
+}
+
+EXPORT_SYM bool IsIDPSAvailable(void)
+{
+    return false;
+}
+
+EXPORT_SYM bool IsIDPSSupported(uint16_t sid)
+{
+    return false;
 }
 
 EXPORT_SYM bool is_authentication_supported(uint16_t sid)

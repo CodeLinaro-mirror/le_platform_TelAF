@@ -867,67 +867,6 @@ exception:
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Removes keys from kernel keyring.
- */
-//--------------------------------------------------------------------------------------------------
-
-static void RemoveKeysFromKernel
-(
-    void
-)
-{
-    LE_INFO("trigger RemoveKeysFromKernel()");
-
-    le_ref_IterRef_t iterRef = le_ref_GetIterator(StorageRefMap);
-
-    while (le_ref_NextNode(iterRef) == LE_OK)
-    {
-        taf_fsc_Storage_t* storagePtr = le_ref_GetValue(iterRef);
-        if(storagePtr == NULL)
-        {
-            LE_ERROR("storagePtr == NULL");
-            return;
-        }
-
-        if ((storagePtr->keyFileRef != NULL) && (storagePtr->keyIsAddedToKernel == true))
-        {
-            // Remove the storage reference.
-            void* storageRef = (void*)le_ref_GetSafeRef(iterRef);
-            LE_ASSERT(storageRef != NULL);
-            le_ref_DeleteRef(StorageRefMap, storageRef);
-
-            // Remove key from kernel keyring
-            if(LE_OK == IoControl_remove_key(storagePtr->descriptor, storagePtr->dirpath))
-            {
-                LE_INFO("Remove key(descriptor: %s) for dir '%s' for client(%p).",
-                storagePtr->descriptor, storagePtr->dirpath, storagePtr->clientSessionRef);
-
-                // Free the storage object.
-                le_mem_Release(storagePtr);
-            }
-        }
-    }
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Power state change handler to trigger process during shutting down.
- */
-//--------------------------------------------------------------------------------------------------
-
-void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr)
-{
-    LE_INFO("Power state change to %d", state);
-
-    if(state == TAF_PM_STATE_SHUTDOWN)
-    {
-        LE_INFO("System is shutting down");
-        RemoveKeysFromKernel();
-    }
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Removes storage which is created by the specified client
  */
 //--------------------------------------------------------------------------------------------------
@@ -1062,9 +1001,6 @@ COMPONENT_INIT
 
     // Create reference maps
     StorageRefMap = le_ref_CreateMap("StorageRefMap", MAX_NUM_OF_STORAGE);
-
-    // Add power state change handler
-    taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
 
     // Set session close handlers
     le_msg_AddServiceCloseHandler(taf_fsc_GetServiceRef(), RemoveSessionFromStorage, NULL);

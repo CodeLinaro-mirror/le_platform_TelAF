@@ -11,6 +11,7 @@
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
 #include "configuration.hpp"
+#include "tafIDPS.hpp"
 #include <mutex>
 #include "tafUDSStack.h"
 #include <atomic>
@@ -50,6 +51,7 @@ namespace uds{
 
     // UDS minimal len
     #define UDS_REQ_MIN_LEN 1
+    #define UDS_RESP_MIN_LEN 1
 
     // Negative Response (0x7F)
     #define UDS_NEGATIVE_RESP_SID 0x7F
@@ -139,6 +141,10 @@ namespace uds{
     // Routine control service (0x31)
     #define UDS_ROUTINE_CTRL_REQ_MIN_LEN 4
     #define UDS_ROUTINE_CTRL_RESP_MIN_LEN 4
+
+    // TransferData service (0x34)
+    #define UDS_REQ_DOWNLOAD_BASE_LEN 3  // SID+ dataFormateID+ addrLenFormateID(0x00 as min value)
+    #define UDS_RESP_DOWNLOAD_BASE_LEN 2 // Resp SID + lengthFormatId(0x00 as min value)
 
     // TransferData service (0x36)
     #define UDS_REQ_XFER_DATA_BASE_LEN 2
@@ -266,6 +272,7 @@ namespace uds{
         WRITE_DID_REQUEST_ID = 0x2E,
         INPUT_OUTPUT_CONTROL_REQUEST_ID = 0x2F,
         ROUTINE_CONTROL_REQUEST_ID = 0x31,
+        REQUEST_DOWNLOAD_REQUEST_ID = 0x34,
         TRANSFER_DATA_REQUEST_ID = 0x36,
         REQUEST_TRANSFER_EXIT_REQUEST_ID = 0x37,
         REQUEST_FILE_TRANSFER_REQUEST_ID = 0x38,
@@ -385,6 +392,16 @@ namespace uds{
         ON = 0x01
     }taf_TesterState_t;
 
+    // Context passed to the main thread when P2* timeout fires.
+    // Using a plain struct avoids any heap allocation in the timer callback.
+    typedef struct
+    {
+        UdsCommunicationMgr* mgr;          ///< Owning instance.
+        uint8_t              sid;          ///< Service ID that timed out.
+        uint8_t              errorCode;    ///< NRC to send (REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING).
+        taf_doip_AddrInfo_t  addrInfo;     ///< Address info copied from the instance.
+    } P2StarNrcContext_t;
+
     class UdsCommunicationMgr{
         public:
             UdsCommunicationMgr(const char* ifName);
@@ -420,6 +437,7 @@ namespace uds{
             le_result_t CheckAndSendInd(uint8_t sid, taf_doip_AddrInfo_t* addrInfoPtr);
 
             static void P2StarTimeoutHandler(le_timer_Ref_t timerRef);
+            static void P2StarSendNrcInMainThread(void* param1Ptr, void* param2Ptr);
             static void S3TimeoutHandler(le_timer_Ref_t timerRef);
             static void AuthTimeoutHandler(le_timer_Ref_t timerRef);
             static void AuthDelayTimeoutHandler(le_timer_Ref_t timerRef);
@@ -481,6 +499,8 @@ namespace uds{
                     bool* isInternalHandle);    // InputOutputControlByIdentifier service (0x2F).
             le_result_t IndicateRoutinrCtrlReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // RoutineControl service (0x31).
+            le_result_t IndicateRxReqDwnldReq(taf_doip_AddrInfo_t* addrInfoPtr,
+                    bool* isInternalHandle);    // RequestDownload service (0x34).
             le_result_t IndicateRxFileXferReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // RequestFileTransfer service (0x38).
             le_result_t IndicateRxXferDataReq(taf_doip_AddrInfo_t* addrInfoPtr,
@@ -520,6 +540,8 @@ namespace uds{
             le_result_t IOCBIDResp(uint8_t serviceId, const uint8_t* dataPtr, uint16_t dataSize,
                     uint8_t err);
             le_result_t RoutineCtrlResp(uint8_t serviceId, const uint8_t* dataPtr,
+                    uint16_t dataSize, uint8_t err);
+            le_result_t ReqDwnldResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
             le_result_t XferDataResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
@@ -577,6 +599,8 @@ namespace uds{
             //Send indication to diag service in UDS indication thread.
             static void IndMsgHandler(void* reqPtr);
 
+            void SendIdpsIndMsg();
+
             //session change parameter.
             taf_doip_AddrInfo_t addrInfo;
 
@@ -595,11 +619,13 @@ namespace uds{
             static bool isResetInProgress;
             static le_event_Id_t udsTimerEventId;
             static le_sem_Ref_t semRef;
+            static le_mem_PoolRef_t P2StarNrcPool; ///< Pool for P2StarNrcContext_t objects.
 
             static std::map<std::string, UdsCommunicationMgr*> instances;
             static std::mutex mutex_instance;
 
             static le_event_Id_t udsIndMsgEventId;
+            static le_thread_Ref_t mainThreadRef; ///< Reference to the main thread for queuing.
     };
 }
 }

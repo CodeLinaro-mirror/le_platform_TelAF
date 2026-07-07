@@ -14,6 +14,7 @@ using namespace tafsvc;
 #define MAX_NUM_OF_ATTEMPTS   10
 #define RETRY_TIMER_INTERVAL  3000
 #define TIMER_SAFECALL 5
+#define MAX_REQ_DID_CNT  32
 DECLARE_SAFE_CALL();
 
 le_sem_Ref_t read_semaphore = NULL;
@@ -319,34 +320,22 @@ void taf_diagDidStore::didReadCb
     didStore.readStrg.readDID = dataID;
     ReadWriteRequest_t* requestPtr = NULL;
 
-    // Check the result.
-    if (result != 0)
-    {
-        LE_ERROR("Read DID error code : %x", result);
-        if (result != TAF_CONDITION_NOT_CORRECT && result != TAF_REQ_OUT_OF_RANGE)
-        {
-            didStore.readStrg.result = TAF_CONDITION_NOT_CORRECT;
-        }
-        else
-        {
-            didStore.readStrg.result = result;
-        }
-        goto semPostOut;
-    }
-
     if (contextPtr == NULL)
     {
         LE_ERROR("contextPtr is NULL");
-        didStore.readStrg.result = TAF_CONDITION_NOT_CORRECT;
-        goto semPostOut;
+        //Context pointer is invalid, don't post the result.
+        return;
     }
 
-    requestPtr =(ReadWriteRequest_t*)le_ref_Lookup(didStore.ReadDIDRefMap, contextPtr);
+    //Find the pointer by context ptr(cnt) from the hash map
+    requestPtr = (ReadWriteRequest_t*)le_hashmap_Get(didStore.RdDIDReqCntRef,
+        (void*)(uintptr_t)contextPtr);
+
     if (requestPtr == NULL)
     {
-        LE_ERROR("Invalid requestPtr");
-        didStore.readStrg.result = TAF_CONDITION_NOT_CORRECT;
-        goto semPostOut;
+        //requestPtr is invalid, don't post the result.
+        LE_ERROR("Invalid requestPtr, contextPtr=%p", contextPtr);
+        return;
     }
 
     if (dataRecPtr == NULL || len == 0 || len > sizeof(didStore.readStrg.didData))
@@ -356,11 +345,24 @@ void taf_diagDidStore::didReadCb
         goto semPostOut;
     }
 
-    // Copy data to the client-specific structure
-    memcpy(didStore.readStrg.didData, dataRecPtr, len);
-    didStore.readStrg.didDataLen = len;
-    didStore.readStrg.result = result;
-    goto semPostOut;
+    // Check the result.
+    if (result != TAF_POSITIVE_RESPONSE && result != TAF_CONDITION_NOT_CORRECT && result !=
+        TAF_REQ_OUT_OF_RANGE)
+    {
+        //result is not same as we defined, set it to TAF_CONDITION_NOT_CORRECT
+        LE_ERROR("Read DID error code : %x", result);
+        didStore.readStrg.result = TAF_CONDITION_NOT_CORRECT;
+    }
+    else
+    {
+        didStore.readStrg.result = result;
+        if(result == TAF_POSITIVE_RESPONSE)
+        {
+            // Positive result. Copy data to the client-specific structure
+            memcpy(didStore.readStrg.didData, dataRecPtr, len);
+            didStore.readStrg.didDataLen = len;
+        }
+    }
 
 semPostOut:
     // Signal the client-specific semaphore
@@ -413,6 +415,16 @@ le_result_t taf_diagDidStore::Read
     requestPtr->writeDIDRef = NULL;
     requestPtr->requestingThreadRef = le_thread_GetCurrent();
 
+    // Check if counter is present since it may reach the max value and back to 0
+    while (le_hashmap_ContainsKey(RdDIDReqCntRef, (void*)(uintptr_t)callPluginRdCnt))
+    {
+        callPluginRdCnt++;
+        if (callPluginRdCnt == 0) callPluginRdCnt = 1; // Skip 0
+    }
+    requestPtr->cnt = callPluginRdCnt;
+
+    //Put rdcnt-requestPtr in the hash map
+    le_hashmap_Put(RdDIDReqCntRef, (void*)(uintptr_t)callPluginRdCnt, requestPtr);
     // Queue the request to the read thread
     le_event_QueueFunctionToThread(ReadThreadRef, HandleReadWriteReq, requestPtr, NULL);
 
@@ -429,15 +441,19 @@ le_result_t taf_diagDidStore::Read
         isReadDIDLock.store(false);
         readStrg.result = TAF_DIAGDATAID_READ_DID_CONDITIONS_NOT_CORRECT;
 
+        le_hashmap_Remove(RdDIDReqCntRef, (void*)(uintptr_t)callPluginRdCnt);
         le_ref_DeleteRef(ReadDIDRefMap, requestPtr->readDIDRef);
         le_mem_Release(requestPtr);
+        callPluginRdCnt++;
 
         return LE_FAULT;
     }
     else
     {
+        le_hashmap_Remove(RdDIDReqCntRef, (void*)(uintptr_t)callPluginRdCnt);
         le_ref_DeleteRef(ReadDIDRefMap, requestPtr->readDIDRef);
         le_mem_Release(requestPtr);
+        callPluginRdCnt++;
     }
 
     isReadDIDLock.store(false);
@@ -472,43 +488,35 @@ void taf_diagDidStore::didWriteCb
     auto &didStore = taf_diagDidStore::GetInstance();
     ReadWriteRequest_t* requestPtr = NULL;
 
-    // Check the result.
-    if (result != 0)
-    {
-        LE_ERROR("Write DID error code : %x", result);
-        if (result != TAF_CONDITION_NOT_CORRECT && result != TAF_REQ_OUT_OF_RANGE
-                && result != TAF_GENERAL_PROGRAMMING_FAILURE)
-        {
-            didStore.writeDIDPIResult = TAF_CONDITION_NOT_CORRECT;
-        }
-        else
-        {
-            didStore.writeDIDPIResult = result;
-        }
-        goto semPostOut;
-    }
-
     if (contextPtr == NULL)
     {
         LE_ERROR("contextPtr is NULL");
-        didStore.writeDIDPIResult = TAF_CONDITION_NOT_CORRECT;
-        goto semPostOut;
+        //Context pointer is invalid, don't post the result.
+        return;
     }
 
-    requestPtr = (ReadWriteRequest_t*)le_ref_Lookup(didStore.WriteDIDRefMap, contextPtr);
+    requestPtr = (ReadWriteRequest_t* )le_hashmap_Get(didStore.WrDIDReqCntRef,
+        (void*)(uintptr_t)contextPtr);
     if (requestPtr == NULL)
     {
-        LE_ERROR("Invalid requestPtr");
-        didStore.writeDIDPIResult = TAF_CONDITION_NOT_CORRECT;
-        goto semPostOut;
+        //requestPtr is invalid, don't post the result.
+        LE_ERROR("Invalid requestPtr, contextPtr=%p", contextPtr);
+        return;
     }
 
-    // Store the result in the client-specific structure
-    didStore.writeDIDPIResult = result;
-    goto semPostOut;
+    // Check the result.
+    if (result != TAF_POSITIVE_RESPONSE && result != TAF_CONDITION_NOT_CORRECT && result !=
+        TAF_REQ_OUT_OF_RANGE && result != TAF_GENERAL_PROGRAMMING_FAILURE)
+    {
+        //The result is not same as we defined, set it to TAF_CONDITION_NOT_CORRECT
+        LE_ERROR("Write DID error code : %x", result);
+        didStore.writeDIDPIResult = TAF_CONDITION_NOT_CORRECT;
+    }
+    else
+    {
+        didStore.writeDIDPIResult = result;
+    }
 
-semPostOut:
-    // Signal the client-specific semaphore
     if (write_semaphore != NULL)
     {
         le_sem_Post(write_semaphore);
@@ -553,7 +561,16 @@ le_result_t taf_diagDidStore::Write
     requestPtr->writeDIDRef = le_ref_CreateRef(WriteDIDRefMap, requestPtr);
     requestPtr->readDIDRef = NULL;
     requestPtr->requestingThreadRef = le_thread_GetCurrent();
+    // Check if counter is present since it may reach the max value and back to 0
+    while (le_hashmap_ContainsKey(WrDIDReqCntRef, (void*)(uintptr_t)callPluginWrCnt))
+    {
+        callPluginWrCnt++;
+        if (callPluginWrCnt == 0) callPluginWrCnt = 1; // Skip 0
+    }
+    requestPtr->cnt = callPluginWrCnt;
 
+    //Put the wrcnt-requestPtr into hash map
+    le_hashmap_Put(WrDIDReqCntRef, (void*)(uintptr_t)callPluginWrCnt, requestPtr);
     // Queue the request to the write thread
     le_event_QueueFunctionToThread(WriteThreadRef, HandleReadWriteReq, requestPtr, NULL);
 
@@ -570,15 +587,19 @@ le_result_t taf_diagDidStore::Write
         isWriteDIDLock.store(false);
         writeDIDPIResult = TAF_DIAGDATAID_WRITE_DID_CONDITIONS_NOT_CORRECT;
 
+        le_hashmap_Remove(WrDIDReqCntRef, (void*)(uintptr_t)callPluginWrCnt);
         le_ref_DeleteRef(WriteDIDRefMap, requestPtr->writeDIDRef);
         le_mem_Release(requestPtr);
+        callPluginWrCnt++;
 
         return LE_FAULT;
     }
     else
     {
+        le_hashmap_Remove(WrDIDReqCntRef, (void*)(uintptr_t)callPluginWrCnt);
         le_ref_DeleteRef(WriteDIDRefMap, requestPtr->writeDIDRef);
         le_mem_Release(requestPtr);
+        callPluginWrCnt++;
     }
 
     isWriteDIDLock.store(false);
@@ -618,13 +639,19 @@ void taf_diagDidStore::HandleReadWriteReq
 
             if (!didStore.isReadDIDLock.load())
             {
+                //pass cnt as the context ptr
                 le_result_t result = (*(didStore.didStorInf->diagDIDGetAsync))
-                        (reqPtr->dataId, didStore.didReadCb, (void *)reqPtr->readDIDRef);
+                        (reqPtr->dataId, didStore.didReadCb, (void*)(uintptr_t)reqPtr->cnt);
 
                 if (result != LE_OK)
                 {
                     LE_ERROR("Fail to get from DID Storage Plugin");
                     didStore.readStrg.result = TAF_DIAGDATAID_READ_DID_CONDITIONS_NOT_CORRECT;
+                    //Post the semaphore since result will be used
+                    if (read_semaphore != NULL)
+                    {
+                        le_sem_Post(read_semaphore);
+                    }
                 }
             }
 
@@ -644,12 +671,17 @@ void taf_diagDidStore::HandleReadWriteReq
             {
                 le_result_t result = (*(didStore.didStorInf->diagDIDSetAsync))
                         (reqPtr->dataId, const_cast<uint8_t*>(reqPtr->dataRecordPtr),
-                                *(reqPtr->dataRecordSizePtr), didStore.didWriteCb,
-                                        (void *)reqPtr->writeDIDRef);
+                        *(reqPtr->dataRecordSizePtr), didStore.didWriteCb,
+                        (void*)(uintptr_t)reqPtr->cnt);
                 if (result != LE_OK)
                 {
                     LE_ERROR("Fail to set to DID Storage Plugin");
                     didStore.writeDIDPIResult = TAF_DIAGDATAID_WRITE_DID_CONDITIONS_NOT_CORRECT;
+                     //Post the semaphore since result will be used
+                    if (write_semaphore != NULL)
+                    {
+                        le_sem_Post(write_semaphore);
+                    }
                 }
             }
 
@@ -1122,6 +1154,33 @@ void taf_diagDidStore::writeDataIDMsgHandler
 
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Compute the hash of the req cnt.
+ */
+//--------------------------------------------------------------------------------------------------
+size_t taf_diagDidStore::HashComputeCnt
+(
+    const void* voidToHashPtr
+)
+{
+    // Return the key value itself.
+    return (size_t) voidToHashPtr;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Compare the hash keys of the given two counters.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_diagDidStore::HashCompareCnt
+(
+    const void* firstVoidPtr,    ///< [in] First pointer for comparing.
+    const void* secondVoidPtr    ///< [in] PSecond pointer for comparing.
+)
+{
+    return firstVoidPtr == secondVoidPtr;
+}
 
 void taf_diagDidStore::OnClientDisconnection
 (
@@ -1429,6 +1488,16 @@ void taf_diagDidStore::Init
     MsgDIDStorgHandlerRefMap = le_ref_CreateMap("MsgDIDStorgHandlerRefMap",
         DEFAULT_DID_HANDLER_REF_CNT);
     dataIdPool = le_mem_CreatePool("DataIDPool", sizeof(taf_DataID_t));
+
+    // Create hash map for readDID requests, using callPluginRdCnt as key.
+    RdDIDReqCntRef = le_hashmap_Create("rdReqHashMap", MAX_REQ_DID_CNT,
+                                    taf_diagDidStore::HashComputeCnt,
+                                    taf_diagDidStore::HashCompareCnt);
+
+    // Create hash map for writeDID requests, using callPluginWrCnt as key.
+    WrDIDReqCntRef = le_hashmap_Create("wrReqHashMap", MAX_REQ_DID_CNT,
+                                taf_diagDidStore::HashComputeCnt,
+                                taf_diagDidStore::HashCompareCnt);
 
     //Read DID Plugin thread
     ReadRequestPool = le_mem_CreatePool("Read plugin Request", sizeof(ReadWriteRequest_t));

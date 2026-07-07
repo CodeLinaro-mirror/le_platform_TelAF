@@ -18,6 +18,8 @@ using namespace taf::uds;
 
 le_event_Id_t UdsCommunicationMgr::cancelFileXferEvId = NULL;
 bool UdsCommunicationMgr::isResetInProgress = false;
+le_mem_PoolRef_t UdsCommunicationMgr::P2StarNrcPool = NULL;
+le_thread_Ref_t UdsCommunicationMgr::mainThreadRef = NULL;
 std::map<std::string, UdsCommunicationMgr*> UdsCommunicationMgr::instances;
 std::mutex UdsCommunicationMgr::mutex_instance;
 taf_doip_Ref_t  UdsCommunicationMgr::DoipEntityRef = NULL;
@@ -116,6 +118,12 @@ void UdsCommunicationMgr::InitInstances
 {
     le_dls_Link_t* linkPtr = NULL;
 
+    // Capture the main thread reference so the timer thread can queue work back to it.
+    mainThreadRef = le_thread_GetCurrent();
+
+    // Pool for P2* NRC context objects — one per active P2* timer fire.
+    P2StarNrcPool = le_mem_CreatePool("P2StarNrcPool", sizeof(P2StarNrcContext_t));
+
     le_event_QueueFunction(SecurityAccess_Init, NULL, NULL);
 
     linkPtr = le_dls_Peek(interfaceList);
@@ -163,6 +171,13 @@ void UdsCommunicationMgr::InitInstances
 
     InitAuthData(interfaceList);
 
+    if(cfg::IsIDPSAvailable())
+    {
+        auto &udsIdps = UdsIdps::GetInstance();
+        udsIdps.Init();
+    }
+
+    LE_INFO("UDS communication manager ok.");
     return;
 }
 
@@ -523,48 +538,88 @@ void UdsCommunicationMgr::P2StarTimeoutHandler
     char* ifName = (char*)le_timer_GetContextPtr(timerRef);
 
     auto udsCmMgr = UdsCommunicationMgr::GetInstance(ifName);
-
-    if(udsCmMgr == NULL)
+    if (udsCmMgr == NULL)
     {
         LE_ERROR("Can't get instance by ifName %s", ifName);
         return;
     }
 
     uint32_t maxNumberOfRcrrp;
-    uint32_t sid = udsCmMgr->recvBuf[0];
-
-    LE_DEBUG("P2StarTimeoutHandler count = %d",le_timer_GetExpiryCount(timerRef));
-    //Get P2* server count
     try
     {
         const CommonProps& common = cfg::get_common_props();
         maxNumberOfRcrrp = common.max_number_of_rcrrp;
-        LE_DEBUG("maxNumberOfRcrrp = %d", maxNumberOfRcrrp);
     }
     catch (const std::exception& e)
     {
         maxNumberOfRcrrp = UDS_P2_STAR_SERVER_CNT;
-        LE_ERROR("Exception: %s. Use default value:%d", e.what() , maxNumberOfRcrrp);
+        LE_ERROR("Exception: %s. Use default value:%d", e.what(), maxNumberOfRcrrp);
     }
 
-    if(le_timer_GetExpiryCount(timerRef) < maxNumberOfRcrrp)
+    uint8_t errorCode = (le_timer_GetExpiryCount(timerRef) < maxNumberOfRcrrp)
+                        ? REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING
+                        : GENERAL_REJECT;
+
+    LE_DEBUG("P2StarTimeoutHandler count=%d errorCode=0x%x",
+             le_timer_GetExpiryCount(timerRef), errorCode);
+
+    P2StarNrcContext_t* ctxPtr = (P2StarNrcContext_t*)le_mem_ForceAlloc(P2StarNrcPool);
+    ctxPtr->mgr       = udsCmMgr;
+    ctxPtr->sid       = udsCmMgr->recvBuf[0]; // atomic-safe: single-byte read
+    ctxPtr->errorCode = errorCode;
+    ctxPtr->addrInfo  = udsCmMgr->addrInfo;   // struct copy — addrInfo is written only
+                                               // in DiagIndicationHandler (main thread)
+                                               // and is stable while P2* is running
+
+    le_event_QueueFunctionToThread(mainThreadRef, P2StarSendNrcInMainThread, ctxPtr, NULL);
+}
+
+// Runs in the main thread — safe to call SendNRC and modify shared state.
+void UdsCommunicationMgr::P2StarSendNrcInMainThread
+(
+    void* param1Ptr,
+    void* param2Ptr
+)
+{
+    P2StarNrcContext_t* ctxPtr = (P2StarNrcContext_t*)param1Ptr;
+    if (ctxPtr == NULL)
     {
-        udsCmMgr->SendNRC(sid, REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING, &udsCmMgr->addrInfo);
+        LE_ERROR("P2StarSendNrcInMainThread: NULL context");
         return;
     }
 
-    LE_INFO("P2* timeout");
-    //If previous value of readyToRecvData is false, check if app set FileXfer state and set it
-    if(!udsCmMgr->readyToRecvData.load())
+    UdsCommunicationMgr* udsCmMgr = ctxPtr->mgr;
+    uint8_t sid       = ctxPtr->sid;
+    uint8_t errorCode = ctxPtr->errorCode;
+    taf_doip_AddrInfo_t addrInfo = ctxPtr->addrInfo;
+
+    le_mem_Release(ctxPtr);
+
+    if (udsCmMgr == NULL)
+    {
+        LE_ERROR("P2StarSendNrcInMainThread: NULL manager");
+        return;
+    }
+
+    udsCmMgr->SendNRC(sid, errorCode, &addrInfo);
+
+    if (errorCode == REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING)
+    {
+        // Intermediate RCRRP — nothing else to do.
+        return;
+    }
+
+    // Final timeout (GENERAL_REJECT): reset state exactly as before.
+    LE_INFO("P2* final timeout — resetting state");
+    memset(udsCmMgr->recvBuf, 0, UDS_MAX_DATA_SIZE);
+    udsCmMgr->recvDataLen = 0;
+    udsCmMgr->sendDataLen = 0;
+
+    if (!udsCmMgr->readyToRecvData.load())
     {
         udsCmMgr->readyToRecvData.store(true);
         udsCmMgr->CheckAndSendCancelFileXferEvent();
     }
-
-    udsCmMgr->SendNRC(sid, GENERAL_REJECT, &udsCmMgr->addrInfo);
-    memset(udsCmMgr->recvBuf, 0, UDS_MAX_DATA_SIZE);
-    udsCmMgr->recvDataLen = 0;
-    udsCmMgr->sendDataLen = 0;
 }
 
 void UdsCommunicationMgr::AuthDelayTimeoutHandler
@@ -720,8 +775,6 @@ void UdsCommunicationMgr::CheckAndRestartTesterStateTimer
 
     float p2StarServerInterval;
     uint32_t maxNumberOfRcrrp, testerStateTimer;
-
-    readyToRecvData.store(true);
 
     //Get P2* server interval;
     try
@@ -1074,6 +1127,7 @@ le_result_t UdsCommunicationMgr::SendNRC
     if(errorCode == REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING)
     {
         LE_DEBUG("RCRRP is sent");
+        return LE_OK;
     }
 
 #ifdef LE_CONFIG_DIAG_FEATURE_A
@@ -1084,6 +1138,9 @@ le_result_t UdsCommunicationMgr::SendNRC
     {
         IndicateNrcStatus(interface, sid, errorCode);
     }
+#else
+    if(cfg::IsIDPSAvailable())
+        SendIdpsIndMsg();
 #endif
 
     return LE_OK;
@@ -3201,6 +3258,59 @@ static uint32_t  ValueOfFileSize(uint8_t* buffer, uint8_t length, bool uncomp)
 }
 
 /**
+ * Check NRC and Indicate received RequestDownload (0x34) message to Diag service.
+ */
+le_result_t UdsCommunicationMgr::IndicateRxReqDwnldReq
+(
+    taf_doip_AddrInfo_t*  addrInfoPtr,
+    bool* isInternalHandle
+)
+{
+    LE_DEBUG("In %s", __FUNCTION__);
+    uint8_t ReqDwnldSid = recvBuf[0];
+
+    // Minimum length checking
+    if (recvDataLen < UDS_REQ_DOWNLOAD_BASE_LEN)
+    {
+        LE_WARN("Minimum length check failure for 0x34, send NRC %x",
+            INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        // UDS_0x34_NRC_13: Minimum length check failure
+        return SendNRC(ReqDwnldSid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    // dataFormatIdentifier
+    uint8_t dataFormatID = recvBuf[1];
+    LE_DEBUG("dataFormatID: %x", dataFormatID);
+    // addressAndLengthFormatIdentifier
+    uint8_t addrAndLenFormatID = recvBuf[2];
+    // Length (number of bytes) of the memoryAddress parameter
+    uint8_t memAddrParamLen = addrAndLenFormatID & 0x0F;
+    // Length (number of bytes) of the memorySize parameter
+    uint8_t memSizeParamLen = (addrAndLenFormatID >> 4) & 0x0F;
+
+    // Length checking
+    if ((recvDataLen - UDS_REQ_DOWNLOAD_BASE_LEN) != (memAddrParamLen + memSizeParamLen))
+    {
+        LE_WARN("Length check failure for 0x34, send NRC %x",
+            INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        // UDS_0x34_NRC_13: Minimum length check failure
+        return SendNRC(ReqDwnldSid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    // Check if in the process of downloading or uploading data
+    if (isXferActive.load())
+    {
+        LE_WARN("Bad order, transfer is in progress, send NRC %x", CONDITIONS_NOT_CORRECT);
+        // UDS_0x34_NRC_22: Transfer is in progress
+        return SendNRC(ReqDwnldSid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
+    }
+
+    //Will send the indication to the diag service
+    *isInternalHandle = false;
+    return LE_OK;
+}
+
+/**
  * Check NRC and Indicate received RequestFileTransfer (0x38) message to Diag service.
  */
 le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
@@ -3215,8 +3325,6 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
     #define RFT_MOOP recvBuf[1]
     #define LENGTH_OF_FILE_NAME (((recvBuf[2]) << 8 ) | (recvBuf[3]))
     #define LENGTH_OF_FILE_SIZE(buffer, loc) (buffer[loc])
-
-    LE_INFO("[RFT] Request for moop:[0x%02X]", RFT_MOOP);
 
     // Minimum length checking
     if (recvDataLen < RFT_MIN_LEN)
@@ -4252,6 +4360,13 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
+    // Check for minimum request msg length
+    if(diagMsgPtr->dataLen < UDS_REQ_MIN_LEN)
+    {
+        LE_ERROR("recvDataLen is less than the UDS msg minimum length.");
+        return;
+    }
+
     //Ignore other requests if hardware reset is in progress until system is restarted
     if(udsCmMgr->isResetInProgress)
     {
@@ -4259,11 +4374,14 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
+    // received service ID
+    uint8_t sid = diagMsgPtr->dataPtr[0];
+
     // Send NRC 0x22 if diag service is paused
     if (udsCmMgr->isPaused.load())
     {
         LE_WARN("In BUB state, dont't receive any requests");
-        udsCmMgr->SendNRC(diagMsgPtr->dataPtr[0], CONDITIONS_NOT_CORRECT, addrInfoPtr);
+        udsCmMgr->SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
         return;
     }
 
@@ -4271,23 +4389,13 @@ void UdsCommunicationMgr::DiagIndicationHandler
     if (!udsCmMgr->readyToRecvData.load())
     {
         LE_WARN("Handle in progress, can't receive another request");
-        udsCmMgr->SendNRC(diagMsgPtr->dataPtr[0], BUSY_REPEAT_REQ, addrInfoPtr);
+        udsCmMgr->SendNRC(sid, BUSY_REPEAT_REQ, addrInfoPtr);
         return;
     }
 
     memcpy((char*)(udsCmMgr->recvBuf), (char*)(diagMsgPtr->dataPtr), UDS_MAX_DATA_SIZE);
     udsCmMgr->recvDataLen = diagMsgPtr->dataLen;
     udsCmMgr->sendDataLen = 0;
-
-    // Check for minimum request msg length
-    if(udsCmMgr->recvDataLen < UDS_REQ_MIN_LEN)
-    {
-        LE_ERROR("recvDataLen is less than the UDS msg minimum length.");
-        return;
-    }
-
-    // received service ID
-    uint8_t sid = udsCmMgr->recvBuf[0];
 
     // General server response behaviour check, NRC check for 0x11, 0x34, 0x7f, 0x33
     if(udsCmMgr->GeneralServerResp(addrInfoPtr, sid) == LE_OK)
@@ -4371,6 +4479,13 @@ void UdsCommunicationMgr::DiagIndicationHandler
             ret = udsCmMgr->IndicateRoutinrCtrlReq(addrInfoPtr, &isInternalHandle);
         }
         break;
+        case REQUEST_DOWNLOAD_REQUEST_ID:  // 0x34
+        {
+            // Check NRC and then send indication to TelAf diag service if necessary for
+            // RequestDownload request msg.
+            ret = udsCmMgr->IndicateRxReqDwnldReq(addrInfoPtr, &isInternalHandle);
+        }
+        break;
         case TRANSFER_DATA_REQUEST_ID:  // 0x36
         {
             // Check NRC and then send indication to TelAf diag service if necessary for
@@ -4382,7 +4497,7 @@ void UdsCommunicationMgr::DiagIndicationHandler
         {
             // Check NRC and then send indication to TelAf diag service if necessary for
             // RequestTransferExit request msg.
-            ret = udsCmMgr->IndicateRxXferExitReq(addrInfoPtr, &isInternalHandle);
+            ret = udsCmMgr->IndicateRxXferExitReq(addrInfoPtr, &isInternalHandle); 
         }
         break;
         case REQUEST_FILE_TRANSFER_REQUEST_ID:  // 0x38
@@ -4654,6 +4769,9 @@ le_result_t UdsCommunicationMgr::SendUDSResp
         case ROUTINE_CONTROL_REQUEST_ID:
             ret = RoutineCtrlResp(serviceId, dataPtr, dataSize, err);
         break;
+        case REQUEST_DOWNLOAD_REQUEST_ID:
+            ret = ReqDwnldResp(serviceId, dataPtr, dataSize, err);
+        break;
         case TRANSFER_DATA_REQUEST_ID:
             ret = XferDataResp(serviceId, dataPtr, dataSize, err);
         break;
@@ -4694,6 +4812,9 @@ le_result_t UdsCommunicationMgr::SendUDSResp
     ret = taf_doip_DiagRequest(&udsCmMgr->udsRespAddrInfo, &respDiagMsg);
     if (ret == LE_OK)
     {
+        if(cfg::IsIDPSAvailable())
+            SendIdpsIndMsg();
+
         LE_DEBUG("Requested Diagnostic message response sent. Restart S3 timer");
         udsCmMgr->CheckAndRestartS3Timer(serviceId);
     #ifdef LE_CONFIG_DIAG_FEATURE_A
@@ -4780,7 +4901,7 @@ le_result_t UdsCommunicationMgr::SetUDSData
     uint16_t dataSize
 )
 {
-    LE_DEBUG("SendUDSResp");
+    LE_DEBUG("SetUDSData");
 
     if(ifName == NULL || dataPtr == NULL || dataSize == 0)
     {
@@ -5588,6 +5709,56 @@ static uint8_t HowManyChars(uint16_t maxNumberOfBlock)
 }
 
 /**
+ * Check error code and Pack RequestDownload message to send to Diag client/tool.
+ */
+le_result_t UdsCommunicationMgr::ReqDwnldResp
+(
+    uint8_t serviceId,
+    const uint8_t* dataPtr,
+    uint16_t dataSize,
+    uint8_t err
+)
+{
+    LE_DEBUG("In  %s", __FUNCTION__);
+
+    if (POSITIVE_RESPONSE != err)
+    {
+        LE_DEBUG("Error code reported from Diag service");
+        SetNRC(serviceId, err);
+        return LE_OK;
+    }
+
+    // maxNumberOfBlockLength
+    uint16_t maxNumberOfBlockLen = UDS_DATA_SIZE - 4; // Reduce the source & target addresses.
+    // lengthFormatIdentifier
+    uint8_t nBytes = HowManyChars(maxNumberOfBlockLen);
+    uint8_t lengthFormatId = ((nBytes & 0x0F) << 4);
+
+    sendBuf[0] = serviceId + 0x40;
+    sendBuf[1] = lengthFormatId;
+
+    // Convert maxNumberOfBlockLen to big-endian storage.
+    for (uint8_t index = 0; index < sizeof(maxNumberOfBlockLen); index++)
+    {
+        uint8_t shiftBytes = sizeof(maxNumberOfBlockLen) - 1 - index;
+        uint8_t indexValue = (maxNumberOfBlockLen >> (shiftBytes * 8)) & 0xFF;
+        sendBuf[UDS_RESP_DOWNLOAD_BASE_LEN + index] = indexValue;
+    }
+
+    sendDataLen = UDS_RESP_DOWNLOAD_BASE_LEN + sizeof(maxNumberOfBlockLen);
+
+    if ( (sendDataLen + dataSize) > UDS_MAX_DATA_SIZE )
+    {
+        LE_ERROR("The send buffer is overflowing");
+        return LE_FAULT;
+    }
+
+    isXferActive.store(true);
+
+    return LE_OK;
+}
+
+/**
  * Check error code and Pack ReqFileXferResp message to send to Diag client/tool.
  */
 le_result_t UdsCommunicationMgr::ReqFileXferResp
@@ -6157,4 +6328,12 @@ void UdsCommunicationMgr::StoreDelayTimeToTree
     snprintf(delayTimeNodePath, sizeof(delayTimeNodePath), AUTH_CONF_DATA "%s/Delay_time",
             interface);
     le_cfg_QuickSetInt(delayTimeNodePath, authDelayTime);
+}
+
+void UdsCommunicationMgr::SendIdpsIndMsg
+(
+)
+{
+    auto &idps = UdsIdps::GetInstance();
+    idps.SendIdpsIndMsg(sendBuf, sendDataLen, recvBuf, recvDataLen, &addrInfo);
 }

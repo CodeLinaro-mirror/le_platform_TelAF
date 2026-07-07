@@ -197,6 +197,8 @@ typedef struct {
 
 EXPORT_SYM void init();
 
+EXPORT_SYM std::string get_tree_data_md5();
+
 EXPORT_SYM void diag_config_init(const char * cfg_path);
 
 EXPORT_SYM bool get_init_status(void);
@@ -266,6 +268,8 @@ EXPORT_SYM const std::map<std::string, SessionSecurLvlEntry>&
 EXPORT_SYM const SecurBindingEntry& get_security_binding_by_session_id(int session_id);
 EXPORT_SYM const ServiceEntry& get_service_entry(uint16_t sid);
 EXPORT_SYM bool is_service_supported(uint16_t sid);
+EXPORT_SYM bool IsIDPSAvailable(void);
+EXPORT_SYM bool IsIDPSSupported(uint16_t sid);
 EXPORT_SYM bool is_authentication_supported(uint16_t sid);
 EXPORT_SYM const Access& get_service_access(uint16_t sid);
 EXPORT_SYM uint8_t get_security_type(uint16_t sid);

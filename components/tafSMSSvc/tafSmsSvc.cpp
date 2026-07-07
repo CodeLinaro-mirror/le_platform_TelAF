@@ -462,14 +462,15 @@ le_result_t taf_sms_SetUCS2
    msgPtr->userdataLen = numOfUcs2 * 2;
    msgPtr->pduReady = false;
 
-   memcpy(msgPtr->binary, (uint8_t *) ucs2Ptr, msgPtr->userdataLen);
+   for (size_t i = 0; i < numOfUcs2; i++)
+   {
+      msgPtr->binary[i * 2]     = (uint8_t)((ucs2Ptr[i] >> 8) & 0xFF);
+      msgPtr->binary[i * 2 + 1] = (uint8_t)( ucs2Ptr[i]       & 0xFF);
+      LE_DEBUG("msgPtr->binary[%zu] = 0x%.2X%.2X",
+               i, msgPtr->binary[i * 2], msgPtr->binary[i * 2 + 1]);
+   }
 
    LE_DEBUG("Copy ucs2 num: %zd for msgPtr.%p", numOfUcs2, msgPtr);
-
-   for(uint i = 0; i < numOfUcs2; i +=2)
-   {
-      LE_DEBUG("msgPtr->binary[%d] = 0x%.2X%.2X", i, msgPtr->binary[i], msgPtr->binary[i + 1]);
-   }
 
    return LE_OK;
 }
@@ -1036,17 +1037,23 @@ le_result_t taf_sms_GetUCS2
 
    TAF_KILL_CLIENT_IF_RET_VAL(msgPtr->format != TAF_SMS_FORMAT_UCS2, LE_FAULT, "Invalid format");
 
-   if(msgPtr->userdataLen > (*ucs2LenPtr * 2))
-   {
-      memcpy(ucs2Ptr, msgPtr->binary, *ucs2LenPtr);
-      LE_ERROR("Input len is smaller than binary length");
+   size_t numOfUcs2 = msgPtr->userdataLen / 2;
+   size_t copyCount = numOfUcs2;
 
-      return LE_OVERFLOW;
+   if (numOfUcs2 > *ucs2LenPtr)
+   {
+      LE_ERROR("Input buffer (%zu elements) is smaller than message length (%zu elements)",
+                *ucs2LenPtr, numOfUcs2);
+      copyCount = *ucs2LenPtr;
    }
 
-   memcpy (ucs2Ptr, msgPtr->binary, msgPtr->userdataLen);
-   *ucs2LenPtr = (msgPtr->userdataLen) / 2;
-   return LE_OK;
+   for (size_t i = 0; i < copyCount; i++)
+   {
+      ucs2Ptr[i] = ((uint16_t)msgPtr->binary[i * 2] << 8)
+                 |  (uint16_t)msgPtr->binary[i * 2 + 1];
+   }
+   *ucs2LenPtr = copyCount;
+   return (numOfUcs2 > copyCount) ? LE_OVERFLOW : LE_OK;
 }
 
 /*======================================================================

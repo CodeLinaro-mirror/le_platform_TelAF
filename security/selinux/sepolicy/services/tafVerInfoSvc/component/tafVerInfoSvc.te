@@ -13,11 +13,11 @@ gen_require(`
     type etc_t;
     type telaf_sys_t;
     type lxcrootfs_t;
-    type cert_t;
     type shell_exec_t;
     type mbim_device_t;
     type mtd_device_t;
     type ubi_device_t;
+    type default_t;
 ')
 
 type telaf_tafVerInfoSvc_data_t;
@@ -25,8 +25,8 @@ files_type(telaf_tafVerInfoSvc_data_t);
 
 init_telaf_app_domain(telaf_tafVerInfoSvc_t,telaf_tafVerInfoSvc_exec_t)
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafVerInfoSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafVerInfoSvc_t, telaf_tafVerInfoSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafVerInfoSvc_exec_t)
 
 # Allow access to version files and directories
@@ -40,10 +40,12 @@ allow telaf_tafVerInfoSvc_t telaf_sys_t:file { read_file_perms };
 allow telaf_tafVerInfoSvc_t telaf_sys_t:dir { search_dir_perms };
 allow telaf_tafVerInfoSvc_t lxcrootfs_t:dir { search_dir_perms };
 allow telaf_tafVerInfoSvc_t lxcrootfs_t:file { read_file_perms };
+# The lxcrootfs mount point directory itself is labeled default_t (not lxcrootfs_t).
+# tafVerInfoSvc must traverse it to reach the lxcrootfs_t subtree.
+allow telaf_tafVerInfoSvc_t default_t:dir { search };
 
 # Allow access to ssl library
-allow telaf_tafVerInfoSvc_t cert_t:dir { search };
-allow telaf_tafVerInfoSvc_t cert_t:file { read_file_perms };
+telaf_use_cert_files(telaf_tafVerInfoSvc_t)
 
 # Allow access to get boot bank
 allow telaf_tafVerInfoSvc_t shell_exec_t:file { exec_file_perms };

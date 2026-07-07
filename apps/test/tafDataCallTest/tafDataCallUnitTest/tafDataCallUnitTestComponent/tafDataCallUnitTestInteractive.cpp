@@ -16,6 +16,8 @@
 #include <future>
 #include <iostream>
 #include <map>
+#include <algorithm>
+#include <vector>
 #include <chrono>
 #include <iomanip> // for std::fixed and std::setprecision
 
@@ -26,6 +28,8 @@ static bool bPrintNotifLogsOnConsole = true;
 static taf_dcs_RoamingStatusHandlerRef_t                                g_roamingStatusHandlerRef;
 static std::map<uint32_t, taf_dcs_SessionStateHandlerRef_t>  g_Profile_SessionStateHandlerRef_Map;
 static std::map<uint32_t, taf_dcs_QosStatusHandlerRef_t>    g_Profile_QosStatusHandlerRef_Map;
+// Container for multiple active QoS flows to support Coat Check ticket tracking
+static std::vector<taf_dcs_QosFlowRef_t> g_ActiveQosFlowRefs;
 static std::map<uint32_t, taf_dcs_HwAccelerationStateHandlerRef_t> g_Profile_HwAccelHandlerRef_Map;
 static std::map<uint32_t, taf_dcs_ThrottledStatusHandlerRef_t>
                                                             g_Profile_ThrottledStatusHandlerRef_Map;
@@ -1794,6 +1798,24 @@ void QosStatusHandlerFunc
       LE_TEST_INFO("----Qos Mask : %d", (int)mask);
       if (bPrintNotifLogsOnConsole)
           std::cout << "\t\tQos Mask: " << mask << std::endl;
+
+        // Track Active Flows for Interactive Testing
+        if (qosState == TAF_DCS_QOS_ACTIVATED)
+        {
+            g_ActiveQosFlowRefs.push_back(qosFlowRef);
+            if (bPrintNotifLogsOnConsole)
+                std::cout << "\t\t[+] Tracked new QosFlowRef. Total active: " << g_ActiveQosFlowRefs.size() << std::endl;
+        }
+        else if (qosState == TAF_DCS_QOS_DELETED)
+        {
+            auto it = std::find(g_ActiveQosFlowRefs.begin(), g_ActiveQosFlowRefs.end(), qosFlowRef);
+            if (it != g_ActiveQosFlowRefs.end()) {
+                g_ActiveQosFlowRefs.erase(it);
+                if (bPrintNotifLogsOnConsole)
+                    std::cout << "\t\t[-] Removed QosFlowRef. Total active: " << g_ActiveQosFlowRefs.size() << std::endl;
+            }
+        }
+
     }
     else
     {

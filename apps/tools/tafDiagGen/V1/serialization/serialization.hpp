@@ -16,6 +16,7 @@
 
 #define SERIALIZATION_INPUT_JSON "diag_template.yaml.json"
 #define SERIALIZATION_OUTPUT_FILE "tree_data"
+inline std::string tree_data_md5 = "";
 
 // Structures for freeze_frames
 struct FreezeFrameEntry {

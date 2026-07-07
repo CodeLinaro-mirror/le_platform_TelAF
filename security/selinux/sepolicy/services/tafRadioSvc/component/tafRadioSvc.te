@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafRadioSvc, 1.0)
@@ -26,7 +26,11 @@ ifdef(`sa525m',`
 ')
 
 init_telaf_app_domain(telaf_tafRadioSvc_t,telaf_tafRadioSvc_exec_t)
+gen_require(`
+    type telaf_tafPMSvc_t;
+')
+telaf_ipc_bind(telaf_tafRadioSvc_t, telaf_tafPMSvc_t)
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafRadioSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafRadioSvc_t, telaf_tafRadioSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafRadioSvc_exec_t)

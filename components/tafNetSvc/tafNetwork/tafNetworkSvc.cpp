@@ -2757,7 +2757,14 @@ taf_net_AuthMethod_t taf_net_GetSocksAuthMethod
 (
 )
 {
-    taf_pa_net_AuthMethod_t auth = taf_pa_net_GetSocksAuthMethod();
+    taf_pa_net_AuthMethod_t auth;
+
+    pa_result_t result = taf_pa_net_GetSocksAuthMethod(&auth);
+    if(result != PA_OK)
+    {
+        LE_ERROR("Result is %d", (int)result);
+        return TAF_NET_SOCKS_UNKNOWN;
+    }
 
     taf_net_AuthMethod_t authMethod = static_cast<taf_net_AuthMethod_t>(auth);
 

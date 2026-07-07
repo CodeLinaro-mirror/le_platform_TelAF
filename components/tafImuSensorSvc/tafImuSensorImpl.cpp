@@ -196,19 +196,22 @@ le_result_t InitializeSensorClientList(taf_SensorClient_t* clientRequestPtr)
         taf_sensorClientInfo_t* clientInfo =
             &clientRequestPtr->clients[clientRequestPtr->clientCount];
         clientInfo->isSensorActivated = false;
-        clientInfo->sensorClient =
-            tafpa::sensor::taf_pa_sensor_GetSensorClient(sensorMngr.sList[i].basicInfo.sensorName);
-        if(clientInfo->sensorClient == 0){
-            LE_ERROR("unable to create Reference for %s",
-                                    sensorMngr.sList[i].basicInfo.sensorName.c_str());
+        clientInfo->sensorClient = 0;
+        pa_result_t clientRes = tafpa::sensor::taf_pa_sensor_GetSensorClient(
+            sensorMngr.sList[i].basicInfo.sensorName,
+            clientInfo->sensorClient);
+        if ((clientRes != PA_OK) || (clientInfo->sensorClient == 0)){
+            LE_ERROR("unable to create Reference for %s in session %p, res=%d",
+                                    sensorMngr.sList[i].basicInfo.sensorName.c_str(),
+                                    clientRequestPtr->sessionRef, (int)clientRes);
             continue;
         }
         clientInfo->eventListener.onEvent = &Handler::onEvent;
         clientInfo->eventListener.onSelfTestFailed = &Handler::onSelfTestFailed;
         if(tafpa::sensor::taf_pa_sensor_AddListener(clientInfo->sensorClient,
             &clientInfo->eventListener,std::any(clientRequestPtr->sessionRef)) !=  PA_OK){
-            LE_ERROR("Listener register failed for %s",
-                sensorMngr.sList[i].basicInfo.sensorName.c_str());
+            LE_ERROR("Listener register failed for %s in session %p",
+                sensorMngr.sList[i].basicInfo.sensorName.c_str(), clientRequestPtr->sessionRef);
             continue;
         }
 
@@ -258,7 +261,7 @@ taf_SensorClient_t* AcquireSessionRef(le_msg_SessionRef_t sessionRef)
     }
     else if (clientRequestPtr == NULL)
     {
-        LE_ERROR("AcquireSessionRef: max client count (%d) reached, sessionRef %p",
+        LE_DEBUG("AcquireSessionRef: max client count (%d) reached, sessionRef %p",
             TAF_SENSOR_CLIENT_ACTIVATION_MAX, sessionRef);
     }
     return clientRequestPtr;
@@ -327,13 +330,13 @@ void taf_Sensor::DataEventHandler(void* reportPtr){
     taf_SensorEventHandler_t* evtHandlerPtr;
     taf_SensorEventInfo_t* eventInfo = NULL;
     taf_SensorEventList_t* currentEventList = (taf_SensorEventList_t*)reportPtr;
-    TAF_ERROR_IF_RET_NIL( currentEventList == NULL, "currentPosPtr is Null");
+    TAF_ERROR_IF_RET_NIL( currentEventList == NULL, "currentEventList is Null");
     taf_SensorClient_t* clientRequestPtr = NULL;
     auto& sensorMngr = taf_Sensor::GetInstance();
     clientRequestPtr = sensorMngr.DiscoverSessionRef(currentEventList->sessionRef);
     if (NULL == clientRequestPtr)
     {
-        LE_ERROR("EventHandler did not find sessionRef");
+        LE_ERROR("EventHandler did not find sessionRef %p", currentEventList->sessionRef);
         le_mem_Release(currentEventList);
         return;
     }
@@ -1003,7 +1006,8 @@ taf_imuSensor_SelfTestFailedHandlerRef_t taf_Sensor::AddSelfTestFailedHandler
     TAF_KILL_CLIENT_IF_RET_VAL(handlerPtr == NULL, NULL, "Handler pointer is NULL");
     taf_SensorClient_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef(taf_imuSensor_GetClientSessionRef());
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr,NULL, "clientRequestPtr is NULL");
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr,NULL,
+            "clientRequestPtr is NULL, Client count reach max");
 
     LE_INFO("Start: sensorClientPtr %p, sensorClientPtr->sessionRef %p, num of active client %d",
             clientRequestPtr, clientRequestPtr->sessionRef, mClientRefCount);
@@ -1160,7 +1164,6 @@ void taf_Sensor::RemoveConfigUpdateHandler(
     }
     LE_DEBUG("RemoveConfigUpdateHandler: handlerRef %p", handlerRef);
 
-    // Remove tracking entry from map
     le_ref_IterRef_t iterRef = le_ref_GetIterator(tSensorConfigUpdateHandlerMap);
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
@@ -1170,11 +1173,10 @@ void taf_Sensor::RemoveConfigUpdateHandler(
             void* safeRef = (void*)le_ref_GetSafeRef(iterRef);
             le_ref_DeleteRef(tSensorConfigUpdateHandlerMap, safeRef);
             le_mem_Release(h);
+            le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
             break;
         }
     }
-
-    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -1309,7 +1311,6 @@ void taf_Sensor::RemoveCapabilityHandler(
     }
     LE_DEBUG("RemoveCapabilityHandler: handlerRef %p", handlerRef);
 
-    // Remove tracking entry from map
     le_ref_IterRef_t iterRef = le_ref_GetIterator(tSensorCapabilityHandlerMap);
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
@@ -1319,11 +1320,10 @@ void taf_Sensor::RemoveCapabilityHandler(
             void* safeRef = (void*)le_ref_GetSafeRef(iterRef);
             le_ref_DeleteRef(tSensorCapabilityHandlerMap, safeRef);
             le_mem_Release(h);
+            le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
             break;
         }
     }
-
-    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
 static void DeactivateSvcRespond(void* cmdPtr, void*)
@@ -1464,7 +1464,7 @@ void taf_Sensor::RemoveDataHandler(taf_imuSensor_DataHandlerRef_t handlerRef){
     if(evtHandlerPtr != NULL)
     {
         if(evtHandlerPtr->handlerRef != handlerRef){
-            LE_INFO("Handler ref are not same");
+            LE_INFO("Handler ref %p not found in map",handlerRef);
             return ;
         }
 
@@ -1483,8 +1483,6 @@ void taf_Sensor::RemoveDataHandler(taf_imuSensor_DataHandlerRef_t handlerRef){
 le_result_t taf_Sensor::GetData( taf_imuSensor_SampleRef_t eventList,taf_imuSensor_DataValue_t*
     RawData,size_t* RawDataSizePtr,taf_imuSensor_DataValue_t*BiasData,size_t* BiasDataSizePtr)
 {
-    LE_DEBUG("GetData of list with ref %p",eventList);
-
     taf_SensorEventInfo_t* ptr =
     (taf_SensorEventInfo_t*)le_ref_Lookup(tSensorEventMap,eventList);
 
@@ -1534,7 +1532,6 @@ le_result_t taf_Sensor::GetData( taf_imuSensor_SampleRef_t eventList,taf_imuSens
 }
 
 le_result_t taf_Sensor::DeleteData(taf_imuSensor_SampleRef_t eventListRef){
-    LE_DEBUG("DeleteData of list with ref %p",eventListRef);
     TAF_ERROR_IF_RET_VAL(eventListRef == NULL,LE_BAD_PARAMETER,"Null reference(eventListRef)");
     taf_SensorEventInfo_t* listPtr =
         (taf_SensorEventInfo_t*)le_ref_Lookup(tSensorEventMap,eventListRef);

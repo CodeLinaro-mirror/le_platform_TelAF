@@ -62,6 +62,11 @@ EXPORT_SYM bool get_init_status(void)
     return root_inited;
 }
 
+EXPORT_SYM std::string get_tree_data_md5(void)
+{
+    return tree_data_md5;
+}
+
 EXPORT_SYM void diag_config_init(const char * cfg_path)
 {
     try
@@ -561,6 +566,25 @@ EXPORT_SYM bool is_service_supported(uint16_t sid)
     return get_service_entry(sid).supported;
 }
 
+EXPORT_SYM bool IsIDPSAvailable(void)
+{
+    return IsIDPSSupported(0x27);
+}
+
+EXPORT_SYM bool IsIDPSSupported(uint16_t sid)
+{
+    NEED_INITED();
+
+    auto it = diagConf.services_all.find(std::to_string(sid));
+    if (it == diagConf.services_all.end())
+    {
+        LE_WARN("Service 0x%X not found in configuration", sid);
+        return false;
+    }
+
+    return it->second.IDPS_supported;
+}
+
 EXPORT_SYM bool is_authentication_supported(uint16_t sid)
 {
     return get_service_entry(sid).authentication;
@@ -623,32 +647,32 @@ static std::string get_pattern(uint8_t session_id)
 EXPORT_SYM std::shared_ptr<std::vector<uint8_t>> get_pattern_sessions_by_session_id(uint8_t session_id)
 {
     NEED_INITED();
-    auto session_list = std::make_shared<std::vector<uint8_t>>();
 
-    // Get the flag name we need to look for
-    std::string requiredFlag = get_pattern(session_id);
-    if (requiredFlag.empty())
+    std::shared_ptr<std::vector<uint8_t>> session_list(nullptr);
+
+    try
     {
-        return session_list;
+        session_list = std::make_shared<std::vector<uint8_t>>();
+    }
+    catch (const std::bad_alloc& e)
+    {
+        throw;
     }
 
-    // Iterate through all patterns in the serialized sessions map
-    for (const auto& pair : diagConf.exec_auth_pattern.sessions)
-    {
-        const DiagnosticSessionAuthPattern& authPattern = pair.second;
+    std::string pattern = get_pattern(session_id);
 
-        // Check if this specific session pattern has the required flag set to true
-        if (authPattern.hasProperty(requiredFlag))
+    for (auto & pnode: pattern_maps)
+    {
+        if (pnode.first == pattern)
         {
-            // Find the integer ID for this session name to add to the list
-            for (const auto& sess_pair : diagConf.diag_session)
+            uint8_t total = pnode.second[0]; /* The number of sessions */
+
+            for (int i = 0; i < total; i++)
             {
-                if (sess_pair.second.short_name == authPattern.short_name)
-                {
-                    session_list->push_back(static_cast<uint8_t>(sess_pair.second.id));
-                    break;
-                }
+                session_list->push_back(pnode.second[i+1]); /* Index from 1 */
             }
+
+            break;
         }
     }
 
@@ -658,31 +682,35 @@ EXPORT_SYM std::shared_ptr<std::vector<uint8_t>> get_pattern_sessions_by_session
 EXPORT_SYM std::shared_ptr<std::vector<uint8_t>> get_pattern_levels_by_session_id(uint8_t session_id)
 {
     NEED_INITED();
-    auto level_list = std::make_shared<std::vector<uint8_t>>();
 
-    std::string requiredFlag = get_pattern(session_id);
-    if (requiredFlag.empty())
+    std::shared_ptr<std::vector<uint8_t>> level_list(nullptr);
+
+    try
     {
-        return level_list;
+        level_list = std::make_shared<std::vector<uint8_t>>();
+    }
+    catch (const std::bad_alloc& e)
+    {
+        throw;
     }
 
-    // Search through patterns again, but look for those belonging to security levels
-    for (const auto& pair : diagConf.exec_auth_pattern.sessions)
-    {
-        const DiagnosticSessionAuthPattern& authPattern = pair.second;
+    std::string pattern = get_pattern(session_id);
 
-        if (authPattern.class_name == "diagnostic_session_security_level" &&
-            authPattern.hasProperty(requiredFlag))
+    for (auto & pnode: pattern_maps)
+    {
+        if (pnode.first == pattern)
         {
-            // Find the ID for this security level
-            for (const auto& level_pair : diagConf.session_secur_level)
+            uint8_t total_of_sessions = pnode.second[0]; /* The number of sessions */
+
+             /* [total-of-sess, sess_1, sess2, .. , tatal-of-level, level_1, level_2] */
+            uint8_t total_of_levels = pnode.second[total_of_sessions + 1];
+
+            for (int i = 0; i < total_of_levels; i++)
             {
-                if (level_pair.second.short_name == authPattern.short_name)
-                {
-                    level_list->push_back(static_cast<uint8_t>(level_pair.second.level_id));
-                    break;
-                }
+                level_list->push_back(pnode.second[total_of_sessions + i + 1 + 1]); /* Index from total_of_sessions + 1 + 1*/
             }
+
+            break;
         }
     }
 
@@ -1388,8 +1416,13 @@ inline uint32_t extractBits(const uint8_t* data, size_t recordLength, uint16_t b
      {% set _ = generated_validators.append(element.dataElement) %}
 class Validator_{{ element.dataElement }} {
     {% if data.functional_definition.data_type == 'Numeric' %}
+        {% if data.functional_definition.value_type.startswith('sint') %}
+    int32_t min, max;
+    std::vector<int32_t> allowedValues;
+        {% else %}
     uint32_t min, max;
     std::vector<uint32_t> allowedValues;
+        {% endif %}
     {% elif data.functional_definition.data_type == 'Not numeric' %}
     std::vector<uint32_t> forbiddenValues;
     std::vector<uint32_t> forbiddenRanges;
@@ -1398,8 +1431,13 @@ class Validator_{{ element.dataElement }} {
     {% endif %}
 public:
     {% if data.functional_definition.data_type == 'Numeric' %}
+        {% if data.functional_definition.value_type.startswith('sint') %}
+    Validator_{{ element.dataElement }}(int32_t min, int32_t max, const std::vector<int32_t>& values)
+    : min(min), max(max), allowedValues(values) {}
+        {% else %}
     Validator_{{ element.dataElement }}(uint32_t min, uint32_t max, const std::vector<uint32_t>& values)
     : min(min), max(max), allowedValues(values) {}
+        {% endif %}
     {% elif data.functional_definition.data_type == 'Not numeric' %}
     Validator_{{ element.dataElement }}(const std::vector<uint32_t>& values, const std::vector<uint32_t>& ranges)
     : forbiddenValues(values), forbiddenRanges(ranges) {}
@@ -1408,16 +1446,20 @@ public:
     : allowedValues(values) {}
     {% endif %}
 
+    {% if data.functional_definition.value_type.startswith('sint') %}
+    bool validate(int32_t value) {
+    {% else %}
     bool validate(uint32_t value) {
+    {% endif %}
         {% if data.functional_definition.data_type == 'Numeric' %}
         LE_DEBUG("Numeric!!");
         if (min != max) {
             LE_DEBUG("Numeric---> Min/Max");
-            LE_DEBUG("min: %" PRIu32 "",min);
-            LE_DEBUG("max: %" PRIu32 "",max);
+            LE_DEBUG("min: %d",min);
+            LE_DEBUG("max: %d",max);
             if (value < min || value > max)
             {
-                LE_DEBUG("Found Banned value: %" PRIu32 "",value);
+                LE_DEBUG("Found Banned value: %d",value);
                 return true; /* Found Banned value */
             }
         } else if (!allowedValues.empty()) {
@@ -1429,7 +1471,7 @@ public:
 
             if (it == allowedValues.end())
             {
-                LE_DEBUG("Found Banned value: %" PRIu32 "",value);
+                LE_DEBUG("Found Banned value: %d",value);
                 return true; /* Not found -> Ban it */
             }
         }

@@ -1,8 +1,8 @@
 externalBuild:
 {
-    "capicxx-core-gen -sk $TELAF_ROOT/apps/ivss/fidl/MngdConnSvc/MngdConnSvc.fidl"
-    "capicxx-core-gen -sk $TELAF_ROOT/apps/ivss/fidl/MngdConnSvc/MngdConnSvc.fdepl"
-    "capicxx-someip-gen $TELAF_ROOT/apps/ivss/fidl/MngdConnSvc/MngdConnSvc.fdepl"
+    "capicxx-core-gen -configuration .capicxx-core-cfg -sk $TELAF_ROOT/apps/ivss/fidl/MngdConnSvc/MngdConnSvc.fidl"
+    "capicxx-core-gen -configuration .capicxx-core-cfg -sk $TELAF_ROOT/apps/ivss/fidl/MngdConnSvc/MngdConnSvc.fdepl"
+    "capicxx-someip-gen -configuration .capicxx-someip-cfg $TELAF_ROOT/apps/ivss/fidl/MngdConnSvc/MngdConnSvc.fdepl"
     "bash $TELAF_ROOT/apps/ivss/common/make.sh DataSvc"
 }
 

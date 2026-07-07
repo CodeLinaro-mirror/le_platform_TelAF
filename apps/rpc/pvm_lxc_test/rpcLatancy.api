@@ -1,0 +1,88 @@
+/*
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+/**
+ * @file rpcLatancy.api
+ *
+ * RPC latency test API for measuring PVM-LXC inter-process communication
+ * performance with different message payload sizes.
+ *
+ * Three test functions are provided:
+ *   - ShortMessageTest:  64-byte payload
+ *   - MidMessageTest:  1500-byte payload
+ *   - LongMessageTest: 16384-byte payload
+ *
+ * Each function accepts a fixed-size byte array as input and returns the
+ * CRC-32 checksum of the input data as a uint32 value.
+ */
+
+API_VERSION = 1;
+SERVING_VERSION = 1;
+
+
+/**
+ * Short message RPC latency test.
+ *
+ * Sends a 64-byte payload to the server and receives the CRC-32 checksum
+ * of the input data as the response.
+ *
+ * @param data  Fixed 64-byte input payload.
+ * @return      CRC-32 checksum of the input data computed by the server.
+ */
+FUNCTION uint32 ShortMessageTest
+(
+    uint8 data[64]  IN   // Fixed 64-byte input payload
+) = 0;
+
+
+/**
+ * Mid-size message RPC latency test.
+ *
+ * Sends a 1500-byte payload to the server and receives the CRC-32 checksum
+ * of the input data as the response.
+ *
+ * @param data  Fixed 1500-byte input payload.
+ * @return      CRC-32 checksum of the input data computed by the server.
+ */
+FUNCTION uint32 MidMessageTest
+(
+    uint8 data[1500]  IN   // Fixed 1500-byte input payload
+) = 1;
+
+
+/**
+ * Long message RPC latency test.
+ *
+ * Sends a 16384-byte payload to the server and receives the CRC-32 checksum
+ * of the input data as the response.
+ *
+ * @param data  Fixed 16384-byte (16K) input payload.
+ * @return      CRC-32 checksum of the input data computed by the server.
+ */
+FUNCTION uint32 LongMessageTest
+(
+    uint8 data[16384]  IN   // Fixed 16384-byte (16K) input payload
+) = 2;
+
+
+/**
+ * Handler type for TestEvent notifications.
+ *
+ * @param message  Null-terminated event message string (max 256 bytes including NUL).
+ */
+HANDLER TestEventHandler
+(
+    string message[256],      // Event message string
+    uint64 timestamp          // Server send timestamp (nanoseconds, CLOCK_MONOTONIC)
+);
+
+/**
+ * Periodic test event sent by the server every 1 second.
+ * Clients register with AddTestEventHandler() to receive notifications.
+ */
+EVENT TestEvent
+(
+    TestEventHandler handler    // handler
+) = (3,4);

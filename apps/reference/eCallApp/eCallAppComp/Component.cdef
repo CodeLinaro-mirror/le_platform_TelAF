@@ -1,0 +1,66 @@
+sources:
+{
+    // Entry layer
+    EcallAppMain.cpp
+    EcallCtrlService.cpp
+    EcallController.cpp
+
+    // Infrastructure
+    EcallEventBus.cpp
+
+    // IPC adapters (taf_* service wrappers)
+    ApiEcall.cpp
+    ApiLoc.cpp
+    ApiAudio.cpp
+    ApiRadio.cpp
+    ApiHms.cpp
+    ApiMngdPm.cpp
+    ApiDiag.cpp
+
+    // Business logic managers
+    EcallMgrEcall.cpp
+    EcallMgrEventInterpreter.cpp
+    EcallMgrConfig.cpp
+    EcallMgrConfigJsonLoader.cpp
+    EcallMgrLocation.cpp
+    EcallMgrNetwork.cpp
+    EcallMgrPower.cpp
+    EcallMgrDiag.cpp
+    EcallMgrDataLogger.cpp
+
+    // Utilities
+    CpuProfiler.cpp
+}
+
+cxxflags:
+{
+    -std=c++17
+}
+
+requires:
+{
+    api:
+    {
+        taf_ecall.api
+        taf_gpio.api
+        taf_locGnss.api
+        taf_audio.api
+        taf_mngdPm.api
+        taf_diagDataID.api
+        taf_diagDTC.api
+        taf_diagEvent.api
+        taf_diag.api
+        taf_hms.api
+        taf_sim.api
+        taf_radio.api
+        le_cfg.api
+    }
+}
+
+provides:
+{
+    api:
+    {
+        ctrlEcall = $CURDIR/../ctrlEcall.api
+    }
+}

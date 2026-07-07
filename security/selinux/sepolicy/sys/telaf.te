@@ -56,6 +56,7 @@ gen_require(`
   type dnsmasq_t;
   type etc_t;
   type file_context_t;
+  type fixed_disk_device_t;
   type fs_t;
   type http_cache_port_t;
   type ipacm_t;
@@ -72,11 +73,7 @@ gen_require(`
   type proc_t;
   type qcmap_cm_t;
   type setfiles_t;
-  type shell_exec_t;
   type loc_socket_t;
-  type sysctl_t;
-  type sysctl_vm_t;
-  type sysctl_vm_overcommit_t;
   type sysfs_t;
   type syslogd_t;
   type system_dbusd_t;
@@ -87,12 +84,10 @@ gen_require(`
   type udev_t;
   type var_lock_t;
   type urandom_device_t;
-  type var_log_t;
   type var_run_t;
   type init_var_run_t;
   type systemd_resolved_var_run_t;
   type http_port_t;
-  type cert_t;
   type semanage_store_t;
   type semanage_trans_lock_t;
   type var_lib_t;
@@ -105,7 +100,6 @@ gen_require(`
   type mount_exec_t;
   type mount_runtime_t;
   type kmsg_device_t;
-  type user_tmp_t;
   type initctl_t;
   type systemd_logind_var_run_t;
   type getty_t;
@@ -123,84 +117,131 @@ gen_require(`
   type pmsg_device_t;
 ')
 
-## telaf framework policies and definitions
+########################################
+# TelAF framework type declarations
+#
+# This section declares the framework-wide attributes and file types shared by
+# all TelAF services.  Per-service domains are declared in their own modules.
+########################################
 
-# Define three domain for the system
+# Three trust tiers used by TelAF services.
 attribute telaf_app_domain;
 attribute telaf_core_domain;
 attribute telaf_admin_domain;
 
-# Framework definition for telaf
+# Generic executable attribute used by per-service exec types.
+attribute telaf_app_exec_attr;
+
+# TelAF framework root and shared runtime file types.
 type telaf_fw_t;
 files_type(telaf_fw_t);
 
-# Telaf apps dir/files type definition
 type telaf_app_bundle_t;
 files_type(telaf_app_bundle_t)
 
-# Telaf apps exec type definition
-attribute telaf_app_exec_attr;
 type telaf_app_exec_t;
 files_type(telaf_app_exec_t)
 
-# Telaf sys dir/files type definition
 type telaf_sys_t;
 files_type(telaf_sys_t);
 
-# Telaf bin dir/files type definition
 type telaf_bin_t;
 files_type(telaf_bin_t);
 
-# Telaf lib dir/files type definition
 type telaf_lib_t;
 files_type(telaf_lib_t);
 
-# Telaf app write type defintion
 type telaf_app_rw_t;
 files_type(telaf_app_rw_t);
 
-# Telaf app readonly type definition
 type telaf_app_ro_t;
 files_type(telaf_app_ro_t);
 
-# Telaf modules type definition
 type telaf_mod_t;
 files_type(telaf_mod_t);
 
-# Define the supervisor type
+########################################
+# Built-in TelAF domains
+#
+# These are the framework-owned processes started directly by supervisor.
+########################################
+
+# Supervisor / admin domain.
 type telaf_admin_t;
 type telaf_admin_exec_t;
 files_type(telaf_admin_exec_t);
 init_telaf_admin_domain(telaf_admin_t, telaf_admin_exec_t)
 
-# Define the log daemon type
+# Log control daemon.
 type telaf_logd_t;
 type telaf_logd_exec_t;
 files_type(telaf_logd_exec_t);
 init_telaf_core_domain(telaf_logd_t, telaf_logd_exec_t)
+# logCtrlDaemon receives the read end of all app/core stdout/stderr pipes from supervisor
+# (via logFd_StdOut/logFd_StdErr in proc.c SendStdPipeToLogDaemon). These pipes are
+# labeled telaf_admin_t:fifo_file, so logd needs read access in addition to the write
+# access already granted by init_telaf_core_domain().
+allow telaf_logd_t telaf_admin_t:fifo_file { read };
 
-# Define the service directory type
+# Service directory (TelAF IPC broker).
 type telaf_sdir_t;
 type telaf_sdir_exec_t;
 files_type(telaf_sdir_exec_t);
 init_telaf_core_domain(telaf_sdir_t, telaf_sdir_exec_t)
 
-# Define the watchdog type
+# Service directory CLI tool (sdir load/bind/get/list).
+type telaf_sdirtool_t;
+type telaf_sdirtool_exec_t;
+files_type(telaf_sdirtool_exec_t);
+init_telaf_app_domain(telaf_sdirtool_t, telaf_sdirtool_exec_t)
+# sdir reads binding config from configTree.
+telaf_use_config_tree(telaf_sdirtool_t)
+# sdir list passes an output fd (/tmp/sdOutput, tmp_t:file) to serviceDirectory,
+# which writes the binding list into it.  Two denials observed in permissive mode:
+#   telaf_sdir_t denied { use }   tcontext=telaf_sdirtool_t tclass=fd
+#   telaf_sdir_t denied { write } tcontext=tmp_t            tclass=file
+allow telaf_sdir_t telaf_sdirtool_t:fd use;
+allow telaf_sdir_t tmp_t:file { write getattr };
+# sdir is a CLI tool meant to be run from the root shell.
+# init_telaf_app_domain only sets up the domain transition from telaf_admin_t.
+# Without an explicit transition from the shell domain, sdir stays in the
+# caller's domain and cannot connect to telaf_sdir_t:unix_stream_socket, causing:
+#   "sdir: Communication with Service Directory failed."
+#
+# On this platform the root login shell runs as sysadm_t (MLS policy).
+# unconfined_t is also covered for permissive/debug builds where the shell
+# may run unconfined.
+ifdef(`enable_mls',`
+    gen_require(`
+        type sysadm_t;
+        role sysadm_r;
+    ')
+    domtrans_pattern(sysadm_t, telaf_sdirtool_exec_t, telaf_sdirtool_t)
+    role sysadm_r types telaf_sdirtool_t;
+')
+gen_require(`
+    type unconfined_t;
+    role unconfined_r;
+')
+domtrans_pattern(unconfined_t, telaf_sdirtool_exec_t, telaf_sdirtool_t)
+role unconfined_r types telaf_sdirtool_t;
+
+# Watchdog daemon.
 type telaf_wdog_t;
 type telaf_wdog_exec_t;
 files_type(telaf_wdog_exec_t);
 init_telaf_core_domain(telaf_wdog_t, telaf_wdog_exec_t)
 allow telaf_wdog_t watchdog_device_t:chr_file rw_file_perms;
 
-# Define the configTree type
+# Configuration tree service.
 type telaf_cfgtree_t;
 type telaf_cfgtree_exec_t;
 files_type(telaf_cfgtree_exec_t);
 init_telaf_core_domain(telaf_cfgtree_t, telaf_cfgtree_exec_t)
-# Support cfgtree to get TelAF app name
+# cfgtree inspects global process state to resolve app names and process ownership.
 domain_read_all_domains_state(telaf_cfgtree_t);
 allow telaf_cfgtree_t telaf_cfgtree_t:fifo_file { read getattr write };
-allow telaf_cfgtree_t shell_exec_t:file { exec_file_perms };
+corecmd_exec_shell(telaf_cfgtree_t)
 allow telaf_cfgtree_t proc_t:file read_file_perms;
 allow telaf_cfgtree_t proc_t:dir list_dir_perms;
 allow telaf_cfgtree_t mnt_t:dir list_dir_perms;
@@ -212,7 +253,7 @@ allow telaf_cfgtree_t urandom_device_t:chr_file { read open };
 allow telaf_cfgtree_t telaf_app_rw_t:lnk_file { read };
 allow telaf_cfgtree_t telaf_app_bundle_t:lnk_file { read };
 
-# Define the log daemon type
+# Update daemon core process
 type telaf_update_t;
 type telaf_update_exec_t;
 files_type(telaf_update_exec_t);
@@ -220,11 +261,9 @@ init_telaf_core_domain(telaf_update_t, telaf_update_exec_t)
 typeattribute telaf_update_t telaf_admin_domain;
 allow telaf_update_t proc_t:file read_file_perms;
 allow telaf_update_t mnt_t:dir search_dir_perms;
-allow telaf_update_t shell_exec_t:file { exec_file_perms };
-allow telaf_update_t tmp_t:dir { search_dir_perms };
-allow telaf_update_t tmp_t:file { read_file_perms };
+corecmd_exec_shell(telaf_update_t)
 
-# Define the deviceManager type
+# Device manager / VHAL plugin host.
 type telaf_devmgr_t;
 type telaf_devmgr_exec_t;
 type telaf_devmgr_data_t;
@@ -243,31 +282,25 @@ allow telaf_devmgr_t telaf_devmgr_data_t:dir { relabel_dir_perms manage_dir_perm
 allow telaf_devmgr_t telaf_devmgr_data_t:file { relabel_file_perms manage_file_perms mmap_rw_file_perms mmap_exec_file_perms };
 allow telaf_devmgr_t default_t:dir { search };
 allow telaf_devmgr_t tmp_t:file { write link relabelfrom map };
-
 allow telaf_devmgr_data_t fs_t:filesystem { associate };
 
 ifdef(`sa525m',`
     allow telaf_devmgr_t telaf_apptmp_rw_t:file { map };
 ')
 
-# Update daemon need to remove files during app uninstallation (telaf_admin_t also needs these permission)
+########################################
+# Shared privileged admin-domain helpers
+#
+# telaf_admin_domain includes supervisor and update-related privileged helpers.
+# These permissions support uninstall, relabel, mount, and low-level device access.
+########################################
+
 allow telaf_admin_domain cgroup_t:dir { manage_dir_perms };
 allow telaf_admin_domain { fs_t tmpfs_t }:filesystem { unmount };
 allow telaf_admin_domain device_t:chr_file { manage_file_perms relabelfrom relabelto };
 allow telaf_admin_domain device_t:dir { manage_dir_perms relabelfrom relabelto };
 allow telaf_admin_domain { devlog_t device_t }:sock_file { getattr relabelto relabelfrom write open };
 allow telaf_admin_domain { null_device_t urandom_device_t zero_device_t }:chr_file { unlink read open mounton };
-
-# Context "telaf_bin_t" will be transition to "telaf_app_t" domain by default
-type telaf_app_t;
-init_telaf_app_domain(telaf_app_t, telaf_bin_t)
-# Support console to start TelAF app, like "cm", "gnss"
-allow telaf_app_t proc_t:file read_file_perms;
-allow telaf_app_t home_root_t:dir search_dir_perms;
-allow telaf_app_t user_home_dir_t:dir search_dir_perms;
-allow telaf_app_t etc_t:file { read open lock getattr };
-
-#domtrans_pattern(unconfined_t, telaf_bin_t, telaf_app_t)
 
 # Allow to load sepolicy module
 selinux_load_policy(telaf_update_t)
@@ -279,23 +312,197 @@ allow telaf_update_t semanage_trans_lock_t:file { getattr read lock open };
 allow telaf_update_t semanage_read_lock_t:file { getattr read lock open };
 #allow telaf_update_t file_context_t:dir { manage_dir_perms };
 
+########################################
+# Generic fallback TelAF app domain
+#
+# telaf_app_t catches any telaf_bin_t executable that does not yet have a
+# dedicated per-tool .te / .fc entry.  Without this fallback, supervisor
+# (telaf_admin_t) would exec the binary and the process would stay in
+# telaf_admin_t -- which is far more privileged and completely unacceptable.
+# The fallback is intentionally kept minimal: init_telaf_app_domain baseline
+# only, plus the broad IPC allow that legacy tools may still need.
+########################################
+
+type telaf_app_t;
+init_telaf_app_domain(telaf_app_t, telaf_bin_t)
+init_telaf_app_domain(telaf_app_t, telaf_app_rw_t)
+
+# FIXME: Broad IPC compatibility for tools not yet migrated to explicit telaf_ipc_bind().
+allow telaf_app_t telaf_app_domain:unix_stream_socket { connectto read write getopt };
+
+########################################
+# TelAF framework CLI tools
+########################################
+
+# config: configTree read/write CLI
+type telaf_config_tool_t;
+type telaf_config_tool_exec_t;
+files_type(telaf_config_tool_exec_t);
+init_telaf_app_domain(telaf_config_tool_t, telaf_config_tool_exec_t)
+telaf_use_config_tree(telaf_config_tool_t)
+
+# log: log control CLI
+type telaf_log_tool_t;
+type telaf_log_tool_exec_t;
+files_type(telaf_log_tool_exec_t);
+init_telaf_app_domain(telaf_log_tool_t, telaf_log_tool_exec_t)
+
+# app: app lifecycle management CLI
+type telaf_app_tool_t;
+type telaf_app_tool_exec_t;
+files_type(telaf_app_tool_exec_t);
+init_telaf_app_domain(telaf_app_tool_t, telaf_app_tool_exec_t)
+corecmd_exec_shell(telaf_app_tool_t)
+
+# cm: data connection / network management CLI (shell script wrapper)
+# cm runs as telaf_cm_tool_t (telaf_app_domain)
+type telaf_cm_tool_t;
+type telaf_cm_tool_exec_t;
+files_type(telaf_cm_tool_exec_t);
+init_telaf_app_domain(telaf_cm_tool_t, telaf_cm_tool_exec_t)
+corecmd_exec_shell(telaf_cm_tool_t)
+# scripts/cm (telaf_cm_tool_exec_t) internally calls the cm ELF binary
+# (also telaf_cm_tool_exec_t) via $CM variable without a domain transition.
+# The shell stays in telaf_cm_tool_t and re-execs the ELF in the same domain,
+# so execute_no_trans is required in addition to the execute already granted
+# by init_telaf_app_domain -> domain_auto_transition_pattern.
+allow telaf_cm_tool_t telaf_cm_tool_exec_t:file { execute_no_trans };
+# cm writes connection logs to /var/log.
+logging_manage_generic_log_dirs(telaf_cm_tool_t)
+logging_manage_generic_logs(telaf_cm_tool_t)
+# cm reads /var/log/cm which is a symlink (var_log_t:lnk_file).
+allow telaf_cm_tool_t var_log_t:lnk_file { read };
+# cm creates lock/pid files in /var/run.
+allow telaf_cm_tool_t var_run_t:dir { create_dir_perms rw_dir_perms setattr };
+allow telaf_cm_tool_t var_run_t:file { manage_file_perms };
+# cm invokes ifconfig and reads network config.
+sysnet_exec_ifconfig(telaf_cm_tool_t)
+sysnet_read_config(telaf_cm_tool_t)
+# cm tests network connectivity via TCP/UDP/ICMP.
+allow telaf_cm_tool_t self:udp_socket { create_socket_perms rw_socket_perms };
+allow telaf_cm_tool_t self:tcp_socket { create_socket_perms rw_socket_perms accept listen };
+allow telaf_cm_tool_t self:netlink_route_socket rw_netlink_socket_perms;
+allow telaf_cm_tool_t self:icmp_socket { create setopt getopt write read ioctl };
+allow telaf_cm_tool_t http_port_t:tcp_socket all_tcp_socket_perms;
+# cm reads TLS certificates for HTTPS connectivity checks.
+miscfiles_read_generic_certs(telaf_cm_tool_t)
+# cm executes ping for connectivity tests.
+allow telaf_cm_tool_t ping_exec_t:file { getattr open read execute execute_no_trans map };
+allow telaf_cm_tool_t self:process { getcap setcap };
+# cm reads kernel network state (routing table, interfaces).
+kernel_read_network_state(telaf_cm_tool_t)
+# cm updates DNS settings via systemd-resolved.
+allow telaf_cm_tool_t systemd_resolved_var_run_t:file rw_file_perms;
+# cm HTTP connectivity test: bind/connect to HTTP and HTTP-cache ports, bind node.
+allow telaf_cm_tool_t http_cache_port_t:tcp_socket { name_bind name_connect };
+allow telaf_cm_tool_t node_t:tcp_socket node_bind;
+
+# gnss: GNSS control CLI
+type telaf_gnss_tool_t;
+type telaf_gnss_tool_exec_t;
+files_type(telaf_gnss_tool_exec_t);
+init_telaf_app_domain(telaf_gnss_tool_t, telaf_gnss_tool_exec_t)
+corecmd_exec_shell(telaf_gnss_tool_t)
+
+# fwupdate: firmware update CLI
+type telaf_fwupdate_tool_t;
+type telaf_fwupdate_tool_exec_t;
+files_type(telaf_fwupdate_tool_exec_t);
+init_telaf_app_domain(telaf_fwupdate_tool_t, telaf_fwupdate_tool_exec_t)
+corecmd_exec_shell(telaf_fwupdate_tool_t)
+
+# update: system update package installer CLI
+type telaf_update_tool_t;
+type telaf_update_tool_exec_t;
+files_type(telaf_update_tool_exec_t);
+init_telaf_app_domain(telaf_update_tool_t, telaf_update_tool_exec_t)
+
+# inspect: process/memory inspection CLI
+# Needs to read /proc/<pid>/ for all running processes.
+type telaf_inspect_tool_t;
+type telaf_inspect_tool_exec_t;
+files_type(telaf_inspect_tool_exec_t);
+init_telaf_app_domain(telaf_inspect_tool_t, telaf_inspect_tool_exec_t)
+telaf_app_read_proc_state(telaf_inspect_tool_t)
+
+# xattr: file extended attribute tool
+type telaf_xattr_tool_t;
+type telaf_xattr_tool_exec_t;
+files_type(telaf_xattr_tool_exec_t);
+init_telaf_app_domain(telaf_xattr_tool_t, telaf_xattr_tool_exec_t)
+
+# sbtrace: sandbox trace tool
+type telaf_sbtrace_tool_t;
+type telaf_sbtrace_tool_exec_t;
+files_type(telaf_sbtrace_tool_exec_t);
+init_telaf_app_domain(telaf_sbtrace_tool_t, telaf_sbtrace_tool_exec_t)
+
+# pm: power management CLI
+type telaf_pm_tool_t;
+type telaf_pm_tool_exec_t;
+files_type(telaf_pm_tool_exec_t);
+init_telaf_app_domain(telaf_pm_tool_t, telaf_pm_tool_exec_t)
+corecmd_exec_shell(telaf_pm_tool_t)
+
+# _appStopClient: internal app-stop IPC client
+type telaf_appstopclient_tool_t;
+type telaf_appstopclient_tool_exec_t;
+files_type(telaf_appstopclient_tool_exec_t);
+init_telaf_app_domain(telaf_appstopclient_tool_t, telaf_appstopclient_tool_exec_t)
+
 # Relabel /dev/log, /dev/null, /dev/zero, /dev/urandom
 allow telaf_app_rw_t { device_t }:filesystem { associate };
 
-# Defination for overlay
+########################################
+# Overlay relabel helper domain
+# telaf_overlay_t runs the helper script that prepares the writable overlay and
+########################################
+
 type telaf_overlay_t;
 type telaf_overlay_exec_t;
 init_script_domain(telaf_overlay_t, telaf_overlay_exec_t)
-unconfined_domain(telaf_overlay_t)
 mls_file_read_to_clearance(telaf_overlay_t)
 mls_file_write_to_clearance(telaf_overlay_t)
-# create can also require the upgrade/downgrade checks if the creating process
-# has used setfscreate
+# Object creation may require MLS upgrade checks when setfscreate is used.
 mls_file_upgrade(telaf_overlay_t)
 
-# Define admin domain
+allow telaf_overlay_t data_t:dir { read remove_name rmdir relabelfrom write create add_name setattr };
+allow telaf_overlay_t default_context_t:file { read getattr };
+allow telaf_overlay_t file_context_t:file { read getattr };
+allow telaf_overlay_t security_t:file write;
+allow telaf_overlay_t security_t:security check_context;
+allow telaf_overlay_t kmsg_device_t:chr_file { write open };
+allow telaf_overlay_t mount_exec_t:file { read getattr open execute execute_no_trans map };
+allow telaf_overlay_t proc_t:file { read getattr open };
+allow telaf_overlay_t sysfs_t:dir search;
+allow telaf_overlay_t sysfs_t:lnk_file { read getattr };
+allow telaf_overlay_t sysfs_t:file { read getattr open };
+allow telaf_overlay_t fixed_disk_device_t:blk_file { getattr };
+allow telaf_overlay_t fs_t:filesystem { mount unmount relabelfrom getattr };
+allow telaf_overlay_t mount_runtime_t:dir { search read write getattr };
+allow telaf_overlay_t self:capability { sys_admin dac_override dac_read_search };
+allow telaf_overlay_t self:fifo_file { read ioctl };
+allow telaf_overlay_t selinux_config_t:dir { rename reparent remove_name mounton relabelfrom relabelto write read create add_name setattr };
+allow telaf_overlay_t selinux_config_t:filesystem { relabelfrom relabelto mount };
+allow telaf_overlay_t semanage_store_t:dir { rename reparent rmdir getattr relabelfrom relabelto write search mounton create add_name };
+allow telaf_overlay_t var_lib_t:dir { search getattr };
+allow telaf_overlay_t default_context_t:dir { getattr search };
+allow telaf_overlay_t semanage_store_t:dir { read remove_name open setattr };
+allow telaf_overlay_t semanage_store_t:filesystem { relabelfrom relabelto mount };
+allow telaf_overlay_t file_context_t:dir { search read getattr };
+allow telaf_overlay_t selinux_config_t:file { rename create unlink };
+allow telaf_overlay_t semanage_read_lock_t:file { read getattr };
+allow telaf_overlay_t semanage_store_t:chr_file { rename unlink };
+allow telaf_overlay_t semanage_store_t:file { rename write getattr setattr read create unlink };
+allow telaf_overlay_t semanage_trans_lock_t:file read;
+allow telaf_overlay_t policy_config_t:dir { search read getattr };
 
-# admin has full file access of TelAF file contexts
+########################################
+# Admin-domain policy
+# supervisor and update-related admin helpers live in this trust tier.
+########################################
+
+# Full access to TelAF-owned file types.
 admin_pattern(telaf_admin_domain, telaf_fw_t)
 admin_pattern(telaf_admin_domain, telaf_app_rw_t)
 admin_pattern(telaf_admin_domain, telaf_app_bundle_t)
@@ -321,19 +528,32 @@ allow telaf_admin_domain devlog_t:sock_file write;
 allow telaf_admin_domain self:process setsched;
 allow telaf_admin_domain sysfs_t:file { read write open };
 allow telaf_admin_t telaf_sdir_t:fd use;
-telaf_admin_lnk_file_perms(telaf_admin_t, adbd_t)
-telaf_admin_lnk_file_perms(telaf_admin_t, alogd_t)
-telaf_admin_lnk_file_perms(telaf_admin_t, init_t)
-telaf_admin_lnk_file_perms(telaf_admin_t, kernel_t)
-telaf_admin_lnk_file_perms(telaf_admin_t, udev_t)
-telaf_admin_lnk_file_perms(telaf_admin_t, var_lock_t)
-telaf_admin_lnk_file_perms(telaf_admin_t, cgroup_t)
-telaf_admin_file_perms(telaf_admin_t, proc_t)
-telaf_admin_file_perms(telaf_admin_t, sysctl_t)
-telaf_admin_file_perms(telaf_admin_t, sysfs_t)
-telaf_admin_mount_perms(telaf_admin_t, cgroup_t)
-telaf_admin_mount_perms(telaf_admin_t, debugfs_t)
-telaf_admin_mount_perms(telaf_admin_t, tmpfs_t)
+telaf_rw_data_files(telaf_admin_t, adbd_t)
+read_lnk_files_pattern(telaf_admin_t, adbd_t, adbd_t)
+telaf_rw_data_files(telaf_admin_t, alogd_t)
+read_lnk_files_pattern(telaf_admin_t, alogd_t, alogd_t)
+telaf_rw_data_files(telaf_admin_t, init_t)
+read_lnk_files_pattern(telaf_admin_t, init_t, init_t)
+telaf_rw_data_files(telaf_admin_t, kernel_t)
+read_lnk_files_pattern(telaf_admin_t, kernel_t, kernel_t)
+telaf_rw_data_files(telaf_admin_t, udev_t)
+read_lnk_files_pattern(telaf_admin_t, udev_t, udev_t)
+telaf_rw_data_files(telaf_admin_t, var_lock_t)
+read_lnk_files_pattern(telaf_admin_t, var_lock_t, var_lock_t)
+# Supervisor also needs to create cgroup control files such as release_agent and
+# notify_on_release when setting up per-app cgroup namespaces.
+telaf_rw_data_files(telaf_admin_t, cgroup_t)
+allow telaf_admin_t cgroup_t:file { create };
+read_lnk_files_pattern(telaf_admin_t, cgroup_t, cgroup_t)
+telaf_rw_data_files(telaf_admin_t, proc_t)
+telaf_rw_data_files(telaf_admin_t, sysctl_t)
+telaf_rw_data_files(telaf_admin_t, sysfs_t)
+allow telaf_admin_t cgroup_t:dir { write create add_name mounton search };
+allow telaf_admin_t cgroup_t:filesystem { getattr mount remount };
+allow telaf_admin_t debugfs_t:dir { write create add_name mounton search };
+allow telaf_admin_t debugfs_t:filesystem { getattr mount remount };
+allow telaf_admin_t tmpfs_t:dir { write create add_name mounton search };
+allow telaf_admin_t tmpfs_t:filesystem { getattr mount remount };
 
 allow telaf_admin_domain telaf_app_rw_t:dir { search_dir_perms mounton };
 allow telaf_admin_domain telaf_app_rw_t:file { getattr mounton };
@@ -345,11 +565,11 @@ relabel_chr_files_pattern(telaf_admin_domain, telaf_fw_t, telaf_fw_t)
 # allow manage access for chr device (/legato/systems/current/appsWriteable/app/dev/null)
 manage_chr_files_pattern(telaf_admin_domain, telaf_app_rw_t, telaf_app_rw_t)
 
-# allow IPC connection
-allow telaf_admin_domain telaf_sdir_t:unix_stream_socket { connectto read write getopt };
-allow telaf_admin_domain telaf_logd_t:unix_stream_socket { connectto read write getopt };
-allow telaf_admin_domain telaf_cfgtree_t:unix_stream_socket { connectto read write getopt };
-allow telaf_admin_domain telaf_devmgr_t:unix_stream_socket { connectto read write getopt };
+# allow IPC connection - admin domain uses all core services
+telaf_use_service_directory(telaf_admin_t)
+telaf_use_logd(telaf_admin_t)
+telaf_use_config_tree(telaf_admin_t)
+telaf_use_device_manager(telaf_admin_t)
 # Support putting logs to adbd_t
 allow { telaf_admin_domain telaf_app_domain telaf_core_domain } adbd_t:unix_stream_socket { connectto read write getopt getattr };
 # Support putting logs to pmsg_device_t
@@ -434,103 +654,228 @@ kernel_rw_net_sysctls(telaf_admin_domain)
 # Read and write unix domain by sysctl
 kernel_rw_unix_sysctls(telaf_admin_domain)
 
-# Define App domain rules
-allow telaf_app_domain telaf_fw_t : dir { manage_dir_perms };
-allow telaf_app_domain telaf_lib_t : { file } { exec_file_perms };
-allow telaf_app_domain telaf_lib_t : { lnk_file } { read_file_perms };
-allow telaf_app_domain telaf_lib_t : { dir } { list_dir_perms };
-allow telaf_app_domain telaf_app_rw_t : { file dir } *;
-allow telaf_app_domain telaf_app_rw_t : sock_file { create write };
-allow telaf_app_domain telaf_app_ro_t : { file dir } ~{ write };
-allow telaf_app_domain telaf_sys_t : { file dir lnk_file } *;
-allow telaf_app_domain telaf_bin_t : { file dir } ~{ write };
-allow telaf_app_domain data_t:dir { read write };
-allow telaf_app_domain telaf_app_rw_t : { file dir lnk_file } *;
-allow telaf_app_domain self : { file dir } ~{ execute };
-allow telaf_app_domain self:unix_stream_socket *;
-allow telaf_app_domain self:socket { write read create getattr setopt };
-allow telaf_app_domain telaf_core_domain:{ file dir unix_dgram_socket unix_stream_socket socket sock_file } *;
-allow telaf_app_domain telaf_admin_domain:{ file dir unix_dgram_socket unix_stream_socket socket sock_file } *;
-allow telaf_app_domain tmpfs_t:filesystem getattr;
-allow telaf_app_domain tmpfs_t:file { read write open getattr mounton };
-allow telaf_app_domain tmpfs_t:dir { manage_dir_perms };
-allow telaf_app_domain telaf_apptmp_rw_t:sock_file { create write };
+# saveLogs/start scripts move coredump files from /tmp (coredump_data_t) to
+# archive directories.  mv across filesystems calls setfscreate to set the
+# target label, and needs relabelfrom/relabelto on the coredump file.
+allow telaf_admin_domain self:process { setfscreate };
+allow telaf_admin_domain coredump_data_t:file { relabelfrom relabelto };
+
+########################################
+# App-domain baseline policy
+#
+# These are the common permissions shared by all app-tier TelAF services.
+# Service-specific .te files should add only the deltas they need.
+########################################
+
+# --- TelAF framework file-system baseline for app services ---
+#
+# telaf_fw_t  : /legato  (single root dir node only)
+#   search    : path traversal into /legato/systems/, /legato/apps/ etc.
+#   getattr   : stat() the root dir (e.g. statvfs checks)
+# manage_dir_perms was too broad -- apps must not create/delete under /legato.
+allow telaf_app_domain telaf_fw_t:dir { search_dir_perms };
+# telaf_fw_t:file manage_file_perms was also too broad; apps only need to
+# read framework-owned regular files (e.g. version, SMACK_DISABLED flag).
+allow telaf_app_domain telaf_fw_t:file { read_file_perms };
+
+# telaf_lib_t : /legato/systems/current/lib/
+#   Apps load shared libraries from here at startup via the dynamic linker.
+#   exec_file_perms = getattr + open + read + execute (triggers domain transition
+#   if an exec type is set; harmless if not).
+allow telaf_app_domain telaf_lib_t:dir  { list_dir_perms };
+allow telaf_app_domain telaf_lib_t:file { read_file_perms exec_file_perms };
+allow telaf_app_domain telaf_lib_t:lnk_file { read_file_perms };
+
+# telaf_app_rw_t : /legato/systems/current/appsWriteable/
+#   Each app's sandboxed writable area.  Full access is intentional:
+#   apps create, read, write, and delete their own runtime state here.
+#   sock_file is subsumed by the wildcard below; listed separately only
+#   for documentation clarity -- the compiler deduplicates it.
+allow telaf_app_domain telaf_app_rw_t:{ file dir lnk_file sock_file } *;
+
+# telaf_app_ro_t : read-only app install files
+#   Apps may read their own installed (read-only) files but must not write them.
+allow telaf_app_domain telaf_app_ro_t:{ file dir } ~{ write };
+
+# telaf_sys_t : /legato/systems/  +  /data/le_fs/  +  /data/ManagedServices/
+#   Apps read system config and le_fs persistent state.  They must NOT be
+#   able to create, rename, or delete files in the system tree -- that is
+#   exclusively the update daemon's job.
+#   lnk_file read covers the current -> <index> symlink traversal.
+#
+#   FIXME: Temporary workaround -- some services (e.g. tafSMSSvc) use the
+#   le_fs API to write persistent data under /data/le_fs/, which is labeled
+#   telaf_sys_t.  The correct fix is to label each service's data path with
+#   a dedicated type (e.g. telaf_tafSMSSvc_data_t) in the service .fc file.
+#   Until that is done, grant write access to the whole app_domain.
+allow telaf_app_domain telaf_sys_t:dir  { list_dir_perms search_dir_perms add_name remove_name write create };
+allow telaf_app_domain telaf_sys_t:file { read_file_perms create open write setattr unlink rename };
+allow telaf_app_domain telaf_sys_t:lnk_file { read_file_perms };
+
+# telaf_bin_t : /legato/systems/current/bin/
+#   Apps may read and execute binaries here (supervisor will trigger a domain
+#   transition via domain_auto_transition_pattern for known exec types).
+#   execute_no_trans is intentionally excluded: unknown binaries must not
+#   run in the calling app's domain.
+allow telaf_app_domain telaf_bin_t:dir  { list_dir_perms };
+allow telaf_app_domain telaf_bin_t:file { read_file_perms exec_file_perms };
+
+# data_t : generic data partition
+#   search + read for path traversal and config reads.
+#   write is NOT granted here: services that need to write data_t must call
+#   manage_user_data_files() (already done in init_telaf_app_domain()).
+allow telaf_app_domain data_t:dir { search_dir_perms read };
+
+# self : process's own file descriptors and anonymous files
+#   file  : read/write/getattr on self-created anonymous fds (pipes, memfds).
+#           execute is excluded -- self-modifying code is not permitted.
+#   dir   : getattr only (e.g. fstat on an O_TMPFILE dir fd).
+#           No list/write/execute on self:dir.
+allow telaf_app_domain self:file { rw_file_perms };
+allow telaf_app_domain self:dir  { getattr };
+# Base app-domain self unix socket access is narrowed.
+# Self-to-self connect/read/write/getopt is granted from init_telaf_app_domain().
+# app_domain IPC access to core services is now managed via explicit per-service interfaces:
+#   telaf_use_logd(), telaf_use_config_tree(), telaf_use_device_manager()
+# These broad domain-wide allows are intentionally removed.
+# telaf_apptmp_rw_t : /tmp/legato/<appname>/  (type_transition from telaf_admin_t)
+#   Supervisor creates this per-app directory before exec; the app then creates
+#   its own IPC socket files and temporary state files inside it.
+#   sock_file manage_sock_file_perms : create, stat, write, and unlink IPC sockets.
+#   dir   manage_dir_perms           : add/remove entries inside the per-app dir.
+#   file  manage_file_perms          : create/read/write/unlink temp state files.
+allow telaf_app_domain telaf_apptmp_rw_t:sock_file { manage_sock_file_perms };
 allow telaf_app_domain telaf_apptmp_rw_t:dir { manage_dir_perms };
 allow telaf_app_domain telaf_apptmp_rw_t:file { manage_file_perms };
-allow telaf_app_domain syslogd_t:unix_dgram_socket sendto;
+logging_send_syslog_msg(telaf_app_domain)
 allow telaf_app_domain telaf_admin_t:fd use;
-allow telaf_app_domain telaf_sdir_t:unix_stream_socket connectto;
-allow telaf_app_domain telaf_sdir_t:fd use;
 allow telaf_app_domain diag_device_t:chr_file { read write open ioctl };
-allow telaf_app_domain devlog_t:sock_file write;
-allow telaf_app_domain telaf_admin_t:fifo_file { read getattr write };
-allow telaf_app_domain telaf_app_bundle_t : { file dir lnk_file } *;
-allow telaf_app_domain device_t:sock_file { write };
-allow telaf_app_domain self:capability2 { block_suspend wake_alarm };
-allow telaf_app_domain self:capability { dac_override dac_read_search sys_nice fowner fsetid };
-allow telaf_app_domain self:process { signal setsched setfscreate  };
+#   App bundles are read-only install packages; only updateDaemon may modify them.
+#   Apps need read access to find their own bundle files at startup.
+allow telaf_app_domain telaf_app_bundle_t:dir  { list_dir_perms search_dir_perms };
+allow telaf_app_domain telaf_app_bundle_t:file  { read_file_perms };
+allow telaf_app_domain telaf_app_bundle_t:lnk_file { read_file_perms };
+
+# wake_alarm / block_suspend:
+#   liblegato timer_Init() probes CLOCK_BOOTTIME_ALARM on every service startup,
+#   which requires wake_alarm.  The wakelock path in liblegato also triggers
+#   block_suspend on every app-domain service at runtime.
+#   Grant both to the whole app_domain baseline, symmetric with core_domain.
+allow telaf_app_domain self:capability2 { wake_alarm block_suspend };
+
+# FIXME: TLS certificate access: any app-domain service (including unit tests such as
+# tafKeyStoreUnitTest that have no dedicated .te and run as telaf_app_t) may
+# need to read /etc/ssl/certs (cert_t).
+telaf_use_cert_files(telaf_app_domain)
+# setsched: liblegato le_thread_SetPriority() calls pthread_setschedparam() to
+# set thread scheduling policy/priority, which requires setsched.
+# This is a universal liblegato need -- every TelAF app service uses le_thread.
+allow telaf_app_domain self:process { signal setsched };
+
+# sys_nice: liblegato PThreadStartRoutine() calls setpriority(PRIO_PROCESS, tid, niceLevel)
+# for threads created with LE_THREAD_PRIORITY_HIGH (nice=-10) or LE_THREAD_PRIORITY_LOW
+# (nice=10).  Setting a negative nice value requires CAP_SYS_NICE.
+allow telaf_app_domain self:capability { sys_nice };
 allow telaf_app_domain self:fifo_file { write read };
 allow telaf_app_domain socket_device_t:dir search;
-allow telaf_app_domain default_t:file { read_file_perms };
-allow telaf_app_domain default_t:dir { search_dir_perms };
 allow telaf_app_domain null_device_t:chr_file { read_file_perms };
 allow telaf_app_domain self:fd use;
-allow telaf_app_domain telaf_fw_t:file { manage_file_perms };
 allow telaf_app_domain proc_t:file { read open getattr };
 
-# Manage /tmp/telaf_crash_logs
-allow telaf_app_domain tmp_t:dir { manage_dir_perms };
-allow telaf_app_domain tmp_t:file { manage_file_perms };
-allow telaf_app_domain syslogd_t:sem { read write associate unix_write };
-allow telaf_app_domain syslogd_t:shm { read unix_read associate };
-
-# Read and write core dump pattern for scripts "start" and "saveLogs"
-kernel_rw_kernel_sysctl(telaf_app_domain)
+# Manage /tmp/telaf_crash_logs and any other /tmp scratch files.
+# telaf_manage_tmp_files() covers both tmp_t and user_tmp_t.
+telaf_manage_tmp_files(telaf_app_domain)
 
 # Allow kernel generate and save core dump to "/tmp/coredump"
 allow coredump_data_t tmpfs_t:filesystem { associate };
 allow data_t tmpfs_t:filesystem { associate };
-allow telaf_app_domain coredump_data_t:file { relabelfrom relabelto };
-allow telaf_app_domain data_t:file { relabelfrom relabelto };
 
-# Allow telaf_app_domain to access sysctl vm overcommit settings
-allow telaf_app_domain sysctl_t:dir { search };
-allow telaf_app_domain sysctl_vm_t:dir { search };
-allow telaf_app_domain sysctl_vm_overcommit_t:file { read open };
+########################################
+# Core-domain baseline policy
+#
+# These permissions apply to built-in framework daemons such as logd,
+# serviceDirectory, configTree, watchdog, updateDaemon, and deviceManager.
+########################################
 
-# Define core domain
-allow telaf_core_domain telaf_fw_t : dir { manage_dir_perms };
-allow telaf_core_domain telaf_lib_t : { file dir lnk_file } { read execute getattr };
-allow telaf_core_domain telaf_app_rw_t : { file dir unix_dgram_socket socket sock_file } *;
+# telaf_fw_t : /legato root dir -- core services only need path traversal.
+allow telaf_core_domain telaf_fw_t:dir { search_dir_perms };
+# telaf_lib_t : shared libraries -- execute on dir/lnk_file is meaningless in SELinux.
+allow telaf_core_domain telaf_lib_t:dir  { list_dir_perms };
+allow telaf_core_domain telaf_lib_t:file { read_file_perms exec_file_perms };
+allow telaf_core_domain telaf_lib_t:lnk_file { read_file_perms };
+# telaf_app_rw_t : appsWriteable/ -- unix_dgram_socket and socket are not
+# filesystem objects and cannot appear under this path label.
+allow telaf_core_domain telaf_app_rw_t:{ file dir sock_file } *;
 allow telaf_core_domain telaf_app_ro_t : { file dir } ~{ write };
 allow telaf_core_domain telaf_sys_t : { file dir lnk_file } *;
-allow telaf_core_domain telaf_bin_t : { file dir } ~{ write };
+# telaf_bin_t : bin/ -- execute_no_trans excluded; domain transition must occur.
+allow telaf_core_domain telaf_bin_t:dir  { list_dir_perms };
+allow telaf_core_domain telaf_bin_t:file { read_file_perms exec_file_perms };
 allow telaf_core_domain telaf_app_bundle_t : { file dir } *;
 allow telaf_core_domain telaf_admin_t:fd use;
 allow telaf_core_domain telaf_sdir_t:fd use;
-allow telaf_core_domain telaf_admin_domain:{ file dir unix_dgram_socket unix_stream_socket socket sock_file } *;
-allow telaf_core_domain telaf_app_domain:{ file dir unix_dgram_socket unix_stream_socket socket sock_file } *;
-allow telaf_core_domain telaf_admin_t:fifo_file { read write };
+# Supervisor stdout/stderr pipes for app/core processes are relabeled to telaf_sys_t
+# via type_transition so that app_domain and core_domain write to telaf_sys_t:fifo_file
+# instead of telaf_admin_t:fifo_file, following least-privilege principle.
+type_transition telaf_admin_t telaf_admin_t:fifo_file telaf_sys_t;
+allow telaf_admin_t telaf_sys_t:fifo_file { create read write getattr };
+allow telaf_core_domain telaf_sys_t:fifo_file { write getattr };
+allow telaf_app_domain telaf_sys_t:fifo_file { write getattr };
 allow telaf_core_domain telaf_lib_t:dir { search };
 allow telaf_core_domain telaf_lib_t:file { read_file_perms mmap_rw_file_perms mmap_exec_file_perms };
-allow telaf_core_domain devlog_t:sock_file write;
+logging_send_syslog_msg(telaf_core_domain)
 allow telaf_core_domain etc_t:file { read open lock getattr };
 allow telaf_core_domain tmp_t:dir { search_dir_perms };
 allow telaf_core_domain tmp_t:file { read_file_perms };
-allow telaf_core_domain syslogd_t:unix_dgram_socket sendto;
 allow telaf_core_domain telaf_apptmp_rw_t:dir { search write add_name create open read };
 allow telaf_core_domain telaf_apptmp_rw_t:file { create open read write lock };
 allow telaf_core_domain telaf_apptmp_rw_t:sock_file { create write };
 allow telaf_core_domain telaf_admin_t:process { sigchld };
-allow telaf_core_domain self:capability { dac_override dac_read_search };
-allow telaf_core_domain self:capability2 { block_suspend wake_alarm };
+# dac_override: liblegato le_fs_Init() and le_cfg_Init() access /data/le_fs/
+# directories that may be owned by root while core services run as non-root.
+allow telaf_core_domain self:capability { dac_override };
+
+# block_suspend / wake_alarm:
+#   liblegato timer_Init() probes CLOCK_BOOTTIME_ALARM on every service startup,
+#   which requires wake_alarm.  The wakelock path in liblegato also triggers
+#   block_suspend on every core daemon (serviceDirector, configTree, logCtrlDaemon,
+#   deviceManager, watchdog).  Grant both to the whole core_domain rather than
+#   suppressing thousands of AVC denials per boot.
+#   AVC evidence (sa525m):
+#     telaf_sdir_t   : denied { wake_alarm block_suspend }
+#     telaf_logd_t   : denied { wake_alarm }
+#     telaf_cfgtree_t: denied { wake_alarm block_suspend }
+#     telaf_devmgr_t : denied { block_suspend }
+allow telaf_core_domain self:capability2 { wake_alarm block_suspend };
+
+# Core services are mutually trusted and may communicate with each other.
+# This covers IPC between sdir, logd, cfgtree, devmgr, wdog, updateDaemon etc.
+# Fine-grained per-service isolation within core_domain is a future improvement;
+# for now, all core services are allowed to communicate via unix sockets and
+# read each other's proc/dir entries.
 allow telaf_core_domain telaf_core_domain:unix_stream_socket *;
 allow telaf_core_domain telaf_core_domain:dir { search_dir_perms };
+# Core services (watchdog, supervisor, updateDaemon, etc.) need to check
+# liveness of TelAF app processes by traversing /proc/<pid>/ entries and
+# reading /proc/<pid>/cmdline to resolve process names.
+# telaf_app_t covers only the generic fallback domain; individual taf service
+# domains (telaf_tafMngdPMSvc_t, telaf_tafRadioSvc_t, etc.) are members of
+# telaf_app_domain but are NOT telaf_app_t.  Watchdog must be able to probe
+# /proc/<pid>/ for every app-domain member, so grant access via the attribute.
+allow telaf_core_domain telaf_app_domain:dir { search };
+allow telaf_core_domain telaf_app_domain:file { read open getattr };
 allow telaf_core_domain telaf_core_domain:file { read_file_perms };
 
 #Support TelAF deprevilege
 allow telaf_admin_t self:netlink_audit_socket { nlmsg_relay create_netlink_socket_perms };
 su_exec(telaf_admin_t)
+
+# su (invoked by supervisor for deprivilege) performs NSS/resolver initialisation
+# which requires network socket access and DNS config reads.
+# These are unrelated to the cm tool; cm runs as telaf_cm_tool_t.
+telaf_use_network_routing(telaf_admin_t)
+telaf_create_stream_sockets(telaf_admin_t)
+sysnet_read_config(telaf_admin_t)
 
 # Support Kirkstone Yocto rules
 ifdef(`kirkstone',`
@@ -539,11 +884,9 @@ ifdef(`kirkstone',`
         type init_runtime_t;
         type unconfined_t;
     ')
-    allow telaf_app_domain syslogd_runtime_t:dir { search_dir_perms };
-    allow telaf_app_domain syslogd_runtime_t:sock_file  { write };
+    # syslogd_runtime_t dir search and sock_file write are covered by
+    # logging_send_syslog_msg() called above for app_domain and core_domain.
     allow telaf_app_domain init_runtime_t:dir { search_dir_perms };
-    allow telaf_core_domain syslogd_runtime_t:dir { search_dir_perms };
-    allow telaf_core_domain syslogd_runtime_t:sock_file  { write };
     allow telaf_core_domain init_runtime_t:dir { search_dir_perms };
     # A workaround to support .update file instsallation
     allow telaf_update_t unconfined_t:fd { use };
@@ -554,18 +897,25 @@ ifdef(`kirkstone',`
     allow telaf_admin_t init_runtime_t:file { create read write open setattr rename };
 ')
 
-# Local rules
+########################################
+# Local helper types and transitions
 ########################################
 
-# Setup for tmp directory
+# Temporary runtime directory/socket/file type used by apps under /tmp.
 type telaf_apptmp_rw_t;
 files_tmp_file(telaf_apptmp_rw_t)
 files_tmp_filetrans(telaf_admin_t,telaf_apptmp_rw_t, { file dir })
 
-# Rule to allow mounting telaf fwk
+# Allow mount_t to mount over the TelAF framework root when needed.
 allow mount_t telaf_fw_t:dir mounton;
 
-# External Dependencies
+########################################
+# External dependency glue
+#
+# Optional compatibility rules used when building against external Yocto / QTI
+# SELinux policy layers.  Keep these isolated here so the core TelAF design is
+# easier to review.
+########################################
 
 if (telaf_external_dependencies) {
     #============= setfiles_t ==============
@@ -578,7 +928,10 @@ if (telaf_external_dependencies) {
 
     #============= load_policy_t ==============
     allow load_policy_t telaf_apptmp_rw_t:file { rw_file_perms };
-    allow load_policy_t { telaf_admin_t telaf_sdir_t telaf_update_t }:unix_stream_socket { connectto read write };
+# load_policy_t <-> telaf_update_t: moved here from tafDiagSvc.te where it
+# was misplaced.  load_policy_t needs to communicate with updateDaemon during
+# live policy reload triggered by tafUpdateSvc.
+allow load_policy_t telaf_update_t:unix_stream_socket { read write };
     allow load_policy_t { telaf_admin_t telaf_sdir_t }:unix_dgram_socket { read write };
     allow load_policy_t { telaf_admin_t telaf_sdir_t }:fd { use };
     allow load_policy_t { telaf_app_rw_t telaf_app_bundle_t }:file { rw_file_perms };
@@ -620,84 +973,24 @@ if (telaf_external_dependencies) {
     allow telaf_admin_t syslogd_t:shm { read unix_read associate };
     allow telaf_admin_t telaf_apptmp_rw_t:file { manage_file_perms};
 
-    #=========== CM Data Command =============
-    # Allow log to /var/log
-    allow telaf_admin_t var_log_t:dir { rw_dir_perms setattr };
-    allow telaf_admin_t var_log_t:file { manage_file_perms };
-    allow telaf_admin_t var_log_t:lnk_file { manage_file_perms };
-    # allow tools/scripts/cm to create files in /var/run/
-    allow telaf_admin_t var_run_t:dir { create_dir_perms rw_dir_perms setattr };
-    allow telaf_admin_t var_run_t:file { manage_file_perms };
-    # allow tools/scripts/cm to run ifconfig
-    sysnet_exec_ifconfig(telaf_admin_t)
-    sysnet_read_config(telaf_admin_t)
-    # allow cm to test network connection
-    allow telaf_admin_t self:udp_socket { create_socket_perms rw_socket_perms };
-    allow telaf_admin_t self:tcp_socket { create_socket_perms rw_socket_perms };
-    allow telaf_admin_t self:netlink_route_socket rw_netlink_socket_perms;
-    allow telaf_admin_t http_port_t:tcp_socket all_tcp_socket_perms;
-    allow telaf_admin_t cert_t:file read_file_perms;
-    allow telaf_admin_t cert_t:dir search_dir_perms;
-    # Allow ping from cm
-    allow telaf_admin_t ping_exec_t:file { getattr open read execute execute_no_trans};
-    allow telaf_admin_t self:icmp_socket { create setopt getopt write read ioctl };
-    # dns setting
-    allow telaf_admin_t systemd_resolved_var_run_t:file rw_file_perms;
-
-    # alloc to read network state information
-    kernel_read_network_state(telaf_admin_t)
-
-    #=========== Sample app =============
-    allow telaf_admin_t http_cache_port_t:tcp_socket { name_bind name_connect };
-    allow telaf_admin_t node_t:tcp_socket node_bind;
-    allow telaf_admin_t self:tcp_socket { accept listen };
-
-    #=========== Location Service =============
-    allow telaf_app_domain debugfs_t:file rw_file_perms;
-    allow telaf_app_domain loc_etc_t:file rw_file_perms;
-    allow telaf_app_domain loc_hald_t:unix_dgram_socket sendto;
-    allow telaf_app_domain loc_socket_t:dir rw_dir_perms;
-    allow telaf_app_domain loc_socket_t:sock_file { setattr unlink rw_file_perms create_file_perms };
-    allow telaf_app_domain self:capability chown;
-    allow telaf_app_domain urandom_device_t:chr_file rw_file_perms;
-    allow loc_hald_t telaf_app_domain:unix_dgram_socket sendto;
+    # The only rule kept on telaf_admin_t is /var/log management, because
+    # saveLogs (which runs as telaf_admin_t) also writes to /var/log.
+    logging_manage_generic_log_dirs(telaf_admin_t)
+    logging_manage_generic_logs(telaf_admin_t)
 
     #=========== Semodule Dynamic Loading  =============
     allow telaf_admin_t var_lib_t:dir { search getattr };
 
-    #============= telaf_overlay_t ==============
-    allow telaf_overlay_t data_t:dir { read remove_name rmdir relabelfrom write create add_name setattr };
-    allow telaf_overlay_t default_context_t:file { read getattr };
-    allow telaf_overlay_t file_context_t:file { read getattr };
-    allow telaf_overlay_t security_t:file write;
-    allow telaf_overlay_t security_t:security check_context;
-    allow telaf_overlay_t kmsg_device_t:chr_file { write open };
-    allow telaf_overlay_t mount_exec_t:file { read getattr open execute execute_no_trans };
-    allow telaf_overlay_t proc_t:file { read getattr open };
-
-    allow telaf_overlay_t fs_t:filesystem { mount relabelfrom getattr };
-    allow telaf_overlay_t mount_runtime_t:dir { search read write getattr };
-    allow telaf_overlay_t self:capability { sys_admin dac_override dac_read_search };
-    allow telaf_overlay_t selinux_config_t:dir { rename reparent remove_name mounton relabelto write read create add_name setattr };
-    allow telaf_overlay_t selinux_config_t:filesystem { relabelfrom relabelto mount };
-    allow telaf_overlay_t semanage_store_t:dir { rename reparent rmdir getattr relabelto write search mounton create add_name };
-    allow telaf_overlay_t var_lib_t:dir { search getattr };
-    allow telaf_overlay_t default_context_t:dir {getattr search };
-    allow telaf_overlay_t semanage_store_t:dir { read remove_name open setattr };
-    allow telaf_overlay_t semanage_store_t:filesystem { relabelfrom relabelto mount };
-    allow telaf_overlay_t file_context_t:dir { search read getattr };
-    allow telaf_overlay_t selinux_config_t:file { rename create unlink };
-    allow telaf_overlay_t semanage_read_lock_t:file { read getattr };
-    allow telaf_overlay_t semanage_store_t:chr_file { rename unlink };
-    allow telaf_overlay_t semanage_store_t:file { rename write getattr setattr read create unlink };
-    allow telaf_overlay_t semanage_trans_lock_t:file read;
-    allow telaf_overlay_t policy_config_t:dir { search read getattr };
-
     #=========== Update Service Command =============
-    allow { telaf_admin_domain telaf_app_domain telaf_core_domain } user_tmp_t:file { manage_file_perms };
-    allow { telaf_admin_domain telaf_app_domain telaf_core_domain } user_tmp_t:dir { manage_dir_perms };
-    allow telaf_sdir_t tmp_t:dir { manage_dir_perms };
-    allow telaf_sdir_t tmp_t:file { manage_file_perms };
+    # telaf_update_t unpacks .update packages into /tmp (tmp_t) and may also
+    # encounter user_tmp_t when invoked from a user session (e.g. SSH).
+    # telaf_manage_tmp_files() covers both tmp_t and user_tmp_t in one call.
+    # The original rule granted this to all three domain attributes -- far too
+    # broad.  Only telaf_update_t actually needs it.
+    telaf_manage_tmp_files(telaf_update_t)
+    # telaf_sdir_t only needs to traverse /tmp to find its apptmp_rw_t socket
+    # directory; sock_file create/write is already in the core-domain baseline.
+    allow telaf_sdir_t tmp_t:dir { search_dir_perms };
 
     #============ persist path ==================
     allow telaf_admin_t persist_t:dir { write add_name remove_name create setattr getattr};
@@ -714,7 +1007,7 @@ if (telaf_external_dependencies) {
             type initrc_t;
         ')
         allow telaf_admin_t proc_t:file { ioctl };
-        allow telaf_admin_t power_unit_t:service { start status stop };
+        #allow telaf_admin_t power_unit_t:service { start status stop };
         #=========== To support adding boot KPI marker ==============
         allow telaf_app_domain boot_kpi_values_t:file { write open getattr };
         allow initrc_t boot_kpi_values_t:file { write open getattr };
@@ -728,3 +1021,6 @@ if (telaf_external_dependencies) {
     allow telaf_sdir_t telaf_app_t:fd use;
     allow telaf_sdir_t telaf_app_t:file { read write getattr };
 }
+
+
+

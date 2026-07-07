@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafDoIPStackUnitTest, 1.0)
@@ -24,7 +24,7 @@ init_telaf_app_domain(telaf_tafDoIPStackUnitTest_t,telaf_tafDoIPStackUnitTest_ex
 
 telaf_admin_manage_all_files_perms(telaf_tafDoIPStackUnitTest_exec_t)
 telaf_admin_manage_all_files_perms(telaf_tafDoIPStackUnitTest_data_t)
-telaf_admin_file_perms(telaf_tafDoIPStackUnitTest_t, telaf_tafDoIPStackUnitTest_data_t)
+telaf_rw_data_files(telaf_tafDoIPStackUnitTest_t, telaf_tafDoIPStackUnitTest_data_t)
 
 allow telaf_tafDoIPStackUnitTest_t node_t:udp_socket { node_bind };
 allow telaf_tafDoIPStackUnitTest_t unreserved_port_t:udp_socket { name_bind };

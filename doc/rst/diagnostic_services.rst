@@ -13,6 +13,7 @@ Diagnostic services
    ../_doxygen_rst/page_c_tafDiagDoIP
    ../_doxygen_rst/page_c_tafDiagDtc
    ../_doxygen_rst/page_c_tafDiagEvent
+   ../_doxygen_rst/page_c_tafDiagIDPS
    ../_doxygen_rst/page_c_tafDiagIOCtrl
    ../_doxygen_rst/page_c_tafDiagReset
    ../_doxygen_rst/page_c_tafDiagRoutineCtrl

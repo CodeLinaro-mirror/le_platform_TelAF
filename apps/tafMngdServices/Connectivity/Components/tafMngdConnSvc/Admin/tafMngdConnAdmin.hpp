@@ -405,8 +405,10 @@ namespace tafsvc {
             static void FirstLayerRecoveryEventHandler(void *reportPtr,
                                                        void *secondLayerHandlerFunc);
 
+#ifdef LE_CONFIG_TAFMNGDCONNSVC_USE_CURL
             //Curl Helper Methods
-            bool PerformCurl(const char* URLStr);
+            bool PerformCurl(const char* URLStr, const char* interfacePtr);
+#endif
             std::string RemoveProtocol(const std::string &url);
 
             //Helper Method to compare APNs

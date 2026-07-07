@@ -1,0 +1,50 @@
+// TelAF SELinux runtime validation integration test app.
+// This app only performs operations expected to be allowed by the generated
+// SELinux skeleton policy and TelAF app baseline.
+
+sandboxed: false
+start: manual
+maxThreads: 10
+
+username: telaf
+
+executables:
+{
+    tafSelinuxAllowIntTest = ( tafSelinuxAllowIntTestComp )
+}
+
+processes:
+{
+    run:
+    {
+        ( tafSelinuxAllowIntTest )
+    }
+
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+
+    faultAction: stopApp
+}
+
+requires:
+{
+    configTree:
+    {
+        [rw] tafSelinuxAllowIntTest
+    }
+}
+
+bundles:
+{
+    file:
+    {
+        [r] tafSelinuxAllowIntTestComp/selinux_allow_private_data.txt /selinux_allow_private_data.txt
+    }
+}
+
+bindings:
+{
+    tafSelinuxAllowIntTest.tafSelinuxAllowIntTestComp.le_cfg -> <tafcore>.le_cfg
+}

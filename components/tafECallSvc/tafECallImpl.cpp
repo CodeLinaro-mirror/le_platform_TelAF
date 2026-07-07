@@ -739,7 +739,8 @@ void taf_ecall::InitializeECallPtr()
 void taf_ecall::Init(void)
 {
     //Intialize Platform Adaptor
-    if(taf_pa_ecall_Init() != PA_OK){
+    pa_result_t initRes = taf_pa_ecall_Init();
+    if (initRes != PA_OK) {
         LE_FATAL("Unable to Initialize ecall platoform Adaptor");
     }
 
@@ -753,7 +754,8 @@ void taf_ecall::Init(void)
     eventListener.onEcallOperatingModeChange = &Handler::onEcallOperatingModeChange;
     eventListener.onStateChange = &Handler::onStateChange;
 
-    if(taf_pa_ecall_RegisterListener(&eventListener,{}) != PA_OK){
+    pa_result_t regRes = taf_pa_ecall_RegisterListener(&eventListener,{});
+    if (regRes != PA_OK) {
         LE_FATAL("Unable to register listener to ecall platoform Adaptor");
     }
 
@@ -797,7 +799,13 @@ void taf_ecall::Init(void)
     if (needToResumeT9 == true)
     {
         taf_ecall_OpMode_t opMode;
-        int phoneId = taf_pa_ecall_GetPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+        int8_t phoneId = -1;
+        pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+            static_cast<int8_t>(taf_sim_GetSelectedCard()), &phoneId);
+        if (phoneIdRes != PA_OK)
+        {
+            LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
+        }
         LE_INFO("phoneId is %d", phoneId);
         if (LE_OK != GetECallOperatingMode(phoneId, &opMode))
         {
@@ -824,7 +832,13 @@ taf_ecall &taf_ecall::GetInstance()
 
 bool taf_ecall::isIdle()
 {
-    std::vector<std::shared_ptr<taf_pa_ecall_CallInfo_t>> callList = taf_pa_ecall_GetInProgressCalls();
+    std::vector<std::shared_ptr<taf_pa_ecall_CallInfo_t>> callList;
+    pa_result_t callListRes = taf_pa_ecall_GetInProgressCalls(&callList);
+    if (callListRes != PA_OK)
+    {
+        LE_ERROR("taf_pa_ecall_GetInProgressCalls failed: %d", (int)callListRes);
+        return false;
+    }
 
     for(auto itr = std::begin(callList); itr != std::end(callList); ++itr) {
         taf_pa_ecall_call_status_t callState = (*itr)->callState;
@@ -1029,7 +1043,13 @@ le_result_t taf_ecall::StartECall(taf_pa_ecall_category_t emergencyCategory,
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
 
     //Get Selected card
-    uint8_t phoneId = taf_pa_ecall_GetPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+    int8_t phoneId = -1;
+    pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+        static_cast<int8_t>(taf_sim_GetSelectedCard()), &phoneId);
+    if (phoneIdRes != PA_OK)
+    {
+        LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
+    }
 
     //Check ECall session
     if (eCallPtr->eCallSession != ECALL_INIT && (eCallPtr->eCallSession != ECALL_ENDED)) {
@@ -1174,7 +1194,13 @@ le_result_t taf_ecall::StartPrivate(taf_ecall_CallRef_t ecallRef,
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
 
     //Get Selected card
-    uint8_t phoneId = taf_pa_ecall_GetPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+    int8_t phoneId = -1;
+    pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+        static_cast<int8_t>(taf_sim_GetSelectedCard()), &phoneId);
+    if (phoneIdRes != PA_OK)
+    {
+        LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
+    }
 
     //Check ECall session
     if (eCallPtr->eCallSession != ECALL_INIT && (eCallPtr->eCallSession != ECALL_ENDED)) {
@@ -1926,7 +1952,13 @@ le_result_t taf_ecall::SendMsd( taf_ecall_CallRef_t ecallRef)
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
 
     pa_result_t result;
-    int phoneId = taf_pa_ecall_GetPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+    int8_t phoneId = -1;
+    pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+        static_cast<int8_t>(taf_sim_GetSelectedCard()), &phoneId);
+    if (phoneIdRes != PA_OK)
+    {
+        LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
+    }
 
     if ((eCallPtr->msd.messageIdentifier >= MIN_MSD_MESSAGE_IDENTIFIER) && (eCallPtr->msd.messageIdentifier < MAX_MSD_MESSAGE_IDENTIFIER))
     {
@@ -2160,7 +2192,13 @@ le_result_t taf_ecall::SetNadDeregistrationTime(uint16_t deregTime)
     uint32_t t10 = (uint32_t) deregTime;
     LE_INFO("Set eCall NAD deregistration time (in minutes): %d", t10);
 
-    int phoneId = taf_pa_ecall_GetPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+    int8_t phoneId = -1;
+    pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+        static_cast<int8_t>(taf_sim_GetSelectedCard()), &phoneId);
+    if (phoneIdRes != PA_OK)
+    {
+        LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
+    }
 
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
     auto cb = [promisePtr](pa_result_t error,std::any context)
@@ -2215,7 +2253,13 @@ le_result_t taf_ecall::GetNadDeregistrationTime(uint16_t* deregTime)
         return LE_FAULT;
     }
     uint32_t dereg_Time;
-    int phoneId = taf_pa_ecall_GetPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+    int8_t phoneId = -1;
+    pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+        static_cast<int8_t>(taf_sim_GetSelectedCard()), &phoneId);
+    if (phoneIdRes != PA_OK)
+    {
+        LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
+    }
 
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
     auto cb = [promisePtr, &dereg_Time](pa_result_t error, uint32_t timeDuration,std::any context)
@@ -2265,7 +2309,13 @@ le_result_t taf_ecall::GetNadDeregistrationTime(uint16_t* deregTime)
 
 le_result_t taf_ecall::TerminateRegistration()
 {
-    int phoneId = taf_pa_ecall_GetPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+    int8_t phoneId = -1;
+    pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+        static_cast<int8_t>(taf_sim_GetSelectedCard()), &phoneId);
+    if (phoneIdRes != PA_OK)
+    {
+        LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
+    }
 
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
     auto cb = [promisePtr](pa_result_t error,std::any context)
@@ -2558,7 +2608,13 @@ le_result_t taf_ecall::GetHlapTimerState(taf_ecall_HlapTimerType_t timerType, ta
 taf_ecall_HlapTimerStatus_t taf_ecall::GetHlapTimerStatus(taf_ecall_HlapTimerType_t timerType) {
     taf_ecall_HlapTimerStatus_t timerStatus;
     taf_pa_ecall_hlap_timer_status_t receivedTimerStatus;
-    int phone_id = taf_pa_ecall_GetPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+    int8_t phone_id = -1;
+    pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+        static_cast<int8_t>(taf_sim_GetSelectedCard()), &phone_id);
+    if (phoneIdRes != PA_OK)
+    {
+        LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
+    }
 
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
     auto cb = [promisePtr, &phone_id, &receivedTimerStatus](pa_result_t errorCode,
@@ -2674,7 +2730,13 @@ void* taf_ecall::StartHlapElapsedTimer(HlapTimerType_t type, HlapTimerEventType_
     LE_INFO("SaveHlapTimerElapsedInfo, starting timer");
     auto &eCall = taf_ecall::GetInstance();
     taf_ecall_OpMode_t opMode;
-    int phoneId = taf_pa_ecall_GetPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+    int8_t phoneId = -1;
+    pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+        static_cast<int8_t>(taf_sim_GetSelectedCard()), &phoneId);
+    if (phoneIdRes != PA_OK)
+    {
+        LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
+    }
 
     if (type == HLAP_TIMER_TYPE_T9)
     {
@@ -2727,7 +2789,13 @@ HlapTimerEventType_t taf_ecall::ConvertHlapTimerEvent(taf_pa_ecall_hlap_event_t 
 }
 
 le_result_t taf_ecall::ResumeHlapTimer(taf_ecall_HlapTimerType_t timerType) {
-    int phoneId = taf_pa_ecall_GetPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+    int8_t phoneId = -1;
+    pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+        static_cast<int8_t>(taf_sim_GetSelectedCard()), &phoneId);
+    if (phoneIdRes != PA_OK)
+    {
+        LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
+    }
     taf_pa_ecall_hlap_timer_id_t timerId = taf_pa_ecall_hlap_timer_id_t::UNKNOWN;
     uint16_t minNwRegTime = 0;
     int duration = 0;
@@ -2804,7 +2872,7 @@ void taf_ecall::ResumeHlapTimerEventHandler(void* reqPtr)
     auto &eCall = taf_ecall::GetInstance();
     le_result_t result = LE_FAULT;
     taf_ecall_OpMode_t opMode;
-    int phoneId;
+    int phoneId = -1;
     taf_pa_ecall_mode_t eCallMode;
 
     if(eventReq == NULL)
@@ -2815,6 +2883,7 @@ void taf_ecall::ResumeHlapTimerEventHandler(void* reqPtr)
 
     switch (eventReq->event) {
         case EVENT_MODEM_REBOOT:
+        {
             LE_INFO("Resume hlap timer when modem reboots");
 
             if(eCall.ElapsedTimeT9 == 0)
@@ -2822,7 +2891,14 @@ void taf_ecall::ResumeHlapTimerEventHandler(void* reqPtr)
                 LE_INFO("No need to resume T9 timer");
                 break;
             }
-            phoneId = taf_pa_ecall_GetPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+            int8_t currentPhoneId = -1;
+            pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+                static_cast<int8_t>(taf_sim_GetSelectedCard()), &currentPhoneId);
+            if (phoneIdRes != PA_OK)
+            {
+                LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
+            }
+            phoneId = static_cast<int>(currentPhoneId);
             LE_INFO("phoneId is %d", phoneId);
             if (LE_OK != eCall.GetECallOperatingMode(phoneId, &opMode))
             {
@@ -2839,6 +2915,7 @@ void taf_ecall::ResumeHlapTimerEventHandler(void* reqPtr)
                 LE_INFO("eCall operating mode is not normal");
             }
             break;
+        }
 
         case EVENT_SAVE_HLAP_TIMER_ELAPSED:
             LE_INFO("Update the hlap timer with elapsed value to config tree");
@@ -2846,10 +2923,19 @@ void taf_ecall::ResumeHlapTimerEventHandler(void* reqPtr)
             break;
 
         case EVENT_ECALL_MODE_CHANGE:
+        {
             LE_INFO("eCall mode changed");
             eCallMode = eventReq->eCallMode;
             phoneId = eventReq->phoneId;
-            if (phoneId != taf_pa_ecall_GetPhoneIdFromSlotId((int)taf_sim_GetSelectedCard()))
+            int8_t currentPhoneId = -1;
+            pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+                static_cast<int8_t>(taf_sim_GetSelectedCard()), &currentPhoneId);
+            if (phoneIdRes != PA_OK)
+            {
+                LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
+                break;
+            }
+            if (phoneId != static_cast<int>(currentPhoneId))
             {
                 LE_ERROR("phoneId is different with the select one %d", phoneId);
                 break;
@@ -2864,6 +2950,7 @@ void taf_ecall::ResumeHlapTimerEventHandler(void* reqPtr)
                 eCall.pendingToResumeHlapTimer = false;
             }
             break;
+        }
 
         default:
             LE_ERROR("Undefined event received.");
@@ -3166,8 +3253,13 @@ le_result_t taf_ecall::IsInProgress(taf_ecall_CallRef_t ecallRef, bool* isInProg
     }
 
     std::shared_ptr<taf_pa_ecall_CallInfo_t> spCall = nullptr;
-    std::vector<std::shared_ptr<taf_pa_ecall_CallInfo_t>> callList
-        = taf_pa_ecall_GetInProgressCalls();
+    std::vector<std::shared_ptr<taf_pa_ecall_CallInfo_t>> callList;
+    pa_result_t callListRes = taf_pa_ecall_GetInProgressCalls(&callList);
+    if (callListRes != PA_OK)
+    {
+        LE_ERROR("taf_pa_ecall_GetInProgressCalls failed: %d", (int)callListRes);
+        return LE_FAULT;
+    }
     for(auto callIterator = std::begin(callList); callIterator != std::end(callList);
         ++callIterator) {
         taf_pa_ecall_call_status_t callState = (*callIterator)->callState;

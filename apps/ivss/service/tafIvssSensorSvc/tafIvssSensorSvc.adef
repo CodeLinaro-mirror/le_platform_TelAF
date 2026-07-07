@@ -14,9 +14,9 @@ capability:
     CAP_SYS_NICE
     CAP_SYS_RESOURCE
     CAP_NET_ADMIN
+    CAP_DAC_OVERRIDE
 #if ${LE_CONFIG_TEST_COVERAGE} = y
     CAP_DAC_READ_SEARCH
-    CAP_DAC_OVERRIDE
 #endif
 }
 
@@ -45,5 +45,11 @@ processes:
 
 bindings:
 {
+    // IMU sensor service binding (accelerometer/gyroscope data)
     tafIvssSensorSvc.sensorSvc.taf_imuSensor -> tafImuSensorSvc.taf_imuSensor
+
+    // GNSS position service binding (heading sensor, body frame yaw from DR engine)
+    tafIvssSensorSvc.sensorSvc.taf_locGnss -> tafLocationSvc.taf_locGnss
+
+    // Note: GPTP timestamps use tafGptpLibrary to read /dev/ptp0 directly
 }

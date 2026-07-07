@@ -156,7 +156,7 @@ static void RegisterIndication
 {
     for (uint32_t i = 0; i < INSTANCE_MAX_COUNT; i++)
     {
-        pa_result_t result = taf_pa_radio_RegisterIndication(i, registration);
+        pa_result_t result = taf_pa_radio_RegisterIndication(i, registration, TAF_PA_RADIO_DISABLE_IND_MODE_NONE);
         switch(result)
         {
             case 0:
@@ -167,6 +167,7 @@ static void RegisterIndication
                 break;
             case -ENOTSUP:
             case -ENOSYS:
+            case PA_NOT_IMPLEMENTED:
                 break;
             default:
                 LE_ERROR("Failed to register indication for instance %d.", i);
@@ -890,7 +891,7 @@ static void LteCphyCaHandler
  *      - LE_OUT_OF_RANGE if the PA layer returned -ERANGE.
  *      - LE_BAD_PARAMETER if the PA layer returned -EINVAL.
  *      - LE_UNSUPPORTED if the PA layer returned -ENOTSUP.
- *      - LE_NOT_IMPLEMENTED if the PA layer returned -ENOSYS.
+ *      - LE_NOT_IMPLEMENTED if the PA layer returned -ENOSYS or PA_NOT_IMPLEMENTED.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t Utility::Convert::Result
@@ -913,6 +914,7 @@ le_result_t Utility::Convert::Result
         case -ENOTSUP:
             return LE_UNSUPPORTED;
         case -ENOSYS:
+        case PA_NOT_IMPLEMENTED:
             return LE_NOT_IMPLEMENTED;
         default:
             LE_INFO("Unknown result %d.", result);
@@ -3014,23 +3016,70 @@ COMPONENT_INIT
         return;
     }
 
-    taf_pa_radio_AddNetworkRejectHandler(0, NetworkRejectHandler, nullptr);
-    taf_pa_radio_AddRatChangeHandler(0, RatChangeHandler, nullptr);
-    taf_pa_radio_AddVoiceServiceInfoHandler(0, VoiceServiceInfoHandler, nullptr);
-    taf_pa_radio_AddDataServiceStatusHandler(0, DataServiceStatusHandler, nullptr);
-    taf_pa_radio_AddDataRoamingStatusHandler(0, DataRoamingStatusHandler, nullptr);
-    taf_pa_radio_AddSignalStrengthInfoChangeHandler(0, SignalStrengthInfoChangeHandler, nullptr);
-    taf_pa_radio_AddImsRegStatusChangeHandler(0, ImsRegStatusChangeHandler, nullptr);
-    taf_pa_radio_AddOperatingModeChangeHandler(0, OperatingModeChangeHandler, nullptr);
-    taf_pa_radio_AddRatSvcStatusHandler(0, RatSvcStatusHandler, nullptr);
-    taf_pa_radio_AddServiceDomainHandler(0, ServiceDomainHandler, nullptr);
-    taf_pa_radio_AddLteCsCapabilityHandler(0, LteCsCapabilityHandler, nullptr);
-    taf_pa_radio_AddImsServiceInfoHandler(0, ImsServiceInfoHandler, nullptr);
-    taf_pa_radio_AddImsPdpErrorHandler(0, ImsPdpErrorHandler, nullptr);
-    taf_pa_radio_AddCellInfoChangeHandler(0, CellInfoChangeHandler, nullptr);
-    taf_pa_radio_AddNrIconChangeHandler(0, NrIconChangeHandler, nullptr);
-    taf_pa_radio_AddLteCphyCaHandler(0, LteCphyCaHandler, nullptr);
-    taf_pa_radio_AddDataAvailSysStatusHandler(0, DataAvailSysStatusHandler, nullptr);
+    taf_pa_radio_NetworkRejectHandlerRef_t networkRejectHandlerRef = nullptr;
+    taf_pa_radio_RatChangeHandlerRef_t ratChangeHandlerRef = nullptr;
+    taf_pa_radio_VoiceServiceInfoHandlerRef_t voiceServiceInfoHandlerRef = nullptr;
+    taf_pa_radio_DataServiceStatusHandlerRef_t dataServiceStatusHandlerRef = nullptr;
+    taf_pa_radio_DataRoamingStatusHandlerRef_t dataRoamingStatusHandlerRef = nullptr;
+    taf_pa_radio_SignalStrengthInfoChangeHandlerRef_t signalStrengthInfoChangeHandlerRef = nullptr;
+    taf_pa_radio_ImsRegStatusChangeHandlerRef_t imsRegStatusChangeHandlerRef = nullptr;
+    taf_pa_radio_OperatingModeChangeHandlerRef_t operatingModeChangeHandlerRef = nullptr;
+    taf_pa_radio_RatSvcStatusHandlerRef_t ratSvcStatusHandlerRef = nullptr;
+    taf_pa_radio_ServiceDomainHandlerRef_t serviceDomainHandlerRef = nullptr;
+    taf_pa_radio_LteCsCapabilityHandlerRef_t lteCsCapabilityHandlerRef = nullptr;
+    taf_pa_radio_ImsServiceInfoHandlerRef_t imsServiceInfoHandlerRef = nullptr;
+    taf_pa_radio_ImsPdpErrorHandlerRef_t imsPdpErrorHandlerRef = nullptr;
+    taf_pa_radio_CellInfoChangeHandlerRef_t cellInfoChangeHandlerRef = nullptr;
+    taf_pa_radio_NrIconChangeHandlerRef_t nrIconChangeHandlerRef = nullptr;
+    taf_pa_radio_LteCphyCaHandlerRef_t lteCphyCaHandlerRef = nullptr;
+    taf_pa_radio_DataAvailSysStatusHandlerRef_t dataAvailSysStatusHandlerRef = nullptr;
+
+#define ADD_PA_RADIO_HANDLER(addFunc, handlerFunc, handlerRef) \
+    do \
+    { \
+        pa_result_t _addRes  = addFunc(0, handlerFunc, nullptr, &(handlerRef)); \
+        if (_addRes  != PA_OK) \
+        { \
+            LE_ERROR("Failed to add PA radio handler " #addFunc ", result=%d.", _addRes); \
+        } \
+    } while (0)
+
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddNetworkRejectHandler, NetworkRejectHandler,
+        networkRejectHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddRatChangeHandler, RatChangeHandler,
+        ratChangeHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddVoiceServiceInfoHandler, VoiceServiceInfoHandler,
+        voiceServiceInfoHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddDataServiceStatusHandler, DataServiceStatusHandler,
+        dataServiceStatusHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddDataRoamingStatusHandler, DataRoamingStatusHandler,
+        dataRoamingStatusHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddSignalStrengthInfoChangeHandler,
+        SignalStrengthInfoChangeHandler, signalStrengthInfoChangeHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddImsRegStatusChangeHandler, ImsRegStatusChangeHandler,
+        imsRegStatusChangeHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddOperatingModeChangeHandler, OperatingModeChangeHandler,
+        operatingModeChangeHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddRatSvcStatusHandler, RatSvcStatusHandler,
+        ratSvcStatusHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddServiceDomainHandler, ServiceDomainHandler,
+        serviceDomainHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddLteCsCapabilityHandler, LteCsCapabilityHandler,
+        lteCsCapabilityHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddImsServiceInfoHandler, ImsServiceInfoHandler,
+        imsServiceInfoHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddImsPdpErrorHandler, ImsPdpErrorHandler,
+        imsPdpErrorHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddCellInfoChangeHandler, CellInfoChangeHandler,
+        cellInfoChangeHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddNrIconChangeHandler, NrIconChangeHandler,
+        nrIconChangeHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddLteCphyCaHandler, LteCphyCaHandler,
+        lteCphyCaHandlerRef);
+    ADD_PA_RADIO_HANDLER(taf_pa_radio_AddDataAvailSysStatusHandler, DataAvailSysStatusHandler,
+        dataAvailSysStatusHandlerRef);
+
+#undef ADD_PA_RADIO_HANDLER
 
     taf_pm_AddStateChangeHandler(PowerStateChangeHandler, nullptr);
     if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)

@@ -3,11 +3,17 @@ requires:
     component:
     {
         $CURDIR/../sensorIdl
+        // tafGptpLibrary: direct hardware GPTP clock read (/dev/ptp0) for IMU timestamps
+        $TELAF_ROOT/components/tafGptpLibrary
     }
 
     api:
     {
+        // IMU sensor service (accelerometer/gyroscope)
         $TELAF_ROOT/interfaces/taf_imuSensor.api
+
+        // GNSS position service (heading sensor, body frame yaw from DR engine)
+        $TELAF_ROOT/interfaces/taf_locGnss.api
     }
 }
 
@@ -22,6 +28,7 @@ cxxflags:
     -I$LEGATO_SYSROOT/usr/include/CommonAPI-3.2
     -I$TELAF_ROOT/include
     -I$TELAF_ROOT/apps/ivss/common/include
+    -I$TELAF_ROOT/components/tafGptpLibrary
 }
 
 ldflags:

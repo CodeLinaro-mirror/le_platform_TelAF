@@ -1,0 +1,17 @@
+sources:
+{
+    ecall_ctrl.cpp
+}
+
+cxxflags:
+{
+    -std=c++17
+}
+
+requires:
+{
+    api:
+    {
+        ctrlEcall = $CURDIR/../ctrlEcall.api
+    }
+}

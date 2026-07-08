@@ -11,6 +11,7 @@ groups:
         radio
         inet
         locclient
+        logd
 }
 
 capability:

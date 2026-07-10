@@ -418,7 +418,7 @@ void Handler::ChangeCardPinResponseCb
     }
     simResponsePtr.responseType = (taf_sim_LockResponse_t)responseInfo->responseType;
     simResponsePtr.result = Utility::Convert::Result(responseInfo->result);
-    LE_INFO("ChangeCardPinResponse: simId=%d type=%d result=%d",simResponsePtr.simId,
+    LE_DEBUG("ChangeCardPinResponse: simId=%d type=%d result=%d",simResponsePtr.simId,
             simResponsePtr.responseType,
             simResponsePtr.result);
     le_event_Report(sim.ResponseEventId, &simResponsePtr,sizeof(simResponsePtr));
@@ -623,7 +623,7 @@ void taf_sim::FirstLayerNewSimStateHandler(void* reportPtr,
 
 taf_sim_IccidChangeHandlerRef_t taf_sim:: AddIccidChangeHandler(taf_sim_IccidChangeHandlerFunc_t handlerPtr) {
     le_event_HandlerRef_t handlerRef;
-    LE_INFO("Add Iccid Change handler");
+    LE_DEBUG("Add Iccid Change handler");
     if (NULL == handlerPtr)
     {
         LE_KILL_CLIENT("Handler pointer is NULL");
@@ -800,7 +800,7 @@ void taf_sim::CheckAndSendProfileSwitchEvent() {
         {
             sim_refresh_event_t simRefreshEvent = {};
             simRefreshEvent.refreshStatus = TAF_SIM_REFRESH_STATUS_PROFILE_SWITCH;
-            LE_INFO("Notify PROFILE_SWITCH for session:%p result:%s", sessionPtr, LE_RESULT_TXT(result));
+            LE_DEBUG("Notify PROFILE_SWITCH for session:%p result:%s", sessionPtr, LE_RESULT_TXT(result));
             le_event_Report(sessionPtr->RefreshChangeEventId, &simRefreshEvent, sizeof(simRefreshEvent));
         }
         result = le_ref_NextNode(iterRef);
@@ -883,7 +883,7 @@ void taf_sim::FirstLayerNewRefreshChangeHandler(void* reportPtr, void* secondLay
 taf_sim_RefreshChangeHandlerRef_t taf_sim::AddRefreshChangeHandler(taf_sim_RefreshChangeHandlerFunc_t handlerPtr,
             void* contextPtr)
 {
-    LE_INFO("Add Refresh Change handler");
+    LE_DEBUG("Add Refresh Change handler");
     le_event_HandlerRef_t handlerRef;
     if (NULL == handlerPtr)
     {
@@ -915,7 +915,7 @@ taf_sim_RefreshChangeHandlerRef_t taf_sim::AddRefreshChangeHandler(taf_sim_Refre
         return NULL;
     }
 
-    LE_INFO("taf_pa_sim_AddRefreshChangeHandler done. paHandlerRef: %p, handlerRef: %p",
+    LE_DEBUG("taf_pa_sim_AddRefreshChangeHandler done. paHandlerRef: %p, handlerRef: %p",
         clientRequestPtr->paHandlerRef, handlerRef);
     clientRequestPtr->clientHandlerRef = handlerRef;
     taf_sim::refresh_client.push_back(clientRequestPtr);
@@ -1189,7 +1189,7 @@ le_result_t taf_sim::SetRefreshRegisterFiles(taf_sim_RefreshRef_t refreshSession
         clientRequestPtr->refreshRegFiles[i].file_id = filesPtr[i].file_id;
         le_utf8_Copy((char*) clientRequestPtr->refreshRegFiles[i].path, (char*) filesPtr[i].path, sizeof(filesPtr[i].path), NULL);
 
-        LE_INFO("File_id: %d and path: %s", clientRequestPtr->refreshRegFiles[i].file_id, clientRequestPtr->refreshRegFiles[i].path);
+        LE_DEBUG("File_id: %d and path: %s", clientRequestPtr->refreshRegFiles[i].file_id, clientRequestPtr->refreshRegFiles[i].path);
     }
 
     clientRequestPtr->refreshRegFilesSize = filesSize;
@@ -1385,11 +1385,11 @@ le_result_t taf_sim::SetRefreshAllow(taf_sim_RefreshRef_t refreshSessionRef, boo
                 continue;
             }
         }
-        LE_INFO("PA file path0 ~ path3 in hex: %x %x %x %x", paFile.path[0], paFile.path[1], paFile.path[2], paFile.path[3]);
+        LE_DEBUG("PA file path0 ~ path3 in hex: %x %x %x %x", paFile.path[0], paFile.path[1], paFile.path[2], paFile.path[3]);
 
-        LE_INFO("PA file path0 ~ path3 in dec: %u %u %u %u", paFile.path[0], paFile.path[1], paFile.path[2], paFile.path[3]);
+        LE_DEBUG("PA file path0 ~ path3 in dec: %u %u %u %u", paFile.path[0], paFile.path[1], paFile.path[2], paFile.path[3]);
 
-        LE_INFO("PA File_id: %d and path_len: %d", paFile.file_id, paFile.path_len);
+        LE_DEBUG("PA File_id: %d and path_len: %d", paFile.file_id, paFile.path_len);
         refreshPAFiles.push_back(paFile);
     }
 
@@ -1850,7 +1850,7 @@ le_result_t taf_sim::getICCID(taf_sim_Id_t simId, char *iccid, int length)
         return LE_FAULT;
 
     }
-    LE_INFO("iccIdStr: %s", iccIdStr.c_str());
+    LE_DEBUG("iccIdStr: %s", iccIdStr.c_str());
     return le_utf8_Copy(iccid, iccIdStr.c_str(), length, NULL);
 }
 
@@ -1888,7 +1888,7 @@ le_result_t taf_sim::getSubscriberPhoneNumber(taf_sim_Id_t simId, char *phoneNum
         LE_ERROR("Fail to register subscription listener via PA OSS API.");
         return LE_FAULT;
     }
-    LE_INFO("phoneNumberString.c_str()-> %s",phoneNumberString.c_str());
+    LE_DEBUG("phoneNumberString.c_str()-> %s",phoneNumberString.c_str());
     return le_utf8_Copy(phoneNumber, phoneNumberString.c_str(), length, NULL);
 }
 
@@ -1903,7 +1903,7 @@ le_result_t taf_sim::getIMSI(taf_sim_Id_t simId, char *imsi, int length) {
        LE_ERROR("Fail to get IMSI via PA OSS API.");
        return LE_FAULT;
     }
-    LE_INFO("imsiString.c_str()-> %s",imsiString.c_str());
+    LE_DEBUG("imsiString.c_str()-> %s",imsiString.c_str());
     return le_utf8_Copy(imsi, imsiString.c_str(), length, NULL);
 }
 
@@ -2100,7 +2100,7 @@ le_result_t taf_sim::GetRemainingPukTries(taf_sim_Id_t simId,uint32_t* remaining
 
     if (result == LE_OK) {
         *remainingPukTriesPtr = remainingPukTries;
-        LE_INFO("Remaining PUK tries for simId %d: %u",simId, remainingPukTries);
+        LE_DEBUG("Remaining PUK tries for simId %d: %u",simId, remainingPukTries);
     } else {
         LE_WARN("Failed to get remaining PUK tries for simId %d (paResult=%d)",
                 simId, paResult);
@@ -2112,7 +2112,7 @@ taf_sim_AuthenticationResponseHandlerRef_t taf_sim::AddAuthenticationResponseHan
         taf_sim_AuthenticationResponseHandlerFunc_t handlerPtr, void* contextPtr){
 
     le_event_HandlerRef_t handlerRef;
-    LE_INFO("Add AuthenticationResponseHandler");
+    LE_DEBUG("Add AuthenticationResponseHandler");
 
     if (NULL == handlerPtr)
     {
@@ -2391,7 +2391,6 @@ le_result_t taf_sim::SetPower(taf_sim_Id_t simId, le_onoff_t powerState)
 
 le_result_t taf_sim::Reset(taf_sim_Id_t simId)
 {
-    LE_INFO("Resetting sim card");
     le_result_t r=SetPower(simId, LE_OFF);
     if(r!=LE_OK){
         LE_INFO("Powering off while resetting failed");
@@ -3037,7 +3036,7 @@ le_result_t taf_sim::getSlotCount(int *count) {
             }
             else
             {
-                LE_INFO("getSlotCount: success, Slot Count: %d", slotCount);
+                LE_DEBUG("getSlotCount: success, Slot Count: %d", slotCount);
                 *count = slotCount;
                 if(*count == 1)
                 {
@@ -3137,7 +3136,7 @@ le_result_t taf_sim::SwapSubscriptionInternal
     taf_pa_sim_ProfileInfo_t* targetInfo = toEmergency ? &emInfo : &regInfo;
 
     if (targetInfo->state == TAF_PA_SIM_PROFILE_STATE_ACTIVE) {
-        LE_INFO("Target profile already active");
+        LE_DEBUG("Target profile already active");
         return LE_OK;
     }
 
@@ -3186,7 +3185,7 @@ void taf_sim::UpdateLocalSimState(taf_sim_info_t* simPtr, const sim_iccid_event_
         simPtr->phoneNumber[0] = '\0';
         simPtr->pinTryCount = 3;
         simPtr->pukTryCount = 10;
-        LE_INFO("Cleared local SIM info for simId %d", simPtr->simId);
+        LE_DEBUG("Cleared local SIM info for simId %d", simPtr->simId);
     }
     else {
         taf_sim_Id_t simId = (taf_sim_Id_t)iccidDataInfo->simId;

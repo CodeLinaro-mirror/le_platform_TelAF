@@ -57,6 +57,27 @@ bool  VoiceCallSvc::isEnableDebug = false;
 
 static bool ecallServiceAvailable  = false;
 
+// Mask a phone number for logging: keep first 3 and last 2 characters visible,
+// replace everything else with one '*' per hidden character (e.g. "12345678" -> "123***78").
+std::string VoiceCallSvc::MaskPhoneNumber(const char* numberPtr)
+{
+    if (numberPtr == NULL)
+    {
+        return "";
+    }
+
+    size_t len = strnlen(numberPtr, TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES);
+    if (len <= 5)
+    {
+        return "***";
+    }
+
+    std::string masked(numberPtr, 3);
+    masked.append(len - 5, '*');
+    masked.append(numberPtr + len - 2, 2);
+    return masked;
+}
+
 // session close handler
 void Handler::CloseSessHandler(le_msg_SessionRef_t sessionRef, void* ctxPtr)
 {
@@ -98,7 +119,7 @@ void Handler::PaEventListener(taf_pa_voicecall_Ref_t reference, taf_pa_voicecall
         if (taf_pa_voicecall_GetCallTermination(reference, &termination) == LE_OK)
         {
             msgCallEvent.termination = myCall.EndCauseConvert(termination);
-            LE_INFO("Termination reason %d for this call: %s", msgCallEvent.termination, destinationPtr);
+            LE_INFO("Termination reason %d for this call: %s", msgCallEvent.termination, VoiceCallSvc::MaskPhoneNumber(destinationPtr).c_str());
         }
         else
         {
@@ -107,8 +128,7 @@ void Handler::PaEventListener(taf_pa_voicecall_Ref_t reference, taf_pa_voicecall
     }
 
     taf_pa_voicecall_DeleteReference(reference);
-
-    LE_INFO("PA event phone %d, dest %s, dir %d, event %s", phoneId, destinationPtr, direction, myCall.PaEventToString(event));
+    LE_DEBUG("PA event phone %d, dest %s, event %s", phoneId, VoiceCallSvc::MaskPhoneNumber(destinationPtr).c_str(), myCall.PaEventToString(event));
 
     le_utf8_Copy(msgCallEvent.dest, destinationPtr, MAX_DESTINATION_LEN, NULL);
     msgCallEvent.callRef = NULL;
@@ -168,7 +188,7 @@ void VoiceCallSvc::ShowAll()
         taf_VoiceCtrl_t* callCtxPtr = CONTAINER_OF( linkPtr, taf_VoiceCtrl_t, link);
         linkPtr = le_dls_PeekNext(&CallCtrlList, linkPtr);
         LE_DEBUG("   [%d]ID: %d, destId: %s, callRef: %p, event: %s, termination: %s",
-            i++, callCtxPtr->phoneId, callCtxPtr->destId, callCtxPtr->callRef,
+            i++, callCtxPtr->phoneId, MaskPhoneNumber(callCtxPtr->destId).c_str(), callCtxPtr->callRef,
             EventToString(callCtxPtr->event), TerminationToString(callCtxPtr->termination));
 
         le_dls_Link_t* linkSessionRefPtr = le_dls_Peek(&(callCtxPtr->sessionRefList));
@@ -317,7 +337,6 @@ le_result_t VoiceCallSvc::SendCallEventToClient(taf_VoiceCtrl_t *callCtxPtr)
     // for incoming call, boardcast its events to all sessions
     if (isIncomingCallWaiting == true)
     {
-        LE_DEBUG("link sessionRef to callCtx for incoming call");
         le_dls_Link_t* linkPtr = le_dls_Peek(&SessionCtxList);
         while (linkPtr)
         {
@@ -369,7 +388,7 @@ le_result_t VoiceCallSvc::SendCallEventToClient(taf_VoiceCtrl_t *callCtxPtr)
         // if the call have been ended, unlink this session from the call context
         if (callCtxPtr->event == TAF_VOICECALL_EVENT_ENDED)
         {
-            LE_INFO("Unbind sessionRef %p from callCtx %p: %s in ENDED", sessionCtxPtr->sessionRef, callCtxPtr, callCtxPtr->destId);
+            LE_DEBUG("Unbind sessionRef %p from callCtx %p: %s in ENDED", sessionCtxPtr->sessionRef, callCtxPtr, MaskPhoneNumber(callCtxPtr->destId).c_str());
             UnsetSessionRefToCallCtx(callCtxPtr, sessionCtxPtr->sessionRef);
         }
     }
@@ -442,7 +461,7 @@ void VoiceCallSvc::CallHandler(CallEvent_t *eventVoicePtr)
     if ((callCtxPtr->event == TAF_VOICECALL_EVENT_ENDED) &&
         (eventVoicePtr->event == TAF_VOICECALL_EVENT_CALL_END_FAILED))
     {
-        LE_INFO("Call %s already stopped, skipping", eventVoicePtr->dest);
+        LE_DEBUG("Call %s already stopped, skipping", MaskPhoneNumber(eventVoicePtr->dest).c_str());
         return;
     }
 
@@ -577,7 +596,7 @@ le_result_t VoiceCallSvc::ReleaseSession(le_msg_SessionRef_t sessionRef, void* c
     taf_SessionCtx_t* sessionCtx = GetSessionCtx(sessionRef);
     TAF_ERROR_IF_RET_VAL(sessionCtx == NULL, LE_NOT_FOUND, "Cannot get sessionCtx");
 
-    LE_INFO("To close the sessionRef: %p", sessionRef);
+    LE_DEBUG("To close the sessionRef: %p", sessionRef);
 
     // remove sessionCtx from callCtrl
     linkPtr = le_dls_Peek(&CallCtrlList);
@@ -599,7 +618,7 @@ le_result_t VoiceCallSvc::ReleaseSession(le_msg_SessionRef_t sessionRef, void* c
             (callCtxPtr->event == TAF_VOICECALL_EVENT_ALERTING) ||
             (callCtxPtr->event == TAF_VOICECALL_EVENT_WAITING))
         {
-            LE_INFO("The call[%s] will be hung up as session %p is released",
+            LE_DEBUG("The call[%s] will be hung up as session %p is released",
             EventToString(callCtxPtr->event), sessionRef);
             StopCall(callCtxPtr->callRef, sessionRef);
         }
@@ -632,7 +651,7 @@ taf_VoiceCtrl_t* VoiceCallSvc::GetCallCtx(int8_t phoneId, const char* destinatio
     {
         taf_VoiceCtrl_t* callCtx = CONTAINER_OF( linkPtr, taf_VoiceCtrl_t, link);
         linkPtr = le_dls_PeekNext(&CallCtrlList, linkPtr);
-        LE_INFO("Link phoneId: %d, dest: %s, dir: %d", callCtx->phoneId, callCtx->destId, static_cast<int>(callCtx->dir));
+        LE_DEBUG("Link phoneId: %d, dest: %s, dir: %d", callCtx->phoneId, MaskPhoneNumber(callCtx->destId).c_str(), static_cast<int>(callCtx->dir));
         // Check phone number and only return the client call object.
         if ((strncmp(destinationPtr, callCtx->destId, MAX_DESTINATION_LEN_BYTE) == 0) &&
             (callCtx->phoneId == phoneId) && (callCtx->dir == dir))
@@ -642,7 +661,7 @@ taf_VoiceCtrl_t* VoiceCallSvc::GetCallCtx(int8_t phoneId, const char* destinatio
         }
     }
 
-    LE_ERROR("Cannot find ctx from phone %d, dir %d, dest %s", phoneId, static_cast<int>(dir), destinationPtr);
+    LE_ERROR("Cannot find ctx from phone %d, dir %d, dest %s", phoneId, static_cast<int>(dir), MaskPhoneNumber(destinationPtr).c_str());
     return NULL;
 }
 
@@ -660,13 +679,13 @@ taf_VoiceCtrl_t* VoiceCallSvc::CreateCallCtx(int8_t phoneId, const char* destina
 {
     taf_VoiceCtrl_t* callCtx = NULL;
 
-    LE_DEBUG("Create ctx for phoneId: %d, dest: %s, dir: %d", phoneId, destinationPtr, (int)dir);
+    LE_DEBUG("Create ctx for phoneId: %d, dest: %s, dir: %d", phoneId, MaskPhoneNumber(destinationPtr).c_str(), (int)dir);
 
     callCtx = (taf_VoiceCtrl_t*)le_mem_ForceAlloc(CallCtrlPool);
     TAF_ERROR_IF_RET_VAL(!callCtx, NULL, "cannot alloc callCtr");
 
     if (le_utf8_Copy(callCtx->destId, destinationPtr, sizeof(callCtx->destId), NULL) == LE_OVERFLOW) {
-        LE_WARN("Destination truncated: %s", destinationPtr);
+        LE_WARN("Destination truncated: %s", MaskPhoneNumber(destinationPtr).c_str());
     }
     callCtx->phoneId = phoneId;
     callCtx->dir = dir;

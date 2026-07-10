@@ -158,11 +158,6 @@ le_result_t taf_sms_hlos_storeRxMsg(uint8_t pduData[TAF_SMS_PDU_BYTES],
     TAF_ERROR_IF_RET_VAL(index == NULL || occupiedSlot == NULL, LE_FAULT,
         "invalid null parameter");
 
-    for (uint i = 0; i < dataLen; i++)
-    {
-        LE_DEBUG("pduData: 0x%.2X", pduData[i]);
-    }
-
     bool findSlot = false;
     *index = 0;
     *occupiedSlot = 0;
@@ -298,7 +293,7 @@ static le_result_t KsServerConnect()
             LE_ERROR("Failed to connect to key service, res = %d", res);
             return res;
         }
-        LE_INFO("Connected to KeyStore service");
+        LE_DEBUG("Connected to KeyStore service");
         sms.isConnectToKeyStoreSvc = true;
         taf_ks_SetNonExitServerDisconnectHandler(KsServerDisconnectHandler, NULL);
     }

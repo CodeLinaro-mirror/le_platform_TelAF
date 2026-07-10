@@ -173,6 +173,8 @@ public:
     le_dls_List_t SessionCtxList = LE_DLS_LIST_INIT;
     le_dls_List_t CallCtrlList = LE_DLS_LIST_INIT;
 
+    static std::string MaskPhoneNumber(const char* numberPtr);
+
     static void commonCallback(
         pa_result_t errorCode,
         const taf_pa_voicecall_CallInfo_t& callInfo,

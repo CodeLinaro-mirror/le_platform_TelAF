@@ -539,12 +539,10 @@ uint8_t pduDecodeAddr(const unsigned char* buffer, uint8_t addrLen, char* output
         {
             outputAddr[idx++] = nibble;
         }
-        LE_DEBUG("outputAddr: %s", outputAddr);
     }
 
     outputAddr[idx] = '\0';
 
-    LE_INFO("outputAddr: %s", outputAddr);
 
     return addrLen;
 }
@@ -829,8 +827,6 @@ uint8_t pduEncode8BitsTo7Bits
 
     for (uint8_t i = pos; i < len + pos; i++)
     {
-        LE_DEBUG("encode char: '%c'", bufferIn_8bit[i]);
-
         uint8_t byte = ascii_8_to_7[bufferIn_8bit[i]];
 
         /* escape symbol for next byte */

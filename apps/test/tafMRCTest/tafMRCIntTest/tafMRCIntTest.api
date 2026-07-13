@@ -122,3 +122,15 @@ FUNCTION SetGpioToggleStatus
 (
     ToggleStatus status IN ///< The GPIO toggle status.
 ) = 7;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Retrieves the number of EFS blocks whose PE count falls within the range [lower, upper).
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetEfsBlocksInPECountRange
+(
+    uint32 lower IN,       ///< Lower bound (inclusive).
+    uint32 upper IN,       ///< Upper bound (exclusive).
+    uint32 count OUT       ///< Number of blocks with lower <= PE count < upper.
+) = 8;

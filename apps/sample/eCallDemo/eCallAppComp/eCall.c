@@ -41,6 +41,8 @@ static bool exitApp = true;
 bool isMsgPrinted = false;
 uint32_t msdVersion = 2;
 
+static void PrintUsage(void);
+
 static uint8_t msdRawData[39] = {2, 37, 28, 6, 128, 227, 10, 81, 67, 158, 41, 85, 212, 56, 0,
         128, 8, 55, 248, 12, 159, 215, 07, 240, 154, 148, 189, 211, 14, 85, 224, 128, 0, 0, 1,
         255, 255, 224, 64};
@@ -537,6 +539,68 @@ static int terminateRegistration()
     return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
+static bool ParseBoolArg(const char* arg, bool* valuePtr)
+{
+    if ((arg == NULL) || (valuePtr == NULL))
+    {
+        return false;
+    }
+
+    if ((strcmp(arg, "1") == 0) || (strcmp(arg, "true") == 0) ||
+        (strcmp(arg, "TRUE") == 0))
+    {
+        *valuePtr = true;
+        return true;
+    }
+
+    if ((strcmp(arg, "0") == 0) || (strcmp(arg, "false") == 0) ||
+        (strcmp(arg, "FALSE") == 0))
+    {
+        *valuePtr = false;
+        return true;
+    }
+
+    return false;
+}
+
+static int setMsdControlBits()
+{
+    int count = le_arg_NumArgs();
+    bool automaticActivation = false;
+    bool testCall = false;
+    le_result_t result = LE_BAD_PARAMETER;
+
+    if (count < 4)
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+
+    ECallRef = taf_ecall_Create();
+    if (ECallRef == NULL)
+    {
+        printf("Failed to create eCall reference.\n");
+        return EXIT_FAILURE;
+    }
+
+    const char* automaticActivationStr = le_arg_GetArg(2);
+    const char* testCallStr = le_arg_GetArg(3);
+
+    if (!ParseBoolArg(automaticActivationStr, &automaticActivation) ||
+        !ParseBoolArg(testCallStr, &testCall))
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+
+    result = taf_ecall_SetMsdControlBits(ECallRef, automaticActivation, testCall);
+    printf("Set MSD control bits automaticActivation=%d, testCall=%d: %s\n",
+           automaticActivation, testCall, result == LE_OK ? "Success." : "Failed!!");
+
+    LE_TEST_OK(result == LE_OK, "setMsdControlBits - LE_OK");
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
 static void* CommandInput(void* contextPtr)
 {
     char input_str[5];
@@ -556,6 +620,7 @@ static void* CommandInput(void* contextPtr)
             printf("\ts - Send MSD\n");
             printf("\te - Export MSD\n");
             printf("\tg - Get hlap timer state\n");
+            printf("\tc - Set MSD control bits\n");
             printf("\tq - Quit test\n");
             printf("-------------------------------------------------\n");
         }
@@ -655,6 +720,39 @@ static void* CommandInput(void* contextPtr)
             le_result_t result = taf_ecall_GetHlapTimerState(timerType, &timerStatus, &elapsedTime);
             printf("Get hlap timer state %s\n", result == LE_OK ? "success." : "failed!!");
             printf("Hlap timer status is %d and the elapsed time is %d\n", timerStatus, elapsedTime);
+        } else if (p != NULL && input_str[0]=='c') {
+            printf("Enter MSD control bits as <automaticActivation> <testCall>, e.g. 1 0:\n");
+            char controlInput[32];
+            char arg1[16];
+            char arg2[16];
+            memset(controlInput, 0, sizeof(controlInput));
+            memset(arg1, 0, sizeof(arg1));
+            memset(arg2, 0, sizeof(arg2));
+
+            p = fgets(controlInput, sizeof(controlInput), stdin);
+            if (p != NULL)
+            {
+                le_result_t result = LE_BAD_PARAMETER;
+                int tokenCount = sscanf(controlInput, "%15s %15s", arg1, arg2);
+
+                if (ECallRef == NULL)
+                {
+                    ECallRef = taf_ecall_Create();
+                }
+
+                if (tokenCount == 2)
+                {
+                    bool automaticActivation = false;
+                    bool testCall = false;
+                    if (ParseBoolArg(arg1, &automaticActivation) && ParseBoolArg(arg2, &testCall))
+                    {
+                        result = taf_ecall_SetMsdControlBits(ECallRef, automaticActivation, testCall);
+                    }
+                }
+
+                printf("Set MSD control bits %s\n", result == LE_OK ? "success." : "failed!!");
+                LE_INFO("CommandInput: set MSD control bits, result %d\n", (int) result);
+            }
         } else if (p != NULL && input_str[0]=='q') {
             exitApp = true;
             le_thread_Cancel(ECallCmdThreadRef);
@@ -763,7 +861,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
     }
 }
 
-static void PrintUsage ()
+static void PrintUsage(void)
 {
     puts("\n"
             "tafECallApp -- setOpMode <NORMAL/ECALL_ONLY> <SLOT1/SLOT2>\n"
@@ -778,6 +876,7 @@ static void PrintUsage ()
             "tafECallApp -- getNadDeregTime\n"
             "tafECallApp -- setMsdVersion <2/3>\n"
             "tafECallApp -- getMsdVersion\n"
+            "tafECallApp -- setMsdControlBits <automaticActivation:0/1> <testCall:0/1>\n"
             "tafECallApp -- setNadClearDownFallbackTime <time in minutes>\n"
             "tafECallApp -- getNadClearDownFallbackTime\n"
             "tafECallApp -- setNadMinNetworkRegistrationTime <time in minutes>\n"
@@ -1764,6 +1863,10 @@ COMPONENT_INIT
     else if (strcmp(command, "setMsdVersion") == 0)
     {
         status = setMsdVersion();
+    }
+    else if (strcmp(command, "setMsdControlBits") == 0)
+    {
+        status = setMsdControlBits();
     }
     else if (strcmp(command, "getMsdVersion") == 0)
     {

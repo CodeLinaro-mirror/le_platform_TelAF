@@ -170,6 +170,26 @@ static void Test_ECall_MSD_Information()
     res = taf_ecall_SetMsdTimeStamp(eCallRef, 4294967295);
     LE_TEST_OK(res == LE_OK, "Test taf_ecall_SetMsdTimeStamp done");
     LE_INFO("Set msd timestamp completed");
+
+    res = taf_ecall_SetMsdControlBits(eCallRef, true, false);
+    LE_TEST_OK(res == LE_OK, "Test taf_ecall_SetMsdControlBits auto done");
+    LE_TEST_OK(taf_ecall_GetType(eCallRef) == TAF_ECALL_TYPE_AUTO,
+            "Test taf_ecall_SetMsdControlBits auto type done");
+
+    res = taf_ecall_SetMsdControlBits(eCallRef, false, false);
+    LE_TEST_OK(res == LE_OK, "Test taf_ecall_SetMsdControlBits manual done");
+    LE_TEST_OK(taf_ecall_GetType(eCallRef) == TAF_ECALL_TYPE_MANUAL,
+            "Test taf_ecall_SetMsdControlBits manual type done");
+
+    res = taf_ecall_SetMsdControlBits(eCallRef, false, true);
+    LE_TEST_OK(res == LE_OK, "Test taf_ecall_SetMsdControlBits test done");
+    LE_TEST_OK(taf_ecall_GetType(eCallRef) == TAF_ECALL_TYPE_TEST,
+            "Test taf_ecall_SetMsdControlBits test type done");
+
+    res = taf_ecall_SetMsdControlBits(eCallRef, true, true);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "Test taf_ecall_SetMsdControlBits invalid done");
+    LE_INFO("Set msd control bits completed");
+
     res = taf_ecall_ResetMsdTimeStamp(eCallRef);
     LE_TEST_OK(res == LE_OK, "Test taf_ecall_ResetMsdTimeStamp done");
     LE_INFO("Reset msd timestamp completed");
@@ -213,6 +233,9 @@ static void Test_ECall_MSD_Information()
     res = taf_ecall_SetMsdTimeStamp(eCallRef, 4294967295);
     LE_TEST_OK(res == LE_DUPLICATE, "Test taf_ecall_SetMsdTimeStamp done");
     LE_INFO("Set msd timestamp completed");
+
+    res = taf_ecall_SetMsdControlBits(eCallRef, true, false);
+    LE_TEST_OK(res == LE_DUPLICATE, "Test taf_ecall_SetMsdControlBits imported MSD done");
 
     LE_INFO("Set msd information test completed");
 }

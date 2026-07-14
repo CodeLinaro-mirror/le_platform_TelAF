@@ -312,6 +312,8 @@ using namespace std;
                 static void WriteMsdTimeStampToConfigTree(const char* nodeName, const char* timestampStr);
                 le_result_t SetMsdTimeStamp(taf_ecall_CallRef_t ecallRef, uint32_t timeStamp);
                 le_result_t ResetMsdTimeStamp(taf_ecall_CallRef_t ecallRef);
+                le_result_t SetMsdControlBits(taf_ecall_CallRef_t ecallRef,
+                    bool automaticActivation, bool testCall);
                 static void WriteMsdMsgIdToConfigTree(uint32_t msgId);
                 static uint32_t ReadMsdMsgIdFromConfigTree();
                 le_result_t SetPsapNumber( const char* psapNumber );

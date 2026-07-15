@@ -334,6 +334,8 @@ static void RatChangeHandler
     auto& factory = Factory::GetInstance();
     if (instance < INSTANCE_MAX_COUNT && indication.rat != factory.cache.rat[instance])
     {
+        factory.cache.rat[instance] = indication.rat;
+
         taf_radio_RatChangeInd_t* indPtr = (taf_radio_RatChangeInd_t*)le_mem_ForceAlloc(
             factory.pools.ratChange);
 
@@ -3319,6 +3321,7 @@ COMPONENT_INIT
     factory.maps.connStatus = le_ref_InitStaticMap(connStatus, CONN_STATUS_MAX_COUNT);
     for (uint32_t i = 0; i < INSTANCE_MAX_COUNT; i++)
     {
+        factory.cache.rat[i] = TAF_PA_RADIO_RAT_UNKNOWN;
         SafeRef_t* netRefPtr = (SafeRef_t*)le_mem_ForceAlloc(factory.pools.safeRef);
         factory.cache.netStatusRefs[i] = (taf_radio_NetStatusRef_t)le_ref_CreateRef(
             factory.maps.safeRef, (void*)netRefPtr);
@@ -3352,6 +3355,21 @@ COMPONENT_INIT
     {
         LE_ERROR("Failed to initialize platform adaptor.");
         return;
+    }
+
+    for (uint32_t i = 0; i < INSTANCE_MAX_COUNT; i++)
+    {
+        taf_pa_radio_Rat_t currentRat = TAF_PA_RADIO_RAT_UNKNOWN;
+        pa_result_t ratResult = taf_pa_radio_GetServingRat(i, &currentRat);
+        if (ratResult == PA_OK)
+        {
+            factory.cache.rat[i] = currentRat;
+            LE_DEBUG("Initialized cached RAT for instance %u to %d.", i, currentRat);
+        }
+        else
+        {
+            LE_WARN("Failed to initialize cached RAT for instance %u, result=%d.", i, ratResult);
+        }
     }
 
     taf_pa_radio_NetworkRejectHandlerRef_t networkRejectHandlerRef = nullptr;

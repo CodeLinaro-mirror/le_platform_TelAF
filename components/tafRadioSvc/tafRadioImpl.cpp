@@ -3462,7 +3462,7 @@ void PowerStateChangeHandler
     {
         LE_INFO("Power state change to SUSPEND");
         DeregisterListener();
-        result = taf_pa_radio_DisableIndication();
+        result = taf_pa_radio_DisableIndication(TAF_PA_RADIO_DISABLE_IND_MODE_ALL);
         TAF_ERROR_IF_RET_NIL(result != LE_OK, "Disable indication falied.");
     }
 }

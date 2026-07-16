@@ -7,6 +7,9 @@
 #include "interfaces.h"
 #include "tafEcallPa.hpp"
 #include "tafSvcIF.hpp"
+#include <unordered_map>
+#include <mutex>
+#include <atomic>
 
 // For using VHAL
 #include "tafHalLib.hpp"
@@ -62,6 +65,7 @@ using namespace std;
 #define MSD_TIMESTAMP_STR_INVALID "INVALID"
 #define MIN_PHONE_ID  1
 #define MAX_PHONE_ID  2
+#define RX_ECALL_EVENT_POOL_SIZE 50
 
     namespace tafsvc {
 
@@ -117,6 +121,7 @@ using namespace std;
             taf_DialRedial_t                    dialRedial;
             bool                                waitForALACKPos;
             int8_t                              phoneId;
+            taf_ecall_TerminationRedialReason_t redialReason;
         }
         taf_ECall_t;
 
@@ -171,6 +176,61 @@ using namespace std;
             int8_t phoneId;
             taf_pa_ecall_mode_t eCallMode;
         }ResumeHlapTimerEvent_t;
+
+        typedef enum {
+            ECALL_EVENT_INCOMING_CALL,
+            ECALL_EVENT_CALL_INFO_CHANGE,
+            ECALL_EVENT_MSD_TRANSMISSION_STATUS,
+            ECALL_EVENT_HLAP_TIMER,
+            ECALL_EVENT_MSD_UPDATE_REQ,
+            ECALL_EVENT_REDIAL,
+            ECALL_EVENT_MAKECALL_RESP
+        } RxECallEventType_t;
+
+        typedef struct {
+            uint64_t callToken;
+            int32_t callIndex;
+            taf_pa_ecall_call_status_t callState;
+            char remotePartyNumber[MAX_DESTINATION_LEN];
+        } RxECallIncomingCallParam_t;
+
+        typedef struct {
+            uint64_t callToken;
+            int32_t callIndex;
+            taf_pa_ecall_call_status_t callState;
+            taf_pa_ecall_dir_t callDirection;
+            taf_pa_ecall_termination_t callEndCause;
+        } RxECallInfoChangeParam_t;
+
+        typedef struct {
+            taf_pa_ecall_msd_status_t msdTransmissionStatus;
+        } RxECallMsdTransmissionStatusParam_t;
+
+        typedef struct {
+            taf_pa_ecall_hlap_timer_events_t timerEvents;
+        } RxECallHlapTimerParam_t;
+
+        typedef struct {
+            taf_pa_ecall_redial_info_t redialInfo;
+        } RxECallRedialParam_t;
+
+        typedef struct {
+            int32_t callIndex;
+        } RxECallMakeCallResponse;
+
+        typedef struct {
+            RxECallEventType_t eventType;
+            int phoneId;
+            union {
+                RxECallIncomingCallParam_t incomingCall;
+                RxECallInfoChangeParam_t infoChange;
+                RxECallMsdTransmissionStatusParam_t msdTransmissionStatus;
+                RxECallHlapTimerParam_t hlapTimer;
+                RxECallRedialParam_t redial;
+                RxECallMakeCallResponse response;
+            } param;
+        } RxECallEvent_t;
+
 
         class tafCallCommandCallback{
             public:
@@ -269,6 +329,18 @@ using namespace std;
                 le_result_t ConfigureInitialDialRedial(std::vector<int> redialPara);
                 le_result_t SetInitialDialAttempts(uint8_t attempts);
                 le_result_t SetInitialDialIntervalBetweenDialAttempts(const uint16_t* interval, size_t intervalLength);
+                taf_ecall_TerminationRedialReason_t MapRedialReason(taf_pa_ecall_reason_type_t redialReson);
+                le_result_t GetTerminationRedialReason(taf_ecall_CallRef_t ecallRef, taf_ecall_TerminationRedialReason_t* reason);
+                uint64_t StashCall(std::shared_ptr<taf_pa_ecall_CallInfo_t> sp);
+                std::shared_ptr<taf_pa_ecall_CallInfo_t> TakeCall(uint64_t token);
+                void HandleIncomingCall(int phoneId, const RxECallIncomingCallParam_t& incomingCall);
+                void HandleCallInfoChange(int phoneId, const RxECallInfoChangeParam_t& infoChange);
+                void HandleMsdTransmissionStatus(int phoneId, taf_pa_ecall_msd_status_t status);
+                void HandleHlapTimerEvent(int phoneId, taf_pa_ecall_hlap_timer_events_t timerEvents);
+                void HandleMsdUpdateRequest(int phoneId);
+                void HandleRedial(int phoneId, taf_pa_ecall_redial_info_t redialInfo);
+                void HandleMakeCallResp(int phoneId, RxECallMakeCallResponse resp);
+                static void ProcessRxECallEvent(void* msgPtr);
                 taf_ecall_StateChangeHandlerRef_t AddStateChangeHandler (taf_ecall_StateChangeHandlerFunc_t handlerPtr,
                                                                                         void* contextPtr);
                 void RemoveStateChangeHandler (taf_ecall_StateChangeHandlerRef_t handlerRef);
@@ -291,6 +363,8 @@ using namespace std;
                 void SetCallIndex(int32_t callIndex);
                 void SetCallPhoneId(int8_t phoneId);
                 le_event_Id_t StateChangeEventId;
+                le_event_Id_t RxECallEventId;
+                le_mem_PoolRef_t RxECallEventPool = NULL;
 
                 std::promise<pa_result_t> updateMsdProm;
                 std::promise<pa_result_t> hangupProm;
@@ -316,6 +390,9 @@ using namespace std;
                 le_timer_Ref_t elapsedTimeT9Ref;
                 bool pendingToResumeHlapTimer = false;
             private:
+                std::mutex callMtx_;
+                std::unordered_map<uint64_t, std::shared_ptr<taf_pa_ecall_CallInfo_t>> callStore_;
+                std::atomic<uint64_t> callNextToken_{1};
                 taf_ECall_t ECallObject;
                 taf_pa_ecall_event_listener_t eventListener;
                 void InitializeECallPtr();
@@ -344,8 +421,6 @@ using namespace std;
             static void onStateChange(std::shared_ptr<taf_pa_ecall_subsystem_info_t> info,
                 taf_pa_ecall_operational_status_t status,
                 std::any context);
-            static taf_ecall_State_t eCallMsdTransmissionStatusToState(
-                taf_pa_ecall_msd_status_t status);
         };
     }
 

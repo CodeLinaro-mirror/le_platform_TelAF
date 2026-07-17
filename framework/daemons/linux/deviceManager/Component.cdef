@@ -1,6 +1,15 @@
 sources:
 {
     devManager.cpp
+    $LEGATO_ROOT/framework/daemons/linux/common/frameworkWdog.c
+}
+
+provides:
+{
+    api:
+    {
+        deviceManagerWdog = watchdog/frameworkWdog.api [manual-start]
+    }
 }
 
 requires:
@@ -15,6 +24,10 @@ requires:
 
 cxxflags:
 {
-    -DFRAMEWORK_WDOG_NAME=DevManagerWdog
     -I$TELAF_ROOT/include
+}
+
+cflags:
+{
+    -DFRAMEWORK_WDOG_NAME=deviceManagerWdog
 }

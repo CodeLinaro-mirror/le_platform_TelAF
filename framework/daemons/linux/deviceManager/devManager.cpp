@@ -4,6 +4,7 @@
  */
 
 #include "legato.h"
+#include "interfaces.h"
 #include "limit.h"
 
 #include "tafSvcIF.hpp"
@@ -1470,6 +1471,43 @@ static void ClientIpcSessionClosed
     return;
 }
 
+static void ScanCopyAndInstallDrivers
+(
+    void* param1Ptr,
+    void* param2Ptr
+)
+{
+    LE_UNUSED(param1Ptr);
+    LE_UNUSED(param2Ptr);
+
+    ScanStoredDriversAndCopy(DRIVER_TMP_STORAGE);
+    InstallPersistentDrivers();
+
+    LE_INFO("Device Manager ready.");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Signal to the supervisor that we are set up and ready
+ */
+//--------------------------------------------------------------------------------------------------
+static void SystemProcessNotifySupervisor
+(
+    void
+)
+{
+    // Close the fd that we inherited from the Supervisor. This will let the Supervisor know that
+    // we are initialized. Then re-open it to /dev/null so that it cannot be reused later.
+    FILE* filePtr;
+    do
+    {
+        filePtr = freopen("/dev/null", "r", stdin);
+    }
+    while ( (filePtr == NULL) && (errno == EINTR) );
+
+    LE_FATAL_IF(filePtr == NULL, "Failed to redirect standard in to /dev/null.	%m.");
+}
+
 #ifdef __cplusplus
     }
 #endif
@@ -1585,20 +1623,10 @@ COMPONENT_INIT
     le_msg_SetServiceRecvHandler(serviceRef,ToolMsgReceiveHandler, nullptr);
     le_msg_AdvertiseService(serviceRef);
 
-    ScanStoredDriversAndCopy(DRIVER_TMP_STORAGE);
+    // Create and advertise watchdog proxy service.
+    deviceManagerWdog_AdvertiseService();
 
-    InstallPersistentDrivers();
+    SystemProcessNotifySupervisor();
 
-    // Close the fd that we inherited from the Supervisor.  This will let the Supervisor know that
-    // we are initialized.  Then re-open it to /dev/null so that it cannot be reused later.
-    FILE* filePtr;
-    do
-    {
-        filePtr = freopen("/dev/null", "r", stdin);
-    }
-    while ( (filePtr == nullptr) && (errno == EINTR) );
-
-    LE_FATAL_IF(filePtr == nullptr, "Failed to redirect standard in to /dev/null.  %m.");
-
-    LE_INFO("Device Manager ready.");
+    le_event_QueueFunction(ScanCopyAndInstallDrivers, NULL, NULL);
 }

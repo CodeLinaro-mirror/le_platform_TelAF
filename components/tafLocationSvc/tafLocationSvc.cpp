@@ -2718,3 +2718,41 @@ void taf_locGnss_GetIntegrityRiskUsed
     auto res = gnss.GetIntegrityRiskUsed(positionSampleRef, &integrityRiskUsedPtr);
     taf_locGnss_GetIntegrityRiskUsedRespond(cmdRef, res, integrityRiskUsedPtr);
 }
+
+/**
+* FUNCTION     : SetDataResolution
+* DESCRIPTION  : Sets the output resolution per field group per client session.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_BAD_PARAMETER  LE_NOT_PERMITTED on failed.
+*/
+void taf_locGnss_SetDataResolution
+(
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    taf_locGnss_DataType_t     dataType,
+    taf_locGnss_Resolution_t   resolution
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    le_result_t result = gnss.SetDataResolution(dataType, resolution);
+    taf_locGnss_SetDataResolutionRespond(cmdRef, result);
+}
+
+/**
+* FUNCTION     : GetDataResolution
+* DESCRIPTION  : Gets the output resolution field set group per client session.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_BAD_PARAMETER LE_NOT_PERMITTED on failed.
+*/
+void taf_locGnss_GetDataResolution
+(
+    taf_locGnss_ServerCmdRef_t  cmdRef,
+    taf_locGnss_DataType_t      dataType
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    taf_locGnss_Resolution_t resolution = TAF_LOCGNSS_RES_UNKNOWN;
+    le_result_t res = gnss.GetDataResolution(dataType, &resolution);
+    taf_locGnss_GetDataResolutionRespond(cmdRef, res, resolution);
+}

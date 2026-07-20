@@ -445,14 +445,8 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
 
             LocationData->reportStatus = (taf_locGnss_ReportStatus_t) locationInfo->reportStatus;
             LocationData->altMeanSeaLevel = locationInfo->altMeanSeaLevel;
-            locData = 0.0;
-            locData = locationInfo->latitude;
-            roundOffLocationData(&locData,6);//round off to 6 decimal places
-            LocationData->latitude = (int32_t)locData;
-            locData = 0.0;
-            locData = locationInfo->longitude;
-            roundOffLocationData(&locData,6);//round off to 6 decimal places
-            LocationData->longitude = (int32_t)locData;
+            LocationData->latitude  = locationInfo->latitude;
+            LocationData->longitude = locationInfo->longitude;
             locData = 0.0;
             locData = locationInfo->hUncertainity;
             roundOffLocationData(&locData,2);//round off to 2 decimal places
@@ -461,10 +455,7 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
             locData = locationInfo->altitude;
             roundOffLocationData(&locData,3);//round off to 3 decimal places
             LocationData->altitude = (int32_t)locData;
-            locData = 0.0;
-            locData = locationInfo->vUncertainity;
-            roundOffLocationData(&locData,1);//round off to 1 decimal place
-            LocationData->vAccuracy = (int32_t)locData;
+            LocationData->vAccuracy = locationInfo->vUncertainity;
             LocationData->altitudeOnWgs84 = 0;
             LocationData->hSpeed = locationInfo->hSpeed*100;
             LocationData->hSpeedAccuracy = locationInfo->hSpeedUncertainity*1e+3;
@@ -495,8 +486,8 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
                     locationInfo->horUncEllipseSemiMajor;
             LocationData->horUncEllipseSemiMinor =
                     locationInfo->horUncEllipseSemiMinor;
-            LocationData->direction = locationInfo->direction*10;
-            LocationData->directionAccuracy = locationInfo->directionAccuracy*10;
+            LocationData->direction = locationInfo->direction;
+            LocationData->directionAccuracy = locationInfo->directionAccuracy;
             LocationData->gpsWeek = locationInfo->gpsWeek;
             LocationData->gpsTimeOfWeek = locationInfo->gpsTimeOfWeek;
 
@@ -1258,14 +1249,8 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
             BasicLocationData->clientSessionRefPtr = &clientRequestPtr->sessionRef;
 
             double locData;
-            locData = 0.0;
-            locData = locationInfo->latitude;
-            roundOffLocationData(&locData,6);//round off to 6 decimal places
-            BasicLocationData->latitude = (int32_t)locData;
-            locData = 0.0;
-            locData = locationInfo->longitude;
-            roundOffLocationData(&locData,6);//round off to 6 decimal places
-            BasicLocationData->longitude = (int32_t)locData;
+            BasicLocationData->latitude  = locationInfo->latitude;
+            BasicLocationData->longitude = locationInfo->longitude;
             locData = 0.0;
             locData = locationInfo->hUncertainity;
             roundOffLocationData(&locData,2);//round off to 2 decimal places
@@ -1274,13 +1259,10 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
             locData = locationInfo->altitude;
             roundOffLocationData(&locData,3);//round off to 3 decimal places
             BasicLocationData->altitude = (int32_t)locData;
-            locData = 0.0;
-            locData = locationInfo->vUncertainity;
-            roundOffLocationData(&locData,1);//round off to 1 decimal place
-            BasicLocationData->vAccuracy = (int32_t)locData;
+            BasicLocationData->vAccuracy = locationInfo->vUncertainity;
             BasicLocationData->hSpeed = locationInfo->hSpeed*100;
-            BasicLocationData->direction = locationInfo->direction*10;
-            BasicLocationData->directionAccuracy = locationInfo->directionAccuracy*10;
+            BasicLocationData->direction = locationInfo->direction;
+            BasicLocationData->directionAccuracy = locationInfo->directionAccuracy;
             BasicLocationData->epochTime = locationInfo->epochTime;
             BasicLocationData->realTime = locationInfo->realTime;
             BasicLocationData->realTimeUnc = locationInfo->realTimeUnc;
@@ -2165,16 +2147,42 @@ void taf_locGnss::GnssPositionExHandler
         taf_locGnss_SampleExRef_t postitionSampleExRef =
            (taf_locGnss_SampleExRef_t)le_ref_CreateRef(gnss.PositionExSampleMap, extendPosSampleReqPtr);
 
-        extendPosSampleReqPtr->longitude = currentPosPtr->longitude;
-        extendPosSampleReqPtr->latitude = currentPosPtr->latitude;
+        uint8_t latLonDplace = 6U;
+        switch (clientRequestPtr->latLonResolution)
+        {
+            case TAF_LOCGNSS_RES_SEVEN_DECIMAL:
+                latLonDplace = 7U;
+                break;
+            case TAF_LOCGNSS_RES_SIX_DECIMAL:
+            default:
+                latLonDplace = 6U;
+                break;
+        }
+
+        double locData = currentPosPtr->longitude;
+        roundOffLocationData(&locData, latLonDplace);
+        extendPosSampleReqPtr->longitude = (int32_t)locData;
+        locData = currentPosPtr->latitude;
+        roundOffLocationData(&locData, latLonDplace);
+        extendPosSampleReqPtr->latitude = (int32_t)locData;
         extendPosSampleReqPtr->hAccuracy = currentPosPtr->hAccuracy;
         extendPosSampleReqPtr->altitude = currentPosPtr->altitude;
-        extendPosSampleReqPtr->direction = currentPosPtr->direction;
-        extendPosSampleReqPtr->directionAccuracy = currentPosPtr->directionAccuracy;
+
+        locData = currentPosPtr->direction;
+        roundOffLocationData(&locData,
+                (clientRequestPtr->directionExResolution == TAF_LOCGNSS_RES_TWO_DECIMAL) ? 2 : 1);
+        extendPosSampleReqPtr->direction = (uint32_t)locData;
+        locData = currentPosPtr->directionAccuracy;
+        roundOffLocationData(&locData,
+                (clientRequestPtr->dirAccuracyExResolution == TAF_LOCGNSS_RES_TWO_DECIMAL) ? 2 : 1);
+        extendPosSampleReqPtr->directionAccuracy = (uint32_t)locData;
         extendPosSampleReqPtr->validityMask = currentPosPtr->validityMask;
         extendPosSampleReqPtr->techMask = currentPosPtr->techMask;
         extendPosSampleReqPtr->hSpeed = currentPosPtr->hSpeed;
-        extendPosSampleReqPtr->vAccuracy = currentPosPtr->vAccuracy;
+        locData = currentPosPtr->vAccuracy;
+        roundOffLocationData(&locData,
+                (clientRequestPtr->vAccuracyResolution == TAF_LOCGNSS_RES_TWO_DECIMAL) ? 2 : 1);
+        extendPosSampleReqPtr->vAccuracy = (int32_t)locData;
         extendPosSampleReqPtr->epochTime = currentPosPtr->epochTime;
         extendPosSampleReqPtr->hSpeedAccuracy = currentPosPtr->hSpeedAccuracy;
         extendPosSampleReqPtr->realTime = currentPosPtr->realTime;
@@ -2543,9 +2551,12 @@ void taf_locGnss::InitializeClient
     clientRequestPtr->LastPositionSample.fixState = TAF_LOCGNSS_STATE_FIX_NO_POS;
     memset(&clientRequestPtr->mSatParams, 0, sizeof(clientRequestPtr->mSatParams));
     clientRequestPtr->dopResolution = TAF_LOCGNSS_RES_THREE_DECIMAL;
-    clientRequestPtr->vAccuracyResolution = TAF_LOCGNSS_RES_THREE_DECIMAL;
+    clientRequestPtr->vAccuracyResolution = TAF_LOCGNSS_RES_UNKNOWN;
     clientRequestPtr->vSpeedAccuracyResolution = TAF_LOCGNSS_RES_ONE_DECIMAL;
     clientRequestPtr->hSpeedAccuracyResolution = TAF_LOCGNSS_RES_ONE_DECIMAL;
+    clientRequestPtr->latLonResolution        = TAF_LOCGNSS_RES_SIX_DECIMAL;
+    clientRequestPtr->directionExResolution   = TAF_LOCGNSS_RES_ONE_DECIMAL;
+    clientRequestPtr->dirAccuracyExResolution = TAF_LOCGNSS_RES_ONE_DECIMAL;
     clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY;
     clientRequestPtr->mStarted = false;
     clientRequestPtr->mFirstFix = false;
@@ -3738,7 +3749,29 @@ le_result_t taf_locGnss::GetDirection
     {
         if (posSampleReqPtr->positionSampleNodePtr->directionValid)
         {
-            *directionPtr = posSampleReqPtr->positionSampleNodePtr->direction;
+            taf_locGnss_Resolution_t resolution = TAF_LOCGNSS_RES_ONE_DECIMAL;
+            le_msg_SessionRef_t   sessionRef   = taf_locGnss_GetClientSessionRef();
+            taf_locGnss_Client_t* clientReqPtr = DiscoverSessionRef(sessionRef);
+
+            if (NULL != clientReqPtr &&
+                clientReqPtr->directionExResolution != TAF_LOCGNSS_RES_UNKNOWN)
+            {
+                resolution = clientReqPtr->directionExResolution;
+            }
+
+            double locData = posSampleReqPtr->positionSampleNodePtr->direction;
+
+            switch (resolution)
+            {
+                case TAF_LOCGNSS_RES_TWO_DECIMAL:
+                    roundOffLocationData(&locData, 2);
+                    break;
+                case TAF_LOCGNSS_RES_ONE_DECIMAL:
+                default:
+                    roundOffLocationData(&locData, 1);
+                    break;
+            }
+            *directionPtr = (uint32_t)locData;
         }
         else
         {
@@ -3746,12 +3779,34 @@ le_result_t taf_locGnss::GetDirection
             result = LE_OUT_OF_RANGE;
         }
     }
+
     if (directionAccuracyPtr)
     {
         if (posSampleReqPtr->positionSampleNodePtr->directionAccuracyValid)
         {
-            *directionAccuracyPtr = posSampleReqPtr->positionSampleNodePtr->
-                                    directionAccuracy;
+            taf_locGnss_Resolution_t resolution = TAF_LOCGNSS_RES_ONE_DECIMAL;
+            le_msg_SessionRef_t   sessionRef   = taf_locGnss_GetClientSessionRef();
+            taf_locGnss_Client_t* clientReqPtr = DiscoverSessionRef(sessionRef);
+
+            if (NULL != clientReqPtr &&
+                clientReqPtr->dirAccuracyExResolution != TAF_LOCGNSS_RES_UNKNOWN)
+            {
+                resolution = clientReqPtr->dirAccuracyExResolution;
+            }
+
+            double locData = posSampleReqPtr->positionSampleNodePtr->directionAccuracy;
+
+            switch (resolution)
+            {
+                case TAF_LOCGNSS_RES_TWO_DECIMAL:
+                    roundOffLocationData(&locData, 2);
+                    break;
+                case TAF_LOCGNSS_RES_ONE_DECIMAL:
+                default:
+                    roundOffLocationData(&locData, 1);
+                    break;
+            }
+            *directionAccuracyPtr = (uint32_t)locData;
         }
         else
         {
@@ -3903,11 +3958,35 @@ le_result_t taf_locGnss::GetLocation
         return result;
     }
 
+    uint8_t dplace;
+    le_msg_SessionRef_t   sessionRef    = taf_locGnss_GetClientSessionRef();
+    taf_locGnss_Client_t* clientReqPtr  = DiscoverSessionRef(sessionRef);
+
+    if (NULL == clientReqPtr)
+    {
+        dplace = 6U;
+    }
+    else
+    {
+        switch (clientReqPtr->latLonResolution)
+        {
+            case TAF_LOCGNSS_RES_SEVEN_DECIMAL:
+                dplace = 7U;
+                break;
+            case TAF_LOCGNSS_RES_SIX_DECIMAL:
+            default:
+                dplace = 6U;
+                break;
+        }
+    }
+
     if (latitudePtr)
     {
         if (posSampleReqPtr->positionSampleNodePtr->latitudeValid)
         {
-            *latitudePtr = posSampleReqPtr->positionSampleNodePtr->latitude;
+            double locData = posSampleReqPtr->positionSampleNodePtr->latitude;
+            roundOffLocationData(&locData, dplace);
+            *latitudePtr = (int32_t)locData;
         }
         else
         {
@@ -3915,11 +3994,14 @@ le_result_t taf_locGnss::GetLocation
             result = LE_OUT_OF_RANGE;
         }
     }
+
     if (longitudePtr)
     {
         if (posSampleReqPtr->positionSampleNodePtr->longitudeValid)
         {
-            *longitudePtr = posSampleReqPtr->positionSampleNodePtr->longitude;
+            double locData = posSampleReqPtr->positionSampleNodePtr->longitude;
+            roundOffLocationData(&locData, dplace);
+            *longitudePtr = (int32_t)locData;
         }
         else
         {
@@ -3950,7 +4032,6 @@ le_result_t taf_locGnss::GetAltitude
  int32_t* vAccuracyPtr
  )
 {
-    auto &gnss = taf_locGnss::GetInstance();
     le_result_t result = LE_OK;
     taf_locGnss_PositionSampleRequest_t * posSampleReqPtr
                                             = (taf_locGnss_PositionSampleRequest_t *)le_ref_Lookup(PositionSampleMap,positionSampleRef);
@@ -3975,12 +4056,33 @@ le_result_t taf_locGnss::GetAltitude
     }
     if (vAccuracyPtr)
     {
-        if ((false == posSampleReqPtr->positionSampleNodePtr->vAccuracyValid) ||
-            (LE_OK != gnss.PositionDataCoversion(
-                                     posSampleReqPtr->positionSampleNodePtr->vAccuracy,
-                                     TAF_LOCGNSS_DATA_VACCURACY,
-                                     vAccuracyPtr))
-           )
+        if (posSampleReqPtr->positionSampleNodePtr->vAccuracyValid)
+        {
+            taf_locGnss_Resolution_t resolution = TAF_LOCGNSS_RES_ONE_DECIMAL;
+            le_msg_SessionRef_t   sessionRef   = taf_locGnss_GetClientSessionRef();
+            taf_locGnss_Client_t* clientReqPtr = DiscoverSessionRef(sessionRef);
+
+            if (NULL != clientReqPtr &&
+                clientReqPtr->vAccuracyResolution != TAF_LOCGNSS_RES_UNKNOWN)
+            {
+                resolution = clientReqPtr->vAccuracyResolution;
+            }
+
+            double locData = posSampleReqPtr->positionSampleNodePtr->vAccuracy;
+
+            switch (resolution)
+            {
+                case TAF_LOCGNSS_RES_TWO_DECIMAL:
+                    roundOffLocationData(&locData, 2);
+                    break;
+                case TAF_LOCGNSS_RES_ONE_DECIMAL:
+                default:
+                    roundOffLocationData(&locData, 1);
+                    break;
+            }
+            *vAccuracyPtr = (int32_t)locData;
+        }
+        else
         {
             *vAccuracyPtr = INT32_MAX;
             result = LE_OUT_OF_RANGE;
@@ -4421,6 +4523,160 @@ le_result_t taf_locGnss::SetDopResolution
     return LE_OK;
 }
 
+le_result_t taf_locGnss::SetDataResolution
+(
+    taf_locGnss_DataType_t    dataType,
+    taf_locGnss_Resolution_t  resolution
+)
+{
+    TAF_ERROR_IF_RET_VAL(resolution >= TAF_LOCGNSS_RES_UNKNOWN, LE_BAD_PARAMETER,
+                         "SetDataResolution: Invalid resolution");
+
+    TAF_ERROR_IF_RET_VAL(dataType >= TAF_LOCGNSS_DATA_TYPE_UNKNOWN, LE_BAD_PARAMETER,
+                         "SetDataResolution: Invalid dataType");
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    TAF_ERROR_IF_RET_VAL(NULL == clientRequestPtr, LE_FAULT, "SetDataResolution: clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
+    {
+        case TAF_LOCGNSS_STATE_UNINITIALIZED:
+        case TAF_LOCGNSS_STATE_DISABLED:
+        {
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
+            return LE_NOT_PERMITTED;
+        }
+        break;
+        case TAF_LOCGNSS_STATE_READY:
+        case TAF_LOCGNSS_STATE_ACTIVE:
+        {
+            switch (dataType)
+            {
+                case TAF_LOCGNSS_DATA_TYPE_LATITUDE_LONGITUDE:
+                    if (resolution != TAF_LOCGNSS_RES_SIX_DECIMAL &&
+                        resolution != TAF_LOCGNSS_RES_SEVEN_DECIMAL)
+                    {
+                        LE_ERROR("SetDataResolution: lat/lon only supports RES_SIX_DECIMAL or RES_SEVEN_DECIMAL");
+                        return LE_BAD_PARAMETER;
+                    }
+                    clientRequestPtr->latLonResolution = resolution;
+                    break;
+
+                case TAF_LOCGNSS_DATA_TYPE_VACCURACY:
+                    if (resolution != TAF_LOCGNSS_RES_ONE_DECIMAL &&
+                        resolution != TAF_LOCGNSS_RES_TWO_DECIMAL)
+                    {
+                        LE_ERROR("SetDataResolution: vAccuracy only supports RES_ONE_DECIMAL or RES_TWO_DECIMAL");
+                        return LE_BAD_PARAMETER;
+                    }
+                    clientRequestPtr->vAccuracyResolution = resolution;
+                    break;
+
+                case TAF_LOCGNSS_DATA_TYPE_DIRECTION:
+                    if (resolution != TAF_LOCGNSS_RES_ONE_DECIMAL &&
+                        resolution != TAF_LOCGNSS_RES_TWO_DECIMAL)
+                    {
+                        LE_ERROR("SetDataResolution: direction only supports RES_ONE_DECIMAL or RES_TWO_DECIMAL");
+                        return LE_BAD_PARAMETER;
+                    }
+                    clientRequestPtr->directionExResolution = resolution;
+                    break;
+
+                case TAF_LOCGNSS_DATA_TYPE_DIRECTION_ACCURACY:
+                    if (resolution != TAF_LOCGNSS_RES_ONE_DECIMAL &&
+                        resolution != TAF_LOCGNSS_RES_TWO_DECIMAL)
+                    {
+                        LE_ERROR("SetDataResolution: directionAccuracy only supports RES_ONE_DECIMAL or RES_TWO_DECIMAL");
+                        return LE_BAD_PARAMETER;
+                    }
+                    clientRequestPtr->dirAccuracyExResolution = resolution;
+                    break;
+
+                default:
+                    LE_ERROR("SetDataResolution: Unsupported dataType %d", (int)dataType);
+                    return LE_BAD_PARAMETER;
+            }
+        }
+        break;
+        default:
+        {
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
+            return LE_FAULT;
+        }
+        break;
+    }
+
+    LE_DEBUG("SetDataResolution: clientRequestPtr %p, dataType %d, resolution %d saved",
+             clientRequestPtr, (int)dataType, (int)resolution);
+    return LE_OK;
+}
+
+le_result_t taf_locGnss::GetDataResolution
+(
+    taf_locGnss_DataType_t    dataType,
+    taf_locGnss_Resolution_t* resolutionPtr
+)
+//--------------------------------------------------------------------------------------------------
+{
+    TAF_ERROR_IF_RET_VAL(resolutionPtr == NULL, LE_FAULT, "resolutionPtr is NULL");
+
+    le_msg_SessionRef_t   sessionRef   = taf_locGnss_GetClientSessionRef();
+    taf_locGnss_Client_t* clientReqPtr = DiscoverSessionRef(sessionRef);
+
+    TAF_ERROR_IF_RET_VAL(clientReqPtr == NULL, LE_FAULT, "clientReqPtr is NULL");
+
+    switch (clientReqPtr->GnssState)
+    {
+        case TAF_LOCGNSS_STATE_UNINITIALIZED:
+        case TAF_LOCGNSS_STATE_DISABLED:
+        {
+            LE_ERROR("Bad state for that request [%d]", clientReqPtr->GnssState);
+            return LE_NOT_PERMITTED;
+        }
+        break;
+        case TAF_LOCGNSS_STATE_READY:
+        case TAF_LOCGNSS_STATE_ACTIVE:
+        {
+            switch (dataType)
+            {
+                case TAF_LOCGNSS_DATA_TYPE_LATITUDE_LONGITUDE:
+                    *resolutionPtr = clientReqPtr->latLonResolution;
+                    break;
+
+                case TAF_LOCGNSS_DATA_TYPE_VACCURACY:
+                    *resolutionPtr = (clientReqPtr->vAccuracyResolution != TAF_LOCGNSS_RES_UNKNOWN)
+                                ? clientReqPtr->vAccuracyResolution
+                                : TAF_LOCGNSS_RES_ONE_DECIMAL;
+                    break;
+
+                case TAF_LOCGNSS_DATA_TYPE_DIRECTION:
+                    *resolutionPtr = (clientReqPtr->directionExResolution != TAF_LOCGNSS_RES_UNKNOWN)
+                                ? clientReqPtr->directionExResolution
+                                : TAF_LOCGNSS_RES_ONE_DECIMAL;
+                    break;
+
+                case TAF_LOCGNSS_DATA_TYPE_DIRECTION_ACCURACY:
+                    *resolutionPtr = (clientReqPtr->dirAccuracyExResolution != TAF_LOCGNSS_RES_UNKNOWN)
+                                ? clientReqPtr->dirAccuracyExResolution
+                                : TAF_LOCGNSS_RES_ONE_DECIMAL;
+                    break;
+
+                default:
+                    LE_ERROR("Unknown dataType: %d", dataType);
+                    return LE_BAD_PARAMETER;
+            }
+        }
+        break;
+        default:
+        {
+            LE_ERROR("Unknown GNSS state %d", clientReqPtr->GnssState);
+            return LE_FAULT;
+        }
+        break;
+    }
+
+    return LE_OK;
+}
 
 le_result_t taf_locGnss::GetDilutionOfPrecision
 (

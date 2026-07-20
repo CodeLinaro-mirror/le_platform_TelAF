@@ -135,12 +135,12 @@ namespace tafsvc {
         uint16_t SVIds[TAF_LOCGNSS_MEASUREMENT_INFO_MAX];
         uint8_t   SVIdsCount;
         taf_locGnss_ReportStatus_t reportStatus;
-        int32_t   latitude;
-        int32_t   longitude;
+        double    latitude;
+        double    longitude;
         int32_t   hAccuracy;
         int32_t   altitude;
         int32_t   altitudeOnWgs84;
-        int32_t   vAccuracy;
+        float     vAccuracy;
         int32_t   hSpeedAccuracy;
         int32_t   vSpeed;
         int32_t   vSpeedAccuracy;
@@ -149,8 +149,8 @@ namespace tafsvc {
         uint32_t  horUncEllipseSemiMajor;
         uint32_t  horUncEllipseSemiMinor;
         uint32_t  hSpeed;
-        uint32_t  direction;
-        uint32_t  directionAccuracy;
+        float     direction;
+        float     directionAccuracy;
         uint32_t  gpsWeek;
         uint32_t  gpsTimeOfWeek;
         uint32_t  timeAccuracy;
@@ -391,16 +391,16 @@ namespace tafsvc {
 
     typedef struct
     {
-        int32_t   longitude;
-        int32_t   latitude;
+        double    longitude;
+        double    latitude;
         int32_t   hAccuracy;
         int32_t   altitude;
-        uint32_t  direction;
-        uint32_t  directionAccuracy;
+        float     direction;
+        float     directionAccuracy;
         uint32_t  validityMask;
         uint32_t  techMask;
         uint32_t  hSpeed;
-        int32_t   vAccuracy;
+        float     vAccuracy;
         uint64_t  epochTime;
         int32_t   hSpeedAccuracy;
         uint64_t  realTime;
@@ -411,7 +411,7 @@ namespace tafsvc {
         uint32_t  hdop;
         uint32_t  vdop;
         uint32_t  pdop;
-        double  altMeanSeaLevel;
+        double    altMeanSeaLevel;
         int32_t   magneticDeviation;
         le_msg_SessionRef_t*         clientSessionRefPtr;
     }
@@ -434,6 +434,9 @@ namespace tafsvc {
         taf_locGnss_Resolution_t        vAccuracyResolution;
         taf_locGnss_Resolution_t        vSpeedAccuracyResolution;
         taf_locGnss_Resolution_t        hSpeedAccuracyResolution;
+        taf_locGnss_Resolution_t   latLonResolution;
+        taf_locGnss_Resolution_t   directionExResolution;
+        taf_locGnss_Resolution_t   dirAccuracyExResolution;
         taf_locGnss_State_t GnssState;
         int mAcqRate;
         LocReqEngine mEngineType;
@@ -752,6 +755,10 @@ namespace tafsvc {
             le_result_t GetTimeAccuracy( taf_locGnss_SampleRef_t positionSampleRef, uint32_t* timeAccuracyPtr);
             le_result_t GetEpochTime( taf_locGnss_SampleRef_t positionSampleRef, uint64_t* millisecondsPtr);
             le_result_t SetDopResolution(taf_locGnss_Resolution_t resolution);
+            le_result_t SetDataResolution(taf_locGnss_DataType_t dataType,
+                                      taf_locGnss_Resolution_t resolution);
+            le_result_t GetDataResolution(taf_locGnss_DataType_t    dataType,
+                                          taf_locGnss_Resolution_t* resolutionPtr);
             le_result_t GetDilutionOfPrecision( taf_locGnss_SampleRef_t positionSampleRef, taf_locGnss_DopType_t dopType, uint16_t* dopPtr);
             le_result_t GetGpsTime(taf_locGnss_SampleRef_t positionSampleRef, uint32_t* gpsWeek, uint32_t* gpsTimeOfWeek);
             le_result_t GetLeapSeconds( uint64_t* gpsTime, int32_t* currentLeapSeconds, uint64_t* changeEventTime,int32_t*  nextLeapSeconds);

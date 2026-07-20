@@ -157,6 +157,21 @@ namespace tafsvc {
         }
         taf_locPos_DistanceValueType_t;
 
+        //---------------------------------------------------------------------------------
+        /**
+         * Command info struct for async posCtrl_Request handling.
+         */
+        //---------------------------------------------------------------------------------
+        typedef struct
+        {
+            taf_locPosCtrl_ServerCmdRef_t    cmdRef;          ///< TAF server cmd reference.
+            taf_locPosCtrl_ActivationRef_t   activationRef;   ///< Created activation ref
+            le_result_t                      retCode;         ///< Result from GNSS start.
+            le_msg_SessionRef_t              sessionRef;      ///< Client session reference.
+            ClientRequest_t*                 clientRequestPtr;///< Allocated client request node.
+            void*                            posPtr;            ///< Looked-up activation pool ptr.
+        } PosCtrlCmdInfo_t;
+
         class taf_locPos: public ITafSvc
         {
             public:
@@ -164,9 +179,9 @@ namespace tafsvc {
                 ~taf_locPos() {};
                 void Init();
                 static taf_locPos &GetInstance();
-                le_result_t SetAcquisitionRate(uint32_t acquisitionRate);
+                le_result_t SetAcquisitionRate(taf_locPos_ServerCmdRef_t cmdRef,uint32_t acquisitionRate);
                 uint32_t GetAcquisitionRate();
-                le_result_t GetFixState(taf_locGnss_FixState_t* statePtr);
+                le_result_t GetFixState(taf_locPos_ServerCmdRef_t cmdRef, taf_locGnss_FixState_t* statePtr);
                 taf_locPos_MovementHandlerRef_t AddMovementHandler(uint32_t hMagnitude,uint32_t vMagnitude,
                         taf_locPos_MovementHandlerFunc_t handlerPtr, void* contextPtr);
                 void RemoveMovementHandler(taf_locPos_MovementHandlerRef_t handlerRef);
@@ -180,10 +195,10 @@ namespace tafsvc {
                 static int32_t TransformDistance( int32_t value, taf_locPos_DistanceValueType_t type);
                 static bool IsBeyondMagnitude( uint32_t magnitude, uint32_t move, uint32_t accuracy);
                 static uint32_t CalculateDistance(uint32_t latitude1, uint32_t longitude1, uint32_t latitude2, uint32_t longitude2);
-                void Release(taf_locPos_SampleRef_t positionSampleRef);
-                void locPosCtrl_Release( taf_locPosCtrl_ActivationRef_t ref);
-                taf_locPosCtrl_ActivationRef_t locPosCtrl_Request( void);
-                le_result_t GetTime( uint16_t* hoursPtr, uint16_t* minutesPtr, uint16_t* secondsPtr, uint16_t* millisecondsPtr);
+                void Release(taf_locPos_ServerCmdRef_t cmdRef, taf_locPos_SampleRef_t positionSampleRef);
+                void locPosCtrl_Release(taf_locPosCtrl_ServerCmdRef_t cmdRef, taf_locPosCtrl_ActivationRef_t ref);
+                void locPosCtrl_Request( taf_locPosCtrl_ServerCmdRef_t cmdRef);
+                le_result_t GetTime(uint16_t* hoursPtr, uint16_t* minutesPtr, uint16_t* secondsPtr, uint16_t* millisecondsPtr);
                 le_result_t GetDate( uint16_t* yearPtr, uint16_t* monthPtr, uint16_t* dayPtr);
                 le_result_t Get2DLocation(int32_t* latitudePtr, int32_t* longitudePtr, int32_t* hAccuracyPtr);
                 le_result_t GetDirection( uint32_t* directionPtr, uint32_t* directionAccuracyPtr);
@@ -194,15 +209,21 @@ namespace tafsvc {
                 le_result_t sample_Get2DLocation(taf_locPos_SampleRef_t positionSampleRef, int32_t* latitudePtr, int32_t* longitudePtr,
                         int32_t* horizontalAccuracyPtr);
                 le_result_t sample_GetAltitude(taf_locPos_SampleRef_t positionSampleRef, int32_t* altitudePtr, int32_t* altitudeAccuracyPtr);
-                le_result_t sample_GetTime( taf_locPos_SampleRef_t  positionSampleRef,
+                le_result_t sample_GetTime(taf_locPos_SampleRef_t  positionSampleRef,
                         uint16_t* hoursPtr, uint16_t* minutesPtr, uint16_t* secondsPtr, uint16_t* millisecondsPtr);
                 le_result_t sample_GetDate(taf_locPos_SampleRef_t  positionSampleRef,
                         uint16_t* yearPtr, uint16_t* monthPtr, uint16_t* dayPtr);
                 le_result_t sample_GetHorizontalSpeed(taf_locPos_SampleRef_t positionSampleRef, uint32_t* hSpeedPtr, uint32_t* hSpeedAccuracyPtr);
                 le_result_t sample_GetDirection(taf_locPos_SampleRef_t  positionSampleRef, uint32_t* directionPtr, uint32_t* directionAccuracyPtr);
-                le_result_t sample_GetVerticalSpeed( taf_locPos_SampleRef_t  positionSampleRef, int32_t* vSpeedPtr, int32_t* vSpeedAccuracyPtr);
+                le_result_t sample_GetVerticalSpeed(taf_locPos_SampleRef_t  positionSampleRef, int32_t* vSpeedPtr, int32_t* vSpeedAccuracyPtr);
                 le_result_t SetDistanceResolution(taf_locPos_Resolution_t resolution);
                 le_result_t sample_GetFixState(taf_locPos_SampleRef_t  positionSampleRef,taf_locGnss_FixState_t*  statePtr);
+                void ReleaseInternal(taf_locPos_SampleRef_t positionSampleRef);
+                void locPosCtrl_ReleaseInternal(taf_locPosCtrl_ActivationRef_t ref, le_msg_SessionRef_t sessionRef);
+
+                int CurrentActivationsCount;
+                le_ref_MapRef_t ActivationRequestRefMap;
+                le_mem_PoolRef_t PosCtrlCmdPoolRef;
 
             private:
                 le_mem_PoolRef_t  PosPoolRef;
@@ -210,7 +231,6 @@ namespace tafsvc {
                 le_mem_PoolRef_t   PosHandlerPoolRef;
                 le_mem_PoolRef_t PosCtrlHandlerPoolRef;
                 le_ref_MapRef_t PosSampleMap;
-                le_ref_MapRef_t ActivationRequestRefMap;
                 le_ref_MapRef_t MovementHandlerRefMap;
                 le_msg_ServiceRef_t posMsgService;
                 le_msg_ServiceRef_t posCtrlMsgService;
@@ -218,6 +238,5 @@ namespace tafsvc {
                 taf_locGnss_PositionHandlerRef_t GnssHandlerRef;
                 uint32_t AcqRate;
                 int32_t NumOfHandlers;
-                int CurrentActivationsCount;
         };
     }

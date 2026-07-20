@@ -71,6 +71,7 @@ const int DEFAULT_UNKNOWN = 0;
 #define SBAS_STATION_ID_RANGE1_MAX 158
 #define SBAS_STATION_ID_RANGE2_MIN 183
 #define SBAS_STATION_ID_RANGE2_MAX 191
+#define MAX_CMD_LOCATION_POOL_SIZE 64
 
 enum DataType
 {
@@ -486,6 +487,142 @@ namespace tafsvc {
     }
     taf_locGnss_CapHandler_t;
 
+    // ------------------------------------------------------------------------------------------
+    // Single unified envelope passed between main thread and worker thread.
+    // The 'params' union carry all function-specific IN parameters;'retCode' carries the result.
+    // cmdRef and sessionRef are common to every async command.
+    // ------------------------------------------------------------------------------------------
+    typedef struct
+    {
+        taf_locGnss_ServerCmdRef_t cmdRef;       ///< TAF server command reference
+        le_result_t                retCode;      ///< PA result written by worker, read by respond
+        le_msg_SessionRef_t        sessionRef;   ///< client session(used by worker)
+
+        // ------------------------------------------------------------------
+        // IN-parameter union – only the active member is valid per command.
+        // ------------------------------------------------------------------
+        union
+        {
+            // SetConstellation
+            struct {
+                taf_locGnss_ConstellationBitMask_t constellationMask;
+            } setConstellation;
+
+            // SetMinElevation
+            struct {
+                uint8_t minElevation;
+            } setMinElevation;
+
+            // StartMode
+            struct {
+                taf_locGnss_StartMode_t mode;
+            } startMode;
+
+            // SetNmeaSentences
+            struct {
+                taf_locGnss_NmeaBitMask_t nmeaMask;
+            } setNmeaSentences;
+
+            // SetDRConfig – copy of the full DR params struct
+            struct {
+                taf_locGnss_DrParams_t drParams;
+            } setDRConfig;
+
+            // ConfigureEngineState
+            struct {
+                taf_locGnss_EngineType_t  engType;
+                taf_locGnss_EngineState_t engState;
+            } configureEngineState;
+
+            // ConfigureRobustLocation
+            struct {
+                uint8_t enable;
+                uint8_t enabled911;
+            } configureRobustLocation;
+
+            // ConfigureSecondaryBandConstellations / DefaultSecondaryBandConstellations
+            struct {
+                uint32_t constellationSb;
+            } configureSecondaryBand;
+
+            // SetLeverArmConfig – copy of the full lever-arm params struct
+            struct {
+                taf_locGnss_LeverArmParams_t leverArmParams;
+            } setLeverArmConfig;
+
+            // SetEngineType
+            struct {
+                taf_locGnss_EngineReportsType_t engineType;
+            } setEngineType;
+
+            // SetMinGpsWeek
+            struct {
+                uint16_t minGpsWeek;
+            } setMinGpsWeek;
+
+            // SetNmeaConfiguration
+            struct {
+                taf_locGnss_NmeaBitMask_t        nmeaMask;
+                taf_locGnss_GeodeticDatumType_t  datumType;
+                taf_locGnss_LocEngineType_t      engineType;
+            } setNmeaConfiguration;
+
+            // SetDRConfigValidity
+            struct {
+                taf_locGnss_DRConfigValidityType_t validMask;
+            } setDRConfigValidity;
+
+            // ConfigureOsnma
+            struct {
+                bool galOsnma;
+            } configureOsnma;
+
+            // CreateDgnssSource
+            struct {
+                taf_locGnss_DgnssFormat_t        dgnssDataFormat;
+                taf_locGnss_DgnssSourceRef_t     sourceRef;        ///< written back by worker
+            } createDgnssSource;
+
+            // ReleaseDgnssSource
+            struct {
+                taf_locGnss_DgnssSourceRef_t     sourceRef;
+            } releaseDgnssSource;
+
+            // InjectDgnssCorrection
+            struct {
+                taf_locGnss_DgnssSourceRef_t     sourceRef;
+                uint8_t                          correctionData[TAF_LOCGNSS_DATA_LEN_MAX];
+                size_t                           correctionDataSize;
+            } injectDgnssCorrection;
+
+            struct{
+                char merkleTreeFilePath[PATH_MAX];
+            } injectMerkle;
+
+        } params;
+
+    } LocationCmdInfo_t;
+
+    //-----------------------------------------------------------------------------------
+    /**
+     * Callback type for internal GNSS start completion notification.
+     */
+    //-----------------------------------------------------------------------------------
+    typedef void (*taf_locGnss_CompleteCb_t)(le_result_t result, void* contextPtr);
+
+    //-----------------------------------------------------------------------------------
+    /**
+     * Internal command info for GNSS start triggered by locPosCtrl.
+     */
+    //-----------------------------------------------------------------------------------
+    typedef struct
+    {
+        taf_locGnss_CompleteCb_t      completeCb;   ///< Completion callback.
+        void*                         contextPtr;   ///< Context to pass to callback.
+        le_msg_SessionRef_t           sessionRef;   ///< Client session ref.
+        le_result_t                   retCode;      ///< Result.
+    } GnssInternalCmd_t;
+
     class taf_locGnss: public ITafSvc
     {
         public:
@@ -493,6 +630,10 @@ namespace tafsvc {
             ~taf_locGnss();
             void Init();
             static taf_locGnss &GetInstance();
+            le_result_t Enable(void);
+            le_result_t Disable(void);
+            le_result_t SetAcquisitionRate( uint32_t ratePtr);
+            le_result_t GetConstellation(taf_locGnss_ConstellationBitMask_t *constellationMaskPtr);
             static le_result_t CheckValidatePosition(
                     taf_locGnss_PositionSampleRequest_t* positionSampleRequestNodePtr);
             static le_result_t PositionDataCoversion(int32_t value, int8_t dataType,int32_t* valuePtr);
@@ -550,13 +691,53 @@ namespace tafsvc {
             le_result_t GetVerticalSpeed( taf_locGnss_SampleRef_t positionSampleRef, int32_t* vspeedPtr,
                     int32_t* vspeedAccuracyPtr );
             le_result_t GetGpsLeapSeconds( taf_locGnss_SampleRef_t positionSampleRef, uint8_t* leapSecondsPtr);
+            le_result_t SetNmeaSentencesInternal(taf_locGnss_NmeaBitMask_t nmeaMask);
 
-            le_result_t Enable(void);
-            le_result_t SetConstellation(taf_locGnss_ConstellationBitMask_t constellationMask);
-            le_result_t Start(void);
-            le_result_t GetConstellation( taf_locGnss_ConstellationBitMask_t *constellationMaskPtr);
-            le_result_t Disable(void);
-            le_result_t Stop(void);
+            // -----------------------------------------------------------------------
+            // Async entry-point signatures (public, called from tafLocationSvc.cpp).
+            // All PA-calling functions now take (cmdRef [, IN-params...]) and return void.
+            // -----------------------------------------------------------------------
+            void Stop(taf_locGnss_ServerCmdRef_t cmdRef);
+            void Start(taf_locGnss_ServerCmdRef_t cmdRef);
+            void SetConstellation(taf_locGnss_ServerCmdRef_t cmdRef,
+                                  taf_locGnss_ConstellationBitMask_t constellationMask);
+            void ForceColdRestart(taf_locGnss_ServerCmdRef_t cmdRef);
+            void ForceWarmRestart(taf_locGnss_ServerCmdRef_t cmdRef);
+            void ForceHotRestart(taf_locGnss_ServerCmdRef_t cmdRef);
+            void SetMinElevation(taf_locGnss_ServerCmdRef_t cmdRef, uint8_t minElevation);
+            void StartMode(taf_locGnss_ServerCmdRef_t cmdRef, taf_locGnss_StartMode_t mode);
+            void SetNmeaSentences(taf_locGnss_ServerCmdRef_t cmdRef,
+                                  taf_locGnss_NmeaBitMask_t nmeaMask);
+            void SetDRConfig(taf_locGnss_ServerCmdRef_t cmdRef,
+                             const taf_locGnss_DrParams_t* drParamsPtr);
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
+            void ConfigureEngineState(taf_locGnss_ServerCmdRef_t cmdRef,
+                                      taf_locGnss_EngineType_t engtype,
+                                      taf_locGnss_EngineState_t engState);
+#endif
+            void ConfigureRobustLocation(taf_locGnss_ServerCmdRef_t cmdRef,
+                                         uint8_t enable, uint8_t enabled911);
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
+            void DefaultSecondaryBandConstellations(taf_locGnss_ServerCmdRef_t cmdRef);
+            void ConfigureSecondaryBandConstellations(taf_locGnss_ServerCmdRef_t cmdRef,
+                                                      uint32_t constellationSb);
+            void RequestSecondaryBandConstellations(taf_locGnss_ServerCmdRef_t cmdRef);
+#endif
+            void SetLeverArmConfig(taf_locGnss_ServerCmdRef_t cmdRef,
+                                   const taf_locGnss_LeverArmParams_t* LeverArmParamsPtr);
+            void SetEngineType(taf_locGnss_ServerCmdRef_t cmdRef,
+                               taf_locGnss_EngineReportsType_t EngineType);
+            void SetMinGpsWeek(taf_locGnss_ServerCmdRef_t cmdRef, uint16_t minGpsWeek);
+            void SetNmeaConfiguration(taf_locGnss_ServerCmdRef_t cmdRef,
+                                      taf_locGnss_NmeaBitMask_t nmeaMask,
+                                      taf_locGnss_GeodeticDatumType_t datumType,
+                                      taf_locGnss_LocEngineType_t engineType);
+            void DeleteDRSensorCalData(taf_locGnss_ServerCmdRef_t cmdRef);
+            void ConfigureOsnma(taf_locGnss_ServerCmdRef_t cmdRef, bool galOsnma);
+
+            // -----------------------------------------------------------------------
+            // Non-PA / synchronous getters (unchanged)
+            // -----------------------------------------------------------------------
             taf_locGnss_State_t GetState( void);
 
             le_result_t GetSatellitesStatus( taf_locGnss_SampleRef_t positionSampleRef, uint8_t* satsInViewCountPtr,
@@ -574,38 +755,17 @@ namespace tafsvc {
             le_result_t GetDilutionOfPrecision( taf_locGnss_SampleRef_t positionSampleRef, taf_locGnss_DopType_t dopType, uint16_t* dopPtr);
             le_result_t GetGpsTime(taf_locGnss_SampleRef_t positionSampleRef, uint32_t* gpsWeek, uint32_t* gpsTimeOfWeek);
             le_result_t GetLeapSeconds( uint64_t* gpsTime, int32_t* currentLeapSeconds, uint64_t* changeEventTime,int32_t*  nextLeapSeconds);
-            le_result_t SetAcquisitionRate( uint32_t ratePtr);
-            le_result_t ForceColdRestart();
-            le_result_t ForceWarmRestart();
-            le_result_t ForceHotRestart();
-            le_result_t DeleteDRSensorCalData();
             le_result_t GetSupportedConstellations(taf_locGnss_ConstellationBitMask_t* constellationMaskPtr);
-            le_result_t SetMinElevation( uint8_t  minElevation);
-            le_result_t StartMode(taf_locGnss_StartMode_t mode);
             le_result_t GetMinElevation( uint8_t*  minElevationPtr);
-            le_result_t SetNmeaSentences(taf_locGnss_NmeaBitMask_t nmeaMask);
             le_result_t GetNmeaSentences(taf_locGnss_NmeaBitMask_t* nmeaMaskPtr);
             le_result_t GetSupportedNmeaSentences(taf_locGnss_NmeaBitMask_t* nmeaMaskPtr);
-            le_result_t SetDRConfig(const taf_locGnss_DrParams_t* drParamsPtr);
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-            le_result_t ConfigureEngineState(taf_locGnss_EngineType_t engtype,
-                    taf_locGnss_EngineState_t engState);
-#endif
-            le_result_t ConfigureRobustLocation(uint8_t enable,uint8_t enabled911);
             le_result_t RobustLocationInformation(uint8_t* enable, uint8_t* enabled911,
                     uint8_t* majorVersion,uint8_t* minorVersion);
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-            le_result_t DefaultSecondaryBandConstellations();
-            le_result_t RequestSecondaryBandConstellations(uint32_t* constellationSb);
-            le_result_t ConfigureSecondaryBandConstellations(uint32_t constellationSb);
-#endif
             le_result_t GetMagneticDeviation(taf_locGnss_SampleRef_t positionSampleRef,
                     int32_t* magneticDeviationPtr);
             le_result_t GetEllipticalUncertainty(taf_locGnss_SampleRef_t positionSampleRef,
                     uint32_t* horUncEllipseSemiMajorPtr,uint32_t* horUncEllipseSemiMinorPtr,
                     uint8_t*  horConfidencePtr);
-            le_result_t SetLeverArmConfig(const taf_locGnss_LeverArmParams_t* LeverArmParamsPtr);
-            le_result_t SetEngineType(taf_locGnss_EngineReportsType_t EngineType);
             le_result_t GetConformityIndex(taf_locGnss_SampleRef_t positionSampleRef,double* indexPtr);
             le_result_t GetCalibrationData(taf_locGnss_SampleRef_t positionSampleRef,
                     uint32_t* calibPtr,uint8_t* percentPtr);
@@ -638,17 +798,15 @@ namespace tafsvc {
             le_result_t GetAltitudeMeanSeaLevel(taf_locGnss_SampleRef_t positionSampleRef, double* altMeanSeaLevelPtr);
             le_result_t GetSVIds(taf_locGnss_SampleRef_t positionSampleRef, uint16_t* sVIdsPtr, size_t* sVIdsLen);
             le_result_t GetSatellitesInfoEx(taf_locGnss_SampleRef_t positionSampleRef, taf_locGnss_Constellation_t constellation, taf_locGnss_SvInfo_t* svInfoPtr, size_t* svInfoLen);
-            le_result_t SetMinGpsWeek(uint16_t minGpsWeek);
             le_result_t GetMinGpsWeek(uint16_t* minGpsWeekPtr);
             le_result_t GetCapabilities(uint64_t* locCapabilityPtr);
-            le_result_t SetNmeaConfiguration(taf_locGnss_NmeaBitMask_t nmeaMask, taf_locGnss_GeodeticDatumType_t datumType, taf_locGnss_LocEngineType_t engineType);
             le_result_t GetXtraStatus(taf_locGnss_XtraStatusParams_t* xtraParams);
             le_result_t GetGnssData(taf_locGnss_SampleRef_t positionSampleRef,taf_locGnss_GnssData_t* gnssDataPtr,size_t* maxSignalTypes);
             le_result_t GetNavigationSolution(taf_locGnss_SampleRef_t positionSampleRef,uint32_t* navSolutionPtr);
             le_result_t GetDgnssStationIds(taf_locGnss_SampleRef_t positionSampleRef,uint16_t* stationIdsPtr,size_t* stationIdsSizePtr);
-            le_result_t InjectDgnssCorrection(taf_locGnss_DgnssSourceRef_t sourceRef, const uint8_t* correctionDataPtr, size_t correctionDataSize);
-            taf_locGnss_DgnssSourceRef_t CreateDgnssSource(taf_locGnss_DgnssFormat_t dgnssDataFormat);
-            le_result_t ReleaseDgnssSource(taf_locGnss_DgnssSourceRef_t sourceRef);
+            void InjectDgnssCorrection(taf_locGnss_ServerCmdRef_t cmdRef, taf_locGnss_DgnssSourceRef_t sourceRef, const uint8_t* correctionDataPtr, size_t correctionDataSize);
+            void CreateDgnssSource(taf_locGnss_ServerCmdRef_t cmdRef, taf_locGnss_DgnssFormat_t dgnssDataFormat);
+            void ReleaseDgnssSource(taf_locGnss_ServerCmdRef_t cmdRef, taf_locGnss_DgnssSourceRef_t sourceRef);
 
             static void DgnssStatusHandler(void* reportPtr);
             taf_locGnss_DgnssStatusChangeHandlerRef_t AddDgnssStatusChangeHandler(
@@ -671,8 +829,7 @@ namespace tafsvc {
             le_result_t GetMeasDataValidityMask(taf_locGnss_MeasSampleRef_t measSampleRef,
                 uint32_t* measDataValidityMaskPtr, size_t* measDataValidityMaskSizePtr);
 
-            le_result_t InjectMerkleData(const char* merkleTreeFilePath);
-            le_result_t ConfigureOsnma(bool galOsnma);
+            void InjectMerkleData(taf_locGnss_ServerCmdRef_t cmdRef, const char* merkleTreeFilePath);
 
             le_result_t SetEngineIntegrityRisk(taf_locGnss_EngineType_t engtype, uint32_t integrityRisk);
             le_result_t GetProtectionLevels(taf_locGnss_SampleRef_t positionSampleRef,double* protectionLevelAlongTrackPtr,
@@ -680,6 +837,11 @@ namespace tafsvc {
             le_result_t GetBaselineLength(taf_locGnss_SampleRef_t positionSampleRef, double* baselineLengthPtr);
             le_result_t GetAgeOfCorrections(taf_locGnss_SampleRef_t positionSampleRef, uint64_t* ageCorrectionsPtr);
             le_result_t GetIntegrityRiskUsed(taf_locGnss_SampleRef_t positionSampleRef, uint32_t* integrityRiskUsedPtr);
+
+            void StartInternal(le_msg_SessionRef_t sessionRef, taf_locGnss_CompleteCb_t completeCb, void* contextPtr);
+            void StopInternal(le_msg_SessionRef_t sessionRef, taf_locGnss_CompleteCb_t completeCb, void* contextPtr);
+            static taf_locGnss_Client_t* AcquireSessionRefInternal(le_msg_SessionRef_t sessionRef);
+            static le_result_t InternalReleaseDgnssSourceOnWorker(taf_locGnss_Client_t* clientRequestPtr, taf_locGnss_DgnssSourceRef_t  sourceRef);
 
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionExHandlerPoolRef;
@@ -724,6 +886,11 @@ namespace tafsvc {
             le_event_HandlerRef_t NmeaHandlerRef;
             le_event_HandlerRef_t CapHandlerRef;
 
+            le_thread_Ref_t LocationSvcThRef    = NULL;    // service main thread
+            le_thread_Ref_t LocationWorkerThRef = NULL;    // PA worker thread
+            le_thread_Ref_t LocationEventWorkerThRef;   ///< Thread that owns all PA event handlers
+            le_mem_PoolRef_t CmdLocationPoolRef = NULL;
+            le_mem_PoolRef_t GnssInternalCmdPoolRef = NULL;
 
             taf_locGnss_ConstellationBitMask_t mConstellationMask;
             taf_locGnss_NmeaBitMask_t mNmeaMask = 0;
@@ -741,6 +908,39 @@ namespace tafsvc {
             int32_t NumOfDgnssStatusHandlers;
             le_event_HandlerRef_t DgnssStatusHandlerRef;
             le_event_Id_t dgnssStatusEventId;
+
+            // -----------------------------------------------------------------------
+            // Worker thread entry points – one per async PA-calling function.
+            // -----------------------------------------------------------------------
+            static void StopWorker(void* cmdPtr, void* context);
+            static void StartWorker(void* cmdPtr, void* context);
+            static void SetConstellationWorker(void* cmdPtr, void* context);
+            static void ForceColdRestartWorker(void* cmdPtr, void* context);
+            static void ForceWarmRestartWorker(void* cmdPtr, void* context);
+            static void ForceHotRestartWorker(void* cmdPtr, void* context);
+            static void SetMinElevationWorker(void* cmdPtr, void* context);
+            static void StartModeWorker(void* cmdPtr, void* context);
+            static void SetNmeaSentencesWorker(void* cmdPtr, void* context);
+            static void SetDRConfigWorker(void* cmdPtr, void* context);
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
+            static void ConfigureEngineStateWorker(void* cmdPtr, void* context);
+#endif
+            static void ConfigureRobustLocationWorker(void* cmdPtr, void* context);
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
+            static void DefaultSecondaryBandConstellationsWorker(void* cmdPtr, void* context);
+            static void ConfigureSecondaryBandConstellationsWorker(void* cmdPtr, void* context);
+            static void RequestSecondaryBandConstellationsWorker(void* cmdPtr, void* context);
+#endif
+            static void SetLeverArmConfigWorker(void* cmdPtr, void* context);
+            static void SetEngineTypeWorker(void* cmdPtr, void* context);
+            static void SetMinGpsWeekWorker(void* cmdPtr, void* context);
+            static void SetNmeaConfigurationWorker(void* cmdPtr, void* context);
+            static void DeleteDRSensorCalDataWorker(void* cmdPtr, void* context);
+            static void ConfigureOsnmaWorker(void* cmdPtr, void* context);
+            static void CreateDgnssSourceWorker(void* cmdPtr, void* context);
+            static void ReleaseDgnssSourceWorker(void* cmdPtr, void* context);
+            static void InjectDgnssCorrectionWorker(void* cmdPtr, void* context);
+            static void InjectMerkleWorker(void* cmdPtr, void* context);
 
         private:
             le_mem_PoolRef_t   ClientPoolRef;

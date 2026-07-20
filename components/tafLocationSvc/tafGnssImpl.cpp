@@ -38,6 +38,7 @@
 #include "watchdogChain.h"
 #include "tafGnss.hpp"
 #include <any>
+#include <new>
 #include "float.h"
 
 using namespace tafpa::location;
@@ -60,6 +61,8 @@ LE_MEM_DEFINE_STATIC_POOL(DgnssSource, GNSS_POSITION_SAMPLE_MAX, sizeof(taf_locG
 LE_MEM_DEFINE_STATIC_POOL(Client, LE_CONFIG_POSITIONING_ACTIVATION_MAX, sizeof(taf_locGnss_Client_t));
 LE_MEM_DEFINE_STATIC_POOL(DgnssHandler, GNSS_POSITION_HANDLER_HIGH, sizeof(taf_locGnss_DgnssStatusChangeHandler_t));
 LE_MEM_DEFINE_STATIC_POOL(DgnssStatusRequest, GNSS_POSITION_SAMPLE_MAX, sizeof(DgnssStatusEvent_t));
+LE_MEM_DEFINE_STATIC_POOL(CmdLocationPool, MAX_CMD_LOCATION_POOL_SIZE, sizeof(LocationCmdInfo_t));
+LE_MEM_DEFINE_STATIC_POOL(GnssInternalCmdPool, MAX_CMD_LOCATION_POOL_SIZE, sizeof(GnssInternalCmd_t));
 LE_REF_DEFINE_STATIC_MAP(PositionSampleMap, GNSS_POSITION_SAMPLE_MAX);
 LE_REF_DEFINE_STATIC_MAP(PositionExSampleMap, GNSS_POSITION_SAMPLE_MAX);
 LE_REF_DEFINE_STATIC_MAP(MeasurementSampleMap, GNSS_POSITION_SAMPLE_MAX);
@@ -2638,6 +2641,63 @@ taf_locGnss_Client_t* taf_locGnss::AcquireSessionRef
     return clientRequestPtr;
 }
 
+taf_locGnss_Client_t* taf_locGnss::AcquireSessionRefInternal
+(
+    le_msg_SessionRef_t sessionRef   ///< [IN] Explicitly provided session ref
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+
+    // Reuse existing client if already registered for this sessionRef
+    taf_locGnss_Client_t* clientRequestPtr = DiscoverSessionRef(sessionRef);
+    if (clientRequestPtr != NULL)
+    {
+        LE_DEBUG("AcquireSessionRefInternal: session %p already exists (client: %ld)",
+                 sessionRef, clientRequestPtr->locationClient);
+        return clientRequestPtr;
+    }
+
+    // Check max client limit
+    if (gnss.mClientRefCount >= (TAF_CONFIG_POSITIONING_ACTIVATION_MAX - 1))
+    {
+        LE_DEBUG("AcquireSessionRefInternal: max clients reached: %d",
+                 gnss.mClientRefCount);
+        return NULL;
+    }
+
+    // Allocate and create PA client
+    clientRequestPtr = (taf_locGnss_Client_t*)le_mem_ForceAlloc(gnss.ClientPoolRef);
+
+    clientRequestPtr->sessionRef = sessionRef;
+
+    if (clientRequestPtr->locationClient == 0)
+    {
+        taf_pa_location_LocationId newClientId = 0;
+        pa_result_t createRes = taf_pa_location_CreateClient(&newClientId);
+        if (createRes != PA_OK || newClientId == 0)
+        {
+            LE_ERROR("AcquireSessionRefInternal: taf_pa_location_CreateClient failed: "
+                     "res=%d, id=%d", (int)createRes, (int)newClientId);
+            le_mem_Release(clientRequestPtr);
+            return NULL;
+        }
+        clientRequestPtr->locationClient = newClientId;
+    }
+
+    InitializeClient(clientRequestPtr);
+
+    void* reqRefPtr = le_ref_CreateRef(gnss.ClientRequestRefMap, clientRequestPtr);
+
+    LE_INFO("AcquireSessionRefInternal: SessionRef %p created, total count %d",
+            sessionRef, gnss.mClientRefCount);
+    LE_INFO("reqRefPtr %p, clientRequestPtr %p", reqRefPtr, clientRequestPtr);
+    LE_INFO("clientRequestPtr->locationClient: %d",
+            (int)clientRequestPtr->locationClient);
+
+    clientRequestPtr->clientRefPtr = reqRefPtr;
+    return clientRequestPtr;
+}
+
 uint32_t taf_locGnss::TranslateDop
 (
     uint32_t dopValue
@@ -2740,23 +2800,39 @@ le_result_t taf_locGnss::Enable
     return result;
 }
 
-le_result_t taf_locGnss::SetConstellation
-(
-    taf_locGnss_ConstellationBitMask_t constellationMask
-)
+// ---------------------------------------------------------------------------
+// SetConstellation
+// ---------------------------------------------------------------------------
+static void SetConstellationSvcRespond(void* cmdPtr, void*)
 {
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_SetConstellationRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
 
-    le_result_t result = LE_FAULT;
+void taf_locGnss::SetConstellationWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_ConstellationBitMask_t constellationMask = cPtr->params.setConstellation.constellationMask;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("SetConstellationWorker: clientRequestPtr is NULL");
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetConstellationSvcRespond, cPtr, NULL);
+        return;
+    }
+
+    cPtr->retCode = LE_FAULT;
     typedef std::vector<taf_pa_location_SvBlackListInfo_t> SvBlackList;
     SvBlackList svBlackList;
     taf_pa_location_SvBlackListInfo_t blackListInfo;
     bool deviceReset = false;
     blackListInfo.svId = 0; // Here 0 means blacklist all SVIds of a given constellation type
     blackListInfo.constellation = (taf_pa_location_GnssConstellationType_t)TAF_PA_LOCATION_UNKNOWN;
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
-
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
 
     LE_DEBUG("SetConstellation constellationMask is 0x%02X",constellationMask);
     if( constellationMask & TAF_LOCGNSS_CONSTELLATION_DEFAULT)
@@ -2860,7 +2936,7 @@ le_result_t taf_locGnss::SetConstellation
         case TAF_LOCGNSS_STATE_DISABLED:
         {
             LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
-            result = LE_NOT_PERMITTED;
+            cPtr->retCode = LE_NOT_PERMITTED;
         }
         break;
         case TAF_LOCGNSS_STATE_READY:
@@ -2878,122 +2954,42 @@ le_result_t taf_locGnss::SetConstellation
             pa_result_t res = taf_pa_location_configureConstellations(svBlackList, cb, deviceReset, (std::any)(std::any)&resCallback);
             if(res != PA_OK)
             {
-                result = LE_FAULT;
+                cPtr->retCode = LE_FAULT;
             }
             else
             {
                 if(resCallback.result == PA_OK)
                 {
-                    result = LE_OK;
-                    mConstellationMask = constellationMask;
+                    cPtr->retCode = LE_OK;
+                    gnss.mConstellationMask = constellationMask;
                 }
                 else
                 {
-                    result = LE_FAULT;
+                    cPtr->retCode = LE_FAULT;
                 }
             }
         }
         break;
         default:
         {
-            result = LE_FAULT;
+            cPtr->retCode = LE_FAULT;
             LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
-
-    return result;
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetConstellationSvcRespond, cPtr, NULL);
 }
 
-le_result_t taf_locGnss::Start
-(
-    void
-)
+void taf_locGnss::SetConstellation(taf_locGnss_ServerCmdRef_t cmdRef,
+                                    taf_locGnss_ConstellationBitMask_t constellationMask)
 {
-    le_result_t result = LE_FAULT;
-
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
-
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
-
-    LE_DEBUG("Start: gnssClientPtr %p, gnssPtr->sessionRef %p, num of active client %d",
-            clientRequestPtr, clientRequestPtr->sessionRef, mClientRefCount);
-
-    switch (clientRequestPtr->GnssState)
-    {
-        case TAF_LOCGNSS_STATE_READY:
-        {
-            // Start GNSS
-            if (!clientRequestPtr->mStarted)
-            {
-                int optInterval = clientRequestPtr->mAcqRate;
-                LE_DEBUG("Start->  mAcqRate: %d",clientRequestPtr->mAcqRate);
-                if( optInterval == 0  || optInterval < 100)
-                {
-                    LE_DEBUG("Start->mAcqRate is zero, so set default to 100ms");
-                    optInterval = 100;
-                    clientRequestPtr->mAcqRate = optInterval;
-                }
-                LocReqEngine engineType = DEFAULT_UNKNOWN;
-                GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
-                reportMask = 0x7f;//all reports are enabled
-                LE_DEBUG("Start->reportMask : %u",reportMask);
-                LE_DEBUG("Start->mEngineType : %d",clientRequestPtr->mEngineType);
-                engineType |= (1UL << clientRequestPtr->mEngineType);//FUSED mode is supported by default
-
-                typedef struct{
-                    pa_result_t result;
-                }taf_SelfTestResult_t;
-                auto cb2 = [](pa_result_t result, std::any context) {
-                    taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
-                    resPtr->result = result;
-                };
-                taf_SelfTestResult_t resCallback = {};
-                pa_result_t res = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
-                    (uint32_t)optInterval, engineType, cb2, reportMask, (std::any)(std::any)&resCallback);
-                if(res != PA_OK)
-                {
-                    result = LE_FAULT;
-                    LE_DEBUG("Start() commandResponse failed status: %d ", int(result));
-                }
-                else
-                {
-                    if(resCallback.result == PA_OK)
-                    {
-                        ConfigureAcqStartInfo(clientRequestPtr);
-                        result = LE_OK;
-                    }
-                    else
-                    {
-                        result = LE_FAULT;
-                        LE_DEBUG("Start() commandResponse failed status: %d ", int(result));
-                    }
-                }
-            }
-        }
-        break;
-        case TAF_LOCGNSS_STATE_UNINITIALIZED:
-        case TAF_LOCGNSS_STATE_DISABLED:
-        {
-            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
-            result = LE_NOT_PERMITTED;
-        }
-        break;
-        case TAF_LOCGNSS_STATE_ACTIVE:
-        {
-            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
-            result = LE_DUPLICATE;
-        }
-        break;
-        default:
-        {
-            result = LE_FAULT;
-            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
-        }
-        break;
-    }
-    return result;
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    cPtr->params.setConstellation.constellationMask = constellationMask;
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, SetConstellationWorker, cPtr, NULL);
 }
 
 le_result_t taf_locGnss::GetSatellitesStatus
@@ -4119,16 +4115,31 @@ le_result_t taf_locGnss::GetGpsLeapSeconds
     return result;
 }
 
-le_result_t taf_locGnss::DeleteDRSensorCalData
-(
-    void
-)
+// ---------------------------------------------------------------------------
+// DeleteDRSensorCalData
+// ---------------------------------------------------------------------------
+static void DeleteDRSensorCalDataSvcRespond(void* cmdPtr, void*)
 {
-    le_result_t result = LE_OK;
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_DeleteDRSensorCalDataRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+void taf_locGnss::DeleteDRSensorCalDataWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, DeleteDRSensorCalDataSvcRespond, cPtr, NULL);
+        return;
+    }
+
+    cPtr->retCode = LE_OK;
 
     switch (clientRequestPtr->GnssState)
     {
@@ -4137,7 +4148,7 @@ le_result_t taf_locGnss::DeleteDRSensorCalData
         case TAF_LOCGNSS_STATE_UNINITIALIZED:
         {
             LE_ERROR("Wrong Gnss state [%d]", clientRequestPtr->GnssState);
-            result = LE_NOT_PERMITTED;
+            cPtr->retCode = LE_NOT_PERMITTED;
         }
         break;
         case TAF_LOCGNSS_STATE_READY:
@@ -4164,13 +4175,13 @@ le_result_t taf_locGnss::DeleteDRSensorCalData
                     {
                         LE_ERROR("DeleteDRSensorCalData failed or Not Implemented");
                     }
-                    result = LE_FAULT;
+                    cPtr->retCode = LE_FAULT;
                 }
                 else
                 {
                     if(resCallback.result != PA_OK)
                     {
-                        result = LE_FAULT;
+                        cPtr->retCode = LE_FAULT;
                     }
                 }
         }
@@ -4178,12 +4189,21 @@ le_result_t taf_locGnss::DeleteDRSensorCalData
         default:
         {
             LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
-            result = LE_FAULT;
+            cPtr->retCode = LE_FAULT;
         }
         break;
     }
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, DeleteDRSensorCalDataSvcRespond, cPtr, NULL);
+}
 
-    return result;
+void taf_locGnss::DeleteDRSensorCalData(taf_locGnss_ServerCmdRef_t cmdRef)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, DeleteDRSensorCalDataWorker, cPtr, NULL);
 }
 
 le_result_t taf_locGnss::GetLeapSecondsUncertainty
@@ -4576,387 +4596,282 @@ le_result_t taf_locGnss::SetAcquisitionRate
     return result;
 }
 
-le_result_t taf_locGnss::ForceColdRestart
-(
-    void
-)
+// ---------------------------------------------------------------------------
+// ForceColdRestart
+// ---------------------------------------------------------------------------
+static void ForceColdRestartSvcRespond(void* cmdPtr, void*)
 {
-    le_result_t result = LE_OK;
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
-    typedef struct{
-        pa_result_t result;
-    }taf_SelfTestResult_t;
-
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
-
-    switch (clientRequestPtr->GnssState)
-    {
-        case TAF_LOCGNSS_STATE_READY:
-        case TAF_LOCGNSS_STATE_DISABLED:
-        case TAF_LOCGNSS_STATE_UNINITIALIZED:
-        {
-            LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
-            result = LE_NOT_PERMITTED;
-        }
-        break;
-        case TAF_LOCGNSS_STATE_ACTIVE:
-        {
-            LE_DEBUG("ForceColdRestart mStarted: %d", clientRequestPtr->mStarted);
-            // stop Detailed Reports
-            if (clientRequestPtr->mStarted)
-            {
-                auto cb = [](pa_result_t result, std::any context) {
-                    taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
-                    resPtr->result = result;
-                };
-                taf_SelfTestResult_t resCallback = {};
-                pa_result_t res = taf_pa_location_stopReports(clientRequestPtr->locationClient, cb,(std::any)&resCallback);
-                if(res != PA_OK){
-                    result = LE_FAULT;
-                }
-                else
-                {
-                    if(resCallback.result == PA_OK)
-                    {
-                        clientRequestPtr->mStarted = false;
-                        clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY;
-                    }
-                    else
-                    {
-                        result = LE_FAULT;
-                    }
-                }
-            }
-
-            if(result == LE_OK)
-            {
-                //Delete All Aiding Data
-                auto cb1 = [](pa_result_t result, std::any context) {
-                    taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
-                    resPtr->result = result;
-                };
-                taf_SelfTestResult_t resCallback = {};
-                pa_result_t res = taf_pa_location_deleteAllAidingData(cb1,(std::any)&resCallback);
-                if (res != PA_OK)
-                {
-                    if (res == PA_NOT_IMPLEMENTED)
-                    {
-                        LE_ERROR("ForceColdRestart failed or Not Implemented");
-                    }
-                    result = LE_FAULT;
-                }
-                else
-                {
-                    if(resCallback.result != PA_OK)
-                    {
-                        result = LE_FAULT;
-                    }
-                }
-            }
-            if(result == LE_OK)
-            {
-                //start Detailed Engine report
-                if (!clientRequestPtr->mStarted) {
-                    int optInterval = clientRequestPtr->mAcqRate;
-                    LE_DEBUG("ForceColdRestart->  optInterval: %d",optInterval);
-                    if( optInterval == 0  || optInterval < 100) {
-                        LE_DEBUG("ForceColdRestart mAcqRate is zero, so set default to 100ms");
-                        optInterval = 100;
-                        clientRequestPtr->mAcqRate = optInterval;
-                    }
-
-                    LocReqEngine engineType = DEFAULT_UNKNOWN;
-                    GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
-                    reportMask = 0x7f;//all reports are enabled
-                    LE_DEBUG("ForceColdRestart->reportMask : %u",reportMask);
-                    engineType |= (1UL << clientRequestPtr->mEngineType);
-
-                    auto cb2 = [](pa_result_t result, std::any context) {
-                        taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
-                        resPtr->result = result;
-                    };
-                    taf_SelfTestResult_t resCallback = {};
-                    sleep(1);
-                    pa_result_t res = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
-                        (uint32_t)optInterval, engineType, cb2, reportMask, (std::any)&resCallback);
-                    if(res != PA_OK)
-                    {
-                        result = LE_FAULT;
-                    }
-                    else
-                    {
-                        if(resCallback.result == PA_OK)
-                        {
-                            ConfigureAcqStartInfo(clientRequestPtr);
-                            LE_DEBUG("ForceColdRestart->Start() is success");
-                        }
-                        else
-                        {
-                            LE_ERROR("ForceColdRestart->Start() is failed");
-                            result = LE_FAULT;
-                        }
-                    }
-                }
-            }
-        }
-        break;
-        default:
-        {
-            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
-            result = LE_FAULT;
-        }
-        break;
-    }
-
-    return result;
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_ForceColdRestartRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
 }
 
-le_result_t taf_locGnss::ForceWarmRestart
-(
-    void
-)
+void taf_locGnss::ForceColdRestartWorker(void* cmdPtr, void*)
 {
-    le_result_t result = LE_OK;
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
-    typedef struct{
-        pa_result_t result;
-    }taf_SelfTestResult_t;
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("ForceColdRestartWorker: clientRequestPtr is NULL");
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ForceColdRestartSvcRespond, cPtr, NULL);
+        return;
+    }
+
+    typedef struct{ pa_result_t result; }taf_SelfTestResult_t;
+    le_result_t result = LE_OK;
 
     switch (clientRequestPtr->GnssState)
     {
         case TAF_LOCGNSS_STATE_READY:
         case TAF_LOCGNSS_STATE_DISABLED:
         case TAF_LOCGNSS_STATE_UNINITIALIZED:
-        {
-            LE_ERROR("Wrong Gnss state [%d]", clientRequestPtr->GnssState);
+            LE_ERROR("ForceColdRestart: Wrong state [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
-        }
-        break;
+            break;
         case TAF_LOCGNSS_STATE_ACTIVE:
         {
-            // stop Detailed Reports
             if (clientRequestPtr->mStarted)
             {
-                auto cb = [](pa_result_t result, std::any context) {
-                    taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
-                    resPtr->result = result;
-                };
-                taf_SelfTestResult_t resCallback = {};
-                pa_result_t res = taf_pa_location_stopReports(clientRequestPtr->locationClient, cb,(std::any)&resCallback);
-                if(res != PA_OK)
-                {
-                    result = LE_FAULT;
-                }
-                else
-                {
-                    if(resCallback.result == PA_OK)
-                    {
-                        clientRequestPtr->mStarted = false;
-                        clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY;
-                        LE_DEBUG("ForceWarmRestart->Stop() is success");
-                    }
-                    else
-                    {
-                        LE_ERROR("ForceWarmRestart->Stop() is failed");
-                        result = LE_FAULT;
-                    }
-                }
+                auto cb = [](pa_result_t r, std::any ctx) {
+                    ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
+                taf_SelfTestResult_t rc = {};
+                pa_result_t res = taf_pa_location_stopReports(clientRequestPtr->locationClient, cb, (std::any)&rc);
+                if (res != PA_OK) { result = LE_FAULT; }
+                else if (rc.result == PA_OK) { clientRequestPtr->mStarted = false; clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY; }
+                else { result = LE_FAULT; }
             }
-            else
+            if (result == LE_OK)
             {
-                result = LE_FAULT;
+                auto cb1 = [](pa_result_t r, std::any ctx) {
+                    ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
+                taf_SelfTestResult_t rc1 = {};
+                pa_result_t res1 = taf_pa_location_deleteAllAidingData(cb1, (std::any)&rc1);
+                if (res1 != PA_OK) { result = LE_FAULT; }
+                else if (rc1.result != PA_OK) { result = LE_FAULT; }
             }
-            if(result == LE_OK)
+            if (result == LE_OK && !clientRequestPtr->mStarted)
             {
-                auto cb1 = [](pa_result_t result, std::any context) {
-                    taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
-                    resPtr->result = result;
-                };
+                int optInterval = clientRequestPtr->mAcqRate;
+                if (optInterval == 0 || optInterval < 100) { optInterval = 100; clientRequestPtr->mAcqRate = optInterval; }
+                LocReqEngine engineType = DEFAULT_UNKNOWN;
+                GnssReportTypeMask reportMask = 0x7f;
+                engineType |= (1UL << clientRequestPtr->mEngineType);
+                auto cb2 = [](pa_result_t r, std::any ctx) {
+                    ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
+                taf_SelfTestResult_t rc2 = {};
+                sleep(1);
+                pa_result_t res2 = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
+                    (uint32_t)optInterval, engineType, cb2, reportMask, (std::any)&rc2);
+                if (res2 != PA_OK) { result = LE_FAULT; }
+                else if (rc2.result == PA_OK) { ConfigureAcqStartInfo(clientRequestPtr); }
+                else { result = LE_FAULT; }
+            }
+            break;
+        }
+        default:
+            LE_ERROR("ForceColdRestart: Invalid state %d", clientRequestPtr->GnssState);
+            result = LE_FAULT;
+            break;
+    }
+    cPtr->retCode = result;
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ForceColdRestartSvcRespond, cPtr, NULL);
+}
 
-                taf_SelfTestResult_t resCallback = {};
+void taf_locGnss::ForceColdRestart(taf_locGnss_ServerCmdRef_t cmdRef)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, ForceColdRestartWorker, cPtr, NULL);
+}
+
+// ---------------------------------------------------------------------------
+// ForceWarmRestart
+// ---------------------------------------------------------------------------
+static void ForceWarmRestartSvcRespond(void* cmdPtr, void*)
+{
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_ForceWarmRestartRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
+
+void taf_locGnss::ForceWarmRestartWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ForceWarmRestartSvcRespond, cPtr, NULL);
+        return;
+    }
+
+    typedef struct{ pa_result_t result; }taf_SelfTestResult_t;
+    le_result_t result = LE_OK;
+
+    switch (clientRequestPtr->GnssState)
+    {
+        case TAF_LOCGNSS_STATE_READY:
+        case TAF_LOCGNSS_STATE_DISABLED:
+        case TAF_LOCGNSS_STATE_UNINITIALIZED:
+            LE_ERROR("ForceWarmRestart: Wrong state [%d]", clientRequestPtr->GnssState);
+            result = LE_NOT_PERMITTED;
+            break;
+        case TAF_LOCGNSS_STATE_ACTIVE:
+        {
+            if (clientRequestPtr->mStarted)
+            {
+                auto cb = [](pa_result_t r, std::any ctx) {
+                    ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
+                taf_SelfTestResult_t rc = {};
+                pa_result_t res = taf_pa_location_stopReports(clientRequestPtr->locationClient, cb, (std::any)&rc);
+                if (res != PA_OK || rc.result != PA_OK) { result = LE_FAULT; }
+                else { clientRequestPtr->mStarted = false; clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY; }
+            }
+            else { result = LE_FAULT; }
+
+            if (result == LE_OK)
+            {
+                auto cb1 = [](pa_result_t r, std::any ctx) {
+                    ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
+                taf_SelfTestResult_t rc1 = {};
                 uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_EPHEMERIS;
-                pa_result_t res = taf_pa_location_deleteAidingData((taf_pa_location_AidingDataType_t)AidingData, cb1, (std::any)&resCallback);
-                if (res != PA_OK)
-                {
-                    if (res == PA_NOT_IMPLEMENTED)
-                    {
-                        LE_ERROR("ForceColdRestart failed or Not Implemented");
-                    }
-                    result = LE_FAULT;
-                }
-                else
-                {
-                    if(resCallback.result != PA_OK)
-                    {
-                        result = (le_result_t)resCallback.result;;
-                    }
-                }
+                pa_result_t res1 = taf_pa_location_deleteAidingData(
+                    (taf_pa_location_AidingDataType_t)AidingData, cb1, (std::any)&rc1);
+                if (res1 != PA_OK) { result = LE_FAULT; }
+                else if (rc1.result != PA_OK) { result = (le_result_t)rc1.result; }
             }
-                if(result == LE_OK)
-                {
-                    //start Detailed Engine report
-                    if (!clientRequestPtr->mStarted) {
-                        int optInterval = clientRequestPtr->mAcqRate;
-                        LE_DEBUG("ForceWarmRestart->  optInterval: %d",optInterval);
-                        if( optInterval == 0  || optInterval < 100) {
-                            LE_DEBUG("ForceWarmRestart mAcqRate is zero, so set default to 100ms");
-                            optInterval = 100;
-                            clientRequestPtr->mAcqRate = optInterval;
-                        }
-                        LocReqEngine engineType = DEFAULT_UNKNOWN;
-                        GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
-                        reportMask = 0x7f;//all reports are enabled
-                        LE_DEBUG("ForceWarmRestart->reportMask : %u",reportMask);
-                        engineType |= (1UL << clientRequestPtr->mEngineType);
-                        sleep(1);
-                        auto cb2 = [](pa_result_t result, std::any context) {
-                            taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
-                            resPtr->result = result;
-                        };
-                        taf_SelfTestResult_t resCallback = {};
-                        pa_result_t res = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
-                            (uint32_t)optInterval, engineType, cb2, reportMask, (std::any)&resCallback);
-                        if(res != PA_OK)
-                        {
-                            result = LE_FAULT;
-                        }
-                        else
-                        {
-                            if(resCallback.result == PA_OK)
-                            {
-                                ConfigureAcqStartInfo(clientRequestPtr);
-                                LE_DEBUG("ForceWarmRestart->Start() is success");
-                            }
-                            else
-                            {
-                                LE_DEBUG("ForceWarmRestart->Start() is failed");
-                                result = LE_FAULT;
-                            }
-                        }
-                    }
-                }
-        }
-        break;
-        default:
-        {
-            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
-            result = LE_FAULT;
-        }
-        break;
-    }
 
-    return result;
+            if (result == LE_OK && !clientRequestPtr->mStarted)
+            {
+                int optInterval = clientRequestPtr->mAcqRate;
+                if (optInterval == 0 || optInterval < 100) { optInterval = 100; clientRequestPtr->mAcqRate = optInterval; }
+                LocReqEngine engineType = DEFAULT_UNKNOWN;
+                GnssReportTypeMask reportMask = 0x7f;
+                engineType |= (1UL << clientRequestPtr->mEngineType);
+                sleep(1);
+                auto cb2 = [](pa_result_t r, std::any ctx) {
+                    ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
+                taf_SelfTestResult_t rc2 = {};
+                pa_result_t res2 = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
+                    (uint32_t)optInterval, engineType, cb2, reportMask, (std::any)&rc2);
+                if (res2 != PA_OK) { result = LE_FAULT; }
+                else if (rc2.result == PA_OK) { ConfigureAcqStartInfo(clientRequestPtr); }
+                else { result = LE_FAULT; }
+            }
+            break;
+        }
+        default:
+            LE_ERROR("ForceWarmRestart: Invalid state %d", clientRequestPtr->GnssState);
+            result = LE_FAULT;
+            break;
+    }
+    cPtr->retCode = result;
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ForceWarmRestartSvcRespond, cPtr, NULL);
 }
 
-le_result_t taf_locGnss::ForceHotRestart
-(
-    void
-)
+void taf_locGnss::ForceWarmRestart(taf_locGnss_ServerCmdRef_t cmdRef)
 {
-    le_result_t result = LE_OK;
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
-    typedef struct{
-        pa_result_t result;
-    }taf_SelfTestResult_t;
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, ForceWarmRestartWorker, cPtr, NULL);
+}
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+// ---------------------------------------------------------------------------
+// ForceHotRestart
+// ---------------------------------------------------------------------------
+static void ForceHotRestartSvcRespond(void* cmdPtr, void*)
+{
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_ForceHotRestartRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
+
+void taf_locGnss::ForceHotRestartWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ForceHotRestartSvcRespond, cPtr, NULL);
+        return;
+    }
+
+    typedef struct{ pa_result_t result; }taf_SelfTestResult_t;
+    le_result_t result = LE_OK;
 
     switch (clientRequestPtr->GnssState)
     {
         case TAF_LOCGNSS_STATE_READY:
         case TAF_LOCGNSS_STATE_DISABLED:
         case TAF_LOCGNSS_STATE_UNINITIALIZED:
-        {
-            LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
+            LE_ERROR("ForceHotRestart: Wrong state [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
-        }
-        break;
+            break;
         case TAF_LOCGNSS_STATE_ACTIVE:
         {
-                // stop Detailed Reports
-                if (clientRequestPtr->mStarted) {
-                    auto cb = [](pa_result_t result, std::any context) {
-                        taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
-                        resPtr->result = result;
-                    };
-                    taf_SelfTestResult_t resCallback = {};
-                    pa_result_t res = taf_pa_location_stopReports(clientRequestPtr->locationClient, cb,(std::any)&resCallback);
-                    if(res != PA_OK){
-                        result = LE_FAULT;
-                        return result;
-                    }
-                    else
-                    {
-                        if(resCallback.result == PA_OK)
-                        {
-                            clientRequestPtr->mStarted = false;
-                            clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY;
-                            LE_DEBUG("ForceHotRestart->Stop() is success");
-                        }
-                        else
-                        {
-                            LE_DEBUG("ForceHotRestart->Stop() is failed");
-                            result = LE_FAULT;
-                            return result;
-                        }
-                    }
-                }
-                //start Detailed report
-                if (!clientRequestPtr->mStarted)
-                {
-                    int optInterval = clientRequestPtr->mAcqRate;
-                    LE_DEBUG("ForceHotRestart->  optInterval: %d",optInterval);
-                    if( optInterval == 0  || optInterval < 100) {
-                        LE_DEBUG("ForceHotRestart()->mAcqRate is zero, so set default to 100ms");
-                        optInterval = 100;
-                        clientRequestPtr->mAcqRate = optInterval;
-                    }
-                    LocReqEngine engineType = DEFAULT_UNKNOWN;
-                    GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
-                    reportMask = 0x7f;//all reports are enabled
-                    LE_DEBUG("ForceHotRestart->reportMask : %u",reportMask);
-                    sleep(1);
-                    engineType |= (1UL << clientRequestPtr->mEngineType);
-                    auto cb2 = [](pa_result_t result, std::any context) {
-                        taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
-                        resPtr->result = result;
-                    };
-                    taf_SelfTestResult_t resCallback = {};
-                    pa_result_t res = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
-                        (uint32_t)optInterval, engineType, cb2, reportMask, (std::any)&resCallback);
-                    if(res != PA_OK){
-                        result = LE_FAULT;
-                    }
-                    else
-                    {
-                        if(resCallback.result == PA_OK)
-                        {
-                            ConfigureAcqStartInfo(clientRequestPtr);
-                            LE_DEBUG("ForceHotRestart->Start() is success");
-                        }
-                        else
-                        {
-                            result = LE_FAULT;
-                            LE_ERROR("ForceHotRestart->Stop() is failed");
-                        }
-                    }
-                }
+            if (clientRequestPtr->mStarted)
+            {
+                auto cb = [](pa_result_t r, std::any ctx) {
+                    ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
+                taf_SelfTestResult_t rc = {};
+                pa_result_t res = taf_pa_location_stopReports(clientRequestPtr->locationClient, cb, (std::any)&rc);
+                if (res != PA_OK) { result = LE_FAULT; }
+                else if (rc.result == PA_OK) { clientRequestPtr->mStarted = false; clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY; }
+                else { result = LE_FAULT; }
+            }
+            if (result == LE_OK && !clientRequestPtr->mStarted)
+            {
+                int optInterval = clientRequestPtr->mAcqRate;
+                if (optInterval == 0 || optInterval < 100) { optInterval = 100; clientRequestPtr->mAcqRate = optInterval; }
+                LocReqEngine engineType = DEFAULT_UNKNOWN;
+                GnssReportTypeMask reportMask = 0x7f;
+                engineType |= (1UL << clientRequestPtr->mEngineType);
+                sleep(1);
+                auto cb2 = [](pa_result_t r, std::any ctx) {
+                    ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
+                taf_SelfTestResult_t rc2 = {};
+                pa_result_t res2 = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
+                    (uint32_t)optInterval, engineType, cb2, reportMask, (std::any)&rc2);
+                if (res2 != PA_OK) { result = LE_FAULT; }
+                else if (rc2.result == PA_OK) { ConfigureAcqStartInfo(clientRequestPtr); }
+                else { result = LE_FAULT; }
+            }
+            break;
         }
-        break;
         default:
-        {
+            LE_ERROR("ForceHotRestart: Invalid state %d", clientRequestPtr->GnssState);
             result = LE_FAULT;
-            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
-        }
-        break;
+            break;
     }
+    cPtr->retCode = result;
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ForceHotRestartSvcRespond, cPtr, NULL);
+}
 
-    return result;
+void taf_locGnss::ForceHotRestart(taf_locGnss_ServerCmdRef_t cmdRef)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, ForceHotRestartWorker, cPtr, NULL);
 }
 
 le_result_t taf_locGnss::GetSupportedConstellations
@@ -5005,66 +4920,347 @@ le_result_t taf_locGnss::GetSupportedConstellations
     return result;
 }
 
-le_result_t taf_locGnss::SetMinElevation
-(
-    uint8_t  minElevation
-)
+static void StartSvcRespond(void* cmdPtr, void*)
 {
-    le_result_t result = LE_FAULT;
-    TAF_ERROR_IF_RET_VAL( minElevation > TAF_LOCGNSS_MIN_ELEVATION_MAX_DEGREE, LE_OUT_OF_RANGE, "minimum elevation is above maximal range");
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_StartRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+void taf_locGnss::StartWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+
+    cPtr->retCode = LE_FAULT;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("StartWorker: clientRequestPtr is NULL");
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, StartSvcRespond, cPtr, NULL);
+        return;
+    }
+
+    LE_DEBUG("Start: gnssClientPtr %p, gnssPtr->sessionRef %p, num of active client %d",
+            clientRequestPtr, clientRequestPtr->sessionRef, gnss.mClientRefCount);
 
     switch (clientRequestPtr->GnssState)
     {
-        case TAF_LOCGNSS_STATE_ACTIVE:
-        case TAF_LOCGNSS_STATE_DISABLED:
-        case TAF_LOCGNSS_STATE_UNINITIALIZED:
-        {
-            LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
-            result = LE_NOT_PERMITTED;
-        }
-        break;
         case TAF_LOCGNSS_STATE_READY:
         {
-            typedef struct{
-                    pa_result_t result;
-            }taf_SelfTestResult_t;
-            auto cb = [](pa_result_t result, std::any context) {
-                taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
-                resPtr->result = result;
-            };
-            taf_SelfTestResult_t resCallback = {};
-            pa_result_t res = taf_pa_location_configureMinSVElevation(minElevation,cb,(std::any)&resCallback);
-            if(res != PA_OK)
+            // Start GNSS
+            if (!clientRequestPtr->mStarted)
             {
-                result = LE_FAULT;
-            }
-            else
-            {
-                if(resCallback.result == PA_OK)
+                int optInterval = clientRequestPtr->mAcqRate;
+                LE_DEBUG("Start->  mAcqRate: %d",clientRequestPtr->mAcqRate);
+                if( optInterval == 0  || optInterval < 100)
                 {
-                    result = LE_OK;
-                    mMinSvEle = minElevation;
+                    LE_DEBUG("Start->mAcqRate is zero, so set default to 100ms");
+                    optInterval = 100;
+                    clientRequestPtr->mAcqRate = optInterval;
+                }
+                LocReqEngine engineType = DEFAULT_UNKNOWN;
+                GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
+                reportMask = 0x7f;//all reports are enabled
+                LE_DEBUG("Start->reportMask : %u",reportMask);
+                LE_DEBUG("Start->mEngineType : %d",clientRequestPtr->mEngineType);
+                engineType |= (1UL << clientRequestPtr->mEngineType);//FUSED mode is supported by default
+
+                typedef struct{
+                    pa_result_t result;
+                }taf_SelfTestResult_t;
+                auto cb = [](pa_result_t result, std::any context) {
+                    taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
+                    resPtr->result = result;
+                };
+                taf_SelfTestResult_t resCallback = {};
+                pa_result_t res = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
+                    (uint32_t)optInterval, engineType, cb, reportMask, (std::any)(std::any)&resCallback);
+                if(res != PA_OK)
+                {
+                    cPtr->retCode = LE_FAULT;
+                    LE_DEBUG("Start() commandResponse failed status: %d ", int(cPtr->retCode));
                 }
                 else
                 {
-                    result = LE_FAULT;
+                    if(resCallback.result == PA_OK)
+                    {
+                        ConfigureAcqStartInfo(clientRequestPtr);
+                        cPtr->retCode = LE_OK;
+                    }
+                    else
+                    {
+                        cPtr->retCode = LE_FAULT;
+                        LE_DEBUG("Start() commandResponse failed status: %d ", int(cPtr->retCode));
+                    }
                 }
             }
+        }
+        break;
+        case TAF_LOCGNSS_STATE_UNINITIALIZED:
+        case TAF_LOCGNSS_STATE_DISABLED:
+        {
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
+            cPtr->retCode = LE_NOT_PERMITTED;
+        }
+        break;
+        case TAF_LOCGNSS_STATE_ACTIVE:
+        {
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
+            cPtr->retCode = LE_DUPLICATE;
         }
         break;
         default:
         {
-            result = LE_FAULT;
-            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
+            cPtr->retCode = LE_FAULT;
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
 
-   return result;
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, StartSvcRespond, cPtr, NULL);
+}
+
+void taf_locGnss::Start
+(
+    taf_locGnss_ServerCmdRef_t cmdRef
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    
+    le_msg_SessionRef_t sessionRef = taf_locGnss_GetClientSessionRef();
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (clientRequestPtr == NULL)
+    {
+        LE_ERROR("Start: Failed to acquire session for sessionRef %p", sessionRef);
+        taf_locGnss_StartRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, StartWorker, cPtr, NULL);
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Respond trampoline - queued back to LocationSvc thread after StartWorker completes.
+ */
+//--------------------------------------------------------------------------------------------------
+static void GnssStartInternalRespond(void* cmdPtr, void*)
+{
+    GnssInternalCmd_t* cPtr = (GnssInternalCmd_t*)cmdPtr;
+
+    if (cPtr->completeCb)
+    {
+        cPtr->completeCb(cPtr->retCode, cPtr->contextPtr);
+    }
+
+    le_mem_Release(cPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Worker for internal GNSS start (reuses same PA logic as StartWorker).
+ */
+//--------------------------------------------------------------------------------------------------
+static void GnssStartInternalWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    GnssInternalCmd_t* cPtr = (GnssInternalCmd_t*)cmdPtr;
+
+    LE_ASSERT(cPtr != NULL);
+    cPtr->retCode = LE_FAULT;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("GnssStartInternalWorker: clientRequestPtr is NULL");
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef,
+                                       GnssStartInternalRespond, cPtr, NULL);
+        return;
+    }
+
+    switch (clientRequestPtr->GnssState)
+    {
+        case TAF_LOCGNSS_STATE_READY:
+        {
+            if (!clientRequestPtr->mStarted)
+            {
+                int optInterval = clientRequestPtr->mAcqRate;
+                if (optInterval == 0 || optInterval < 100)
+                {
+                    optInterval = 100;
+                    clientRequestPtr->mAcqRate = optInterval;
+                }
+
+                LocReqEngine engineType = DEFAULT_UNKNOWN;
+                GnssReportTypeMask reportMask = 0x7f;
+                engineType |= (1UL << clientRequestPtr->mEngineType);
+
+                typedef struct { pa_result_t result; } taf_SelfTestResult_t;
+                auto cb = [](pa_result_t result, std::any context) {
+                    taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
+                    resPtr->result = result;
+                };
+                taf_SelfTestResult_t resCallback = {};
+
+                pa_result_t res = taf_pa_location_startDetailedEngineReports(
+                    clientRequestPtr->locationClient,
+                    (uint32_t)optInterval, engineType, cb, reportMask,
+                    (std::any)&resCallback);
+
+                cPtr->retCode = (res == PA_OK && resCallback.result == PA_OK) ? LE_OK : LE_FAULT;
+
+                if (cPtr->retCode == LE_OK)
+                {
+                    gnss.ConfigureAcqStartInfo(clientRequestPtr);
+                }
+            }
+            else
+            {
+                // Already started — treat as OK
+                cPtr->retCode = LE_OK;
+            }
+        }
+        break;
+
+        case TAF_LOCGNSS_STATE_ACTIVE:
+            cPtr->retCode = LE_DUPLICATE;
+            break;
+
+        case TAF_LOCGNSS_STATE_UNINITIALIZED:
+        case TAF_LOCGNSS_STATE_DISABLED:
+            cPtr->retCode = LE_NOT_PERMITTED;
+            break;
+
+        default:
+            cPtr->retCode = LE_FAULT;
+            break;
+    }
+
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef,
+                                   GnssStartInternalRespond, cPtr, NULL);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Start GNSS internally from locPos context (no TAF cmdRef needed).
+ * Completion result is delivered via callback on the LocationSvc main thread.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locGnss::StartInternal
+(
+    le_msg_SessionRef_t           sessionRef,  ///< [IN] Client session ref.
+    taf_locGnss_CompleteCb_t      completeCb,  ///< [IN] Completion callback.
+    void*                         contextPtr   ///< [IN] Context passed to callback.
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+
+    GnssInternalCmd_t* cPtr =
+        (GnssInternalCmd_t*)le_mem_ForceAlloc(GnssInternalCmdPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+
+    cPtr->sessionRef  = sessionRef;
+    cPtr->completeCb  = completeCb;
+    cPtr->contextPtr  = contextPtr;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.AcquireSessionRefInternal(sessionRef);
+
+    if (clientRequestPtr == NULL)
+    {
+        LE_ERROR("StartInternal: Failed to acquire session for sessionRef %p",
+                 sessionRef);
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef,
+                                       GnssStartInternalRespond, cPtr, NULL);
+        return;
+    }
+
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef,
+                                   GnssStartInternalWorker, cPtr, NULL);
+}
+
+// ---------------------------------------------------------------------------
+// SetMinElevation
+// ---------------------------------------------------------------------------
+static void SetMinElevationSvcRespond(void* cmdPtr, void*)
+{
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_SetMinElevationRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
+
+void taf_locGnss::SetMinElevationWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    uint8_t minElevation = cPtr->params.setMinElevation.minElevation;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetMinElevationSvcRespond, cPtr, NULL);
+        return;
+    }
+
+    le_result_t result = LE_FAULT;
+    if (minElevation > TAF_LOCGNSS_MIN_ELEVATION_MAX_DEGREE)
+    {
+        result = LE_OUT_OF_RANGE;
+    }
+    else
+    {
+        switch (clientRequestPtr->GnssState)
+        {
+            case TAF_LOCGNSS_STATE_ACTIVE:
+            case TAF_LOCGNSS_STATE_DISABLED:
+            case TAF_LOCGNSS_STATE_UNINITIALIZED:
+                LE_ERROR("SetMinElevation: Wrong state [%d]", clientRequestPtr->GnssState);
+                result = LE_NOT_PERMITTED;
+                break;
+            case TAF_LOCGNSS_STATE_READY:
+            {
+                typedef struct{ pa_result_t result; }taf_SelfTestResult_t;
+                auto cb = [](pa_result_t r, std::any ctx) {
+                    ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
+                taf_SelfTestResult_t rc = {};
+                pa_result_t res = taf_pa_location_configureMinSVElevation(minElevation, cb, (std::any)&rc);
+                if (res != PA_OK) { result = LE_FAULT; }
+                else if (rc.result == PA_OK) { result = LE_OK; gnss.mMinSvEle = minElevation; }
+                else { result = LE_FAULT; }
+                break;
+            }
+            default:
+                LE_ERROR("SetMinElevation: Invalid state %d", clientRequestPtr->GnssState);
+                result = LE_FAULT;
+                break;
+        }
+    }
+    cPtr->retCode = result;
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetMinElevationSvcRespond, cPtr, NULL);
+}
+
+void taf_locGnss::SetMinElevation(taf_locGnss_ServerCmdRef_t cmdRef, uint8_t minElevation)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    cPtr->params.setMinElevation.minElevation = minElevation;
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, SetMinElevationWorker, cPtr, NULL);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -5082,156 +5278,109 @@ le_result_t taf_locGnss::SetMinElevation
  *          the @ref platformConstraintsGnss page.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_locGnss::StartMode
-(
-    taf_locGnss_StartMode_t mode    ///< [IN] Start mode
-)
+static void StartModeSvcRespond(void* cmdPtr, void*)
 {
-    le_result_t result = LE_OK;
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
-    typedef struct{
-        pa_result_t result;
-    }taf_SelfTestResult_t;
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_StartModeRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+void taf_locGnss::StartModeWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_StartMode_t mode = cPtr->params.startMode.mode;
 
-    if (mode >= TAF_LOCGNSS_UNKNOWN_START)
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
     {
-        LE_ERROR("Invalid start mode %d", mode);
-        return LE_BAD_PARAMETER;
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, StartModeSvcRespond, cPtr, NULL);
+        return;
     }
-    switch (clientRequestPtr->GnssState)
+
+    le_result_t result = LE_OK;
+    if (mode >= TAF_LOCGNSS_UNKNOWN_START) { result = LE_BAD_PARAMETER; }
+    else
     {
-        case TAF_LOCGNSS_STATE_READY:
+        typedef struct{ pa_result_t result; }taf_SelfTestResult_t;
+        switch (clientRequestPtr->GnssState)
         {
-            if(mode == TAF_LOCGNSS_HOT_START) //Hot Start
+            case TAF_LOCGNSS_STATE_READY:
             {
-                LE_DEBUG("Hot Start! No operation\n");
-            }
-            else if(mode == TAF_LOCGNSS_WARM_START) //Warm Start
-            {
-                auto cb1 = [](pa_result_t result, std::any context) {
-                    taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
-                    resPtr->result = result;
-                };
-                taf_SelfTestResult_t resCallback = {};
-
-                /* Specifies AidingDataType mask */
-                /* 0 - EPHEMERIS 1 - DR_SENSOR_CALIBRATION
-                AidingData |1UL << 0 which is 1*/
-
-                uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_EPHEMERIS;
-                pa_result_t res = taf_pa_location_deleteAidingData((taf_pa_location_AidingDataType_t)AidingData, cb1, (std::any)&resCallback);
-                if (res != PA_OK)
+                if (mode == TAF_LOCGNSS_HOT_START)
                 {
-                    if (res == PA_NOT_IMPLEMENTED)
-                    {
-                        LE_ERROR("ForceColdRestart failed or Not Implemented");
-                    }
-                    result = LE_FAULT;
+                    LE_DEBUG("Hot Start – no aiding data deletion");
                 }
-                else
+                else if (mode == TAF_LOCGNSS_WARM_START)
                 {
-                    result = (le_result_t)resCallback.result;
+                    auto cb1 = [](pa_result_t r, std::any ctx) {
+                        ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
+                    taf_SelfTestResult_t rc1 = {};
+                    uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_EPHEMERIS;
+                    pa_result_t res1 = taf_pa_location_deleteAidingData(
+                        (taf_pa_location_AidingDataType_t)AidingData, cb1, (std::any)&rc1);
+                    if (res1 != PA_OK) { result = LE_FAULT; }
+                    else { result = (le_result_t)rc1.result; }
                 }
-            }
-            //Cold or Factory Start
-            else if((mode == TAF_LOCGNSS_COLD_START) || (mode == TAF_LOCGNSS_FACTORY_START))
-            {
-                //Delete All Aiding Data
-                auto cb2 = [](pa_result_t result, std::any context) {
-                    taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
-                    resPtr->result = result;
-                };
-                taf_SelfTestResult_t resCallback = {};
-                pa_result_t res = taf_pa_location_deleteAllAidingData(cb2,(std::any)&resCallback);
-                if (res != PA_OK)
+                else if ((mode == TAF_LOCGNSS_COLD_START) || (mode == TAF_LOCGNSS_FACTORY_START))
                 {
-                    if (res == LE_NOT_IMPLEMENTED)
-                    {
-                        LE_ERROR("ForceColdRestart failed or Not Implemented");
-                    }
-                    result = LE_FAULT;
+                    auto cb2 = [](pa_result_t r, std::any ctx) {
+                        ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
+                    taf_SelfTestResult_t rc2 = {};
+                    pa_result_t res2 = taf_pa_location_deleteAllAidingData(cb2, (std::any)&rc2);
+                    if (res2 != PA_OK) { result = LE_FAULT; }
+                    else { result = (le_result_t)rc2.result; }
                 }
-                else
-                {
-                    result = (le_result_t)resCallback.result;
-                }
-            }
-            else
-            {
+                else { result = LE_FAULT; }
 
-                LE_ERROR("Invalid Start Mode!\n");
-                result = LE_FAULT;
-            }
-
-            if(result == LE_OK)
-            {
-                if (!clientRequestPtr->mStarted)
+                if (result == LE_OK && !clientRequestPtr->mStarted)
                 {
                     int optInterval = clientRequestPtr->mAcqRate;
-                    LE_DEBUG("StartMode()->  mAcqRate: %d",clientRequestPtr->mAcqRate);
-                    if( optInterval == 0  || optInterval < 100)
-                    {
-                        LE_DEBUG("StartMode()->mAcqRate is zero, so set default to 100ms");
-                        optInterval = 100;
-                        clientRequestPtr->mAcqRate = optInterval;
-                    }
+                    if (optInterval == 0 || optInterval < 100) { optInterval = 100; clientRequestPtr->mAcqRate = optInterval; }
                     LocReqEngine engineType = DEFAULT_UNKNOWN;
-                    GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
-                    reportMask = 0x7f;//all reports are enabled
-                    LE_DEBUG("StartMode->reportMask : %u",reportMask);
+                    GnssReportTypeMask reportMask = 0x7f;
                     engineType |= (1UL << clientRequestPtr->mEngineType);
-
-                    auto cb2 = [](pa_result_t result, std::any context) {
-                        taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
-                        resPtr->result = result;
-                    };
-                    taf_SelfTestResult_t resCallback = {};
-                    pa_result_t res = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
-                        (uint32_t)optInterval, engineType, cb2, reportMask, (std::any)&resCallback);
-                    if(res != PA_OK){
-                        result = LE_FAULT;
-                    }
-                    else
-                    {
-                        if(resCallback.result == PA_OK)
-                        {
-                            ConfigureAcqStartInfo(clientRequestPtr);
-                            LE_DEBUG("StartMode->Start() is success");
-                        }
-                        else
-                        {
-                            LE_ERROR("StartMode->Start() is failed");
-                            result = LE_FAULT;
-                        }
-                    }
+                    auto cb3 = [](pa_result_t r, std::any ctx) {
+                        ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
+                    taf_SelfTestResult_t rc3 = {};
+                    pa_result_t res3 = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
+                        (uint32_t)optInterval, engineType, cb3, reportMask, (std::any)&rc3);
+                    if (res3 != PA_OK) { result = LE_FAULT; }
+                    else if (rc3.result == PA_OK) { ConfigureAcqStartInfo(clientRequestPtr); }
+                    else { result = LE_FAULT; }
                 }
+                break;
             }
+            case TAF_LOCGNSS_STATE_UNINITIALIZED:
+            case TAF_LOCGNSS_STATE_DISABLED:
+                LE_ERROR("StartMode: Bad state [%d]", clientRequestPtr->GnssState);
+                result = LE_NOT_PERMITTED;
+                break;
+            case TAF_LOCGNSS_STATE_ACTIVE:
+                LE_ERROR("StartMode: Bad state [%d]", clientRequestPtr->GnssState);
+                result = LE_DUPLICATE;
+                break;
+            default:
+                LE_ERROR("StartMode: Unknown state %d", clientRequestPtr->GnssState);
+                result = LE_FAULT;
+                break;
         }
-        break;
-        case TAF_LOCGNSS_STATE_UNINITIALIZED:
-        case TAF_LOCGNSS_STATE_DISABLED:
-        {
-            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
-            result = LE_NOT_PERMITTED;
-        }
-        break;
-        case TAF_LOCGNSS_STATE_ACTIVE:
-        {
-            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
-            result = LE_DUPLICATE;
-        }
-        break;
-        default:
-        {
-            result = LE_FAULT;
-            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
-        }
-        break;
     }
-    return result;
+    cPtr->retCode = result;
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, StartModeSvcRespond, cPtr, NULL);
+}
+
+void taf_locGnss::StartMode(taf_locGnss_ServerCmdRef_t cmdRef, taf_locGnss_StartMode_t mode)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    cPtr->params.startMode.mode = mode;
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, StartModeWorker, cPtr, NULL);
 }
 
 le_result_t taf_locGnss::GetMinElevation
@@ -5346,17 +5495,151 @@ le_result_t taf_locGnss::Disable
     return result;
 }
 
-le_result_t taf_locGnss::Stop
+//--------------------------------------------------------------------------------------------------
+/**
+ * Respond trampoline - queued back to LocationSvc thread after StopWorker completes.
+ */
+//--------------------------------------------------------------------------------------------------
+static void GnssStopInternalRespond(void* cmdPtr, void*)
+{
+    GnssInternalCmd_t* cPtr = (GnssInternalCmd_t*)cmdPtr;
+
+    if (cPtr->completeCb)
+    {
+        cPtr->completeCb(cPtr->retCode, cPtr->contextPtr);
+    }
+
+    le_mem_Release(cPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Worker for internal GNSS stop — reuses same PA logic as StopWorker.
+ */
+//--------------------------------------------------------------------------------------------------
+static void GnssStopInternalWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    GnssInternalCmd_t* cPtr = (GnssInternalCmd_t*)cmdPtr;
+
+    LE_ASSERT(cPtr != NULL);
+    cPtr->retCode = LE_FAULT;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("GnssStopInternalWorker: clientRequestPtr is NULL");
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, GnssStopInternalRespond, cPtr, NULL);
+        return;
+    }
+
+    switch (clientRequestPtr->GnssState)
+    {
+        case TAF_LOCGNSS_STATE_ACTIVE:
+        {
+            if (clientRequestPtr->mStarted)
+            {
+                typedef struct { pa_result_t result; } taf_SelfTestResult_t;
+                auto cb = [](pa_result_t result, std::any context)
+                {
+                    taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
+                    resPtr->result = result;
+                };
+                taf_SelfTestResult_t resCallback = {};
+                pa_result_t res = taf_pa_location_stopReports(
+                    clientRequestPtr->locationClient, cb, (std::any)&resCallback);
+
+                if (res != PA_OK)
+                {
+                    cPtr->retCode = LE_FAULT;
+                }
+                else
+                {
+                    if (resCallback.result == PA_OK)
+                    {
+                        clientRequestPtr->mStarted = false;
+                        clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY;
+                        gnss.mNmeaMask = 0;
+                        cPtr->retCode = LE_OK;
+                        LE_DEBUG("GnssStopInternalWorker: Stop success");
+                    }
+                    else
+                    {
+                        cPtr->retCode = LE_FAULT;
+                        LE_DEBUG("GnssStopInternalWorker: Stop failed");
+                    }
+                }
+            }
+        }
+        break;
+
+        case TAF_LOCGNSS_STATE_READY:
+            LE_ERROR("GnssStopInternalWorker: Bad state [%d]", clientRequestPtr->GnssState);
+            cPtr->retCode = LE_DUPLICATE;
+            break;
+
+        case TAF_LOCGNSS_STATE_UNINITIALIZED:
+        case TAF_LOCGNSS_STATE_DISABLED:
+            LE_ERROR("GnssStopInternalWorker: Bad state [%d]", clientRequestPtr->GnssState);
+            cPtr->retCode = LE_NOT_PERMITTED;
+            break;
+
+        default:
+            cPtr->retCode = LE_FAULT;
+            LE_ERROR("GnssStopInternalWorker: Unknown GNSS state %d", clientRequestPtr->GnssState);
+            break;
+    }
+
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, GnssStopInternalRespond, cPtr, NULL);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Internal GNSS Stop entry point — called by locPos without a gnss cmdRef.
+ * Queues work to LocationWorkerThRef and invokes completeCb on LocationSvcThRef when done.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locGnss::StopInternal
 (
-    void
+    le_msg_SessionRef_t            sessionRef,
+    taf_locGnss_CompleteCb_t       completeCb,
+    void*                          contextPtr
 )
 {
-    le_result_t result = LE_FAULT;
     auto &gnss = taf_locGnss::GetInstance();
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
+    GnssInternalCmd_t* cPtr = (GnssInternalCmd_t*)le_mem_ForceAlloc(GnssInternalCmdPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->sessionRef = sessionRef;
+    cPtr->completeCb = completeCb;
+    cPtr->contextPtr = contextPtr;
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, GnssStopInternalWorker, cPtr, NULL);
+}
+
+static void StopSvcRespond(void* cmdPtr, void*)
+{
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_StopRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
+
+void taf_locGnss::StopWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+
+    cPtr->retCode = LE_FAULT;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, StopSvcRespond, cPtr, NULL);
+        return;
+    }
 
     switch (clientRequestPtr->GnssState)
     {
@@ -5377,7 +5660,7 @@ le_result_t taf_locGnss::Stop
                     pa_result_t res = taf_pa_location_stopReports(clientRequestPtr->locationClient, cb,(std::any)&resCallback);
                     if(res != PA_OK)
                     {
-                        result = LE_FAULT;
+                        cPtr->retCode = LE_FAULT;
                     }
                     else
                     {
@@ -5385,13 +5668,13 @@ le_result_t taf_locGnss::Stop
                         {
                             clientRequestPtr->mStarted = false;
                             clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY;
-                            result = LE_OK;
+                            cPtr->retCode = LE_OK;
                             gnss.mNmeaMask = 0;//reset nmeaMask on triggering stop.
                             LE_DEBUG("Stop() is success");
                         }
                         else
                         {
-                            result = LE_FAULT;
+                            cPtr->retCode = LE_FAULT;
                             LE_DEBUG("Stop() is failed");
                         }
                     }
@@ -5401,44 +5684,162 @@ le_result_t taf_locGnss::Stop
         case TAF_LOCGNSS_STATE_READY:
         {
             LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
-            result = LE_DUPLICATE;
+            cPtr->retCode = LE_DUPLICATE;
         }
         break;
         case TAF_LOCGNSS_STATE_UNINITIALIZED:
         case TAF_LOCGNSS_STATE_DISABLED:
         {
             LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
-            result = LE_NOT_PERMITTED;
+            cPtr->retCode = LE_NOT_PERMITTED;
         }
         break;
         default:
         {
-            result = LE_FAULT;
+            cPtr->retCode = LE_FAULT;
             LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
-    return result;
+
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, StopSvcRespond, cPtr, NULL);
 }
 
-le_result_t taf_locGnss::SetNmeaSentences
+void taf_locGnss::Stop
 (
-    taf_locGnss_NmeaBitMask_t nmeaMask ///< [IN] Bit mask for enabled NMEA sentences.
+    taf_locGnss_ServerCmdRef_t cmdRef
 )
 {
-    le_result_t result = LE_FAULT;
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, StopWorker, cPtr, NULL);
+}
 
-    LE_DEBUG("SetNmeaSentences nmeaMask: %" PRIu64"", nmeaMask);
+le_result_t taf_locGnss::SetNmeaSentencesInternal
+(
+    taf_locGnss_NmeaBitMask_t nmeaMask
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    if (nmeaMask == 0)
+    {
+        LE_ERROR("SetNmeaSentencesInternal: invalid nmeaMask=0");
+        return LE_BAD_PARAMETER;
+    }
 
-    // Check if the bit mask is correct
+    if ((nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGSA) ||
+        (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GAGGA) ||
+        (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GAGSA) ||
+        (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GARMC) ||
+        (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GAVTG) ||
+        (nmeaMask & TAF_LOCGNSS_NMEA_MASK_PSTIS) ||
+        (nmeaMask & TAF_LOCGNSS_NMEA_MASK_REMOVED) ||
+        (nmeaMask & TAF_LOCGNSS_NMEA_MASK_PTYPE) ||
+        (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGRS) ||
+        (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGLL) ||
+        (nmeaMask & TAF_LOCGNSS_NMEA_MASK_DEBUG) ||
+        (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GAGNS) ||
+        (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GNGNS) ||
+        (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGST) ||
+        (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPZDA))
+    {
+        LE_ERROR("SetNmeaSentencesInternal: unsupported NMEA mask bits set");
+        return LE_FAULT;
+    }
+
+    uint32_t nmeaType = 0;
+
+    if ((nmeaMask & TAF_LOCGNSS_NMEA_MASK_GGA) || (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGGA))
+        nmeaType |= TAF_PA_LOCATION_GGA;
+    if ((nmeaMask & TAF_LOCGNSS_NMEA_MASK_RMC) || (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPRMC))
+        nmeaType |= TAF_PA_LOCATION_RMC;
+    if ((nmeaMask & TAF_LOCGNSS_NMEA_MASK_GSA) || (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GNGSA))
+        nmeaType |= TAF_PA_LOCATION_GSA;
+    if ((nmeaMask & TAF_LOCGNSS_NMEA_MASK_VTG) || (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPVTG))
+        nmeaType |= TAF_PA_LOCATION_VTG;
+    if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GNS)
+        nmeaType |= TAF_PA_LOCATION_GNS;
+    if ((nmeaMask & TAF_LOCGNSS_NMEA_MASK_DTM) || (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPDTM))
+        nmeaType |= TAF_PA_LOCATION_DTM;
+    if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGSV)
+        nmeaType |= TAF_PA_LOCATION_GPGSV;
+    if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GLGSV)
+        nmeaType |= TAF_PA_LOCATION_GLGSV;
+    if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GAGSV)
+        nmeaType |= TAF_PA_LOCATION_GAGSV;
+    if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GQGSV)
+        nmeaType |= TAF_PA_LOCATION_GQGSV;
+    if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GBGSV)
+        nmeaType |= TAF_PA_LOCATION_GBGSV;
+    if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GIGSV)
+        nmeaType |= TAF_PA_LOCATION_GIGSV;
+
+    typedef struct { pa_result_t result; } taf_SelfTestResult_t;
+    auto cb = [](pa_result_t result, std::any context)
+    {
+        taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
+        resPtr->result = result;
+    };
+    taf_SelfTestResult_t resCallback = {};
+
+    pa_result_t res = taf_pa_location_configureNmeaTypes(
+        (taf_pa_location_NmeaSentenceType_t)nmeaType, cb, (std::any)&resCallback);
+
+    if (res != PA_OK || resCallback.result != PA_OK)
+    {
+        LE_ERROR("SetNmeaSentencesInternal: PA call failed res=%d cbResult=%d",
+                 (int)res, (int)resCallback.result);
+        return LE_FAULT;
+    }
+    else
+    {
+        gnss.SetNmeaConfig(nmeaMask);
+    }
+
+    LE_INFO("SetNmeaSentencesInternal: NMEA configured successfully nmeaMask=%" PRIu64, nmeaMask);
+    return LE_OK;
+}
+
+// ---------------------------------------------------------------------------
+// SetNmeaSentences
+// ---------------------------------------------------------------------------
+static void SetNmeaSentencesSvcRespond(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    if (cPtr->retCode == LE_OK)
+    {
+        gnss.SetNmeaConfig(cPtr->params.setNmeaSentences.nmeaMask);
+    }
+    taf_locGnss_SetNmeaSentencesRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
+
+void taf_locGnss::SetNmeaSentencesWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_NmeaBitMask_t nmeaMask = cPtr->params.setNmeaSentences.nmeaMask;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetNmeaSentencesSvcRespond, cPtr, NULL);
+        return;
+    }
+
     if (nmeaMask == 0)
     {
         LE_ERROR("Unable to set the enabled NMEA sentences, wrong bit mask %" PRIu64"", nmeaMask);
-        result = LE_BAD_PARAMETER;
+        cPtr->retCode = LE_BAD_PARAMETER;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetNmeaSentencesSvcRespond, cPtr, NULL);
+        return;
     }
     else
     {
@@ -5465,7 +5866,9 @@ le_result_t taf_locGnss::SetNmeaSentences
                     (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGST) ||
                     (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPZDA))
                 {
-                    return LE_FAULT;
+                    cPtr->retCode = LE_FAULT;
+                    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetNmeaSentencesSvcRespond, cPtr, NULL);
+                    return;
                 }
                 uint32_t nmeaType = 0;
                 if((nmeaMask & TAF_LOCGNSS_NMEA_MASK_GGA) || (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GPGGA))
@@ -5529,23 +5932,22 @@ le_result_t taf_locGnss::SetNmeaSentences
                 if(res == PA_OK){
                     if(resCallback.result == PA_OK)
                     {
-                        result = LE_OK;
-                        SetNmeaConfig(nmeaMask);
+                        cPtr->retCode = LE_OK;
                     }
                     else
                     {
-                        result = LE_FAULT;
+                        cPtr->retCode = LE_FAULT;
                     }
                 }
                 else
                 {
                     LE_DEBUG("SetNmeaSentences is failed");
-                    result = LE_FAULT;
+                    cPtr->retCode = LE_FAULT;
                 }
-                if (LE_OK != result)
+                if (LE_OK != cPtr->retCode)
                 {
-                    LE_ERROR("Unable to set the enabled NMEA sentences, error = %d (%s)",
-                              result, LE_RESULT_TXT(result));
+                    LE_ERROR("Unable to set the enabled NMEA sentences, error = %d (%s)",
+                              cPtr->retCode, LE_RESULT_TXT(cPtr->retCode));
                 }
             }
             break;
@@ -5553,19 +5955,31 @@ le_result_t taf_locGnss::SetNmeaSentences
             case TAF_LOCGNSS_STATE_DISABLED:
             {
                 LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
-                result = LE_NOT_PERMITTED;
+                cPtr->retCode = LE_NOT_PERMITTED;
             }
             break;
             default:
             {
                 LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
-                result = LE_FAULT;
+                cPtr->retCode = LE_FAULT;
             }
             break;
         }
     }
 
-    return result;
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetNmeaSentencesSvcRespond, cPtr, NULL);
+}
+
+void taf_locGnss::SetNmeaSentences(taf_locGnss_ServerCmdRef_t cmdRef,
+                                    taf_locGnss_NmeaBitMask_t nmeaMask)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    cPtr->params.setNmeaSentences.nmeaMask = nmeaMask;
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, SetNmeaSentencesWorker, cPtr, NULL);
 }
 
 le_result_t taf_locGnss::GetNmeaSentences
@@ -5734,40 +6148,65 @@ taf_locGnss_NmeaBitMask_t taf_locGnss::GetNmeaConfig()
     return 0;
 }
 
-le_result_t taf_locGnss::SetDRConfig(const taf_locGnss_DrParams_t* drParamsPtr)
+// ---------------------------------------------------------------------------
+// SetDRConfig
+// ---------------------------------------------------------------------------
+static void SetDRConfigSvcRespond(void* cmdPtr, void*)
 {
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_SetDRConfigRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
+
+void taf_locGnss::SetDRConfigWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetDRConfigSvcRespond, cPtr, NULL);
+        return;
+    }
+
     le_result_t result = LE_NOT_PERMITTED;
     le_result_t sensor_Result = LE_OK;
     le_result_t speedScale_Result = LE_OK;
     le_result_t gyroScale_Result = LE_OK;
     taf_pa_location_DREngineConfiguration_t drConfig;
     drConfig.validMask = static_cast<uint16_t>(0);
-    TAF_KILL_CLIENT_IF_RET_VAL( NULL == drParamsPtr, LE_FAULT, "drParamsPtr is NULL");
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+    taf_locGnss_DrParams_t* dRParamsPtr = &cPtr->params.setDRConfig.drParams;
 
- // Check the GNSS device state
+    // Check the GNSS device state
     switch (clientRequestPtr->GnssState)
     {
         case TAF_LOCGNSS_STATE_READY:
         {
             //Filling the DR parameters
-            bodyToSensorUtility(drConfig,drParamsPtr,clientRequestPtr,&sensor_Result);
+            bodyToSensorUtility(drConfig,dRParamsPtr,clientRequestPtr,&sensor_Result);
             if(sensor_Result == LE_OUT_OF_RANGE)
             {
-                return sensor_Result;
+                cPtr->retCode = sensor_Result;
+                le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetDRConfigSvcRespond, cPtr, NULL);
+                return;
             }
-            speedScaleUtility(drConfig,drParamsPtr,clientRequestPtr,&speedScale_Result);
+            speedScaleUtility(drConfig,dRParamsPtr,clientRequestPtr,&speedScale_Result);
             if(speedScale_Result == LE_OUT_OF_RANGE)
             {
-                return speedScale_Result;
+                cPtr->retCode = speedScale_Result;
+                le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetDRConfigSvcRespond, cPtr, NULL);
+                return;
             }
-            gyroScaleUtility(drConfig,drParamsPtr,clientRequestPtr,&gyroScale_Result);
+            gyroScaleUtility(drConfig,dRParamsPtr,clientRequestPtr,&gyroScale_Result);
             if(gyroScale_Result == LE_OUT_OF_RANGE)
             {
-                return gyroScale_Result;
+                cPtr->retCode = gyroScale_Result;
+                le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetDRConfigSvcRespond, cPtr, NULL);
+                return;
             }
             typedef struct{
                 pa_result_t result;
@@ -5780,7 +6219,7 @@ le_result_t taf_locGnss::SetDRConfig(const taf_locGnss_DrParams_t* drParamsPtr)
             pa_result_t res = taf_pa_location_configureDR(drConfig, cb,(std::any)&resCallback);
             if (res == PA_FAULT) {
                 LE_DEBUG("SetDRConfig is failed");
-                result = LE_FAULT;
+                cPtr->retCode = LE_FAULT;
             } else if (res == PA_OK) {
                 result = (le_result_t)resCallback.result;
                 if(result == LE_OK)
@@ -5800,17 +6239,36 @@ le_result_t taf_locGnss::SetDRConfig(const taf_locGnss_DrParams_t* drParamsPtr)
         case TAF_LOCGNSS_STATE_DISABLED:
         {
             LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
-            result = LE_NOT_PERMITTED;
+            cPtr->retCode = LE_NOT_PERMITTED;
         }
         break;
         default:
         {
             LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
-            result = LE_FAULT;
+            cPtr->retCode = LE_FAULT;
         }
         break;
     }
-    return result;
+
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetDRConfigSvcRespond, cPtr, NULL);
+}
+
+void taf_locGnss::SetDRConfig(taf_locGnss_ServerCmdRef_t cmdRef,
+                               const taf_locGnss_DrParams_t* drParamsPtr)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    if (drParamsPtr == NULL)
+    {
+        LE_ERROR("SetDRConfig: drParamsPtr is NULL");
+        taf_locGnss_SetDRConfigRespond(cmdRef, LE_FAULT);
+        return;
+    }
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    cPtr->params.setDRConfig.drParams = *drParamsPtr;
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, SetDRConfigWorker, cPtr, NULL);
 }
 
 void bodyToSensorUtility(taf_pa_location_DREngineConfiguration_t& drConfig,
@@ -5955,46 +6413,65 @@ void roundOffLocationData(double *locData, uint8_t dplace)
         *locData = ((*locData*decimal)+5)/10;
     }
 }
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-le_result_t taf_locGnss::ConfigureEngineState
-(
-    taf_locGnss_EngineType_t engtype,///< [IN] value for Engine type.
-    taf_locGnss_EngineState_t engState///< [IN] value for Engine state.
-)
-{
-    le_result_t result = LE_OK;
-    taf_pa_location_EngineType_t engineType;
-    taf_pa_location_LocationEngineRunState_t engineState;
-    LE_DEBUG("ConfigureEngineState engtype:%d, engState:%d", engtype, engState);
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
-    switch(engtype)
+// ---------------------------------------------------------------------------
+// ConfigureEngineState  (SA515M / SA525M only)
+// ---------------------------------------------------------------------------
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
+static void ConfigureEngineStateSvcRespond(void* cmdPtr, void*)
+{
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_ConfigureEngineStateRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
+
+void taf_locGnss::ConfigureEngineStateWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_EngineType_t  engType  = cPtr->params.configureEngineState.engType;
+    taf_locGnss_EngineState_t engineState = cPtr->params.configureEngineState.engState;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ConfigureEngineStateSvcRespond, cPtr, NULL);
+        return;
+    }
+
+    cPtr->retCode = LE_OK;
+    taf_pa_location_EngineType_t paEngineType;
+    taf_pa_location_LocationEngineRunState_t paEngineState;
+    LE_DEBUG("ConfigureEngineState engtype:%d, engState:%d", engType, engineState);
+    switch(engType)
     {
         case TAF_LOCGNSS_ENGINE_TYPE_DRE:
-            engineType = TAF_PA_LOCATION_DRE;
+            paEngineType = TAF_PA_LOCATION_DRE;
             break;
         default:
         {
-            LE_ERROR("Unknown Engine type %d", engtype);
-            result = LE_FAULT;
-            return result;
+            LE_ERROR("Unknown Engine type %d", engType);
+            cPtr->retCode = LE_FAULT;
+            le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ConfigureEngineStateSvcRespond, cPtr, NULL);
+            return;
         }
     }
-    switch(engState)
+    switch(engineState)
     {
         case TAF_LOCGNSS_ENGINE_STATE_SUSPENDED:
-            engineState = TAF_PA_LOCATION_SUSPENDED;
+            paEngineState = TAF_PA_LOCATION_SUSPENDED;
             break;
         case TAF_LOCGNSS_ENGINE_STATE_RUNNING:
-            engineState = TAF_PA_LOCATION_RUNNING;
+            paEngineState = TAF_PA_LOCATION_RUNNING;
             break;
         default:
         {
-            LE_ERROR("Unknown Engine state %d", engState);
-            result = LE_FAULT;
-            return result;
+            LE_ERROR("Unknown Engine state %d", engineState);
+            cPtr->retCode = LE_FAULT;
+            le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ConfigureEngineStateSvcRespond, cPtr, NULL);
+            return;
         }
     }
     switch (clientRequestPtr->GnssState)
@@ -6003,7 +6480,7 @@ le_result_t taf_locGnss::ConfigureEngineState
         case TAF_LOCGNSS_STATE_UNINITIALIZED:
         {
             LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
-            result = LE_NOT_PERMITTED;
+            cPtr->retCode = LE_NOT_PERMITTED;
         }
         break;
         case TAF_LOCGNSS_STATE_READY:
@@ -6018,9 +6495,9 @@ le_result_t taf_locGnss::ConfigureEngineState
                 };
                 taf_SelfTestResult_t resCallback = {};
                 pa_result_t res = taf_pa_location_configureEngineState(
-                    engineType, engineState, cb,(std::any)&resCallback);
+                    paEngineType, paEngineState, cb,(std::any)&resCallback);
                 if(res != PA_OK){
-                    result = LE_FAULT;
+                    cPtr->retCode = LE_FAULT;
                 }
                 else
                 {
@@ -6030,7 +6507,7 @@ le_result_t taf_locGnss::ConfigureEngineState
                     }
                     else
                     {
-                        result = LE_FAULT;
+                        cPtr->retCode = LE_FAULT;
                     }
                 }
             }
@@ -6038,28 +6515,59 @@ le_result_t taf_locGnss::ConfigureEngineState
         default:
         {
             LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
-            result = LE_FAULT;
+            cPtr->retCode = LE_FAULT;
         }
         break;
     }
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ConfigureEngineStateSvcRespond, cPtr, NULL);
+}
 
-    return result;
+void taf_locGnss::ConfigureEngineState(taf_locGnss_ServerCmdRef_t cmdRef,
+                                        taf_locGnss_EngineType_t engtype,
+                                        taf_locGnss_EngineState_t engState)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    cPtr->params.configureEngineState.engType  = engtype;
+    cPtr->params.configureEngineState.engState = engState;
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, ConfigureEngineStateWorker, cPtr, NULL);
 }
 #endif
-le_result_t taf_locGnss::ConfigureRobustLocation
-(
-    uint8_t enable,///< [IN] value for enable/disable.
-    uint8_t enabled911///< [IN] value for 911 enable/disable
-)
+
+// ---------------------------------------------------------------------------
+// ConfigureRobustLocation
+// ---------------------------------------------------------------------------
+static void ConfigureRobustLocationSvcRespond(void* cmdPtr, void*)
 {
-    le_result_t result = LE_OK;
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_ConfigureRobustLocationRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
+
+void taf_locGnss::ConfigureRobustLocationWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    uint8_t enable    = cPtr->params.configureRobustLocation.enable;
+    uint8_t enabled911 = cPtr->params.configureRobustLocation.enabled911;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ConfigureRobustLocationSvcRespond, cPtr, NULL);
+        return;
+    }
+
+    cPtr->retCode = LE_OK;
     LE_DEBUG("ConfigureRobustLocation enable:%d, enabled911:%d", enable, enabled911);
     bool enableRobustloc = false;
     bool enableE911loc = false;
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
     switch(enable)
     {
        case 0:
@@ -6071,8 +6579,9 @@ le_result_t taf_locGnss::ConfigureRobustLocation
         default:
         {
             LE_ERROR("Wrong Input to enable: %d", enable);
-            result = LE_FAULT;
-            return result;
+            cPtr->retCode = LE_FAULT;
+            le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ConfigureRobustLocationSvcRespond, cPtr, NULL);
+            return;
         }
     }
     switch(enabled911)
@@ -6086,8 +6595,9 @@ le_result_t taf_locGnss::ConfigureRobustLocation
         default:
         {
             LE_ERROR("Wrong Input to enabled911: %d", enabled911);
-            result = LE_FAULT;
-            return result;
+            cPtr->retCode = LE_FAULT;
+            le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ConfigureRobustLocationSvcRespond, cPtr, NULL);
+            return;
         }
     }
     switch (clientRequestPtr->GnssState)
@@ -6096,7 +6606,7 @@ le_result_t taf_locGnss::ConfigureRobustLocation
         case TAF_LOCGNSS_STATE_UNINITIALIZED:
         {
             LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
-            result = LE_NOT_PERMITTED;
+            cPtr->retCode = LE_NOT_PERMITTED;
         }
         break;
         case TAF_LOCGNSS_STATE_READY:
@@ -6113,23 +6623,35 @@ le_result_t taf_locGnss::ConfigureRobustLocation
                 pa_result_t res = taf_pa_location_configureRobustLocation(
                     enableRobustloc, enableE911loc, cb,(std::any)&resCallback);
                 if(res != PA_OK){
-                    result = LE_FAULT;
+                    cPtr->retCode = LE_FAULT;
                 }
                 else
                 {
-                    result = (le_result_t)resCallback.result;
+                    cPtr->retCode = (le_result_t)resCallback.result;
                 }
             }
         break;
         default:
         {
             LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
-            result = LE_FAULT;
+            cPtr->retCode = LE_FAULT;
         }
         break;
     }
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ConfigureRobustLocationSvcRespond, cPtr, NULL);
+}
 
-    return result;
+void taf_locGnss::ConfigureRobustLocation(taf_locGnss_ServerCmdRef_t cmdRef,
+                                           uint8_t enable, uint8_t enabled911)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    cPtr->params.configureRobustLocation.enable     = enable;
+    cPtr->params.configureRobustLocation.enabled911 = enabled911;
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, ConfigureRobustLocationWorker, cPtr, NULL);
 }
 
 le_result_t taf_locGnss::RobustLocationInformation
@@ -6224,16 +6746,30 @@ le_result_t taf_locGnss::RobustLocationInformation
 
     return result;
 }
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-le_result_t taf_locGnss::DefaultSecondaryBandConstellations
-(
-)
-{
-    le_result_t result = LE_FAULT;
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
+static void DefaultSecondaryBandConstellationsSvcRespond(void* cmdPtr, void*)
+{
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_DefaultSecondaryBandConstellationsRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
+
+void taf_locGnss::DefaultSecondaryBandConstellationsWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, DefaultSecondaryBandConstellationsSvcRespond, cPtr, NULL);
+        return;
+    }
+
+    cPtr->retCode = LE_FAULT;
 
     switch (clientRequestPtr->GnssState)
     {
@@ -6242,7 +6778,7 @@ le_result_t taf_locGnss::DefaultSecondaryBandConstellations
         case TAF_LOCGNSS_STATE_ACTIVE:
         {
             LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
-            result = LE_NOT_PERMITTED;
+            cPtr->retCode = LE_NOT_PERMITTED;
         }
         break;
         case TAF_LOCGNSS_STATE_READY:
@@ -6257,14 +6793,14 @@ le_result_t taf_locGnss::DefaultSecondaryBandConstellations
             taf_SelfTestResult_t resCallback = {};
 
             // Configure Secondary Band constellation
-            mRequestSB = 0;//reset the value before configuring
+            gnss.mRequestSB = 0;//reset the value before configuring
             std::unordered_set<taf_pa_location_GnssConstellationType_t> constSet{};
             pa_result_t res = taf_pa_location_configureSecondaryBand(constSet,cb,(std::any)&resCallback);
             if (res == PA_NOT_IMPLEMENTED) {
-                result = LE_FAULT;
+                cPtr->retCode = LE_FAULT;
             } else if (res == PA_OK) {
-                result = (le_result_t)resCallback.result;
-                if(result == LE_OK)
+                cPtr->retCode = (le_result_t)resCallback.result;
+                if(cPtr->retCode == LE_OK)
                 {
                     LE_DEBUG("Success");
                 }
@@ -6273,31 +6809,47 @@ le_result_t taf_locGnss::DefaultSecondaryBandConstellations
         break;
         default:
         {
-            result = LE_FAULT;
+            cPtr->retCode = LE_FAULT;
             LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
-    return result;
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, DefaultSecondaryBandConstellationsSvcRespond, cPtr, NULL);
 }
 
-le_result_t taf_locGnss::RequestSecondaryBandConstellations
-(
-   uint32_t * constellationSb
-)
+void taf_locGnss::DefaultSecondaryBandConstellations(taf_locGnss_ServerCmdRef_t cmdRef)
 {
-    LE_DEBUG("RequestSecondaryBandConstellation");
-    le_result_t result = LE_FAULT;
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, DefaultSecondaryBandConstellationsWorker, cPtr, NULL);
+}
 
-    if (NULL == constellationSb)
+static void RequestSecondaryBandConstellationsRespond(void* cmdPtr, void*)
+{
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_RequestSecondaryBandConstellationsRespond(cPtr->cmdRef, cPtr->retCode, cPtr->params.configureSecondaryBand.constellationSb);
+    le_mem_Release(cPtr);
+}
+
+void taf_locGnss::RequestSecondaryBandConstellationsWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
     {
-        LE_KILL_CLIENT("constellationSb is NULL !");
-        return result;
+        cPtr->params.configureSecondaryBand.constellationSb = 0;
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, RequestSecondaryBandConstellationsRespond, cPtr, NULL);
+        return;
     }
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+    cPtr->retCode = LE_FAULT;
 
     switch ( clientRequestPtr->GnssState)
     {
@@ -6306,7 +6858,7 @@ le_result_t taf_locGnss::RequestSecondaryBandConstellations
         case TAF_LOCGNSS_STATE_ACTIVE:
         {
             LE_ERROR("Bad state for that request [%d]",  clientRequestPtr->GnssState);
-            result = LE_NOT_PERMITTED;
+            cPtr->retCode = LE_NOT_PERMITTED;
         }
         break;
         case TAF_LOCGNSS_STATE_READY:
@@ -6367,43 +6919,70 @@ le_result_t taf_locGnss::RequestSecondaryBandConstellations
             pa_result_t res = taf_pa_location_requestSecondaryBandConfig(cb,(std::any)&resCallback);
             if(res != PA_OK)
             {
-                return LE_FAULT;
+                cPtr->retCode = LE_FAULT;
             }
             else
             {
                 if(resCallback.result == PA_OK)
                 {
-                    result = LE_OK;
-                    *constellationSb = resCallback.secConstellationValue;
-                    mRequestSB = resCallback.secConstellationValue;
+                    cPtr->retCode = LE_OK;
+                    cPtr->params.configureSecondaryBand.constellationSb = resCallback.secConstellationValue;
+                    gnss.mRequestSB = resCallback.secConstellationValue;
                 }
                 else
                 {
-                    result = LE_FAULT;
+                    cPtr->retCode = LE_FAULT;
                 }
             }
         }
         break;
         default:
         {
-            result = LE_FAULT;
+            cPtr->retCode = LE_FAULT;
             LE_ERROR("Unknown GNSS state %d",  clientRequestPtr->GnssState);
         }
         break;
     }
-    return result;
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, RequestSecondaryBandConstellationsRespond, cPtr, NULL);
 }
 
-le_result_t taf_locGnss::ConfigureSecondaryBandConstellations
-(
-   uint32_t constellationSb
-)
+void taf_locGnss::RequestSecondaryBandConstellations(taf_locGnss_ServerCmdRef_t cmdRef)
 {
-    le_result_t result = LE_FAULT;
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, RequestSecondaryBandConstellationsWorker, cPtr, NULL);
+}
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+// ---------------------------------------------------------------------------
+// ConfigureSecondaryBandConstellations
+// ---------------------------------------------------------------------------
+static void ConfigureSecondaryBandConstellationsSvcRespond(void* cmdPtr, void*)
+{
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_ConfigureSecondaryBandConstellationsRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
+
+void taf_locGnss::ConfigureSecondaryBandConstellationsWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    uint32_t constellationSb = cPtr->params.configureSecondaryBand.constellationSb;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ConfigureSecondaryBandConstellationsSvcRespond, cPtr, NULL);
+        return;
+    }
+
+    cPtr->retCode = LE_FAULT;
+
     std::unordered_set<taf_pa_location_GnssConstellationType_t> constSet{};
     if( constellationSb & (1<<(TAF_LOCGNSS_SB_CONSTELLATION_GPS-1))) //GPS->1
     {
@@ -6444,7 +7023,7 @@ le_result_t taf_locGnss::ConfigureSecondaryBandConstellations
         case TAF_LOCGNSS_STATE_ACTIVE:
         {
             LE_ERROR("Bad state for that request [%d]",  clientRequestPtr->GnssState);
-            result = LE_NOT_PERMITTED;
+            cPtr->retCode = LE_NOT_PERMITTED;
         }
         break;
         case TAF_LOCGNSS_STATE_READY:
@@ -6459,13 +7038,13 @@ le_result_t taf_locGnss::ConfigureSecondaryBandConstellations
             taf_SelfTestResult_t resCallback = {};
 
             // Configure Secondary Band constellation
-            mRequestSB = 0;//reset the value before configuring
+            gnss.mRequestSB = 0;//reset the value before configuring
             pa_result_t res = taf_pa_location_configureSecondaryBand(constSet,cb,(std::any)&resCallback);
             if (res == PA_NOT_IMPLEMENTED) {
-                result = LE_FAULT;
+                cPtr->retCode = LE_FAULT;
             } else if (res == PA_OK) {
-                result = (le_result_t)resCallback.result;
-                if(result == LE_OK)
+                cPtr->retCode = (le_result_t)resCallback.result;
+                if(cPtr->retCode == LE_OK)
                 {
                     LE_DEBUG("Success");
                 }
@@ -6474,25 +7053,61 @@ le_result_t taf_locGnss::ConfigureSecondaryBandConstellations
         break;
         default:
         {
-            result = LE_FAULT;
+            cPtr->retCode = LE_FAULT;
             LE_ERROR("Unknown GNSS state %d",  clientRequestPtr->GnssState);
         }
         break;
     }
-    return result;
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ConfigureSecondaryBandConstellationsSvcRespond, cPtr, NULL);
+}
+
+void taf_locGnss::ConfigureSecondaryBandConstellations(taf_locGnss_ServerCmdRef_t cmdRef,
+                                                         uint32_t constellationSb)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    cPtr->params.configureSecondaryBand.constellationSb = constellationSb;
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, ConfigureSecondaryBandConstellationsWorker, cPtr, NULL);
 }
 #endif
 
-
-le_result_t taf_locGnss::SetLeverArmConfig(const taf_locGnss_LeverArmParams_t* LeverArmParamsPtr)
+// ---------------------------------------------------------------------------
+// SetLeverArmConfig
+// ---------------------------------------------------------------------------
+static void SetLeverArmConfigSvcRespond(void* cmdPtr, void*)
 {
-    le_result_t result = LE_NOT_PERMITTED;
-    taf_pa_location_LeverArmParams_t* LeverArmConfigInfoPtr = new taf_pa_location_LeverArmParams_t();
-    TAF_KILL_CLIENT_IF_RET_VAL( NULL == LeverArmParamsPtr, LE_FAULT, "LeverArmParamsPtr is NULL");
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_SetLeverArmConfigRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+void taf_locGnss::SetLeverArmConfigWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetLeverArmConfigSvcRespond, cPtr, NULL);
+        return;
+    }
+
+    taf_locGnss_LeverArmParams_t* LeverArmParamsPtr = &cPtr->params.setLeverArmConfig.leverArmParams;
+
+    cPtr->retCode = LE_NOT_PERMITTED;
+    taf_pa_location_LeverArmParams_t* LeverArmConfigInfoPtr = new taf_pa_location_LeverArmParams_t();
+    if (LeverArmConfigInfoPtr == NULL)
+    {
+        cPtr->retCode = LE_NO_MEMORY;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetLeverArmConfigSvcRespond, cPtr, NULL);
+        return;
+    }
 
     switch ( clientRequestPtr->GnssState)
     {
@@ -6502,7 +7117,9 @@ le_result_t taf_locGnss::SetLeverArmConfig(const taf_locGnss_LeverArmParams_t* L
                 || (LeverArmParamsPtr->levArmType >TAF_LOCGNSS_LEVER_ARM_TYPE_VPE_IMU_TO_GNSS))
             {
                 LE_ERROR("invalid Lever Arm type, returning");
-                return LE_BAD_PARAMETER;
+                cPtr->retCode = LE_BAD_PARAMETER;
+                le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetLeverArmConfigSvcRespond, cPtr, NULL);
+                return;
             }
             //Filling the Lever Arm types
             if(LeverArmParamsPtr->levArmType == TAF_LOCGNSS_LEVER_ARM_TYPE_GNSS_TO_VRP)
@@ -6535,22 +7152,22 @@ le_result_t taf_locGnss::SetLeverArmConfig(const taf_locGnss_LeverArmParams_t* L
             pa_result_t res = taf_pa_location_configureLeverArm(LeverArmConfigInfoPtr,cb,(std::any)&resCallback);
             if (res != PA_OK)
             {
-                result = LE_FAULT;
+                cPtr->retCode = LE_FAULT;
             }
             else
             {
                 if(resCallback.result == PA_OK)
                 {
-                    result = LE_OK;
+                    cPtr->retCode = LE_OK;
                 }
                 else
                 {
-                    result = LE_FAULT;
+                    cPtr->retCode = LE_FAULT;
                 }
-                if (LE_OK != result)
+                if (LE_OK != cPtr->retCode)
                 {
                     LE_ERROR("Unable to set the Lever Arm Configuration error = %d (%s)",
-                            result, LE_RESULT_TXT(result));
+                            cPtr->retCode, LE_RESULT_TXT(cPtr->retCode));
                 }
             }
         }
@@ -6560,39 +7177,81 @@ le_result_t taf_locGnss::SetLeverArmConfig(const taf_locGnss_LeverArmParams_t* L
         case TAF_LOCGNSS_STATE_DISABLED:
         {
             LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
-            result = LE_NOT_PERMITTED;
+            cPtr->retCode = LE_NOT_PERMITTED;
         }
         break;
         default:
         {
             LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
-            result = LE_FAULT;
+            cPtr->retCode = LE_FAULT;
         }
         break;
     }
-    return result;
+
+    delete LeverArmConfigInfoPtr;
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetLeverArmConfigSvcRespond, cPtr, NULL);
 }
 
-le_result_t taf_locGnss::SetEngineType(taf_locGnss_EngineReportsType_t EngineType)
+void taf_locGnss::SetLeverArmConfig(taf_locGnss_ServerCmdRef_t cmdRef,
+                                     const taf_locGnss_LeverArmParams_t* LeverArmParamsPtr)
 {
-    le_result_t result = LE_FAULT;
-    if((EngineType <TAF_LOCGNSS_ENGINE_REPORT_TYPE_FUSED)
-          || (EngineType>TAF_LOCGNSS_ENGINE_REPORT_TYPE_VPE))
+    auto &gnss = taf_locGnss::GetInstance();
+    if (LeverArmParamsPtr == NULL)
     {
-        return LE_BAD_PARAMETER;
+        LE_ERROR("SetLeverArmConfig: LeverArmParamsPtr is NULL");
+        taf_locGnss_SetLeverArmConfigRespond(cmdRef, LE_FAULT);
+        return;
     }
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    cPtr->params.setLeverArmConfig.leverArmParams = *LeverArmParamsPtr;  // deep copy
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, SetLeverArmConfigWorker, cPtr, NULL);
+}
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+// ---------------------------------------------------------------------------
+// SetEngineType
+// ---------------------------------------------------------------------------
+static void SetEngineTypeSvcRespond(void* cmdPtr, void*)
+{
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_SetEngineTypeRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
+
+void taf_locGnss::SetEngineTypeWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_EngineReportsType_t engineType = cPtr->params.setEngineType.engineType;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetEngineTypeSvcRespond, cPtr, NULL);
+        return;
+    }
+
+    cPtr->retCode = LE_FAULT;
+    if((engineType <TAF_LOCGNSS_ENGINE_REPORT_TYPE_FUSED)
+          || (engineType>TAF_LOCGNSS_ENGINE_REPORT_TYPE_VPE))
+    {
+        cPtr->retCode = LE_BAD_PARAMETER;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetEngineTypeSvcRespond, cPtr, NULL);
+        return;
+    }
 
     switch (clientRequestPtr->GnssState)
     {
         case TAF_LOCGNSS_STATE_READY:
         {
             // Set Engine Type
-            clientRequestPtr->mEngineType = EngineType;
-            result = LE_OK;
+            clientRequestPtr->mEngineType = engineType;
+            cPtr->retCode = LE_OK;
         }
         break;
         case TAF_LOCGNSS_STATE_ACTIVE:
@@ -6600,19 +7259,32 @@ le_result_t taf_locGnss::SetEngineType(taf_locGnss_EngineReportsType_t EngineTyp
         case TAF_LOCGNSS_STATE_DISABLED:
         {
             LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
-            result = LE_NOT_PERMITTED;
+            cPtr->retCode = LE_NOT_PERMITTED;
         }
         break;
         break;
         default:
         {
-            result = LE_FAULT;
+            cPtr->retCode = LE_FAULT;
             LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
-    return result;
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetEngineTypeSvcRespond, cPtr, NULL);
 }
+
+void taf_locGnss::SetEngineType(taf_locGnss_ServerCmdRef_t cmdRef,
+                                 taf_locGnss_EngineReportsType_t EngineType)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    cPtr->params.setEngineType.engineType = EngineType;
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, SetEngineTypeWorker, cPtr, NULL);
+}
+
 
 le_result_t taf_locGnss::GetConformityIndex
 (
@@ -7570,16 +8242,32 @@ le_result_t taf_locGnss::GetSatellitesInfoEx
     return result;
 }
 
-le_result_t taf_locGnss::SetMinGpsWeek
-(
-    uint16_t minGpsWeek
-)
+// ---------------------------------------------------------------------------
+// SetMinGpsWeek
+// ---------------------------------------------------------------------------
+static void SetMinGpsWeekSvcRespond(void* cmdPtr, void*)
 {
-    le_result_t result = LE_FAULT;
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_SetMinGpsWeekRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+void taf_locGnss::SetMinGpsWeekWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    uint16_t minGpsWeek = cPtr->params.setMinGpsWeek.minGpsWeek;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetMinGpsWeekSvcRespond, cPtr, NULL);
+        return;
+    }
+
+    cPtr->retCode = LE_FAULT;
 
     switch (clientRequestPtr->GnssState)
     {
@@ -7588,7 +8276,7 @@ le_result_t taf_locGnss::SetMinGpsWeek
         case TAF_LOCGNSS_STATE_UNINITIALIZED:
         {
              LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
-             result = LE_NOT_PERMITTED;
+             cPtr->retCode = LE_NOT_PERMITTED;
         }
         break;
         case TAF_LOCGNSS_STATE_READY:
@@ -7605,25 +8293,37 @@ le_result_t taf_locGnss::SetMinGpsWeek
             if(res == PA_OK){
                 if(resCallback.result == PA_OK)
                 {
-                    return LE_OK;
+                    cPtr->retCode = LE_OK;
                 }
             }
             else
             {
-                result = LE_FAULT;
+                cPtr->retCode = LE_FAULT;
             }
         }
         break;
         default:
         {
-            result = LE_FAULT;
+            cPtr->retCode = LE_FAULT;
             LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
-
-   return result;
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetMinGpsWeekSvcRespond, cPtr, NULL);
 }
+
+void taf_locGnss::SetMinGpsWeek(taf_locGnss_ServerCmdRef_t cmdRef, uint16_t minGpsWeek)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    cPtr->params.setMinGpsWeek.minGpsWeek = minGpsWeek;
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, SetMinGpsWeekWorker, cPtr, NULL);
+}
+
+
 
 le_result_t taf_locGnss::GetMinGpsWeek
 (
@@ -7719,18 +8419,34 @@ le_result_t taf_locGnss::GetCapabilities
     return LE_OK;
 }
 
-le_result_t taf_locGnss::SetNmeaConfiguration
-(
-    taf_locGnss_NmeaBitMask_t nmeaMask,         ///< [IN] Bit mask for enabled NMEA sentences.
-    taf_locGnss_GeodeticDatumType_t datumType,  ///< [IN] Specify the datum type to be configured.
-    taf_locGnss_LocEngineType_t engineType      ///< [IN] Specify the Engine type.
-)
+// ---------------------------------------------------------------------------
+// SetNmeaConfiguration
+// ---------------------------------------------------------------------------
+static void SetNmeaConfigurationSvcRespond(void* cmdPtr, void*)
 {
-    le_result_t result = LE_NOT_PERMITTED;
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_SetNmeaConfigurationRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+void taf_locGnss::SetNmeaConfigurationWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_NmeaBitMask_t       nmeaMask  = cPtr->params.setNmeaConfiguration.nmeaMask;
+    taf_locGnss_GeodeticDatumType_t datumType = cPtr->params.setNmeaConfiguration.datumType;
+    taf_locGnss_LocEngineType_t     engineType = cPtr->params.setNmeaConfiguration.engineType;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetNmeaConfigurationSvcRespond, cPtr, NULL);
+        return;
+    }
+
+    cPtr->retCode = LE_NOT_PERMITTED;
 
     taf_pa_location_NmeaConfig_t nmeaConfig;
     nmeaConfig.sentenceConfig = nmeaMask;
@@ -7740,7 +8456,9 @@ le_result_t taf_locGnss::SetNmeaConfiguration
     }
     else
     {
-        return LE_FAULT;
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetNmeaConfigurationSvcRespond, cPtr, NULL);
+        return;
     }
 #if defined(TARGET_SA525M)
     if(engineType>= TAF_LOCGNSS_LOC_ENGINE_FUSED && engineType <= TAF_LOCGNSS_LOC_ENGINE_VPE)
@@ -7749,7 +8467,9 @@ le_result_t taf_locGnss::SetNmeaConfiguration
     }
     else
     {
-        return LE_FAULT;
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetNmeaConfigurationSvcRespond, cPtr, NULL);
+        return;
     }
 #else
     (void)engineType;
@@ -7760,7 +8480,7 @@ le_result_t taf_locGnss::SetNmeaConfiguration
     if (nmeaMask == 0)
     {
         LE_ERROR("Unable to set the enabled NMEA, wrong bit mask %" PRIu64 "", nmeaMask);
-        result = LE_BAD_PARAMETER;
+        cPtr->retCode = LE_BAD_PARAMETER;
     }
     else
     {
@@ -7782,18 +8502,22 @@ le_result_t taf_locGnss::SetNmeaConfiguration
                 if(res == PA_OK){
                     if(resCallback.result == PA_OK)
                     {
-                        return LE_OK;
+                        cPtr->retCode = LE_OK;
+                    }
+                    else
+                    {
+                    cPtr->retCode = LE_FAULT;
                     }
                 }
                 else
                 {
-                    result = LE_FAULT;
+                    cPtr->retCode = LE_FAULT;
                     LE_DEBUG("SetNmeaConfiguration() is failed!");
                 }
-                if (LE_OK != result)
+                if (LE_OK != cPtr->retCode)
                 {
                     LE_ERROR("Unable to set the enabled NMEA, error = %d (%s)",
-                              result, LE_RESULT_TXT(result));
+                              cPtr->retCode, LE_RESULT_TXT(cPtr->retCode));
                 }
             }
             break;
@@ -7801,19 +8525,35 @@ le_result_t taf_locGnss::SetNmeaConfiguration
             case TAF_LOCGNSS_STATE_DISABLED:
             {
                 LE_ERROR("SetNmeaConfiguration: Bad state for that request [%d]", clientRequestPtr->GnssState);
-                result = LE_NOT_PERMITTED;
+                cPtr->retCode = LE_NOT_PERMITTED;
             }
             break;
             default:
             {
                 LE_ERROR("SetNmeaConfiguration: Unknown GNSS state %d", clientRequestPtr->GnssState);
-                result = LE_FAULT;
+                cPtr->retCode = LE_FAULT;
             }
             break;
         }
     }
 
-    return result;
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetNmeaConfigurationSvcRespond, cPtr, NULL);
+}
+
+void taf_locGnss::SetNmeaConfiguration(taf_locGnss_ServerCmdRef_t cmdRef,
+                                         taf_locGnss_NmeaBitMask_t nmeaMask,
+                                         taf_locGnss_GeodeticDatumType_t datumType,
+                                         taf_locGnss_LocEngineType_t engineType)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    cPtr->params.setNmeaConfiguration.nmeaMask   = nmeaMask;
+    cPtr->params.setNmeaConfiguration.datumType  = datumType;
+    cPtr->params.setNmeaConfiguration.engineType = engineType;
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, SetNmeaConfigurationWorker, cPtr, NULL);
 }
 
 le_result_t taf_locGnss::GetXtraStatus
@@ -8079,102 +8819,208 @@ le_result_t taf_locGnss::GetMeasurementsData(taf_locGnss_MeasSampleRef_t measSam
     return result;
 }
 
-le_result_t taf_locGnss::InjectMerkleData
+static void InjectMerkleRespond
 (
-    const char* merkleTreeFilePath
+    void* cmdPtr,
+    void* context
 )
 {
-    le_result_t result = LE_FAULT;
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+    LE_INFO("InjectMerkleRespond: result [%d]", cPtr->retCode);
 
-    if (merkleTreeFilePath == NULL || merkleTreeFilePath[0] == '\0') {
-        LE_ERROR("merkleTreeFilePath path is null/empty");
-        return LE_BAD_PARAMETER;
+    taf_locGnss_InjectMerkleTreeInformationByPathRespond(cPtr->cmdRef,
+                                                          cPtr->retCode);
+    le_mem_Release(cPtr);
+}
+
+void taf_locGnss::InjectMerkleWorker
+(
+    void* cmdPtr,
+    void* context
+)
+{
+    auto& gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+
+    taf_locGnss_Client_t* clientRequestPtr =
+        gnss.DiscoverSessionRef(cPtr->sessionRef);
+
+    if (clientRequestPtr == NULL)
+    {
+        LE_ERROR("InjectMerkleWorker: clientRequestPtr is NULL");
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef,
+                                       InjectMerkleRespond, cPtr, NULL);
+        return;
+    }
+
+    switch (clientRequestPtr->GnssState)
+    {
+        case TAF_LOCGNSS_STATE_DISABLED:
+        case TAF_LOCGNSS_STATE_UNINITIALIZED:
+        {
+            LE_ERROR("InjectMerkleWorker: Wrong Gnss State [%d]",
+                     clientRequestPtr->GnssState);
+            cPtr->retCode = LE_NOT_PERMITTED;
+            le_event_QueueFunctionToThread(gnss.LocationSvcThRef,
+                                           InjectMerkleRespond, cPtr, NULL);
+            return;
+        }
+
+        case TAF_LOCGNSS_STATE_READY:
+        case TAF_LOCGNSS_STATE_ACTIVE:
+            break;
+
+        default:
+        {
+            LE_ERROR("InjectMerkleWorker: Invalid GNSS state [%d]",
+                     clientRequestPtr->GnssState);
+            cPtr->retCode = LE_FAULT;
+            le_event_QueueFunctionToThread(gnss.LocationSvcThRef,
+                                           InjectMerkleRespond, cPtr, NULL);
+            return;
+        }
     }
 
     std::ifstream configFileStream;
-    std::string merkleTreeStr = "";
+    std::string   merkleTreeStr;
 
-    switch (clientRequestPtr->GnssState)
+    configFileStream.open(cPtr->params.injectMerkle.merkleTreeFilePath);
+    if (!configFileStream.is_open())
     {
-        case TAF_LOCGNSS_STATE_DISABLED:
-        case TAF_LOCGNSS_STATE_UNINITIALIZED:
-        {
-             LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
-             result = LE_NOT_PERMITTED;
-        }
-        break;
-        case TAF_LOCGNSS_STATE_READY:
-        case TAF_LOCGNSS_STATE_ACTIVE:
-        {
-            typedef struct{
-                pa_result_t result;
-            }taf_SelfTestResult_t;
-            auto cb = [](pa_result_t result, std::any context) {
-                taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
-                resPtr->result = result;
-            };
-            taf_SelfTestResult_t resCallback = {};
-
-            configFileStream.open(merkleTreeFilePath);
-            if (configFileStream.is_open()) {
-                std::string line;
-                while (std::getline(configFileStream, line)) {
-                    merkleTreeStr += line;
-                }
-                configFileStream.close();
-            }
-            else {
-                LE_ERROR("Failed to open the file");
-                return LE_FAULT;
-            }
-
-            if (merkleTreeStr.empty()) {
-                LE_ERROR("Merkle tree data is empty after reading file");
-                return LE_FAULT;
-            }
-
-            LE_DEBUG("InjectMerkleTreeInformation merkleTreeStr size : %zu bytes",merkleTreeStr.size());
-
-            pa_result_t res = taf_pa_location_injectMerkleTreeInformation(merkleTreeStr,cb,(std::any)&resCallback);
-            if(res == PA_OK){
-                if(resCallback.result == PA_OK)
-                {
-                    LE_INFO("InjectMerkleTreeInformation success!!");
-                    return LE_OK;
-                }
-            }
-            else
-            {
-                LE_ERROR("InjectMerkleTreeInformation is failed");
-                result = LE_FAULT;
-            }
-        }
-        break;
-        default:
-        {
-            result = LE_FAULT;
-            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
-        }
-        break;
+        LE_ERROR("InjectMerkleWorker: Failed to open file: %s",
+                 cPtr->params.injectMerkle.merkleTreeFilePath);
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef,
+                                       InjectMerkleRespond, cPtr, NULL);
+        return;
     }
 
-   return result;
+    std::string line;
+    while (std::getline(configFileStream, line))
+    {
+        merkleTreeStr += line;
+    }
+    configFileStream.close();
+
+    if (merkleTreeStr.empty())
+    {
+        LE_ERROR("InjectMerkleWorker: Merkle tree data is empty after reading file");
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef,
+                                       InjectMerkleRespond, cPtr, NULL);
+        return;
+    }
+
+    LE_DEBUG("InjectMerkleWorker: merkleTreeStr size: %zu bytes",
+             merkleTreeStr.size());
+
+    typedef struct { pa_result_t result; } MerkleResult_t;
+    MerkleResult_t resCallback = {};
+
+    auto cb = [](pa_result_t result, std::any context)
+    {
+        MerkleResult_t* resPtr = std::any_cast<MerkleResult_t*>(context);
+        resPtr->result = result;
+    };
+
+    pa_result_t res = taf_pa_location_injectMerkleTreeInformation(
+                          merkleTreeStr, cb, (std::any)&resCallback);
+
+    if (res == PA_OK && resCallback.result == PA_OK)
+    {
+        LE_INFO("InjectMerkleWorker: InjectMerkleTreeInformation success!!");
+        cPtr->retCode = LE_OK;
+    }
+    else
+    {
+        LE_ERROR("InjectMerkleWorker: InjectMerkleTreeInformation failed "
+                 "[res=%d, cbRes=%d]", (int)res, (int)resCallback.result);
+        cPtr->retCode = LE_FAULT;
+    }
+
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef,
+                                   InjectMerkleRespond, cPtr, NULL);
 }
 
-le_result_t taf_locGnss::ConfigureOsnma
+void taf_locGnss::InjectMerkleData
 (
-    bool galOsnma
+    taf_locGnss_ServerCmdRef_t cmdRef,
+    const char* LE_NONNULL merkleTreeFilePath
 )
 {
-    le_result_t result = LE_FAULT;
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
+    auto& gnss = taf_locGnss::GetInstance();
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+    if (merkleTreeFilePath == NULL || merkleTreeFilePath[0] == '\0')
+    {
+        LE_ERROR("InjectMerkleTreeInformationByPath: merkleTreeFilePath is null/empty");
+        taf_locGnss_InjectMerkleTreeInformationByPathRespond(cmdRef, LE_BAD_PARAMETER);
+        return;
+    }
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.AcquireSessionRef();
+    if (clientRequestPtr == NULL)
+    {
+        LE_ERROR("InjectMerkleTreeInformationByPath: Failed to acquire session");
+        taf_locGnss_InjectMerkleTreeInformationByPathRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
+    LocationCmdInfo_t* cPtr =
+        (LocationCmdInfo_t*)le_mem_ForceAlloc(gnss.CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+
+    size_t pathLen = strnlen(merkleTreeFilePath,
+                             sizeof(cPtr->params.injectMerkle.merkleTreeFilePath));
+    if (pathLen >= sizeof(cPtr->params.injectMerkle.merkleTreeFilePath))
+    {
+        LE_ERROR("InjectMerkleTreeInformationByPath: path too long (%zu)", pathLen);
+        taf_locGnss_InjectMerkleTreeInformationByPathRespond(cmdRef, LE_OVERFLOW);
+        le_mem_Release(cPtr);
+        return;
+    }
+
+    memcpy(cPtr->params.injectMerkle.merkleTreeFilePath,
+            merkleTreeFilePath,
+            sizeof(cPtr->params.injectMerkle.merkleTreeFilePath));
+
+    LE_INFO("InjectMerkleTreeInformationByPath: queuing to worker, path=%s",
+            cPtr->params.injectMerkle.merkleTreeFilePath);
+
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef,
+                                   InjectMerkleWorker, cPtr, NULL);
+}
+
+// ---------------------------------------------------------------------------
+// ConfigureOsnma
+// ---------------------------------------------------------------------------
+static void ConfigureOsnmaSvcRespond(void* cmdPtr, void*)
+{
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    taf_locGnss_ConfigureOsnmaRespond(cPtr->cmdRef, cPtr->retCode);
+    le_mem_Release(cPtr);
+}
+
+void taf_locGnss::ConfigureOsnmaWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LE_ASSERT(cmdPtr != NULL);
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+    bool galOsnma = cPtr->params.configureOsnma.galOsnma;
+
+    taf_locGnss_Client_t* clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ConfigureOsnmaSvcRespond, cPtr, NULL);
+        return;
+    }
+
+    cPtr->retCode = LE_FAULT;
 
     switch (clientRequestPtr->GnssState)
     {
@@ -8182,8 +9028,8 @@ le_result_t taf_locGnss::ConfigureOsnma
         case TAF_LOCGNSS_STATE_DISABLED:
         case TAF_LOCGNSS_STATE_UNINITIALIZED:
         {
-             LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
-             result = LE_NOT_PERMITTED;
+            LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
+            cPtr->retCode = LE_NOT_PERMITTED;
         }
         break;
         case TAF_LOCGNSS_STATE_READY:
@@ -8201,25 +9047,35 @@ le_result_t taf_locGnss::ConfigureOsnma
                 if(resCallback.result == PA_OK)
                 {
                     LE_INFO("ConfigureOsnma status PASS for: %d",galOsnma);
-                    return LE_OK;
+                    cPtr->retCode = LE_OK;
                 }
             }
             else
             {
                 LE_ERROR("ConfigureOsnma is failed");
-                result = LE_FAULT;
+                cPtr->retCode = LE_FAULT;
             }
         }
         break;
         default:
         {
-            result = LE_FAULT;
+            cPtr->retCode = LE_FAULT;
             LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
+    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ConfigureOsnmaSvcRespond, cPtr, NULL);
+}
 
-   return result;
+void taf_locGnss::ConfigureOsnma(taf_locGnss_ServerCmdRef_t cmdRef, bool galOsnma)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+    cPtr->params.configureOsnma.galOsnma = galOsnma;
+    le_event_QueueFunctionToThread(gnss.LocationWorkerThRef, ConfigureOsnmaWorker, cPtr, NULL);
 }
 
 void taf_locGnss::ReleaseMeasSampleRef
@@ -8311,31 +9167,52 @@ le_result_t taf_locGnss::GetDgnssStationIds
     return result;
 }
 
-le_result_t taf_locGnss::InjectDgnssCorrection
-(
-    taf_locGnss_DgnssSourceRef_t sourceRef,
-    const uint8_t* correctionDataPtr,
-    size_t correctionDataSize
-)
+static void InjectDgnssCorrectionSvcRespond(void* cmdPtr, void*)
 {
-    le_result_t result = LE_FAULT;
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+
+    LE_DEBUG("InjectDgnssCorrectionSvcRespond: retCode=%d", cPtr->retCode);
+
+    taf_locGnss_InjectDgnssCorrectionRespond(cPtr->cmdRef, cPtr->retCode);
+
+    le_mem_Release(cPtr);
+}
+
+void taf_locGnss::InjectDgnssCorrectionWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+
+    LE_ASSERT(cPtr != NULL);
+
     taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
-
-    if(clientRequestPtr == NULL)
+    clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
     {
-        LE_ERROR("clientRequestPtr is NULL!!");
-        return LE_FAULT;
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, InjectDgnssCorrectionSvcRespond, cPtr, NULL);
+        return;
     }
 
-    if (correctionDataPtr == NULL) {
-        LE_ERROR("correctionDataPtr is null/empty");
-        return LE_BAD_PARAMETER;
+    if ((cPtr->params.injectDgnssCorrection.correctionDataSize == 0) ||
+    (cPtr->params.injectDgnssCorrection.correctionDataSize > TAF_LOCGNSS_DATA_LEN_MAX))
+    {
+        LE_ERROR("InjectDgnssCorrection: invalid correctionDataSize=%zu",
+        cPtr->params.injectDgnssCorrection.correctionDataSize);
+        cPtr->retCode = LE_BAD_PARAMETER;
+        le_event_QueueFunctionToThread(
+        gnss.LocationSvcThRef,
+        InjectDgnssCorrectionSvcRespond,
+        cPtr,
+        NULL);
+    return;
     }
 
-    if(sourceRef != clientRequestPtr->activeSourceRef){
+    if(cPtr->params.injectDgnssCorrection.sourceRef != clientRequestPtr->activeSourceRef){
         LE_ERROR("InjectionData called from another client!!");
-        return LE_FAULT;
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, InjectDgnssCorrectionSvcRespond, cPtr, NULL);
+        return;
     }
 
     switch (clientRequestPtr->GnssState)
@@ -8343,8 +9220,10 @@ le_result_t taf_locGnss::InjectDgnssCorrection
         case TAF_LOCGNSS_STATE_DISABLED:
         case TAF_LOCGNSS_STATE_UNINITIALIZED:
         {
-             LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
-             result = LE_NOT_PERMITTED;
+            LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
+            cPtr->retCode = LE_NOT_PERMITTED;
+            le_event_QueueFunctionToThread(gnss.LocationSvcThRef, InjectDgnssCorrectionSvcRespond, cPtr, NULL);
+            return;
         }
         break;
         case TAF_LOCGNSS_STATE_READY:
@@ -8359,52 +9238,120 @@ le_result_t taf_locGnss::InjectDgnssCorrection
             };
             taf_SelfTestResult_t resCallback = {};
 
-            LE_INFO("Buffer size: %zu bytes", correctionDataSize);
+            LE_INFO("Buffer size: %zu bytes", cPtr->params.injectDgnssCorrection.correctionDataSize);
 
-            pa_result_t res = taf_pa_location_injectCorrectionData(correctionDataPtr, static_cast<uint32_t>(correctionDataSize),cb,(std::any)&resCallback);
+            pa_result_t res = taf_pa_location_injectCorrectionData(cPtr->params.injectDgnssCorrection.correctionData, static_cast<uint32_t>(cPtr->params.injectDgnssCorrection.correctionDataSize),cb,(std::any)&resCallback);
             if(res == PA_OK){
                 if(resCallback.result == PA_OK)
                 {
                     LE_INFO("InjectCorrectionData success!!");
-                    result = LE_OK;
+                    cPtr->retCode = LE_OK;
                 }
                 else
                 {
                     LE_ERROR("InjectCorrectionData callback failed with result: %d", resCallback.result);
-                    result = LE_FAULT;
+                    cPtr->retCode = LE_FAULT;
                 }
             }
             else
             {
                 LE_ERROR("InjectCorrectionData is failed");
-                result = LE_FAULT;
+                cPtr->retCode = LE_FAULT;
             }
         }
         break;
         default:
         {
-            result = LE_FAULT;
+            cPtr->retCode = LE_FAULT;
             LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
 
-    return result;
+    LE_INFO("InjectDgnssCorrectionWorker: sourceRef=%p size=%zu retCode=%d",
+            cPtr->params.injectDgnssCorrection.sourceRef,
+            cPtr->params.injectDgnssCorrection.correctionDataSize,
+            cPtr->retCode);
+
+    le_event_QueueFunctionToThread(
+        gnss.LocationSvcThRef, InjectDgnssCorrectionSvcRespond, cPtr, NULL);
 }
 
-taf_locGnss_DgnssSourceRef_t taf_locGnss::CreateDgnssSource
+void taf_locGnss::InjectDgnssCorrection
 (
-    taf_locGnss_DgnssFormat_t dgnssDataFormat
+    taf_locGnss_ServerCmdRef_t   cmdRef,
+    taf_locGnss_DgnssSourceRef_t sourceRef,
+    const uint8_t*               correctionDataPtr,
+    size_t                       correctionDataSize
 )
 {
-    LE_INFO("CreateDgnssSource!!");
     auto &gnss = taf_locGnss::GetInstance();
+
+    if (correctionDataPtr == NULL)
+    {
+        LE_ERROR("taf_locGnss_InjectDgnssCorrection: correctionDataPtr is NULL");
+        taf_locGnss_InjectDgnssCorrectionRespond(cmdRef, LE_BAD_PARAMETER);
+        return;
+    }
+
+    if (correctionDataSize == 0 || correctionDataSize > TAF_LOCGNSS_DATA_LEN_MAX)
+    {
+        LE_ERROR("taf_locGnss_InjectDgnssCorrection: correctionDataSize=%zu exceeds max=%zu",
+                 correctionDataSize, (size_t)TAF_LOCGNSS_DATA_LEN_MAX);
+        taf_locGnss_InjectDgnssCorrectionRespond(cmdRef, LE_OVERFLOW);
+        return;
+    }
+
+    LocationCmdInfo_t* cPtr =
+        (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+
+    cPtr->cmdRef     = cmdRef;
+    cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
+
+    cPtr->params.injectDgnssCorrection.sourceRef          = sourceRef;
+    cPtr->params.injectDgnssCorrection.correctionDataSize = correctionDataSize;
+
+    memcpy(cPtr->params.injectDgnssCorrection.correctionData,
+           correctionDataPtr,
+           correctionDataSize);
+
+    le_event_QueueFunctionToThread(
+        gnss.LocationWorkerThRef, InjectDgnssCorrectionWorker, cPtr, NULL);
+}
+
+static void CreateDgnssSourceSvcRespond(void* cmdPtr, void*)
+{
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+
+    LE_DEBUG("CreateDgnssSourceSvcRespond: sourceRef=%p retCode=%d",
+             cPtr->params.createDgnssSource.sourceRef, cPtr->retCode);
+
+    taf_locGnss_CreateDgnssSourceRespond(
+        cPtr->cmdRef,
+        cPtr->params.createDgnssSource.sourceRef);
+
+    le_mem_Release(cPtr);
+}
+
+void taf_locGnss::CreateDgnssSourceWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+
+    LE_ASSERT(cPtr != NULL);
+
+    LE_INFO("CreateDgnssSource!!");
     taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
-    taf_locGnss_DgnssSourceRef_t dgnssSourceRef = NULL;
     size_t count = 0;
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "clientRequestPtr is NULL");
+    clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, CreateDgnssSourceSvcRespond, cPtr, NULL);
+        return;
+    }
 
     switch (clientRequestPtr->GnssState)
     {
@@ -8412,7 +9359,9 @@ taf_locGnss_DgnssSourceRef_t taf_locGnss::CreateDgnssSource
         case TAF_LOCGNSS_STATE_UNINITIALIZED:
         {
             LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
-            return NULL;
+            cPtr->retCode = LE_FAULT;
+            le_event_QueueFunctionToThread(gnss.LocationSvcThRef, CreateDgnssSourceSvcRespond, cPtr, NULL);
+            return;
         }
         break;
         case TAF_LOCGNSS_STATE_ACTIVE:
@@ -8435,7 +9384,7 @@ taf_locGnss_DgnssSourceRef_t taf_locGnss::CreateDgnssSource
                 }
                 LE_INFO("DgnssManagercount: %zu",count);
                 if(count == 0){
-                    pa_result_t res = taf_pa_location_initializeDgnss((taf_pa_location_DgnssDataFormat_t)dgnssDataFormat,cb,(std::any)&resCallback);
+                    pa_result_t res = taf_pa_location_initializeDgnss((taf_pa_location_DgnssDataFormat_t)cPtr->params.createDgnssSource.dgnssDataFormat,cb,(std::any)&resCallback);
                     if(res != PA_OK)
                     {
                         LE_ERROR("DgnssManager failed in PA layer!!");
@@ -8448,39 +9397,45 @@ taf_locGnss_DgnssSourceRef_t taf_locGnss::CreateDgnssSource
                             taf_locGnss_DgnssSource_t* gnssSource = (taf_locGnss_DgnssSource_t*)
                                 le_mem_ForceAlloc(gnss.DgnssSourcePoolRef);
                             gnssSource->sessionRef = clientRequestPtr->sessionRef;
-                            gnssSource->format    = dgnssDataFormat;
+                            gnssSource->format    = cPtr->params.createDgnssSource.dgnssDataFormat;
                             gnssSource->sourceRef = (taf_locGnss_DgnssSourceRef_t) le_ref_CreateRef(gnss.DgnssSourceRefMap, gnssSource);
-                            clientRequestPtr->activeDgnssFormat = dgnssDataFormat;
+                            clientRequestPtr->activeDgnssFormat = cPtr->params.createDgnssSource.dgnssDataFormat;
                             clientRequestPtr->activeSourceRef = gnssSource->sourceRef;
-                            dgnssSourceRef = gnssSource->sourceRef;
+                            cPtr->params.createDgnssSource.sourceRef = gnssSource->sourceRef;
                         }
                         else
                         {
                             LE_ERROR("DgnssManager init failed");
                         }
                     }
-                    dgnssListener.onDgnssStatusUpdate = &Handler::onDgnssStatusUpdate;
-                    if(taf_pa_location_registerDgnssEventListener(&dgnssListener, std::any(clientRequestPtr->sessionRef)) !=  PA_OK){
+                    gnss.dgnssListener.onDgnssStatusUpdate = &Handler::onDgnssStatusUpdate;
+                    if(taf_pa_location_registerDgnssEventListener(&gnss.dgnssListener, std::any(clientRequestPtr->sessionRef)) !=  PA_OK){
                         LE_ERROR("Dgnss Listener register failed");
                     }else{
                         LE_INFO("Dgnss Listener registered!!");
                     }
                 }else{
                     LE_INFO("Already one client acquired Dgnss Manager!!");
-                    return NULL;
+                    cPtr->retCode = LE_FAULT;
+                    cPtr->params.createDgnssSource.sourceRef = NULL;
+                    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, CreateDgnssSourceSvcRespond, cPtr, NULL);
+                    return;
                 }
-            }else if(clientRequestPtr->activeSourceRef != NULL && clientRequestPtr->activeDgnssFormat == dgnssDataFormat){
+            }else if(clientRequestPtr->activeSourceRef != NULL && clientRequestPtr->activeDgnssFormat == cPtr->params.createDgnssSource.dgnssDataFormat){
                 LE_INFO("Reference already created for this format!!");
-                return clientRequestPtr->activeSourceRef;
-            }else if(clientRequestPtr->activeSourceRef != NULL && clientRequestPtr->activeDgnssFormat != dgnssDataFormat){
-                le_result_t releaseResult = gnss.ReleaseDgnssSource(clientRequestPtr->activeSourceRef);
+                cPtr->retCode = LE_OK;
+                cPtr->params.createDgnssSource.sourceRef = clientRequestPtr->activeSourceRef;
+                le_event_QueueFunctionToThread(gnss.LocationSvcThRef, CreateDgnssSourceSvcRespond, cPtr, NULL);
+                return;
+            }else if(clientRequestPtr->activeSourceRef != NULL && clientRequestPtr->activeDgnssFormat != cPtr->params.createDgnssSource.dgnssDataFormat){
+                le_result_t releaseResult = gnss.InternalReleaseDgnssSourceOnWorker(clientRequestPtr, clientRequestPtr->activeSourceRef); 
                 if(releaseResult == LE_OK){
                     LE_INFO("Release Success for previous source!!");
                 }else{
                     LE_ERROR("Release source failed!!");
                 }
 
-                pa_result_t res = taf_pa_location_initializeDgnss((taf_pa_location_DgnssDataFormat_t)dgnssDataFormat,cb,(std::any)&resCallback);
+                pa_result_t res = taf_pa_location_initializeDgnss((taf_pa_location_DgnssDataFormat_t)cPtr->params.createDgnssSource.dgnssDataFormat,cb,(std::any)&resCallback);
                 if(res != PA_OK)
                 {
                     LE_ERROR("DgnssManager failed in PA layer!!");
@@ -8497,7 +9452,7 @@ taf_locGnss_DgnssSourceRef_t taf_locGnss::CreateDgnssSource
                     }
                 }
 
-                pa_result_t res1 = taf_pa_location_createDgnssSource((taf_pa_location_DgnssDataFormat_t)dgnssDataFormat,cb,(std::any)&resCallback);
+                pa_result_t res1 = taf_pa_location_createDgnssSource((taf_pa_location_DgnssDataFormat_t)cPtr->params.createDgnssSource.dgnssDataFormat,cb,(std::any)&resCallback);
                 if(res1 != PA_OK)
                 {
                     LE_ERROR("CreateDgnssSource failed in PA layer!!");
@@ -8510,19 +9465,19 @@ taf_locGnss_DgnssSourceRef_t taf_locGnss::CreateDgnssSource
                         taf_locGnss_DgnssSource_t* gnssSource = (taf_locGnss_DgnssSource_t*)
                             le_mem_ForceAlloc(gnss.DgnssSourcePoolRef);
                         gnssSource->sessionRef = clientRequestPtr->sessionRef;
-                        gnssSource->format    = dgnssDataFormat;
+                        gnssSource->format    = cPtr->params.createDgnssSource.dgnssDataFormat;
                         gnssSource->sourceRef = (taf_locGnss_DgnssSourceRef_t) le_ref_CreateRef(gnss.DgnssSourceRefMap, gnssSource);
-                        clientRequestPtr->activeDgnssFormat = dgnssDataFormat;
+                        clientRequestPtr->activeDgnssFormat = cPtr->params.createDgnssSource.dgnssDataFormat;
                         clientRequestPtr->activeSourceRef = gnssSource->sourceRef;
-                        dgnssSourceRef = gnssSource->sourceRef;
+                        cPtr->params.createDgnssSource.sourceRef = gnssSource->sourceRef;
                     }
                     else
                     {
                         LE_ERROR("CreateSource is failed");
                     }
                 }
-                dgnssListener.onDgnssStatusUpdate = &Handler::onDgnssStatusUpdate;
-                if(taf_pa_location_registerDgnssEventListener(&dgnssListener, std::any(clientRequestPtr->sessionRef)) !=  PA_OK){
+                gnss.dgnssListener.onDgnssStatusUpdate = &Handler::onDgnssStatusUpdate;
+                if(taf_pa_location_registerDgnssEventListener(&gnss.dgnssListener, std::any(clientRequestPtr->sessionRef)) !=  PA_OK){
                     LE_ERROR("Dgnss Listener register failed");
                 }else{
                     LE_INFO("Dgnss Listener registered!!");
@@ -8537,21 +9492,150 @@ taf_locGnss_DgnssSourceRef_t taf_locGnss::CreateDgnssSource
         break;
     }
 
-   return dgnssSourceRef;
+    cPtr->retCode = (cPtr->params.createDgnssSource.sourceRef != NULL) ? LE_OK : LE_FAULT;
+
+    LE_INFO("CreateDgnssSourceWorker: sourceRef=%p retCode=%d",
+            cPtr->params.createDgnssSource.sourceRef, cPtr->retCode);
+
+    le_event_QueueFunctionToThread(
+        gnss.LocationSvcThRef, CreateDgnssSourceSvcRespond, cPtr, NULL);
 }
 
-le_result_t taf_locGnss::ReleaseDgnssSource
+void taf_locGnss::CreateDgnssSource
 (
-    taf_locGnss_DgnssSourceRef_t sourceRef
+    taf_locGnss_ServerCmdRef_t  cmdRef,
+    taf_locGnss_DgnssFormat_t   dgnssDataFormat
 )
 {
-    LE_INFO("ReleaseDgnssSource");
     auto &gnss = taf_locGnss::GetInstance();
-    le_result_t result = LE_FAULT;
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
 
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+    LocationCmdInfo_t* cPtr =
+        (LocationCmdInfo_t*)le_mem_ForceAlloc(gnss.CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+
+    cPtr->cmdRef                                  = cmdRef;
+    cPtr->sessionRef                              = taf_locGnss_GetClientSessionRef();
+    cPtr->params.createDgnssSource.dgnssDataFormat = dgnssDataFormat;
+    cPtr->params.createDgnssSource.sourceRef       = NULL;
+
+    le_event_QueueFunctionToThread(
+        gnss.LocationWorkerThRef, CreateDgnssSourceWorker, cPtr, NULL);
+}
+
+le_result_t taf_locGnss::InternalReleaseDgnssSourceOnWorker
+(
+    taf_locGnss_Client_t*         clientRequestPtr,
+    taf_locGnss_DgnssSourceRef_t  sourceRef
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+
+    typedef struct { pa_result_t result; } taf_SelfTestResult_t;
+
+    taf_SelfTestResult_t resCallback = {};
+    auto cb = [](pa_result_t result, std::any context)
+    {
+        taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
+        resPtr->result = result;
+    };
+
+    pa_result_t res = taf_pa_location_releaseDgnssSource(cb, (std::any)&resCallback);
+    if (res != PA_OK)
+    {
+        LE_ERROR("InternalRelease: taf_pa_location_releaseDgnssSource returned error");
+        return LE_FAULT;
+    }
+    if (resCallback.result != PA_OK)
+    {
+        LE_ERROR("InternalRelease: releaseDgnssSource PA callback failed");
+        return LE_FAULT;
+    }
+
+    if (sourceRef != NULL)
+    {
+        taf_locGnss_DgnssSource_t* dgnssSource =
+            (taf_locGnss_DgnssSource_t*)le_ref_Lookup(gnss.DgnssSourceRefMap, sourceRef);
+
+        if (!dgnssSource)
+        {
+            LE_ERROR("InternalRelease: DgnssSource not found in ref-map");
+            return LE_NOT_FOUND;
+        }
+
+        if (dgnssSource->sourceRef != sourceRef ||
+            clientRequestPtr->sessionRef != dgnssSource->sessionRef)
+        {
+            LE_ERROR("InternalRelease: sourceRef/session mismatch — "
+                     "expected session=%p got=%p",
+                     clientRequestPtr->sessionRef, dgnssSource->sessionRef);
+            return LE_FAULT;
+        }
+
+        le_ref_DeleteRef(gnss.DgnssSourceRefMap, sourceRef);
+        le_mem_Release(dgnssSource);
+    }
+
+    clientRequestPtr->activeSourceRef   = NULL;
+    clientRequestPtr->activeDgnssFormat = TAF_LOCGNSS_DGNSS_FORMAT_UNKNOWN;
+    LE_INFO("InternalRelease: source ref cleaned up and client state reset");
+
+    if (taf_pa_location_deregisterDgnssEventListener(
+            std::any(clientRequestPtr->sessionRef)) != PA_OK)
+    {
+        LE_ERROR("InternalRelease: deregisterDgnssEventListener failed");
+    }
+    else
+    {
+        LE_INFO("InternalRelease: DGNSS listener deregistered");
+    }
+
+    taf_SelfTestResult_t resCallback1 = {};
+    auto cb1 = [](pa_result_t result, std::any context)
+    {
+        taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
+        resPtr->result = result;
+    };
+
+    pa_result_t deInitRes = taf_pa_location_deInitializeDgnss(cb1, (std::any)&resCallback1);
+    if (deInitRes != PA_OK || resCallback1.result != PA_OK)
+    {
+        LE_ERROR("InternalRelease: deInitializeDgnss failed (res=%d cbResult=%d)",
+                 deInitRes, resCallback1.result);
+        return LE_FAULT;
+    }
+
+    LE_INFO("InternalRelease: DGNSS manager de-initialised successfully");
+    return LE_OK;
+}
+
+
+static void ReleaseDgnssSourceSvcRespond(void* cmdPtr, void*)
+{
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+
+    LE_DEBUG("ReleaseDgnssSourceSvcRespond: retCode=%d", cPtr->retCode);
+
+    taf_locGnss_ReleaseDgnssSourceRespond(cPtr->cmdRef, cPtr->retCode);
+
+    le_mem_Release(cPtr);
+}
+
+void taf_locGnss::ReleaseDgnssSourceWorker(void* cmdPtr, void*)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)cmdPtr;
+
+    LE_ASSERT(cPtr != NULL);
+
+    taf_locGnss_Client_t* clientRequestPtr = NULL;
+
+    clientRequestPtr = gnss.DiscoverSessionRef(cPtr->sessionRef);
+    if (NULL == clientRequestPtr)
+    {
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ReleaseDgnssSourceSvcRespond, cPtr, NULL);
+        return;
+    }
 
     switch (clientRequestPtr->GnssState)
     {
@@ -8559,7 +9643,9 @@ le_result_t taf_locGnss::ReleaseDgnssSource
         case TAF_LOCGNSS_STATE_UNINITIALIZED:
         {
             LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
-            result = LE_NOT_PERMITTED;
+            cPtr->retCode = LE_NOT_PERMITTED;
+            le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ReleaseDgnssSourceSvcRespond, cPtr, NULL);
+            return;
         }
         break;
         case TAF_LOCGNSS_STATE_ACTIVE:
@@ -8578,39 +9664,47 @@ le_result_t taf_locGnss::ReleaseDgnssSource
                 pa_result_t res = taf_pa_location_releaseDgnssSource(cb,(std::any)&resCallback);
                 if(res != PA_OK)
                 {
-                    result = LE_FAULT;
+                    cPtr->retCode = LE_FAULT;
+                    le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ReleaseDgnssSourceSvcRespond, cPtr, NULL);
+                    return;
                 }
                 else
                 {
                     if(resCallback.result == PA_OK)
                     {
                         LE_INFO("ReleaseSource is success");
-                        if(sourceRef != NULL)
+                        if(cPtr->params.releaseDgnssSource.sourceRef != NULL)
                         {
-                            taf_locGnss_DgnssSource_t* dgnssSource = (taf_locGnss_DgnssSource_t*)le_ref_Lookup(gnss.DgnssSourceRefMap, sourceRef);
+                            taf_locGnss_DgnssSource_t* dgnssSource = (taf_locGnss_DgnssSource_t*)le_ref_Lookup(gnss.DgnssSourceRefMap, cPtr->params.releaseDgnssSource.sourceRef);
 
                             if (!dgnssSource){
                                 LE_ERROR("DgnssSource not found!!");
-                                return LE_NOT_FOUND;
+                                cPtr->retCode = LE_NOT_FOUND;
+                                le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ReleaseDgnssSourceSvcRespond, cPtr, NULL);
+                                return;
                             }
 
-                            if (dgnssSource->sourceRef == sourceRef && clientRequestPtr->sessionRef == dgnssSource->sessionRef){
+                            if (dgnssSource->sourceRef == cPtr->params.releaseDgnssSource.sourceRef && clientRequestPtr->sessionRef == dgnssSource->sessionRef){
                                 LE_INFO("dgnssSource released");
                                 clientRequestPtr->activeSourceRef = NULL;
                                 clientRequestPtr->activeDgnssFormat = TAF_LOCGNSS_DGNSS_FORMAT_UNKNOWN;
-                                le_ref_DeleteRef(DgnssSourceRefMap, sourceRef);
+                                le_ref_DeleteRef(gnss.DgnssSourceRefMap, cPtr->params.releaseDgnssSource.sourceRef);
                                 le_mem_Release(dgnssSource);
                             }else{
                                 LE_ERROR("Session mismatch!!");
-                                return LE_FAULT;
+                                cPtr->retCode = LE_FAULT;
+                                le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ReleaseDgnssSourceSvcRespond, cPtr, NULL);
+                                return;
                             }
                         }
-                        result = LE_OK;
+                        cPtr->retCode = LE_OK;
                     }
                     else
                     {
                         LE_DEBUG("ReleaseSource is failed");
-                        return LE_FAULT;
+                        cPtr->retCode = LE_FAULT;
+                        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ReleaseDgnssSourceSvcRespond, cPtr, NULL);
+                        return;
                     }
                 }
 
@@ -8628,36 +9722,60 @@ le_result_t taf_locGnss::ReleaseDgnssSource
                 pa_result_t deInit_res = taf_pa_location_deInitializeDgnss(cb1,(std::any)&resCallback1);
                 if(deInit_res != PA_OK)
                 {
-                    result = LE_FAULT;
+                    cPtr->retCode = LE_FAULT;
                 }
                 else
                 {
                     if(resCallback1.result == PA_OK)
                     {
                         LE_INFO("Dgnss Manager removed created for this source!!");
-                        return LE_OK;
+                        cPtr->retCode = LE_OK;
                     }
                     else
                     {
                         LE_DEBUG("Dgnss Manager removal failed");
-                        return LE_FAULT;
+                        cPtr->retCode = LE_FAULT;
                     }
                 }
             }else{
                 LE_INFO("Already source deleted for this client!!");
-                return LE_OK;
+                cPtr->retCode = LE_OK;
             }
         }
         break;
         default:
         {
-            result = LE_FAULT;
+            cPtr->retCode = LE_FAULT;
             LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
 
-   return result;
+    LE_INFO("ReleaseDgnssSourceWorker: sourceRef=%p retCode=%d",
+            cPtr->params.releaseDgnssSource.sourceRef, cPtr->retCode);
+
+    le_event_QueueFunctionToThread(
+        gnss.LocationSvcThRef, ReleaseDgnssSourceSvcRespond, cPtr, NULL);
+}
+
+void taf_locGnss::ReleaseDgnssSource
+(
+    taf_locGnss_ServerCmdRef_t   cmdRef,
+    taf_locGnss_DgnssSourceRef_t sourceRef
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+
+    LocationCmdInfo_t* cPtr =
+        (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
+    memset(cPtr, 0, sizeof(*cPtr));
+
+    cPtr->cmdRef                               = cmdRef;
+    cPtr->sessionRef                           = taf_locGnss_GetClientSessionRef();
+    cPtr->params.releaseDgnssSource.sourceRef  = sourceRef;
+
+    le_event_QueueFunctionToThread(
+        gnss.LocationWorkerThRef, ReleaseDgnssSourceWorker, cPtr, NULL);
 }
 
 le_result_t taf_locGnss::SetEngineIntegrityRisk
@@ -9144,7 +10262,7 @@ void taf_locGnss::CloseEventHandler
     TAF_ERROR_IF_RET_NIL( sessionRef == NULL, "sessionRef is NULL");
 
     if (gnss.GetState() == TAF_LOCGNSS_STATE_ACTIVE) {
-        gnss.Stop();
+        gnss.Stop(NULL);
     }
 
     le_ref_IterRef_t iterRef = le_ref_GetIterator(gnss.PositionSampleMap);
@@ -9298,6 +10416,67 @@ void taf_locGnss::CleanUp(taf_locGnss_Client_t* clientPtr)
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Main function for worker thread.
+ */
+//--------------------------------------------------------------------------------------------------
+static void* LocationWorkerThread(void* context)
+{
+    LE_UNUSED(context);
+
+    LE_INFO("Worker thread is now running.");
+    le_cfg_ConnectService();
+    le_event_RunLoop();
+
+    return NULL;
+}
+
+// ---------------------------------------------------------------------------
+// FUNCTION     : LocationEventWorkerThread
+// DESCRIPTION  : Entry point for the dedicated PA-event processing thread.
+//                All three event handlers (position, capability, NMEA) are
+//                registered on this thread's event loop, so PA callback
+//                processing is fully decoupled from the main service thread.
+// ---------------------------------------------------------------------------
+static void* LocationEventWorkerThread(void* ctxPtr)
+{
+    LE_UNUSED(ctxPtr);
+    LE_DEBUG("LocationEventWorkerThread started");
+    le_event_RunLoop();
+
+    return NULL;
+}
+
+static void RegisterLocationEventHandlers(void* param1, void* param2)
+{
+    LE_UNUSED(param1);
+    LE_UNUSED(param2);
+
+    auto& gnss = taf_locGnss::GetInstance();
+
+    gnss.HandlerRef    = le_event_AddHandler("LocUpdateEventId",
+                                              gnss.positionEventId,
+                                              taf_locGnss::GnssPositionHandler);
+
+    gnss.CapHandlerRef = le_event_AddHandler("LocCapabilityEventId",
+                                              gnss.locCapabilityEventId,
+                                              taf_locGnss::GnssCapabilityHandler);
+
+    gnss.NmeaHandlerRef = le_event_AddHandler("NmeaEventID",
+                                               gnss.nmeaEventId,
+                                               taf_locGnss::GnssNmeaHandler);
+
+    
+    gnss.HandlerExRef = le_event_AddHandler("LocUpdateEventId1", gnss.PositionExEventId,
+                                             taf_locGnss::GnssPositionExHandler);
+
+    gnss.MeasurementHandlerRef = le_event_AddHandler("MeasurementEventID", gnss.measurementEventId,
+                                               taf_locGnss::GnssMeasurementHandler);
+
+    LE_DEBUG("All PA event handlers registered on LocationEventWorkerThRef");
+}
+
 void taf_locGnss::Init()
 {
     SessionCtxList = LE_DLS_LIST_INIT;
@@ -9366,6 +10545,11 @@ void taf_locGnss::Init()
     DgnssStatusPoolRef = le_mem_InitStaticPool(DgnssStatusRequest, GNSS_POSITION_SAMPLE_MAX, 
             sizeof(DgnssStatusEvent_t));
 
+    CmdLocationPoolRef = le_mem_InitStaticPool(CmdLocationPool, MAX_CMD_LOCATION_POOL_SIZE, sizeof(LocationCmdInfo_t));
+
+    GnssInternalCmdPoolRef = le_mem_InitStaticPool(GnssInternalCmdPool,
+    MAX_CMD_LOCATION_POOL_SIZE, sizeof(GnssInternalCmd_t));
+
     PositionSampleMap = le_ref_InitStaticMap(PositionSampleMap, GNSS_POSITION_SAMPLE_MAX);
 
     MeasurementSampleMap = le_ref_InitStaticMap(MeasurementSampleMap, GNSS_POSITION_SAMPLE_MAX);
@@ -9379,21 +10563,11 @@ void taf_locGnss::Init()
 
     measurementEventId = le_event_CreateIdWithRefCounting("measurementEventId");
 
-    HandlerRef = le_event_AddHandler("LocUpdateEventId", positionEventId, taf_locGnss::GnssPositionHandler);
-
-    MeasurementHandlerRef = le_event_AddHandler("MeasurementEventID", measurementEventId, taf_locGnss::GnssMeasurementHandler);
-
     PositionExEventId = le_event_CreateIdWithRefCounting("PositionExEventId");
-
-    HandlerExRef = le_event_AddHandler("LocUpdateEventId1", PositionExEventId, taf_locGnss::GnssPositionExHandler);
 
     locCapabilityEventId = le_event_CreateIdWithRefCounting("locCapabilityEventID");
 
-    CapHandlerRef = le_event_AddHandler("LocCapabilityEventId", locCapabilityEventId, taf_locGnss::GnssCapabilityHandler);
-
     nmeaEventId = le_event_CreateIdWithRefCounting("NmeaEventId");
-
-    NmeaHandlerRef = le_event_AddHandler("NmeaEventID", nmeaEventId, taf_locGnss::GnssNmeaHandler);
 
     NmeaHandlerRefMap = le_ref_CreateMap("NmeaHandlerRefMap", 4);
 
@@ -9428,16 +10602,40 @@ void taf_locGnss::Init()
        LE_DEBUG("Set nmeaMask from config tree");
     }
 
-    le_result_t result = taf_locGnss_SetNmeaSentences(nmeaMask);
-    if(result != LE_OK)
+    le_result_t nmResult = SetNmeaSentencesInternal(nmeaMask);
+    if (nmResult != LE_OK)
     {
-        LE_CRIT("Failed to set NMEA with code: %d", (int)result);
+        LE_WARN("Init: Failed to configure NMEA sentences [rc=%d], "
+                "using default config", nmResult);
         SetNmeaConfig(TAF_LOCGNSS_NMEA_CONFIG_DEFAULT);
     }
 
+    LocationSvcThRef = le_thread_GetCurrent();
+    LocationWorkerThRef = le_thread_Create("LocationWorkerThread", LocationWorkerThread, NULL);
+    if (LocationWorkerThRef == NULL)
+    {
+        LE_FATAL("Init: failed to create LocationWorkerThread");
+        return;
+    }
+
+    le_thread_SetJoinable(LocationWorkerThRef);
+    le_thread_Start(LocationWorkerThRef);
+
+    LocationEventWorkerThRef = le_thread_Create("LocationEventWorkerThRef",
+                                            LocationEventWorkerThread,
+                                            NULL);
+    le_thread_Start(LocationEventWorkerThRef);
+    le_event_QueueFunctionToThread(LocationEventWorkerThRef,
+                               RegisterLocationEventHandlers,
+                               NULL, NULL);
+
     return;
 }
-le_result_t taf_locGnss::SetDRConfigValidity(taf_locGnss_DRConfigValidityType_t validMask)
+
+le_result_t taf_locGnss::SetDRConfigValidity
+(
+    taf_locGnss_DRConfigValidityType_t validMask
+)
 {
     le_result_t result = LE_NOT_PERMITTED;
     taf_locGnss_Client_t* clientRequestPtr = NULL;
@@ -9445,7 +10643,7 @@ le_result_t taf_locGnss::SetDRConfigValidity(taf_locGnss_DRConfigValidityType_t 
 
     TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
 
-// Check the GNSS device state
+    // Check the GNSS device state
     switch (clientRequestPtr->GnssState)
     {
         case TAF_LOCGNSS_STATE_READY:

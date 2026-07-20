@@ -609,8 +609,13 @@ void taf_ecall::HandleHlapTimerEvent(int phoneId, taf_pa_ecall_hlap_timer_events
         }
         if(timerEvent.t2 == taf_pa_ecall_hlap_event_t::STARTED) {
             state = TAF_ECALL_STATE_T2_STARTED;
-            eCall.t2StartTime = std::chrono::steady_clock::now();
-            eCall.t2StartTimeSet = true;
+            if (clock_gettime(CLOCK_BOOTTIME, &eCall.t2StartTime) != 0) {
+                LE_ERROR("Failed to get CLOCK_BOOTTIME for T2, errno=%d", errno);
+                eCall.t2StartTime = {0, 0};
+                eCall.t2StartTimeSet = false;
+            } else {
+                eCall.t2StartTimeSet = true;
+            }
         }
         if(timerEvent.t2 == taf_pa_ecall_hlap_event_t::STOPPED) {
             state = TAF_ECALL_STATE_T2_STOPPED;
@@ -681,8 +686,13 @@ void taf_ecall::HandleHlapTimerEvent(int phoneId, taf_pa_ecall_hlap_timer_events
         }
         if(timerEvent.t9 == taf_pa_ecall_hlap_event_t::STARTED) {
             state = TAF_ECALL_STATE_T9_STARTED;
-            eCall.t9StartTime = std::chrono::steady_clock::now();
-            eCall.t9StartTimeSet = true;
+            if (clock_gettime(CLOCK_BOOTTIME, &eCall.t9StartTime) != 0) {
+                LE_ERROR("Failed to get CLOCK_BOOTTIME for T9, errno=%d", errno);
+                eCall.t9StartTime = {0, 0};
+                eCall.t9StartTimeSet = false;
+            } else {
+                eCall.t9StartTimeSet = true;
+            }
             eCall.ElapsedTimeT9 = 0;
         }
         if(timerEvent.t9 == taf_pa_ecall_hlap_event_t::STOPPED) {
@@ -698,8 +708,13 @@ void taf_ecall::HandleHlapTimerEvent(int phoneId, taf_pa_ecall_hlap_timer_events
             } else {
             state = TAF_ECALL_STATE_T9_RESUMED;
             }
-            eCall.t9StartTime = std::chrono::steady_clock::now();
-            eCall.t9StartTimeSet = true;
+            if (clock_gettime(CLOCK_BOOTTIME, &eCall.t9StartTime) != 0) {
+                LE_ERROR("Failed to get CLOCK_BOOTTIME for T9, errno=%d", errno);
+                eCall.t9StartTime = {0, 0};
+                eCall.t9StartTimeSet = false;
+            } else {
+                eCall.t9StartTimeSet = true;
+            }
         }
 
         if (state != TAF_ECALL_STATE_UNKNOWN) {
@@ -722,8 +737,13 @@ void taf_ecall::HandleHlapTimerEvent(int phoneId, taf_pa_ecall_hlap_timer_events
         }
         if(timerEvent.t10 == taf_pa_ecall_hlap_event_t::STARTED) {
             state = TAF_ECALL_STATE_T10_STARTED;
-            eCall.t10StartTime = std::chrono::steady_clock::now();
-            eCall.t10StartTimeSet = true;
+            if (clock_gettime(CLOCK_BOOTTIME, &eCall.t10StartTime) != 0) {
+                LE_ERROR("Failed to get CLOCK_BOOTTIME for T10, errno=%d", errno);
+                eCall.t10StartTime = {0, 0};
+                eCall.t10StartTimeSet = false;
+            } else {
+                eCall.t10StartTimeSet = true;
+            }
             eCall.ElapsedTimeT10 = 0;
         }
         if(timerEvent.t10 == taf_pa_ecall_hlap_event_t::STOPPED) {
@@ -739,8 +759,13 @@ void taf_ecall::HandleHlapTimerEvent(int phoneId, taf_pa_ecall_hlap_timer_events
             } else {
                 state = TAF_ECALL_STATE_T10_RESUMED;
             }
-            eCall.t10StartTime = std::chrono::steady_clock::now();
-            eCall.t10StartTimeSet = true;
+            if (clock_gettime(CLOCK_BOOTTIME, &eCall.t10StartTime) != 0) {
+                LE_ERROR("Failed to get CLOCK_BOOTTIME for T10, errno=%d", errno);
+                eCall.t10StartTime = {0, 0};
+                eCall.t10StartTimeSet = false;
+            } else {
+                eCall.t10StartTimeSet = true;
+            }
         }
 
         if (state != TAF_ECALL_STATE_UNKNOWN) {
@@ -3156,23 +3181,54 @@ taf_ecall_HlapTimerStatus_t taf_ecall::ConvertHlapTimerStatus(taf_pa_ecall_hlap_
     }
 }
 
-uint16_t taf_ecall::ConvertElapsedTime(std::chrono::time_point<std::chrono::steady_clock> startTime)
+uint16_t taf_ecall::ConvertElapsedTime(const timespec& start)
 {
-    auto secs = std::chrono::duration_cast<std::chrono::seconds>(
-        std::chrono::steady_clock::now() - startTime
-    );
-    int64_t elapsed = secs.count();
-    if (elapsed < 0)
-    {
-        elapsed = 0;
+    timespec now{};
+    uint16_t elapseTime = MAX_T9_T10_ELAPSED_TIME_SEC;
+
+    if ((start.tv_nsec < 0) || (start.tv_nsec >= NSEC_PER_SEC)) {
+        LE_ERROR("ConvertElapsedTime: invalid start.tv_nsec=%ld", start.tv_nsec);
+        return elapseTime;
     }
-    if (elapsed > UINT16_MAX)
-    {
-        elapsed = UINT16_MAX;
+
+    int ret = clock_gettime(CLOCK_BOOTTIME, &now);
+    if (ret != 0) {
+        LE_ERROR("ConvertElapsedTime: clock_gettime failed, errno=%d", errno);
+        return elapseTime;
     }
-    uint16_t elapsedTime = static_cast<uint16_t>(elapsed);
-    LE_DEBUG("ElapsedTime is %d when ConvertElapsedTime", elapsedTime);
-    return elapsedTime;
+
+    if ((now.tv_nsec < 0) || (now.tv_nsec >= NSEC_PER_SEC)) {
+        LE_ERROR("ConvertElapsedTime: invalid now.tv_nsec=%ld", now.tv_nsec);
+        return elapseTime;
+    }
+
+    long   diff_sec  = now.tv_sec  - start.tv_sec;
+    long   diff_nsec = now.tv_nsec - start.tv_nsec;
+
+    if (diff_nsec < 0) {
+        if (diff_nsec < -NSEC_PER_SEC) {
+            LE_ERROR("ConvertElapsedTime: diff_nsec too small=%ld", diff_nsec);
+            return elapseTime;
+        }
+
+        diff_sec  -= 1;
+        diff_nsec += NSEC_PER_SEC;
+    }
+
+    if (diff_sec < 0) {
+        LE_ERROR("ConvertElapsedTime: start is in the future, diff_sec=%ld", diff_sec);
+        return elapseTime;
+    }
+
+    uint64_t diff_sec_u = static_cast<uint64_t>(diff_sec);
+
+    if (diff_sec_u > MAX_T9_T10_ELAPSED_TIME_SEC) {
+        diff_sec_u = MAX_T9_T10_ELAPSED_TIME_SEC;
+    }
+
+    elapseTime = static_cast<uint16_t>(diff_sec_u);
+    LE_DEBUG("ElapsedTime is %u when ConvertElapsedTime", elapseTime);
+    return elapseTime;
 }
 
 void taf_ecall::T9TimerExpiryHandler(le_timer_Ref_t timerRef)

@@ -1303,6 +1303,62 @@ void taf_ecall::InitializeECallPtr()
     UpdateMsd();
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * SIGTERM Event Handler — invoked by Legato's signal event mechanism on SIGTERM.
+ * Triggers Deinit() for graceful cleanup before service restart.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_ecall::SigTermEventHandler
+(
+    int sigNum ///< [IN] Signal number received (expected: SIGTERM).
+)
+{
+    LE_INFO("SigTermEventHandler signal : %d", sigNum);
+
+    auto &eCall = taf_ecall::GetInstance();
+
+    if (eCall.elapsedTimeT9Ref != NULL)
+    {
+        if (le_timer_IsRunning(eCall.elapsedTimeT9Ref))
+        {
+            le_timer_Stop(eCall.elapsedTimeT9Ref);
+        }
+        le_timer_Delete(eCall.elapsedTimeT9Ref);
+        eCall.elapsedTimeT9Ref = NULL;
+        LE_INFO("elapsedTimeT9 timer stopped and deleted");
+    }
+
+    if (eCall.elapsedTimeT10Ref != NULL)
+    {
+        if (le_timer_IsRunning(eCall.elapsedTimeT10Ref))
+        {
+            le_timer_Stop(eCall.elapsedTimeT10Ref);
+        }
+        le_timer_Delete(eCall.elapsedTimeT10Ref);
+        eCall.elapsedTimeT10Ref = NULL;
+        LE_INFO("elapsedTimeT10 timer stopped and deleted");
+    }
+
+    if (eCall.resumeModeWaitTimerRef != NULL)
+    {
+        if (le_timer_IsRunning(eCall.resumeModeWaitTimerRef))
+        {
+            le_timer_Stop(eCall.resumeModeWaitTimerRef);
+        }
+        le_timer_Delete(eCall.resumeModeWaitTimerRef);
+        eCall.resumeModeWaitTimerRef = NULL;
+    }
+
+    taf_pa_result_t deregRes = taf_pa_ecall_Deinit();
+    if (deregRes != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ecall_Deinit reason=%d", (int)deregRes);
+    }
+
+    exit(EXIT_SUCCESS);
+}
+
 void taf_ecall::Init(void)
 {
     if (!SimServerConnect())
@@ -1413,6 +1469,9 @@ void taf_ecall::Init(void)
     {
         ArmPendingResume(needToResumeT9, needToResumeT10);
     }
+
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, taf_ecall::SigTermEventHandler);
 }
 
 taf_ecall &taf_ecall::GetInstance()

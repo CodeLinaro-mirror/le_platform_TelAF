@@ -1037,6 +1037,30 @@ taf_voicecall_CallEndCause_t VoiceCallSvc::EndCauseConvert(taf_pa_voicecall_term
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * SIGTERM signal event handler.
+ *
+ * Invoked by the Legato signal event framework when the process receives SIGTERM. Disables all
+ * active voicecall notifications, deinitializes the voicecall platform adaptor, and exits cleanly.
+ */
+//--------------------------------------------------------------------------------------------------
+static void SigTermEventHandler
+(
+    int sigNum ///< [IN] Signal number received (expected: SIGTERM).
+)
+{
+    LE_INFO("SigTermEventHandler signal : %d", sigNum);
+
+    taf_pa_result_t result = taf_pa_voicecall_Deinit();
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_voicecall_Deinit reason=%d", result);
+    }
+
+    exit(EXIT_SUCCESS);
+}
+
 void VoiceCallSvc::Init(void)
 {
     // TelAF side initializations
@@ -1084,6 +1108,9 @@ void VoiceCallSvc::Init(void)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_voicecall_GetCallTermination reason=%d", getTermRes);
     }
+
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);
 
     LE_INFO("System ready, start voice call service!\n");
 

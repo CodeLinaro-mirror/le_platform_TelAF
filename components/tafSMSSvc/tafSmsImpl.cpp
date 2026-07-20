@@ -1368,6 +1368,30 @@ le_result_t taf_Sms::DeleteAllMessages(taf_sms_Storage_t storage)
    return capResult;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * SIGTERM signal event handler.
+ *
+ * Invoked by the Legato signal event framework when the process receives SIGTERM. Disables all
+ * active sms notifications, deinitializes the sms platform adaptor, and exits cleanly.
+ */
+//--------------------------------------------------------------------------------------------------
+static void SigTermEventHandler
+(
+    int sigNum ///< [IN] Signal number received (expected: SIGTERM).
+)
+{
+    LE_INFO("SigTermEventHandler signal : %d", sigNum);
+
+    taf_pa_result_t result = taf_pa_sms_Deinit();
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_Deinit reason=%d", result);
+    }
+
+    exit(EXIT_SUCCESS);
+}
+
 void taf_Sms::Init(void)
 {
    taf_pa_result_t paInitRes = taf_pa_sms_Init();
@@ -1490,6 +1514,9 @@ void taf_Sms::Init(void)
        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_RegisterMemoryFullCallback reason=%d",
                 (int)regMemFullRes);
    }
+
+   le_sig_Block(SIGTERM);
+   le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);
 
    LE_INFO("System ready, start tafSms service!\n");
 }

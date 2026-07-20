@@ -11229,6 +11229,72 @@ static void RegisterLocationEventHandlers(void* param1, void* param2)
     LE_DEBUG("All PA event handlers registered on LocationEventWorkerThRef");
 }
 
+void taf_locGnss::StopWorkerThreads(void)
+{
+    if (LocationEventWorkerThRef != nullptr)
+    {
+        LE_DEBUG("Cancelling LocationEventWorkerThRef");
+
+        le_thread_Cancel(LocationEventWorkerThRef);
+
+        le_result_t result =
+            le_thread_Join(LocationEventWorkerThRef, nullptr);
+
+        if (result != LE_OK)
+        {
+            LE_ERROR("Failed to join LocationEventWorkerThRef, result=%d",
+                     result);
+        }
+
+        LocationEventWorkerThRef = nullptr;
+    }
+
+    if (LocationWorkerThRef != nullptr)
+    {
+        LE_DEBUG("Cancelling LocationWorkerThRef");
+
+        le_thread_Cancel(LocationWorkerThRef);
+
+        le_result_t result =
+            le_thread_Join(LocationWorkerThRef, nullptr);
+
+        if (result != LE_OK)
+        {
+            LE_ERROR("Failed to join LocationWorkerThRef, result=%d",
+                     result);
+        }
+
+        LocationWorkerThRef = nullptr;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * SIGTERM Event Handler — invoked by Legato's signal event mechanism on SIGTERM.
+ * Triggers Deinit() for graceful cleanup before service restart.
+ */
+//--------------------------------------------------------------------------------------------------
+static void SigTermEventHandler
+(
+    int sigNum ///< [IN] Signal number received (expected: SIGTERM).
+)
+{
+    LE_INFO("SigTermEventHandler signal : %d", sigNum);
+
+    auto& gnss = taf_locGnss::GetInstance();
+
+    gnss.StopWorkerThreads();
+
+    taf_pa_result_t result = taf_pa_location_Deinit();
+
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_Deinit reason=%d", result);
+    }
+
+    exit(EXIT_SUCCESS);
+}
+
 void taf_locGnss::Init()
 {
     SessionCtxList = LE_DLS_LIST_INIT;
@@ -11377,10 +11443,14 @@ void taf_locGnss::Init()
     LocationEventWorkerThRef = le_thread_Create("LocationEventWorkerThRef",
                                             LocationEventWorkerThread,
                                             NULL);
+    le_thread_SetJoinable(LocationEventWorkerThRef);
     le_thread_Start(LocationEventWorkerThRef);
     le_event_QueueFunctionToThread(LocationEventWorkerThRef,
                                RegisterLocationEventHandlers,
                                NULL, NULL);
+
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);
 
     return;
 }

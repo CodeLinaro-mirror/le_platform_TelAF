@@ -433,6 +433,9 @@ using namespace std;
                 le_timer_Ref_t elapsedTimeT9Ref;
                 le_timer_Ref_t elapsedTimeT10Ref;
                 void InitializeECallPtr();
+                void InitializeDebugECallPtr();
+                void ResetDebugMsd();
+                static void SigTermEventHandler(int sigNum);
 
         };
 

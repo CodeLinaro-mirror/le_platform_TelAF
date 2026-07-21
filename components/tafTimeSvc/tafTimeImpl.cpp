@@ -3393,6 +3393,12 @@ static void TafSigTermEventHandler(int sigNum)
         (void)taf_mngdStorSecData_DisconnectService();
     }
 
+    pa_result_t result = taf_pa_time_Deinit();
+    if (result != PA_OK)
+    {
+        LE_ERROR("taf_pa_time_Deinit, err : %d", (int)result);
+    }
+
     tafTime.ReleasePtpDevice();
 
     LE_INFO("TafSigTermEventHandler: shutdown completed");

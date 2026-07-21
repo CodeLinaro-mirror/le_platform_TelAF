@@ -1319,7 +1319,8 @@ taf_dcs_QosStatusHandlerRef_t taf_dcs_AddQosStatusHandler
                                                             nullptr, "Service not initialized.");
 
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
-    return tafDcsProfileManager.SvcAddQosStatusHandler(profileRef, handlerPtr, contextPtr);
+    return tafDcsProfileManager.SvcAddQosStatusHandler(profileRef, handlerPtr, contextPtr,
+                                                       taf_dcs_GetClientSessionRef());
 }
 
 void taf_dcs_RemoveQosStatusHandler

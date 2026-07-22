@@ -46,4 +46,6 @@ allow telaf_tafDidStoreSvc_t telaf_devmgr_data_t:file { execute map open read };
 allow telaf_devmgr_t telaf_tafDidStoreSvc_t:lnk_file read;
 allow telaf_tafDidStoreSvc_t telaf_devmgr_data_t:dir search;
 allow telaf_tafDidStoreSvc_t telaf_devmgr_data_t:file getattr;
+allow telaf_devmgr_t telaf_sys_t:file map;
+allow telaf_tafDidStoreSvc_t telaf_sys_t:file map;
 

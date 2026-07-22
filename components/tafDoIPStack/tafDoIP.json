@@ -28,6 +28,11 @@
         "UDP_DISCOVERY": 13400,
         "TCP_DATA": 13400,
         "UDP_SOURCE": 13400,
-        "TLS": false
+        "TLS": 
+        {
+            "enable": false,
+            "certificate": "/data/diag/server.pem",
+            "private_key": "/data/diag/server.key"
+        }
     }
 }

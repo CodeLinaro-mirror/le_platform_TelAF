@@ -1970,14 +1970,24 @@ taf_doip_Result_t CommunicationMgr::CreateIPv4SocketRes
 {
     uint16_t    udpDiscoveryPort;
     uint16_t    tcpDataPort;
+    bool        isTLS = false;
     taf_doip_Result_t result;
 
     auto& vehicleMgr = VehicleManager::GetInstance();
     auto& tafCmMgr = CommunicationMgr::GetInstance();
 
-    if (TAF_DOIP_RESULT_OK != vehicleMgr.GetTcpPort(&tcpDataPort))
+    vehicleMgr.GetTLSFlag(&isTLS);
+
+    if (isTLS)
     {
-        tcpDataPort = TAF_DOIP_TCP_DATA_DEFAULT;
+        tcpDataPort = TAF_DOIP_TCP_DATA_SECURED;
+    }
+    else
+    {
+        if (TAF_DOIP_RESULT_OK != vehicleMgr.GetTcpPort(&tcpDataPort))
+        {
+            tcpDataPort = TAF_DOIP_TCP_DATA_DEFAULT;
+        }
     }
 
     if (TAF_DOIP_RESULT_OK != vehicleMgr.GetUdpPort(&udpDiscoveryPort))
@@ -2031,6 +2041,8 @@ taf_doip_Result_t CommunicationMgr::CreateIPv4SocketRes
             linkPtr = le_dls_PeekNext(ifaceListPtr, linkPtr);
             cnt++;
         }
+
+        ifCnt = cnt;
     }
 
     udpDiscoverSockRef = le_socket_Create(NULL, udpDiscoveryPort,
@@ -2150,6 +2162,247 @@ taf_doip_Result_t CommunicationMgr::CreateIPv6SocketRes
     return TAF_DOIP_RESULT_OK;
 }
 
+le_result_t CommunicationMgr::AddOwnCertificate
+(
+    const uint8_t*  certificatePtr, ///< [IN] Certificate pointer.
+    size_t          certificateLen  ///< [IN] Certificate length.
+)
+{
+    int i;
+    le_result_t ret;
+
+    for (i = 0; i < ifCnt; i++)
+    {
+        ret = le_socket_AddOwnCertificate(tcpDataSockRef[i], certificatePtr, certificateLen);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to add own certificate for %d:%p", i, tcpDataSockRef[i]);
+            return ret;
+        }
+    }
+
+    return LE_OK;
+}
+
+le_result_t CommunicationMgr::AddOwnPrivateKey
+(
+    const uint8_t*  pkeyPtr,    ///< [IN] Private key pointer.
+    size_t          pkeyLen     ///< [IN] Private key length.
+)
+{
+    int i;
+    le_result_t ret;
+
+    for (i = 0; i < ifCnt; i++)
+    {
+        ret = le_socket_AddOwnPrivateKey(tcpDataSockRef[i], pkeyPtr, pkeyLen);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to add own private key for %d:%p", i, tcpDataSockRef[i]);
+            return ret;
+        }
+    }
+
+    return LE_OK;
+}
+
+le_result_t CommunicationMgr::SetCipherSuites
+(
+    uint8_t         cipherIdx   ///< [IN] Cipher suite index.
+)
+{
+    int i;
+    le_result_t ret;
+
+    for (i = 0; i < ifCnt; i++)
+    {
+        ret = le_socket_SetCipherSuites(tcpDataSockRef[i], cipherIdx);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to set cipher suites for %d:%p", i, tcpDataSockRef[i]);
+            return ret;
+        }
+    }
+
+    return LE_OK;
+}
+
+le_result_t CommunicationMgr::SetAuthType
+(
+    taf_doip_AuthTYpe_t authType    ///< [IN] Authentication type.
+)
+{
+    int i;
+    le_result_t ret;
+
+    for (i = 0; i < ifCnt; i++)
+    {
+        uint8_t auth;
+        if (authType == TAF_DOIP_AUTH_SERVER)
+        {
+            auth = 1;
+        }
+        else
+        {
+            auth = 3;
+        }
+
+        ret = le_socket_SetAuthType(tcpDataSockRef[i], auth);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to set authentication for %d:%p", i, tcpDataSockRef[i]);
+            return ret;
+        }
+    }
+
+    return LE_OK;
+}
+
+le_result_t CommunicationMgr::SetTLSInfo
+(
+)
+{
+    char certFile[TAF_DOIP_CERT_PATH_LEN];
+    char pkFile[TAF_DOIP_CERT_PATH_LEN];
+    auto& vehicleMgr = VehicleManager::GetInstance();
+
+    if (TAF_DOIP_RESULT_OK != vehicleMgr.GetTLSCertFile(certFile))
+    {
+        LE_ERROR("Failed to get certificate file");
+        return LE_FAULT;
+    }
+
+    LE_DEBUG("cert file is %s", certFile);
+    FILE* fp = fopen(certFile, "rb");
+    if (fp == NULL)
+    {
+        LE_ERROR("Failed to open certificate file: %s", certFile);
+        return LE_FAULT;
+    }
+
+    // Get file size
+    if (fseek(fp, 0, SEEK_END) != 0)
+    {
+        LE_ERROR("Failed to reach the starting position of the certificate file");
+        fclose(fp);
+        return LE_FAULT;
+    }
+
+    long size = ftell(fp);
+    if (size <= 0)
+    {
+        LE_ERROR("Failed to get the size of the certificate file");
+        fclose(fp);
+        return LE_FAULT;
+    }
+    rewind(fp);
+
+    uint8_t* buf = (uint8_t*)malloc(size);
+    if (!buf)
+    {
+        LE_ERROR("Out of memory while reading certificate");
+        fclose(fp);
+        return LE_FAULT;
+    }
+
+    if (fread(buf, 1, size, fp) != (size_t)size)
+    {
+        LE_ERROR("Failed to read the certificate file");
+        fclose(fp);
+        free(buf);
+        return LE_FAULT;
+    }
+
+    // Pass raw buffer to socket library
+    le_result_t result = AddOwnCertificate(buf, size);
+    if (result != LE_OK)
+    {
+        LE_ERROR("AddOwnCertificate failed: %d", result);
+        fclose(fp);
+        free(buf);
+        return result;
+    }
+
+    fclose(fp);
+    free(buf);
+
+    if (TAF_DOIP_RESULT_OK != vehicleMgr.GetTLSPKFile(pkFile))
+    {
+        LE_ERROR("Failed to get certificate file");
+        return LE_FAULT;
+    }
+
+    LE_DEBUG("pk file is %s", pkFile);
+    fp = fopen(pkFile, "rb");
+    if (fp == NULL)
+    {
+        LE_ERROR("Failed to open pkey file: %s", pkFile);
+        return LE_FAULT;
+    }
+
+    // Get file size
+    if (fseek(fp, 0, SEEK_END) != 0)
+    {
+        LE_ERROR("Failed to reach the starting position of the pk file");
+        fclose(fp);
+        return LE_FAULT;
+    }
+
+    size = ftell(fp);
+    if (size <= 0)
+    {
+        LE_ERROR("Failed to get the size of the pk file");
+        fclose(fp);
+        return LE_FAULT;
+    }
+    rewind(fp);
+
+    buf = (uint8_t*)malloc(size);
+    if (!buf)
+    {
+        LE_ERROR("Out of memory while reading certificate");
+        fclose(fp);
+        return LE_FAULT;
+    }
+
+    if (fread(buf, 1, size, fp) != (size_t)size)
+    {
+        LE_ERROR("Failed to read the certificate file");
+        fclose(fp);
+        free(buf);
+        return LE_FAULT;
+    }
+
+    // Pass raw buffer to socket library
+    result = AddOwnPrivateKey(buf, size);
+    if (result != LE_OK)
+    {
+        LE_ERROR("AddOwnPrivateKey failed: %d", result);
+        fclose(fp);
+        free(buf);
+        return LE_FAULT;
+    }
+
+    fclose(fp);
+    free(buf);
+
+    result = SetAuthType(TAF_DOIP_AUTH_SERVER);
+    if (result != LE_OK)
+    {
+        LE_ERROR("SetAuthType failed: %d", result);
+        return result;
+    }
+
+    result = SetCipherSuites(0);
+    if (result != LE_OK)
+    {
+        LE_ERROR("SetAuthType failed: %d", result);
+        return result;
+    }
+
+    return LE_OK;
+}
+
 /*=================================================================================================
  FUNCTION        CommunicationMgr::SessionInit
  DESCRIPTION     Initialization of DoIP session resource
@@ -2163,6 +2416,7 @@ taf_doip_Result_t CommunicationMgr::SessionInit
 {
     auto& vehicleMgr = VehicleManager::GetInstance();
     char netType[TAF_DOIP_IPTYPE_MAX_LEN];
+    bool isTLS = false;
     taf_doip_Result_t result = TAF_DOIP_RESULT_ERROR;
 
     if (TAF_DOIP_RESULT_OK != vehicleMgr.GetNetType(netType))
@@ -2190,6 +2444,12 @@ taf_doip_Result_t CommunicationMgr::SessionInit
             LE_ERROR("Failed to create IPv4 socket resource.");
             return result;
         }
+    }
+
+    vehicleMgr.GetTLSFlag(&isTLS);
+    if (isTLS)
+    {
+        SetTLSInfo();
     }
 
     // Initialize TCP connection manager.

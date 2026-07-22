@@ -191,6 +191,16 @@ void VehicleManager::ParseJsonConfig
         vehicleMgr.doipConfigPtr->udpSrc
                 = root.get<uint32_t>("network.UDP_SOURCE");
 
+        // TLS
+        vehicleMgr.doipConfigPtr->isTLS
+                = root.get<bool>("network.TLS.enable");
+        std::string cert = root.get<std::string>("network.TLS.certificate");
+        le_utf8_Copy(vehicleMgr.doipConfigPtr->certFile, cert.c_str(),
+                TAF_DOIP_CERT_PATH_LEN, NULL);
+        std::string pk = root.get<std::string>("network.TLS.private_key");
+        le_utf8_Copy(vehicleMgr.doipConfigPtr->pkFile, pk.c_str(),
+                TAF_DOIP_CERT_PATH_LEN, NULL);
+
         vehicleMgr.doipConfigPtr->parseStatus = true;
     }
     catch (std::exception const& exp)
@@ -207,7 +217,16 @@ uint8_t VehicleManager::GetProtocolVersion
     LE_DEBUG("GetProtocolVersion!");
 
     uint8_t protocolVer;
-    protocolVer = TAF_DOIP_PROTOCOL_VERSION_2012;
+    auto &vehicleMgr = VehicleManager::GetInstance();
+
+    if (!vehicleMgr.doipConfigPtr->isTLS)
+    {
+        protocolVer = TAF_DOIP_PROTOCOL_VERSION_2012;
+    }
+    else
+    {
+        protocolVer = TAF_DOIP_PROTOCOL_VERSION_2019;
+    }
 
     return protocolVer;
 }
@@ -679,6 +698,90 @@ taf_doip_Result_t VehicleManager::GetUdpSrcPort
     {
         LE_ERROR("json configuration is not parsed!");
         return TAF_DOIP_RESULT_UNSET;
+    }
+}
+
+taf_doip_Result_t VehicleManager::GetTLSFlag
+(
+    bool *isTLSPtr
+)
+{
+    LE_DEBUG("GetTLSFlag!");
+
+    if (isTLSPtr == NULL)
+    {
+        LE_ERROR("isTLSPtr is null!");
+        return TAF_DOIP_RESULT_PARAM_ERROR;
+    }
+
+    auto &vehicleMgr = VehicleManager::GetInstance();
+
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
+    {
+        *isTLSPtr = vehicleMgr.doipConfigPtr->isTLS;
+        return TAF_DOIP_RESULT_OK;
+    }
+    else
+    {
+        LE_ERROR("json configuration is not parsed!");
+        *isTLSPtr = false;
+        return TAF_DOIP_RESULT_UNSET;
+    }
+}
+
+taf_doip_Result_t VehicleManager::GetTLSCertFile
+(
+    char *certFilePtr
+)
+{
+    LE_DEBUG("GetTLSCertFile!");
+
+    if (certFilePtr == NULL)
+    {
+        LE_ERROR("certFilePtr is null!");
+        return TAF_DOIP_RESULT_PARAM_ERROR;
+    }
+
+    auto &vehicleMgr = VehicleManager::GetInstance();
+
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
+    {
+        le_utf8_Copy(certFilePtr, vehicleMgr.doipConfigPtr->certFile,
+                TAF_DOIP_CERT_PATH_LEN, NULL);
+        return TAF_DOIP_RESULT_OK;
+    }
+    else
+    {
+        LE_ERROR("json configuration is not parsed!");
+        return TAF_DOIP_RESULT_ERROR;
+    }
+}
+
+taf_doip_Result_t VehicleManager::GetTLSPKFile
+(
+    char *pkFilePtr
+)
+{
+    LE_DEBUG("GetTLSPKFile!");
+
+    if (pkFilePtr == NULL)
+    {
+        LE_ERROR("pkFilePtr is null!");
+        return TAF_DOIP_RESULT_PARAM_ERROR;
+    }
+
+    auto &vehicleMgr = VehicleManager::GetInstance();
+
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
+    {
+        le_utf8_Copy(pkFilePtr, vehicleMgr.doipConfigPtr->pkFile,
+                TAF_DOIP_CERT_PATH_LEN, NULL);
+        return TAF_DOIP_RESULT_OK;
+    }
+    else
+    {
+        LE_ERROR("json configuration is not parsed!");
+        return TAF_DOIP_RESULT_ERROR;
     }
 }
 

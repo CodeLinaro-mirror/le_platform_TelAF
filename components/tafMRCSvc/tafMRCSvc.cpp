@@ -210,18 +210,18 @@ le_result_t taf_mrc_MeasureEfsMetrics
         return LE_BAD_PARAMETER;
     }
 
-    taf_pa_mrc_EfsPeStatus_t status;
-    pa_result_t paResult = taf_pa_mrc_GetEfsPeStatus(&status);
+    taf_pa_mrc_EfsUsageStats_t stats;
+    pa_result_t paResult = taf_pa_mrc_GetEfsUsageStats(&stats);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get EFS PE status.");
+        LE_ERROR("Failed to get EFS usage stats.");
         return result;
     }
 
-    if (status.peCountLen == 0 || status.peCountLen > TAF_PA_MRC_EFS_PARTITION_BLOCKS)
+    if (stats.blockStatsLen == 0 || stats.blockStatsLen > TAF_PA_MRC_EFS_PARTITION_BLOCKS)
     {
-        LE_ERROR("Invalid block count %d for EFS.", status.peCountLen);
+        LE_ERROR("Invalid block count %d for EFS.", stats.blockStatsLen);
         return LE_FAULT;
     }
 
@@ -240,31 +240,34 @@ le_result_t taf_mrc_MeasureEfsMetrics
     uint32_t sd = 0;
     uint32_t max = 0;
     uint32_t min = 0xFFFFFFFF;
-    for (uint32_t i = 0; i < status.peCountLen; i++)
+    for (uint32_t i = 0; i < stats.blockStatsLen; i++)
     {
-        sum += status.peCount[i];
+        uint32_t peCount = stats.blockStats[i].blockEraseStats;
+        sum += peCount;
 
-        if (status.peCount[i] > max)
-            max = status.peCount[i];
+        if (peCount > max)
+            max = peCount;
 
-        if (status.peCount[i] < min)
-            min = status.peCount[i];
+        if (peCount < min)
+            min = peCount;
     }
 
-    avg = sum / status.peCountLen;
+    avg = sum / stats.blockStatsLen;
 
     // Second pass: compute the sum of squared differences from the average, then derive the
-    // standard deviation rounded up to the nearest integer.
-    uint32_t ssd = 0;
-    for (uint32_t i = 0; i < status.peCountLen; i++)
+    // standard deviation rounded up to the nearest integer. Use a 64-bit accumulator and integer
+    // multiplication: P/E counts can reach the tens of thousands, so a single squared deviation
+    // (~diff^2) already approaches UINT32_MAX and summing across all blocks would overflow a
+    // uint32_t and yield a garbage deviation.
+    uint64_t ssd = 0;
+    for (uint32_t i = 0; i < stats.blockStatsLen; i++)
     {
-        if (status.peCount[i] >= avg)
-            ssd += pow(status.peCount[i] - avg, 2);
-        else
-            ssd += pow(avg - status.peCount[i], 2);
+        uint32_t peCount = stats.blockStats[i].blockEraseStats;
+        uint64_t diff = (peCount >= avg) ? (peCount - avg) : (avg - peCount);
+        ssd += diff * diff;
     }
 
-    sd = (uint32_t)ceil(sqrt(ssd / status.peCountLen));
+    sd = (uint32_t)ceil(sqrt((double)(ssd / stats.blockStatsLen)));
 
     auto& mrcFactory = MRCFactory::GetInstance();
     Metrics_t* metricsPtr = (Metrics_t*)le_mem_ForceAlloc(mrcFactory.pools.metrics);
@@ -273,6 +276,12 @@ le_result_t taf_mrc_MeasureEfsMetrics
     metricsPtr->avgCount = avg;
     metricsPtr->sdValue = sd;
     metricsPtr->badBlockCount = blockStatus.totalBadBlocks;
+
+    // Retain the per-block P/E counts so range-distribution queries can be answered later without
+    // re-reading the lower layer.
+    metricsPtr->blockCount = stats.blockStatsLen;
+    for (uint32_t i = 0; i < stats.blockStatsLen; i++)
+        metricsPtr->peCount[i] = stats.blockStats[i].blockEraseStats;
 
     // Publish the measurements as an opaque reference so callers can retrieve individual values
     // without exposing the internal storage layout.
@@ -518,6 +527,62 @@ le_result_t taf_mrc_GetEfsBadBlocks
     }
 
     *countPtr = metricsPtr->badBlockCount;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the number of blocks whose P/E count falls within the range [lower, upper).
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mrc_GetEfsBlocksInPECountRange
+(
+    taf_mrc_MetricsRef_t reference, ///< [IN] The EFS metrics reference.
+    uint32_t lower,                 ///< [IN] Lower bound (inclusive).
+    uint32_t upper,                 ///< [IN] Upper bound (exclusive).
+    uint32_t* countPtr              ///< [OUT] Number of blocks with lower <= P/E count < upper.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (countPtr == nullptr)
+    {
+        LE_ERROR("countPtr is nullptr");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (lower >= upper)
+    {
+        LE_ERROR("Invalid range: lower %u >= upper %u", lower, upper);
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& mrcFactory = MRCFactory::GetInstance();
+    Metrics_t* metricsPtr = (Metrics_t*)le_ref_Lookup(mrcFactory.maps.metrics, reference);
+    if (metricsPtr == nullptr)
+    {
+        LE_ERROR("Invalid para(null reference ptr)");
+        return LE_NOT_FOUND;
+    }
+
+    uint32_t count = 0;
+    for (uint32_t i = 0; i < metricsPtr->blockCount; i++)
+    {
+        if (metricsPtr->peCount[i] >= lower && metricsPtr->peCount[i] < upper)
+            count++;
+    }
+
+    *countPtr = count;
 
     return LE_OK;
 }

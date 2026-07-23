@@ -25,7 +25,7 @@ void taf_Net::Init(void)
 {
     LE_INFO("data net component init...");
 
-    pa_result_t isReady;
+    le_result_t isReady;
 
     isReady =  PA_TO_LE_RESULT(taf_pa_net_Init());
 

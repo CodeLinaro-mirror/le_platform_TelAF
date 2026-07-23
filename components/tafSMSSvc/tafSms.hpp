@@ -179,7 +179,7 @@ SessionNode_t;
 typedef struct
 {
     taf_sms_MsgRef_t msgRef;
-    pa_result_t      result;
+    taf_pa_result_t      result;
 }tafSmsSendStatus_t;
 
 //--------------------------------------------------------------------------------------------------

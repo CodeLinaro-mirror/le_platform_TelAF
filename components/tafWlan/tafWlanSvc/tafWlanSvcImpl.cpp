@@ -50,8 +50,8 @@ le_result_t taf_WlanSvcImpl::SetON(void)
         return LE_OK;
     }
 
-    pa_result_t res = taf::pa::wlan::EnableDevice(true);
-    if (res != PA_OK)
+    taf_pa_result_t res = taf::pa::wlan::EnableDevice(true);
+    if (res != TAF_PA_OK)
     {
         LE_ERROR("EnableDevice(true) failed, rc=%d; returning LE_FAULT", (int)res);
         return LE_FAULT;
@@ -76,8 +76,8 @@ le_result_t taf_WlanSvcImpl::SetOFF(void)
         return LE_OK;
     }
 
-    pa_result_t res = taf::pa::wlan::EnableDevice(false);
-    if (res != PA_OK)
+    taf_pa_result_t res = taf::pa::wlan::EnableDevice(false);
+    if (res != TAF_PA_OK)
     {
         LE_ERROR("EnableDevice(false) failed, rc=%d; returning LE_FAULT", (int)res);
         return LE_FAULT;
@@ -104,8 +104,8 @@ le_result_t taf_WlanSvcImpl::GetState
 {
     TAF_ERROR_IF_RET_VAL(statePtr == NULL,  LE_BAD_PARAMETER, "statePtr is NULL!");
     bool enabled = false;
-    pa_result_t res = taf::pa::wlan::GetStatus(enabled);
-    if (res != PA_OK)
+    taf_pa_result_t res = taf::pa::wlan::GetStatus(enabled);
+    if (res != TAF_PA_OK)
     {
         LE_ERROR("PA GetStatus failed rc=%d; returning LE_FAULT", (int)res);
         return LE_FAULT;
@@ -143,8 +143,8 @@ le_result_t taf_WlanSvcImpl::SetMode
             LE_WARN("Invalid wlanMode=%d; returning LE_BAD_PARAMETER", (int)wlanMode);
             return LE_BAD_PARAMETER;
     }
-    pa_result_t paRes = taf::pa::wlan::SetDeviceMode(numAP, numSTA);
-    if (paRes == PA_OK)
+    taf_pa_result_t paRes = taf::pa::wlan::SetDeviceMode(numAP, numSTA);
+    if (paRes == TAF_PA_OK)
     {
         LE_INFO("wlanMode=%d -> (AP=%d, STA=%d) succeeded; returning LE_OK",
                 (int)wlanMode, numAP, numSTA);
@@ -172,7 +172,7 @@ le_result_t taf_WlanSvcImpl::GetMode
 {
     TAF_ERROR_IF_RET_VAL(!wlanModePtr, LE_BAD_PARAMETER, "wlanModePtr is NULL!");
     int numAPOut = 0, numSTAOut = 0;
-    if (taf::pa::wlan::GetDeviceMode(numAPOut, numSTAOut) != PA_OK)
+    if (taf::pa::wlan::GetDeviceMode(numAPOut, numSTAOut) != TAF_PA_OK)
     {
         return LE_FAULT;
     }
@@ -409,7 +409,7 @@ le_result_t taf_WlanSvcImpl::GetBandIntState(taf_wlan_BandIntState_t *statePtr)
 
     bool enabledOut = false;
     taf::pa::wlan::BandInterferenceConfig_t paCfgOut = {};
-    if (taf::pa::wlan::GetBandInterferenceConfig(enabledOut, paCfgOut) != PA_OK)
+    if (taf::pa::wlan::GetBandInterferenceConfig(enabledOut, paCfgOut) != TAF_PA_OK)
     {
         LE_ERROR("Failed to get band interference configuration");
         return LE_FAULT;
@@ -469,8 +469,8 @@ le_result_t taf_WlanSvcImpl::SetBandIntState(taf_wlan_BandIntState_t state)
         cfg.n79WaitTimeInSec   = bandIntCfgToSet.n79UnavailableTime;
     }
 
-    pa_result_t paRes = taf::pa::wlan::SetBandInterferenceConfig(enable, cfg);
-    if (paRes != PA_OK)
+    taf_pa_result_t paRes = taf::pa::wlan::SetBandInterferenceConfig(enable, cfg);
+    if (paRes != TAF_PA_OK)
     {
         LE_ERROR("SetBandInterferenceConfig failed, errorcode: %d", (int)paRes);
         return LE_FAULT;
@@ -591,7 +591,7 @@ void taf_WlanSvcImpl::HandleBandIntGet(WlanGetBandIntCmd_t bandIntGet)
     bool enabledOut = false;
     taf::pa::wlan::BandInterferenceConfig_t paCfgOut = {};
 
-    if (taf::pa::wlan::GetBandInterferenceConfig(enabledOut, paCfgOut) == PA_OK)
+    if (taf::pa::wlan::GetBandInterferenceConfig(enabledOut, paCfgOut) == TAF_PA_OK)
     {
         cmdRsp.result = LE_OK;
         cmdRsp.config.state = enabledOut ? TAF_WLAN_BAND_INT_ENABLED : TAF_WLAN_BAND_INT_DISABLED;
@@ -641,8 +641,8 @@ void taf_WlanSvcImpl::HandleBandIntSet(WlanSetBandIntCmd_t bandIntSet)
         cfg.n79WaitTimeInSec   = bandIntSet.config.n79UnavailableTime;
     }
 
-    pa_result_t paRes = taf::pa::wlan::SetBandInterferenceConfig(enable, cfg);
-    le_result_t result = (paRes == PA_OK) ? LE_OK : LE_FAULT;
+    taf_pa_result_t paRes = taf::pa::wlan::SetBandInterferenceConfig(enable, cfg);
+    le_result_t result = (paRes == TAF_PA_OK) ? LE_OK : LE_FAULT;
 
     if (bWaitingForIntSetPromise.load()) {
         promSetBandIntConfig.set_value(result);
@@ -739,8 +739,8 @@ void taf_WlanSvcImpl::Init(void)
                                                 sizeof(taf_wlan_DeviceState_t));
 
     // Initialize PA (OSS or default)
-    pa_result_t paRes = taf::pa::wlan::Init();
-    if (paRes != PA_OK) {
+    taf_pa_result_t paRes = taf::pa::wlan::Init();
+    if (paRes != TAF_PA_OK) {
         LE_FATAL("*** Unable to initialize WLAN PA, ret=%d", (int)paRes);
     }
 

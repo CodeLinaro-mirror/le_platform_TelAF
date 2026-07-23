@@ -29,17 +29,17 @@ static void RegisterIndication
     uint8_t registration ///< [IN] Registration mask.
 )
 {
-    pa_result_t result = taf_pa_mrc_RegisterIndication(registration);
+    taf_pa_result_t result = taf_pa_mrc_RegisterIndication(registration);
     switch(result)
     {
-        case 0:
+        case TAF_PA_OK:
             if (registration == ENABLE_INDICATION)
                 LE_INFO("Indication is enabled.");
             else
                 LE_INFO("Indication is disabled.");
             break;
-        case -ENOSYS:
-        case -ENOTSUP:
+        case TAF_PA_NOT_IMPLEMENTED:
+        case TAF_PA_UNSUPPORTED:
             break;
         default:
             LE_ERROR("Failed to register indication.");
@@ -74,33 +74,32 @@ static void SigTermEventHandler
  * Converts PA result to Le result.
  *
  * @return
- *      - LE_OK if the PA layer returned 0.
- *      - LE_FAULT if the PA layer returned -EFAULT, or any unmapped error.
- *      - LE_TIMEOUT if the PA layer returned -ETIMEDOUT.
- *      - LE_BAD_PARAMETER if the PA layer returned -EINVAL.
- *      - LE_UNSUPPORTED if the PA layer returned -ENOTSUP.
- *      - LE_NOT_IMPLEMENTED if the PA layer returned -ENOSYS or PA_NOT_IMPLEMENTED.
+ *      - LE_OK if the PA layer returned TAF_PA_OK.
+ *      - LE_FAULT if the PA layer returned TAF_PA_FAULT, or any unmapped error.
+ *      - LE_TIMEOUT if the PA layer returned TAF_PA_TIMEOUT.
+ *      - LE_BAD_PARAMETER if the PA layer returned TAF_PA_BAD_PARAMETER.
+ *      - LE_UNSUPPORTED if the PA layer returned TAF_PA_UNSUPPORTED.
+ *      - LE_NOT_IMPLEMENTED if the PA layer returned TAF_PA_NOT_IMPLEMENTED.
 */
 //--------------------------------------------------------------------------------------------------
 le_result_t Utility::Convert::Result
 (
-    pa_result_t result ///< [IN] PA result.
+    taf_pa_result_t result ///< [IN] PA result.
 )
 {
     switch (result)
     {
-        case 0:
+        case TAF_PA_OK:
             return LE_OK;
-        case -EFAULT:
+        case TAF_PA_FAULT:
             return LE_FAULT;
-        case -ETIMEDOUT:
+        case TAF_PA_TIMEOUT:
             return LE_TIMEOUT;
-        case -EINVAL:
+        case TAF_PA_BAD_PARAMETER:
             return LE_BAD_PARAMETER;
-        case -ENOTSUP:
+        case TAF_PA_UNSUPPORTED:
             return LE_UNSUPPORTED;
-        case -ENOSYS:
-        case PA_NOT_IMPLEMENTED:
+        case TAF_PA_NOT_IMPLEMENTED:
             return LE_NOT_IMPLEMENTED;
         default:
             LE_INFO("Unknown result %d.", result);
@@ -312,8 +311,8 @@ COMPONENT_INIT
     mrcFactory.pools.metrics = le_mem_InitStaticPool(metrics, METRICS_MAX_NUM, sizeof(Metrics_t));
     mrcFactory.pools.toggleBank = le_mem_CreatePool("ToggleBank", sizeof(ToggleBankInd_t));
 
-    pa_result_t result = taf_pa_mrc_Init();
-    if (result != PA_OK)
+    taf_pa_result_t result = taf_pa_mrc_Init();
+    if (result != TAF_PA_OK)
         LE_ERROR("Fail to initialize MRC platform adaptor.");
     else
     {

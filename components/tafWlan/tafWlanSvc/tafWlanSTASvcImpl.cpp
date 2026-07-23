@@ -1581,8 +1581,8 @@ le_result_t taf_WlanSTASvcImpl::SetMode(
         (staCtxPtr->id == TAF_WLAN_STA_ID1) ? taf::pa::wlan::StaId_e::ONE
                                             : taf::pa::wlan::StaId_e::TWO;
 
-    pa_result_t res = taf::pa::wlan::SetStaBridgeMode(paStaId, paMode);
-    if(res != PA_OK)
+    taf_pa_result_t res = taf::pa::wlan::SetStaBridgeMode(paStaId, paMode);
+    if(res != TAF_PA_OK)
     {
         LE_ERROR("SetStaBridgeMode failed");
         return LE_FAULT;
@@ -1617,8 +1617,8 @@ le_result_t taf_WlanSTASvcImpl::GetMode
         (staCtxPtr->id == TAF_WLAN_STA_ID1) ? taf::pa::wlan::StaId_e::ONE
                                             : taf::pa::wlan::StaId_e::TWO;
 
-    pa_result_t res = taf::pa::wlan::GetStaBridgeMode(paStaId, modeOut);
-    if (res != PA_OK)
+    taf_pa_result_t res = taf::pa::wlan::GetStaBridgeMode(paStaId, modeOut);
+    if (res != TAF_PA_OK)
     {
         LE_ERROR("GetStaBridgeMode failed");
         return LE_FAULT;
@@ -1667,8 +1667,8 @@ le_result_t taf_WlanSTASvcImpl::SetIPConfig
         paCfg.netMask  = StaStaticIPConfigPtr->NetMask;
         paCfg.dnsAddr  = StaStaticIPConfigPtr->DNSAddr;
 
-        pa_result_t res = taf::pa::wlan::SetStaIpConfig(paStaId, paIpType, paCfg);
-        if (res != PA_OK)
+        taf_pa_result_t res = taf::pa::wlan::SetStaIpConfig(paStaId, paIpType, paCfg);
+        if (res != TAF_PA_OK)
         {
             LE_ERROR("SetStaIpConfig failed");
             return LE_FAULT;
@@ -1676,8 +1676,8 @@ le_result_t taf_WlanSTASvcImpl::SetIPConfig
     }
     else
     {
-        pa_result_t res = taf::pa::wlan::SetStaIpConfig(paStaId, paIpType);
-        if (res != PA_OK)
+        taf_pa_result_t res = taf::pa::wlan::SetStaIpConfig(paStaId, paIpType);
+        if (res != TAF_PA_OK)
         {
             LE_ERROR("SetStaIpConfig failed");
             return LE_FAULT;
@@ -1718,8 +1718,8 @@ le_result_t taf_WlanSTASvcImpl::GetIPConfig
     taf::pa::wlan::IPType_e ipTypeOut{};
     taf::pa::wlan::StaIpConfig_t paCfg{};
 
-    pa_result_t res = taf::pa::wlan::GetStaIpConfig(paStaId, ipTypeOut, paCfg);
-    if (res != PA_OK)
+    taf_pa_result_t res = taf::pa::wlan::GetStaIpConfig(paStaId, ipTypeOut, paCfg);
+    if (res != TAF_PA_OK)
     {
         LE_ERROR("GetStaIpConfig failed");
         return LE_FAULT;

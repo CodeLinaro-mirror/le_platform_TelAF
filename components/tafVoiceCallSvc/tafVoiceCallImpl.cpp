@@ -1037,14 +1037,14 @@ void VoiceCallSvc::Init(void)
     // Add the state changed handler
     le_event_AddHandler("tafCall state changed", CallEvent, Handler::ProcessStateChanged);
 
-    if (taf_pa_voicecall_Init() != LE_OK)
+    if (taf_pa_voicecall_Init() != TAF_PA_OK)
     {
         LE_FATAL("Cannot initialize voice call platform adaptor");
     }
 
     // Register platform adapter listener
-    pa_result_t result = taf_pa_voicecall_RegisterEventListener(Handler::PaEventListener, nullptr);
-    if (result != PA_OK)
+    taf_pa_result_t result = taf_pa_voicecall_RegisterEventListener(Handler::PaEventListener, nullptr);
+    if (result != TAF_PA_OK)
     {
         LE_ERROR("Failed to register platform adapter listener, ret: %d", result);
     }

@@ -463,13 +463,13 @@ le_result_t taf_PM::SetPowerState
         case TAF_PM_STATE_RESUME:
         case TAF_PM_STATE_SHUTDOWN:
         {
-            pa_result_t paRst =
+            taf_pa_result_t paRst =
                 taf_pa_pms_SetPowerStateAsMaster(
                     pm.pa,
                     to_PaPowerState(state),
                     machineName);
 
-            if (PA_OK != paRst)
+            if (TAF_PA_OK != paRst)
             {
                 LE_ERROR("Failed to invoke PA:SetPowerStateAsMaster: %d", paRst);
                 rst = LE_FAULT;
@@ -704,11 +704,11 @@ void taf_PM::SendAckToPaLayer
             ack == taf_pa_pms_ACK ? "ACK" : "NACK",
             to_StateText(state));
 
-    pa_result_t rst =
+    taf_pa_result_t rst =
         taf_pa_pms_SendAckForStateUpdate(
             pm.pa, to_PaPowerState(state), ack);
 
-    if (PA_OK != rst)
+    if (TAF_PA_OK != rst)
     {
         LE_ERROR("Failed to invoke PA:SendAckForStateUpdate: %d", rst);
     }
@@ -1148,13 +1148,13 @@ void taf_PM::Handle_sig_SIGTERM
     // Resume in SA525M before service termination as master app is terminating
     if (pm.GetCurrentState() != TAF_PM_STATE_RESUME)
     {
-        pa_result_t rst =
+        taf_pa_result_t rst =
             taf_pa_pms_SetPowerStateAsMaster(
                 pm.pa,
                 to_PaPowerState(TAF_PM_STATE_RESUME),
                 "ALL_MACHINES");
 
-        if (PA_OK != rst)
+        if (TAF_PA_OK != rst)
         {
             LE_ERROR("Failed to invoke PA:SetPowerStateAsMaster error: %d", rst);
         }
@@ -1332,17 +1332,17 @@ void taf_PM::TryToInitPaLayer()
             PaIndication_Handler);
 
     // Also register the logger and event-reporter
-    pa_result_t rst =
+    taf_pa_result_t rst =
         taf_pa_pms_Init(
             &pm.pa,
             PaEventReportCallback,
             PA_LAYER_TIMEOUT_MAX_MS);
 
-    if (PA_OK == rst)
+    if (TAF_PA_OK == rst)
     {
         LE_INFO("Pa Init Done");
     }
-    else if (PA_TIMEOUT == rst)
+    else if (TAF_PA_TIMEOUT == rst)
     {
         // Retry ? No, we don't know where is stoped, so..
         LE_FATAL("Pa Init Timeout");
@@ -2108,8 +2108,8 @@ taf_pm_VMListRef_t API(GetMachineList)
 {
     std::vector<std::string> machineNames;
 
-    pa_result_t rst = taf_pa_pms_GetAllMachineNames(pm.pa, machineNames);
-    if (PA_OK != rst)
+    taf_pa_result_t rst = taf_pa_pms_GetAllMachineNames(pm.pa, machineNames);
+    if (TAF_PA_OK != rst)
     {
         LE_ERROR("Failed to GetAllMachineNames from PA Layer");
         return nullptr;
@@ -2288,8 +2288,8 @@ le_result_t API(SetModemWakeupSel)
     taf_pm_NodeModemWsBitMask_t wsBitmask
 )
 {
-    pa_result_t rst = taf_pa_pms_SetModemWakeupFilter(pm.pa, wsBitmask);
-    if (PA_OK != rst)
+    taf_pa_result_t rst = taf_pa_pms_SetModemWakeupFilter(pm.pa, wsBitmask);
+    if (TAF_PA_OK != rst)
     {
         return LE_FAULT;
     }
@@ -2311,8 +2311,8 @@ le_result_t API(GetModemWakeupSel)
         return LE_BAD_PARAMETER;
     }
 
-    pa_result_t rst = taf_pa_pms_GetModemWakeupFilter(pm.pa, wsBitmaskPtr);
-    if (PA_OK != rst)
+    taf_pa_result_t rst = taf_pa_pms_GetModemWakeupFilter(pm.pa, wsBitmaskPtr);
+    if (TAF_PA_OK != rst)
     {
         *wsBitmaskPtr = 0;
         return LE_FAULT;

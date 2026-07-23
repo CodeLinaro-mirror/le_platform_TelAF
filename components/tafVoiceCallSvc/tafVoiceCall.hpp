@@ -97,7 +97,7 @@ struct CallEvent_t {
 };
 
 struct CallbackContext {
-    std::function<void(pa_result_t)> callback;
+    std::function<void(taf_pa_result_t)> callback;
     std::shared_ptr<void> keepAlive;
 };
 
@@ -174,7 +174,7 @@ public:
     le_dls_List_t CallCtrlList = LE_DLS_LIST_INIT;
 
     static void commonCallback(
-        pa_result_t errorCode,
+        taf_pa_result_t errorCode,
         const taf_pa_voicecall_CallInfo_t& callInfo,
         std::any context
     )
@@ -193,7 +193,7 @@ public:
         }
     }
 
-    static le_result_t ConvertPaResult(pa_result_t paResult)
+    static le_result_t ConvertPaResult(taf_pa_result_t paResult)
     {
         return (le_result_t)paResult;
     }
@@ -206,13 +206,13 @@ public:
         taf_voicecall_Event_t failEvent,
         const char* actionName)
     {
-        auto promisePtr = std::make_shared<std::promise<pa_result_t>>();
-        std::weak_ptr<std::promise<pa_result_t>> weakPromise = promisePtr;
-        std::future<pa_result_t> futResult = promisePtr->get_future();
+        auto promisePtr = std::make_shared<std::promise<taf_pa_result_t>>();
+        std::weak_ptr<std::promise<taf_pa_result_t>> weakPromise = promisePtr;
+        std::future<taf_pa_result_t> futResult = promisePtr->get_future();
     
         auto cmdCtx = std::make_shared<CallbackContext>();
         cmdCtx->keepAlive = cmdCtx;
-        cmdCtx->callback = [weakPromise](pa_result_t result)
+        cmdCtx->callback = [weakPromise](taf_pa_result_t result)
         {
             if (auto locked = weakPromise.lock()) {
                 locked->set_value(result);
@@ -235,8 +235,8 @@ public:
 
         std::any context = cmdCtx;
 
-        pa_result_t result = callFunc(callInfo, commonCallback, context);
-        if (result != PA_OK)
+        taf_pa_result_t result = callFunc(callInfo, commonCallback, context);
+        if (result != TAF_PA_OK)
         {
             LE_ERROR("%s failed immediately: %d", actionName, result);
             CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
@@ -251,9 +251,9 @@ public:
             return LE_TIMEOUT;
         }
 
-        pa_result_t asyncResult = futResult.get();
+        taf_pa_result_t asyncResult = futResult.get();
     
-        if (asyncResult != PA_OK)
+        if (asyncResult != TAF_PA_OK)
         {
             LE_ERROR("%s failed in callback", actionName);
             CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,

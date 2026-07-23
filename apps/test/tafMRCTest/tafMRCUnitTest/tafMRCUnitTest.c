@@ -36,7 +36,7 @@ static void TestEfsMetrics
     le_result_t result = taf_mrc_MeasureEfsMetrics(&metrics);
     LE_TEST_OK(result == LE_OK, "taf_mrc_MeasureEfsMetrics - LE_OK");
 
-    uint32_t max = 0, min = 0, avg = 0, sd = 0, badblocks = 0;
+    uint32_t max = 0, min = 0, avg = 0, sd = 0, badblocks = 0, count = 0;
     result = taf_mrc_GetEfsMaxPECount(metrics, &max);
     LE_TEST_OK(result == LE_OK, "taf_mrc_GetEfsMaxPECount - LE_OK");
 
@@ -52,11 +52,15 @@ static void TestEfsMetrics
     result = taf_mrc_GetEfsBadBlocks(metrics, &badblocks);
     LE_TEST_OK(result == LE_OK, "taf_mrc_GetEfsBadBlocks - LE_OK");
 
+    result = taf_mrc_GetEfsBlocksInPECountRange(metrics, 0, UINT32_MAX, &count);
+    LE_TEST_OK(result == LE_OK, "taf_mrc_GetEfsBlocksInPECountRange - LE_OK");
+
     LE_INFO("PE Max: %d", max);
     LE_INFO("PE Min: %d", min);
     LE_INFO("PE Average: %d", avg);
     LE_INFO("PE Standard Deviation: %d", sd);
     LE_INFO("Bad blocks: %d", badblocks);
+    LE_INFO("Count in range [0, UINT32_MAX): %d", count);
 
     result = taf_mrc_DeleteEfsMetrics(metrics);
     LE_TEST_OK(result == LE_OK, "taf_mrc_DeleteEfsMetrics - LE_OK");

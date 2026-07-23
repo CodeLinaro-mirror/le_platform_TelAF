@@ -478,7 +478,6 @@ void taf_PM::Init(void)
                         [weakSlaveProm](telux::common::ServiceStatus status) {
                             taf_PM::commandCallback(weakSlaveProm, status, "Init Slave Prom");
                         });
-
     tcuWakeupMgr = powerFactory.getWakeupManager(
             [weakP](telux::common::ServiceStatus srvStatus) {
             taf_PM::commandCallback(weakP, srvStatus, "Init Wakeup Prom");
@@ -666,6 +665,8 @@ void taf_PM::Init(void)
     le_timer_SetHandler(pmClientsAckTimerRef, PmsClntsAckTimerHandler);
     auto &pmInstance = taf_PM::GetInstance();
     pmInstance.IsLowPowerMode = false;
+    wasTcuUnavailable = false;
+    lastRequestedTcuState = TAF_PM_LAST_REQ_OPERATION_RESUME;
 #endif
     LE_INFO("tafPM service init done...\n");
 }
@@ -735,7 +736,6 @@ bool IsClientMPMS()
 le_result_t taf_PM::StayAwake(taf_pm_WakeupSourceRef_t wsRef)
 {
     taf_ws_t *ws, *wsEntry;
-
     ws = taf_PM::ToTafWakeupSource(wsRef);
     auto &pmInstance = taf_PM::GetInstance();
     if(pmInstance.IsLowPowerMode)
@@ -853,7 +853,6 @@ le_result_t taf_PM::Relax( taf_pm_WakeupSourceRef_t wsRef)
 {
     auto &pmInstance = taf_PM::GetInstance();
     taf_ws_t *ws, *wsEntry;
-
     ws = taf_PM::ToTafWakeupSource(wsRef);
     TAF_ERROR_IF_RET_VAL(!ws, LE_BAD_PARAMETER, "Invalid Wakeup source reference.\n");
 
@@ -1007,7 +1006,7 @@ taf_pm_StateChangeExHandlerRef_t taf_PM::AddStateChangeExHandler
 void taf_PM::PowerStateChanged(void* reportPtr)
 {
     stateEvent_t* stateEvent = (stateEvent_t*)reportPtr;
-    taf_PM tafPwrMgr = taf_PM::GetInstance();
+    auto &tafPwrMgr = taf_PM::GetInstance();
     tafPwrMgr.CallClientHandlerFunc(stateEvent->state);
 }
 
@@ -1167,6 +1166,18 @@ void taf_PM::PromisePowerStateCallback(
 le_result_t taf_PM::SetPowerState(taf_pm_State_t state, const char* machineName)
 {
     TcuActivityState tcuState = tafStateToTcuState(state);
+
+    // Cache the last requested operation, restart is ignored, as is not handled through PMD
+    {
+        std::lock_guard<std::mutex> lock(tcuStateMutex);
+        if (state == TAF_PM_STATE_SUSPEND)
+            lastRequestedTcuState = TAF_PM_LAST_REQ_OPERATION_SUSPEND;
+        else if (state == TAF_PM_STATE_SHUTDOWN)
+            lastRequestedTcuState = TAF_PM_LAST_REQ_OPERATION_SHUTDOWN;
+        else if (state == TAF_PM_STATE_RESUME)
+            lastRequestedTcuState = TAF_PM_LAST_REQ_OPERATION_RESUME;
+    }
+
     if(state == TAF_PM_STATE_RESTART)
         LE_INFO( "SetPowerState state : TAF_PM_STATE_RESTART to machine : %s", machineName);
     else
@@ -1195,6 +1206,15 @@ le_result_t taf_PM::SetPowerState(taf_pm_State_t state, const char* machineName)
         return LE_OK;
     }
 
+    {
+        std::lock_guard<std::mutex> lock(tcuStateMutex);
+
+        if (wasTcuUnavailable)
+        {
+            LE_WARN("PMD not available, command cached");
+            return LE_OK;
+        }
+    }
     telux::common::Status status = telux::common::Status::FAILED;
     auto stateChangePromise = std::make_shared<std::promise<le_result_t>>();
     std::weak_ptr<std::promise<le_result_t>> weakPromise = stateChangePromise;
@@ -1559,7 +1579,7 @@ taf_pm_ConsolidatedAckInfoHandlerRef_t taf_PM::AddConsolidatedAckInfoHandler
 void taf_PM::ConsolidatedAckInfo(void* reportPtr)
 {
     LE_INFO("ConsolidatedAckInfo");
-    taf_PM tafPwrMgr = taf_PM::GetInstance();
+    auto &tafPwrMgr = taf_PM::GetInstance();
 
     auto event = (taf_FinalAckStatus_t*)reportPtr;
     taf_FinalAckStatus_t* consolidatedStateAckInfoPtr =
@@ -1618,7 +1638,7 @@ void taf_PM::ConsolidatedAckInfo(void* reportPtr)
 void taf_PM::RemoveConsolidatedAckInfoHandler(taf_pm_ConsolidatedAckInfoHandlerRef_t handlerRef)
 {
     LE_INFO("Removed ConsolidatedAck Info handler");
-    taf_PM tafPwrMgr = taf_PM::GetInstance();
+    auto &tafPwrMgr = taf_PM::GetInstance();
     taf_ConsolidatedAckInfoHandler_t* handlerObjPtr
         = (taf_ConsolidatedAckInfoHandler_t*)le_ref_Lookup(
             tafPwrMgr.ConsolidatedStateAckHandlerRefMap, handlerRef);
@@ -1638,7 +1658,7 @@ void taf_PM::RemoveConsolidatedAckInfoHandler(taf_pm_ConsolidatedAckInfoHandlerR
  */
 void tafTcuStateListener :: onTcuActivityStateUpdate(TcuActivityState state)
 {
-    taf_PM tafPwrMgr = taf_PM::GetInstance();
+    auto &tafPwrMgr = taf_PM::GetInstance();
     LE_INFO("onTcuActivityStateUpdate state is %s\n", tafPwrMgr.tcuStateToString(state));
 
     stateEvent_t evt;
@@ -1863,7 +1883,7 @@ void tafTcuStateListener::onSlaveAckStatusUpdate
  */
 void tafRemoteTcuStateListener :: onTcuActivityStateUpdate(TcuActivityState state)
 {
-    taf_PM tafPwrMgr = taf_PM::GetInstance();
+    auto &tafPwrMgr = taf_PM::GetInstance();
     LE_INFO("onTcuActivityStateUpdate form remote proc state is %s\n",
             tafPwrMgr.tcuStateToString(state));
 
@@ -1918,10 +1938,50 @@ void tafRemoteTcuStateListener :: onSlaveAckStatusUpdate(Status status)
  * callback to receive TCU service status change
  */
 void tafTcuServiceStatusListener::onServiceStatusChange(ServiceStatus status) {
+    auto &tafPwrMgr = taf_PM::GetInstance();
     if(status == ServiceStatus::SERVICE_UNAVAILABLE) {
+        std::lock_guard<std::mutex> lock(tafPwrMgr.tcuStateMutex);
+        tafPwrMgr.wasTcuUnavailable = true;
         LE_INFO( " Service Status : UNAVAILABLE" );
     } else if(status == ServiceStatus::SERVICE_AVAILABLE) {
         LE_INFO( " Service Status : AVAILABLE" );
+        TcuActivityState tcuState = tafPwrMgr.tcuActivityMgr->getActivityState();
+
+        bool shouldRetryOperation = false;
+        taf_pm_LastReqOperation_t operationToRetry = TAF_PM_LAST_REQ_OPERATION_RESUME;
+        {
+            std::lock_guard<std::mutex> lock(tafPwrMgr.tcuStateMutex);
+            if (tafPwrMgr.wasTcuUnavailable && tcuState == TcuActivityState::RESUME)
+            {
+                tafPwrMgr.wasTcuUnavailable = false;
+                operationToRetry = tafPwrMgr.lastRequestedTcuState;
+                shouldRetryOperation = true;
+            }
+        }
+
+        if (shouldRetryOperation)
+        {
+            LE_INFO("PMD was unavailable, trying the last requested command: %i",
+                operationToRetry);
+            switch(operationToRetry)
+            {
+                case TAF_PM_LAST_REQ_OPERATION_SUSPEND:
+                    tafPwrMgr.SetPowerState(TAF_PM_STATE_SUSPEND,  "ALL_MACHINES");
+                    break;
+                case TAF_PM_LAST_REQ_OPERATION_SHUTDOWN:
+                    tafPwrMgr.SetPowerState(TAF_PM_STATE_SHUTDOWN,  "ALL_MACHINES");
+                    break;
+                case TAF_PM_LAST_REQ_OPERATION_RESUME:
+                {
+                    stateEvent_t evt;
+                    evt.state = TAF_PM_STATE_RESUME;
+                    le_event_Report(tafPwrMgr.stateChangeExEvent, &evt, sizeof(evt));
+                    break;
+                }
+                default:
+                    LE_WARN("Unknown state");
+            }
+        }
     }
 }
 

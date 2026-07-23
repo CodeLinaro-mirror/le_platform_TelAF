@@ -15,7 +15,7 @@
 #include <telux/power/TcuActivityManager.hpp>
 #include "tafSvcIF.hpp"
 #include "taf_prop_pms.h"
-
+#include <mutex>
 using namespace telux::power;
 using namespace telux::common;
 using namespace tafsvc;
@@ -42,7 +42,19 @@ using namespace std;
 #define TAF_RPC_PROXY "tafRpcProxy"
 #define PMS_CLNTS_ACK_TIMEOUT 350
 #define TAF_CONSILATED_ACK_CLNT_SIZE 100
+
 /**
+ * Enumeration for last requested power state change command
+ */
+typedef enum
+{
+    TAF_PM_LAST_REQ_OPERATION_SUSPEND,
+    TAF_PM_LAST_REQ_OPERATION_SHUTDOWN,
+    TAF_PM_LAST_REQ_OPERATION_RESUME
+} taf_pm_LastReqOperation_t;
+
+/**
+ *
  * Wakeup source record definition
  */
 typedef struct
@@ -320,6 +332,9 @@ namespace tafsvc {
 
         #if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
         taf_pm_State_t curTcuState;
+        taf_pm_LastReqOperation_t lastRequestedTcuState;
+        bool wasTcuUnavailable;
+        std::mutex tcuStateMutex;
         taf_FinalAckStatus_t consolidateStateAckInfo;
         le_mem_PoolRef_t vmListPool;
         le_mem_PoolRef_t vmInfoPool;

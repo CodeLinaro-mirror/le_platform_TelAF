@@ -156,18 +156,17 @@ static void RegisterIndication
 {
     for (uint32_t i = 0; i < INSTANCE_MAX_COUNT; i++)
     {
-        pa_result_t result = taf_pa_radio_RegisterIndication(i, registration, TAF_PA_RADIO_DISABLE_IND_MODE_NONE);
+        taf_pa_result_t result = taf_pa_radio_RegisterIndication(i, registration, TAF_PA_RADIO_DISABLE_IND_MODE_NONE);
         switch(result)
         {
-            case 0:
+            case TAF_PA_OK:
                 if (registration == ENABLE_INDICATION)
                     LE_INFO("Indication is enabled for instance %d.", i);
                 else
                     LE_INFO("Indication is disabled for instance %d.", i);
                 break;
-            case -ENOTSUP:
-            case -ENOSYS:
-            case PA_NOT_IMPLEMENTED:
+            case TAF_PA_UNSUPPORTED:
+            case TAF_PA_NOT_IMPLEMENTED:
                 break;
             default:
                 LE_ERROR("Failed to register indication for instance %d.", i);
@@ -397,10 +396,10 @@ static void DataServiceStatusHandler
             taf_pa_radio_DataRoamingStatus_t status =
                 TAF_PA_RADIO_DATA_ROAMING_STATUS_UNKNOWN;
 
-            pa_result_t result =
+            taf_pa_result_t result =
                 taf_pa_radio_GetDataCurrRoamingStatus(instance, &status);
 
-            if (result == 0 &&
+            if (result == TAF_PA_OK &&
                 status == TAF_PA_RADIO_DATA_ROAMING_STATUS_ON)
             {
                 state = TAF_RADIO_NET_REG_STATE_ROAMING;
@@ -437,7 +436,7 @@ static void DataServiceStatusHandler
     taf_pa_radio_VoiceServiceInfo_t voiceInfo;
     taf_radio_NetRegState_t vState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
 
-    if (taf_pa_radio_GetVoiceServiceInfo(phoneId, &voiceInfo) == LE_OK)
+    if (taf_pa_radio_GetVoiceServiceInfo(phoneId, &voiceInfo) == TAF_PA_OK)
     {
         vState = Utility::Convert::NetRegState(&voiceInfo);
     }
@@ -885,36 +884,35 @@ static void LteCphyCaHandler
  * Converts PA result to Legato result.
  *
  * @return
- *      - LE_OK if the PA layer returned 0.
- *      - LE_FAULT if the PA layer returned -EFAULT, or any unmapped error.
- *      - LE_TIMEOUT if the PA layer returned -ETIMEDOUT.
- *      - LE_OUT_OF_RANGE if the PA layer returned -ERANGE.
- *      - LE_BAD_PARAMETER if the PA layer returned -EINVAL.
- *      - LE_UNSUPPORTED if the PA layer returned -ENOTSUP.
- *      - LE_NOT_IMPLEMENTED if the PA layer returned -ENOSYS or PA_NOT_IMPLEMENTED.
+ *      - LE_OK if the PA layer returned TAF_PA_OK.
+ *      - LE_FAULT if the PA layer returned TAF_PA_FAULT, or any unmapped error.
+ *      - LE_TIMEOUT if the PA layer returned TAF_PA_TIMEOUT.
+ *      - LE_OUT_OF_RANGE if the PA layer returned TAF_PA_OUT_OF_RANGE.
+ *      - LE_BAD_PARAMETER if the PA layer returned TAF_PA_BAD_PARAMETER.
+ *      - LE_UNSUPPORTED if the PA layer returned TAF_PA_UNSUPPORTED.
+ *      - LE_NOT_IMPLEMENTED if the PA layer returned TAF_PA_NOT_IMPLEMENTED.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t Utility::Convert::Result
 (
-    pa_result_t result ///< [IN] PA result.
+    taf_pa_result_t result ///< [IN] PA result.
 )
 {
     switch (result)
     {
-        case 0:
+        case TAF_PA_OK:
             return LE_OK;
-        case -EFAULT:
+        case TAF_PA_FAULT:
             return LE_FAULT;
-        case -ETIMEDOUT:
+        case TAF_PA_TIMEOUT:
             return LE_TIMEOUT;
-        case -ERANGE:
+        case TAF_PA_OUT_OF_RANGE:
             return LE_OUT_OF_RANGE;
-        case -EINVAL:
+        case TAF_PA_BAD_PARAMETER:
             return LE_BAD_PARAMETER;
-        case -ENOTSUP:
+        case TAF_PA_UNSUPPORTED:
             return LE_UNSUPPORTED;
-        case -ENOSYS:
-        case PA_NOT_IMPLEMENTED:
+        case TAF_PA_NOT_IMPLEMENTED:
             return LE_NOT_IMPLEMENTED;
         default:
             LE_INFO("Unknown result %d.", result);
@@ -2571,8 +2569,8 @@ taf_radio_PciScanInformationListRef_t Utility::Common::PciNetworkScan
     taf_pa_radio_RatBitMask_t rat = Utility::Convert::Rat(bitmask);
 
     taf_pa_radio_PciScanInformation_t information;
-    pa_result_t result = taf_pa_radio_PerformPciNetworkScan(instance, rat, &information);
-    if (result != 0)
+    taf_pa_result_t result = taf_pa_radio_PerformPciNetworkScan(instance, rat, &information);
+    if (result != TAF_PA_OK)
     {
         LE_ERROR("Failed to perform PCI network scan.");
         return nullptr;
@@ -2636,7 +2634,7 @@ taf_radio_ScanInformationListRef_t Utility::Common::PlmnNetworkScan
         TAF_PA_RADIO_BITMASK_RAT_LTE | TAF_PA_RADIO_BITMASK_RAT_NR5G;
     config.timeout = PLMN_SCAN_TIMEOUT;
     taf_pa_radio_PlmnScanInformation_t information;
-    pa_result_t result = taf_pa_radio_PerformPlmnNetworkScan(instance, &config, &information);
+    taf_pa_result_t result = taf_pa_radio_PerformPlmnNetworkScan(instance, &config, &information);
     if (result != 0)
     {
         LE_ERROR("Failed to perform PLMN network scan.");
@@ -2712,7 +2710,7 @@ le_result_t Utility::Common::ManualNetworkSelection
         return result;
     }
 
-    pa_result_t paResult = taf_pa_radio_SetNetworkSelectionPreference(instance, &preference);
+    taf_pa_result_t paResult = taf_pa_radio_SetNetworkSelectionPreference(instance, &preference);
 
     return Utility::Convert::Result(paResult);
 }
@@ -2891,8 +2889,8 @@ static void SigTermEventHandler
 
     RegisterIndication(DISABLE_INDICATION);
 
-    pa_result_t result = taf_pa_radio_Deinit();
-    if (result != PA_OK)
+    taf_pa_result_t result = taf_pa_radio_Deinit();
+    if (result != TAF_PA_OK)
     {
         LE_ERROR("Failed to deinitialize radio platform adaptor, result: %d", result);
     }
@@ -3009,8 +3007,8 @@ COMPONENT_INIT
     le_sem_Wait(semaphore);
     le_sem_Delete(semaphore);
 
-    pa_result_t result = taf_pa_radio_Init();
-    if (result != 0)
+    taf_pa_result_t result = taf_pa_radio_Init();
+    if (result != TAF_PA_OK)
     {
         LE_ERROR("Failed to initialize platform adaptor.");
         return;
@@ -3037,8 +3035,8 @@ COMPONENT_INIT
 #define ADD_PA_RADIO_HANDLER(addFunc, handlerFunc, handlerRef) \
     do \
     { \
-        pa_result_t _addRes  = addFunc(0, handlerFunc, nullptr, &(handlerRef)); \
-        if (_addRes  != PA_OK) \
+        taf_pa_result_t _addRes  = addFunc(0, handlerFunc, nullptr, &(handlerRef)); \
+        if (_addRes  != TAF_PA_OK) \
         { \
             LE_ERROR("Failed to add PA radio handler " #addFunc ", result=%d.", _addRes); \
         } \

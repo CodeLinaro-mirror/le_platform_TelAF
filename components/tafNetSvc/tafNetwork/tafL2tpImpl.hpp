@@ -215,19 +215,19 @@ namespace tafsvc {
     //TBD: Add semaphore
     class tafEnableL2tpCallback {
         public:
-            static void Response(pa_result_t error, void *contextPtr);
+            static void Response(taf_pa_result_t error, void *contextPtr);
     };
     class tafDisableL2tpCallback {
         public:
-            static void Response(pa_result_t error, void *contextPtr);
+            static void Response(taf_pa_result_t error, void *contextPtr);
     };
     class tafStartTunnelCallback {
         public:
-            static void Response(pa_result_t error, void *contextPtr);
+            static void Response(taf_pa_result_t error, void *contextPtr);
     };
     class tafStopTunnelCallback {
         public:
-            static void Response(pa_result_t error, void *contextPtr);
+            static void Response(taf_pa_result_t error, void *contextPtr);
     };
 
 

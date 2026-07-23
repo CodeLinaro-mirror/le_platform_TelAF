@@ -29,7 +29,7 @@ le_result_t taf_mrc_SendOtaStartMsg
     void
 )
 {
-    pa_result_t paResult = taf_pa_mrc_SetProcessStatus(TAF_PA_MRC_PROCESS_OTA,
+    taf_pa_result_t paResult = taf_pa_mrc_SetProcessStatus(TAF_PA_MRC_PROCESS_OTA,
         TAF_PA_MRC_STATUS_INITIATED);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
@@ -59,7 +59,7 @@ le_result_t taf_mrc_SendOtaResumeMsg
     void
 )
 {
-    pa_result_t paResult = taf_pa_mrc_SetProcessStatus(TAF_PA_MRC_PROCESS_OTA,
+    taf_pa_result_t paResult = taf_pa_mrc_SetProcessStatus(TAF_PA_MRC_PROCESS_OTA,
         TAF_PA_MRC_STATUS_RESUMED);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
@@ -92,7 +92,7 @@ le_result_t taf_mrc_SendOtaEndMsg
 )
 {
     taf_pa_mrc_Status_t paStatus = Utility::Convert::Status(status);
-    pa_result_t paResult = taf_pa_mrc_SetProcessStatus(TAF_PA_MRC_PROCESS_OTA, paStatus);
+    taf_pa_result_t paResult = taf_pa_mrc_SetProcessStatus(TAF_PA_MRC_PROCESS_OTA, paStatus);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
         LE_ERROR("Failed to set OTA ended status.");
@@ -121,7 +121,7 @@ le_result_t taf_mrc_SendOtaAbsyncMsg
     void
 )
 {
-    pa_result_t paResult = taf_pa_mrc_PerformABSync();
+    taf_pa_result_t paResult = taf_pa_mrc_PerformABSync();
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
         LE_ERROR("Failed to perform AB sync.");
@@ -156,7 +156,7 @@ le_result_t taf_mrc_SendSyncStatusMsg
 )
 {
     taf_pa_mrc_Status_t paStatus = Utility::Convert::Status(status);
-    pa_result_t paResult = taf_pa_mrc_SetProcessStatus(TAF_PA_MRC_PROCESS_ABSYNC, paStatus);
+    taf_pa_result_t paResult = taf_pa_mrc_SetProcessStatus(TAF_PA_MRC_PROCESS_ABSYNC, paStatus);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -211,7 +211,7 @@ le_result_t taf_mrc_MeasureEfsMetrics
     }
 
     taf_pa_mrc_EfsPeStatus_t status;
-    pa_result_t paResult = taf_pa_mrc_GetEfsPeStatus(&status);
+    taf_pa_result_t paResult = taf_pa_mrc_GetEfsPeStatus(&status);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -547,7 +547,7 @@ le_result_t taf_mrc_SetEfsBackupPeriod
     uint32_t period ///< Period in second.
 )
 {
-    pa_result_t result = taf_pa_mrc_SetTimerPeriod(TAF_PA_MRC_TIMER_EFS_BACKUP, period);
+    taf_pa_result_t result = taf_pa_mrc_SetTimerPeriod(TAF_PA_MRC_TIMER_EFS_BACKUP, period);
     return Utility::Convert::Result(result);
 }
 
@@ -587,7 +587,7 @@ le_result_t taf_mrc_SetGpioToggleStatus
         return result;
     }		
 
-    pa_result_t paResult = taf_pa_mrc_AckSlotToggle(paStatus);
+    taf_pa_result_t paResult = taf_pa_mrc_AckSlotToggle(paStatus);
 
     return Utility::Convert::Result(paResult);
 }

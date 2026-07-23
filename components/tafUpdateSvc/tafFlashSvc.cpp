@@ -134,7 +134,7 @@ void taf_flash_Init
     void
 )
 {
-    pa_result_t ret = taf_pa_flash_Init();
+    taf_pa_result_t ret = taf_pa_flash_Init();
     if (ret)
         LE_ERROR("Flash PA init ret %d.", ret);
 }
@@ -179,7 +179,7 @@ le_result_t taf_flash_MtdOpen
     }
 
     taf_pa_flash_MtdRef_t mtdRef = nullptr;
-    pa_result_t ret = taf_pa_flash_OpenMtd(partitionNameStr, TAF_PA_FLASH_BITMASK_OPEN_MODE_READ_WRITE,
+    taf_pa_result_t ret = taf_pa_flash_OpenMtd(partitionNameStr, TAF_PA_FLASH_BITMASK_OPEN_MODE_READ_WRITE,
         &mtdRef);
     if (ret)
     {
@@ -231,7 +231,7 @@ le_result_t taf_flash_MtdClose
     }
 
     le_result_t result = LE_OK;
-    pa_result_t ret =taf_pa_flash_CloseMtd(*mtdRefPtr);
+    taf_pa_result_t ret =taf_pa_flash_CloseMtd(*mtdRefPtr);
     if (ret)
     {
         LE_ERROR("Fail to close MTD, ret %d.", ret);
@@ -292,7 +292,7 @@ le_result_t taf_flash_MtdInformation
 
     /* Get mtd information */
     taf_pa_flash_MtdInfo_t info;
-    pa_result_t ret = taf_pa_flash_GetMtdInfo(*mtdRefPtr, &info);
+    taf_pa_result_t ret = taf_pa_flash_GetMtdInfo(*mtdRefPtr, &info);
     if (ret)
     {
         LE_ERROR("Fail to get MTD information, ret %d.", ret);
@@ -313,7 +313,7 @@ le_result_t taf_flash_MtdInformation
     for (uint32_t index = 0; index < *blocksNumber; index++)
     {
         bool isGood = false;
-        pa_result_t ret = taf_pa_flash_CheckMtdGoodBlock(*mtdRefPtr, index, &isGood);
+        taf_pa_result_t ret = taf_pa_flash_CheckMtdGoodBlock(*mtdRefPtr, index, &isGood);
         if (ret == 0 && !isGood)
         {
             (*badBlocksNumber)++;
@@ -359,7 +359,7 @@ le_result_t taf_flash_MtdEraseBlock
         return LE_NOT_FOUND;
     }
 
-    pa_result_t ret = taf_pa_flash_EraseMtdBlock(*mtdRefPtr, blockIndex);
+    taf_pa_result_t ret = taf_pa_flash_EraseMtdBlock(*mtdRefPtr, blockIndex);
     if (ret)
     {
         LE_ERROR("Fail to erase block %d, ret = %d.", blockIndex, ret);
@@ -407,7 +407,7 @@ le_result_t taf_flash_MtdErase
 
     /* Get mtd information */
     taf_pa_flash_MtdInfo_t info;
-    pa_result_t ret = taf_pa_flash_GetMtdInfo(*mtdRefPtr, &info);
+    taf_pa_result_t ret = taf_pa_flash_GetMtdInfo(*mtdRefPtr, &info);
     if (ret)
     {
         LE_ERROR("Fail to get MTD information, ret %d.", ret);
@@ -480,7 +480,7 @@ le_result_t taf_flash_MtdReadPage
         return LE_NOT_FOUND;
     }
 
-    pa_result_t ret = taf_pa_flash_ReadMtdPage(*mtdRefPtr, pageIndex, readData, sizePtr);
+    taf_pa_result_t ret = taf_pa_flash_ReadMtdPage(*mtdRefPtr, pageIndex, readData, sizePtr);
     if (ret && ret != PAGE_ERASED)
     {
         LE_ERROR("Fail to read MTD page %d.", pageIndex);
@@ -530,7 +530,7 @@ le_result_t taf_flash_MtdRead
 
     /* Get mtd information */
     taf_pa_flash_MtdInfo_t info;
-    pa_result_t ret = taf_pa_flash_GetMtdInfo(*mtdRefPtr, &info);
+    taf_pa_result_t ret = taf_pa_flash_GetMtdInfo(*mtdRefPtr, &info);
     if (ret)
     {
         LE_ERROR("Fail to get MTD information.");
@@ -633,7 +633,7 @@ le_result_t taf_flash_MtdWritePage
         return LE_NOT_FOUND;
     }
 
-    pa_result_t ret = taf_pa_flash_WriteMtdPage(*mtdRefPtr, pageIndex, writeData, size);
+    taf_pa_result_t ret = taf_pa_flash_WriteMtdPage(*mtdRefPtr, pageIndex, writeData, size);
     if (ret)
     {
         LE_ERROR("Fail to write MTD page %d.", pageIndex);
@@ -684,7 +684,7 @@ le_result_t taf_flash_MtdWrite
 
     /* Get mtd information */
     taf_pa_flash_MtdInfo_t info;
-    pa_result_t ret = taf_pa_flash_GetMtdInfo(*mtdRefPtr, &info);
+    taf_pa_result_t ret = taf_pa_flash_GetMtdInfo(*mtdRefPtr, &info);
     if (ret)
     {
         LE_ERROR("Fail to get MTD information.");
@@ -787,7 +787,7 @@ bool taf_flash_MtdIsBlockGood
     }
 
     bool isGood = false;
-    pa_result_t ret = taf_pa_flash_CheckMtdGoodBlock(*mtdRefPtr, blockIndex, &isGood);
+    taf_pa_result_t ret = taf_pa_flash_CheckMtdGoodBlock(*mtdRefPtr, blockIndex, &isGood);
 
     if (ret)
         LE_ERROR("Failed to check MTD block at %d.", blockIndex);
@@ -835,7 +835,7 @@ le_result_t taf_flash_UbiOpen
     }
 
     taf_pa_flash_UbiVolumeRef_t ubiRef = nullptr;
-    pa_result_t ret = 0;
+    taf_pa_result_t ret = TAF_PA_OK;
     taf_pa_flash_OpenModeBitMask_t bitmask = 0x0;
     switch (mode)
     {
@@ -902,7 +902,7 @@ le_result_t taf_flash_UbiClose
         return LE_NOT_FOUND;
     }
 
-    pa_result_t ret = taf_pa_flash_CloseUbiVolume(ubiPtr->ubiRef);
+    taf_pa_result_t ret = taf_pa_flash_CloseUbiVolume(ubiPtr->ubiRef);
 
     le_ref_DeleteRef(tafFlashAccess.ubiMap, volumeRef);
     le_mem_Release(ubiPtr);
@@ -961,7 +961,7 @@ le_result_t taf_flash_UbiInformation
 
     taf_pa_flash_UbiVolumeInfo_t info;
     /* Get ubi information */
-    pa_result_t ret = taf_pa_flash_GetUbiVolumeInfo(ubiPtr->ubiRef, &info);
+    taf_pa_result_t ret = taf_pa_flash_GetUbiVolumeInfo(ubiPtr->ubiRef, &info);
     if (ret)
     {
         LE_ERROR("Fail to get UBI volume information.");
@@ -1011,7 +1011,7 @@ le_result_t taf_flash_UbiRead
         return LE_NOT_FOUND;
     }
 
-    pa_result_t ret = taf_pa_flash_ReadUbiVolume(ubiPtr->ubiRef, offset, readData, sizePtr);
+    taf_pa_result_t ret = taf_pa_flash_ReadUbiVolume(ubiPtr->ubiRef, offset, readData, sizePtr);
     if (ret < 0)
     {
         LE_ERROR("Fail to read UBI at offset %d, ret = %d.", offset, ret);
@@ -1057,7 +1057,7 @@ le_result_t taf_flash_UbiInitWrite
         return LE_NOT_FOUND;
     }
 
-    pa_result_t ret = taf_pa_flash_SetUbiVolumeUpdateSize(ubiPtr->ubiRef, writeSize);
+    taf_pa_result_t ret = taf_pa_flash_SetUbiVolumeUpdateSize(ubiPtr->ubiRef, writeSize);
     if (ret)
     {
         LE_ERROR("Fail to set UBI volume update size");
@@ -1104,7 +1104,7 @@ le_result_t taf_flash_UbiWrite
         return LE_NOT_FOUND;
     }
 
-    pa_result_t ret = taf_pa_flash_UpdateUbiVolume(ubiPtr->ubiRef, writeData, size);
+    taf_pa_result_t ret = taf_pa_flash_UpdateUbiVolume(ubiPtr->ubiRef, writeData, size);
     if (ret)
     {
         LE_ERROR("Fail to update UBI");
@@ -1148,7 +1148,7 @@ le_result_t taf_flash_UbiErase
         return LE_NOT_FOUND;
     }
 
-    pa_result_t ret = taf_pa_flash_CloseUbiVolume(ubiPtr->ubiRef);
+    taf_pa_result_t ret = taf_pa_flash_CloseUbiVolume(ubiPtr->ubiRef);
     if (ret)
     {
         LE_ERROR("Fail to close UBI.");

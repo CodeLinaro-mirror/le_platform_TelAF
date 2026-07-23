@@ -47,8 +47,8 @@ using namespace std;
 COMPONENT_INIT
 {
     LE_INFO("tafSim Service Init...");
-    pa_result_t result = taf_pa_sim_Init();
-    if (result != 0)
+    taf_pa_result_t result = taf_pa_sim_Init();
+    if (result != TAF_PA_OK)
     {
         LE_ERROR("Failed to initialize platform adaptor.");
     }

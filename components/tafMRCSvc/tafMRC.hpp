@@ -105,7 +105,7 @@ class Utility
                  */
                 static le_result_t Result
                 (
-                    pa_result_t result ///< [IN] PA result.
+                    taf_pa_result_t result ///< [IN] PA result.
                 );
 
                 /**

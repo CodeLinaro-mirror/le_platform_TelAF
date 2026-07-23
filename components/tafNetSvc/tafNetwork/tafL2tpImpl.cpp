@@ -108,9 +108,9 @@ void taf_L2tp::Init(void)
                                                      TAF_NET_L2TP_MAX_TUNNEL_NUMBER,
                                                sizeof(TunnelHandlerMapping_t));
 
-    pa_result_t result = taf_pa_l2tp_Init();
+    taf_pa_result_t result = taf_pa_l2tp_Init();
 
-    if(result == PA_OK)
+    if(result == TAF_PA_OK)
     {
         LE_INFO("l2tpManager component is ready...");
     }
@@ -509,7 +509,7 @@ void* taf_L2tp::L2tpCmdThread(void* contextPtr)
 
 ======================================================================*/
 
-void tafEnableL2tpCallback::Response(pa_result_t error, void * contextPtr)
+void tafEnableL2tpCallback::Response(taf_pa_result_t error, void * contextPtr)
 {
     LE_UNUSED(contextPtr);
     auto &tafL2tp = taf_L2tp::GetInstance();
@@ -534,7 +534,7 @@ void tafEnableL2tpCallback::Response(pa_result_t error, void * contextPtr)
 
 ======================================================================*/
 
-void tafDisableL2tpCallback::Response(pa_result_t error, void * contextPtr)
+void tafDisableL2tpCallback::Response(taf_pa_result_t error, void * contextPtr)
 {
     auto &tafL2tp = taf_L2tp::GetInstance();
     taf_L2tpEventReq_t l2tpEvent;
@@ -558,7 +558,7 @@ void tafDisableL2tpCallback::Response(pa_result_t error, void * contextPtr)
 
 ======================================================================*/
 
-void tafStartTunnelCallback::Response(pa_result_t error, void * contextPtr)
+void tafStartTunnelCallback::Response(taf_pa_result_t error, void * contextPtr)
 {
     LE_UNUSED(contextPtr);
     auto &tafL2tp = taf_L2tp::GetInstance();
@@ -583,7 +583,7 @@ void tafStartTunnelCallback::Response(pa_result_t error, void * contextPtr)
 
 ======================================================================*/
 
-void tafStopTunnelCallback::Response(pa_result_t error, void * contextPtr)
+void tafStopTunnelCallback::Response(taf_pa_result_t error, void * contextPtr)
 {
     LE_UNUSED(contextPtr);
     auto &tafL2tp = taf_L2tp::GetInstance();

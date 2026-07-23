@@ -424,17 +424,16 @@ class Utility
                  * Converts PA result to Legato result.
                  *
                  * @return
-                 *      - LE_OK if the PA layer returned 0.
-                 *      - LE_FAULT if the PA layer returned -EFAULT, or any unmapped error.
-                 *      - LE_TIMEOUT if the PA layer returned -ETIMEDOUT.
-                 *      - LE_OUT_OF_RANGE if the PA layer returned -ERANGE.
-                 *      - LE_BAD_PARAMETER if the PA layer returned -EINVAL.
-                 *      - LE_UNSUPPORTED if the PA layer returned -ENOTSUP.
-                 *      - LE_NOT_IMPLEMENTED if the PA layer returned -ENOSYS or PA_NOT_IMPLEMENTED.
-                 */
+                 *      - LE_OK if the PA layer returned TAF_PA_OK.
+                 *      - LE_FAULT if the PA layer returned TAF_PA_NOT_PERMITTED, or any unmapped error.
+                 *      - LE_TIMEOUT if the PA layer returned TAF_PA_TIMEOUT.
+                 *      - LE_OUT_OF_RANGE if the PA layer returned TAF_PA_OUT_OF_RANGE.
+                 *      - LE_BAD_PARAMETER if the PA layer returned TAF_PA_BAD_PARAMETER.
+                 *      - LE_UNSUPPORTED if the PA layer returned TAF_PA_UNSUPPORTED.
+                 *      - LE_NOT_IMPLEMENTED if the PA layer returned TAF_PA_NOT_IMPLEMENTED.                 */
                 static le_result_t Result
                 (
-                    pa_result_t result ///< [IN] PA result.
+                    taf_pa_result_t result ///< [IN] PA result.
                 );
 
                 /**

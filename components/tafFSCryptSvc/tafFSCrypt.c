@@ -73,86 +73,86 @@ taf_fsc_Storage_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Mapping pa_result_t to le_result_t
+ * Mapping taf_pa_result_t to le_result_t
  */
 //--------------------------------------------------------------------------------------------------
-static le_result_t ConvertPaToLeRet(pa_result_t paResult)
+static le_result_t ConvertPaToLeRet(taf_pa_result_t paResult)
 {
     switch(paResult)
     {
-        case PA_OK:
+        case TAF_PA_OK:
             return LE_OK;
             break;
-        case PA_NOT_FOUND:
+        case TAF_PA_NOT_FOUND:
             return LE_NOT_FOUND;
             break;
-        case PA_NOT_POSSIBLE:
+        case TAF_PA_NOT_POSSIBLE:
             return LE_NOT_POSSIBLE;
             break;
-        case PA_OUT_OF_RANGE:
+        case TAF_PA_OUT_OF_RANGE:
             return LE_OUT_OF_RANGE;
             break;
-        case PA_NO_MEMORY:
+        case TAF_PA_NO_MEMORY:
             return LE_NO_MEMORY;
             break;
-        case PA_NOT_PERMITTED:
+        case TAF_PA_NOT_PERMITTED:
             return LE_NOT_PERMITTED;
             break;
-        case PA_FAULT:
+        case TAF_PA_FAULT:
             return LE_FAULT;
             break;
-        case PA_COMM_ERROR:
+        case TAF_PA_COMM_ERROR:
             return LE_COMM_ERROR;
             break;
-        case PA_TIMEOUT:
+        case TAF_PA_TIMEOUT:
             return LE_TIMEOUT;
             break;
-        case PA_OVERFLOW:
+        case TAF_PA_OVERFLOW:
             return LE_OVERFLOW;
             break;
-        case PA_UNDERFLOW:
+        case TAF_PA_UNDERFLOW:
             return LE_UNDERFLOW;
             break;
-        case PA_WOULD_BLOCK:
+        case TAF_PA_WOULD_BLOCK:
             return LE_WOULD_BLOCK;
             break;
-        case PA_DEADLOCK:
+        case TAF_PA_DEADLOCK:
             return LE_DEADLOCK;
             break;
-        case PA_FORMAT_ERROR:
+        case TAF_PA_FORMAT_ERROR:
             return LE_FORMAT_ERROR;
             break;
-        case PA_DUPLICATE:
+        case TAF_PA_DUPLICATE:
             return LE_DUPLICATE;
             break;
-        case PA_BAD_PARAMETER:
+        case TAF_PA_BAD_PARAMETER:
             return LE_BAD_PARAMETER;
             break;
-        case PA_CLOSED:
+        case TAF_PA_CLOSED:
             return LE_CLOSED;
             break;
-        case PA_BUSY:
+        case TAF_PA_BUSY:
             return LE_BUSY;
             break;
-        case PA_UNSUPPORTED:
+        case TAF_PA_UNSUPPORTED:
             return LE_UNSUPPORTED;
             break;
-        case PA_IO_ERROR:
+        case TAF_PA_IO_ERROR:
             return LE_IO_ERROR;
             break;
-        case PA_NOT_IMPLEMENTED:
+        case TAF_PA_NOT_IMPLEMENTED:
             return LE_NOT_IMPLEMENTED;
             break;
-        case PA_UNAVAILABLE:
+        case TAF_PA_UNAVAILABLE:
             return LE_UNAVAILABLE;
             break;
-        case PA_TERMINATED:
+        case TAF_PA_TERMINATED:
             return LE_TERMINATED;
             break;
-        case PA_IN_PROGRESS:
+        case TAF_PA_IN_PROGRESS:
             return LE_IN_PROGRESS;
             break;
-        case PA_SUSPENDED:
+        case TAF_PA_SUSPENDED:
             return LE_SUSPENDED;
             break;
         default:

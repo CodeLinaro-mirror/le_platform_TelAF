@@ -3719,7 +3719,7 @@ void TafDcsProfileManager::deinitEventsAndMemory()
 void TafDcsProfileManager::getProfilesAsyncCb
 (
     taf::pa::data::PhoneId_e phoneId,                         ///< [IN] The phone id.
-    pa_result_t paResult,                                     ///< [IN] The result of the operation.
+    taf_pa_result_t paResult,                                     ///< [IN] The result of the operation.
     const std::vector<taf::pa::data::ProfileInfo_t> &profiles,///< [IN] The profile list.
     void *contextPtr                                          ///< [IN] The context pointer.
 )

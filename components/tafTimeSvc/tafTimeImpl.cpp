@@ -479,7 +479,7 @@ void Network1RespPAHandler
 (
     taf_time_NetTimeInfo_t info, ///< [IN] Network time information.
     int slotId,                  ///< [IN] Slot id
-    pa_result_t error            ///< [IN] Error code.
+    taf_pa_result_t error            ///< [IN] Error code.
 )
 {
     auto &tafTime = taf_Time::GetInstance();
@@ -504,7 +504,7 @@ void Network2RespPAHandler
 (
     taf_time_NetTimeInfo_t info, ///< [IN] Network time information.
     int slotId,                  ///< [IN] Slot id
-    pa_result_t error            ///< [IN] Error code.
+    taf_pa_result_t error            ///< [IN] Error code.
 )
 {
     auto &tafTime = taf_Time::GetInstance();
@@ -3529,7 +3529,7 @@ void taf_Time::LayerTimeSourceChangeHandler
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_Time::RegGnssTimeListener(void)
 {
-    if (taf_pa_RegGnssTimeListener() != PA_OK)
+    if (taf_pa_RegGnssTimeListener() != TAF_PA_OK)
     {
         LE_ERROR("RegGnssTimeListener failed");
         return LE_FAULT;
@@ -3545,7 +3545,7 @@ le_result_t taf_Time::RegGnssTimeListener(void)
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_Time::DeregGnssTimeListener(void)
 {
-    if (taf_pa_DeregGnssTimeListener() != PA_OK)
+    if (taf_pa_DeregGnssTimeListener() != TAF_PA_OK)
     {
         LE_ERROR("DeregGnssTimeListener failed");
         return LE_FAULT;
@@ -3833,24 +3833,24 @@ le_result_t taf_Time::InitNetworkBaseData(void)
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_Time::InitNetworkTime(void)
 {
-    pa_result_t pa_result = PA_FAULT;
+    taf_pa_result_t pa_result = TAF_PA_FAULT;
 
     if (TimeSourceConf.IsSourceExist(SourceNameIndexToStr(TAF_TIME_SRC_NAME_NETWORK)))
     {
 
         pa_result = taf_pa_network_Init(NETWORK_SLOT_1);
-        if (pa_result == PA_OK)
+        if (pa_result == TAF_PA_OK)
         {
             LE_DEBUG("Init network slot1 successful");
             pa_result = taf_pa_time_RegNetworkTimeListener(NETWORK_SLOT_1);
-            if (pa_result == PA_OK)
+            if (pa_result == TAF_PA_OK)
             {
                 InitNetwork1Status = LE_OK;
                 // If request network time failed, will be tried later.
                 pa_result = taf_pa_time_RequestNetworkTime(NETWORK_SLOT_1, Network1RespPAHandler);
             }
         }
-        if (InitNetwork1Status != LE_OK || pa_result != PA_OK)
+        if (InitNetwork1Status != LE_OK || pa_result != TAF_PA_OK)
         {
             LE_WARN("Network slot1 failed: InitNetwork1Status %d, result %d",
                                                         (int)InitNetwork1Status, (int)pa_result);
@@ -3861,18 +3861,18 @@ le_result_t taf_Time::InitNetworkTime(void)
     {
 
         pa_result = taf_pa_network_Init(NETWORK_SLOT_2);
-        if (pa_result == PA_OK)
+        if (pa_result == TAF_PA_OK)
         {
             LE_DEBUG("Init network slot2 successful");
             pa_result = taf_pa_time_RegNetworkTimeListener(NETWORK_SLOT_2);
-            if (pa_result == PA_OK)
+            if (pa_result == TAF_PA_OK)
             {
                 InitNetwork2Status = LE_OK;
                 // If request network time failed, will be tried later.
                 pa_result = taf_pa_time_RequestNetworkTime(NETWORK_SLOT_2, Network2RespPAHandler);
             }
         }
-        if (InitNetwork2Status != LE_OK || pa_result != PA_OK)
+        if (InitNetwork2Status != LE_OK || pa_result != TAF_PA_OK)
         {
             LE_WARN("Network slot2 failed: InitNetwork2Status %d, result %d",
                                                         (int)InitNetwork2Status, (int)pa_result);
@@ -3883,7 +3883,7 @@ le_result_t taf_Time::InitNetworkTime(void)
     if (InitNetwork1Status == LE_OK || InitNetwork2Status == LE_OK)
     {
         pa_result = taf_pa_time_RegNetworkTimeChangeHandler(OnNetworkTimeChangePAHandler);
-        if (pa_result != PA_OK)
+        if (pa_result != TAF_PA_OK)
         {
             // This failure will only impact the network change notification.
             LE_WARN("Register network change handler failed");
@@ -3903,8 +3903,8 @@ le_result_t taf_Time::InitNetworkTime(void)
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_Time::InitGnssTime(void)
 {
-    pa_result_t pa_result = taf_pa_gnss_Init();
-    if (pa_result != PA_OK)
+    taf_pa_result_t pa_result = taf_pa_gnss_Init();
+    if (pa_result != TAF_PA_OK)
     {
         LE_WARN("GNSS init failed");
         return LE_FAULT;
@@ -3912,7 +3912,7 @@ le_result_t taf_Time::InitGnssTime(void)
 
     // Register callback functions in PA layer.
     pa_result= taf_pa_time_RegGnssUtcTimeUpdateHandler(OnGnssUtcTimeUpdatePAHandler);
-    if (pa_result != PA_OK)
+    if (pa_result != TAF_PA_OK)
     {
         LE_ERROR("RegGnssUtcTimeUpdateHandler failed");
         return LE_FAULT;

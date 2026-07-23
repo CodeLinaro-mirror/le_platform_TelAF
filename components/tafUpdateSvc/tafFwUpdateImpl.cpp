@@ -1104,7 +1104,7 @@ le_result_t taf_FwUpdate::InitPartitionList
 
     if (!init)
     {
-        pa_result_t ret = taf_pa_flash_Init();
+        taf_pa_result_t ret = taf_pa_flash_Init();
         if (ret)
         {
             LE_ERROR("Failed to init flash access.");
@@ -1925,7 +1925,7 @@ void taf_FwUpdate::UpdateImage
             if (!tafFwUpdate.partitions[i].isUbi)
             {
                 taf_pa_flash_MtdRef_t mtdRef = nullptr;
-                pa_result_t ret = taf_pa_flash_OpenMtd(tafFwUpdate.partitions[i].name,
+                taf_pa_result_t ret = taf_pa_flash_OpenMtd(tafFwUpdate.partitions[i].name,
                     TAF_PA_FLASH_BITMASK_OPEN_MODE_READ_WRITE, &mtdRef);
                 if (ret)
                 {
@@ -1996,13 +1996,13 @@ void taf_FwUpdate::UpdateImage
 
                     for (uint32_t pageIdx = 0; pageIdx < pagesPerBlock; ++pageIdx)
                     {
-                        ret = fread(buffer, 1, TAF_FWUPDATE_FLASH_PAGE_SIZE, fp);
-                        if (ret < TAF_FWUPDATE_FLASH_PAGE_SIZE)
+                        size_t bytesRead = fread(buffer, 1, TAF_FWUPDATE_FLASH_PAGE_SIZE, fp);
+                        if (bytesRead < TAF_FWUPDATE_FLASH_PAGE_SIZE)
                         {
-                            memset(buffer + ret, 0xFF, TAF_FWUPDATE_FLASH_PAGE_SIZE - ret);
-                            LE_INFO("Padding 0xFF in %s at page %d, start at %d.\n",
+                            memset(buffer + bytesRead, 0xFF, TAF_FWUPDATE_FLASH_PAGE_SIZE - bytesRead);
+                            LE_INFO("Padding 0xFF in %s at page %d, start at %zu.\n",
                                 tafFwUpdate.partitions[i].name,
-                                pageIdx + blockIdx * pagesPerBlock, ret);
+                                pageIdx + blockIdx * pagesPerBlock, bytesRead);
                         }
 
                         ret = taf_pa_flash_WriteMtdPage(mtdRef, pageIdx + blockIdx * pagesPerBlock,
@@ -2215,7 +2215,7 @@ void taf_FwUpdate::SyncPartition
 )
 {
     uint32_t pages = 0;
-    pa_result_t ret = 0;
+    taf_pa_result_t ret = TAF_PA_OK;
     char srcPartition[TAF_FLASH_PARTITION_NAME_MAX_BYTES];
     char partition[TAF_FLASH_PARTITION_NAME_MAX_BYTES];
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
@@ -2441,7 +2441,7 @@ void taf_FwUpdate::StartSync
             LE_INFO("Detect %s to be synced.", tafFwUpdate.partitions[i].name);
 
             uint32_t partitionSize = 0;
-            pa_result_t ret = 0;
+            taf_pa_result_t ret = TAF_PA_OK;
             if (tafFwUpdate.partitions[i].isUbi)
             {
                 taf_pa_flash_UbiVolumeRef_t ubiRef = nullptr;
@@ -2740,7 +2740,7 @@ le_result_t taf_FwUpdate::CalPartitionHash
     }
 
     uint32_t i = 0;
-    pa_result_t ret = 0;
+    taf_pa_result_t ret = TAF_PA_OK;
     for (i = 0; i < tafFwUpdate.partitions.size(); i++)
     {
         if (strncmp(partition, tafFwUpdate.partitions[i].name, strlen(partition)) == 0 &&
@@ -3177,7 +3177,7 @@ le_result_t taf_FwUpdate::EraseBank
 {
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
 
-    pa_result_t ret = 0;
+    taf_pa_result_t ret = TAF_PA_OK;
     le_result_t result = InitPartitionList();
     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Can not get partition list.");
 
@@ -3261,7 +3261,7 @@ le_result_t taf_FwUpdate::PerformBankSync
 {
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
 
-    pa_result_t ret = 0;
+    taf_pa_result_t ret = TAF_PA_OK;
     uint32_t imageSize = 0;
     taf_update_Bank_t bootBank = TAF_UPDATE_BANK_UNKNOWN;
     if (tafFwUpdate.GetActiveBank(&bootBank) != LE_OK)

@@ -237,14 +237,14 @@ void taf_Handler::ProcessSendMessage(void* context)
       return;
    }
 
-   pa_result_t paRes = taf_pa_sms_SendRawSms(
+   taf_pa_result_t paRes = taf_pa_sms_SendRawSms(
       msgPtr->pdu.data,
       msgPtr->pdu.length,
       timeout,
       phoneId
    );
 
-   if (paRes != PA_OK)
+   if (paRes != TAF_PA_OK)
    {
       LE_ERROR("taf_pa_sms_SendRawSms failed, errorCode: %d", (int)paRes);
       msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
@@ -275,7 +275,7 @@ void taf_Handler::ProcessSendingStateEvent(void* reportPtr)
 
    taf_sms_CallbackResultFunc_t functionPtr = (taf_sms_CallbackResultFunc_t)(msgPtr->callBackPtr);
 
-   if(sendStatusMsgPtr->result == PA_OK) {
+   if(sendStatusMsgPtr->result == TAF_PA_OK) {
       LE_INFO("SMS sent successfully");
       msgPtr->sendStatus = TAF_SMS_TXSTS_SENT;
    }
@@ -918,9 +918,9 @@ uint32_t taf_Sms::ListRxMsg
       }
 
       int32_t paListCount = 0;
-      pa_result_t ret = taf_pa_sms_RequestSmsMessageList(idxArray,
+      taf_pa_result_t ret = taf_pa_sms_RequestSmsMessageList(idxArray,
          MAX_OF_SMS_MSG_IN_STORAGE, kListRxMsgWaitTime, smsTagType, phoneId, &paListCount);
-      if (ret != PA_OK)
+      if (ret != TAF_PA_OK)
       {
           LE_ERROR("taf_pa_sms_RequestSmsMessageList failed, errorCode: %d", (int)ret);
           return -1;
@@ -1054,9 +1054,9 @@ le_result_t taf_Sms::ReadFromStorage(taf_sms_Pdu_t* pduMsg,
    std::vector<uint8_t> pduBuffer;
    uint32_t pduMsgIndex;
 
-   pa_result_t paRes = taf_pa_sms_ReadMessage(idx, kReadFromStorageWaitTime,
+   taf_pa_result_t paRes = taf_pa_sms_ReadMessage(idx, kReadFromStorageWaitTime,
       phoneId, &pduRxStatus, pduBuffer, &pduMsgIndex);
-   if (paRes != PA_OK)
+   if (paRes != TAF_PA_OK)
    {
       LE_ERROR("taf_pa_sms_ReadMessage failed, errorCode: %d", (int)paRes);
       return LE_FAULT;
@@ -1120,8 +1120,8 @@ le_result_t taf_Sms::SendPDUMessageSync
    uint8_t     phoneId
 )
 {
-   pa_result_t paRes = taf_pa_sms_SendRawSms(pduData, pduLength, timeout, phoneId);
-   if (paRes != PA_OK)
+   taf_pa_result_t paRes = taf_pa_sms_SendRawSms(pduData, pduLength, timeout, phoneId);
+   if (paRes != TAF_PA_OK)
    {
       LE_ERROR("taf_pa_sms_SendRawSms failed, errorCode: %d", (int)paRes);
       return LE_FAULT;
@@ -1174,7 +1174,7 @@ le_result_t taf_Sms::SendPDUMessageAsync(taf_sms_MsgRef_t msgRef)
       return LE_OUT_OF_RANGE;
    }
 
-   auto cb = [msgRef](pa_result_t result)
+   auto cb = [msgRef](taf_pa_result_t result)
    {
       auto &sms = taf_Sms::GetInstance();
 
@@ -1190,8 +1190,8 @@ le_result_t taf_Sms::SendPDUMessageAsync(taf_sms_MsgRef_t msgRef)
       le_event_ReportWithRefCounting(sms.MsgSendCallbackEvent, msgSendStatusPtr);
    };
 
-   pa_result_t paRes = taf_pa_sms_SendPDUMessageAsync(phoneId, pduData, pduLength, cb);
-   if (paRes != PA_OK)
+   taf_pa_result_t paRes = taf_pa_sms_SendPDUMessageAsync(phoneId, pduData, pduLength, cb);
+   if (paRes != TAF_PA_OK)
    {
        LE_WARN("taf_pa_sms_SendPDUMessageAsync failed, errorCode: %d", (int)paRes);
        return LE_FAULT;
@@ -1202,9 +1202,9 @@ le_result_t taf_Sms::SendPDUMessageAsync(taf_sms_MsgRef_t msgRef)
 
 le_result_t taf_Sms::SetTag(taf_sms_Msg_t* msgPtr, taf_pa_sms_Tag tagType)
 {
-   pa_result_t paRes = taf_pa_sms_SetTag(msgPtr->storageIdx, tagType,
+   taf_pa_result_t paRes = taf_pa_sms_SetTag(msgPtr->storageIdx, tagType,
       kSetTagWaitTime, DEFAULT_PHONE_ID);
-   if (paRes != PA_OK)
+   if (paRes != TAF_PA_OK)
    {
       LE_ERROR("taf_pa_sms_SetTag failed, errorCode: %d", (int)paRes);
       return LE_FAULT;
@@ -1216,9 +1216,9 @@ le_result_t taf_Sms::SetTag(taf_sms_Msg_t* msgPtr, taf_pa_sms_Tag tagType)
 
 le_result_t taf_Sms::DeleteMessage(uint32_t messageIndex)
 {
-   pa_result_t paRes = taf_pa_sms_DeleteMessage(messageIndex, kDeleteMessageWaitTime,
+   taf_pa_result_t paRes = taf_pa_sms_DeleteMessage(messageIndex, kDeleteMessageWaitTime,
       DEFAULT_PHONE_ID);
-   if (paRes != PA_OK)
+   if (paRes != TAF_PA_OK)
    {
       LE_ERROR("taf_pa_sms_DeleteMessage failed, errorCode: %d", (int)paRes);
       return LE_FAULT;
@@ -1269,8 +1269,8 @@ le_result_t taf_Sms::DeleteAllMessages(taf_sms_Storage_t storage)
 
 void taf_Sms::Init(void)
 {
-   pa_result_t paInitRes = taf_pa_sms_Init();
-   if (paInitRes != PA_OK)
+   taf_pa_result_t paInitRes = taf_pa_sms_Init();
+   if (paInitRes != TAF_PA_OK)
    {
        LE_FATAL("Cannot initialize SMS platform adaptor, errorcode: %d", (int)paInitRes);
    }
@@ -1340,7 +1340,7 @@ void taf_Sms::Init(void)
       SetPreferredStorage(TAF_SMS_STORAGE_HLOS);
    }
 
-   pa_result_t regIncomingRes = taf_pa_sms_RegisterIncomingSmsCallback
+   taf_pa_result_t regIncomingRes = taf_pa_sms_RegisterIncomingSmsCallback
    (
       [](int phoneId, const std::string &pdu, const std::string &sender, int storageIdx)
       {
@@ -1352,12 +1352,12 @@ void taf_Sms::Init(void)
          le_event_Report(taf_Sms::GetInstance().NewMsgEvent, &newMsg, sizeof(newSms_t));
       }
    );
-   if (regIncomingRes != PA_OK)
+   if (regIncomingRes != TAF_PA_OK)
    {
        LE_ERROR("taf_pa_sms_RegisterIncomingSmsCallback failed, errorCode: %d", (int)regIncomingRes);
    }
 
-   pa_result_t regMemFullRes = taf_pa_sms_RegisterMemoryFullCallback
+   taf_pa_result_t regMemFullRes = taf_pa_sms_RegisterMemoryFullCallback
    (
       [](int phoneId, taf_pa_sms_StorageFullType fullType)
       {
@@ -1383,7 +1383,7 @@ void taf_Sms::Init(void)
          }
       }
    );
-   if (regMemFullRes != PA_OK)
+   if (regMemFullRes != TAF_PA_OK)
    {
        LE_ERROR("taf_pa_sms_RegisterMemoryFullCallback failed, errorCode: %d", (int)regMemFullRes);
    }
@@ -1399,9 +1399,9 @@ taf_Sms &taf_Sms::GetInstance()
 
 le_result_t taf_Sms::ActivateCellBroadcast(uint8_t phoneId, bool activate)
 {
-   pa_result_t paRes = taf_pa_sms_SetActivationStatus(phoneId, activate,
+   taf_pa_result_t paRes = taf_pa_sms_SetActivationStatus(phoneId, activate,
       TIMEOUT_ACTIVATE_CB);
-   if (paRes != PA_OK)
+   if (paRes != TAF_PA_OK)
    {
       LE_ERROR("taf_pa_sms_SetActivationStatus failed, errorCode: %d", (int)paRes);
       return LE_FAULT;
@@ -1417,9 +1417,9 @@ le_result_t taf_Sms::RequestBroadcastIds(uint8_t phoneId)
    {
       return LE_BAD_PARAMETER;
    }
-   pa_result_t paRes = taf_pa_sms_RequestMessageFilters(phoneId,
+   taf_pa_result_t paRes = taf_pa_sms_RequestMessageFilters(phoneId,
       TIMEOUT_RQUEST_CB_FILTER);
-   if (paRes != PA_OK)
+   if (paRes != TAF_PA_OK)
    {
       LE_ERROR("taf_pa_sms_RequestMessageFilters failed, errorCode: %d", (int)paRes);
       return LE_FAULT;
@@ -1445,9 +1445,9 @@ le_result_t taf_Sms::AddCellBroadcastIds(uint8_t phoneId, uint16_t fromId, uint1
    TAF_ERROR_IF_RET_VAL(RequestBroadcastIds(phoneId) != LE_OK,
                         LE_FAULT, "Request message filter failed");
 
-   pa_result_t paRes = taf_pa_sms_AddCellBroadcastIds(phoneId,
+   taf_pa_result_t paRes = taf_pa_sms_AddCellBroadcastIds(phoneId,
       fromId, toId, TIMEOUT_RQUEST_CB_FILTER);
-   if (paRes != PA_OK)
+   if (paRes != TAF_PA_OK)
    {
       LE_ERROR("taf_pa_sms_AddCellBroadcastIds failed, errorCode: %d", (int)paRes);
       return LE_FAULT;
@@ -1473,9 +1473,9 @@ le_result_t taf_Sms::RemoveCellBroadcastIds(uint8_t phoneId, uint16_t fromId, ui
    TAF_ERROR_IF_RET_VAL(RequestBroadcastIds(phoneId) != LE_OK,
                         LE_FAULT, "Request broadcast filter failed");
 
-   pa_result_t paRes = taf_pa_sms_RemoveCellBroadcastIds(phoneId,
+   taf_pa_result_t paRes = taf_pa_sms_RemoveCellBroadcastIds(phoneId,
       fromId, toId, TIMEOUT_RQUEST_CB_FILTER);
-   if (paRes != PA_OK)
+   if (paRes != TAF_PA_OK)
    {
       LE_ERROR("taf_pa_sms_RemoveCellBroadcastIds failed, errorCode: %d", (int)paRes);
       return LE_FAULT;
@@ -1494,9 +1494,9 @@ le_result_t taf_Sms::GetPreferredStorage(taf_sms_Storage_t* storage)
    }
 
    taf_pa_sms_Storage type;
-   pa_result_t paRes = taf_pa_sms_GetPreferredStorage(&type,
+   taf_pa_result_t paRes = taf_pa_sms_GetPreferredStorage(&type,
       kPreferredStorageWaitTime, DEFAULT_PHONE_ID);
-   if (paRes != PA_OK)
+   if (paRes != TAF_PA_OK)
    {
       LE_ERROR("taf_pa_sms_GetPreferredStorage failed, errorCode: %d", (int)paRes);
       return LE_FAULT;
@@ -1544,8 +1544,8 @@ le_result_t taf_Sms::SetPreferredStorage(taf_sms_Storage_t storage)
    le_result_t res = LE_FAULT;
    for(uint8_t phoneId = 1; phoneId <= NumOfSlot; phoneId++)
    {
-      pa_result_t paRes = taf_pa_sms_SetPreferredStorage(type, kPreferredStorageWaitTime, phoneId);
-      res = (paRes == PA_OK) ? LE_OK : LE_FAULT;
+      taf_pa_result_t paRes = taf_pa_sms_SetPreferredStorage(type, kPreferredStorageWaitTime, phoneId);
+      res = (paRes == TAF_PA_OK) ? LE_OK : LE_FAULT;
       if(res == LE_OK)
       {
          sysPrefStorage = storage;

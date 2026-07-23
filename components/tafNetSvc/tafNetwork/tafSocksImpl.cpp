@@ -321,7 +321,7 @@ void* taf_Socks::SocksCmdThread(void* contextPtr)
  RETURN VALUE    None.
 
 ======================================================================*/
-void tafSocksCallback::enableSocksAsyncResponse(pa_result_t error,void *contextPtr)
+void tafSocksCallback::enableSocksAsyncResponse(taf_pa_result_t error,void *contextPtr)
 {
     auto &tafSocks = taf_Socks::GetInstance();
     taf_SocksEventType_t socksEvent;
@@ -347,7 +347,7 @@ void tafSocksCallback::enableSocksAsyncResponse(pa_result_t error,void *contextP
  RETURN VALUE    None.
 
 ======================================================================*/
-void tafSocksCallback::disableSocksAsyncResponse(pa_result_t error,void *contextPtr)
+void tafSocksCallback::disableSocksAsyncResponse(taf_pa_result_t error,void *contextPtr)
 {
     auto &tafSocks = taf_Socks::GetInstance();
     taf_SocksEventType_t socksEvent;

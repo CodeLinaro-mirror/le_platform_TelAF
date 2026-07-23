@@ -197,10 +197,10 @@ le_result_t InitializeSensorClientList(taf_SensorClient_t* clientRequestPtr)
             &clientRequestPtr->clients[clientRequestPtr->clientCount];
         clientInfo->isSensorActivated = false;
         clientInfo->sensorClient = 0;
-        pa_result_t clientRes = tafpa::sensor::taf_pa_sensor_GetSensorClient(
+        taf_pa_result_t clientRes = tafpa::sensor::taf_pa_sensor_GetSensorClient(
             sensorMngr.sList[i].basicInfo.sensorName,
             clientInfo->sensorClient);
-        if ((clientRes != PA_OK) || (clientInfo->sensorClient == 0)){
+        if ((clientRes != TAF_PA_OK) || (clientInfo->sensorClient == 0)){
             LE_ERROR("unable to create Reference for %s in session %p, res=%d",
                                     sensorMngr.sList[i].basicInfo.sensorName.c_str(),
                                     clientRequestPtr->sessionRef, (int)clientRes);
@@ -209,7 +209,7 @@ le_result_t InitializeSensorClientList(taf_SensorClient_t* clientRequestPtr)
         clientInfo->eventListener.onEvent = &Handler::onEvent;
         clientInfo->eventListener.onSelfTestFailed = &Handler::onSelfTestFailed;
         if(tafpa::sensor::taf_pa_sensor_AddListener(clientInfo->sensorClient,
-            &clientInfo->eventListener,std::any(clientRequestPtr->sessionRef)) !=  PA_OK){
+            &clientInfo->eventListener,std::any(clientRequestPtr->sessionRef)) !=  TAF_PA_OK){
             LE_ERROR("Listener register failed for %s in session %p",
                 sensorMngr.sList[i].basicInfo.sensorName.c_str(), clientRequestPtr->sessionRef);
             continue;
@@ -430,7 +430,7 @@ void taf_Sensor::SetEulerAngleWorker(void* cmdPtr, void*)
 
     cPtr->retCode = LE_OK;
     if (tafpa::sensor::taf_pa_sensor_SetEulerAngle(0,
-        cPtr->euler.pitch, cPtr->euler.roll, cPtr->euler.yaw) != PA_OK)
+        cPtr->euler.pitch, cPtr->euler.roll, cPtr->euler.yaw) != TAF_PA_OK)
     {
         LE_ERROR("SetEulerAngleWorker: PA call failed (pitch=%lf, roll=%lf, yaw=%lf)",
             cPtr->euler.pitch, cPtr->euler.roll, cPtr->euler.yaw);
@@ -760,14 +760,14 @@ void taf_Sensor::ActivateWorker(void* cmdPtr, void*)
     cPtr->retCode = LE_OK;
     if (tafpa::sensor::taf_pa_sensor_SetConfig(cPtr->paClientId,
                                               cPtr->activate.samplingRate,
-                                              cPtr->activate.batchCount) != PA_OK)
+                                              cPtr->activate.batchCount) != TAF_PA_OK)
     {
         LE_ERROR("ActivateWorker: PA set config failed for paClientId %" PRIu64
             " (rate=%lf, batch=%u)", cPtr->paClientId,
             cPtr->activate.samplingRate, cPtr->activate.batchCount);
         cPtr->retCode = LE_FAULT;
     }
-    else if (tafpa::sensor::taf_pa_sensor_Activate(cPtr->paClientId) != PA_OK)
+    else if (tafpa::sensor::taf_pa_sensor_Activate(cPtr->paClientId) != TAF_PA_OK)
     {
         LE_ERROR("ActivateWorker: PA activate failed for paClientId %" PRIu64,
             cPtr->paClientId);
@@ -893,7 +893,7 @@ void taf_Sensor::SelfTestWorker(void* cmdPtr, void*)
 
     auto cb = [sref, timestampPtr, promiseptr](
                   tafpa::sensor::taf_pa_sensor_SensorId,
-                  pa_result_t result, uint64_t ts, std::any context)
+                  taf_pa_result_t result, uint64_t ts, std::any context)
     {
         try
         {
@@ -904,8 +904,8 @@ void taf_Sensor::SelfTestWorker(void* cmdPtr, void*)
             }
 
             *timestampPtr = ts;
-            le_result_t rc = (result == PA_OK) ? LE_OK :
-                             (result == PA_BUSY) ? LE_BUSY : LE_FAULT;
+            le_result_t rc = (result == TAF_PA_OK) ? LE_OK :
+                             (result == TAF_PA_BUSY) ? LE_BUSY : LE_FAULT;
             promiseptr->set_value(rc);
         }
         catch (...)
@@ -915,9 +915,9 @@ void taf_Sensor::SelfTestWorker(void* cmdPtr, void*)
         }
     };
 
-    pa_result_t res =
+    taf_pa_result_t res =
         tafpa::sensor::taf_pa_sensor_SelfTestAsync(cPtr->paClientId, type, cb, std::any(sref));
-    if (res != PA_OK)
+    if (res != TAF_PA_OK)
     {
         LE_ERROR("SelfTestWorker: PA self-test failed for paClientId %" PRIu64, cPtr->paClientId);
         cPtr->retCode = LE_FAULT;
@@ -1111,10 +1111,10 @@ taf_imuSensor_ConfigUpdateHandlerRef_t taf_Sensor::AddConfigUpdateHandler(
             {
                 Handler::onConfigUpdate(sid, sr, bc, rot, ctx);
             };
-            pa_result_t paRes = tafpa::sensor::taf_pa_sensor_AddConfigUpdateHandler(
+            taf_pa_result_t paRes = tafpa::sensor::taf_pa_sensor_AddConfigUpdateHandler(
                 clientInfoPtr->sensorClient, cb,
                 std::any(clientRequestPtr->sessionRef));
-            if (paRes != PA_OK)
+            if (paRes != TAF_PA_OK)
             {
                 LE_ERROR("AddConfigUpdateHandler: PA registration failed for sensor %s",
                     clientInfoPtr->sensorName);
@@ -1260,11 +1260,11 @@ taf_imuSensor_CapabilityUpdateHandlerRef_t taf_Sensor::AddCapabilityHandler(
             {
                 Handler::onCapabilityUpdate(sid, capInfo, ctx);
             };
-            pa_result_t paRes = tafpa::sensor::taf_pa_sensor_AddCapabilityHandler(
+            taf_pa_result_t paRes = tafpa::sensor::taf_pa_sensor_AddCapabilityHandler(
                 clientInfoPtr->sensorClient, cb,
                 std::any(clientRequestPtr->sessionRef));
 
-            if (paRes != PA_OK)
+            if (paRes != TAF_PA_OK)
             {
                 LE_WARN("AddCapabilityHandler: PA registration unsupported/failed for sensor %s"
                         " (paRes=%d). Falling back to synthetic capability notification.",
@@ -1358,12 +1358,12 @@ void taf_Sensor::DeactivateWorker(void* cmdPtr, void*)
     LE_ASSERT(cmdPtr != NULL);
     auto* cPtr = (SensorCmdInfo_t*)cmdPtr;
 
-    pa_result_t deactRes = tafpa::sensor::taf_pa_sensor_Deactivate(cPtr->paClientId);
-    if (deactRes != PA_OK)
+    taf_pa_result_t deactRes = tafpa::sensor::taf_pa_sensor_Deactivate(cPtr->paClientId);
+    if (deactRes != TAF_PA_OK)
     {
         LE_ERROR("DeactivateWorker: deactivate failed for paClientId %" PRIu64, cPtr->paClientId);
     }
-    cPtr->retCode = (deactRes == PA_OK) ? LE_OK : LE_FAULT;
+    cPtr->retCode = (deactRes == TAF_PA_OK) ? LE_OK : LE_FAULT;
     le_event_QueueFunctionToThread(sens.SensorSvcThRef, DeactivateSvcRespond, cPtr, NULL);
 }
 
@@ -1585,15 +1585,15 @@ void taf_Sensor::CleanUp(taf_SensorClient_t* clientPtr){
     for(uint32_t i = 0; i < clientPtr->clientCount; ++i){
         auto* ci = &clientPtr->clients[i];
         if(ci->isSensorActivated == true){
-            if(tafpa::sensor::taf_pa_sensor_Deactivate(ci->sensorClient) != PA_OK){
+            if(tafpa::sensor::taf_pa_sensor_Deactivate(ci->sensorClient) != TAF_PA_OK){
                 LE_ERROR("Unable to deactivate sensor for client %lu", ci->sensorClient);
             }
             ci->isSensorActivated = false;
         }
-        if(tafpa::sensor::taf_pa_sensor_RemoveListener(ci->sensorClient) != PA_OK){
+        if(tafpa::sensor::taf_pa_sensor_RemoveListener(ci->sensorClient) != TAF_PA_OK){
             LE_ERROR("Unable to remove listener for client %lu", ci->sensorClient);
         }
-        if(tafpa::sensor::taf_pa_sensor_ReleaseSensorClient(ci->sensorClient) != PA_OK){
+        if(tafpa::sensor::taf_pa_sensor_ReleaseSensorClient(ci->sensorClient) != TAF_PA_OK){
             LE_ERROR("Unable to delete reference for client %lu", ci->sensorClient);
         }
     }
@@ -1756,9 +1756,9 @@ taf_Sensor::~taf_Sensor()
 le_result_t taf_Sensor::GetSensorList(int8_t listSize){
     for(int8_t i=0;i<listSize;i++){
         taf_SensorPAInfo_t info;
-        pa_result_t res =
+        taf_pa_result_t res =
             tafpa::sensor::taf_pa_sensor_GetSensorInfo(i,info.basicInfo,info.configInfo,info.capInfo);
-        if(res != PA_OK){
+        if(res != TAF_PA_OK){
             LE_ERROR("unable to get sensor info for index %d",i);
             return LE_FAULT;
         }
@@ -1808,7 +1808,7 @@ void taf_Sensor::Init()
     mClientRefCount = 0;
 
     int8_t listSize=0;
-    if(tafpa::sensor::taf_pa_sensor_Init(listSize) != LE_OK){
+    if(tafpa::sensor::taf_pa_sensor_Init(listSize) != TAF_PA_OK){
         LE_FATAL("Sensor Platform unable to initialize");
         return;
     }

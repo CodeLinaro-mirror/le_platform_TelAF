@@ -70,7 +70,7 @@ le_result_t taf_radio_SetRadioPower
             return LE_BAD_PARAMETER;
     }
 
-    pa_result_t result = taf_pa_radio_SetOperatingMode(0, mode);
+    taf_pa_result_t result = taf_pa_radio_SetOperatingMode(0, mode);
 
     return Utility::Convert::Result(result);
 }
@@ -100,7 +100,7 @@ le_result_t taf_radio_GetRadioPower
     }
 
     taf_pa_radio_OperatingMode_t mode = TAF_PA_RADIO_OPERATING_MODE_UNKNOWN;
-    pa_result_t paResult = taf_pa_radio_GetOperatingMode(0, &mode);
+    taf_pa_result_t paResult = taf_pa_radio_GetOperatingMode(0, &mode);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -139,7 +139,7 @@ le_result_t taf_radio_SetAutomaticRegisterMode
     preference.mode = TAF_PA_RADIO_NETWORK_SELECTION_MODE_AUTOMATIC;
     preference.mcc = 0;
     preference.mnc = 0;
-    pa_result_t result = taf_pa_radio_SetNetworkSelectionPreference(instance, &preference);
+    taf_pa_result_t result = taf_pa_radio_SetNetworkSelectionPreference(instance, &preference);
 
     return Utility::Convert::Result(result);
 }
@@ -250,7 +250,7 @@ le_result_t taf_radio_GetRegisterMode
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_NetworkSelectionPreference_t preference;
-    pa_result_t paResult = taf_pa_radio_GetNetworkSelectionPreference(instance, &preference);
+    taf_pa_result_t paResult = taf_pa_radio_GetNetworkSelectionPreference(instance, &preference);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -358,7 +358,7 @@ le_result_t taf_radio_AddPreferredOperator
     }
 
     config.networks[0].bitmask = Utility::Convert::Rat(bitmask);
-    pa_result_t paResult = taf_pa_radio_SetPreferredNetwork(instance, &config);
+    taf_pa_result_t paResult = taf_pa_radio_SetPreferredNetwork(instance, &config);
 
     return Utility::Convert::Result(paResult);
 }
@@ -412,7 +412,7 @@ le_result_t taf_radio_RemovePreferredOperator
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_PreferredNetworks_t networks;
-    pa_result_t paResult = taf_pa_radio_GetPreferredNetwork(instance, &networks);
+    taf_pa_result_t paResult = taf_pa_radio_GetPreferredNetwork(instance, &networks);
     result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -521,7 +521,7 @@ taf_radio_PreferredOperatorListRef_t taf_radio_GetPreferredOperatorsList
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_PreferredNetworks_t networks;
-    pa_result_t paResult = taf_pa_radio_GetPreferredNetwork(instance, &networks);
+    taf_pa_result_t paResult = taf_pa_radio_GetPreferredNetwork(instance, &networks);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -831,7 +831,7 @@ le_result_t taf_radio_GetRadioAccessTechInUse
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_Rat_t rat = TAF_PA_RADIO_RAT_UNKNOWN;
-    pa_result_t paResult = taf_pa_radio_GetServingRat(instance, &rat);
+    taf_pa_result_t paResult = taf_pa_radio_GetServingRat(instance, &rat);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -864,7 +864,7 @@ le_result_t taf_radio_SetRatPreferences
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_RatBitMask_t rat = Utility::Convert::Rat(bitmask);
-    pa_result_t result = taf_pa_radio_SetPreferredRat(instance, rat);
+    taf_pa_result_t result = taf_pa_radio_SetPreferredRat(instance, rat);
 
     return Utility::Convert::Result(result);
 }
@@ -895,7 +895,7 @@ le_result_t taf_radio_GetRatPreferences
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_RatBitMask_t bitmask = 0x0;
-    pa_result_t paResult = taf_pa_radio_GetPreferredRat(instance, &bitmask);
+    taf_pa_result_t paResult = taf_pa_radio_GetPreferredRat(instance, &bitmask);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -939,7 +939,7 @@ le_result_t taf_radio_GetNetRegState
     taf_radio_NetRegState_t vState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
     taf_radio_NetRegState_t dState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
 
-    pa_result_t paResult = taf_pa_radio_GetVoiceServiceInfo(instance, &voiceInfo);
+    taf_pa_result_t paResult = taf_pa_radio_GetVoiceServiceInfo(instance, &voiceInfo);
     le_result_t result = Utility::Convert::Result(paResult);
     if ( result == LE_OK) {
         vState = Utility::Convert::NetRegState(&voiceInfo);
@@ -1024,7 +1024,7 @@ le_result_t taf_radio_GetPacketSwitchedState
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_DataServiceState_t state = TAF_PA_RADIO_DATA_SERVICE_STATE_UNKNOWN;
-    pa_result_t paResult = taf_pa_radio_GetDataServiceState(instance, &state);
+    taf_pa_result_t paResult = taf_pa_radio_GetDataServiceState(instance, &state);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -1111,7 +1111,7 @@ le_result_t taf_radio_GetServiceDomain
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_Rat_t rat = TAF_PA_RADIO_RAT_UNKNOWN;
-    pa_result_t paResult = taf_pa_radio_GetServingRat(instance, &rat);
+    taf_pa_result_t paResult = taf_pa_radio_GetServingRat(instance, &rat);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -1159,7 +1159,7 @@ le_result_t taf_radio_GetServiceDomainPreferences
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_ServiceDomainBitMask_t bitmask = 0x0;
-    pa_result_t paResult = taf_pa_radio_GetServiceDomainPreferences(instance, &bitmask);
+    taf_pa_result_t paResult = taf_pa_radio_GetServiceDomainPreferences(instance, &bitmask);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -1192,7 +1192,7 @@ le_result_t taf_radio_SetServiceDomainPreferences
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_ServiceDomainBitMask_t bitmask = Utility::Convert::ServiceDomain(domain);
-    pa_result_t result = taf_pa_radio_SetServiceDomainPreferences(instance, bitmask);
+    taf_pa_result_t result = taf_pa_radio_SetServiceDomainPreferences(instance, bitmask);
 
     return Utility::Convert::Result(result);
 }
@@ -1223,7 +1223,7 @@ le_result_t taf_radio_GetSignalQual
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_Rat_t rat = TAF_PA_RADIO_RAT_UNKNOWN;
-    pa_result_t paResult = taf_pa_radio_GetServingRat(instance, &rat);
+    taf_pa_result_t paResult = taf_pa_radio_GetServingRat(instance, &rat);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -1260,7 +1260,7 @@ taf_radio_MetricsRef_t taf_radio_MeasureSignalMetrics
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_SignalStrengthInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetSignalStrengthInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetSignalStrengthInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -1778,7 +1778,7 @@ uint32_t taf_radio_GetServingCellId
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_CellLocationListInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -1828,7 +1828,7 @@ uint32_t taf_radio_GetServingCellLocAreaCode
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_CellLocationListInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -1873,7 +1873,7 @@ uint16_t taf_radio_GetServingCellLteTracAreaCode
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_CellLocationListInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -1907,7 +1907,7 @@ uint32_t taf_radio_GetServingCellEarfcn
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_CellLocationListInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -1941,7 +1941,7 @@ uint32_t taf_radio_GetServingCellTimingAdvance
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_CellLocationListInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -1984,7 +1984,7 @@ uint16_t taf_radio_GetPhysicalServingLteCellId
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_CellLocationListInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -2029,7 +2029,7 @@ le_result_t taf_radio_GetServingCellGsmBsic
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_CellLocationListInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -2066,7 +2066,7 @@ uint16_t taf_radio_GetServingCellScramblingCode
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_CellLocationListInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -2115,7 +2115,7 @@ le_result_t taf_radio_GetCurrentNetworkName
     name.shortNameSize = namePtrSize;
     name.shortNamePtr = namePtr;
     name.fullNameValid = 0;
-    pa_result_t paResult = taf_pa_radio_GetCurrNetworkName(instance, &name);
+    taf_pa_result_t paResult = taf_pa_radio_GetCurrNetworkName(instance, &name);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -2175,7 +2175,7 @@ le_result_t taf_radio_GetCurrentNetworkMccMnc
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_CellLocationListInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -2733,7 +2733,7 @@ le_result_t taf_radio_SetSignalStrengthIndThresholds
     config.thresholdCount = 2;
     config.thresholds[0] = lowerRangeThreshold;
     config.thresholds[1] = upperRangeThreshold;
-    pa_result_t paResult = taf_pa_radio_SetSignalStrengthInd(instance, &config);
+    taf_pa_result_t paResult = taf_pa_radio_SetSignalStrengthInd(instance, &config);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -2769,7 +2769,7 @@ le_result_t taf_radio_SetSignalStrengthIndDelta
     config.thresholdValid = 0;
     config.deltaValid = 1;
     config.delta = delta;
-    pa_result_t paResult = taf_pa_radio_SetSignalStrengthInd(instance, &config);
+    taf_pa_result_t paResult = taf_pa_radio_SetSignalStrengthInd(instance, &config);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -2796,7 +2796,7 @@ uint64_t taf_radio_GetServingNrCellId
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_CellLocationListInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -2830,7 +2830,7 @@ int32_t taf_radio_GetServingCellNrTracAreaCode
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_CellLocationListInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -2864,7 +2864,7 @@ int32_t taf_radio_GetServingCellNrArfcn
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_CellLocationListInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -2898,7 +2898,7 @@ uint32_t taf_radio_GetPhysicalServingNrCellId
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_CellLocationListInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -2931,7 +2931,7 @@ taf_radio_NeighborCellsRef_t taf_radio_GetNeighborCellsInfo
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_CellLocationListInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -3415,7 +3415,7 @@ le_result_t taf_radio_GetBandCapabilities
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_BandBitMask_t bitmask = 0x0;
-    pa_result_t paResult = taf_pa_radio_GetBandCapabilities(instance, &bitmask);
+    taf_pa_result_t paResult = taf_pa_radio_GetBandCapabilities(instance, &bitmask);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -3461,7 +3461,7 @@ le_result_t taf_radio_GetLteBandCapabilities
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_LteBand_t band;
-    pa_result_t paResult = taf_pa_radio_GetLteBandCapabilities(instance, &band);
+    taf_pa_result_t paResult = taf_pa_radio_GetLteBandCapabilities(instance, &band);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -3497,7 +3497,7 @@ le_result_t taf_radio_SetBandPreferences
 {
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_BandBitMask_t band = Utility::Convert::ToPaBand(bitmask);
-    pa_result_t result = taf_pa_radio_SetBandPreferences(instance, band);
+    taf_pa_result_t result = taf_pa_radio_SetBandPreferences(instance, band);
 
     return Utility::Convert::Result(result);
 }
@@ -3528,7 +3528,7 @@ le_result_t taf_radio_GetBandPreferences
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_BandBitMask_t bitmask = 0x0;
-    pa_result_t paResult = taf_pa_radio_GetBandPreferences(instance, &bitmask);
+    taf_pa_result_t paResult = taf_pa_radio_GetBandPreferences(instance, &bitmask);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -3577,7 +3577,7 @@ le_result_t taf_radio_SetLteBandPreferences
     for (uint32_t i = 0; i < TAF_RADIO_LTE_BAND_GROUP_NUM ; i++)
         band.bitmask[i] = bitmaskPtr[i];
 
-    pa_result_t result = taf_pa_radio_SetLteBandPreferences(instance, &band);
+    taf_pa_result_t result = taf_pa_radio_SetLteBandPreferences(instance, &band);
 
     return Utility::Convert::Result(result);
 }
@@ -3615,7 +3615,7 @@ le_result_t taf_radio_GetLteBandPreferences
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_LteBand_t band;
-    pa_result_t paResult = taf_pa_radio_GetLteBandPreferences(instance, &band);
+    taf_pa_result_t paResult = taf_pa_radio_GetLteBandPreferences(instance, &band);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -4104,7 +4104,7 @@ le_result_t taf_radio_GetImsRegStatus
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_ImsRegistrationStatus_t status = TAF_PA_RADIO_IMS_REGISTRATION_STATUS_UNKNOWN;
-    pa_result_t paResult = taf_pa_radio_GetImsRegistrationStatus(instance, &status);
+    taf_pa_result_t paResult = taf_pa_radio_GetImsRegistrationStatus(instance, &status);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -4254,7 +4254,7 @@ le_result_t taf_radio_GetLteCsCap
     }
 
     taf_pa_radio_LteCsCapability_t capability = TAF_PA_RADIO_LTE_CS_CAPABILITY_UNKNOWN;
-    pa_result_t paResult = taf_pa_radio_GetLteCsCapability(instance, &capability);
+    taf_pa_result_t paResult = taf_pa_radio_GetLteCsCapability(instance, &capability);
     result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -4301,8 +4301,8 @@ le_result_t taf_radio_GetRatSvcStatus
     }
 
     taf_pa_radio_Rat_t rat = TAF_PA_RADIO_RAT_UNKNOWN;
-    pa_result_t paResult = taf_pa_radio_GetServingRat(instance, &rat);
-    if (paResult != 0)
+    taf_pa_result_t paResult = taf_pa_radio_GetServingRat(instance, &rat);
+    if (paResult != TAF_PA_OK)
     {
         LE_ERROR("Failed to get serving RAT.");
         return Utility::Convert::Result(paResult);
@@ -4430,7 +4430,7 @@ le_result_t taf_radio_GetImsSvcStatus
     }
 
     taf_pa_radio_ImsServiceStatus_t status = TAF_PA_RADIO_IMS_SERVICE_STATUS_UNKNOWN;
-    pa_result_t paResult = taf_pa_radio_GetImsServiceStatus(instance, paService, &status);
+    taf_pa_result_t paResult = taf_pa_radio_GetImsServiceStatus(instance, paService, &status);
     result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -4477,7 +4477,7 @@ le_result_t taf_radio_GetImsPdpError
     }
 
     taf_pa_radio_ImsPdpFailureErrorCode_t code = TAF_PA_RADIO_IMS_PDP_FAILURE_ERROR_CODE_UNKNOWN;
-    pa_result_t paResult = taf_pa_radio_GetImsPdpFailureErrorCode(instance, &code);
+    taf_pa_result_t paResult = taf_pa_radio_GetImsPdpFailureErrorCode(instance, &code);
     result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -4518,7 +4518,7 @@ le_result_t taf_radio_SetImsSvcCfg
     }
 
     taf_pa_radio_ImsServiceSettingBitMask_t bitmask = Utility::Convert::ImsService(service);
-    pa_result_t paResult = taf_pa_radio_ToggleImsService(instance, bitmask, enable);
+    taf_pa_result_t paResult = taf_pa_radio_ToggleImsService(instance, bitmask, enable);
     return Utility::Convert::Result(paResult);
 }
 
@@ -4557,7 +4557,7 @@ le_result_t taf_radio_GetImsSvcCfg
     }
 
     taf_pa_radio_ImsServiceSettingBitMask_t bitmask = 0x0;
-    pa_result_t paResult = taf_pa_radio_GetEnabledImsService(instance, &bitmask);
+    taf_pa_result_t paResult = taf_pa_radio_GetEnabledImsService(instance, &bitmask);
     result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -4606,7 +4606,7 @@ le_result_t taf_radio_SetImsUserAgent
         return result;
     }
 
-    pa_result_t paResult = taf_pa_radio_SetImsUserAgent(instance, namePtr);
+    taf_pa_result_t paResult = taf_pa_radio_SetImsUserAgent(instance, namePtr);
     return Utility::Convert::Result(paResult);
 }
 
@@ -4644,7 +4644,7 @@ le_result_t taf_radio_GetImsUserAgent
         return result;
     }
 
-    pa_result_t paResult = taf_pa_radio_GetImsUserAgent(instance, namePtr, namePtrSize);
+    taf_pa_result_t paResult = taf_pa_radio_GetImsUserAgent(instance, namePtr, namePtrSize);
     return Utility::Convert::Result(paResult);
 }
 
@@ -4719,7 +4719,7 @@ le_result_t taf_radio_GetNrDualConnectivityStatus
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_EndcAvailability_t availability = TAF_PA_RADIO_ENDC_AVAILABILITY_UNKNOWN;
-    pa_result_t paResult = taf_pa_radio_GetEndcAvailability(instance, &availability);
+    taf_pa_result_t paResult = taf_pa_radio_GetEndcAvailability(instance, &availability);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -4773,7 +4773,7 @@ le_result_t taf_radio_GetCurrentNetworkLongName
     name.fullNameSize = namePtrSize;
     name.fullNamePtr = namePtr;
     name.shortNameValid = 0;
-    pa_result_t paResult = taf_pa_radio_GetCurrNetworkName(instance, &name);
+    taf_pa_result_t paResult = taf_pa_radio_GetCurrNetworkName(instance, &name);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -4815,7 +4815,7 @@ le_result_t taf_radio_GetHardwareSimConfig
     }
 
     taf_pa_radio_SimCapabilityInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetSimCapacityInfo(&info);
+    taf_pa_result_t paResult = taf_pa_radio_GetSimCapacityInfo(&info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -4862,7 +4862,7 @@ le_result_t taf_radio_GetHardwareSimRatCapabilities
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_DeviceAndSimCardRatCapability_t capability;
-    pa_result_t paResult = taf_pa_radio_GetDeviceAndSimCardRatCapability(instance, &capability);
+    taf_pa_result_t paResult = taf_pa_radio_GetDeviceAndSimCardRatCapability(instance, &capability);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -4999,7 +4999,7 @@ le_result_t taf_radio_GetServingCellArfcn
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_CellLocationListInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -5048,7 +5048,7 @@ le_result_t taf_radio_GetServingCellUarfcn
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_CellLocationListInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -5098,7 +5098,7 @@ le_result_t taf_radio_SetOperatingMode
 )
 {
     taf_pa_radio_OperatingMode_t paMode = Utility::Convert::OperatingMode(mode);
-    pa_result_t result = taf_pa_radio_SetOperatingMode(0, paMode);
+    taf_pa_result_t result = taf_pa_radio_SetOperatingMode(0, paMode);
 
     return Utility::Convert::Result(result);
 }
@@ -5128,7 +5128,7 @@ le_result_t taf_radio_GetOperatingMode
     }
 
     taf_pa_radio_OperatingMode_t mode = TAF_PA_RADIO_OPERATING_MODE_UNKNOWN;
-    pa_result_t paResult = taf_pa_radio_GetOperatingMode(0, &mode);
+    taf_pa_result_t paResult = taf_pa_radio_GetOperatingMode(0, &mode);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -5173,7 +5173,7 @@ le_result_t taf_radio_GetServingCellRoutingAreaCode
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
 
     taf_pa_radio_Rat_t rat = TAF_PA_RADIO_RAT_UNKNOWN;
-    pa_result_t result = taf_pa_radio_GetServingRat(instance, &rat);
+    taf_pa_result_t result = taf_pa_radio_GetServingRat(instance, &rat);
     if (result != 0)
     {
         LE_ERROR("Failed to get serving RAT.");
@@ -5221,7 +5221,7 @@ le_result_t taf_radio_GetServingCellBandInfo
     info.bandInfoValid = 1;
     info.lteBandInfoValid = 0;
     info.nr5gBandInfoValid = 0;
-    pa_result_t paResult = taf_pa_radio_GetServingCellBandInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetServingCellBandInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -5274,7 +5274,7 @@ le_result_t taf_radio_GetServingCellLteBandInfo
     info.lteActiveBandPtr = bandPtr;
     info.lteBandwidthPtr = &bandwidth;
     info.nr5gBandInfoValid = 0;
-    pa_result_t paResult = taf_pa_radio_GetServingCellBandInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetServingCellBandInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -5326,7 +5326,7 @@ le_result_t taf_radio_GetServingCellNrBandInfo
     info.nr5gBandInfoValid = 1;
     info.nr5gActiveBandPtr = bandPtr;
     info.nr5gBandwidthPtr = &bandwidth;
-    pa_result_t paResult = taf_pa_radio_GetServingCellBandInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetServingCellBandInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -5365,7 +5365,7 @@ le_result_t taf_radio_GetNrIconType
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_NrIcon_t icon = TAF_PA_RADIO_NR_ICON_UNKNOWN;
-    pa_result_t paResult = taf_pa_radio_GetNrIcon(instance, &icon);
+    taf_pa_result_t paResult = taf_pa_radio_GetNrIcon(instance, &icon);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -5502,7 +5502,7 @@ le_result_t taf_radio_GetCAInformation
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_LteCphyCaInfo_t info;
-    pa_result_t paResult = taf_pa_radio_GetLteCphyCaInfo(instance, &info);
+    taf_pa_result_t paResult = taf_pa_radio_GetLteCphyCaInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
@@ -5669,7 +5669,7 @@ le_result_t taf_radio_GetConnStatus
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
 
     taf_pa_radio_DataAvailSysStatus_t status;
-    pa_result_t paResult = taf_pa_radio_GetDataAvailSysStatus(instance, &status);
+    taf_pa_result_t paResult = taf_pa_radio_GetDataAvailSysStatus(instance, &status);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {

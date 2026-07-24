@@ -270,6 +270,8 @@ EXPORT_SYM const ServiceEntry& get_service_entry(uint16_t sid);
 EXPORT_SYM bool is_service_supported(uint16_t sid);
 EXPORT_SYM bool IsIDPSAvailable(void);
 EXPORT_SYM bool IsIDPSSupported(uint16_t sid);
+EXPORT_SYM bool IsServiceFunctionalAddressed(uint16_t sid);
+EXPORT_SYM bool IsDidFunctionalAddressed(uint16_t did_code);
 EXPORT_SYM bool is_authentication_supported(uint16_t sid);
 EXPORT_SYM const Access& get_service_access(uint16_t sid);
 EXPORT_SYM uint8_t get_security_type(uint16_t sid);

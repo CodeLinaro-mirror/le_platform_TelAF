@@ -80,6 +80,7 @@ namespace tafsvc {
             ~taf_Socks() {};
 
             void Init(void);
+            void Deinit(void);
 
             static taf_Socks &GetInstance();
 

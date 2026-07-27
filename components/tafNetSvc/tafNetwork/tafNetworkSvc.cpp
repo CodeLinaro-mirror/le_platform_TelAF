@@ -3364,8 +3364,79 @@ int32_t taf_net_GetGsbBandWidth
 }
 
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * SIGTERM signal event handler.
+ *
+ * Invoked by the Legato signal event framework when the process receives SIGTERM.
+ */
+//--------------------------------------------------------------------------------------------------
+static void SigTermEventHandler
+(
+    int sigNum ///< [IN] Signal number received (expected: SIGTERM).
+)
+{
+    LE_INFO("SigTermEventHandler signal : %d", sigNum);
+
+    taf_Socks::GetInstance().Deinit();
+    taf_pa_result_t result = taf_pa_socks_Deinit();
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_socks_Deinit reason=%d", result);
+    }
+    else
+    {
+        LE_INFO("taf_pa_socks_Deinit succeeded.");
+    }
+
+    taf_L2tp::GetInstance().Deinit();
+    result = taf_pa_l2tp_Deinit();
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_l2tp_Deinit reason=%d", result);
+    }
+    else
+    {
+        LE_INFO("taf_pa_l2tp_Deinit succeeded.");
+    }
+
+    result = taf_pa_vlan_Deinit();
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_vlan_Deinit reason=%d", result);
+    }
+    else
+    {
+        LE_INFO("taf_pa_vlan_Deinit succeeded.");
+    }
+
+    result = taf_pa_nat_Deinit();
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_nat_Deinit reason=%d", result);
+    }
+    else
+    {
+        LE_INFO("taf_pa_nat_Deinit succeeded.");
+    }
+
+    result = taf_pa_net_Deinit();
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_Deinit reason=%d", result);
+    }
+    else
+    {
+        LE_INFO("taf_pa_net_Deinit succeeded.");
+    }
+
+    _exit(EXIT_SUCCESS);
+}
+
 COMPONENT_INIT
 {
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);
 
     taf_net_init();
 
@@ -3380,4 +3451,3 @@ COMPONENT_INIT
     taf_gsb_init();
 
 }
-

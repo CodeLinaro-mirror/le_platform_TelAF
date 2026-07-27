@@ -56,6 +56,8 @@ LE_MEM_DEFINE_STATIC_POOL(TunnelHandlerMappingPool, TAF_NET_L2TP_MAX_TUNNEL_NUMB
 le_event_Id_t taf_L2tp::l2tpEventId = nullptr;
 
 le_event_Id_t taf_L2tp::l2tpCmdId = nullptr;
+static le_thread_Ref_t l2tpCmdThreadRef = nullptr;
+static le_thread_Ref_t l2tpEvtThreadRef = nullptr;
 
 /*======================================================================
 
@@ -125,8 +127,9 @@ void taf_L2tp::Init(void)
     // Create and start l2tp event thread.
     le_sem_Ref_t l2tpEvtThreadSem = le_sem_Create("l2tpEvtThreadSem", 0);
     l2tpEventId = le_event_CreateId("l2tpEvent", sizeof(taf_L2tpEventReq_t));
-    le_thread_Ref_t l2tpEvtThreadRef = le_thread_Create("l2tpEvtThread", L2tpEventThread,
-                                                         (void*)l2tpEvtThreadSem);
+    l2tpEvtThreadRef = le_thread_Create("l2tpEvtThread", L2tpEventThread,
+                                        (void*)l2tpEvtThreadSem);
+    le_thread_SetJoinable(l2tpEvtThreadRef);
     le_thread_Start(l2tpEvtThreadRef);
 
     le_sem_Wait(l2tpEvtThreadSem);
@@ -137,8 +140,9 @@ void taf_L2tp::Init(void)
     // Create and start l2tp command thread.
     le_sem_Ref_t l2tpCmdThreadSem = le_sem_Create("l2tpCmdThreadSem", 0);
     l2tpCmdId = le_event_CreateId("l2tpCmd", sizeof(taf_L2tpCmdReq_t));
-    le_thread_Ref_t l2tpCmdThreadRef = le_thread_Create("l2tpCmdThread", L2tpCmdThread,
-                                                         (void*)l2tpCmdThreadSem);
+    l2tpCmdThreadRef = le_thread_Create("l2tpCmdThread", L2tpCmdThread,
+                                        (void*)l2tpCmdThreadSem);
+    le_thread_SetJoinable(l2tpCmdThreadRef);
     le_thread_Start(l2tpCmdThreadRef);
 
     le_sem_Wait(l2tpCmdThreadSem);
@@ -150,6 +154,24 @@ void taf_L2tp::Init(void)
     le_msg_AddServiceCloseHandler( taf_net_GetServiceRef(), ClientCloseSessionHandler, NULL );
 
     return;
+}
+
+void taf_L2tp::Deinit(void)
+{
+    LE_INFO("l2tp component deinit...");
+
+    if (l2tpCmdThreadRef != nullptr)
+    {
+        le_thread_Cancel(l2tpCmdThreadRef);
+        le_thread_Join(l2tpCmdThreadRef, nullptr);
+        l2tpCmdThreadRef = nullptr;
+    }
+    if (l2tpEvtThreadRef != nullptr)
+    {
+        le_thread_Cancel(l2tpEvtThreadRef);
+        le_thread_Join(l2tpEvtThreadRef, nullptr);
+        l2tpEvtThreadRef = nullptr;
+    }
 }
 
 /*======================================================================

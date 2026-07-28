@@ -3036,12 +3036,128 @@ void InitializeSystemTimeAttr(void)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Release all resources associated with a disconnected client session.
+ */
+//--------------------------------------------------------------------------------------------------
+static void CloseEventHandler
+(
+    le_msg_SessionRef_t sessionRef,
+    void* contextPtr
+)
+{
+    if (sessionRef == NULL)
+    {
+        LE_WARN("CloseEventHandler called with NULL session");
+        return;
+    }
+
+    taf_Time& tafTime = taf_Time::GetInstance();
+    std::vector<taf_time_TimeRef_t> timeRefs;
+    std::vector<taf_time_TimeValueChangeHandlerRef_t> timeHandlerRefs;
+    std::vector<taf_time_TimeSourceStatusHandlerRef_t> sourceHandlerRefs;
+
+    // Collect the references first, then release them, to avoid mutating the
+    // reference maps while iterating over them.
+    le_ref_IterRef_t timeIterRef = le_ref_GetIterator(tafTime.TimeRefMap);
+    while (le_ref_NextNode(timeIterRef) == LE_OK)
+    {
+        taf_TimeInf_t* timeInfoPtr = (taf_TimeInf_t*)le_ref_GetValue(timeIterRef);
+        if ((timeInfoPtr == NULL) || (timeInfoPtr->sessionRef != sessionRef))
+        {
+            continue;
+        }
+
+        if (timeInfoPtr->handlerRef != NULL)
+        {
+            timeHandlerRefs.push_back(timeInfoPtr->handlerRef);
+        }
+        else if (timeInfoPtr->ref != NULL)
+        {
+            timeRefs.push_back(timeInfoPtr->ref);
+        }
+    }
+
+    le_ref_IterRef_t srcIterRef = le_ref_GetIterator(tafTime.SrcRefMap);
+    while (le_ref_NextNode(srcIterRef) == LE_OK)
+    {
+        taf_SourceInf_t* sourceInfoPtr = (taf_SourceInf_t*)le_ref_GetValue(srcIterRef);
+        if ((sourceInfoPtr == NULL) || sourceInfoPtr->isBaseStruct ||
+            (sourceInfoPtr->sessionRef != sessionRef))
+        {
+            continue;
+        }
+
+        if (sourceInfoPtr->handlerRef != NULL)
+        {
+            sourceHandlerRefs.push_back(sourceInfoPtr->handlerRef);
+        }
+    }
+
+    for (auto handlerRef : timeHandlerRefs)
+    {
+        tafTime.RemoveTimeValueChangeHandler(handlerRef);
+    }
+
+    for (auto timeRef : timeRefs)
+    {
+        (void)tafTime.ReleaseTimeRef(timeRef);
+    }
+
+    for (auto handlerRef : sourceHandlerRefs)
+    {
+        tafTime.RemoveTimeSourceStatusHandler(handlerRef);
+    }
+
+    // Clear any pending async RTC client callback that belongs to this session.
+    // Otherwise a VHAL callback arriving after the client is gone would invoke the
+    // stored callback with a context pointer owned by the dead session (use-after-free).
+    if (taf_Time::getRTCCBtoClient.sessionRef == sessionRef)
+    {
+        taf_Time::getRTCCBtoClient.getRTCCallbackFunc = NULL;
+        taf_Time::getRTCCBtoClient.getRTCCtxPtr = NULL;
+        taf_Time::getRTCCBtoClient.sessionRef = NULL;
+    }
+
+    if (taf_Time::setRTCCBtoClient.sessionRef == sessionRef)
+    {
+        taf_Time::setRTCCBtoClient.setRTCCallbackFunc = NULL;
+        taf_Time::setRTCCBtoClient.setRTCCtxPtr = NULL;
+        taf_Time::setRTCCBtoClient.sessionRef = NULL;
+    }
+
+    LE_INFO("tafTimeSvc client disconnected, sessionRef=%p", sessionRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Register session lifecycle handlers so dropped clients do not leak resources.
+ * This must be called after 'taf_time_AdvertiseService' to ensure the service reference is valid.
+ */
+//--------------------------------------------------------------------------------------------------
+void MonitorClientStatus(void)
+{
+    le_msg_ServiceRef_t msgService = taf_time_GetServiceRef();
+    if (msgService != NULL)
+    {
+        le_msg_AddServiceCloseHandler(msgService, CloseEventHandler, NULL);
+    }
+    else
+    {
+        LE_ERROR("Failed to get tafTimeSvc service reference after advertising");
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Advertising time service to clients.
  */
 //--------------------------------------------------------------------------------------------------
 void AdvertiseTimeService(void)
 {
     taf_time_AdvertiseService();
+
+    // 'MonitorClientStatus' should be called after 'taf_time_AdvertiseService'.
+    MonitorClientStatus();
 }
 
 //--------------------------------------------------------------------------------------------------

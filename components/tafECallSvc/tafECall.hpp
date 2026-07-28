@@ -70,6 +70,7 @@ using namespace std;
 #define RX_ECALL_EVENT_POOL_SIZE 50
 #define MAX_T9_T10_ELAPSED_TIME_SEC 43200
 #define NSEC_PER_SEC 1000000000L
+#define ECALL_DEFAULT_LOGICAL_SLOT 1
 
     namespace tafsvc {
 
@@ -408,6 +409,8 @@ using namespace std;
                 void SetCallPhoneId(int8_t phoneId);
                 void SetLastCallPhoneId(int8_t phoneId);
                 int8_t GetLastCallPhoneId();
+                int GetSelectedPhoneIdForECall();
+
                 le_event_Id_t StateChangeEventId;
                 le_event_Id_t RxECallEventId;
                 le_mem_PoolRef_t RxECallEventPool = NULL;

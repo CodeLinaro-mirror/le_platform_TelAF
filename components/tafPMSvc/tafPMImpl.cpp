@@ -10,10 +10,12 @@
 #include "interfaces.h"
 #include "tafPM.hpp"
 
+#define TAF_MODEM_NAS_SVC_ID              (0x03)
 #define TAF_MODEM_WMS_SVC_ID              (0x05)
 #define TAF_MODEM_VOICE_CALL_SVC_ID       (0x09)
 #define TAF_MODEM_SIM_SVC_ID              (0x0B)
 
+#define TAF_MODEM_SYS_INFO_MSG_ID         (0x004E)
 #define TAF_MODEM_SMS_COMING_MSG_ID       (0x0001)
 #define TAF_MODEM_VCALL_COMING_MSG_ID     (0x002E)
 #define TAF_MODEM_SIM_PROFILE_SWAP_MSG_ID (0x0033)
@@ -98,6 +100,14 @@ public:
                          wakeupInfo.qmiWakeupInfo.serviceId,
                          wakeupInfo.qmiWakeupInfo.msgId);
                 wsBitset = TAF_PM_NODE_MODEM_WS_BIT_MASK_REMOTE_SIM_PROFILE_SWAP;
+            }
+            else if (TAF_MODEM_NAS_SVC_ID == wakeupInfo.qmiWakeupInfo.serviceId
+            &&       TAF_MODEM_SYS_INFO_MSG_ID == wakeupInfo.qmiWakeupInfo.msgId)
+            {
+                LE_DEBUG("Combo [svc_id:0x%04x, msg_id:0x%04x] received <-",
+                         wakeupInfo.qmiWakeupInfo.serviceId,
+                         wakeupInfo.qmiWakeupInfo.msgId);
+                wsBitset = TAF_PM_NODE_MODEM_WS_BIT_MASK_NAS_SYS_INFO;
             }
             else
             {
@@ -1480,7 +1490,8 @@ taf_pm_NodeModemWsBitMask_t taf_PM::GetLastModemWsReason(void)
 
     mask = (TAF_PM_NODE_MODEM_WS_BIT_MASK_SMS |
             TAF_PM_NODE_MODEM_WS_BIT_MASK_VOICE_CALL |
-            TAF_PM_NODE_MODEM_WS_BIT_MASK_REMOTE_SIM_PROFILE_SWAP);
+            TAF_PM_NODE_MODEM_WS_BIT_MASK_REMOTE_SIM_PROFILE_SWAP |
+            TAF_PM_NODE_MODEM_WS_BIT_MASK_NAS_SYS_INFO);
 
     LE_DEBUG("mask: 0x%08x, value: 0x%08x [get]",
              mask,

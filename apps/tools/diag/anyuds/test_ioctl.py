@@ -10,7 +10,7 @@ def algo_for_0x27(level, seed):
         key[i] += (level + i)
     return bytes(key)
 
-tcpdump_start("test-38-nrc")
+tcpdump_start("test-2f")
 
 uds("1001")
 uds("1002")
@@ -21,6 +21,9 @@ uds("27 02" + key.hex())
 
 uds("2f 90 07 03 30")
 print("Exp      <Positive resp>")
+
+uds("2f 90 07 00 05")
+print("Exp      <7f 2f 13>")
 
 uds("2f 90 07 03 30 01")
 print("Exp      <7f 2f 13>")

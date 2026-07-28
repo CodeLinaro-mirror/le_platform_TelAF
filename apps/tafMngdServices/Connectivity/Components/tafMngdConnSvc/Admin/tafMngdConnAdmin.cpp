@@ -86,6 +86,11 @@ void tafMngdConnAdmin::Init(void)
     // Create recovery state event
     recoveryEvent = le_event_CreateIdWithRefCounting("recoveryEvent");
 
+#ifdef LE_CONFIG_TAFMNGDCONNSVC_USE_CURL
+    // curl_global_init() is not thread-safe; call it once here, not in the worker thread.
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+#endif
+
     //Create reference map for data context
     DataRefMap = le_ref_CreateMap("DataRefMap", MCS_MAX_DATA_OBJ);
 
@@ -106,6 +111,13 @@ void tafMngdConnAdmin::Init(void)
     tafMngd_event_thread = le_thread_Create("MngdCbThread",  callback_thread_func,  (void*)semRef);
     le_thread_SetJoinable(tafMngd_event_thread);
     le_thread_Start (tafMngd_event_thread);
+    le_sem_Wait(semRef);
+
+    //Create the long-lived connectivity-test worker thread
+    connTestThreadRef = le_thread_Create("MngdConnTestThread", ConnectivityTestThreadFunc,
+                                         (void *)semRef);
+    le_thread_SetJoinable(connTestThreadRef);
+    le_thread_Start(connTestThreadRef);
     le_sem_Wait(semRef);
 
     le_sem_Delete(semRef);
@@ -195,6 +207,13 @@ void tafMngdConnAdmin::Deinit(void)
         le_thread_Join(tafMngd_event_thread, NULL);
         tafMngd_event_thread = NULL;
     }
+    if (connTestThreadRef)
+    {
+        LE_DEBUG("Stopping connTestThreadRef");
+        le_thread_Cancel(connTestThreadRef);
+        le_thread_Join(connTestThreadRef, NULL);
+        connTestThreadRef = NULL;
+    }
 
     LE_DEBUG("Delete DataCtxMutex");
     le_mutex_Delete(DataCtxMutex);
@@ -208,6 +227,10 @@ void tafMngdConnAdmin::Deinit(void)
         linkPtr = le_dls_PeekNext(&DataCtxList, linkPtr);
         le_mem_Release(dataCtxPtr);
     }
+
+#ifdef LE_CONFIG_TAFMNGDCONNSVC_USE_CURL
+    curl_global_cleanup();
+#endif
     LE_INFO("tafMngdConnAdmin::Deinit done");
 }
 
@@ -2345,6 +2368,18 @@ void tafMngdConnAdmin::StateMachineEvtHandlerFunc(void *reqPtr)
             mngdConnAdmin.EventDataStartConnectionTest(eventReq->dataId);
             break;
 
+        case MCS_EVT_DATA_START_CONNECTIONTEST_DONE:
+            LE_DEBUG("DataStartConnectionTest done. Result: %d", eventReq->boolResult);
+            mngdConnAdmin.EventDataStartConnectionTestDone(eventReq->dataId,
+                                                           eventReq->boolResult);
+            break;
+
+        case MCS_EVT_DATA_PERIODIC_CONNECTIONTEST_DONE:
+            LE_DEBUG("PeriodicConnectivityTest done. Result: %d", eventReq->boolResult);
+            mngdConnAdmin.EventDataPeriodicConnectivityTestDone(eventReq->dataId,
+                                                                eventReq->boolResult);
+            break;
+
         case MCS_EVT_CONN_RECOVERY_SCHEDULE_L1:
             LE_DEBUG("Radio Off/On Connectivity Recovery Schedule event");
             mngdConnAdmin.EventL1ConnRecoverySchedule(eventReq->dataId);
@@ -3411,72 +3446,9 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
     }
     std::string url = dataCtxPtr->conn_test_url;
     std::string ipv4add = dataCtxPtr->conn_test_ipv4Addr;
-    std::string interfaceName = dataCtxPtr->intfName;
 
-    //cURL will be tried first, and if it fails Ping will be used.
-    //If Ping also fails, data will be treated as not connected.
-
-    if(!url.empty())
-    {
-        // Set data start connection test in progress to true
-        dataCtxPtr->isDStartConnTestInProgress = true;
-        if(DataConnectivityTest_URL(url , interfaceName))
-        {
-            //connection is created.
-            dataCtxPtr->adminState = MCS_DATA_CONNECTED_ACTIVE;
-            ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTED);
-            //If manually started the data successfully. Set reconnection flag to true.
-            dataCtxPtr->needReConn = true;
-        }
-        else if(!ipv4add.empty() && DataConnectivityTest_IPv4(ipv4add , interfaceName))
-        {
-            //connection is created.
-            dataCtxPtr->adminState = MCS_DATA_CONNECTED_ACTIVE;
-            ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTED);
-            //If manually started the data successfully. Set reconnection flag to true.
-            dataCtxPtr->needReConn = true;
-        }
-        else
-        {
-            // Connectiontest failed.
-            LE_INFO("DataStartConnectionTest failed for dataID: %d", dataId);
-            LE_INFO("Stopping the data and retrying.");
-            dataCtxPtr->adminState = MCS_DATA_CONNECTED_INACTIVE_RETRYING;
-            stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
-            stateMachineEvt.event=MCS_EVT_DATA_STOP;
-            stateMachineEvt.dataId=dataCtxPtr->dataId;
-            le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
-        }
-        // Set data start connection test in progress to false
-        dataCtxPtr->isDStartConnTestInProgress = false;
-    }
-    else if(!ipv4add.empty())
-    {
-        // Set data start connection test in progress to true
-        dataCtxPtr->isDStartConnTestInProgress = true;
-        if(DataConnectivityTest_IPv4(ipv4add , interfaceName))
-        {
-            //connection is created.
-            dataCtxPtr->adminState = MCS_DATA_CONNECTED_ACTIVE;
-            ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTED);
-            //If manually started the data successfully. Set reconnection flag to true.
-            dataCtxPtr->needReConn = true;
-        }
-        else
-        {
-            // Connectiontest failed.
-            LE_INFO("DataStartConnectionTest failed. Stopping the data and retrying.");
-            dataCtxPtr->adminState = MCS_DATA_CONNECTED_INACTIVE_RETRYING;
-            stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
-            stateMachineEvt.event=MCS_EVT_DATA_STOP;
-            stateMachineEvt.dataId=dataCtxPtr->dataId;
-            le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
-        }
-        // Set data start connection test in progress to false
-        dataCtxPtr->isDStartConnTestInProgress = false;
-    }
-    //If both url and ipaddr is null
-    else
+    // If both url and ipv4 are null, there is nothing to test. Treat as connected immediately.
+    if (url.empty() && ipv4add.empty())
     {
         LE_INFO("DataStartConnectionTest passed because both url and ipv4 are null for dataID: %d",
                                                                                             dataId);
@@ -3485,6 +3457,49 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
         ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTED);
         //If manually started the data successfully. Set reconnection flag to true.
         dataCtxPtr->needReConn = true;
+        return;
+    }
+
+    // Run the blocking curl/ping test on a worker thread so the event loop stays responsive.
+    // Result comes back via MCS_EVT_DATA_START_CONNECTIONTEST_DONE.
+    dataCtxPtr->isDStartConnTestInProgress = true;
+    ScheduleConnectivityTest(dataId, MCS_EVT_DATA_START_CONNECTIONTEST_DONE);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handle the completion of an asynchronous DataStartConnectionTest. Runs on MngdEvtThread.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::EventDataStartConnectionTestDone(uint8_t dataId, bool passed)
+{
+    mcs_DataCtx_t *dataCtxPtr = GetDataCtx(dataId);
+    if (nullptr == dataCtxPtr)
+    {
+        LE_ERROR("Unable to get reference for data id: %d", dataId);
+        return;
+    }
+
+    dataCtxPtr->isDStartConnTestInProgress = false;
+
+    if (passed)
+    {
+        //connection is created.
+        dataCtxPtr->adminState = MCS_DATA_CONNECTED_ACTIVE;
+        ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTED);
+        //If manually started the data successfully. Set reconnection flag to true.
+        dataCtxPtr->needReConn = true;
+    }
+    else
+    {
+        // Connectiontest failed.
+        LE_INFO("DataStartConnectionTest failed for dataID: %d", dataId);
+        LE_INFO("Stopping the data and retrying.");
+        dataCtxPtr->adminState = MCS_DATA_CONNECTED_INACTIVE_RETRYING;
+        stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
+        stateMachineEvt.event=MCS_EVT_DATA_STOP;
+        stateMachineEvt.dataId=dataCtxPtr->dataId;
+        le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
     }
 }
 
@@ -3504,64 +3519,182 @@ void tafMngdConnAdmin::EventDataPeriodicConnectivityTest(uint8_t dataId)
         return;
     }
     std::string url = dataCtxPtr->conn_periodic_test_url;
-    std::string interfaceName = dataCtxPtr->intfName;
 
-    if(!url.empty())
-    {
-
-            if(!DataConnectivityTest_URL(url, interfaceName))
-            {
-                // PeriodicConnectivitytest failed for this iteration.
-                LE_INFO("PeriodicConnectivitytest failed for dataID: %d", dataId);
-                //Report and update the state (only once)
-                if(dataCtxPtr->dataState != TAF_MNGDCONN_DATA_CONNECTION_STALLED)
-                {
-                    ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTION_STALLED);
-                }
-                //Increase the RetryCount in case of failure
-                dataCtxPtr->conn_periodic_test_retryCount =
-                                            dataCtxPtr->conn_periodic_test_retryCount + 1;
-
-                if(dataCtxPtr->conn_periodic_test_retryCount <=
-                                                dataCtxPtr->conn_periodic_test_maxRetryCount)
-                {
-                    // Start the Periodic Connection Test timer
-                    le_timer_Start(dataCtxPtr->periodicConnectivityTestTimerRef);
-                }
-                else
-                {
-                    // It is not possible to proceed with the PeriodicConnectivityTest retries
-                    LE_ERROR("PeriodicConnectivityTest retry count exceeded. Start DataRetry");
-                    //Start the retry procedure
-                    dataCtxPtr->adminState = MCS_DATA_CONNECTED_INACTIVE_RETRYING;
-                    stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
-                    stateMachineEvt.event=MCS_EVT_DATA_STOP;
-                    stateMachineEvt.dataId=dataCtxPtr->dataId;
-                    le_event_Report(StateMachineEventId, &stateMachineEvt,
-                                    sizeof(stateMachineEvent_t));
-                }
-            }
-            else
-            {
-                //Reset the retryCount
-                dataCtxPtr->conn_periodic_test_retryCount = 1;
-
-                // Start the Periodic Connection Test timer
-                le_timer_Start(dataCtxPtr->periodicConnectivityTestTimerRef);
-
-                //Change the State back to connected
-                if(dataCtxPtr->dataState == TAF_MNGDCONN_DATA_CONNECTION_STALLED)
-                {
-                    dataCtxPtr->adminState = MCS_DATA_CONNECTED_ACTIVE;
-                    ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTED);
-                }
-            }
-    }
-    else
+    if(url.empty())
     {
         //In case of null url
         le_timer_Stop(dataCtxPtr->periodicConnectivityTestTimerRef);
+        return;
     }
+
+    // Run on the worker thread; result comes back via MCS_EVT_DATA_PERIODIC_CONNECTIONTEST_DONE.
+    ScheduleConnectivityTest(dataId, MCS_EVT_DATA_PERIODIC_CONNECTIONTEST_DONE);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handle the completion of an asynchronous PeriodicConnectivityTest. Runs on MngdEvtThread.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::EventDataPeriodicConnectivityTestDone(uint8_t dataId, bool passed)
+{
+    mcs_DataCtx_t *dataCtxPtr = GetDataCtx(dataId);
+    if (nullptr == dataCtxPtr)
+    {
+        LE_ERROR("Unable to get reference for data id: %d", dataId);
+        return;
+    }
+
+    if(!passed)
+    {
+        // PeriodicConnectivitytest failed for this iteration.
+        LE_INFO("PeriodicConnectivitytest failed for dataID: %d", dataId);
+        //Report and update the state (only once)
+        if(dataCtxPtr->dataState != TAF_MNGDCONN_DATA_CONNECTION_STALLED)
+        {
+            ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTION_STALLED);
+        }
+        //Increase the RetryCount in case of failure
+        dataCtxPtr->conn_periodic_test_retryCount =
+                                    dataCtxPtr->conn_periodic_test_retryCount + 1;
+
+        if(dataCtxPtr->conn_periodic_test_retryCount <=
+                                        dataCtxPtr->conn_periodic_test_maxRetryCount)
+        {
+            // Start the Periodic Connection Test timer
+            le_timer_Start(dataCtxPtr->periodicConnectivityTestTimerRef);
+        }
+        else
+        {
+            // It is not possible to proceed with the PeriodicConnectivityTest retries
+            LE_ERROR("PeriodicConnectivityTest retry count exceeded. Start DataRetry");
+            //Start the retry procedure
+            dataCtxPtr->adminState = MCS_DATA_CONNECTED_INACTIVE_RETRYING;
+            stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
+            stateMachineEvt.event=MCS_EVT_DATA_STOP;
+            stateMachineEvt.dataId=dataCtxPtr->dataId;
+            le_event_Report(StateMachineEventId, &stateMachineEvt,
+                            sizeof(stateMachineEvent_t));
+        }
+    }
+    else
+    {
+        //Reset the retryCount
+        dataCtxPtr->conn_periodic_test_retryCount = 1;
+
+        // Start the Periodic Connection Test timer
+        le_timer_Start(dataCtxPtr->periodicConnectivityTestTimerRef);
+
+        //Change the State back to connected
+        if(dataCtxPtr->dataState == TAF_MNGDCONN_DATA_CONNECTION_STALLED)
+        {
+            dataCtxPtr->adminState = MCS_DATA_CONNECTED_ACTIVE;
+            ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTED);
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Dispatch a connectivity test to the long-lived worker thread, off the state-machine event loop,
+ * so the blocking curl/ping cannot stall client API calls or new client connections. Parameters
+ * are snapshotted into the event; the result is posted back to MngdEvtThread via doneEvent.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::ScheduleConnectivityTest(uint8_t dataId, mcs_EventType_t doneEvent)
+{
+    mcs_DataCtx_t *dataCtxPtr = GetDataCtx(dataId);
+    if (nullptr == dataCtxPtr)
+    {
+        LE_ERROR("Unable to get reference for data id: %d", dataId);
+        return;
+    }
+
+    mcs_ConnTestCtx_t testCtx = {};
+    testCtx.dataId = dataId;
+    testCtx.doneEvent = doneEvent;
+    if (MCS_EVT_DATA_PERIODIC_CONNECTIONTEST_DONE == doneEvent)
+    {
+        le_utf8_Copy(testCtx.url, dataCtxPtr->conn_periodic_test_url, sizeof(testCtx.url), NULL);
+    }
+    else
+    {
+        le_utf8_Copy(testCtx.url, dataCtxPtr->conn_test_url, sizeof(testCtx.url), NULL);
+        le_utf8_Copy(testCtx.ipv4Addr, dataCtxPtr->conn_test_ipv4Addr,
+                     sizeof(testCtx.ipv4Addr), NULL);
+    }
+    le_utf8_Copy(testCtx.intfName, dataCtxPtr->intfName, sizeof(testCtx.intfName), NULL);
+
+    le_event_Report(connTestEventId, &testCtx, sizeof(testCtx));
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Long-lived connectivity-test worker thread. Runs an event loop that serves test requests so the
+ * blocking curl/ping never executes on the state machine thread.
+ */
+//--------------------------------------------------------------------------------------------------
+void *tafMngdConnAdmin::ConnectivityTestThreadFunc(void *contextPtr)
+{
+    le_sem_Ref_t semRef = (le_sem_Ref_t)contextPtr;
+    auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
+
+    mngdConnAdmin.connTestEventId = le_event_CreateId("ConnTest Event", sizeof(mcs_ConnTestCtx_t));
+    le_event_AddHandler("ConnTest Event Handler", mngdConnAdmin.connTestEventId,
+                        ConnTestEvtHandlerFunc);
+
+    le_sem_Post(semRef);
+
+    le_event_RunLoop();
+    return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Connectivity-test event handler. Runs the blocking curl/ping test on the worker thread and posts
+ * the result back to the state machine thread via the test's doneEvent.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::ConnTestEvtHandlerFunc(void *reqPtr)
+{
+    mcs_ConnTestCtx_t *testCtxPtr = (mcs_ConnTestCtx_t *)reqPtr;
+    if (nullptr == testCtxPtr)
+    {
+        LE_ERROR("Null connectivity test context");
+        return;
+    }
+
+    auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
+    std::string url = testCtxPtr->url;
+    std::string ipv4add = testCtxPtr->ipv4Addr;
+    std::string interfaceName = testCtxPtr->intfName;
+    bool passed = false;
+
+    // cURL will be tried first, and if it fails Ping will be used.
+    if (!url.empty())
+    {
+        if (mngdConnAdmin.DataConnectivityTest_URL(url, interfaceName))
+        {
+            passed = true;
+        }
+        else if (!ipv4add.empty() &&
+                 mngdConnAdmin.DataConnectivityTest_IPv4(ipv4add, interfaceName))
+        {
+            passed = true;
+        }
+    }
+    else if (!ipv4add.empty())
+    {
+        passed = mngdConnAdmin.DataConnectivityTest_IPv4(ipv4add, interfaceName);
+    }
+
+    // Report the result back to the state-machine event loop.
+    stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
+    stateMachineEvt.event = testCtxPtr->doneEvent;
+    stateMachineEvt.dataId = testCtxPtr->dataId;
+    stateMachineEvt.boolResult = passed;
+    le_event_Report(mngdConnAdmin.GetStateMachineEventId(), &stateMachineEvt,
+                    sizeof(stateMachineEvent_t));
 }
 
 bool tafMngdConnAdmin::DataConnectivityTest_URL(std::string url, std::string interfaceName)
@@ -3591,11 +3724,12 @@ bool tafMngdConnAdmin::DataConnectivityTest_IPv4(std::string ipv4, std::string i
 {
     //Enable LE_CONFIG_DEBUG to get the output of ping in logs
     LE_INFO("DataConnectivityTest_IPv4 entered for interface %s",interfaceName.c_str());
+    // -w 6 caps total ping time so an unusable link cannot block for the full per-packet timeout.
 #if LE_CONFIG_DEBUG
-        std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+ ipv4;
+        std::string pingCommand = "ping -c 5 -w 6 -I "+ interfaceName +" "+ ipv4;
         //5 is the number of ping pockets
 #else
-        std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+  ipv4
+        std::string pingCommand = "ping -c 5 -w 6 -I "+ interfaceName +" "+  ipv4
                                   + " 1> /dev/null 2> /dev/null";
 #endif
     LE_DEBUG("%s", pingCommand.c_str());
@@ -4362,8 +4496,6 @@ bool tafMngdConnAdmin::PerformCurl(const char* URLStr, const char* interfacePtr)
     LE_INFO("curl URL: %s", URLStr);
     LE_INFO("curl interface: %s", interfacePtr);
 
-    curl_global_init(CURL_GLOBAL_DEFAULT);
-
     curl = curl_easy_init();
     if (curl)
     {
@@ -4372,6 +4504,10 @@ bool tafMngdConnAdmin::PerformCurl(const char* URLStr, const char* interfacePtr)
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
         // Complete within 2s
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
+        // Bound the connect phase (incl. DNS).
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 2L);
+        // No signal-based timeouts; required off the main thread.
+        curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
         // Just check the connection.
         curl_easy_setopt(curl, CURLOPT_CONNECT_ONLY, 1L);
 
@@ -4397,8 +4533,6 @@ bool tafMngdConnAdmin::PerformCurl(const char* URLStr, const char* interfacePtr)
         result = false;
         LE_WARN("Unable to initialize cURL");
     }
-
-    curl_global_cleanup();
 
     return result;
 }
@@ -4500,6 +4634,10 @@ const char * tafMngdConnAdmin::EventToString(mcs_EventType_t event)
             return "MCS_EVT_DATA_START_CONNECTIONTEST";
         case MCS_EVT_DATA_PERIODIC_CONNECTIONTEST:
             return "MCS_EVT_DATA_PERIODIC_CONNECTIONTEST";
+        case MCS_EVT_DATA_START_CONNECTIONTEST_DONE:
+            return "MCS_EVT_DATA_START_CONNECTIONTEST_DONE";
+        case MCS_EVT_DATA_PERIODIC_CONNECTIONTEST_DONE:
+            return "MCS_EVT_DATA_PERIODIC_CONNECTIONTEST_DONE";
         case MCS_EVT_CONN_RECOVERY_SCHEDULE_L1:
             return "MCS_EVT_CONN_RECOVERY_SCHEDULE_L1";
         case MCS_EVT_CONN_RECOVERY_CANCEL:

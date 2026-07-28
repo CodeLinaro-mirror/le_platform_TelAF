@@ -10,7 +10,9 @@
 #define FLASH_FILE_NAME_BYTES 256
 
 #define MTD_TEST_PARTITION "abl_b"
-#define UBI_TEST_VOLUME "telaf_b"
+#define UBI_TEST_VOLUME_A  "telaf_a"
+#define UBI_TEST_VOLUME_B  "telaf_b"
+
 
 /*======================================================================
  FUNCTION        TestTafFlashInit
@@ -182,6 +184,33 @@ void TestTafFlashMtdWrite(void)
     LE_TEST_OK((result == LE_OK), "taf_flash_MtdClose - LE_OK");
 }
 
+static const char* GetInactiveUbiVolume(void)
+{
+    char result[32] = { 0 };
+    FILE *fp = popen("/usr/bin/nad-abctl --boot_slot", "r");
+    if (fp == NULL)
+    {
+        LE_WARN("Failed to run nad-abctl, defaulting to %s.", UBI_TEST_VOLUME_B);
+        return UBI_TEST_VOLUME_B;
+    }
+    if (fgets(result, sizeof(result), fp) == NULL)
+    {
+        LE_WARN("Failed to read boot slot, defaulting to %s.", UBI_TEST_VOLUME_B);
+        pclose(fp);
+        return UBI_TEST_VOLUME_B;
+    }
+    pclose(fp);
+
+    // Active slot A → inactive is telaf_b; Active slot B → inactive is telaf_a
+    if (strstr(result, "a") != NULL)
+    {
+        LE_INFO("Active slot A, using inactive UBI volume %s.", UBI_TEST_VOLUME_B);
+        return UBI_TEST_VOLUME_B;
+    }
+    LE_INFO("Active slot B, using inactive UBI volume %s.", UBI_TEST_VOLUME_A);
+    return UBI_TEST_VOLUME_A;
+}
+
 /*======================================================================
  FUNCTION        TestTafFlashUbiInfo
  DESCRIPTION     UBI information API test
@@ -195,16 +224,17 @@ void TestTafFlashUbiInfo(void)
     le_result_t result;
 
     LE_TEST_INFO("Start taf_flash_UbiInfo Test");
+    const char* ubiTarget = GetInactiveUbiVolume();
 
     // Open UBI Test
-    result = taf_flash_UbiOpen(UBI_TEST_VOLUME, TAF_FLASH_READ_WRITE, &volumeRef);
+    result = taf_flash_UbiOpen(ubiTarget, TAF_FLASH_READ_WRITE, &volumeRef);
     LE_TEST_OK((result == LE_OK), "taf_flash_UbiOpen - LE_OK");
 
     // UBI Information Test
     result = taf_flash_UbiInformation(volumeRef, &lebNumber, &freeLebNumber, &volumeSize);
     LE_TEST_OK((result == LE_OK), "taf_flash_UbiInformation - LE_OK");
 
-    LE_INFO("volume:          %s", UBI_TEST_VOLUME);
+    LE_INFO("volume:          %s", ubiTarget);
     LE_INFO("leb number:      %d", lebNumber);
     LE_INFO("free leb number: %d", freeLebNumber);
     LE_INFO("volume size:     %d", volumeSize);
@@ -231,15 +261,17 @@ void TestTafFlashUbiRead(void)
 
     LE_TEST_INFO("Start taf_flash_UbiRead Test");
 
+    const char* ubiTarget = GetInactiveUbiVolume();
+
     // Open UBI Test
-    result = taf_flash_UbiOpen(UBI_TEST_VOLUME, TAF_FLASH_READ_WRITE, &volumeRef);
+    result = taf_flash_UbiOpen(ubiTarget, TAF_FLASH_READ_WRITE, &volumeRef);
     LE_TEST_OK((result == LE_OK), "taf_flash_UbiOpen - LE_OK");
 
     // Read UBI Block Test
     result = taf_flash_UbiRead(volumeRef, 0, block, &blockSize);
     LE_TEST_OK((result == LE_OK), "taf_flash_UbiRead - LE_OK");
 
-    snprintf(file, sizeof(file), "/%s.bdat", UBI_TEST_VOLUME);
+    snprintf(file, sizeof(file), "/%s.bdat", ubiTarget);
     result = le_fs_Open(file, LE_FS_CREAT | LE_FS_WRONLY, &fileRef);
     if (result != LE_OK)
     {
@@ -274,15 +306,17 @@ void TestTafFlashUbiWrite(void)
 
     LE_TEST_INFO("Start taf_flash_UbiWrite Test");
 
+    const char* ubiTarget = GetInactiveUbiVolume();
+
     // Open UBI Test
-    result = taf_flash_UbiOpen(UBI_TEST_VOLUME, TAF_FLASH_READ_WRITE, &volumeRef);
+    result = taf_flash_UbiOpen(ubiTarget, TAF_FLASH_READ_WRITE, &volumeRef);
     LE_TEST_OK((result == LE_OK), "taf_flash_UbiOpen - LE_OK");
 
     // Write UBI Block Test
     result = taf_flash_UbiInitWrite(volumeRef, blockSize);
     LE_TEST_OK((result == LE_OK), "taf_flash_UbiInitWrite - LE_OK");
 
-    snprintf(file, sizeof(file), "/%s.bdat", UBI_TEST_VOLUME);
+    snprintf(file, sizeof(file), "/%s.bdat", ubiTarget);
     result = le_fs_Open(file, LE_FS_RDONLY, &fileRef);
     if (result != LE_OK)
     {

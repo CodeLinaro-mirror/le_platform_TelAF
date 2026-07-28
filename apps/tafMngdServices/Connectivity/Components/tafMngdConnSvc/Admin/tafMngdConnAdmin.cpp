@@ -276,7 +276,7 @@ void tafMngdConnAdmin::PowerStateChangeHandler
         if (eventId != nullptr)
         {
             le_event_Report(eventId, &evt, sizeof(stateMachineEvent_t));
-            LE_INFO("Reported event %d for phoneId %d after resume", evt.event, evt.phoneId);
+            LE_DEBUG("Reported event %d for phoneId %d after resume", evt.event, evt.phoneId);
         }
         else
             LE_ERROR("Cannot report event - eventId is null");
@@ -372,7 +372,7 @@ void tafMngdConnAdmin::OnClientDisconnect(le_msg_SessionRef_t sessionRef, void *
                     MCS_DATA_CONNECTED_IDLE == dataCtxPtr->adminState ||
                     MCS_DATA_NOT_CONNECTED_RETRYING == dataCtxPtr->adminState)
                 {
-                    LE_INFO("Client %p is the last client that requested data", sessionRef);
+                    LE_DEBUG("Client %p is the last client that requested data", sessionRef);
                     LE_INFO("Requesting data stop for Data ID %d", dataCtxPtr->dataId);
                     // Send a data stop request
                     stateMachineEvt = {MCS_EVT_INIT, 0};
@@ -541,7 +541,7 @@ le_result_t tafMngdConnAdmin::GetDataIdByRef (taf_mngdConn_DataRef_t dataRef, ui
         return LE_NOT_FOUND;
     }
     *dataIdPtr = dataCtxPtr->dataId;
-    LE_INFO("Data Id: %d", *dataIdPtr);
+    LE_DEBUG("Data Id: %d", *dataIdPtr);
     return LE_OK;
 }
 
@@ -568,7 +568,7 @@ le_result_t tafMngdConnAdmin::GetDataNameByRef(taf_mngdConn_DataRef_t dataRef,
                  // Use dataNameSize if it's smaller than MCS_MAX_NAME_LEN, else MCS_MAX_NAME_LEN
                  dataNameSize < MCS_MAX_NAME_LEN ? dataNameSize : MCS_MAX_NAME_LEN,
                  NULL);
-    LE_INFO("Data Name: %s", dataName);
+    LE_DEBUG("Data Name: %s", dataName);
     return LE_OK;
 }
 
@@ -591,7 +591,7 @@ le_result_t tafMngdConnAdmin::GetProfileNumberByRef(taf_mngdConn_DataRef_t dataR
         return LE_NOT_FOUND;
     }
     *dataProfileNumberPtr = static_cast<uint8_t>(dataCtxPtr->profileNumber);
-    LE_INFO("Profile number: %d", *dataProfileNumberPtr);
+    LE_DEBUG("Profile number: %d", *dataProfileNumberPtr);
     return LE_OK;
 }
 
@@ -614,7 +614,7 @@ le_result_t tafMngdConnAdmin::GetPhoneIdByRef(taf_mngdConn_DataRef_t dataRef,
         return LE_NOT_FOUND;
     }
     *phoneIdPtr = static_cast<uint8_t>(dataCtxPtr->phoneId);
-    LE_INFO("Phone ID: %d", *phoneIdPtr);
+    LE_DEBUG("Phone ID: %d", *phoneIdPtr);
     return LE_OK;
 }
 
@@ -777,7 +777,7 @@ le_result_t tafMngdConnAdmin::Stopdata(taf_mngdConn_DataRef_t dataRef)
     {
         LE_INFO("Number of clients still using data(id: %d) %" PRIuS, dataCtxPtr->dataId,
                                                             dataCtxPtr->clients.size());
-        LE_INFO("Return LE_OK without stopping data");
+        LE_DEBUG("Return LE_OK without stopping data");
         return LE_OK;
     }
 
@@ -820,7 +820,7 @@ le_result_t tafMngdConnAdmin::Stopdata(taf_mngdConn_DataRef_t dataRef)
             dataCtxPtr->recoveryOperation = TAF_MNGDCONN_RECOVERY_NAD_REBOOT;
         }
         stateMachineEvt = {MCS_EVT_INIT, 0};
-        LE_INFO("Stop Data: Cancel recovery for level %d",dataCtxPtr->recoveryOperation);
+        LE_DEBUG("Stop Data: Cancel recovery for level %d",dataCtxPtr->recoveryOperation);
         stateMachineEvt.event = MCS_EVT_CONN_RECOVERY_CANCEL;
         stateMachineEvt.dataId = dataCtxPtr->dataId;
         le_event_Report(admin.StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
@@ -855,8 +855,8 @@ le_result_t tafMngdConnAdmin::GetConnectionState
         return LE_FAULT;
     }
 
-    LE_INFO("MCS  State: %s", StateToString(dataCtxPtr->adminState));
-    LE_INFO("Data State: %s", DataStateToString(dataCtxPtr->dataState));
+    LE_DEBUG("MCS  State: %s", StateToString(dataCtxPtr->adminState));
+    LE_DEBUG("Data State: %s", DataStateToString(dataCtxPtr->dataState));
 
     *statePtr = dataCtxPtr->dataState;
 
@@ -1485,7 +1485,7 @@ le_result_t tafMngdConnAdmin::EventStartDataRetryAppReq(uint8_t dataId,
         // Check if a client exists in the list
         if (dataCtxPtr->clients.find(sessionRef) == dataCtxPtr->clients.end())
         {
-            LE_INFO("Client %p doesnot exists in the list.", sessionRef);
+            LE_DEBUG("Client %p doesnot exists in the list.", sessionRef);
             return LE_NOT_PERMITTED;
         }
     }
@@ -1599,7 +1599,7 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
     if (true == dataCtxPtr->autoStart &&
         dataCtxPtr->adminState != MCS_DATA_CONNECTED_INACTIVE_RETRYING)
     {
-        LE_INFO("%s",StateToString(dataCtxPtr->adminState));
+        LE_DEBUG("%s",StateToString(dataCtxPtr->adminState));
         LE_WARN("Stopping auto started(Autostart: Yes) data session is not allowed");
         return LE_NOT_PERMITTED;
     }
@@ -1706,7 +1706,7 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
         case MCS_RECOVERY_SCHEDULED_L1:
         case MCS_RECOVERY_SCHEDULED_L2:
         case MCS_RECOVERY_SCHEDULED_L3:
-            LE_INFO("%s",StateToString(dataCtxPtr->adminState));
+            LE_DEBUG("%s",StateToString(dataCtxPtr->adminState));
             break;
         default:
             return LE_FAULT;
@@ -1986,7 +1986,7 @@ void tafMngdConnAdmin::EventDataConnected(uint8_t dataId)
     dataCtxPtr->adminState = MCS_DATA_START_CONNECTIONTEST_START;
 
     // Send an event to start DataStartConnectionTest
-    LE_INFO("Sending event to start DataStartConnectionTest for ID: %d", dataId);
+    LE_DEBUG("Sending event to start DataStartConnectionTest for ID: %d", dataId);
     stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
     stateMachineEvt.event = MCS_EVT_DATA_START_CONNECTIONTEST;
     stateMachineEvt.dataId = dataCtxPtr->dataId;
@@ -2911,7 +2911,6 @@ le_result_t tafMngdConnAdmin::InitializeStates()
             dataId = Configuration.Data[dataIdx].ID;
             autoStart = Configuration.Data[dataIdx].AutoStart;
             profileNumber = Configuration.Data[dataIdx].Profile.ProfileNumber;
-            LE_DEBUG("The data name is %s", Configuration.Data[dataIdx].DataName);
             le_utf8_Copy(dataName,Configuration.Data[dataIdx].DataName,
                          MCS_MAX_NAME_LEN,NULL);
 
@@ -3124,7 +3123,7 @@ void tafMngdConnAdmin::RecoveryScheduleTimerHandler(le_timer_Ref_t timerRef)
         stateMachineEvt.event = MCS_EVT_CONN_RECOVERY_START_L1;
         le_event_Report(mngdConnAdmin.StateMachineEventId,
                         &stateMachineEvt, sizeof(stateMachineEvent_t));
-        LE_INFO("Sent %s to admin",
+        LE_DEBUG("Sent %s to admin",
                         mngdConnAdmin.EventToString(MCS_EVT_CONN_RECOVERY_START_L1));
         return;
     }
@@ -3136,7 +3135,7 @@ void tafMngdConnAdmin::RecoveryScheduleTimerHandler(le_timer_Ref_t timerRef)
         stateMachineEvt.event = MCS_EVT_CONN_RECOVERY_START_L2;
         le_event_Report(mngdConnAdmin.StateMachineEventId,
                         &stateMachineEvt, sizeof(stateMachineEvent_t));
-        LE_INFO("Sent %s to admin",
+        LE_DEBUG("Sent %s to admin",
                 mngdConnAdmin.EventToString(MCS_EVT_CONN_RECOVERY_START_L2));
         return;
     }
@@ -3148,7 +3147,7 @@ void tafMngdConnAdmin::RecoveryScheduleTimerHandler(le_timer_Ref_t timerRef)
         stateMachineEvt.event = MCS_EVT_CONN_RECOVERY_START_L3;
         le_event_Report(mngdConnAdmin.StateMachineEventId,
                         &stateMachineEvt, sizeof(stateMachineEvent_t));
-        LE_INFO("Sent %s to admin",
+        LE_DEBUG("Sent %s to admin",
                 mngdConnAdmin.EventToString(MCS_EVT_CONN_RECOVERY_START_L3));
         return;
     }
@@ -4192,7 +4191,7 @@ void tafMngdConnAdmin::EventL3ConnRecoverySchedule(uint8_t dataId)
     {
         // Set the internal state to L3 data recovery scheduled
         dataCtxPtr->adminState = MCS_RECOVERY_SCHEDULED_L3;
-        LE_INFO("NAD Reboot recovery scheduled for Data id: %d", dataId);
+        LE_DEBUG("NAD Reboot recovery scheduled for Data id: %d", dataId);
         //Set the recovery operation
         dataCtxPtr->recoveryOperation = TAF_MNGDCONN_RECOVERY_NAD_REBOOT;
         // Start the recovery schedule timer
@@ -4236,7 +4235,7 @@ void tafMngdConnAdmin::RestartReqAsyncCallBack(taf_mngdPm_RestartMode_t RestartM
     mcs_DataCtx_t *dataCtxPtr = (mcs_DataCtx_t *)contextPtr;
     if (TAF_MNGDPM_READY == ResponseMode)
     {
-        LE_INFO("Restart in progress");
+        LE_DEBUG("Restart in progress");
         dataCtxPtr->adminState = MCS_RECOVERY_STARTED_L3;
     }
     else
@@ -4296,7 +4295,7 @@ void tafMngdConnAdmin::EventL3ConnRecoveryStart(uint8_t dataId)
                          RestartReqAsyncCallBack, (void *)dataCtxPtr, TAF_MNGDPM_RESTART_REASON_NORMAL);
         if (LE_OK == result)
         {
-            LE_INFO("Restart NAD request sent");
+            LE_DEBUG("Restart NAD request sent");
             dataCtxPtr->adminState = MCS_RECOVERY_STARTED_L3;
             dataCtxPtr->isConnectivityRecoveryScheduled = false;
         }
@@ -4331,7 +4330,7 @@ void tafMngdConnAdmin::EventL3ConnRecoveryStart(uint8_t dataId)
     {
         LE_WARN("Invalid state: %d(%s)", dataCtxPtr->adminState,
                 StateToString(dataCtxPtr->adminState));
-        LE_INFO("Mark NAD Reboot recovery as interrupted and inform admin");
+        LE_DEBUG("Mark NAD Reboot recovery as interrupted and inform admin");
         // Update admin state that L3 recovery has failed
         dataCtxPtr->adminState = MCS_RECOVERY_FAILED_L3;
         ReportRecoveryEvent(TAF_MNGDCONN_RECOVERY_FAILED, dataCtxPtr,
@@ -4386,7 +4385,7 @@ bool tafMngdConnAdmin::PerformCurl(const char* URLStr, const char* interfacePtr)
         }
         else
         {
-            LE_INFO("cURL to %s succeeded.", URLStr);
+            LE_DEBUG("cURL to %s succeeded.", URLStr);
             result = true;
         }
 
@@ -4412,10 +4411,10 @@ bool tafMngdConnAdmin::PerformCurl(const char* URLStr, const char* interfacePtr)
 //--------------------------------------------------------------------------------------------------
 std::string tafMngdConnAdmin::RemoveProtocol(const std::string &url)
 {
-    LE_INFO("URL: %s", url.c_str());
+    LE_DEBUG("URL: %s", url.c_str());
     std::regex pattern("^https?://");
     std::string new_url = std::regex_replace(url, pattern, "");
-    LE_INFO("New URL: %s", new_url.c_str());
+    LE_DEBUG("New URL: %s", new_url.c_str());
     return new_url;
 }
 

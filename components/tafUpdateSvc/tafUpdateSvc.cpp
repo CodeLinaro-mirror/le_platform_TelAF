@@ -19,19 +19,15 @@ using namespace tafsvc;
 COMPONENT_INIT
 {
     LE_INFO("tafUpdate Service Init...\n");
-    LE_INFO("tafUpdate Component Init...\n");
     auto &tafUpdate = taf_Update::GetInstance();
     tafUpdate.Init();
     LE_INFO("tafUpdate Component Ready...\n");
-    LE_INFO("tafFlashAccess Component Init...\n");
     auto &tafFlashAccess = taf_FlashAccess::GetInstance();
     tafFlashAccess.Init();
     LE_INFO("tafFlashAccess Component Ready...\n");
-    LE_INFO("tafAppMgmt Component Init...\n");
     auto &tafAppMgmt = taf_AppMgmt::GetInstance();
     tafAppMgmt.Init();
     LE_INFO("tafAppMgmt Component Ready...\n");
-    LE_INFO("tafFwUpdate Component Init...\n");
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
     tafFwUpdate.Init();
     LE_INFO("tafFwUpdate Component Ready...\n");

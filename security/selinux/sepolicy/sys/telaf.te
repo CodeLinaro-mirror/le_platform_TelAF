@@ -491,10 +491,10 @@ allow telaf_overlay_t semanage_store_t:dir { read remove_name open setattr };
 allow telaf_overlay_t semanage_store_t:filesystem { relabelfrom relabelto mount };
 allow telaf_overlay_t file_context_t:dir { search read getattr };
 allow telaf_overlay_t selinux_config_t:file { rename create unlink };
-allow telaf_overlay_t semanage_read_lock_t:file { read getattr };
+allow telaf_overlay_t semanage_read_lock_t:file { read getattr open lock setattr };
 allow telaf_overlay_t semanage_store_t:chr_file { rename unlink };
-allow telaf_overlay_t semanage_store_t:file { rename write getattr setattr read create unlink };
-allow telaf_overlay_t semanage_trans_lock_t:file read;
+allow telaf_overlay_t semanage_store_t:file { rename write getattr setattr read create unlink open lock };
+allow telaf_overlay_t semanage_trans_lock_t:file { read getattr open lock };
 allow telaf_overlay_t policy_config_t:dir { search read getattr };
 
 ########################################

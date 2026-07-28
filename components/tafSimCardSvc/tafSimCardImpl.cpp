@@ -232,7 +232,7 @@ void tafAuthenticationResponseCallback:: ChangeCardPinResponseCb(int retryCount,
         simPtr->pinTryCount = retryCount;
         simResponsePtr.result = LE_FAULT ;
     } else {
-        LE_INFO("Change Card Pin Request successful retryCount:%d",retryCount);
+        LE_DEBUG("Change Card Pin Request successful retryCount:%d",retryCount);
         simPtr->pinTryCount = retryCount;
         simResponsePtr.result = LE_OK;
     }
@@ -274,7 +274,7 @@ void tafAuthenticationResponseCallback:: unlockCardByPinResponseCb(int retryCoun
     } else {
         simPtr->pinTryCount = retryCount;
         simResponsePtr.result = LE_OK;
-        LE_INFO( "Unlock Card By Pin Request successful retryCount: %d",retryCount);
+        LE_DEBUG( "Unlock Card By Pin Request successful retryCount: %d",retryCount);
     }
     le_event_Report(sim.ResponseEventId, &simResponsePtr,sizeof(simResponsePtr));
 }
@@ -291,7 +291,7 @@ void tafAuthenticationResponseCallback::setCardLockResponseCb(int retryCount, te
         simPtr->pinTryCount = retryCount;
         simResponsePtr.result = LE_FAULT ;
     } else {
-        LE_INFO( "Set card lock Request successful retryCount: %d",retryCount);
+        LE_DEBUG( "Set card lock Request successful retryCount: %d",retryCount);
         simPtr->pinTryCount = retryCount;
         simResponsePtr.result = LE_OK;
     }
@@ -321,7 +321,7 @@ void tafOpenLogicalChannelCallback::onChannelResponse(int channel, IccResult res
 
 void tafCloseLogicalChannelCallback::commandResponse(telux::common::ErrorCode error) {
    if(error == telux::common::ErrorCode::SUCCESS) {
-      LE_INFO("onCloseLogicalChannel successful.");
+      LE_DEBUG("onCloseLogicalChannel successful.");
    } else {
       LE_INFO( "onCloseLogicalChannel failed\n error: %d ", static_cast<int>(error));
    }
@@ -342,7 +342,7 @@ void tafTransmitApduResponseCallback::onResponse(IccResult result, ErrorCode err
    sim.errorCode = error;
    sim.apduResponse = result;
    sim.cardRespReceived = true;
-   LE_INFO("onResponse: %s " , result.toString().c_str());
+   LE_DEBUG("onResponse: %s " , result.toString().c_str());
    if(sim.cardEventExpected == CardEvent::TRANSMIT_APDU_CHANNEL) {
       LE_INFO("Card Event TRANSMIT_APDU_CHANNEL found with code : %d", int(error));
       sim.eventCV.notify_one();
@@ -907,7 +907,7 @@ void taf_sim::FirstLayerNewSimStateHandler(void* reportPtr,
 
 taf_sim_IccidChangeHandlerRef_t taf_sim:: AddIccidChangeHandler(taf_sim_IccidChangeHandlerFunc_t handlerPtr) {
     le_event_HandlerRef_t handlerRef;
-    LE_INFO("Add Iccid Change handler");
+    LE_DEBUG("Add Iccid Change handler");
     if (NULL == handlerPtr)
     {
         LE_KILL_CLIENT("Handler pointer is NULL");
@@ -953,7 +953,7 @@ bool taf_sim::isValidSimId(taf_sim_Id_t simId) {
 void onRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* contextPtr) {
    auto &sim = taf_sim::GetInstance();
 
-   LE_INFO("onRefreshEvent: contextPtr: %p", contextPtr);
+   LE_DEBUG("onRefreshEvent: contextPtr: %p", contextPtr);
 
    sim.NotifyRefreshEvent(ind, contextPtr);
 }
@@ -1088,7 +1088,7 @@ void taf_sim::CheckAndSendRefreshEvent(taf_sim_Id_t SimId) {
         {
             if (sessionPtr->refreshResetStart)
             {
-                LE_INFO("Notify RefreshEvent for SimId : %d,SessionType : %d", SimId,sessionPtr->sessionType);
+                LE_DEBUG("Notify RefreshEvent for SimId : %d,SessionType : %d", SimId,sessionPtr->sessionType);
                 sessionPtr->refreshResetStart = false;
                 le_sem_Post(sessionPtr->semaphore);
             }
@@ -1125,7 +1125,7 @@ void taf_sim::NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* conte
             else
             {
                 res = taf_pa_sim_RefreshOk(ind->sessionType, true);
-                LE_INFO("Refresh_ok as true");
+                LE_DEBUG("Refresh_ok as true");
             }
             if(clientRequestPtr->sessionType == TAF_SIM_SESSION_TYPE_PRI_GW_PROV)
             {
@@ -1172,7 +1172,7 @@ void taf_sim::NotifyRefreshEvent(taf_pa_sim_RefreshChangeInd_t* ind, void* conte
                 || (ind->refreshMode == TAF_PA_SIM_REFRESH_MODE_INIT_FULL_FCN)
                 || (ind->refreshMode == TAF_PA_SIM_REFRESH_MODE_INIT_FCN);
 
-        LE_INFO("refreshResetStart: %d and isFileChanged: %d", (int) clientRequestPtr->refreshResetStart, (int) isFileChanged);
+        LE_DEBUG("refreshResetStart: %d and isFileChanged: %d", (int) clientRequestPtr->refreshResetStart, (int) isFileChanged);
 
         if (ind->refreshStage == TAF_PA_SIM_REFRESH_STAGE_END_WITH_FAILURE) {
             simRefreshEvent.refreshStatus = ConvertPaRefreshStageToTafRefreshStatus(ind->refreshStage);
@@ -1202,7 +1202,7 @@ void taf_sim::FirstLayerNewRefreshChangeHandler(void* reportPtr, void* secondLay
 
 taf_sim_RefreshChangeHandlerRef_t taf_sim::AddRefreshChangeHandler(taf_sim_RefreshChangeHandlerFunc_t handlerPtr, void* contextPtr) {
     le_event_HandlerRef_t handlerRef;
-    LE_INFO("Add Refresh Change handler");
+    LE_DEBUG("Add Refresh Change handler");
     if (NULL == handlerPtr)
     {
         LE_KILL_CLIENT("Handler pointer is NULL");
@@ -1221,7 +1221,7 @@ taf_sim_RefreshChangeHandlerRef_t taf_sim::AddRefreshChangeHandler(taf_sim_Refre
 
     clientRequestPtr->paHandlerRef = taf_pa_sim_AddRefreshChangeHandler((taf_pa_sim_RefreshChangeHandlerFunc_t)&onRefreshEvent, sessionRef);
 
-    LE_INFO("taf_pa_sim_AddRefreshChangeHandler done. paHandlerRef: %p, handlerRef: %p", clientRequestPtr->paHandlerRef, handlerRef);
+    LE_DEBUG("taf_pa_sim_AddRefreshChangeHandler done. paHandlerRef: %p, handlerRef: %p", clientRequestPtr->paHandlerRef, handlerRef);
 
     return (taf_sim_RefreshChangeHandlerRef_t)(handlerRef);
 }
@@ -1401,7 +1401,7 @@ le_result_t taf_sim::SetRefreshAllow(taf_sim_RefreshRef_t refreshSessionRef, boo
 
         uint32_t pathValue =  std::stoul(clientRequestPtr->refreshRegFiles[i].path, nullptr, 16);
 
-        LE_INFO("pathValue string: %s, in hex: %x and input path len: %d", clientRequestPtr->refreshRegFiles[i].path, pathValue, pathStrLen);
+        LE_DEBUG("pathValue string: %s, in hex: %x and input path len: %d", clientRequestPtr->refreshRegFiles[i].path, pathValue, pathStrLen);
 
         if (refreshPAFiles[i].path_len == 2) {
             refreshPAFiles[i].path[0] = (pathValue & 0x000000ff);
@@ -1412,11 +1412,11 @@ le_result_t taf_sim::SetRefreshAllow(taf_sim_RefreshRef_t refreshSessionRef, boo
             refreshPAFiles[i].path[2] = (pathValue & 0x000000ff);
             refreshPAFiles[i].path[3] = (pathValue & 0x0000ff00) >> 8;
         }
-        LE_INFO("PA file path0 ~ path3 in hex: %x %x %x %x", refreshPAFiles[i].path[0], refreshPAFiles[i].path[1], refreshPAFiles[i].path[2], refreshPAFiles[i].path[3]);
+        LE_DEBUG("PA file path0 ~ path3 in hex: %x %x %x %x", refreshPAFiles[i].path[0], refreshPAFiles[i].path[1], refreshPAFiles[i].path[2], refreshPAFiles[i].path[3]);
 
-        LE_INFO("PA file path0 ~ path3 in dec: %u %u %u %u", refreshPAFiles[i].path[0], refreshPAFiles[i].path[1], refreshPAFiles[i].path[2], refreshPAFiles[i].path[3]);
+        LE_DEBUG("PA file path0 ~ path3 in dec: %u %u %u %u", refreshPAFiles[i].path[0], refreshPAFiles[i].path[1], refreshPAFiles[i].path[2], refreshPAFiles[i].path[3]);
 
-        LE_INFO("PA File_id: %d and path_len: %d", refreshPAFiles[i].file_id, refreshPAFiles[i].path_len);
+        LE_DEBUG("PA File_id: %d and path_len: %d", refreshPAFiles[i].file_id, refreshPAFiles[i].path_len);
     }
 
     le_result_t res = taf_pa_sim_RefreshRegister(ConvertTafSessionTypeToPaSessionType(clientRequestPtr->sessionType),
@@ -1672,7 +1672,7 @@ le_result_t taf_sim::UnlockCardByPin(taf_sim_Id_t  simId,
                 auto ret = cardApp->unlockCardByPin(cardLockType, newPin,
                         tafAuthenticationResponseCallback::unlockCardByPinResponseCb);
                 if(ret == telux::common::Status::SUCCESS) {
-                    LE_INFO("Unlock card by pin request sent successfully\n");
+                    LE_DEBUG("Unlock card by pin request sent successfully\n");
                     return LE_OK;
                 } else {
                     LE_INFO("Unlock card by pin request failed\n");
@@ -1760,7 +1760,7 @@ le_result_t taf_sim::UnlockCardByPuk(taf_sim_Id_t  simId, taf_sim_LockType_t loc
                     auto ret = cardApp->unlockCardByPuk(cardLockType,(string) pukPtr, newpinPtr,
                             tafAuthenticationResponseCallback::unlockCardByPukResponseCb);
                     if(ret == telux::common::Status::SUCCESS) {
-                        LE_INFO("Unlock card by PUK request sent successfully\n");
+                        LE_DEBUG("Unlock card by PUK request sent successfully\n");
                         return LE_OK;
                     } else {
                         LE_INFO("Unlock card by PUK request failed\n");
@@ -1806,7 +1806,7 @@ le_result_t taf_sim::SetCardLock(taf_sim_Id_t  simId, taf_sim_LockType_t lockTyp
                 auto ret = cardApp->setCardLock(cardLockType, pinPtr, lockEnable,
                         tafAuthenticationResponseCallback::setCardLockResponseCb);
                 if(ret == telux::common::Status::SUCCESS) {
-                    LE_INFO("Set card lock request sent successfully\n");
+                    LE_DEBUG("Set card lock request sent successfully\n");
                     return LE_OK;
                 } else {
                     LE_INFO("Set card lock request failed\n");
@@ -1844,7 +1844,7 @@ taf_sim_AuthenticationResponseHandlerRef_t taf_sim::AddAuthenticationResponseHan
         taf_sim_AuthenticationResponseHandlerFunc_t handlerPtr, void* contextPtr){
 
     le_event_HandlerRef_t handlerRef;
-    LE_INFO("Add AuthenticationResponseHandler");
+    LE_DEBUG("Add AuthenticationResponseHandler");
 
     if (NULL == handlerPtr)
     {
@@ -1906,7 +1906,7 @@ bool taf_sim::waitForCardEvent(CardEvent cardEvent, int timeout) {
 
    if (cardRespReceived)
    {
-       LE_INFO("Card response already received before wait");
+       LE_DEBUG("Card response already received before wait");
        cardRespReceived = false;
        return true;
    }
@@ -1979,7 +1979,6 @@ le_result_t taf_sim::OpenLogicalChannel( taf_sim_Id_t simId, taf_sim_AppType_t a
         LE_INFO("card found with given simId");
         applications = card->getApplications();
         for(auto cardApp : applications) {
-            LE_INFO("Applications exist for given card");
             if(cardApp->getAppType() == (AppType) appType) {
                 aid = cardApp->getAppId();
                 break;
@@ -2195,12 +2194,11 @@ le_result_t taf_sim::SendCommand(
     }
     if (card)
     {
-        LE_INFO("card found with given simId");
+        LE_DEBUG("card found with given simId");
         std::vector<std::shared_ptr<ICardApp>> applications;
         applications = card->getApplications();
         for (auto cardApp : applications)
         {
-            LE_INFO("Applications exist for given card");
             if (cardApp->getAppType() == (AppType)TAF_SIM_APPTYPE_USIM)
             {
                 aid = cardApp->getAppId();
@@ -2317,7 +2315,6 @@ le_result_t taf_sim::SetPower(taf_sim_Id_t simId, le_onoff_t powerState)
 
 le_result_t taf_sim::Reset(taf_sim_Id_t simId)
 {
-    LE_INFO("Resetting sim card");
     le_result_t r=SetPower(simId, LE_OFF);
     if(r!=LE_OK){
         LE_INFO("Powering off while resetting failed");
@@ -2406,7 +2403,7 @@ le_result_t taf_sim::profileListCallbackEm
     if(error != telux::common::ErrorCode::SUCCESS){
         LE_ERROR("Failed to retrieve profile list with error %d", (int)error);
     }
-    LE_INFO("Retrieving Profile list successful");
+
     int emergencyProfileId = -1;
     for(auto profile: profiles){
         if(profile->getType() == telux::tel::ProfileType::EMERGENCY){
@@ -2417,7 +2414,6 @@ le_result_t taf_sim::profileListCallbackEm
         LE_INFO("EMERGENCY profile not found");
         return LE_FAULT;
     }
-    LE_INFO("EMERGENCY Profile found");
     auto promisePtr = std::make_shared<std::promise<telux::common::ErrorCode>>();
     auto swapResponseCb = [promisePtr](telux::common::ErrorCode error){
     try {
@@ -2503,7 +2499,7 @@ le_result_t taf_sim::profileListCallbackCo
     if(error != telux::common::ErrorCode::SUCCESS){
         LE_ERROR("Failed to retrieve profile list with error %d", (int)error);
     }
-    LE_INFO("Retrieving Profile list successful");
+
     int regularProfileId = -1;
     for(auto profile: profiles){
         if(profile->getType() == telux::tel::ProfileType::REGULAR){
@@ -2746,11 +2742,11 @@ taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(
     uint8_t responseAPDU[TAF_SIM_RESPONSE_MAX_BYTES];
     size_t responseLength = 0;
     uint8_t channel = 0;
-    LE_INFO("Entered here");
+    
     if((selectSimSlot(simId))!=LE_OK) {
         return NULL;
     }
-    LE_INFO("Sim slot selected");
+
     le_result_t res = OpenLogicalChannel((taf_sim_Id_t)slot, TAF_SIM_APPTYPE_USIM, &channel);
     if(res != LE_OK) {
         return NULL;
@@ -2975,7 +2971,7 @@ le_result_t taf_sim::getSlotCount(int *count) {
         int slotCount;
         if (telux::common::Status::SUCCESS == multiSimMgr->getSlotCount(slotCount)) {
             *count = slotCount;
-            LE_INFO("getSlotCount: success, Slot Count: %d", slotCount);
+            LE_DEBUG("getSlotCount: success, Slot Count: %d", slotCount);
             return LE_OK;
         } else {
             LE_ERROR("GetSlotCount failed!!!");

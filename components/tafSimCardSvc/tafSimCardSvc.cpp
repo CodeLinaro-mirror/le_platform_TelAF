@@ -50,11 +50,9 @@ using namespace tafsvc;
 
 COMPONENT_INIT
 {
-    LE_INFO("tafSimcard Service Init...\n");
     auto &sim = taf_sim::GetInstance();
     sim.Init();
     LE_INFO(" Sim Card service Ready...\n");
-    LE_INFO("tafRSP Service Init...\n");
     auto &rsp = taf_simRsp::GetInstance();
     rsp.Init();
     LE_INFO(" RSP service Ready...\n");

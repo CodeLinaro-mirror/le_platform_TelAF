@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafECallSvc, 1.0)
@@ -13,9 +13,13 @@ type telaf_tafECallSvc_data_t;
 files_type(telaf_tafECallSvc_data_t);
 
 init_telaf_app_domain(telaf_tafECallSvc_t,telaf_tafECallSvc_exec_t)
+gen_require(`
+    type telaf_tafSimCardSvc_t;
+')
+telaf_ipc_bind(telaf_tafECallSvc_t, telaf_tafSimCardSvc_t)
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafECallSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafECallSvc_t, telaf_tafECallSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafECallSvc_exec_t)
 
 # Getting Telephone call info, call and config control

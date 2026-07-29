@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafTimeSvc, 1.0)
@@ -20,16 +20,25 @@ type telaf_tafTimeSvc_data_t;
 files_type(telaf_tafTimeSvc_data_t);
 
 init_telaf_app_domain(telaf_tafTimeSvc_t,telaf_tafTimeSvc_exec_t)
+write_telux_log_file(telaf_tafTimeSvc_t)
+telux_allow_tel(telaf_tafTimeSvc_t)
+gen_require(`
+    type telaf_tafPMSvc_t;
+    type telaf_tafMngdSecDataStorageSvc_t;
+')
+telaf_ipc_bind(telaf_tafTimeSvc_t, telaf_tafPMSvc_t)
+telaf_ipc_bind(telaf_tafTimeSvc_t, telaf_tafMngdSecDataStorageSvc_t)
+telaf_use_device_manager(telaf_tafTimeSvc_t)
 
 # use VHAL driver object
 telaf_load_vhal_modules(telaf_tafTimeSvc_t)
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafTimeSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafTimeSvc_t, telaf_tafTimeSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafTimeSvc_exec_t)
 
 # Allow timer service to access related system sources
-allow telaf_tafTimeSvc_t self:capability { sys_time sys_admin };
+allow telaf_tafTimeSvc_t self:capability { sys_time sys_admin dac_override };
 
 # Allow time service to register the time manager in telSDK
 telux_allow_loc(telaf_tafTimeSvc_t)
@@ -60,8 +69,7 @@ allow telaf_tafTimeSvc_t etc_t:file { open read getattr };
 # For updating the delta mseconds to storage
 time_delta_read_write(telaf_tafTimeSvc_t)
 
-# Allow time service to create netlink socket
-allow telaf_tafTimeSvc_t telaf_tafTimeSvc_t:netlink_route_socket *;
-
-# Allow tafTimeSvc to create shared memory segments
 allow telaf_tafTimeSvc_t self:shm { create unix_read unix_write read write destroy };
+
+# Allow service to create/use a netlink route socket
+telaf_use_network_routing(telaf_tafTimeSvc_t)

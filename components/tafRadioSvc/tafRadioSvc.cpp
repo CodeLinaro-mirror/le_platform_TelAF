@@ -1024,7 +1024,7 @@ le_result_t taf_radio_GetPacketSwitchedState
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_DataServiceState_t state = TAF_PA_RADIO_DATA_SERVICE_STATE_UNKNOWN;
-    pa_result_t paResult = taf_pa_radio_GetDataServieState(instance, &state);
+    pa_result_t paResult = taf_pa_radio_GetDataServiceState(instance, &state);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {

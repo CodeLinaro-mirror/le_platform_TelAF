@@ -90,9 +90,14 @@ apps:
     $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestDaemon/tafMngdPmTestDaemon.adef
     $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestClient/tafMngdPmTestClient.adef
     $TELAF_ROOT/apps/test/tafDoIPStackUnitTest/tafDoIPStackUnitTest
+    $TELAF_ROOT/apps/test/tafSelinuxAllowIntTest/tafSelinuxAllowIntTest
+    $TELAF_ROOT/apps/test/tafSelinuxDenyIntTest/tafSelinuxDenyIntTest
     $TELAF_ROOT/apps/sample/etsSvc/tafEtsSvc/tafEtsSvc
     $TELAF_ROOT/apps/test/wdogKickAndLogging/tafTestLoggingStorm.adef
     $TELAF_ROOT/apps/test/wdogKickAndLogging/tafTestWdogKick.adef
+#if ${LE_CONFIG_ENABLE_PVM_LXC_RPC_LATENCY_TEST} = y
+    $TELAF_ROOT/apps/rpc/pvm_lxc_test/rpcLatancyServerTest
+#endif
 }
 
 interfaceSearch:
@@ -101,6 +106,9 @@ interfaceSearch:
     $TELAF_ROOT/apps/test/tafPMTest/tafPMIntgTest
     $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPmTestDaemon/tafMngdPmTestDaemonComp/
     $TELAF_ROOT/apps/test/tafMRCTest/tafMRCIntTest
+#if ${LE_CONFIG_ENABLE_PVM_LXC_RPC_LATENCY_TEST} = y
+    $TELAF_ROOT/apps/rpc/pvm_lxc_test/
+#endif
 }
 
 

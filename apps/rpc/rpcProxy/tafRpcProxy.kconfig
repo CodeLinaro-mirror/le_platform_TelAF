@@ -1,0 +1,18 @@
+#
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+#
+
+config ENABLE_PVM_LXC_RPC_LATENCY_TEST
+  bool "Enable PVM LXC PRC latency test"
+  depends on LINUX && TARGET_SA525M
+  default $(b2k,$(ENABLE_PVM_LXC_RPC_LATENCY_TEST))
+  ---help---
+  Enable PVM LXC RPC latency test.
+
+config ENABLE_PVM_LXC_RPC_OVER_TCP
+  bool "Enable PVM LXC PRC over TCP"
+  depends on LINUX && TARGET_SA525M
+  default $(b2k,$(ENABLE_PVM_LXC_RPC_OVER_TCP))
+  ---help---
+  Enable PVM LXC RPC communication over TCP mode. By default it's UDS mode.

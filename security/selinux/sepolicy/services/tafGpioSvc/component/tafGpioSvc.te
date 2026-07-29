@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafGpioSvc, 1.0)
@@ -53,6 +53,6 @@ gen_require(`
 # use VHAL driver object
 telaf_load_vhal_modules(telaf_tafGpioSvc_t)
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafGpioSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafGpioSvc_t, telaf_tafGpioSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafGpioSvc_exec_t)

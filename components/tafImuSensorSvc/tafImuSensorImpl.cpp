@@ -1164,7 +1164,6 @@ void taf_Sensor::RemoveConfigUpdateHandler(
     }
     LE_DEBUG("RemoveConfigUpdateHandler: handlerRef %p", handlerRef);
 
-    // Remove tracking entry from map
     le_ref_IterRef_t iterRef = le_ref_GetIterator(tSensorConfigUpdateHandlerMap);
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
@@ -1174,11 +1173,10 @@ void taf_Sensor::RemoveConfigUpdateHandler(
             void* safeRef = (void*)le_ref_GetSafeRef(iterRef);
             le_ref_DeleteRef(tSensorConfigUpdateHandlerMap, safeRef);
             le_mem_Release(h);
+            le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
             break;
         }
     }
-
-    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -1313,7 +1311,6 @@ void taf_Sensor::RemoveCapabilityHandler(
     }
     LE_DEBUG("RemoveCapabilityHandler: handlerRef %p", handlerRef);
 
-    // Remove tracking entry from map
     le_ref_IterRef_t iterRef = le_ref_GetIterator(tSensorCapabilityHandlerMap);
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
@@ -1323,11 +1320,10 @@ void taf_Sensor::RemoveCapabilityHandler(
             void* safeRef = (void*)le_ref_GetSafeRef(iterRef);
             le_ref_DeleteRef(tSensorCapabilityHandlerMap, safeRef);
             le_mem_Release(h);
+            le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
             break;
         }
     }
-
-    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
 static void DeactivateSvcRespond(void* cmdPtr, void*)

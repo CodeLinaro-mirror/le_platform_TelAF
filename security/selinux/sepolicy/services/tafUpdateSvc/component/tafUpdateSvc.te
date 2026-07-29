@@ -23,7 +23,6 @@ gen_require(`
     type kmsg_device_t;
     type mbim_device_t;
     type mtd_device_t;
-    type power_unit_t;
     type proc_t;
     type shell_exec_t;
     type syslogd_var_run_t;
@@ -39,8 +38,6 @@ gen_require(`
     type telaf_fw_t;
     type telaf_lib_t;
     type telaf_app_bundle_t;
-    type telaf_devmgr_t;
-    type telaf_devmgr_data_t;
     attribute telaf_app_exec_attr;
     type mtd_block_t;
 ')
@@ -79,7 +76,6 @@ ifdef(`sa525m',`
 
 # download agent policy
 allow telaf_tafUpdateSvc_t shell_exec_t:file { exec_file_perms };
-allow telaf_tafUpdateSvc_t self:udp_socket { create };
 allow telaf_tafUpdateSvc_t self:tcp_socket { create_socket_perms };
 allow telaf_tafUpdateSvc_t etc_t:file { read_file_perms };
 allow telaf_tafUpdateSvc_t user_home_dir_t:dir { search };
@@ -104,7 +100,7 @@ allow telaf_tafUpdateSvc_t self:capability2 { syslog };
 allow telaf_tafUpdateSvc_t kernel_t:system { syslog_read };
 allow telaf_tafUpdateSvc_t cache_t:dir { manage_dir_perms };
 allow telaf_tafUpdateSvc_t cache_t:file { manage_file_perms };
-allow telaf_tafUpdateSvc_t cache_t:lnk_file { manage_file_perms };
+allow telaf_tafUpdateSvc_t cache_t:lnk_file { manage_lnk_file_perms };
 allow telaf_tafUpdateSvc_t fs_t:filesystem { getattr unmount };
 # allow access to /dev/mtd devices
 storage_raw_write_fixed_disk(telaf_tafUpdateSvc_t)
@@ -136,23 +132,20 @@ allow telaf_tafUpdateSvc_t ubi_device_t:chr_file { rw_file_perms };
 allow telaf_tafUpdateSvc_t cert_t:dir { search };
 allow telaf_tafUpdateSvc_t cert_t:file { read_file_perms };
 
-# device manager
-# to be replaced with telaf_load_vhal_modules
-allow telaf_devmgr_t telaf_tafUpdateSvc_t:lnk_file { read_file_perms };
-allow telaf_tafUpdateSvc_t telaf_devmgr_data_t:file { exec_file_perms };
-allow telaf_tafUpdateSvc_t telaf_devmgr_data_t:dir { search_dir_perms };
+# device manager: load VHAL plugin via the standard interface.
+telaf_load_vhal_modules(telaf_tafUpdateSvc_t)
 
 init_telaf_app_domain(telaf_tafUpdateSvc_t,telaf_tafUpdateSvc_exec_t)
-
-# app management policy
+telaf_use_config_tree(telaf_tafUpdateSvc_t)
+telaf_use_device_manager(telaf_tafUpdateSvc_t)
 allow telaf_tafUpdateSvc_t telaf_lib_t:dir { manage_dir_perms relabelto };
 allow telaf_tafUpdateSvc_t telaf_lib_t:file { manage_file_perms relabel_file_perms };
 allow telaf_tafUpdateSvc_t telaf_app_bundle_t:lnk_file { read_file_perms };
 allow telaf_tafUpdateSvc_t telaf_app_exec_attr:lnk_file { read_file_perms };
 allow telaf_tafUpdateSvc_t telaf_app_exec_attr:file { manage_file_perms relabel_file_perms };
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafUpdateSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafUpdateSvc_t, telaf_tafUpdateSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafUpdateSvc_exec_t)
 
 # Allow access to run update plugin under /app
@@ -160,10 +153,6 @@ allow telaf_tafUpdateSvc_t telaf_fw_t:file { exec_file_perms };
 
 # Allow access to syslog
 allow telaf_tafUpdateSvc_t syslogd_var_run_t:sock_file { rw_file_perms };
-
-# Allow access to search and read/write files under /tmp
-allow telaf_tafUpdateSvc_t user_tmp_t:file { rw_file_perms };
-allow telaf_tafUpdateSvc_t user_tmp_t:dir { search_dir_perms };
 
 # Support deprivilege
 allow telaf_tafUpdateSvc_t self:capability { setgid setuid };

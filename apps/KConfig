@@ -6,3 +6,7 @@
 menu "tafMngdConnSvc"
 rsource "tafMngdServices/Connectivity/tafMngdConnSvc.kconfig"
 endmenu # end "tafMngdConnSvc"
+
+menu "tafRpcProxy"
+rsource "rpc/rpcProxy/tafRpcProxy.kconfig"
+endmenu # end "tafRpcProxy"

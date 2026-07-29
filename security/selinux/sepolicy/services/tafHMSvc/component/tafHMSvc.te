@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafHMSvc, 1.0)
@@ -16,20 +16,17 @@ init_telaf_app_domain(telaf_tafHMSvc_t,telaf_tafHMSvc_exec_t)
 
 kernel_read_system_state(telaf_tafHMSvc_t)
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafHMSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafHMSvc_t, telaf_tafHMSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafHMSvc_exec_t)
 
 # Allow tafHMSvc to access telux private info
 telux_allow_tel_private_info_read(telaf_tafHMSvc_t)
 
-require {
+gen_require(`
     type mm_socket_device_t;
     type modem_monitor_t;
-    type telaf_tafHMSvc_t;
-    class sock_file write;
-    class unix_stream_socket connectto;
-}
+')
 
 # Allow tafHMSvc to write to ssr_notify
 allow telaf_tafHMSvc_t mm_socket_device_t:sock_file write;

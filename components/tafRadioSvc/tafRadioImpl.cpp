@@ -167,7 +167,7 @@ static void RegisterIndication
 {
     for (uint32_t i = 0; i < INSTANCE_MAX_COUNT; i++)
     {
-        pa_result_t result = taf_pa_radio_RegisterIndication(i, registration);
+        pa_result_t result = taf_pa_radio_RegisterIndication(i, registration, TAF_PA_RADIO_DISABLE_IND_MODE_NONE);
         switch(result)
         {
             case 0:

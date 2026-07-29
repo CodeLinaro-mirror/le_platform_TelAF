@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafDidStoreSvc, 1.0)
@@ -23,11 +23,17 @@ type telaf_tafDidStoreSvc_data_t;
 files_type(telaf_tafDidStoreSvc_data_t);
 
 init_telaf_app_domain(telaf_tafDidStoreSvc_t,telaf_tafDidStoreSvc_exec_t)
+gen_require(`
+    type telaf_tafDiagSvc_t;
+')
+telaf_ipc_bind(telaf_tafDidStoreSvc_t, telaf_tafDiagSvc_t)
+telaf_use_device_manager(telaf_tafDidStoreSvc_t)
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafDidStoreSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+# telaf_manage_app_data_files subsumes telaf_admin_manage_all_files_perms(data_t)
+# and telaf_rw_data_files, so both are replaced by this single call.
+telaf_manage_app_data_files(telaf_tafDidStoreSvc_t, telaf_tafDidStoreSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafDidStoreSvc_exec_t)
-telaf_admin_file_perms(telaf_tafDidStoreSvc_t,telaf_tafDidStoreSvc_data_t)
 
 allow telaf_tafDidStoreSvc_t node_t:udp_socket { node_bind };
 allow telaf_tafDidStoreSvc_t unreserved_port_t:udp_socket { name_bind };

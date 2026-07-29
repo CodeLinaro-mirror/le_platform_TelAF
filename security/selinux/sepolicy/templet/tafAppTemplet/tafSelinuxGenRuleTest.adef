@@ -1,0 +1,71 @@
+// Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+// SPDX-License-Identifier: BSD-3-Clause-Clear
+//
+// Test fixture for generate_telaf_selinux.py.
+// This is not a real TelAF application and must not be added to production or
+// test system definition files.
+
+sandboxed: false
+start: manual
+maxThreads: 20
+
+username: telaf
+
+groups:
+{
+    system
+    inet
+}
+
+capability:
+{
+    CAP_NET_ADMIN
+    CAP_DAC_OVERRIDE
+    CAP_WAKE_ALARM
+    CAP_SYSLOG
+}
+
+executables:
+{
+    tafSelinuxGenRuleTest = ( tafSelinuxGenRuleTestComp )
+}
+
+processes:
+{
+    run:
+    {
+        ( tafSelinuxGenRuleTest )
+    }
+}
+
+bindings:
+{
+    // tafcore bindings exercise TAFCORE_BINDING_MAP in the generator.
+    tafSelinuxGenRuleTest.tafSelinuxGenRuleTestComp.le_cfg -> <tafcore>.le_cfg
+    tafSelinuxGenRuleTest.tafSelinuxGenRuleTestComp.le_appInfo -> <tafcore>.le_appInfo
+    tafSelinuxGenRuleTest.tafSelinuxGenRuleTestComp.le_appCtrl -> <tafcore>.le_appCtrl
+
+    // Regular service binding exercises telaf_ipc_bind generation.
+    tafSelinuxGenRuleTest.tafSelinuxGenRuleTestComp.taf_pm -> tafPMSvc.taf_pm
+}
+
+requires:
+{
+    // Exercises requires.configTree detection.
+    configTree:
+    {
+        [rw] tafSelinuxGenRuleTest
+    }
+}
+
+envVars:
+{
+    // Exercises VSOMEIP detection.  The generator should emit TODO comments
+    // only, not automatic vsomeip allow rules.
+    VSOMEIP_CONFIGURATION = /etc/vsomeip/tafSelinuxGenRuleTest.json
+}
+
+extern:
+{
+    tafSelinuxGenRuleTest.tafSelinuxGenRuleTestComp.taf_selinuxGenRuleTest
+}

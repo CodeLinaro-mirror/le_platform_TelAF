@@ -1389,6 +1389,34 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
 
 }
 
+static taf_locGnss_GnssMeasurementsAdrStateValidityType_t ConvertAdrStateMask(uint32_t adrStateMask)
+{
+    constexpr uint32_t kValidAdrStateMask =
+        TAF_LOCGNSS_UNKNOWN_STATE            |
+        TAF_LOCGNSS_VALID_BIT                |
+        TAF_LOCGNSS_RESET_BIT                |
+        TAF_LOCGNSS_CYCLE_SLIP_BIT           |
+        TAF_LOCGNSS_HALF_CYCLE_RESOLVED_BIT;
+
+    uint32_t unsupportedBits = adrStateMask & ~kValidAdrStateMask;
+
+    if (unsupportedBits != 0U)
+    {
+        LE_DEBUG("Unsupported adrStateMask bits: value=0x%x, unsupported=0x%x",
+                adrStateMask,
+                unsupportedBits);
+
+        adrStateMask &= kValidAdrStateMask;
+
+        if (adrStateMask == 0U)
+        {
+            adrStateMask = TAF_LOCGNSS_UNKNOWN_STATE;
+        }
+    }
+
+    return static_cast<taf_locGnss_GnssMeasurementsAdrStateValidityType_t>(adrStateMask);
+}
+
 void Handler::onGnssMeasurementsInfo(taf_pa_location_LocationId clientId, const std::shared_ptr<taf_pa_location_GnssMeasurements_t>& measurementInfo, std::any context)
 {
     auto &gnss = taf_locGnss::GetInstance();
@@ -1495,7 +1523,7 @@ void Handler::onGnssMeasurementsInfo(taf_pa_location_LocationId clientId, const 
                 MeasurementData->measData[MeasurementData->measCount].carrierToNoiseDbHz = measInfoElement.carrierToNoiseDbHz;
                 MeasurementData->measData[MeasurementData->measCount].pseudorangeRateMps = measInfoElement.pseudorangeRateMps;
                 MeasurementData->measData[MeasurementData->measCount].pseudorangeRateUncertaintyMps = measInfoElement.pseudorangeRateUncertaintyMps;
-                MeasurementData->measData[MeasurementData->measCount].adrStateMask = (taf_locGnss_GnssMeasurementsAdrStateValidityType_t)measInfoElement.adrStateMask;
+                MeasurementData->measData[MeasurementData->measCount].adrStateMask = ConvertAdrStateMask(measInfoElement.adrStateMask);
                 MeasurementData->measData[MeasurementData->measCount].adrMeters = measInfoElement.adrMeters;
                 MeasurementData->measData[MeasurementData->measCount].adrUncertaintyMeters = measInfoElement.adrUncertaintyMeters;
                 MeasurementData->measData[MeasurementData->measCount].carrierFrequencyHz = measInfoElement.carrierFrequencyHz;

@@ -41,9 +41,6 @@
 #include <memory>
 
 #include "tafRemoteSim.hpp"
-
-using namespace telux::tel;
-using namespace telux::common;
 using namespace tafsvc;
 
 

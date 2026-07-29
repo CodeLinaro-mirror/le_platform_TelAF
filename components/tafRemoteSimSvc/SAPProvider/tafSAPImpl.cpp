@@ -35,99 +35,10 @@
 
 
 #include "tafSAP.hpp"
-using namespace telux::tel;
-using namespace telux::common;
+#include "tafSapPa.hpp"
 using namespace tafsvc;
 
-void tafOpenConnectionCallback::commandResponse(ErrorCode errorCode)
-{
-    LE_DEBUG("Received open connection response from modem with errorcode %d",
-            static_cast<int>(errorCode));
-
-    auto &sap = taf_simSap::GetInstance();
-    uint8_t connectStatus = CONNSTATUS_SERVER_NOK;
-    if (errorCode == ErrorCode::SUCCESS) {
-        sap.cardConnected = true;
-        connectStatus = CONNSTATUS_OK;
-    } else {
-        sap.cardConnected = false;
-    }
-    sap.SendConnectResponse(errorCode, connectStatus);
-    if (errorCode == ErrorCode::SUCCESS) {
-        sap.SendStatusInd(STATUSCHANGE_CARD_RESET);
-    }
-}
-
-void tafCloseConnectionCallback::commandResponse(ErrorCode errorCode)
-{
-    LE_DEBUG("Received close connection response from modem with errorcode %d.",
-         static_cast<int>(errorCode));
-        auto &sap = taf_simSap::GetInstance();
-    if (errorCode == ErrorCode::SUCCESS) {
-        sap.cardConnected = false;
-    }
-    sap.SendDisconnectResponse(errorCode);
-}
-
-void tafPowerOnCallback::commandResponse(ErrorCode errorCode)
-{
-    LE_DEBUG("Received power on response from modem with errorcode %d.",
-                 static_cast<int>(errorCode));
-
-        auto &sap = taf_simSap::GetInstance();
-    if (errorCode == ErrorCode::SUCCESS) {
-        sap.cardpoweredOn = true;
-    }
-    sap.SendPowerOnResponse(errorCode);
-}
-
-void tafPowerOffCallback::commandResponse(ErrorCode errorCode)
-{
-    LE_DEBUG("Received power off response from modem with errorcode %d.\n",
-                static_cast<int>(errorCode));
-    //Send power OFF response
-    auto &sap = taf_simSap::GetInstance();
-    if (errorCode == ErrorCode::SUCCESS) {
-        sap.cardpoweredOn = false;
-    }
-    sap.SendPowerDownResponse(errorCode);
-}
-
-void tafResetCallback::commandResponse(ErrorCode errorCode)
-{
-    LE_DEBUG("Received reset response from modem with errorcode %d.\n",
-         static_cast<int>(errorCode));
-
-    auto &sap = taf_simSap::GetInstance();
-    sap.SendCardResetResponse(errorCode);
-}
-
-tafApduResponseCallback::tafApduResponseCallback(uint8_t apduId)
-{
-    apduId = apduId;
-}
-
-void tafApduResponseCallback::onResponse(IccResult result, ErrorCode errorCode)
-{
-    LE_DEBUG("Received APDU response from modem with errorcode %d.\n", static_cast<int>(errorCode));
-
-    auto &sap = taf_simSap::GetInstance();
-    sap.SendAPDUResponse(result.data, apduId, errorCode);
-    sap.EraseFromApduRespCbMap(apduId);
-}
-
-void tafAtrResponseCallback::atrResponse(std::vector<int> responseAtr, ErrorCode errorCode)
-{
-    LE_DEBUG("Received AtR response from modem with errorcode %d.\n", static_cast<int>(errorCode));
-    auto &sap = taf_simSap::GetInstance();
-    sap.SendATRResponse(responseAtr, errorCode);
-}
-
-void tafCardReaderCallback::cardReaderResponse(CardReaderStatus readerStatus,
-        ErrorCode errorCode) {
-    auto &sap = taf_simSap::GetInstance();
-    sap.SendCardReaderResponse(errorCode, readerStatus);
-}
+taf_simSap_StaticEvent_t taf_simSap::staticEvents = { .request = nullptr };
 
 void taf_simSap::NewSimStateHandler( taf_sim_Id_t simId, taf_sim_States_t simState,
                                 void* contextPtr) {
@@ -142,32 +53,31 @@ void taf_simSap::NewSimStateHandler( taf_sim_Id_t simId, taf_sim_States_t simSta
     }
 }
 
-void taf_simSap:: Init(void) {
+void taf_simSap::Init(void)
+{
+    MainThread = le_thread_GetCurrent();
     slotId = taf_sim_GetSelectedCard();
-    sapCardMgr = PhoneFactory::getInstance().getSapCardManager(slotId);
-    if (!sapCardMgr) {
-        LE_ERROR("Failed to create SapCardManager!\n");
-        return;
-    }
-    bool subSystemStatus = sapCardMgr->isReady();
-    if(!subSystemStatus) {
-        LE_INFO("Sap subsystem is not ready" );
-        LE_INFO( "wait for it to be ready " );
-        std::future<bool> f = sapCardMgr->onReady();
-        subSystemStatus = f.get();
+    pa_result_t result = taf_pa_sap_Init(slotId);
+
+    if (result != PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sap_Init result=%d", static_cast<int>(result));
     }
 
-    if(subSystemStatus) {
-
-        MessageEventId = le_event_CreateId("MessageEventId", sizeof(taf_SapMsg_t));
-        openConnCb = std::make_shared<tafOpenConnectionCallback>();
-        closeConnCb = std::make_shared<tafCloseConnectionCallback>();
-        powerOnCb = std::make_shared<tafPowerOnCallback>();
-        powerOffCb = std::make_shared<tafPowerOffCallback>();
-        resetCb = std::make_shared<tafResetCallback>();
-        atrResetRespCb = std::make_shared<tafAtrResponseCallback>();
-        cardReaderCb = std::make_shared<tafCardReaderCallback>();
+    MessageEventId = le_event_CreateId("MessageEventId",sizeof(taf_SapMsg_t));
+    if (MessageEventId == NULL)
+    {
+        LE_ERROR("Failed to create SAP MessageEventId");
     }
+
+    staticEvents.request = le_event_CreateId("SapRequest", sizeof(taf_simSap_Request_t));
+
+    le_sem_Ref_t semaphore = le_sem_Create("SapRequestSem", 0);
+    le_thread_Ref_t requestThread = le_thread_Create("SapRequestThread", RequestThread, (void*)semaphore);
+    le_thread_Start(requestThread);
+    le_sem_Wait(semaphore);
+    le_sem_Delete(semaphore);
+
     taf_sim_AddNewStateHandler(NewSimStateHandler, NULL);
 }
 
@@ -179,8 +89,18 @@ taf_simSap &taf_simSap::GetInstance()
 
 taf_simSap_MessageHandlerRef_t taf_simSap::AddMessageHandler(taf_simSap_MessageHandlerFunc_t handlerPtr,
     void* contextPtr) {
-    le_event_HandlerRef_t handlerRef;
 
+    if (handlerPtr == NULL)
+    {
+        LE_ERROR("taf_simSap::AddMessageHandler - handlerPtr is NULL");
+    }
+
+    if (MessageEventId == NULL)
+    {
+        LE_ERROR("MessageEventId is NULL, SAP Init not completed");
+    }
+
+    le_event_HandlerRef_t handlerRef;
 
     handlerRef = le_event_AddLayeredHandler("SapMessageHandler",
                                             MessageEventId,
@@ -243,8 +163,167 @@ le_result_t taf_simSap::ProcessSAPRequestMessages(const uint8_t *buf, size_t msg
     return result;
 }
 
+void taf_simSap::RequestHandler(void* contextPtr)
+{
+    taf_simSap_Request_t* requestPtr = (taf_simSap_Request_t*)contextPtr;
+    if (requestPtr == nullptr)
+    {
+        LE_ERROR("requestPtr is nullptr.");
+        return;
+    }
+
+    auto &sap = taf_simSap::GetInstance();
+
+    switch (requestPtr->command)
+    {
+        case COMMAND_OPEN_CONNECTION:
+        {
+            pa_result_t result = taf_pa_sap_OpenConnection(TAF_PA_SAP_CONDITION_BLOCK_NONE, nullptr, nullptr);
+            uint8_t connectStatus = CONNSTATUS_SERVER_NOK;
+            if (result == PA_OK) {
+                sap.cardConnected = true;
+                connectStatus = CONNSTATUS_OK;
+            } else {
+                sap.cardConnected = false;
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sap_OpenConnection result=%d", static_cast<int>(result));
+            }
+            ErrorCode errorCode = (result == PA_OK) ? ErrorCode::SUCCESS : ErrorCode::GENERIC_FAILURE;
+            sap.SendConnectResponse(errorCode, connectStatus);
+            if (result == PA_OK) {
+                sap.SendStatusInd(STATUSCHANGE_CARD_RESET);
+            }
+            break;
+        }
+        case COMMAND_CLOSE_CONNECTION:
+        {
+            pa_result_t result = taf_pa_sap_CloseConnection(nullptr, nullptr);
+            ErrorCode errorCode = ErrorCode::GENERIC_FAILURE;
+            if (result == PA_OK) {
+                sap.cardConnected = false;
+                errorCode = ErrorCode::SUCCESS;
+            } else {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sap_CloseConnection result=%d", static_cast<int>(result));
+            }
+            sap.SendDisconnectResponse(errorCode);
+            break;
+        }
+        case COMMAND_POWER_ON:
+        {
+            pa_result_t result = taf_pa_sap_RequestPowerOn(nullptr, nullptr);
+            ErrorCode errorCode = ErrorCode::GENERIC_FAILURE;
+            if (result == PA_OK) {
+                sap.cardpoweredOn = true;
+                errorCode = ErrorCode::SUCCESS;
+            } else {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sap_RequestPowerOn result=%d", static_cast<int>(result));
+            }
+            sap.SendPowerOnResponse(errorCode);
+            break;
+        }
+        case COMMAND_POWER_OFF:
+        {
+            pa_result_t result = taf_pa_sap_RequestPowerOff(nullptr, nullptr);
+            ErrorCode errorCode = ErrorCode::GENERIC_FAILURE;
+            if (result == PA_OK) {
+                sap.cardpoweredOn = false;
+                errorCode = ErrorCode::SUCCESS;
+            } else {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sap_RequestPowerOff result=%d", static_cast<int>(result));
+            }
+            sap.SendPowerDownResponse(errorCode);
+            break;
+        }
+        case COMMAND_RESET:
+        {
+            pa_result_t result = taf_pa_sap_RequestReset(nullptr, nullptr);
+            if (result != PA_OK) {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sap_RequestReset result=%d", static_cast<int>(result));
+            }
+            ErrorCode errorCode = (result == PA_OK) ? ErrorCode::SUCCESS : ErrorCode::GENERIC_FAILURE;
+            sap.SendCardResetResponse(errorCode);
+            break;
+        }
+        case COMMAND_TRANSMIT_APDU:
+        {
+            uint8_t apduId = requestPtr->apdu.apduId;
+            std::vector<uint8_t> data(requestPtr->apdu.data, requestPtr->apdu.data + requestPtr->apdu.lc);
+
+            auto apduCallback = [apduId](const std::shared_ptr<taf_pa_sap_ApduResponse_t>& response, std::any context) {
+                LE_DEBUG("Received APDU response from modem with result %d", static_cast<int>(response->result));
+                auto &sap = taf_simSap::GetInstance();
+                ErrorCode errorCode = (response->result == PA_OK) ? ErrorCode::SUCCESS : ErrorCode::GENERIC_FAILURE;
+                sap.SendAPDUResponse(response->data, apduId, errorCode);
+            };
+
+            pa_result_t result = taf_pa_sap_TransmitApdu(apduId, requestPtr->apdu.cla, requestPtr->apdu.instruction,
+                requestPtr->apdu.p1, requestPtr->apdu.p2, requestPtr->apdu.lc, data, requestPtr->apdu.le,
+                apduCallback, nullptr);
+
+            if (result != PA_OK) {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sap_TransmitApdu result=%d", static_cast<int>(result));
+                sap.SendResultCodeResponse(MSGID_TRANSFER_APDU_RESP, RESULTCODE_ERROR_NO_REASON);
+            }
+            break;
+        }
+        case COMMAND_REQUEST_ATR:
+        {
+            auto atrCallback = [](const std::shared_ptr<taf_pa_sap_AtrResponse_t>& response, std::any context) {
+                LE_DEBUG("Received ATR response from modem with result %d", static_cast<int>(response->result));
+                auto &sap = taf_simSap::GetInstance();
+                ErrorCode errorCode = (response->result == PA_OK) ? ErrorCode::SUCCESS : ErrorCode::GENERIC_FAILURE;
+                sap.SendATRResponse(response->atr, errorCode);
+            };
+
+            pa_result_t result = taf_pa_sap_RequestAtr(atrCallback, nullptr);
+            if (result != PA_OK) {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sap_RequestAtr result=%d", static_cast<int>(result));
+                sap.SendResultCodeResponse(MSGID_TRANSFER_ATR_RESP, RESULTCODE_ERROR_NO_REASON);
+            }
+            break;
+        }
+        case COMMAND_REQUEST_CARD_READER_STATUS:
+        {
+            auto cardReaderCallback = [](const std::shared_ptr<taf_pa_sap_CardReaderResponse_t>& response, std::any context) {
+                LE_DEBUG("Received card reader response from modem with result %d", static_cast<int>(response->result));
+                auto &sap = taf_simSap::GetInstance();
+
+                CardReaderStatus readerStatus;
+                readerStatus.id = response->id;
+                readerStatus.isRemovable = response->isRemovable;
+                readerStatus.isPresent = response->isPresent;
+                readerStatus.isID1size = response->isID1size;
+                readerStatus.isCardPresent = response->isCardPresent;
+                readerStatus.isCardPoweredOn = response->isCardPoweredOn;
+
+                ErrorCode errorCode = (response->result == PA_OK) ? ErrorCode::SUCCESS : ErrorCode::GENERIC_FAILURE;
+                sap.SendCardReaderResponse(errorCode, readerStatus);
+            };
+
+            pa_result_t result = taf_pa_sap_RequestCardReaderStatus(cardReaderCallback, nullptr);
+            if (result != PA_OK) {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sap_RequestCardReaderStatus result=%d", static_cast<int>(result));
+                sap.SendResultCodeResponse(MSGID_SET_TRANSPORT_PROTOCOL_RESP, RESULTCODE_ERROR_NO_REASON);
+            }
+            break;
+        }
+        default:
+            LE_ERROR("Invalid SAP request command %d.", requestPtr->command);
+    }
+}
+
+void* taf_simSap::RequestThread(void* contextPtr)
+{
+    le_event_AddHandler("SapRequestHandler", taf_simSap::staticEvents.request, RequestHandler);
+
+    le_sem_Post((le_sem_Ref_t)contextPtr);
+
+    le_event_RunLoop();
+
+    return nullptr;
+}
+
 le_result_t taf_simSap::OpenSAPConnection(const uint8_t* msg, uint8_t msgLength) {
-    if (VerifyConnectRequest(msg, msgLength) !=LE_OK || (!taf_sim_IsPresent(slotId))) {
+    if (VerifyConnectRequest(msg, msgLength) !=LE_OK) {
         LE_ERROR("Cannot open connection, card is not present!");
         SendConnectResponse((ErrorCode)-1, (uint8_t)CONNSTATUS_SERVER_NOK);
         return LE_FAULT;
@@ -265,12 +344,9 @@ le_result_t taf_simSap::OpenSAPConnection(const uint8_t* msg, uint8_t msgLength)
     }
 
     //Open SAP connection
-    if (sapCardMgr->openConnection(SapCondition::SAP_CONDITION_BLOCK_VOICE_OR_DATA, openConnCb)
-            != Status::SUCCESS) {
-        LE_ERROR("Failed to send open connection request to the modem!");
-        SendConnectResponse((ErrorCode)-1, (uint8_t)CONNSTATUS_SERVER_NOK);
-        return LE_FAULT;
-    }
+    taf_simSap_Request_t request{};
+    request.command = COMMAND_OPEN_CONNECTION;
+    le_event_Report(staticEvents.request, &request, sizeof(taf_simSap_Request_t));
     return LE_OK;
 }
 
@@ -281,10 +357,9 @@ le_result_t taf_simSap::DisconnectFromCard()
         return LE_FAULT;
     }
 
-    if (sapCardMgr->closeConnection(closeConnCb) != Status::SUCCESS) {
-        LE_ERROR("Failed to send close connection request to the modem!");
-        return LE_FAULT;
-    }
+    taf_simSap_Request_t request{};
+    request.command = COMMAND_CLOSE_CONNECTION;
+    le_event_Report(staticEvents.request, &request, sizeof(taf_simSap_Request_t));
     return LE_OK;
 }
 
@@ -309,11 +384,9 @@ le_result_t taf_simSap::RequestPowerOn()
         return LE_FAULT;
     }
 
-    if (sapCardMgr->requestSimPowerOn(powerOnCb) != Status::SUCCESS) {
-        LE_ERROR("Failed to send SIM power on request to the modem!\n");
-        SendResultCodeResponse(MSGID_POWER_SIM_ON_RESP, RESULTCODE_ERROR_NO_REASON);
-        return LE_FAULT;
-    }
+    taf_simSap_Request_t request{};
+    request.command = COMMAND_POWER_ON;
+    le_event_Report(staticEvents.request, &request, sizeof(taf_simSap_Request_t));
 
     return LE_OK;
 }
@@ -340,12 +413,9 @@ le_result_t taf_simSap::RequestPowerOff()
         return LE_FAULT;
     }
 
-
-    if (sapCardMgr->requestSimPowerOff(powerOffCb) != Status::SUCCESS) {
-        LE_ERROR("Failed to send power off request to the modem!\n");
-        SendResultCodeResponse(MSGID_POWER_SIM_OFF_RESP, RESULTCODE_ERROR_NO_REASON);
-        return LE_FAULT;
-    }
+    taf_simSap_Request_t request{};
+    request.command = COMMAND_POWER_OFF;
+    le_event_Report(staticEvents.request, &request, sizeof(taf_simSap_Request_t));
     return LE_OK;
 }
 
@@ -370,12 +440,9 @@ le_result_t taf_simSap::ResetCard()
         return LE_FAULT;
     }
 
-
-    if (sapCardMgr->requestSimReset(resetCb) != Status::SUCCESS) {
-        LE_ERROR("Failed to send reset request to the modem!\n");
-        SendResultCodeResponse(MSGID_RESET_SIM_RESP, RESULTCODE_ERROR_NO_REASON);
-        return LE_FAULT;
-    }
+    taf_simSap_Request_t request{};
+    request.command = COMMAND_RESET;
+    le_event_Report(staticEvents.request, &request, sizeof(taf_simSap_Request_t));
     return LE_OK;
 }
 
@@ -448,15 +515,17 @@ le_result_t taf_simSap::SendApduToSim(const uint8_t *buf, int bytes)
         le = buf[lc + 5];
     }
 
-    apduRespCbMap[apduId] = std::make_shared<tafApduResponseCallback>(apduId);
-    apduRespCbMap[apduId]->setApduId(apduId);
-
-    if (sapCardMgr->transmitApdu(cla, instruction, p1, p2, lc, data, le, apduRespCbMap[apduId])
-        != Status::SUCCESS) {
-        LE_ERROR("Failed to transmit APDU request to the modem!\n");
-        SendResultCodeResponse(MSGID_TRANSFER_APDU_RESP, RESULTCODE_ERROR_NO_REASON);
-        return LE_FAULT;
-    }
+    taf_simSap_Request_t request{};
+    request.command = COMMAND_TRANSMIT_APDU;
+    request.apdu.apduId = apduId;
+    request.apdu.cla = cla;
+    request.apdu.instruction = instruction;
+    request.apdu.p1 = p1;
+    request.apdu.p2 = p2;
+    request.apdu.lc = lc;
+    request.apdu.le = le;
+    memcpy(request.apdu.data, data.data(), data.size());
+    le_event_Report(staticEvents.request, &request, sizeof(taf_simSap_Request_t));
     return LE_OK;
 }
 
@@ -475,65 +544,59 @@ le_result_t taf_simSap::RequestAtrAfterReset()
         return LE_FAULT;
     }
 
-    if (sapCardMgr->requestAtr(atrResetRespCb) != Status::SUCCESS) {
-        LE_ERROR("Failed to send AtR request to the modem!\n");
-        SendResultCodeResponse(MSGID_TRANSFER_ATR_RESP, RESULTCODE_ERROR_NO_REASON);
-        return LE_FAULT;
-    }
+    taf_simSap_Request_t request{};
+    request.command = COMMAND_REQUEST_ATR;
+    le_event_Report(staticEvents.request, &request, sizeof(taf_simSap_Request_t));
     return LE_OK;
 }
 
 le_result_t taf_simSap:: RequestCardReaderStatus()
 {
-    if (sapCardMgr->requestCardReaderStatus(cardReaderCb) != Status::SUCCESS) {
-        LE_ERROR("Failed to send AtR request to the modem!\n");
-        SendResultCodeResponse(MSGID_SET_TRANSPORT_PROTOCOL_RESP, RESULTCODE_ERROR_NO_REASON);
-        return LE_FAULT;
-    }
+    taf_simSap_Request_t request{};
+    request.command = COMMAND_REQUEST_CARD_READER_STATUS;
+    le_event_Report(staticEvents.request, &request, sizeof(taf_simSap_Request_t));
     return LE_OK;
 }
 
-void taf_simSap:: SendConnectResponse(ErrorCode errorCode, uint8_t connectionStatus) {
-    LE_DEBUG(" Send connect response connectionStatus = %d", connectionStatus);
-    taf_SapMsg_t SapMsg;
-    memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
-    uint8_t paramCount = 0;
-    SapMsg.msg[0]  = MSGID_CONNECT_RESP;
-    SapMsg.msg[1]  = 0x00;
-    SapMsg.msg[2]  = 0x00;
-    SapMsg.msg[3]  = 0x00;
+void taf_simSap::SendConnectResponse(ErrorCode errorCode, uint8_t connectionStatus)
+{
+    LE_INFO("Send connect response: errorCode=%d, connectionStatus=%u",static_cast<int>(errorCode),
+                    connectionStatus);
 
-    paramCount++;
-    SapMsg.msg[4] = PARAMID_CONNECTION_STATUS;
-    SapMsg.msg[5] = 0x00;
-    SapMsg.msg[6] = 0x00;
-    SapMsg.msg[7] = LENGTH_CONNECTION_STATUS;
+    taf_SapMsg_t sapMsg{};
+    uint8_t paramCount = 1;
+    sapMsg.msg[0] = MSGID_CONNECT_RESP;
 
-    SapMsg.msg[8] = connectionStatus;
-    SapMsg.msg[9] = 0x00;
-    SapMsg.msg[10] = 0x00;
-    SapMsg.msg[11] = 0x00;
+    sapMsg.msg[4] = PARAMID_CONNECTION_STATUS;
+    sapMsg.msg[5] = 0x00;
+    sapMsg.msg[6] = 0x00;
+    sapMsg.msg[7] = LENGTH_CONNECTION_STATUS;
 
-    SapMsg.msgSize = 12;
-    if (errorCode != ErrorCode::SUCCESS) {
+    sapMsg.msg[8]  = connectionStatus;
+    sapMsg.msg[9]  = 0x00;
+    sapMsg.msg[10] = 0x00;
+    sapMsg.msg[11] = 0x00;
 
-        if (connectionStatus == CONNSTATUS_MAXMSGSIZE_NOK ) {
-            paramCount++;
-            SapMsg.msg[12] = PARAMID_MAX_MSG_SIZE;
-            SapMsg.msg[13] = 0x00;
-            SapMsg.msg[14] = 0x00;
-            SapMsg.msg[15] = LENGTH_MAX_MSG_SIZE;
+    sapMsg.msgSize = 12;
 
-            SapMsg.msg[16] = (TAF_SIMSAP_MAX_MSG_SIZE & 0xFF00U) >> MSB_SHIFT;
-            SapMsg.msg[17] = (TAF_SIMSAP_MAX_MSG_SIZE & 0x00FF);
-            SapMsg.msg[18] = 0x00;
-            SapMsg.msg[19] = 0x00;
-            SapMsg.msgSize = 20;
-        }
+    if ((errorCode != ErrorCode::SUCCESS) &&(connectionStatus == CONNSTATUS_MAXMSGSIZE_NOK)) {
+        paramCount++;
+
+        sapMsg.msg[12] = PARAMID_MAX_MSG_SIZE;
+        sapMsg.msg[13] = 0x00;
+        sapMsg.msg[14] = 0x00;
+        sapMsg.msg[15] = LENGTH_MAX_MSG_SIZE;
+
+        sapMsg.msg[16] = static_cast<uint8_t>((TAF_SIMSAP_MAX_MSG_SIZE >> MSB_SHIFT) & 0xFFU);
+
+        sapMsg.msg[17] = static_cast<uint8_t>(TAF_SIMSAP_MAX_MSG_SIZE & 0xFFU);
+        sapMsg.msg[18] = 0x00;
+        sapMsg.msg[19] = 0x00;
+        sapMsg.msgSize = 20;
     }
-    SapMsg.msg[1]  = paramCount;
 
-    le_event_Report(MessageEventId, &(SapMsg), sizeof(SapMsg));
+    sapMsg.msg[1] = paramCount;
+    le_event_Report(MessageEventId,&sapMsg,sizeof(sapMsg));
 }
 
 void taf_simSap:: SendDisconnectInd() {
@@ -560,26 +623,20 @@ void taf_simSap:: SendDisconnectInd() {
 
 }
 
-void taf_simSap:: SendDisconnectResponse(ErrorCode errorCode) {
-    SapState sapState;
-    taf_SapMsg_t SapMsg;
-    memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
-    uint8_t paramCount = 0;
-
-    sapCardMgr->getState(sapState);
+void taf_simSap::SendDisconnectResponse(ErrorCode errorCode) {
     if (errorCode == ErrorCode::SUCCESS) {
+        taf_SapMsg_t SapMsg;
+        memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
         SapMsg.msg[0]  = MSGID_DISCONNECT_RESP;
-        SapMsg.msg[1]  = paramCount;
-        SapMsg.msgSize = 4 ;
+        SapMsg.msg[1]  = 0x00;
+        SapMsg.msgSize = 4;
+        le_event_Report(MessageEventId, &(SapMsg), sizeof(SapMsg));
     } else {
         SendDisconnectInd();
     }
-    le_event_Report(MessageEventId, &(SapMsg), sizeof(SapMsg));
-
 }
 
 void taf_simSap::SendPowerOnResponse(ErrorCode errorCode) {
-    SapState sapState;
     taf_SapMsg_t SapMsg;
     memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
     uint8_t paramCount = 0;
@@ -591,7 +648,6 @@ void taf_simSap::SendPowerOnResponse(ErrorCode errorCode) {
     SapMsg.msg[6] = 0x00;
     SapMsg.msg[7] = LENGTH_RESULT_CODE;
 
-    sapCardMgr->getState(sapState);
     if (errorCode == ErrorCode::SUCCESS) {
         paramCount = 1;
 
@@ -724,11 +780,10 @@ void taf_simSap::SendResultCodeResponse(uint8_t msgId, uint8_t resultStatus) {
 }
 
 void taf_simSap::SendATRResponse(const std::vector<int> &responseAtr, ErrorCode errorCode) {
-    SapState sapState;
     taf_SapMsg_t SapMsg;
     memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
     uint8_t paramCount = 0;
-    uint8_t msgLength = 0;
+    size_t msgLength = 0;
     SapMsg.msg[0]  = MSGID_TRANSFER_ATR_RESP;
 
     paramCount++;
@@ -738,9 +793,8 @@ void taf_simSap::SendATRResponse(const std::vector<int> &responseAtr, ErrorCode 
     SapMsg.msg[7] = LENGTH_RESULT_CODE;
 
     msgLength = 12;
-    sapCardMgr->getState(sapState);
     if (errorCode == ErrorCode::SUCCESS) {
-        if (responseAtr.size() < 0) {
+        if (responseAtr.empty()) {
             SapMsg.msg[8] = RESULTCODE_ERROR_NO_DATA;
         } else {
             paramCount++;
@@ -753,7 +807,7 @@ void taf_simSap::SendATRResponse(const std::vector<int> &responseAtr, ErrorCode 
             SapMsg.msg[15] = (responseAtr.size() & 0x00FF);
 
             msgLength = 16;
-            for (uint8_t i = 0; i < responseAtr.size(); i++) {
+            for (size_t i = 0; i < responseAtr.size(); i++) {
                 SapMsg.msg[i + 16] = responseAtr[i];
                 msgLength++;
             }
@@ -793,7 +847,6 @@ void taf_simSap::SendCardResetResponse(ErrorCode errorCode) {
 
 void taf_simSap::SendCardReaderResponse(ErrorCode errorCode, CardReaderStatus readerStatus) {
 
-    SapState sapState;
     taf_SapMsg_t SapMsg;
     memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
     uint8_t paramCount = 0;
@@ -810,7 +863,6 @@ void taf_simSap::SendCardReaderResponse(ErrorCode errorCode, CardReaderStatus re
 
     msgLength = 12;
     uint8_t cardReaderStatus = GetCardReaderStatus(readerStatus);
-    sapCardMgr->getState(sapState);
     if (errorCode == ErrorCode::SUCCESS) {
         SapMsg.msg[8] = RESULTCODE_OK;
 
@@ -848,16 +900,16 @@ uint8_t taf_simSap::GetCardReaderStatus(CardReaderStatus readerStatus) {
     return cardReaderStatus;
 }
 
+le_result_t taf_simSap::VerifyParameterCount(const uint8_t* buf, uint8_t numberOfParam){
+    TAF_ERROR_IF_RET_VAL(buf[1] < numberOfParam, LE_FAULT,
+            " Number of parameters are less!\n");
+    return LE_OK;
+}
+
 le_result_t taf_simSap::VerifyMessageLength(const uint8_t* buf, size_t size, uint8_t numberOfParam){
     uint8_t minMsgLength =  LENGTH_SAP_HEADER + numberOfParam * LENGTH_PARAM;
     TAF_ERROR_IF_RET_VAL(size < minMsgLength, LE_FAULT,
             " Msg length is too short!\n");
-    return LE_OK;
-}
-
-le_result_t taf_simSap::VerifyParameterCount(const uint8_t* buf, uint8_t numberOfParam){
-    TAF_ERROR_IF_RET_VAL(buf[1] < numberOfParam, LE_FAULT,
-            " Number of parameters are less!\n");
     return LE_OK;
 }
 
@@ -892,26 +944,10 @@ le_result_t taf_simSap::VerifyMaxMsgSizeParameter(const uint8_t* buf, size_t siz
 }
 
 le_result_t taf_simSap::VerifyConnectRequest(const uint8_t* msg, uint8_t msgLength) {
-    //Check message length
-    if(VerifyMessageLength(msg, msgLength, 1) != LE_OK) {
-        return LE_FAULT;
-    }
-
-    //Check number of parameters
-    if (VerifyParameterCount(msg, 1) != LE_OK) {
-        return LE_FAULT;
-    }
-
-    //Check PARAM ID is MAXMSG_SIZE or not
-    //Check parameter length
-    if (VerifyMaxMsgSizeParameter(msg, msgLength) != LE_OK) {
+    if (VerifyMessageLength(msg, msgLength, 1) != LE_OK
+            ||(VerifyParameterCount( msg, 1) != LE_OK)
+            || (VerifyMaxMsgSizeParameter( msg, msgLength) != LE_OK)) {
         return LE_FAULT;
     }
     return LE_OK;
-
-}
-
-void taf_simSap::EraseFromApduRespCbMap(uint8_t apduId)
-{
-    apduRespCbMap.erase(apduId);
 }

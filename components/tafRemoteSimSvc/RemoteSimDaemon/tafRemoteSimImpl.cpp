@@ -36,54 +36,54 @@
 
 #include "tafRemoteSim.hpp"
 
-using namespace telux::tel;
-using namespace telux::common;
 using namespace tafsvc;
 
 LE_MEM_DEFINE_STATIC_POOL(RsimMsgs, MSG_POOL_SIZE, sizeof(taf_RsimMsg_Client_t));
+LE_MEM_DEFINE_STATIC_POOL(RsimApduTx, APDU_TX_POOL_SIZE, sizeof(taf_RsimApduTx_t));
 
-void tafRemoteSimListener::onApduTransfer(const unsigned int id, const std::vector<uint8_t> &apdu) {
+// PA Event Listener Callbacks
+static void onApduTransferCallback(const std::shared_ptr<taf_pa_remotesim_ApduTransfer_t>& apduEvent) {
     LE_INFO("Received Apdu transfer notification from modem.\n");
     auto &rSim = taf_simRsim::GetInstance();
-    rSim.SendApduRequest(id, apdu);
+    rSim.SendApduRequest(apduEvent->id, apduEvent->apdu);
 }
 
-void tafRemoteSimListener::onCardConnect() {
+static void onCardConnectCallback() {
     LE_INFO("Received Card Connect notification from modem.\n");
     auto &rSim = taf_simRsim::GetInstance();
     rSim.SendCardConnectRequest();
 }
 
-void tafRemoteSimListener::onCardDisconnect() {
+static void onCardDisconnectCallback() {
     LE_INFO("Received Card Disconnect notification from modem.\n");
     auto &rSim = taf_simRsim::GetInstance();
     rSim.SendCardDisconnectRequest();
 }
 
-void tafRemoteSimListener::onCardPowerUp() {
+static void onCardPowerUpCallback() {
     LE_INFO("Received Card Power Up notification from modem.\n");
     auto &rSim = taf_simRsim::GetInstance();
     rSim.SendCardPowerUpRequest();
 }
 
-void tafRemoteSimListener::onCardPowerDown() {
+static void onCardPowerDownCallback() {
     LE_INFO("Received Card Power Down notification from modem.\n");
     auto &rSim = taf_simRsim::GetInstance();
     rSim.SendCardPowerDownRequest();
 }
 
-void tafRemoteSimListener::onCardReset() {
+static void onCardResetCallback() {
     LE_INFO("Received Card Reset notification from modem.\n");
     auto &rSim = taf_simRsim::GetInstance();
     rSim.SendCardResetRequest();
 }
 
-void tafRemoteSimListener::onServiceStatusChange(ServiceStatus status) {
+static void onServiceStatusChangeCallback(const std::shared_ptr<taf_pa_remotesim_ServiceStatus_t>& statusEvent) {
     auto &rSim = taf_simRsim::GetInstance();
-    if (status == ServiceStatus::SERVICE_UNAVAILABLE) {
+    if (statusEvent->status == TAF_PA_REMOTESIM_SERVICE_UNAVAILABLE) {
         LE_INFO("Received Service Unavailable notification.\n");
         rSim.NotifyConnectionUnavailable();
-    } else if (status == ServiceStatus::SERVICE_AVAILABLE) {
+    } else if (statusEvent->status == TAF_PA_REMOTESIM_SERVICE_AVAILABLE) {
         LE_INFO("Received Service Available notification.\n");
         rSim.NotifyConnectionAvailable();
     } else {
@@ -92,47 +92,38 @@ void tafRemoteSimListener::onServiceStatusChange(ServiceStatus status) {
 }
 
 void taf_simRsim:: Init(void) {
-    auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
-    remoteSimMgr = phoneFactory.getRemoteSimManager(DEFAULT_SLOT_ID);
-    if (!remoteSimMgr)
+    MainThread = le_thread_GetCurrent();
+
+    pa_result_t result = taf_pa_remotesim_Init(1);
+    if (result != PA_OK)
     {
-        LE_FATAL("Failed to create RemoteSimManager!\n");
+        LE_ERROR("[PA_CALL_FAILED] api=Init result=%d", static_cast<int>(result));
     }
-    else
-    {
-        bool subSystemStatus = remoteSimMgr->isSubsystemReady();
-        if(!subSystemStatus) {
-            LE_INFO("Remote Sim subsystem is not ready wait for it to be ready");
-            std::future<bool> f = remoteSimMgr->onSubsystemReady();
-            std::future_status waitStatus = f.wait_for(std::chrono::seconds(TAF_RSIM_SUBSYSTEM_TIMEOUT));
-            if (std::future_status::timeout == waitStatus)
-            {
-                LE_FATAL ("Timeout waiting for Remote Sim Manager");
-            }
-            else
-            {
-                LE_INFO("Remotesim subsystem is ready");
-                subSystemStatus = f.get();
-            }
-        }
-        if(subSystemStatus) {
-            MainThread = le_thread_GetCurrent();
-            MessageEventId = le_event_CreateId("MessageEventId", sizeof(taf_RsimMsg_t));
-            memset(&RsimObj, 0, sizeof(RsimObj));
-            RsimObj.handlerRef = NULL;
-            RsimObj.sapState = SAP_STATE_NOT_CONNECTED;
-            RsimObj.sapSubState = SAP_CONNECTED_IDLE;
-            RsimObj.maxMsgSize = TAF_SIMRSIM_MAX_MSG_SIZE;
-            RSimMsgPool = le_mem_InitStaticPool(RsimMsgs, MSG_POOL_SIZE,sizeof(taf_RsimMsg_Client_t));
-        }
-        else{
-             LE_FATAL("Fail to init remote subscription subsystem");
-        }
-        listener = std::make_shared<tafRemoteSimListener>();
-        if (remoteSimMgr->registerListener(listener) != Status::SUCCESS) {
-            LE_ERROR("Listener registration failed!\n");
-            return;
-        }
+
+    MessageEventId = le_event_CreateId("MessageEventId", sizeof(taf_RsimMsg_t));
+    memset(&RsimObj, 0, sizeof(RsimObj));
+    RsimObj.handlerRef = NULL;
+    RsimObj.sapState = SAP_STATE_NOT_CONNECTED;
+    RsimObj.sapSubState = SAP_CONNECTED_IDLE;
+    RsimObj.maxMsgSize = TAF_SIMRSIM_MAX_MSG_SIZE;
+
+    RSimMsgPool = le_mem_InitStaticPool(RsimMsgs, MSG_POOL_SIZE,sizeof(taf_RsimMsg_Client_t));
+    ApduTxPool = le_mem_InitStaticPool(RsimApduTx, APDU_TX_POOL_SIZE, sizeof(taf_RsimApduTx_t));
+
+    PaTxThread = le_thread_Create("rsimPaTx", PaTxThreadMain, NULL);
+    le_thread_Start(PaTxThread);
+    paEventListener.onApduTransfer = onApduTransferCallback;
+    paEventListener.onCardConnect = onCardConnectCallback;
+    paEventListener.onCardDisconnect = onCardDisconnectCallback;
+    paEventListener.onCardPowerUp = onCardPowerUpCallback;
+    paEventListener.onCardPowerDown = onCardPowerDownCallback;
+    paEventListener.onCardReset = onCardResetCallback;
+    paEventListener.onServiceStatusChange = onServiceStatusChangeCallback;
+
+    result = taf_pa_remotesim_RegisterEventListener(&paEventListener, {});
+    if (result != PA_OK) {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_RegisterEventListener result=%d", static_cast<int>(result));
+        return;
     }
 }
 
@@ -155,10 +146,10 @@ taf_simRsim_MessageHandlerRef_t taf_simRsim::AddMessageHandler(taf_simRsim_Messa
     le_event_SetContextPtr(handlerRef, contextPtr);
 
     //Send connection available request to modem
-    if (remoteSimMgr != nullptr) {
-        if (remoteSimMgr->sendConnectionAvailable(eventCallback) != Status::SUCCESS) {
-            LE_KILL_CLIENT("Failed to send connection available event request to the modem!\n");
-        }
+    pa_result_t result = taf_pa_remotesim_SendConnectionAvailable(nullptr, {});
+    if (result != PA_OK) {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendConnectionAvailable result=%d", static_cast<int>(result));
+        LE_KILL_CLIENT("Failed to send connection available event request to the modem!\n");
     }
 
     RsimObj.handlerRef = (taf_simRsim_MessageHandlerRef_t)handlerRef;
@@ -169,10 +160,10 @@ taf_simRsim_MessageHandlerRef_t taf_simRsim::AddMessageHandler(taf_simRsim_Messa
 void taf_simRsim::RemoveMessageHandler( taf_simRsim_MessageHandlerRef_t handlerRef) {
 
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
-    if (remoteSimMgr != nullptr) {
-        if (remoteSimMgr->sendConnectionUnavailable(eventCallback) != Status::SUCCESS) {
-            LE_KILL_CLIENT("Failed to send connection unavailable event request to the modem!\n");
-        }
+    pa_result_t result = taf_pa_remotesim_SendConnectionUnavailable(nullptr, {});
+    if (result != PA_OK) {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendConnectionUnavailable result=%d", static_cast<int>(result));
+        LE_KILL_CLIENT("Failed to send connection unavailable event request to the modem!\n");
     }
 
     // Remove stored handler reference
@@ -343,10 +334,6 @@ void taf_simRsim::FirstLayerMessageHandler( void* reportPtr, void* secondLayerHa
     taf_simRsim_MessageHandlerFunc_t clientHandlerFunc = (taf_simRsim_MessageHandlerFunc_t)secondLayerHandlerFunc;
 
     clientHandlerFunc(messageEvent->msg, messageEvent->msgSize, le_event_GetContextPtr());
-}
-
-void taf_simRsim::eventCallback(ErrorCode errorCode) {
-    LE_INFO("Received event response with errorcode %d.\n", static_cast<int>(errorCode));
 }
 
 le_result_t taf_simRsim::SendMessage(const uint8_t* messagePtr, size_t messageNumElements,
@@ -562,52 +549,72 @@ le_result_t taf_simRsim::HandleApduTransfer(const uint8_t* msgPtr, size_t msgSiz
             break;
         case RESULTCODE_ERROR_NO_REASON:
         case RESULTCODE_ERROR_CARD_NOK:
-            result = HandleCardError(CardErrorCause::UNKNOWN_ERROR);
+            result = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_UNKNOWN);
             break;
         case RESULTCODE_ERROR_CARD_OFF:
-            result = HandleCardError(CardErrorCause::POWER_DOWN);
+            result = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_POWER_DOWN);
             break;
         default:
-            result = HandleCardError(CardErrorCause::INVALID);
+            result = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_INVALID);
             break;
     }
 
     return result;
 }
 
-le_result_t taf_simRsim::SendApduResp(const uint8_t* msgPtr, size_t msgSize) {
+void* taf_simRsim::PaTxThreadMain(void* contextPtr) {
+    LE_INFO("PA sender thread started");
+    le_event_RunLoop();
+    return NULL;
+}
 
+void taf_simRsim::DoSendApduToPa(void* param1Ptr, void* param2Ptr) {
+    taf_RsimApduTx_t* txPtr = (taf_RsimApduTx_t*) param1Ptr;
+
+    std::vector<uint8_t> apdu(txPtr->apdu, txPtr->apdu + txPtr->apduSize);
+
+    pa_result_t result = taf_pa_remotesim_SendApdu(txPtr->id, apdu, true, apdu.size(),
+                                                  0, nullptr, {});
+    if (result != PA_OK) {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendApdu result=%d",
+                static_cast<int>(result));
+    }
+
+    le_mem_Release(txPtr);
+}
+
+le_result_t taf_simRsim::SendApduResp(const uint8_t* msgPtr, size_t msgSize)
+{
     if (VerifyMessageLength(msgPtr, msgSize, 1) != LE_OK
             ||(VerifyParameterCount( msgPtr, 1) != LE_OK)) {
         return LE_FORMAT_ERROR;
     }
     uint8_t apduId = msgPtr[12];
-
-        std::vector<uint8_t> apdu;
-
-        uint8_t LengthByte1  = 14;
-        uint8_t LengthByte2  = 15;
-        uint8_t apduStartByte = 16;
-        uint16_t apduLength = (uint16_t)(((uint16_t)(msgPtr[LengthByte1] << MSB_SHIFT))
+    uint8_t LengthByte1  = 14;
+    uint8_t LengthByte2  = 15;
+    uint8_t apduStartByte = 16;
+    uint16_t apduLength = (uint16_t)(((uint16_t)(msgPtr[LengthByte1] << MSB_SHIFT))
                     | msgPtr[LengthByte2]);
-        uint16_t apduLastByte = apduStartByte + apduLength;
-        for (int i = apduStartByte; i < apduLastByte; i++) {
-            apdu.push_back(msgPtr[i]);
-        }
 
-        if (remoteSimMgr->sendApdu(apduId, apdu, true, apdu.size(), 0, eventCallback)
-            != Status::SUCCESS) {
-            LE_ERROR("Failed to send APDU transfer request to the modem!\n");
-            return LE_FAULT;
-        }
-   return LE_OK;
+    if ((size_t)apduStartByte + apduLength > TAF_SIMRSIM_MAX_MSG_SIZE) {
+        LE_ERROR("APDU length %u exceeds the message buffer", apduLength);
+        return LE_FORMAT_ERROR;
+    }
+
+    taf_RsimApduTx_t* txPtr = (taf_RsimApduTx_t*) le_mem_ForceAlloc(ApduTxPool);
+    txPtr->id = apduId;
+    txPtr->apduSize = apduLength;
+    memcpy(txPtr->apdu, &msgPtr[apduStartByte], apduLength);
+
+    le_event_QueueFunctionToThread(PaTxThread, DoSendApduToPa, txPtr, NULL);
+
+    return LE_OK;
 }
 
 le_result_t taf_simRsim::HandleCardConnect(const uint8_t* msgPtr, size_t messageNumElements)
 {
     LE_INFO("Received Card Connect msg response\n");
-    TAF_ERROR_IF_RET_VAL(SAP_STATE_CONNECTING != RsimObj.sapState,
-                         LE_FAULT,
+    TAF_ERROR_IF_RET_VAL(SAP_STATE_CONNECTING != RsimObj.sapState,LE_FAULT,
                          "SAP is not in connecting state");
     if (VerifyMessageLength(msgPtr, messageNumElements, 1) != LE_OK
             ||(VerifyParameterCount( msgPtr, 1) != LE_OK)
@@ -616,7 +623,10 @@ le_result_t taf_simRsim::HandleCardConnect(const uint8_t* msgPtr, size_t message
     }
     le_result_t result = LE_OK;
     uint8_t status = msgPtr[8];
-    LE_DEBUG("Connect response received status = %d", status);
+
+    LE_INFO("Card Connect Response - Status: %d, Current SAP State: %d, SubState: %d",
+            status, RsimObj.sapState, RsimObj.sapSubState);
+
     RsimObj.sapState = SAP_STATE_NOT_CONNECTED;
     bool connectionSuccess = false;
     switch (status)
@@ -662,9 +672,9 @@ le_result_t taf_simRsim::HandleCardConnect(const uint8_t* msgPtr, size_t message
     }
     if (!connectionSuccess) {
         LE_ERROR("Unable to establish link");
-        HandleCardError(CardErrorCause::NO_LINK_ESTABLISHED);
+        HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_NO_LINK);
     }
-            LE_INFO("HandleCardConnect exit ");
+    LE_INFO("HandleCardConnect exit ");
     return result;
 }
 
@@ -685,13 +695,13 @@ le_result_t taf_simRsim::HandleStatusInd(const uint8_t* msgPtr, size_t messageNu
     RsimObj.sapSubState = SAP_CONNECTED_IDLE;
     switch (status) {
         case STATUSCHANGE_UNKNOWN_ERROR:
-            result = HandleCardError(CardErrorCause::UNKNOWN_ERROR);
+            result = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_UNKNOWN);
             break;
         case STATUSCHANGE_CARD_RESET:
             result = SendATRRequest(SAP_CONNECTED_ATR_RESET);
             break;
         case STATUSCHANGE_CARD_NOK:
-            result = HandleCardError(CardErrorCause::POWER_DOWN);
+            result = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_POWER_DOWN);
             break;
         case STATUSCHANGE_CARD_REMOVED:
             result = HandleCardRemoved();
@@ -785,13 +795,13 @@ le_result_t taf_simRsim::HandleCardPowerDown(const uint8_t* msgPtr, size_t messa
             break;
         case RESULTCODE_ERROR_NO_REASON:
         case RESULTCODE_ERROR_NO_DATA:
-            result = HandleCardError(CardErrorCause::UNKNOWN_ERROR);
+            result = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_UNKNOWN);
             break;
         case RESULTCODE_ERROR_CARD_OFF:
-            result = HandleCardError(CardErrorCause::POWER_DOWN);
+            result = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_POWER_DOWN);
             break;
         default:
-            result = HandleCardError(CardErrorCause::INVALID);
+            result = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_INVALID);
             break;
     }
 
@@ -826,17 +836,17 @@ le_result_t taf_simRsim::HandleCardPowerUp(const uint8_t* msgPtr, size_t message
             result = HandleCardRemoved();
             break;
         case RESULTCODE_ERROR_NO_REASON:
-            result = HandleCardError(CardErrorCause::UNKNOWN_ERROR);
+            result = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_UNKNOWN);
             break;
         case RESULTCODE_ERROR_CARD_OFF:
         case RESULTCODE_ERROR_CARD_NOK:
-            result = HandleCardError(CardErrorCause::POWER_DOWN);
+            result = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_POWER_DOWN);
             break;
         case RESULTCODE_ERROR_CARD_ON:
             result = HandleCardWakeUp();
             break;
         default:
-            result = HandleCardError(CardErrorCause::INVALID);
+            result = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_INVALID);
             break;
     }
 
@@ -871,14 +881,14 @@ le_result_t taf_simRsim::HandleResetResponse(const uint8_t* msgPtr, size_t msgLe
             break;
         case RESULTCODE_ERROR_NO_REASON:
         case RESULTCODE_ERROR_NO_DATA:
-            result = HandleCardError(CardErrorCause::UNKNOWN_ERROR);
+            result = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_UNKNOWN);
             break;
         case RESULTCODE_ERROR_CARD_OFF:
         case RESULTCODE_ERROR_CARD_NOK:
-            result = HandleCardError(CardErrorCause::POWER_DOWN);
+            result = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_POWER_DOWN);
             break;
         default:
-            result = HandleCardError(CardErrorCause::INVALID);
+            result = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_INVALID);
             break;
     }
     return result;
@@ -914,7 +924,7 @@ le_result_t taf_simRsim::HandleATRResponse(const uint8_t* msgPtr, size_t msgLeng
                 } else if (RsimObj.sapSubState == SAP_CONNECTED_ATR_INSERT) {
                     result = HandleCardInserted(msgPtr, msgLength);
                 } else {
-                    result = HandleCardError(CardErrorCause::UNKNOWN_ERROR);
+                    result = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_UNKNOWN);
                 }
             } else {
                 LE_ERROR("Improper ATR message response");
@@ -926,13 +936,13 @@ le_result_t taf_simRsim::HandleATRResponse(const uint8_t* msgPtr, size_t msgLeng
             break;
         case RESULTCODE_ERROR_NO_REASON:
         case RESULTCODE_ERROR_NO_DATA:
-            result = HandleCardError(CardErrorCause::UNKNOWN_ERROR);
+            result = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_UNKNOWN);
             break;
         case RESULTCODE_ERROR_CARD_OFF:
-            result = HandleCardError(CardErrorCause::POWER_DOWN);
+            result = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_POWER_DOWN);
             break;
         default:
-            result = HandleCardError(CardErrorCause::INVALID);
+            result = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_INVALID);
             break;
     }
     if (RsimObj.sapSubState == SAP_CONNECTED_ATR_RESET ||
@@ -957,8 +967,9 @@ le_result_t taf_simRsim::HandleCardReset(const uint8_t* messagePtr, size_t messa
             atr.push_back(messagePtr[i]);
         }
 
-        if (remoteSimMgr->sendCardReset(atr, eventCallback) != Status::SUCCESS) {
-            LE_ERROR("Failed to send card reset event request to the modem!\n");
+        pa_result_t result = taf_pa_remotesim_SendCardReset(atr, nullptr, {});
+        if (result != PA_OK) {
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendCardReset result=%d", static_cast<int>(result));
             return LE_FAULT;
         }
         return LE_OK;
@@ -992,23 +1003,23 @@ le_result_t taf_simRsim::HandleErrorResp()
 le_result_t taf_simRsim::HandleCardInserted(const uint8_t* messagePtr, size_t messageNumElements)
 {
     LE_DEBUG("Received Card Inserted msg from client.\n");
+    std::vector<uint8_t> atr;
 
-        std::vector<uint8_t> atr;
-
-        uint8_t atrLenByte1  = 14;
-        uint8_t atrLenByte2  = 15;
-        uint8_t atrFirstByte = 16;
-        uint16_t atrLength = (uint16_t) (((uint16_t)(messagePtr[atrLenByte1] << MSB_SHIFT))
+    uint8_t atrLenByte1  = 14;
+    uint8_t atrLenByte2  = 15;
+    uint8_t atrFirstByte = 16;
+    uint16_t atrLength = (uint16_t) (((uint16_t)(messagePtr[atrLenByte1] << MSB_SHIFT))
                 | messagePtr[atrLenByte2]);
 
-        for (int i = atrFirstByte; i < atrFirstByte + atrLength; i++) {
-            atr.push_back(messagePtr[i]);
-        }
+    for (int i = atrFirstByte; i < atrFirstByte + atrLength; i++) {
+        atr.push_back(messagePtr[i]);
+    }
 
-        if (remoteSimMgr->sendCardInserted(atr, eventCallback) != Status::SUCCESS) {
-            LE_ERROR("Failed to send card inserted event request to the modem!\n");
-            return LE_FAULT;
-        }
+    pa_result_t result = taf_pa_remotesim_SendCardInserted(atr, nullptr, {});
+    if (result != PA_OK) {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendCardInserted result=%d", static_cast<int>(result));
+        return LE_FAULT;
+    }
     return LE_OK;
 }
 
@@ -1016,17 +1027,19 @@ le_result_t taf_simRsim::HandleCardRemoved()
 {
     LE_DEBUG("Received Card Removed msg from client.\n");
 
-    if (remoteSimMgr->sendCardRemoved(eventCallback) != Status::SUCCESS) {
-        LE_ERROR("Failed to send card removed event request to the modem!");
-            return LE_FAULT;
+    pa_result_t result = taf_pa_remotesim_SendCardRemoved(nullptr, {});
+    if (result != PA_OK) {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendCardRemoved result=%d", static_cast<int>(result));
+        return LE_FAULT;
     }
     return LE_OK;
 }
 
-le_result_t taf_simRsim::HandleCardError(CardErrorCause cardError)
+le_result_t taf_simRsim::HandleCardError(taf_pa_remotesim_CardErrorCause_t cardError)
 {
-    if (remoteSimMgr->sendCardError(cardError, eventCallback) != Status::SUCCESS) {
-        LE_ERROR("Failed to send card error event request to the modem!");
+    pa_result_t result = taf_pa_remotesim_SendCardError(cardError, nullptr, {});
+    if (result != PA_OK) {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendCardError result=%d", static_cast<int>(result));
         return LE_FAULT;
     }
     return LE_OK;
@@ -1035,20 +1048,32 @@ le_result_t taf_simRsim::HandleCardError(CardErrorCause cardError)
 le_result_t taf_simRsim::HandleCardWakeUp()
 {
     LE_DEBUG("Received Card Wake Up");
-    if (remoteSimMgr->sendCardWakeup(eventCallback) != Status::SUCCESS) {
-        LE_ERROR("Failed to send card wake up event request to the modem!");
+    pa_result_t result = taf_pa_remotesim_SendCardWakeup(nullptr, {});
+    if (result != PA_OK) {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendCardWakeup result=%d", static_cast<int>(result));
         return LE_FAULT;
     }
     return LE_OK;
 }
-void taf_simRsim::NotifyConnectionAvailable() {
-    if (remoteSimMgr->sendConnectionAvailable(eventCallback) != Status::SUCCESS) {
-        LE_KILL_CLIENT("Failed to send connection available event request to the modem!\n");
+
+void taf_simRsim::SendConnectionAvailableToPa(void* param1Ptr, void* param2Ptr) {
+    pa_result_t result = taf_pa_remotesim_SendConnectionAvailable(nullptr, {});
+    if (result != PA_OK) {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendConnectionAvailable result=%d", static_cast<int>(result));
     }
 }
 
-void taf_simRsim::NotifyConnectionUnavailable() {
-    if (remoteSimMgr->sendConnectionUnavailable(eventCallback) != Status::SUCCESS) {
-        LE_KILL_CLIENT("Failed to send connection available event request to the modem!\n");
+void taf_simRsim::SendConnectionUnavailableToPa(void* param1Ptr, void* param2Ptr) {
+    pa_result_t result = taf_pa_remotesim_SendConnectionUnavailable(nullptr, {});
+    if (result != PA_OK) {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendConnectionUnavailable result=%d", static_cast<int>(result));
     }
+}
+
+void taf_simRsim::NotifyConnectionAvailable() {
+    le_event_QueueFunctionToThread(MainThread, SendConnectionAvailableToPa, NULL, NULL);
+}
+
+void taf_simRsim::NotifyConnectionUnavailable() {
+    le_event_QueueFunctionToThread(MainThread, SendConnectionUnavailableToPa, NULL, NULL);
 }

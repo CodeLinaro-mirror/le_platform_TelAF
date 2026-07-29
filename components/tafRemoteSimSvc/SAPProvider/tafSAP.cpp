@@ -36,8 +36,6 @@
 
 #include "tafSAP.hpp"
 
-using namespace telux::tel;
-using namespace telux::common;
 using namespace tafsvc;
 
 

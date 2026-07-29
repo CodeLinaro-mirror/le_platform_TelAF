@@ -1049,6 +1049,18 @@ taf_mngdPm_NodePowerStateChangeHandlerRef_t taf_mngdPm_AddNodePowerStateChangeHa
         return NULL;
     }
 
+    const taf_mngdPm_NodePowerStateChangeBitMask_t validStateMask =
+          TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE
+        | TAF_MNGDPM_NODE_STATE_BIT_MASK_RESTART_PREPARE
+        | TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE
+        | TAF_MNGDPM_NODE_STATE_BIT_MASK_RESUME;
+
+    if ((stateMask == 0U) || ((stateMask & (~validStateMask)) != 0U))
+    {
+        LE_ERROR("Invalid stateMask:%u. Supported mask range:0x%X", stateMask, validStateMask);
+        return NULL;
+    }
+
     pid_t procId;
     le_msg_SessionRef_t sessionRef = taf_mngdPm_GetClientSessionRef();
     le_msg_GetClientProcessId(sessionRef, &procId);

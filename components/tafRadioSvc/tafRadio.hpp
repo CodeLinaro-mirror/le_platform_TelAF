@@ -32,8 +32,8 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -88,6 +88,8 @@
 #define TAF_RADIO_CA_INFO_MAX_NUM 4
 #define TAF_RADIO_CONN_STATUS_MAX_NUM 4
 #define TAF_RADIO_SCELL_NUMBER 4
+
+#define TAF_RADIO_SVC_STATUS_HANDLER_MAX_NUM 10
 
 /*
  * @brief The emum of radio command type.
@@ -516,6 +518,43 @@ typedef struct
     taf_radio_ConnStatusRef_t statusRef;
 } taf_RadioConnStatusInd_t;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * service status indication structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t                  phone;  ///< Phone Id.
+    taf_radio_Rat_t          rat;    ///< Current serving RAT.
+    taf_radio_RatSvcStatus_t status; ///< Current service status.
+} taf_RadioServiceStatusInd_t;
+
+#define TAF_RADIO_SERVICE_STATUS_BIT_MASK_COUNT 5 ///< Number of bits in ServiceStatusBitMask.
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Service status handler context structure.
+ * Holds one handler reference per status mask bit, the phoneId filter, and the original
+ * user contextPtr. The ctxPtr itself is stored via le_event_SetContextPtr() so that
+ * LayerServiceStatusHandler can access all fields without a separate wrapper allocation.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    /// One handlerRef per statusMask bit; nullptr if that bit was not registered.
+    le_event_HandlerRef_t handlerRefs[TAF_RADIO_SERVICE_STATUS_BIT_MASK_COUNT];
+    /// Phone ID filter: 0 means all phones; non-zero means only that specific phone.
+    uint8_t phoneId;
+    /// Original contextPtr supplied by the caller of AddServiceStatusChangeHandler.
+    void*   userCtx;
+    /// Owning client session — used to clean up if the client disconnects/crashes.
+    le_msg_SessionRef_t sessionRef;
+    /// Link in taf_Radio::svcStatusCtxList.
+    le_dls_Link_t link;
+    taf_radio_ServiceStatusChangeHandlerRef_t safeRef;
+} taf_RadioServiceStatusHandlerCtx_t;
+
 namespace tafsvc {
     /*
      * @brief The network listener is registered for the network selection mode updates.
@@ -906,6 +945,7 @@ namespace tafsvc {
         static void taf_radio_LayerNrIconTypeHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerLteCAHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerConnStatusHandler(void* reportPtr, void* layerHandlerFunc);
+        static void taf_radio_LayerServiceStatusHandler(void* reportPtr, void* layerHandlerFunc);
 
         /*
          * Command thread in radio service.
@@ -955,6 +995,10 @@ namespace tafsvc {
         le_mem_PoolRef_t caIndPool;
         le_mem_PoolRef_t connStatusPool;
         le_mem_PoolRef_t connStatusIndPool;
+        le_mem_PoolRef_t svcStatusIndPool;
+        le_mem_PoolRef_t svcStatusHandlerCtxPool;
+        taf_radio_RatSvcStatus_t ratSvcState[TAF_RADIO_PHONE_NUM] =
+            {TAF_RADIO_RAT_SVC_STATUS_UNKNOWN, TAF_RADIO_RAT_SVC_STATUS_UNKNOWN};
 
         le_ref_MapRef_t prefOpListRefMap;
         le_ref_MapRef_t prefOpSafeRefMap;
@@ -967,6 +1011,7 @@ namespace tafsvc {
         le_ref_MapRef_t netStatusRefMap;
         le_ref_MapRef_t caInfoMap;
         le_ref_MapRef_t connStatusMap;
+        le_ref_MapRef_t svcStatusRefMap;
 
         le_event_Id_t imsRegStatusChangeId;
         le_event_Id_t opModeChangeId;
@@ -985,6 +1030,11 @@ namespace tafsvc {
         le_event_Id_t nrIconTypeEvId;
         le_event_Id_t lteCAIndEvId;
         le_event_Id_t connStatusEvId;
+        le_event_Id_t svcStatusNoServiceEvId;
+        le_event_Id_t svcStatusLimitedEvId;
+        le_event_Id_t svcStatusServiceEvId;
+        le_event_Id_t svcStatusLimitedRegionalEvId;
+        le_event_Id_t svcStatusPowerSaveEvId;
         static le_event_Id_t radioCmdEvId;
         static le_event_Id_t radioCmdCompleteEvId;
         le_dls_List_t pendingCmdList;
@@ -1018,6 +1068,8 @@ namespace tafsvc {
         std::shared_ptr<taf_RadioPhoneListener> phoneListener;
         uint16_t hysteresisTimer[TAF_RADIO_PHONE_NUM] = {0,0};
         std::vector<taf_RadioHysteresisConfig_t> hysteresisConfigs;
+        le_dls_List_t svcStatusCtxList;
+        void ApplyServiceStatusModemFiltering(void);
     };
 }
 

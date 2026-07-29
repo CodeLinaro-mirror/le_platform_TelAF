@@ -28,9 +28,8 @@
  */
 
 /*
- *  Changes from Qualcomm Innovation Center are provided under the following license:
- *
- *  Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -545,6 +544,127 @@
    result = taf_radio_GetHardwareSimRatCapabilities(&deviceRatCapMask,&simRatCapMask,phoneId);
  *
    @endcode
+ *
+ * @section c_taf_radio_rat_svc_status RAT service status notification
+ *
+ * Users can query the current service status and register for status change notifications.
+ * Two complementary handler paths are available:
+ *
+ *  - taf_radio_GetRatSvcStatus() --
+ *    Gets the current RAT service status for the given phone. The status is retrieved from the
+ *    network status reference obtained via taf_radio_GetNetStatus().
+ *
+ *  - taf_radio_AddServiceStatusChangeHandler() / taf_radio_RemoveServiceStatusChangeHandler() --
+ *    Adds/removes a service status change handler with a
+ *    @c taf_radio_ServiceStatusBitMask_t bitmask filter. Each registered handler is only invoked
+ *    when the new status matches the bitmask supplied at registration time, allowing multiple
+ *    clients to subscribe independently to different subsets of status transitions.
+ *    RAT is informational only and is not treated as an independent trigger. It is delivered only
+ *    when a service status change occurs.
+ *
+ *    When at least one service status handler is registered, tafRadioSvc may keep a
+ *    coarse modem-side SYS_INFO state-toggle indication enabled during suspend. The
+ *    registered phoneId and statusMask filters are applied by tafRadioSvc before
+ *    dispatching callbacks. Wakeup granularity depends on modem filtering
+ *    capability.
+ *
+ *  - taf_radio_AddNetStatusChangeHandler() / taf_radio_RemoveNetStatusChangeHandler() --
+ *    Adds/removes a general network status change handler. When the
+ *    @c TAF_RADIO_NET_STATUS_IND_BIT_MASK_RAT_SVC_STATUS bit is set in the received bitmask,
+ *    the handler can call taf_radio_GetRatSvcStatus() to retrieve the current RAT service
+ *    status. This path does not support per-status bitmask filtering; the handler is invoked
+ *    for every RAT service status change regardless of the new value.
+ *
+ * The following example illustrates both API paths.
+ *
+ * @code
+ *
+   // Query current service status.
+   taf_radio_NetStatusRef_t netRef = taf_radio_GetNetStatus(phoneId);
+   taf_radio_RatSvcStatus_t svcStatus = TAF_RADIO_RAT_SVC_STATUS_UNKNOWN;
+   le_result_t result = taf_radio_GetRatSvcStatus(netRef, &svcStatus);
+   if (result == LE_OK)
+   {
+       LE_INFO("service status: %d", svcStatus);
+   }
+
+   // --- Path 1: per-status handler with bitmask filter ---
+
+   // Handler invoked only when the NEW status matches the registered mask.
+   // rat and status are atomically consistent: both come from the same indication.
+   void MyServiceStatusHandler
+   (
+       taf_radio_Rat_t          rat,
+       taf_radio_RatSvcStatus_t status,
+       uint8_t                  phoneId,
+       void*                    contextPtr
+   )
+   {
+       LE_INFO("Phone %d service status changed: rat=%d status=%d", phoneId, rat, status);
+   }
+
+   // Client A: notified only when phone 1 status becomes NO_SERVICE.
+   taf_radio_ServiceStatusChangeHandlerRef_t refA =
+       taf_radio_AddServiceStatusChangeHandler(
+           TAF_RADIO_SERVICE_STATUS_BIT_MASK_NO_SERVICE,
+           1,
+           MyServiceStatusHandler,
+           NULL);
+
+   // Client B: notified only when phone 2 status becomes SERVICE.
+   taf_radio_ServiceStatusChangeHandlerRef_t refB =
+       taf_radio_AddServiceStatusChangeHandler(
+           TAF_RADIO_SERVICE_STATUS_BIT_MASK_SERVICE,
+           2,
+           MyServiceStatusHandler,
+           NULL);
+
+   // Client C: notified for all service status transitions on all phones (phoneId=0).
+   taf_radio_ServiceStatusBitMask_t allMasks =
+       TAF_RADIO_SERVICE_STATUS_BIT_MASK_NO_SERVICE       |
+       TAF_RADIO_SERVICE_STATUS_BIT_MASK_LIMITED          |
+       TAF_RADIO_SERVICE_STATUS_BIT_MASK_SERVICE          |
+       TAF_RADIO_SERVICE_STATUS_BIT_MASK_LIMITED_REGIONAL |
+       TAF_RADIO_SERVICE_STATUS_BIT_MASK_POWER_SAVE;
+   taf_radio_ServiceStatusChangeHandlerRef_t refC =
+       taf_radio_AddServiceStatusChangeHandler(allMasks, 0, MyServiceStatusHandler, NULL);
+
+   // Remove handlers when they are no longer needed.
+   taf_radio_RemoveServiceStatusChangeHandler(refA);
+   taf_radio_RemoveServiceStatusChangeHandler(refB);
+   taf_radio_RemoveServiceStatusChangeHandler(refC);
+
+   // --- Path 2: general network status handler (no per-status bitmask filtering) ---
+
+   // Handler invoked on every service status change.
+   // Use taf_radio_GetRatSvcStatus() to retrieve the current value.
+   void MyNetStatusHandler
+   (
+       taf_radio_NetStatusRef_t    netStatusRef,
+       taf_radio_NetStatusIndBitMask_t bitmask,
+       uint8_t                     phoneId,
+       void*                       contextPtr
+   )
+   {
+       if (bitmask & TAF_RADIO_NET_STATUS_IND_BIT_MASK_RAT_SVC_STATUS)
+       {
+           taf_radio_RatSvcStatus_t status = TAF_RADIO_RAT_SVC_STATUS_UNKNOWN;
+           le_result_t result = taf_radio_GetRatSvcStatus(netStatusRef, &status);
+           if (result == LE_OK)
+           {
+               LE_INFO("Phone %d service status: %d", phoneId, status);
+           }
+       }
+   }
+
+   taf_radio_NetStatusChangeHandlerRef_t netRef =
+       taf_radio_AddNetStatusChangeHandler(MyNetStatusHandler, NULL);
+
+   // Remove handler when no longer needed.
+   taf_radio_RemoveNetStatusChangeHandler(netRef);
+ *
+   @endcode
+ * <HR>
  *
  * @section c_taf_radio_ims IMS (IP multimedia subsystem) information
  *
@@ -1249,6 +1369,23 @@ BITMASK ConnIndBitMask
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Service status bitmask used to filter which service status changes will trigger the handler.
+ *
+ * @instaging
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK ServiceStatusBitMask
+{
+    SERVICE_STATUS_BIT_MASK_NO_SERVICE,       ///< No service.
+    SERVICE_STATUS_BIT_MASK_LIMITED,          ///< Limited service.
+    SERVICE_STATUS_BIT_MASK_SERVICE,          ///< Service.
+    SERVICE_STATUS_BIT_MASK_LIMITED_REGIONAL, ///< Limited regional service.
+    SERVICE_STATUS_BIT_MASK_POWER_SAVE        ///< Power save.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Network rejection indication structure.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1459,6 +1596,21 @@ HANDLER ConnectionStatusHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for service status change.
+ *
+ * @instaging
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER ServiceStatusChangeHandler
+(
+    Rat          rat    IN, ///< Current serving RAT.Supported values are GSM, WCDMA, LTE, and NR5G.
+    RatSvcStatus status IN, ///< Current service status.
+    uint8        phoneId IN ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Event to report network registration rejection.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1587,6 +1739,26 @@ EVENT CAInfo
 EVENT ConnectionStatus
 (
     ConnectionStatusHandler handler ///< Handler for connection status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report service status changes.
+ *
+ * @instaging
+ *
+ * @b NOTE: statusMask filters which service status values trigger the handler.
+ *       Pass all bits set to receive all status changes.
+ *
+ * @b NOTE: phoneId filters which phone's service status changes trigger the handler.
+ *       Pass 0 to receive status changes from all phones.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT ServiceStatusChange
+(
+    ServiceStatusBitMask statusMask IN, ///< Service status bitmask filter.
+    uint8 phoneId IN,                   ///< Phone ID filter. 0 means all phones.
+    ServiceStatusChangeHandler handler  ///< Handler for service status change.
 );
 
 //--------------------------------------------------------------------------------------------------

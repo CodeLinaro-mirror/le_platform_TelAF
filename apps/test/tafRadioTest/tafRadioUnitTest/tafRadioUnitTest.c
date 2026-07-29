@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1588,6 +1588,148 @@ void TestTafRadioLteCaInformation
 
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Dummy handler for ServiceStatusChange unit test.
+ * Not expected to be called (no board indication needed).
+ */
+//--------------------------------------------------------------------------------------------------
+static void ServiceStatusUnitTestHandler
+(
+    taf_radio_Rat_t          rat,     ///< [IN] Serving RAT that produced this status.
+    taf_radio_RatSvcStatus_t status,  ///< [IN] Current service status.
+    uint8_t phoneId,                  ///< [IN] Phone ID.
+    void* contextPtr                  ///< [IN] Handler context.
+)
+{
+    LE_INFO("ServiceStatusUnitTestHandler: phone=%d rat=%d status=%d", phoneId, rat, status);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Test taf_radio_AddServiceStatusChangeHandler / taf_radio_RemoveServiceStatusChangeHandler.
+ *
+ * Validates the service-side API without relying on any board indication:
+ *  1. Add with single-bit masks (NO_SERVICE / SERVICE), phoneId=0 (all phones) -> ref != NULL.
+ *  2. Add with multi-bit mask (NO_SERVICE | SERVICE), phoneId=0 (all phones)   -> ref != NULL.
+ *  3. Add with all-bits mask, phoneId=0 (all phones)                           -> ref != NULL.
+ *  4. Remove each ref -> no crash.
+ *  5. Add then immediately Remove (no event loop)      -> no crash.
+ *  6. Add with phoneId=1 (phone 1 only)                -> ref != NULL.
+ *  7. Add with phoneId=2 (phone 2 only)                -> ref != NULL.
+ *  8. Add with invalid phoneId (> TAF_RADIO_PHONE_NUM) -> ref == NULL.
+ */
+//--------------------------------------------------------------------------------------------------
+void TestTafRadioServiceStatusHandler
+(
+    void
+)
+{
+    // Case 1a: single bit - NO_SERVICE, phoneId=0 (all phones).
+    taf_radio_ServiceStatusChangeHandlerRef_t refNoSvc =
+        taf_radio_AddServiceStatusChangeHandler(
+            TAF_RADIO_SERVICE_STATUS_BIT_MASK_NO_SERVICE,
+            0,
+            (taf_radio_ServiceStatusChangeHandlerFunc_t)ServiceStatusUnitTestHandler,
+            NULL);
+    LE_TEST_OK(refNoSvc != NULL,
+        "taf_radio_AddServiceStatusChangeHandler MASK_NO_SERVICE - !NULL");
+
+    // Case 1b: single bit - SERVICE, phoneId=0 (all phones).
+    taf_radio_ServiceStatusChangeHandlerRef_t refSvc =
+        taf_radio_AddServiceStatusChangeHandler(
+            TAF_RADIO_SERVICE_STATUS_BIT_MASK_SERVICE,
+            0,
+            (taf_radio_ServiceStatusChangeHandlerFunc_t)ServiceStatusUnitTestHandler,
+            NULL);
+    LE_TEST_OK(refSvc != NULL,
+        "taf_radio_AddServiceStatusChangeHandler MASK_SERVICE - !NULL");
+
+    // Case 2: multi-bit mask (NO_SERVICE | SERVICE), phoneId=0 (all phones).
+    taf_radio_ServiceStatusChangeHandlerRef_t refMulti =
+        taf_radio_AddServiceStatusChangeHandler(
+            TAF_RADIO_SERVICE_STATUS_BIT_MASK_NO_SERVICE | TAF_RADIO_SERVICE_STATUS_BIT_MASK_SERVICE,
+            0,
+            (taf_radio_ServiceStatusChangeHandlerFunc_t)ServiceStatusUnitTestHandler,
+            NULL);
+    LE_TEST_OK(refMulti != NULL,
+        "taf_radio_AddServiceStatusChangeHandler MASK_NO_SERVICE|MASK_SERVICE - !NULL");
+
+    // Case 3: all bits.
+    taf_radio_ServiceStatusBitMask_t allMasks =
+        TAF_RADIO_SERVICE_STATUS_BIT_MASK_NO_SERVICE       |
+        TAF_RADIO_SERVICE_STATUS_BIT_MASK_LIMITED          |
+        TAF_RADIO_SERVICE_STATUS_BIT_MASK_SERVICE          |
+        TAF_RADIO_SERVICE_STATUS_BIT_MASK_LIMITED_REGIONAL |
+        TAF_RADIO_SERVICE_STATUS_BIT_MASK_POWER_SAVE;
+    taf_radio_ServiceStatusChangeHandlerRef_t refAll =
+        taf_radio_AddServiceStatusChangeHandler(
+            allMasks,
+            0,
+            (taf_radio_ServiceStatusChangeHandlerFunc_t)ServiceStatusUnitTestHandler,
+            NULL);
+    LE_TEST_OK(refAll != NULL,
+        "taf_radio_AddServiceStatusChangeHandler ALL_MASKS - !NULL");
+
+    // Case 4: Remove all - no crash expected.
+    taf_radio_RemoveServiceStatusChangeHandler(refNoSvc);
+    LE_TEST_OK(true, "taf_radio_RemoveServiceStatusChangeHandler MASK_NO_SERVICE - void");
+
+    taf_radio_RemoveServiceStatusChangeHandler(refSvc);
+    LE_TEST_OK(true, "taf_radio_RemoveServiceStatusChangeHandler MASK_SERVICE - void");
+
+    taf_radio_RemoveServiceStatusChangeHandler(refMulti);
+    LE_TEST_OK(true, "taf_radio_RemoveServiceStatusChangeHandler MASK_NO_SERVICE|MASK_SERVICE - void");
+
+    taf_radio_RemoveServiceStatusChangeHandler(refAll);
+    LE_TEST_OK(true, "taf_radio_RemoveServiceStatusChangeHandler ALL_MASKS - void");
+
+    // Case 5: Add then immediately Remove (no event loop, no board indication).
+    taf_radio_ServiceStatusChangeHandlerRef_t refImmediate =
+        taf_radio_AddServiceStatusChangeHandler(
+            TAF_RADIO_SERVICE_STATUS_BIT_MASK_NO_SERVICE | TAF_RADIO_SERVICE_STATUS_BIT_MASK_SERVICE,
+            0,
+            (taf_radio_ServiceStatusChangeHandlerFunc_t)ServiceStatusUnitTestHandler,
+            NULL);
+    LE_TEST_OK(refImmediate != NULL,
+        "taf_radio_AddServiceStatusChangeHandler immediate - !NULL");
+    taf_radio_RemoveServiceStatusChangeHandler(refImmediate);
+    LE_TEST_OK(true, "taf_radio_RemoveServiceStatusChangeHandler immediate - void");
+
+    // Case 6: phoneId=1 - filter phone 1 only.
+    taf_radio_ServiceStatusChangeHandlerRef_t refPhone1 =
+        taf_radio_AddServiceStatusChangeHandler(
+            TAF_RADIO_SERVICE_STATUS_BIT_MASK_NO_SERVICE | TAF_RADIO_SERVICE_STATUS_BIT_MASK_SERVICE,
+            1,
+            (taf_radio_ServiceStatusChangeHandlerFunc_t)ServiceStatusUnitTestHandler,
+            NULL);
+    LE_TEST_OK(refPhone1 != NULL,
+        "taf_radio_AddServiceStatusChangeHandler phoneId=1 - !NULL");
+    taf_radio_RemoveServiceStatusChangeHandler(refPhone1);
+    LE_TEST_OK(true, "taf_radio_RemoveServiceStatusChangeHandler phoneId=1 - void");
+
+    // Case 7: phoneId=2 - filter phone 2 only.
+    taf_radio_ServiceStatusChangeHandlerRef_t refPhone2 =
+        taf_radio_AddServiceStatusChangeHandler(
+            TAF_RADIO_SERVICE_STATUS_BIT_MASK_NO_SERVICE | TAF_RADIO_SERVICE_STATUS_BIT_MASK_SERVICE,
+            2,
+            (taf_radio_ServiceStatusChangeHandlerFunc_t)ServiceStatusUnitTestHandler,
+            NULL);
+    LE_TEST_OK(refPhone2 != NULL,
+        "taf_radio_AddServiceStatusChangeHandler phoneId=2 - !NULL");
+    taf_radio_RemoveServiceStatusChangeHandler(refPhone2);
+    LE_TEST_OK(true, "taf_radio_RemoveServiceStatusChangeHandler phoneId=2 - void");
+
+    // Case 8: invalid phoneId (> TAF_RADIO_PHONE_NUM) - should return NULL.
+    taf_radio_ServiceStatusChangeHandlerRef_t refInvalidPhone =
+        taf_radio_AddServiceStatusChangeHandler(
+            TAF_RADIO_SERVICE_STATUS_BIT_MASK_SERVICE,
+            255,
+            (taf_radio_ServiceStatusChangeHandlerFunc_t)ServiceStatusUnitTestHandler,
+            NULL);
+    LE_TEST_OK(refInvalidPhone == NULL,
+        "taf_radio_AddServiceStatusChangeHandler phoneId=255(invalid) - NULL");
+}
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1625,6 +1767,8 @@ COMPONENT_INIT
     TestTafRadioEndcStatus();
     LE_TEST_INFO("======== Radio LTE-CA Test ========");
     TestTafRadioLteCaInformation();
+    LE_TEST_INFO("======== Radio ServiceStatus Handler Test ========");
+    TestTafRadioServiceStatusHandler();
 
     LE_TEST_EXIT;
 }

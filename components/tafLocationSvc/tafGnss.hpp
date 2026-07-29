@@ -44,6 +44,7 @@
 #include <memory>
 #include <vector>
 #include <iostream>
+#include <cmath>
 #include <telux/loc/LocationConfigurator.hpp>
 #include <telux/loc/LocationDefines.hpp>
 #include <telux/loc/DgnssManager.hpp>
@@ -155,6 +156,7 @@ namespace tafsvc {
         bool      satsUsedCountValid;
         bool      satInfoValid;
         bool      satMeasValid;
+        bool      altMeanSeaLevelValid;
         taf_locGnss_GnssMeasurementInfo_t measInfo[TAF_LOCGNSS_MEASUREMENT_INFO_MAX];
         uint8_t   measInfoCount;
         uint16_t SVIds[TAF_LOCGNSS_MEASUREMENT_INFO_MAX];

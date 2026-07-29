@@ -1453,6 +1453,8 @@ FUNCTION Sample GetLastSampleRef
  *
  * @b NOTE: If the caller passes an invalid position sample reference or a null pointer to this
  *       function, it is a fatal error and the client will be killed.
+ *
+ * @deprecated This API is scheduled to be removed in the future.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetPositionState
@@ -1481,7 +1483,7 @@ FUNCTION ReleaseSampleRef
  *
  * @return
  *  - LE_FAULT         Failed to get the location's data
- *  - LE_OUT_OF_RANGE  At least one of the retrieved parameters is invalid.
+ *  - LE_OUT_OF_RANGE  At least one of the retrieved parameters is invalid or NAN.
  *  - LE_OK            Succeeded.
  *
  * @b NOTE: latitudePtr, longitudePtr, and hAccuracyPtr can be set to NULL if not needed.
@@ -1516,7 +1518,7 @@ FUNCTION le_result_t GetLocation
  *
  * @return
  *  - LE_FAULT         Failed to get the location's data
- *  - LE_OUT_OF_RANGE  At least one of the retrieved parameters is invalid.
+ *  - LE_OUT_OF_RANGE  At least one of the retrieved parameters is invalid or NAN.
  *  - LE_OK            Succeeded.
  *
  * @b NOTE: Direction and direction accuracy are given in degrees with 1 decimal place: 1755 = 175.5
@@ -1546,7 +1548,7 @@ FUNCTION le_result_t GetDirection
  *
  * @return
  *  - LE_FAULT         Failed to get the altitude. Invalid position reference provided.
- *  - LE_OUT_OF_RANGE  At least one of the retrieved parameters is invalid.
+ *  - LE_OUT_OF_RANGE  At least one of the retrieved parameters is invalid or NAN.
  *  - LE_OK            Succeeded.
  *
  * @b NOTE: For a 2D position fix, the altitude will be indicated as invalid and set to INT32_MAX
@@ -1573,7 +1575,7 @@ FUNCTION le_result_t GetAltitude
  *
  * @returns
  * - LE_FAULT         Failed to find the positionSample.
- * - LE_OUT_OF_RANGE  At least one of the retrieved parameters is invalid.
+ * - LE_OUT_OF_RANGE  At least one of the retrieved parameters is invalid or NAN.
  * - LE_OK            Succeeded.
  *
  * @b NOTE: hSpeedPtr and hSpeedAccuracyPtr can be set to NULL if not needed.
@@ -2793,7 +2795,7 @@ FUNCTION le_result_t SetDopResolution
  *
  * @return
  *  - LE_FAULT         Failed to find the DOP value.
- *  - LE_OUT_OF_RANGE  The retrieved parameter is invalid (set to UINT16_MAX).
+ *  - LE_OUT_OF_RANGE  The retrieved parameter is invalid (set to UINT16_MAX) or NAN.
  *  - LE_OK            Succeeded.
  *
  *
@@ -3208,6 +3210,7 @@ FUNCTION le_result_t ConfigureSecondaryBandConstellations
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  The Location service is not in the Active state.
+ *  - LE_OUT_OF_RANGE   The retrieved parameter is NAN.
  *
  * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.
@@ -3232,6 +3235,7 @@ FUNCTION le_result_t GetMagneticDeviation
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  The Location service is not in the Active state.
+ *  - LE_OUT_OF_RANGE   The retrieved parameter is NAN.
  *
  * @b NOTE: If the caller passes a null pointer to this function, it is a fatal error
  *       and the client will be killed.

@@ -895,3 +895,27 @@ interface(`telaf_read_vm_overcommit_sysctl',`
         allow $1 sysctl_vm_t:dir { search };
         allow $1 sysctl_vm_overcommit_t:file { read open };
 ')
+
+########################################
+## <summary>
+##      Allow a domain to use the gptp (generic PTP time sync) daemon:
+##      read/write its tmpfs state files, read/write the qgptp hardware
+##      clock device node, and connect to its control socket.
+##
+##      This wraps three platform interfaces from qgptp.if so TelAF
+##      services only need one call:
+##        gptp_rw_tmpfs_files    -- gptp_tmpfs_t (runtime state files)
+##        gptp_rw_qgptp_device   -- qgptp_device_t (hardware PTP clock)
+##        gptp_rw_gptp_sock_file -- gptp_socket_t (control socket)
+## </summary>
+## <param name="domain">
+##      <summary>
+##      The domain that needs to use the gptp daemon.
+##      </summary>
+## </param>
+#
+interface(`telaf_use_gptp',`
+        gptp_rw_tmpfs_files($1)
+        gptp_rw_qgptp_device($1)
+        gptp_rw_gptp_sock_file($1)
+')

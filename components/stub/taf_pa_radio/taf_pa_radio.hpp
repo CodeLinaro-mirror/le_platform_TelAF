@@ -16,7 +16,31 @@
 //--------------------------------------------------------------------------------------------------
 #define TAF_PA_RADIO_LTE_CA_IND_BIT_MASK_SCELL_INFO 0x1
 #define TAF_PA_RADIO_LTE_CA_IND_BIT_MASK_PCELL_INFO 0x2
+#define TAF_PA_RADIO_MAX_RAT_SRV_STATUS_COUNT 5
 typedef uint64_t taf_pa_radio_LteCaIndBitMask_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Bitmask to control system info indication reporting behavior.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_PA_RADIO_SYS_INFO_IND_LIMIT_NONE = 0,
+    TAF_PA_RADIO_SYS_INFO_IND_LIMIT_BY_STATE_TOGGLE = (1 << 0),
+    TAF_PA_RADIO_SYS_INFO_IND_LIMIT_BY_SRV_STATUS = (1 << 1)
+} taf_pa_radio_SysInfoIndLimitMask_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Indication modes to disable.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_PA_RADIO_DISABLE_IND_MODE_ALL,
+    TAF_PA_RADIO_DISABLE_IND_MODE_SKIP_NAS_SYS_INFO_IND
+} taf_pa_radio_DisableIndicationMode_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -59,6 +83,36 @@ typedef enum
     TAF_PA_RADIO_ENDC_STATUS_UNAVAILABLE
 } taf_pa_radio_EndcStatus_t;
 
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * RAT type.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_PA_RADIO_RAT_UNKNOWN,
+    TAF_PA_RADIO_RAT_GSM,
+    TAF_PA_RADIO_RAT_WCDMA,
+    TAF_PA_RADIO_RAT_LTE,
+    TAF_PA_RADIO_RAT_NR5G,
+} taf_pa_radio_Rat_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Service status for the current radio technology.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_PA_RADIO_SRV_STATUS_UNKNOWN,
+    TAF_PA_RADIO_SRV_STATUS_NO_SRV,
+    TAF_PA_RADIO_SRV_STATUS_LIMITED,
+    TAF_PA_RADIO_SRV_STATUS_SRV,
+    TAF_PA_RADIO_SRV_STATUS_LIMITED_REGIONAL,
+    TAF_PA_RADIO_SRV_STATUS_PWR_SAVE,
+} taf_pa_radio_ServiceStatus_t;
+
 //--------------------------------------------------------------------------------------------------
 /**
  * LTE physical carrier aggregation information reference.
@@ -83,6 +137,25 @@ typedef void (*taf_pa_radio_EndcStatusHdlrFunc_t)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Service status handler function type.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef void (*taf_pa_radio_ServiceStatusChangeHandlerFunc_t)
+(
+    uint8_t phoneId,
+    taf_pa_radio_Rat_t rat,
+    taf_pa_radio_ServiceStatus_t serviceStatus,
+    void* contextPtr
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Reference for service status change handler.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef void* taf_pa_radio_ServiceStatusChangeHandlerRef_t;
+//--------------------------------------------------------------------------------------------------
+/**
  * Enable indication
  */
 //--------------------------------------------------------------------------------------------------
@@ -98,7 +171,18 @@ LE_SHARED le_result_t taf_pa_radio_EnableIndication
 //--------------------------------------------------------------------------------------------------
 LE_SHARED le_result_t taf_pa_radio_DisableIndication
 (
-    void
+    taf_pa_radio_DisableIndicationMode_t mode
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set system info indication filtering.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_SetSysInfoIndLimit
+(
+    uint8_t phoneId,
+    taf_pa_radio_SysInfoIndLimitMask_t limitMask
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -220,6 +304,29 @@ LE_SHARED le_result_t taf_pa_radio_GetRatSvcStatus
 
 //--------------------------------------------------------------------------------------------------
 /**
+ *  Get RAT service status and serving rat.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t  taf_pa_radio_GetServiceStatus
+(
+    uint8_t phoneId,
+    taf_pa_radio_Rat_t* servingRat,
+    taf_pa_radio_ServiceStatus_t* status
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Get limit set for sys info indication.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_radio_GetSysInfoIndLimit
+(
+    uint8_t phoneId,
+    taf_pa_radio_SysInfoIndLimitMask_t* limitMask
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Add handler for network status.
  */
 //--------------------------------------------------------------------------------------------------
@@ -237,6 +344,27 @@ LE_SHARED taf_radio_NetStatusChangeHandlerRef_t taf_pa_radio_AddNetStatusChangeH
 LE_SHARED void taf_pa_radio_RemoveNetStatusChangeHandler
 (
     taf_radio_NetStatusChangeHandlerRef_t handlerRef ///< [IN] Handler reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler for service status change.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED taf_pa_radio_ServiceStatusChangeHandlerRef_t taf_pa_radio_AddServiceStatusChangeHandler
+(
+    taf_pa_radio_ServiceStatusChangeHandlerFunc_t handlerFuncPtr,
+    void* contextPtr
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler for service status change.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED void taf_pa_radio_RemoveServiceStatusChangeHandler
+(
+    taf_pa_radio_ServiceStatusChangeHandlerRef_t handlerRef
 );
 
 //--------------------------------------------------------------------------------------------------

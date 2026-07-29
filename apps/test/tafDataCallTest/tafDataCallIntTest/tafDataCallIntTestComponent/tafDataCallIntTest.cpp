@@ -724,6 +724,7 @@ COMPONENT_INIT
     uint32_t profile_index =5;// Use profile 5 to test, because profile 1 used by xtra-daemon
 
     TestSemRef = le_sem_Create("tafDataAppSem", 0);
+    semaphore = le_sem_Create("tafDataRemoveHandlrSem", 0);
 
     std::cout <<endl;
     std::cout <<"************************************************" << endl;
@@ -843,6 +844,7 @@ COMPONENT_INIT
     le_sem_Wait(TestSemRef);
     le_event_QueueFunctionToThread(threadRef, (le_event_DeferredFunc_t)remove_handler,
                                    &TestSessionStateRef, NULL);
+    le_sem_Wait(semaphore);
 
     LE_TEST_EXIT;
 }

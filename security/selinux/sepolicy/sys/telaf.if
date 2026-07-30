@@ -666,7 +666,10 @@ interface(`telaf_exec_shell',`
 ##                    (e.g. /dev/shm, sandboxed app /tmp bind mounts).
 ##                    filesystem getattr : statvfs() on the mount.
 ##                    file read/write/open/getattr : access tmpfs files.
-##                    dir search_dir_perms : traverse tmpfs directories.
+##                    dir search_dir_perms plus create/add_name/write:
+##                    traverse tmpfs directories and create subdirectories
+##                    under them (e.g. a sandboxed app creating its own
+##                    "data" dir under its tmpfs-backed /tmp).
 ##                    mounton is intentionally excluded: only
 ##                    telaf_admin_domain does bind mounts over tmpfs.
 ##
@@ -692,7 +695,7 @@ interface(`telaf_manage_tmp_files',`
         allow $1 user_tmp_t:file { manage_file_perms };
         allow $1 tmpfs_t:filesystem getattr;
         allow $1 tmpfs_t:file { read write open getattr };
-        allow $1 tmpfs_t:dir { search_dir_perms };
+        allow $1 tmpfs_t:dir { search_dir_perms create add_name write };
 ')
 
 ########################################

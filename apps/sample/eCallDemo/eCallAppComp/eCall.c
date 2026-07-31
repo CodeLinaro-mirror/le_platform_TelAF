@@ -4,6 +4,11 @@
  */
 
 #include <sys/time.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <limits.h>
 
 #include "legato.h"
 #include "interfaces.h"
@@ -110,6 +115,27 @@ Number of passenger:2
 */
 
 static uint8_t msdLength = 39;
+static void OnEcallServerDisconnected(void* ctx);
+static void OnAudioServerDisconnected(void* ctx);
+static void OnLocServerDisconnected(void* ctx);
+static void OnGpioServerDisconnected(void* ctx);
+
+static void EcallReconnectTimerHandler(le_timer_Ref_t);
+static void AudioReconnectTimerHandler(le_timer_Ref_t);
+static void LocReconnectTimerHandler(le_timer_Ref_t);
+static void GpioReconnectTimerHandler(le_timer_Ref_t);
+
+static le_timer_Ref_t EcallReconnectTimer = NULL;
+static le_timer_Ref_t AudioReconnectTimer = NULL;
+static le_timer_Ref_t LocReconnectTimer   = NULL;
+static le_timer_Ref_t GpioReconnectTimer  = NULL;
+
+static uint32_t EcallRetryMs = 1000;
+static uint32_t AudioRetryMs = 1000;
+static uint32_t LocRetryMs   = 1000;
+static uint32_t GpioRetryMs  = 1000;
+
+static uint32_t GpioPinTracked = UINT32_MAX;
 
 static void PositionHandlerFunction
 (
@@ -178,6 +204,8 @@ static void* SamplePositionThread
 {
     //connect the position service to the current running thread
     taf_locGnss_ConnectService();
+
+    taf_locGnss_SetNonExitServerDisconnectHandler(OnLocServerDisconnected, NULL);
 
     le_result_t result = taf_locGnss_Start();
 
@@ -400,6 +428,8 @@ static void OpenVoiceAudio()
 static void ConnectAudio()
 {
     LE_INFO("ConnectAudio");
+
+    taf_audio_SetNonExitServerDisconnectHandler(OnAudioServerDisconnected, NULL);
 
     routeRef = taf_audio_OpenRoute(TAF_AUDIO_ROUTE_1, TAF_AUDIO_VOICE_CALL, &FeOutRef, &FeInRef);
     LE_ERROR_IF((routeRef == NULL), "routeRef  is NULL!");
@@ -1528,6 +1558,9 @@ static int addGPIOHandler()
     }
     uint32_t pin = atoi(pinNum);
 
+    taf_gpio_SetNonExitServerDisconnectHandler(OnGpioServerDisconnected, NULL);
+    GpioPinTracked = pin;
+
     taf_gpio_SetInput(pin, TAF_GPIO_ACTIVE_HIGH, false);
 
     GpioHandlerRef = taf_gpio_AddChangeEventHandler(pin, TAF_GPIO_EDGE_RISING,
@@ -1635,6 +1668,189 @@ static int setInitialDialIntervalBetweenDialAttempts()
     return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
+static void OnEcallServerDisconnected(void* ctx)
+{
+    LE_WARN("taf_ecall server disconnected (non-exit); start reconnect timer");
+
+    if (!EcallReconnectTimer)
+    {
+        EcallRetryMs = 1000;
+        EcallReconnectTimer = le_timer_Create("EcallReconnectTimer");
+        le_clk_Time_t itv = { .sec = EcallRetryMs / 1000, .usec = (EcallRetryMs % 1000) * 1000 };
+        le_timer_SetInterval(EcallReconnectTimer, itv);
+        le_timer_SetHandler(EcallReconnectTimer, EcallReconnectTimerHandler);
+        le_timer_Start(EcallReconnectTimer);
+    }
+
+    if (ECallRef)
+    {
+        ECallRef = NULL;
+    }
+}
+
+static void EcallReconnectTimerHandler(le_timer_Ref_t t)
+{
+    le_result_t r = taf_ecall_TryConnectService();
+    if (r == LE_OK)
+    {
+        LE_WARN("taf_ecall reconnected");
+
+        taf_ecall_SetNonExitServerDisconnectHandler(OnEcallServerDisconnected, NULL);
+
+        if (HandlerRef)
+        {
+            taf_ecall_RemoveStateChangeHandler(HandlerRef);
+        }
+        HandlerRef = taf_ecall_AddStateChangeHandler(tafECallStateHandler, NULL);
+
+        le_timer_Stop(t);
+        le_timer_Delete(t);
+        EcallReconnectTimer = NULL;
+        EcallRetryMs = 1000;
+        return;
+    }
+
+    EcallRetryMs = (EcallRetryMs < 30000) ? (EcallRetryMs * 2) : 30000;
+    le_clk_Time_t itv = { .sec = EcallRetryMs / 1000, .usec = (EcallRetryMs % 1000) * 1000 };
+    le_timer_SetInterval(t, itv);
+    le_timer_Start(t);
+}
+
+static void OnAudioServerDisconnected(void* ctx)
+{
+    LE_WARN("taf_audio server disconnected (non-exit); start reconnect timer");
+
+    MediaHandlerRef = NULL;
+    AudioInputConnectorRef = NULL;
+    AudioOutputConnectorRef = NULL;
+    playerConnectorRef = NULL;
+    MdmRxAudioRef = NULL;
+    MdmTxAudioRef = NULL;
+    playerRef = NULL;
+    routeRef = NULL;
+
+    if (!AudioReconnectTimer)
+    {
+        AudioRetryMs = 1000;
+        AudioReconnectTimer = le_timer_Create("AudioReconnectTimer");
+        le_clk_Time_t itv = { .sec = AudioRetryMs / 1000, .usec = (AudioRetryMs % 1000) * 1000 };
+        le_timer_SetInterval(AudioReconnectTimer, itv);
+        le_timer_SetHandler(AudioReconnectTimer, AudioReconnectTimerHandler);
+        le_timer_Start(AudioReconnectTimer);
+    }
+}
+
+static void AudioReconnectTimerHandler(le_timer_Ref_t t)
+{
+    le_result_t r = taf_audio_TryConnectService();
+    if (r == LE_OK)
+    {
+        LE_WARN("taf_audio reconnected");
+
+        taf_audio_SetNonExitServerDisconnectHandler(OnAudioServerDisconnected, NULL);
+
+        le_timer_Stop(t);
+        le_timer_Delete(t);
+        AudioReconnectTimer = NULL;
+        AudioRetryMs = 1000;
+        return;
+    }
+
+    AudioRetryMs = (AudioRetryMs < 30000) ? (AudioRetryMs * 2) : 30000;
+    le_clk_Time_t itv = { .sec = AudioRetryMs / 1000, .usec = (AudioRetryMs % 1000) * 1000 };
+    le_timer_SetInterval(t, itv);
+    le_timer_Start(t);
+}
+
+static void OnLocServerDisconnected(void* ctx)
+{
+    LE_WARN("taf_locGnss server disconnected (non-exit); start reconnect timer");
+
+    PositionHandlerRef = NULL;
+
+    if (!LocReconnectTimer)
+    {
+        LocRetryMs = 1000;
+        LocReconnectTimer = le_timer_Create("LocReconnectTimer");
+        le_clk_Time_t itv = { .sec = LocRetryMs / 1000, .usec = (LocRetryMs % 1000) * 1000 };
+        le_timer_SetInterval(LocReconnectTimer, itv);
+        le_timer_SetHandler(LocReconnectTimer, LocReconnectTimerHandler);
+        le_timer_Start(LocReconnectTimer);
+    }
+}
+
+static void LocReconnectTimerHandler(le_timer_Ref_t t)
+{
+    le_result_t r = taf_locGnss_TryConnectService();
+    if (r == LE_OK)
+    {
+        LE_WARN("taf_locGnss reconnected");
+
+        taf_locGnss_SetNonExitServerDisconnectHandler(OnLocServerDisconnected, NULL);
+
+        le_timer_Stop(t);
+        le_timer_Delete(t);
+        LocReconnectTimer = NULL;
+        LocRetryMs = 1000;
+        return;
+    }
+
+    LocRetryMs = (LocRetryMs < 30000) ? (LocRetryMs * 2) : 30000;
+    le_clk_Time_t itv = { .sec = LocRetryMs / 1000, .usec = (LocRetryMs % 1000) * 1000 };
+    le_timer_SetInterval(t, itv);
+    le_timer_Start(t);
+}
+
+static void OnGpioServerDisconnected(void* ctx)
+{
+    LE_WARN("taf_gpio server disconnected (non-exit); start reconnect timer");
+
+    GpioHandlerRef = NULL;
+
+    if (!GpioReconnectTimer)
+    {
+        GpioRetryMs = 1000;
+        GpioReconnectTimer = le_timer_Create("GpioReconnectTimer");
+        le_clk_Time_t itv = { .sec = GpioRetryMs / 1000, .usec = (GpioRetryMs % 1000) * 1000 };
+        le_timer_SetInterval(GpioReconnectTimer, itv);
+        le_timer_SetHandler(GpioReconnectTimer, GpioReconnectTimerHandler);
+        le_timer_Start(GpioReconnectTimer);
+    }
+}
+
+static void GpioReconnectTimerHandler(le_timer_Ref_t t)
+{
+    le_result_t r = taf_gpio_TryConnectService();
+    if (r == LE_OK)
+    {
+        LE_WARN("taf_gpio reconnected");
+
+        taf_gpio_SetNonExitServerDisconnectHandler(OnGpioServerDisconnected, NULL);
+
+        if (GpioPinTracked != UINT32_MAX)
+        {
+            taf_gpio_SetInput(GpioPinTracked, TAF_GPIO_ACTIVE_HIGH, false);
+            GpioHandlerRef = taf_gpio_AddChangeEventHandler(GpioPinTracked,
+                                                            TAF_GPIO_EDGE_RISING,
+                                                            false,
+                                                            GpioChangeCallback,
+                                                            NULL);
+            LE_INFO("Re-added GPIO handler on pin %u after reconnect", GpioPinTracked);
+        }
+
+        le_timer_Stop(t);
+        le_timer_Delete(t);
+        GpioReconnectTimer = NULL;
+        GpioRetryMs = 1000;
+        return;
+    }
+
+    GpioRetryMs = (GpioRetryMs < 30000) ? (GpioRetryMs * 2) : 30000;
+    le_clk_Time_t itv = { .sec = GpioRetryMs / 1000, .usec = (GpioRetryMs % 1000) * 1000 };
+    le_timer_SetInterval(t, itv);
+    le_timer_Start(t);
+}
+
 COMPONENT_INIT
 {
     int status = EXIT_SUCCESS;
@@ -1654,6 +1870,7 @@ COMPONENT_INIT
 
     const char* command = le_arg_GetArg(1);
     HandlerRef = taf_ecall_AddStateChangeHandler(tafECallStateHandler, NULL);
+    taf_ecall_SetNonExitServerDisconnectHandler(OnEcallServerDisconnected, NULL);
     if (command == NULL || strcmp(command, "help") == 0)
     {
         PrintUsage();

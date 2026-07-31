@@ -721,12 +721,8 @@ taf_locGnss_CapabilityChangeHandlerRef_t taf_locGnss_AddCapabilityChangeHandler
  void* contextPtr
 )
 {
-    le_event_HandlerRef_t handlerRef;
     auto &gnss = taf_locGnss::GetInstance();
-    handlerRef = (le_event_HandlerRef_t)gnss.AddCapabilityHandler(handlerPtr, contextPtr);
-    le_event_SetContextPtr(handlerRef, contextPtr);
-
-    return (taf_locGnss_CapabilityChangeHandlerRef_t)(handlerRef);
+    return (taf_locGnss_CapabilityChangeHandlerRef_t)gnss.AddCapabilityHandler(handlerPtr, contextPtr);
 }
 
 /**
@@ -758,12 +754,8 @@ taf_locGnss_NmeaHandlerRef_t taf_locGnss_AddNmeaHandler
  void* contextPtr
 )
 {
-    le_event_HandlerRef_t handlerRef;
     auto &gnss = taf_locGnss::GetInstance();
-    handlerRef = (le_event_HandlerRef_t)gnss.AddNmeaHandler(handlerPtr, contextPtr);
-    le_event_SetContextPtr(handlerRef, contextPtr);
-
-    return (taf_locGnss_NmeaHandlerRef_t)(handlerRef);
+    return (taf_locGnss_NmeaHandlerRef_t)gnss.AddNmeaHandler(handlerPtr, contextPtr);
 }
 
 /**
@@ -2163,4 +2155,269 @@ le_result_t taf_locGnss_GetMeasDataValidityMask
     auto &gnss = taf_locGnss::GetInstance();
     return gnss.GetMeasDataValidityMask(measSampleRef, measDataValidityMaskPtr,
             measDataValidityMaskSizePtr);
+}
+
+/**
+* FUNCTION     : GetNavigationSolution
+* DESCRIPTION  : This function gets navigation solution mask used to indicate solutions used in the fix.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_locGnss_GetNavigationSolution
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+        ///< [IN] Position sample reference.
+    uint32_t* navSolutionPtr
+        ///< [OUT] Navigation solution bit mask.
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetNavigationSolution(positionSampleRef, navSolutionPtr);
+}
+
+/**
+* FUNCTION     : GetDgnssStationIds
+* DESCRIPTION  : This function gets list of DGNSS station IDs providing corrections.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_locGnss_GetDgnssStationIds
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+        ///< [IN] Position sample reference.
+    uint16_t* stationIdsPtr,
+        ///< [OUT] Dgnss satellite data.
+    size_t* stationIdsSizePtr
+        ///< [INOUT]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetDgnssStationIds(positionSampleRef, stationIdsPtr,
+            stationIdsSizePtr);
+}
+
+/**
+* FUNCTION     : CreateDgnssInjectionSource
+* DESCRIPTION  : This function create a Dgnss injection source.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_NOT_PERMITTED on failed with reason
+*/
+taf_locGnss_DgnssSourceRef_t taf_locGnss_CreateDgnssSource
+(
+    taf_locGnss_DgnssFormat_t dgnssDataFormat
+        ///< [IN]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.CreateDgnssSource(dgnssDataFormat);
+}
+
+/**
+* FUNCTION     : ReleaseDgnssInjectionSource
+* DESCRIPTION  : This function release current Dgnss injection source.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_NOT_PERMITTED on failed with reason
+*/
+le_result_t taf_locGnss_ReleaseDgnssSource
+(
+    taf_locGnss_DgnssSourceRef_t sourceRef
+        ///< [IN]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.ReleaseDgnssSource(sourceRef);
+}
+
+/**
+* FUNCTION     : InjectDgnssCorrection
+* DESCRIPTION  : This function used to inject correction data.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_NOT_PERMITTED,LE_BAD_PARAMETER on failed with reason
+*/
+le_result_t taf_locGnss_InjectDgnssCorrection
+(
+    taf_locGnss_DgnssSourceRef_t sourceRef,
+        ///< [IN] Source reference created for injection.
+    const uint8_t* correctionDataPtr,
+        ///< [IN] File path used for injection.
+    size_t correctionDataSize
+        ///< [IN]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.InjectDgnssCorrection(sourceRef, correctionDataPtr, correctionDataSize);
+}
+
+taf_locGnss_DgnssStatusChangeHandlerRef_t taf_locGnss_AddDgnssStatusChangeHandler
+(
+    taf_locGnss_DgnssStatusChangeHandlerFunc_t handlerPtr,
+        ///< [IN] Injection status change handler
+    void* contextPtr
+        ///< [IN]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return (taf_locGnss_DgnssStatusChangeHandlerRef_t)gnss.AddDgnssStatusChangeHandler(handlerPtr, contextPtr);
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_locGnss_DgnssInjectionStatusChange'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_locGnss_RemoveDgnssStatusChangeHandler
+(
+    taf_locGnss_DgnssStatusChangeHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.RemoveDgnssStatusChangeHandler(handlerRef);
+}
+
+/**
+* FUNCTION     : InjectMerkleTreeInformationByPath
+* DESCRIPTION  : This function Injects the Merkle Tree information via an XML configuration file
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
+*/
+//--------------------------------------------------------------------------------------------------
+/**
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_locGnss_InjectMerkleTreeInformationByPath
+(
+    const char* LE_NONNULL merkleTreeFilePath
+        ///< [IN]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.InjectMerkleData(merkleTreeFilePath);
+}
+
+/**
+* FUNCTION     : ConfigureOsnma
+* DESCRIPTION  : This function Enables or disables the OSNMA feature in the modem.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_NOT_PERMITTED on failed with reason
+*/
+//--------------------------------------------------------------------------------------------------
+/**
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_locGnss_ConfigureOsnma
+(
+    bool galOsnma
+        ///< [IN]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.ConfigureOsnma(galOsnma);
+}
+
+/**
+* FUNCTION     : SetEngineIntegrityRisk
+* DESCRIPTION  : Set the Integrity risk of desired engine
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_BAD_PARAMETER LE_NOT_PERMITTED on failed with reason
+*/
+le_result_t taf_locGnss_SetEngineIntegrityRisk
+(
+    taf_locGnss_EngineType_t engtype,
+        ///< [IN]
+    uint32_t integrityRisk
+        ///< [IN]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.SetEngineIntegrityRisk(engtype, integrityRisk);
+}
+
+/**
+* FUNCTION     : GetProtectionLevels
+* DESCRIPTION  : Get the protection level values at the specified integrity risk
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
+*/
+le_result_t taf_locGnss_GetProtectionLevels
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+        ///< [IN]
+    double* protectionLevelAlongTrackPtr,
+        ///< [OUT]
+    double* protectionLevelCrossTrackPtr,
+        ///< [OUT]
+    double* protectionLevelVerticalPtr
+        ///< [OUT]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetProtectionLevels(positionSampleRef, protectionLevelAlongTrackPtr,
+            protectionLevelCrossTrackPtr, protectionLevelVerticalPtr);
+}
+
+/**
+* FUNCTION     : GetBaselineLength
+* DESCRIPTION  : Get the distance between the basestation and the receiver.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
+*/
+le_result_t taf_locGnss_GetBaselineLength
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+        ///< [IN]
+    double* baselineLengthPtr
+        ///< [OUT]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetBaselineLength(positionSampleRef, baselineLengthPtr);
+}
+
+/**
+* FUNCTION     : GetAgeOfCorrections
+* DESCRIPTION  : Get the difference in time between the fix timestamp using the correction
+*                and the time of the correction data.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
+*/
+le_result_t taf_locGnss_GetAgeOfCorrections
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+        ///< [IN]
+    uint64_t* ageCorrectionsPtr
+        ///< [OUT]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetAgeOfCorrections(positionSampleRef, ageCorrectionsPtr);
+}
+
+/**
+* FUNCTION     : GetIntegrityRiskUsed
+* DESCRIPTION  : Gets the integrity risk used for protection level parameters
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
+*/
+le_result_t taf_locGnss_GetIntegrityRiskUsed
+(
+    taf_locGnss_SampleRef_t positionSampleRef,
+        ///< [IN]
+    uint32_t* integrityRiskUsedPtr
+        ///< [OUT]
+)
+{
+    auto &gnss = taf_locGnss::GetInstance();
+    return gnss.GetIntegrityRiskUsed(positionSampleRef, integrityRiskUsedPtr);
 }

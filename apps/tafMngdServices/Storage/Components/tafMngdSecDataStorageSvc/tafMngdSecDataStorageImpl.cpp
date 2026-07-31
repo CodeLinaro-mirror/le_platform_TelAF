@@ -101,7 +101,7 @@ size_t tafMngdStorageSvc::GetFilesSizeInDirectory
 
     closedir(dp);
 
-    LE_INFO("File size in %s is %" PRIuS, dirPath, totalSize);
+    LE_DEBUG("File size in %s is %" PRIuS, dirPath, totalSize);
 
     return totalSize;
 }
@@ -229,7 +229,7 @@ le_result_t tafMngdStorageSvc::GetAppNameBySessionRef
 
     snprintf(appNameStr, appNameSize, "%s", namePtr);
 
-    LE_INFO("Get appName: %s", appNameStr);
+    LE_DEBUG("Get appName: %s", appNameStr);
 
     return LE_OK;
 }

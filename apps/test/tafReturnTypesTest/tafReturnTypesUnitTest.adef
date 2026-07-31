@@ -48,7 +48,6 @@ bindings:
     tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_wlanAp -> tafWlanSvc.taf_wlanAp
     tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_wlanSta -> tafWlanSvc.taf_wlanSta
     tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_simRsim -> tafRemoteSimSvc.taf_simRsim
-    tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_simRsp -> tafSimCardSvc.taf_simRsp
     tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_simSap -> tafRemoteSimSvc.taf_simSap
     tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_verInfo -> tafVerInfoSvc.taf_verInfo
     tafReturnTypesUnitTest.tafReturnTypesTestComp.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt

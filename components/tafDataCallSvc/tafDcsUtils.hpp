@@ -14,8 +14,8 @@
 
 #include "legato.h"
 #include "interfaces.h"
-#include "taf_pa_common.h"
-#include "taf_pa_dataTypes.hpp"
+#include "tafCommonPa.h"
+#include "tafDataPa.hpp"
 
 /**
  * Convert a ENUM to an integer primarily for printing with LE log APIs.

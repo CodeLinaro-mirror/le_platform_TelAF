@@ -16,7 +16,6 @@ using namespace tafsvc;
  */
 le_result_t tafMngdRpcPm::ShutdownRpcNAD()
 {
-    LE_INFO(" shutdown the RPC NAD");
     le_result_t res = LE_FAULT;
     auto &rpcPm = tafMngdRpcPm::GetInstance();
     if(rpcPm.IsRpcConnected) {
@@ -39,7 +38,6 @@ le_result_t tafMngdRpcPm::ShutdownRpcNAD()
  */
 le_result_t tafMngdRpcPm::RestartRpcNAD()
 {
-    LE_INFO(" Restart the RPC NAD");
     le_result_t res = LE_FAULT;
     auto &rpcPm = tafMngdRpcPm::GetInstance();
     if(rpcPm.IsRpcConnected) {
@@ -62,7 +60,6 @@ le_result_t tafMngdRpcPm::RestartRpcNAD()
  */
 le_result_t tafMngdRpcPm::SuspendRpcNAD()
 {
-    LE_INFO(" Suspend the RPC NAD");
     le_result_t res = LE_FAULT;
     auto &rpcPm = tafMngdRpcPm::GetInstance();
     if(rpcPm.IsRpcConnected) {
@@ -161,10 +158,8 @@ le_result_t tafMngdRpcPm::ReleaseRpcNodeWakeLock()
 /**
  * Releases the acquired wake lock for the given reference.
  */
-le_result_t tafMngdRpcPm::RelaxRpcNode(taf_mngdPm_wsRef_t wsRef)
+le_result_t tafMngdRpcPm::RelaxRpcNode(taf_mngdPm_wsNodeRef_t wsRef)
 {
-    LE_INFO("RelaxRpcNode");
-
     auto &rpcPm = tafMngdRpcPm::GetInstance();
     le_result_t res = LE_FAULT;
     if(rpcPm.IsRpcConnected)
@@ -196,10 +191,8 @@ le_result_t tafMngdRpcPm::RelaxRpcNode(taf_mngdPm_wsRef_t wsRef)
 /**
  * Keeps the system awake by acquiring wake lock for the given reference.
  */
-le_result_t tafMngdRpcPm::StayAwakeRpcNode(taf_mngdPm_wsRef_t wsRef)
+le_result_t tafMngdRpcPm::StayAwakeRpcNode(taf_mngdPm_wsNodeRef_t wsRef)
 {
-    LE_INFO("RPC StayAwakeRpcNode");
-
     auto &rpcPm = tafMngdRpcPm::GetInstance();
     le_result_t res = LE_FAULT;
     if(rpcPm.IsRpcConnected) {
@@ -240,21 +233,44 @@ le_result_t tafMngdRpcPm::StayAwakeRpcNode(taf_mngdPm_wsRef_t wsRef)
 /**
  * Creates the node wakeupSource reference.
  */
-taf_mngdPm_wsRef_t tafMngdRpcPm::NewRpcNodeWakeupSource(uint8_t pmNodeId,
-        taf_mngdPm_WakeupType_t wakeupType)
-
+taf_mngdPm_wsNodeRef_t tafMngdRpcPm::CreateRpcNodeWakeupSource
+(
+    uint8_t pmNodeId,
+    taf_mngdPm_WsOpt_t option,
+    const char* wsTag
+)
 {
-    LE_INFO("NewRpcNodeWakeupSource");
     auto &rpcPm = tafMngdRpcPm::GetInstance();
+
     if(rpcPm.IsRpcConnected) {
         LE_INFO("RPC Connected");
+
+        // Check for duplicate wsTag within the same session
+        le_dls_Link_t* linkPtr = le_dls_Peek(&(rpcPm.rpcWsRefList));
+        while (linkPtr)
+        {
+            taf_nodeWsRefCtx_t *existingPtr =
+                CONTAINER_OF(linkPtr, taf_nodeWsRefCtx_t, link);
+            linkPtr = le_dls_PeekNext(&(rpcPm.rpcWsRefList), linkPtr);
+
+            if (existingPtr->sessionRef == taf_mngdPm_GetClientSessionRef()
+            &&  strcmp(existingPtr->wsTag, wsTag) == 0)
+            {
+                LE_WARN("CreateRpcNodeWakeupSource: wsTag '%s' already exists for this session",
+                        wsTag);
+                return NULL;
+            }
+        }
+
         taf_nodeWsRefCtx_t * wsCtxPtr =
                 (taf_nodeWsRefCtx_t *)le_mem_ForceAlloc(rpcPm.rpcWsRefPool);
-        if(wsCtxPtr) {
-            wsCtxPtr->wsRef = (taf_mngdPm_wsRef_t)le_ref_CreateRef(
+        if(wsCtxPtr)
+        {
+            wsCtxPtr->wsRef = (taf_mngdPm_wsNodeRef_t)le_ref_CreateRef(
                     rpcPm.rpcWsRefMap, wsCtxPtr);
+            wsCtxPtr->wsTag = strdup(wsTag);
             wsCtxPtr->pmNodeId = pmNodeId;
-            wsCtxPtr->wakeupType = wakeupType;
+            wsCtxPtr->option = option;
             wsCtxPtr->sessionRef = taf_mngdPm_GetClientSessionRef();
             wsCtxPtr->link = LE_DLS_LINK_INIT;
             wsCtxPtr->isAcquiredLock= false;
@@ -262,7 +278,47 @@ taf_mngdPm_wsRef_t tafMngdRpcPm::NewRpcNodeWakeupSource(uint8_t pmNodeId,
             return wsCtxPtr->wsRef;
         }
     }
+
     return NULL;
+}
+
+le_result_t tafMngdRpcPm::DeleteRpcNodeWakeupSource
+(
+    taf_mngdPm_wsNodeRef_t wsRef
+)
+{
+    le_result_t rst = LE_NOT_FOUND;
+
+    auto &rpcPm = tafMngdRpcPm::GetInstance();
+    le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(rpcPm.rpcWsRefList));
+
+    while (linkHandlerPtr)
+    {
+        taf_nodeWsRefCtx_t * wsRefCtxPtr =
+                CONTAINER_OF(linkHandlerPtr, taf_nodeWsRefCtx_t, link);
+
+        linkHandlerPtr = le_dls_PeekPrev(&(rpcPm.rpcWsRefList), linkHandlerPtr);
+
+        if (wsRefCtxPtr && wsRefCtxPtr->wsRef == wsRef
+        &&  wsRefCtxPtr->sessionRef == taf_mngdPm_GetClientSessionRef())
+        {
+            LE_INFO("RPC: found & delete ws: %s from client session: %p",
+                    wsRefCtxPtr->wsTag,
+                    wsRefCtxPtr->sessionRef);
+            le_ref_DeleteRef(rpcPm.rpcWsRefMap, wsRefCtxPtr->wsRef);
+            le_dls_Remove(&(rpcPm.rpcWsRefList), &wsRefCtxPtr->link);
+            le_mem_Release((void*)wsRefCtxPtr);
+            rst = LE_OK;
+            break;
+        }
+    }
+
+    if (rst == LE_NOT_FOUND)
+    {
+        LE_WARN("Not found the wsRef: %p in list", wsRef);
+    }
+
+    return rst;
 }
 
 /**
@@ -270,7 +326,6 @@ taf_mngdPm_wsRef_t tafMngdRpcPm::NewRpcNodeWakeupSource(uint8_t pmNodeId,
  */
 void RemoveRpcNodeWakeupSource()
 {
-    LE_INFO("RemoveRpcNodeWakeupSource");
     auto &rpcPm = tafMngdRpcPm::GetInstance();
     le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(rpcPm.rpcWsRefList));
 
@@ -298,7 +353,6 @@ le_result_t tafMngdRpcPm::SendRpcNodePowerStateChangeAck
     taf_mngdPm_NodeClientAck_t ack
 )
 {
-    LE_INFO("SendRpcNodePowerStateChangeAck");
     taf_mngdPm_NodePowerState_t state = TAF_MNGDPM_NODE_STATE_RESUME;
     auto &rpcPm = tafMngdRpcPm::GetInstance();
     bool IsClientPresent = false;
@@ -309,7 +363,7 @@ le_result_t tafMngdRpcPm::SendRpcNodePowerStateChangeAck
             if (((client.nodeStateRef == (taf_mngdPm_nodePowerStateRef_t)Ref) &&
                     (client.sessionRef == taf_mngdPm_GetClientSessionRef())))
             {
-                LE_INFO("Client found in record");
+                LE_INFO("Client %p found in record", client.sessionRef);
                 IsClientPresent = true;
                 state = client.state;
                 break;
@@ -325,7 +379,6 @@ le_result_t tafMngdRpcPm::SendRpcNodePowerStateChangeAck
             }
             else
             {
-                LE_INFO("Received ACK from client");
                 rpcPm.ackRpcClientrecrdSize++;
                 LE_INFO("rpcRegClientrecrd size is %zu ,ackRpcClientrecrdSize size is:%d",
                         rpcPm.rpcRegClientrecrd.size(), rpcPm.ackRpcClientrecrdSize);
@@ -358,7 +411,6 @@ le_result_t tafMngdRpcPm::SendRpcNodePowerStateChangeAck
 void tafMngdRpcPm::RpcPmStateChangeExHandler(taf_rpcPm_PowerStateRef_t psRef,
                 taf_rpcPm_NadVm_t vm_id, taf_rpcPm_State_t state, void* contextPtr)
 {
-    LE_INFO("State change triggered in RpcPmStateChangeExHandler");
     auto &rpcPm = tafMngdRpcPm::GetInstance();
 
     rpcPm.rpcPowerStateRef = psRef;
@@ -374,7 +426,6 @@ void tafMngdRpcPm::RpcPmStateChangeExHandler(taf_rpcPm_PowerStateRef_t psRef,
         LE_DEBUG("Received all wakelocks released notification");
         if(rpcPm.rpcTargetedPowerMode == TAF_MNGDPM_SHUTDOWN)
         {
-            LE_INFO("RPC ShutdownNAD");
             le_result_t res = rpcPm.ShutdownRpcNAD();
             if(res == LE_OK) {
                 LE_INFO("RPC ShutdownNAD triggered from MPMS");
@@ -387,7 +438,6 @@ void tafMngdRpcPm::RpcPmStateChangeExHandler(taf_rpcPm_PowerStateRef_t psRef,
         }
         else if(rpcPm.rpcWsCount == 0)
         {
-            LE_INFO("SuspendRpcNAD");
 	        le_result_t res = rpcPm.SuspendRpcNAD();
             if(res == LE_OK) {
                 LE_INFO("SuspendRpcNAD triggered from MPMS");
@@ -426,28 +476,27 @@ void tafMngdRpcPm::RpcPmStateChangeExHandler(taf_rpcPm_PowerStateRef_t psRef,
 
 void tafMngdRpcPm::SendAckToRpcPms(taf_mngdPm_NodePowerState_t state, taf_rpcPm_ClientAck_t ackType)
 {
-    LE_INFO("SendAckToRpcPms");
     auto &rpcPm = tafMngdRpcPm::GetInstance();
     if(rpcPm.IsRpcConnected)
     {
         if (state == TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE)
         {
-            LE_INFO("TAF_PM_STATE_SHUTDOWN");
+            LE_INFO("TAF_PM_STATE_SHUTDOWN with ackType %d", (int)ackType);
             taf_rpcPm_SendStateChangeAck(rpcPm.rpcPowerStateRef, TAF_RPCPM_STATE_SHUTDOWN, TAF_RPCPM_PVM, ackType);
         }
         else if(state== TAF_MNGDPM_NODE_STATE_RESTART_PREPARE)
         {
-            LE_INFO("TAF_PM_STATE_SHUTDOWN");
+            LE_INFO("TAF_PM_STATE_RESTART with ackType %d", (int)ackType);
             taf_rpcPm_SendStateChangeAck(rpcPm.rpcPowerStateRef, TAF_RPCPM_STATE_RESTART, TAF_RPCPM_PVM, ackType);
         }
         else if (state == TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE)
         {
-            LE_INFO("TAF_RPCPM_STATE_SUSPEND");
+            LE_INFO("TAF_RPCPM_STATE_SUSPEND with ackType %d", (int)ackType);
             taf_rpcPm_SendStateChangeAck(rpcPm.rpcPowerStateRef, TAF_RPCPM_STATE_SUSPEND, TAF_RPCPM_PVM, ackType);
         }
         else if (state == TAF_MNGDPM_NODE_STATE_RESUME)
         {
-            LE_INFO("TAF_RPCPM_STATE_RESUME");
+            LE_INFO("TAF_RPCPM_STATE_RESUME with ackType %d", (int)ackType);
             taf_rpcPm_SendStateChangeAck(rpcPm.rpcPowerStateRef, TAF_RPCPM_STATE_RESUME, TAF_RPCPM_PVM,
                     ackType);
         }
@@ -471,7 +520,6 @@ void tafMngdRpcPm::DeleteRpcNodePowerStateRefs()
  */
 void CallRpcNodePowerStateHandlerFunc(taf_mngdPm_NodePowerState_t state)
 {
-    LE_INFO("CallRpcNodePowerStateHandlerFunc");
     auto &mpms = tafMngdPMSvc::GetInstance();
     auto &rpcPm = tafMngdRpcPm::GetInstance();
 
@@ -488,7 +536,6 @@ void CallRpcNodePowerStateHandlerFunc(taf_mngdPm_NodePowerState_t state)
         linkHandlerPtr = le_dls_PeekPrev(&(rpcPm.rpcNodePowerStateHandlerList), linkHandlerPtr);
         if (rpcHandlerCtxPtr->handlerPtr)
         {
-            LE_INFO("Client found");
             if(mpms.IsConfiguredBitMask(state, rpcHandlerCtxPtr->powerStateMask))
             {
                 taf_NodePowerStateRef_t* nodeStateListPtr =
@@ -499,7 +546,7 @@ void CallRpcNodePowerStateHandlerFunc(taf_mngdPm_NodePowerState_t state)
                             rpcHandlerCtxPtr->sessionRef, state});
                 rpcHandlerCtxPtr->handlerPtr(rpcHandlerCtxPtr->pmNodeId, nodeStateListPtr->nodeStateRef, state,
                         rpcHandlerCtxPtr->nodePowerStateHandlerCtxPtr);
-                LE_INFO("Notified to Client");
+                LE_DEBUG("Notified to Client %p for state %d", rpcHandlerCtxPtr->sessionRef, state);
             }
             else {
                 continue;
@@ -519,7 +566,6 @@ void CallRpcNodePowerStateHandlerFunc(taf_mngdPm_NodePowerState_t state)
  */
 void tafMngdRpcPm::RpcNodePowerStateChanged(void* reportPtr)
 {
-    LE_INFO("RpcNodePowerStateChanged");
     TAF_ERROR_IF_RET_NIL(reportPtr == nullptr, "Null ptr(reportPtr)");
     taf_mngdPm_NodePowerStateChange_t* rpcPowerStateChange =(taf_mngdPm_NodePowerStateChange_t*)reportPtr;
     if(rpcPowerStateChange->state == TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE)
@@ -553,7 +599,7 @@ taf_mngdPm_NodePowerStateChangeHandlerRef_t tafMngdRpcPm::AddRpcNodePowerStateCh
 )
 {
 
-    LE_INFO("AddRpcNodePowerStateChangeHandler");
+    LE_INFO("AddRpcNodePowerStateChangeHandler for client session %p", taf_mngdPm_GetClientSessionRef());
     auto &rpcPm = tafMngdRpcPm::GetInstance();
     if(rpcPm.IsRpcConnected)
     {
@@ -646,7 +692,6 @@ void tafMngdRpcPm::TryConnectService()
  */
 void tafMngdRpcPm::RpcConnectTimerHandler(le_timer_Ref_t timerRef)
 {
-    LE_INFO("RpcConnectTimerHandler");
     auto &rpcPm = tafMngdRpcPm::GetInstance();
     if(RpcRetryCount < 2) {
         LE_INFO("Retry RpcConnectTimerHandler");
@@ -671,7 +716,6 @@ void tafMngdRpcPm::RpcConnectTimerHandler(le_timer_Ref_t timerRef)
 
 void tafMngdRpcPm::RpcDisconnectHandler(void* contextPtr)
 {
-    LE_INFO("RpcDisconnectHandler");
     auto &rpcPm = tafMngdRpcPm::GetInstance();
     rpcPm.TryConnectService();
 }
@@ -684,7 +728,6 @@ tafMngdRpcPm &tafMngdRpcPm::GetInstance()
 
 void tafMngdRpcPm::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ctxPtr)
 {
-    LE_INFO("Rpc OnClientDisconnection");
     auto &rpcPm = tafMngdRpcPm::GetInstance();
     //clear state change registered clients
     for(auto it = rpcPm.rpcRegClientrecrd.begin(); it != rpcPm.rpcRegClientrecrd.end(); )
@@ -721,7 +764,7 @@ void tafMngdRpcPm::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
             }
             le_ref_DeleteRef(rpcPm.rpcWsRefMap, wsRefCtxPtr->wsRef);
             le_dls_Remove(&(rpcPm.rpcWsRefList), &wsRefCtxPtr->link);
-            free((void*)wsRefCtxPtr->vhalTag);
+            free((void*)wsRefCtxPtr->wsTag);
             le_mem_Release((void*)wsRefCtxPtr);
         }
     }

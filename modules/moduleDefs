@@ -31,7 +31,7 @@ else ifeq ($(TARGET),sa525m)
 else ifeq ($(TARGET),simulation)
      export READ_ONLY := 1
 
-     export SDEF_TO_USE ?= $(LEGATO_TELAF_ROOT)/simulation.sdef
+     export SDEF_TO_USE ?= $(SIMULATION_ROOT)/simulation.sdef
 
      export STRIP_STAGING_TREE ?= 1
 

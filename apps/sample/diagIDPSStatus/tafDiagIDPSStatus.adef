@@ -1,0 +1,23 @@
+sandboxed: false
+
+executables:
+{
+    tafDiagIDPSStatus = ( diagIDPSStatusComp )
+}
+
+processes:
+{
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+
+    maxFileBytes: 8192K
+}
+
+start: manual
+
+bindings:
+{
+    tafDiagIDPSStatus.diagIDPSStatusComp.taf_diagIDPS -> tafDiagSvc.taf_diagIDPS
+}

@@ -148,13 +148,6 @@ void taf_SomeipSvr::VSOMEIPOfferService
                                                  true);
     }
 
-    // Since the update_service_configuration() can be only called after the service is offered,
-    // here we need restart the service to make the new configuration take effect immediately.
-    routingApp->stop_offer_service(servicePtr->serviceId, servicePtr->instanceId,
-                                   servicePtr->majorVersion, servicePtr->minorVersion);
-    routingApp->offer_service(servicePtr->serviceId, servicePtr->instanceId,
-                              servicePtr->majorVersion, servicePtr->minorVersion);
-
     // Service is marked as offered.
     servicePtr->isOffered = true;
     LE_INFO("VSOMEIP offered Service(%u:0x%x/0x%x) of version(%u.%u).",

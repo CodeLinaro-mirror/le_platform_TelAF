@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 # system/bin and /sbin should be in the path.
@@ -61,9 +61,33 @@ IsSystemInstalled()
     fi
 }
 
+# Get the last component after the final "/" in the cgroup v2 (hierarchy 0) path.
+# PVM supervisor:  0::/system.slice/telaf.service  -> "telaf.service"
+# LXC supervisor:  0::/lxc.payload.telaflxc/.lxc   -> ".lxc"  (from PVM)
+#                  0::/.lxc                         -> ".lxc"  (from inside LXC)
+GetCgroupV2Suffix()
+{
+    grep "^0::" /proc/$1/cgroup 2>/dev/null | sed 's|.*/||'
+}
+
+# Expected cgroup v2 suffix based on current environment.
+if [ -n "${TELAF_IN_CONTAINER}" ]; then
+    EXPECTED_CGROUP_SUFFIX=".lxc"
+else
+    EXPECTED_CGROUP_SUFFIX="telaf.service"
+fi
+
 IsFrameworkRunning()
 {
-    ${xPS} | grep $(cat ${TELAF_INSTALLED_VERSION} | sed 's/_modified$//') | grep -v grep > /dev/null
+    local version=$(cat ${TELAF_INSTALLED_VERSION} | sed 's/_modified$//')
+    local found=0
+    for pid in $(${xPS} | grep "$version" | grep -v grep | awk '{print $1}'); do
+        if [ "$(GetCgroupV2Suffix $pid)" = "$EXPECTED_CGROUP_SUFFIX" ]; then
+            found=1
+            break
+        fi
+    done
+    [ $found -eq 1 ]
 }
 
 TelafStatus()
@@ -175,9 +199,6 @@ StopTelaf()
         exit 1
     fi
 
-    # Stop telaf App group first
-    StopTelafAppGroup
-
     if IsFrameworkRunning
     then
         # StopTelafTimeout will be scaled according to the number of running TelAF services.
@@ -215,20 +236,6 @@ StopTelaf()
         echo "TelAF wasn't running"
         return
     fi
-
-    SupervisorPID=$(${xPS} | grep /legato/systems/current/bin/supervisor \
-                           | grep `cat ${TELAF_INSTALLED_VERSION} | sed 's/_modified$//'` \
-                           | grep -v grep | awk '{print $1}')
-
-    for SdirPID in `pidof serviceDirectory`
-    do
-        FatherPID=$(awk '{print $4}' /proc/${SdirPID}/stat)
-        if [ "$FatherPID" == "$SupervisorPID" ]
-        then
-            echo "serviceDirectory may still be alive, hard-kill it"
-            kill -9 $SdirPID
-        fi
-    done
 
     echo "TelAF is stopped"
 }

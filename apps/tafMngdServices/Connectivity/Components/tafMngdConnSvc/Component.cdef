@@ -28,6 +28,7 @@ requires:
         taf_dcs.api
         taf_radio.api
         taf_sim.api
+        taf_pm.api
         le_appInfo.api
 #if ${LE_CONFIG_TARGET_SIMULATION} = ""
         taf_net.api

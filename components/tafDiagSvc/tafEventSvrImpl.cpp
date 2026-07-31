@@ -12,6 +12,8 @@
 #include "tafDiagSvr.hpp"
 #include <algorithm>
 #include <chrono>
+#include "serialization.hpp"
+#include "configuration.hpp"
 
 using namespace tafsvc;
 using namespace std;
@@ -61,13 +63,6 @@ taf_diagEvent_ServiceRef_t taf_EventSvr::GetService
         eventCtxPtr->svcRef = eventRef;
 
         eventCtxPtr->sessionRefList = LE_DLS_LIST_INIT;
-
-        LE_DEBUG("svcRef %p of client %p is created for event id %d.",
-                eventCtxPtr->svcRef, sessionRef, eventId);
-    }
-    else
-    {
-        LE_DEBUG("server ref %p already created",eventCtxPtr->svcRef );
     }
 
     // Add client reference to the session list
@@ -222,7 +217,6 @@ le_result_t taf_EventSvr::SetStatusWithSupplierFaultCode
     result = CheckEventCondition(eventCtxPtr);
     if(result != LE_OK)
     {
-        LE_ERROR("Condition check is not OK.");
         return result;
     }
 
@@ -288,7 +282,6 @@ le_result_t taf_EventSvr::SetStatusWithSupplierFaultCode
     result = CheckEventCondition(eventCtxPtr);
     if(result != LE_OK)
     {
-        LE_ERROR("Condition check is not OK.");
         return result;
     }
 
@@ -304,8 +297,6 @@ le_result_t taf_EventSvr::SetStatusWithSupplierFaultCode
         memset(eventCtxPtr->supplierFaultCode, 0, TAF_DIAGEVENT_SUPPLIER_FAULT_CODE_MAX_LEN);
     }
 
-    LE_DEBUG("----Trigger snapshot: DTC = 0x%x, type = %d", eventCtxPtr->dtcCode,
-            cfg::DEM_TRIGGER_ON_EVERY_TEST_FAILED);
     ss.triggerSnapshot(eventCtxPtr->dtcCode, cfg::DEM_TRIGGER_ON_EVERY_TEST_FAILED,
             eventCtxPtr->supplierFaultCode, eventCtxPtr->supplierFaultCodeSize);
 
@@ -317,8 +308,9 @@ le_result_t taf_EventSvr::SetStatusWithSupplierFaultCode
         return result;
     }
 
-    LE_DEBUG("old fault status =%d, new status=%d", oldEventFaultStatus,
-            eventCtxPtr->eventFaultStatus);
+    LE_DEBUG("Trigger snapshot type %d for DTC: %d, old fault status =%d, new status=%d",
+        cfg::DEM_TRIGGER_ON_EVERY_TEST_FAILED, eventCtxPtr->dtcCode, oldEventFaultStatus,
+        eventCtxPtr->eventFaultStatus);
 
     if(oldEventFaultStatus != eventCtxPtr->eventFaultStatus)
     {
@@ -389,7 +381,6 @@ taf_diagEvent_EventCtx_t * taf_EventSvr::GetEventCtxById
 
         if (eventCtxPtr->eventId == eventId)
         {
-            LE_DEBUG("Get eventCtxPtr %p by id %d", eventCtxPtr, eventId);
             return eventCtxPtr;
         }
     }
@@ -449,7 +440,7 @@ le_result_t taf_EventSvr::CheckEventCondition
     //enable condition
     if (!eventCtxPtr->eventEnableStatus)
     {
-        LE_ERROR("Enable condition is not fullfilled.");
+        LE_DEBUG("Enable condition is not fullfilled.");
         return LE_NOT_PERMITTED;
     }
 
@@ -517,132 +508,106 @@ le_result_t taf_EventSvr::SetEventEnableStatus
 )
 {
     le_dls_Link_t* linkPtr = NULL;
+    auto &diagSvr = taf_DiagSvr::GetInstance();
 
-    // Diag service instance
-    auto &diag = taf_DiagSvr::GetInstance();
+    // Get the root configuration object
+    auto &diagConf = cfg::get_diag_config_root();
 
     linkPtr = le_dls_Peek(&EventCtxList);
     while (linkPtr)
     {
-        taf_diagEvent_EventCtx_t* eventCtxPtr = CONTAINER_OF(linkPtr, taf_diagEvent_EventCtx_t,
-                link);
+        taf_diagEvent_EventCtx_t* eventCtxPtr = CONTAINER_OF(linkPtr, taf_diagEvent_EventCtx_t, link);
         linkPtr = le_dls_PeekNext(&EventCtxList, linkPtr);
 
-        // Check Enable condition
-        bool enableStatus = false; // Default enable status.
         try
         {
-            cfg::Node & eventNode = cfg::get_event_node(eventCtxPtr->eventId);
-            cfg::Node & enableNode = eventNode.get_child("data_enable_condition");
+            // Get the pre-serialized entry for this event
+            const auto& eventEntry = diagConf.events.at(eventCtxPtr->eventId);
+            const auto& enableCond = eventEntry.enable_condition;
 
-            for (const auto & enable: enableNode)
+            bool isAffected = false;
+            bool newEnableStatus = eventCtxPtr->eventEnableStatus;
+
+            // Process AND conditions
+            if (!enableCond.and_conditions.empty())
             {
-                // Get the defined enable operation type: "and" or "or"
-                std::string enableOperation = enable.first;
-                if (enableOperation == "and")
+                // Check if the changed ID is part of this event's AND list
+                auto it = std::find(enableCond.and_conditions.begin(),
+                                   enableCond.and_conditions.end(),
+                                   enableConditionID);
+
+                if (it != enableCond.and_conditions.end())
                 {
-                    cfg::Node & optNodeList = enableNode.get_child("and");
-                    enableStatus = true;
+                    isAffected = true;
+                    newEnableStatus = true;
 
-                    // Check enable id belong to this event id or not.
-                    bool isEnableIdAvailable = false;
-                    for (const auto & optNode: optNodeList)
+                    // All conditions in the AND list must be true
+                    for (uint8_t id : enableCond.and_conditions)
                     {
-                        uint8_t enableId = optNode.second.get_value<uint8_t>();
-                        if (enableId == enableConditionID)
+                        if (!diagSvr.GetEnableConditionStatus(id))
                         {
-                            isEnableIdAvailable = true;
-                            break;
-                        }
-                    }
-
-                    if (!isEnableIdAvailable)
-                    {
-                        LE_DEBUG("Enable Id 0x%x does not belong to this event 0x%x",
-                                enableConditionID, eventCtxPtr->eventId);
-                        break;
-                    }
-
-                    // Check Enable status based on all enable id belong to this event.
-                    for (const auto & optNode: optNodeList)
-                    {
-                        uint8_t enableId = optNode.second.get_value<uint8_t>();
-
-                        if (!diag.GetEnableConditionStatus(enableId))
-                        {
-                            enableStatus = false;
-                            LE_DEBUG("enable id %d status is false", enableId);
+                            newEnableStatus = false;
+                            LE_DEBUG("Event 0x%x: Enable ID %d is FALSE, disabling event.",
+                                     eventCtxPtr->eventId, id);
                             break;
                         }
                     }
                 }
-                else if (enableOperation == "or")
+            }
+
+            // Process OR conditions
+            if (!enableCond.or_conditions.empty())
+            {
+                // Check if the changed ID is part of this event's OR list
+                auto it = std::find(enableCond.or_conditions.begin(),
+                                   enableCond.or_conditions.end(),
+                                   enableConditionID);
+
+                if (it != enableCond.or_conditions.end())
                 {
-                    cfg::Node & optNodeList = enableNode.get_child("or");
-                    enableStatus = false;
+                    isAffected = true;
+                    newEnableStatus = false;
 
-                    // Check enable id belong to this event id or not.
-                    bool isEnableIdAvailable = false;
-                    for (const auto & optNode: optNodeList)
+                    // Any condition in the OR list being true enables the event
+                    for (uint8_t id : enableCond.or_conditions)
                     {
-                        uint8_t enableId = optNode.second.get_value<uint8_t>();
-                        if (enableId == enableConditionID)
+                        if (diagSvr.GetEnableConditionStatus(id))
                         {
-                            isEnableIdAvailable = true;
-                            break;
-                        }
-                    }
-
-                    if (!isEnableIdAvailable)
-                    {
-                        LE_DEBUG("Enable Id 0x%x does not belong to this event 0x%x",
-                                enableConditionID, eventCtxPtr->eventId);
-                        break;
-                    }
-
-                    for (const auto & optNode: optNodeList)
-                    {
-                        uint8_t enableId = optNode.second.get_value<uint8_t>();
-
-                        if(diag.GetEnableConditionStatus(enableId))
-                        {
-                            enableStatus = true;
-                            LE_INFO("enable id %d status is true", enableId);
+                            newEnableStatus = true;
+                            LE_DEBUG("Event 0x%x: Enable ID %d is TRUE, enabling event.",
+                                     eventCtxPtr->eventId, id);
                             break;
                         }
                     }
                 }
+            }
 
-                if(enableStatus != eventCtxPtr->eventEnableStatus)
+            // Update and Report if the status changed
+            if (isAffected)
+            {
+                if (newEnableStatus != eventCtxPtr->eventEnableStatus)
                 {
-                    LE_DEBUG("Notify Enable Condition state");
-                    ReportEnableCondState(eventCtxPtr, enableStatus);
+                    ReportEnableCondState(eventCtxPtr, newEnableStatus);
+                    eventCtxPtr->eventEnableStatus = newEnableStatus;
                 }
-                // Set the overall enable status for eventId
-                if(enableStatus)
+
+                // Handle Debouncing Reset behavior
+                if (eventCtxPtr->eventEnableStatus == false &&
+                    eventCtxPtr->debounceBehavior_ == TAF_DIAGEVENT_DEBOUNCE_RESET)
                 {
-                    eventCtxPtr->eventEnableStatus = true;
-                    LE_DEBUG("Enable condition for event id 0x%x is true", eventCtxPtr->eventId);
-                }
-                else
-                {
-                    eventCtxPtr->eventEnableStatus = false;
-                    LE_DEBUG("Enable condition for event id 0x%x is false", eventCtxPtr->eventId);
+                    LE_DEBUG("Event 0x%x disabled: Resetting debounce counter.", eventCtxPtr->eventId);
+                    ResetDebounceCounter(eventCtxPtr);
                 }
             }
         }
+        catch (const std::out_of_range& e)
+        {
+            LE_WARN("Event ID 0x%x not found in configuration map.", eventCtxPtr->eventId);
+        }
         catch (const std::exception& e)
         {
-            LE_WARN("Enable condition id not found for eventID: 0x%x, Exception: %s",
-                    eventCtxPtr->eventId, e.what());
-        }
-
-        // Debouncing behavior on enable condition
-        if (eventCtxPtr->eventEnableStatus == false
-                && (eventCtxPtr->debounceBehavior_ == TAF_DIAGEVENT_DEBOUNCE_RESET))
-        {
-            LE_DEBUG("Clear the counter for event id %d", eventCtxPtr->eventId);
-            ResetDebounceCounter(eventCtxPtr);
+            LE_ERROR("Exception processing enable status for Event 0x%x: %s",
+                     eventCtxPtr->eventId, e.what());
         }
     }
 
@@ -981,7 +946,8 @@ le_result_t taf_EventSvr::DebounceCounterBased
 )
 {
     TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, LE_FAULT, "eventCtxPtr is NULL");
-    LE_DEBUG("Before:debounce counter=%d", eventCtxPtr->debounceCounter);
+
+    int16_t oldDebounceCounter = eventCtxPtr->debounceCounter;
 
     switch (eventStatus) {
     case TAF_DIAGEVENT_PASSED:
@@ -1053,7 +1019,7 @@ le_result_t taf_EventSvr::DebounceCounterBased
             {
                 eventCtxPtr->fdcTriggerFlag = true;// Only trigger once
                 taf_SnapshotSvr& ss = taf_SnapshotSvr::GetInstance();
-                LE_INFO("Trigger snapshot: DTC = 0x%x, type = %d", eventCtxPtr->dtcCode,
+                LE_DEBUG("Trigger snapshot: DTC = 0x%x, type = %d", eventCtxPtr->dtcCode,
                         cfg::DEM_TRIGGER_ON_FDC_THRESHOLD);
                 ss.triggerSnapshot(eventCtxPtr->dtcCode, cfg::DEM_TRIGGER_ON_FDC_THRESHOLD,
                         eventCtxPtr->supplierFaultCode, eventCtxPtr->supplierFaultCodeSize);
@@ -1085,8 +1051,8 @@ le_result_t taf_EventSvr::DebounceCounterBased
         eventCtxPtr->eventFaultStatus = eventStatus;
     }
 
-    LE_DEBUG("After:EventId=%d, debounce counter=%d", eventCtxPtr->eventId,
-            eventCtxPtr->debounceCounter);
+    LE_DEBUG("EventId=%d, old debounce counter = %d, new debounce counter=%d", eventCtxPtr->eventId,
+        oldDebounceCounter, eventCtxPtr->debounceCounter);
 
     return LE_OK;
 }
@@ -1104,8 +1070,7 @@ le_result_t taf_EventSvr::DebounceTimeBased
 {
     TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, LE_FAULT, "eventCtxPtr is NULL");
 
-    LE_DEBUG("DebounceTimeBased:EventId:%d, Before:debounce counter=%d", eventCtxPtr->eventId,
-            eventCtxPtr->debounceCounter);
+    int16_t oldDebounceCounter = eventCtxPtr->debounceCounter;
 
     switch (eventStatus) {
     case TAF_DIAGEVENT_PASSED:
@@ -1139,7 +1104,6 @@ le_result_t taf_EventSvr::DebounceTimeBased
 
         break;
     case TAF_DIAGEVENT_PREPASSED:
-        LE_DEBUG("EventId:%d, Timebased:prepassed", eventCtxPtr->eventId);
 
         if(le_timer_IsRunning(eventCtxPtr->timerRef))
         {
@@ -1150,7 +1114,6 @@ le_result_t taf_EventSvr::DebounceTimeBased
             }
             else
             {
-                LE_DEBUG("EventId:%d, Timer is running with prefailed type", eventCtxPtr->eventId);
                 // Set passed threshold
                 le_timer_SetMsInterval(eventCtxPtr->timerRef,
                         eventCtxPtr->debounceTimeBasedConfig.passedThreshold);
@@ -1161,7 +1124,8 @@ le_result_t taf_EventSvr::DebounceTimeBased
 
                 //Restart the timer
                 le_timer_Restart(eventCtxPtr->timerRef);
-                LE_DEBUG("EventId:%d, restart the timer", eventCtxPtr->eventId);
+                LE_DEBUG("EventId:%d, set PREPASSED, curType is prefailed, restart the timer",
+                    eventCtxPtr->eventId);
                 eventCtxPtr->startTime = std::chrono::duration_cast<std::chrono::milliseconds>(
                         std::chrono::system_clock::now().time_since_epoch()).count();
             }
@@ -1194,8 +1158,6 @@ le_result_t taf_EventSvr::DebounceTimeBased
 
         break;
     case TAF_DIAGEVENT_PREFAILED:
-        LE_DEBUG("EventId:%d,Timebased:Prefailed", eventCtxPtr->eventId);
-
         if(le_timer_IsRunning(eventCtxPtr->timerRef))
         {
             if(eventCtxPtr->timerType == TAF_DIAGEVENT_TIMER_PREFAILED)
@@ -1204,7 +1166,6 @@ le_result_t taf_EventSvr::DebounceTimeBased
             }
             else
             {
-                LE_DEBUG("EventId:%d,Timer is running with prepassed type", eventCtxPtr->eventId);
                 // Set failed threshold
                 le_timer_SetMsInterval(eventCtxPtr->timerRef,
                         eventCtxPtr->debounceTimeBasedConfig.failedThreshold);
@@ -1214,7 +1175,8 @@ le_result_t taf_EventSvr::DebounceTimeBased
                 eventCtxPtr->debounceCounter = 0;
 
                 //Restart the timer
-                LE_DEBUG("EventId:%d, restart the timer", eventCtxPtr->eventId);
+                LE_DEBUG("EventId:%d, set PREFAILED, curType is prepassed, restart the timer",
+                    eventCtxPtr->eventId);
                 le_timer_Restart(eventCtxPtr->timerRef);
                 eventCtxPtr->startTime = std::chrono::duration_cast<std::chrono::milliseconds>(
                         std::chrono::system_clock::now().time_since_epoch()).count();
@@ -1258,13 +1220,11 @@ le_result_t taf_EventSvr::DebounceTimeBased
     if (eventCtxPtr->debounceCounter == MIN_FAULT_DETECTION_COUNTER)
     {
         //Return passed after debouncing
-        LE_DEBUG("EventId:%d, Timebased:reached passed", eventCtxPtr->eventId);
         eventCtxPtr->eventFaultStatus = TAF_DIAGEVENT_PASSED;
     }
     else if (eventCtxPtr->debounceCounter == MAX_FAULT_DETECTION_COUNTER)
     {
         //Return failed after debouncing
-        LE_DEBUG("EventId:%d, Timebased:reached failed", eventCtxPtr->eventId);
         eventCtxPtr->eventFaultStatus = TAF_DIAGEVENT_FAILED;
     }
     else
@@ -1273,8 +1233,8 @@ le_result_t taf_EventSvr::DebounceTimeBased
         eventCtxPtr->eventFaultStatus = eventStatus;
     }
 
-    LE_DEBUG("EventId:%d, After:debounce timer=%d", eventCtxPtr->eventId,
-            eventCtxPtr->debounceCounter);
+    LE_DEBUG("EventId:%d, old debounce counter= %d, new:debounce counter=%d", eventCtxPtr->eventId,
+        oldDebounceCounter, eventCtxPtr->debounceCounter);
 
     return LE_OK;
 }
@@ -1292,7 +1252,6 @@ le_result_t taf_EventSvr::DebounceEvent
 {
     le_result_t result;
 
-    LE_DEBUG("DebounceEvent");
     switch(eventCtxPtr->debounceType)
     {
         case TAF_DIAGEVENT_DEBOUNCE_MONITOR_INTERNAL:
@@ -1408,7 +1367,6 @@ le_result_t taf_EventSvr::UpdateDtcOnFailed
     le_dls_Link_t* eventIdLinkPtr = NULL;
     taf_diagEvent_EventCtx_t* eventCtxPtr;
 
-    LE_DEBUG("UpdateDtcOnFailed");
     TAF_ERROR_IF_RET_VAL(dtcCtxPtr == NULL, LE_FAULT, "dtcCtxPtr is null");
 
     oldOccurrenceCounter = dtcCtxPtr->occurrenceCounter;
@@ -2168,7 +2126,7 @@ void taf_EventSvr::TriggerSnapshotData
     if(((oldEventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_CDTC) == 0) &&
             ((eventCtxPtr->eventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_CDTC) != 0))
     {
-        LE_INFO("Trigger snapshot: DTC = 0x%x, type = %d", eventCtxPtr->dtcCode,
+        LE_DEBUG("Trigger snapshot: DTC = 0x%x, type = %d", eventCtxPtr->dtcCode,
                 cfg::DEM_TRIGGER_ON_CONFIRMED);
         ss.triggerSnapshot(eventCtxPtr->dtcCode, cfg::DEM_TRIGGER_ON_CONFIRMED,
                 eventCtxPtr->supplierFaultCode, eventCtxPtr->supplierFaultCodeSize);
@@ -2180,7 +2138,7 @@ void taf_EventSvr::TriggerSnapshotData
     if(((oldEventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_PDTC) == 0) &&
             ((eventCtxPtr->eventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_PDTC) != 0))
     {
-        LE_INFO("Trigger snapshot: DTC = 0x%x, type = %d", eventCtxPtr->dtcCode,
+        LE_DEBUG("Trigger snapshot: DTC = 0x%x, type = %d", eventCtxPtr->dtcCode,
                 cfg::DEM_TRIGGER_ON_PENDING);
         ss.triggerSnapshot(eventCtxPtr->dtcCode, cfg::DEM_TRIGGER_ON_PENDING,
                 eventCtxPtr->supplierFaultCode, eventCtxPtr->supplierFaultCodeSize);
@@ -2191,7 +2149,7 @@ void taf_EventSvr::TriggerSnapshotData
     if(((oldEventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_TF) == 0) &&
             ((eventCtxPtr->eventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_TF) != 0))
     {
-        LE_INFO("Trigger snapshot: DTC = 0x%x, type = %d", eventCtxPtr->dtcCode,
+        LE_DEBUG("Trigger snapshot: DTC = 0x%x, type = %d", eventCtxPtr->dtcCode,
                 cfg::DEM_TRIGGER_ON_TEST_FAILED);
         ss.triggerSnapshot(eventCtxPtr->dtcCode, cfg::DEM_TRIGGER_ON_TEST_FAILED,
                 eventCtxPtr->supplierFaultCode, eventCtxPtr->supplierFaultCodeSize);
@@ -2203,7 +2161,7 @@ void taf_EventSvr::TriggerSnapshotData
     if(((oldEventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_TFTOC) == 0) &&
             ((eventCtxPtr->eventUdsStatus & TAF_DIAGEVENT_UDS_STATUS_TFTOC) != 0))
     {
-        LE_INFO("----Trigger snapshot: DTC = 0x%x, type = %d", eventCtxPtr->dtcCode,
+        LE_DEBUG("Trigger snapshot: DTC = 0x%x, type = %d", eventCtxPtr->dtcCode,
                 cfg::DEM_TRIGGER_ON_TEST_FAILED_THIS_OPERATION_CYCLE);
         ss.triggerSnapshot(eventCtxPtr->dtcCode,
                 cfg::DEM_TRIGGER_ON_TEST_FAILED_THIS_OPERATION_CYCLE,
@@ -2393,10 +2351,11 @@ le_result_t taf_EventSvr::StoreAndReportEventUdsStatus
 
     TAF_ERROR_IF_RET_VAL(eventCtxPtr == NULL, LE_FAULT, "eventCtxPtr is NULL");
 
-    LE_DEBUG("Database:Store and report event name:%s,status:0x%x", eventCtxPtr->eventName,
+    LE_DEBUG("Database:Store and report eventId name:%s,status:0x%x", eventCtxPtr->eventName,
             eventCtxPtr->eventUdsStatus);
     result = taf_DataAccess_SetEventStatusByName(eventCtxPtr->eventName,
             eventCtxPtr->eventUdsStatus);
+
     if(result != LE_OK)
     {
         LE_CRIT("Can't store data into database, EventId:%d, status:0x%x",
@@ -2677,7 +2636,7 @@ void taf_EventSvr::FdcTimerHandler
 
     TAF_ERROR_IF_RET_NIL(eventCtxPtr == NULL, "Failed to get timer context");
 
-    LE_INFO("Trigger snapshot: DTC code=0x%x, threshold=%d", eventCtxPtr->dtcCode,
+    LE_DEBUG("Trigger snapshot: DTC code=0x%x, type=%d", eventCtxPtr->dtcCode,
             cfg::DEM_TRIGGER_ON_FDC_THRESHOLD);
     ss.triggerSnapshot(eventCtxPtr->dtcCode, cfg::DEM_TRIGGER_ON_FDC_THRESHOLD,
             eventCtxPtr->supplierFaultCode, eventCtxPtr->supplierFaultCodeSize);
@@ -2691,15 +2650,15 @@ void taf_EventSvr::FdcTimerHandler
 //-------------------------------------------------------------------------------------------------
 void taf_EventSvr::InitEventContext
 (
-    const std::pair<uint32_t, std::shared_ptr<cfg::Node>> &dtc,
-    const std::pair<uint16_t, std::shared_ptr<cfg::Node>> &event
+    std::shared_ptr<DTCEntry> dtcEntryPtr,
+    std::shared_ptr<EventEntry> eventEntryPtr
 )
 {
     taf_diagEvent_EventCtx_t* eventCtxPtr = NULL;
     auto& diagEvent = taf_EventSvr::GetInstance();
     char eventStatusName[32] = {0};
-    uint32_t dtcCode = dtc.first;
-    uint16_t eventId = event.first;
+    uint32_t dtcCode = dtcEntryPtr->identification.code;
+    uint16_t eventId = eventEntryPtr->id;
 
     eventCtxPtr = (taf_diagEvent_EventCtx_t *)le_mem_ForceAlloc(diagEvent.EventPool);
     TAF_ERROR_IF_RET_NIL(eventCtxPtr == NULL, "cannot alloc eventCtxPtr");
@@ -2716,7 +2675,7 @@ void taf_EventSvr::InitEventContext
     eventCtxPtr->eventId = eventId;
     eventCtxPtr->dtcCode = dtcCode;
 
-    std::string operationCycle = event.second->get<string>("operation_cycle");
+    std::string operationCycle = eventEntryPtr->operation_cycle;
     eventCtxPtr->operationCycleId = uint8_t(cfg::s_to_operation_cycle_type(operationCycle));
 
 #ifdef LE_CONFIG_DIAG_FEATURE_A
@@ -2725,141 +2684,120 @@ void taf_EventSvr::InitEventContext
     eventCtxPtr->eventEnableStatus = false;
 #endif
 
-    eventCtxPtr->confirmationThreshold = event.second->get<int>("confirmation_threshold");
+    eventCtxPtr->confirmationThreshold = eventEntryPtr->confirmation_threshold;
 
     //get debounce config
-    std::string debounceAlgorism = event.second->get<string>("debounce_algorithm");
+    std::string debounceAlgorism = eventEntryPtr->debounce_algorithm;
 
-    cfg::Node & node = cfg::top_debounce_algorithm<string>("short_name", debounceAlgorism.c_str());
+    // Access the overall debounce config from diagConf
+    DebounceAlgorithm & debounceConfig = cfg::get_diag_config_root().debounce_algorithm;
 
-    if(node.get<string>("base") == "Counter")
+    if (debounceConfig.counter_based.find(debounceAlgorism) != debounceConfig.counter_based.end())
     {
-        cfg::Counter_t counterDebounce;
-        cfg::top_debounce_algorithm<string>("short_name", debounceAlgorism.c_str(),
-                &counterDebounce);
+        DebounceCounterBasedAlgorithm& counterDebounce = 
+            debounceConfig.counter_based[debounceAlgorism];
 
         eventCtxPtr->debounceType = TAF_DIAGEVENT_DEBOUNCE_COUNTER_BASED;
-
         if(counterDebounce.debounce_behavior == "reset")
         {
             eventCtxPtr->debounceBehavior_ = TAF_DIAGEVENT_DEBOUNCE_RESET;
         }
-        else
+        else // Assuming default to FREEZE if not "reset"
         {
             eventCtxPtr->debounceBehavior_ = TAF_DIAGEVENT_DEBOUNCE_FREEZE;
         }
-
         eventCtxPtr->debounceCounterBasedConfig.decrementStepSize =
-                counterDebounce.counter_decrement_step_size;
-
+            counterDebounce.counter_decrement_step_size;
         if((eventCtxPtr->debounceCounterBasedConfig.decrementStepSize <
-                MIDDLE_COUNTER_BASED_PARAM_VALUE) ||
-                (eventCtxPtr->debounceCounterBasedConfig.decrementStepSize >
-                MAX_COUNTER_BASED_PARAM_VALUE))
+            MIDDLE_COUNTER_BASED_PARAM_VALUE) ||
+           (eventCtxPtr->debounceCounterBasedConfig.decrementStepSize >
+            MAX_COUNTER_BASED_PARAM_VALUE))
         {
             LE_FATAL("decrementStepSize is incorrect for EventId:%d",eventId);
         }
-
         eventCtxPtr->debounceCounterBasedConfig.incrementStepSize =
-                counterDebounce.counter_increment_step_size;
-
+            counterDebounce.counter_increment_step_size;
         if((eventCtxPtr->debounceCounterBasedConfig.incrementStepSize <
-                MIDDLE_COUNTER_BASED_PARAM_VALUE) ||
-                (eventCtxPtr->debounceCounterBasedConfig.incrementStepSize >=
-                MAX_COUNTER_BASED_PARAM_VALUE))
+            MIDDLE_COUNTER_BASED_PARAM_VALUE) ||
+           (eventCtxPtr->debounceCounterBasedConfig.incrementStepSize >=
+            MAX_COUNTER_BASED_PARAM_VALUE))
         {
             LE_FATAL("incrementStepSize is incorrect for EventId:%d",eventId);
         }
-
         eventCtxPtr->debounceCounterBasedConfig.failedThreshold =
-                counterDebounce.counter_failed_threshold;
-
+            counterDebounce.counter_failed_threshold;
         if((eventCtxPtr->debounceCounterBasedConfig.failedThreshold <
-                MIDDLE_COUNTER_BASED_PARAM_VALUE) ||
-                (eventCtxPtr->debounceCounterBasedConfig.failedThreshold >=
-                MAX_COUNTER_BASED_PARAM_VALUE))
+            MIDDLE_COUNTER_BASED_PARAM_VALUE) ||
+           (eventCtxPtr->debounceCounterBasedConfig.failedThreshold >=
+            MAX_COUNTER_BASED_PARAM_VALUE))
         {
             LE_FATAL("failedThreshold is incorrect for EventId:%d",eventId);
         }
-
         eventCtxPtr->debounceCounterBasedConfig.passedThreshold =
-                counterDebounce.counter_passed_threshold;
-
+            counterDebounce.counter_passed_threshold;
         if((eventCtxPtr->debounceCounterBasedConfig.passedThreshold <
-                MIN_COUNTER_BASED_PARAM_VALUE) ||
-                (eventCtxPtr->debounceCounterBasedConfig.passedThreshold >= 0))
+            MIN_COUNTER_BASED_PARAM_VALUE) ||
+           (eventCtxPtr->debounceCounterBasedConfig.passedThreshold >= 0))
         {
             LE_FATAL("passedThreshold is incorrect for EventId:%d",eventId);
         }
-
         eventCtxPtr->debounceCounterBasedConfig.jumpDown = counterDebounce.counter_jump_down;
         eventCtxPtr->debounceCounterBasedConfig.jumpUp = counterDebounce.counter_jump_up;
-
         eventCtxPtr->debounceCounterBasedConfig.jumpDownValue =
-                counterDebounce.counter_jump_down_value;
-
+            counterDebounce.counter_jump_down_value;
         if((eventCtxPtr->debounceCounterBasedConfig.jumpDownValue <
-                MIN_COUNTER_BASED_PARAM_VALUE) ||
-                (eventCtxPtr->debounceCounterBasedConfig.jumpDownValue >=
-                MAX_COUNTER_BASED_PARAM_VALUE))
+            MIN_COUNTER_BASED_PARAM_VALUE) ||
+           (eventCtxPtr->debounceCounterBasedConfig.jumpDownValue >=
+            MAX_COUNTER_BASED_PARAM_VALUE))
         {
             LE_FATAL("jumpDownValue is incorrect");
         }
-
         eventCtxPtr->debounceCounterBasedConfig.jumpUpValue =
-                counterDebounce.counter_jump_up_value;
-
+            counterDebounce.counter_jump_up_value;
         if((eventCtxPtr->debounceCounterBasedConfig.jumpUpValue <
-                MIN_COUNTER_BASED_PARAM_VALUE) ||
-                (eventCtxPtr->debounceCounterBasedConfig.jumpUpValue >=
-                MAX_COUNTER_BASED_PARAM_VALUE))
+            MIN_COUNTER_BASED_PARAM_VALUE) ||
+           (eventCtxPtr->debounceCounterBasedConfig.jumpUpValue >=
+            MAX_COUNTER_BASED_PARAM_VALUE))
         {
             LE_FATAL("jumpUpValue is incorrect");
         }
-
         eventCtxPtr->debounceCounterBasedConfig.fdcThreshold =
-                counterDebounce.counter_fdc_threshold;
-
+            counterDebounce.counter_fdc_threshold;
         if((eventCtxPtr->debounceCounterBasedConfig.fdcThreshold <
-                MIDDLE_COUNTER_BASED_PARAM_VALUE) ||
-                (eventCtxPtr->debounceCounterBasedConfig.fdcThreshold >=
-                MAX_COUNTER_BASED_PARAM_VALUE))
+            MIDDLE_COUNTER_BASED_PARAM_VALUE) ||
+           (eventCtxPtr->debounceCounterBasedConfig.fdcThreshold >=
+            MAX_COUNTER_BASED_PARAM_VALUE))
         {
             LE_FATAL("fdcThreshold is incorrect for EventId:%d",eventId);
         }
-
- #ifdef LE_CONFIG_DIAG_FEATURE_A
+#ifdef LE_CONFIG_DIAG_FEATURE_A
         uint8_t faultDetectionCounter = taf_DataAccess_GetEventFailedCounter(eventId);
-        float ratio = (float)MAX_FAULT_DETECTION_COUNTER/eventCtxPtr->debounceCounterBasedConfig.
-                failedThreshold;
+        float ratio = (float)MAX_FAULT_DETECTION_COUNTER /
+            eventCtxPtr->debounceCounterBasedConfig.failedThreshold;
         eventCtxPtr->debounceCounter = faultDetectionCounter/ratio;
         LE_DEBUG("fdc=%d, debouncecounter=%d", faultDetectionCounter, eventCtxPtr->debounceCounter);
 #endif
     }
-    else if(node.get<string>("base") == "Timer")
+    else if (debounceConfig.time_based.find(debounceAlgorism) != debounceConfig.time_based.end())
     {
-        cfg::Timer_t timeDebounce;
+        DebounceTimeBasedAlgorithm& timeDebounce = debounceConfig.time_based[debounceAlgorism];
         float timeFailedThreshold;
         float timePassedThreshold;
         float fdcThreshold;
 
-        cfg::top_debounce_algorithm<string>("short_name",  debounceAlgorism.c_str(), &timeDebounce);
-
         eventCtxPtr->debounceType = TAF_DIAGEVENT_DEBOUNCE_TIME_BASED;
-
         if(timeDebounce.debounce_behavior == "reset")
         {
             eventCtxPtr->debounceBehavior_ = TAF_DIAGEVENT_DEBOUNCE_RESET;
         }
-        else
+        else // Assuming default to FREEZE if not "reset"
         {
             eventCtxPtr->debounceBehavior_ = TAF_DIAGEVENT_DEBOUNCE_FREEZE;
         }
-
         timeFailedThreshold = timeDebounce.time_failed_threshold;
         //Check the value range
         if((timeFailedThreshold < MIN_TIME_BASED_PARAM_VALUE) ||
-                (timeFailedThreshold > MAX_TIME_BASED_PARAM_VALUE))
+           (timeFailedThreshold > MAX_TIME_BASED_PARAM_VALUE))
         {
             LE_FATAL("failedThreshold is incorrect");
         }
@@ -2869,7 +2807,7 @@ void taf_EventSvr::InitEventContext
         timePassedThreshold = timeDebounce.time_passed_threshold;
         //Check the value range
         if((timePassedThreshold < MIN_TIME_BASED_PARAM_VALUE) ||
-                (timePassedThreshold > MAX_TIME_BASED_PARAM_VALUE))
+           (timePassedThreshold > MAX_TIME_BASED_PARAM_VALUE))
         {
             LE_FATAL("passedThreshold is incorrect");
         }
@@ -2879,7 +2817,7 @@ void taf_EventSvr::InitEventContext
         fdcThreshold = timeDebounce.time_fdc_threshold;
         //Check the value range
         if((fdcThreshold < MIN_TIME_BASED_PARAM_VALUE) ||
-                (fdcThreshold > MAX_TIME_BASED_PARAM_VALUE))
+           (fdcThreshold > MAX_TIME_BASED_PARAM_VALUE))
         {
             LE_FATAL("fdcThreshold is incorrect");
         }
@@ -2887,11 +2825,9 @@ void taf_EventSvr::InitEventContext
         eventCtxPtr->debounceTimeBasedConfig.fdcThreshold = fdcThreshold * 1000;
 
         eventCtxPtr->timerType = TAF_DIAGEVENT_TIMER_UNKNOWN;
-
         // Create debounce timer.
         char timerName[32] = {0};
         snprintf(timerName, sizeof(timerName)-1, "debounceTimer-%d", eventId);
-
         eventCtxPtr->timerRef = le_timer_Create(timerName);
         le_timer_SetHandler(eventCtxPtr->timerRef, TimeBasedDebounceTimerHandler);
         le_timer_SetRepeat(eventCtxPtr->timerRef, 1);
@@ -2901,23 +2837,24 @@ void taf_EventSvr::InitEventContext
         // Create fault detection counter timer for timer based debounce.
         char fdcTimerName[32] = {0};
         snprintf(fdcTimerName, sizeof(fdcTimerName)-1, "fdcTimer-%d", eventId);
-
         eventCtxPtr->fdcTimerRef = le_timer_Create(fdcTimerName);
         le_timer_SetMsInterval(eventCtxPtr->fdcTimerRef,
-                eventCtxPtr->debounceTimeBasedConfig.fdcThreshold);
+                       eventCtxPtr->debounceTimeBasedConfig.fdcThreshold);
         le_timer_SetHandler(eventCtxPtr->fdcTimerRef, FdcTimerHandler);
         le_timer_SetRepeat(eventCtxPtr->fdcTimerRef, 1);
         le_timer_SetWakeup(eventCtxPtr->fdcTimerRef, false);
         le_timer_SetContextPtr(eventCtxPtr->fdcTimerRef, eventCtxPtr);
-
     }
-    else if(node.get<string>("base") == "Custom")
+    else if (debounceConfig.custom.find(debounceAlgorism) != debounceConfig.custom.end())
     {
         eventCtxPtr->debounceType = TAF_DIAGEVENT_DEBOUNCE_MONITOR_INTERNAL;
     }
     else
     {
-        LE_FATAL("Debounce type is not supported");
+        LE_FATAL("Debounce algorithm '%s' not supported or found "
+         "for EventId:%d",
+         debounceAlgorism.c_str(),
+         eventId);
     }
 
     eventCtxPtr->dtcCtxPtr = GetDtcCtxByCode(eventCtxPtr->dtcCode);
@@ -2942,16 +2879,16 @@ void taf_EventSvr::InitEventContext
 
     //get event UDS status from database
     eventCtxPtr->eventUdsStatus = taf_DataAccess_GetEventStatusByName(eventCtxPtr->eventName);
-
     LE_DEBUG("Database: Get eventName:%s, event UDS status in DB:0x%x", eventCtxPtr->eventName,
             eventCtxPtr->eventUdsStatus);
+
     eventCtxPtr->svcRef = NULL;
     eventCtxPtr->link = LE_DLS_LINK_INIT;
 
     // Add event id list into dtc context list
-    InitEventIdListForDtc(eventCtxPtr->dtcCtxPtr,eventCtxPtr->eventId);
+    InitEventIdListForDtc(eventCtxPtr->dtcCtxPtr, eventCtxPtr->eventId);
 
-    // add this event context to list
+    // Add this event context to list
     le_dls_Queue(&diagEvent.EventCtxList, &eventCtxPtr->link);
 
     return;
@@ -3008,31 +2945,24 @@ taf_diagEvent_DtcCtx_t* taf_EventSvr::InitDtcContext
 
     //get DTC status from database
     dtcCtxPtr->dtcStatus = taf_DataAccess_GetDTCStatus(dtcCode);
-    LE_DEBUG("Database: get DTC code:0x%x, DTC status in DB:0x%x", dtcCode, dtcCtxPtr->dtcStatus);
+
     //get occurrence counter from database
     dtcCtxPtr->occurrenceCounter = taf_DataAccess_GetDTCOccurrenceCounter(dtcCode);
-    LE_DEBUG("Database: get DTC code:0x%x, occurrence counter in DB:0x%x", dtcCode,
-            dtcCtxPtr->occurrenceCounter);
 
     //Get activation status from database
     dtcCtxPtr->activationStatus = taf_DataAccess_GetDTCActivation(dtcCode);
-    LE_DEBUG("Database: get DTC code:0x%x, activation status in DB:0x%x", dtcCode,
-            dtcCtxPtr->activationStatus);
 
     //Get suppression status from database
     dtcCtxPtr->suppressionStatus = taf_DataAccess_GetDTCSuppression(dtcCode);
-    LE_DEBUG("Database: get DTC code:0x%x, suppression status in DB:0x%x", dtcCode,
-            dtcCtxPtr->suppressionStatus);
+
+    LE_DEBUG("DB data(DTC:0x%x, status:0x%x, occCnt:0x%x, actStatus:0x%x suppStatus:0x%x)",
+        dtcCode, dtcCtxPtr->dtcStatus, dtcCtxPtr->occurrenceCounter, dtcCtxPtr->activationStatus,
+        dtcCtxPtr->suppressionStatus);
 
     //Get occurrenceCounterProcessing
-    cfg::Node & root = cfg::get_root_node();
-    cfg::Node & common = root.get_child("common_props");
-    cfg::common_props_t commonProps;
+    const std::string& proc = get_common_props().occurrence_counter_processing;
 
-    commonProps.occurrence_counter_processing =
-            common.get<std::string>("occurrence_counter_processing");
-
-    if(commonProps.occurrence_counter_processing == "TEST-FAILED-BIT")
+    if(proc == "TEST-FAILED-BIT")
     {
         dtcCtxPtr->occurrenceCounterProcessing = TAF_DIAGEVENT_PROCESS_OCCCTR_TF;
     }
@@ -3045,16 +2975,14 @@ taf_diagEvent_DtcCtx_t* taf_EventSvr::InitDtcContext
     //Get DTC type
     try
     {
-        cfg::Node & dtcNode = cfg::get_dtc_node(dtcCode);
-        cfg::Node & sesType = dtcNode.get_child("access.session");
+        DTCEntry & dtcEntry = cfg::get_dtc_node(dtcCode);
+        const std::vector<std::string>& sessions = dtcEntry.access.session;
 
         dtcCtxPtr->dtcType = TAF_DIAGEVENT_APPLICATION_DTC;
-        for (const auto & session: sesType)
+        for (const std::string& sessionName : sessions)
         {
-            string type = session.second.get_value<string>("");
-
-            cfg::Node & sesNode = cfg::top_diagnostic_session<string>("short_name", type);
-            int session_id = sesNode.get<int>("id");
+            const DiagSessionEntry & sesEntry = cfg::get_diag_session_by_short_name(sessionName);
+            int session_id = sesEntry.id;
 
             if ((uint8_t)session_id == FEATURE_A_PROGRAMMING_SESSION ||
                     (uint8_t)session_id == FEATURE_A_FOTA_SESSION)
@@ -3172,7 +3100,6 @@ void taf_EventSvr::ClearDTCAndEventData
                 eventCtxPtr->eventUdsStatus);
         result = taf_DataAccess_SetEventStatusByName(eventCtxPtr->eventName,
                 eventCtxPtr->eventUdsStatus);
-
         if(result != LE_OK)
         {
             LE_CRIT("Can't store data into database, EventId:%d, status:0x%x",
@@ -3241,12 +3168,7 @@ le_result_t taf_EventSvr::ClearAllDtc
         return result;
     }
 
-    if(clientType == TAF_DIAGDTC_DTOOL)
-    {
-        le_event_QueueFunctionToThread(mainThrRef, ClearAllDTCAndEventData,
-                (void*)(intptr_t)clientType, NULL);
-    }
-    else if(clientType == TAF_DIAGDTC_APP)
+    if(clientType == TAF_DIAGDTC_DTOOL || clientType == TAF_DIAGDTC_APP)
     {
         ClearAllDTCAndEventData((void*)(intptr_t)clientType, NULL);
     }
@@ -3296,11 +3218,7 @@ le_result_t taf_EventSvr::ClearSingleDtc
         return result;
     }
 
-    if(clientType == TAF_DIAGDTC_DTOOL)
-    {
-        le_event_QueueFunctionToThread(mainThrRef, ClearDTCAndEventData, dtcCtxPtr, NULL);
-    }
-    else if(clientType == TAF_DIAGDTC_APP)
+    if(clientType == TAF_DIAGDTC_DTOOL || clientType == TAF_DIAGDTC_APP)
     {
         ClearDTCAndEventData(dtcCtxPtr, NULL);
     }
@@ -3807,7 +3725,6 @@ le_result_t taf_EventSvr::AddSessionToOperCycleCtx
         }
     }
 
-    LE_DEBUG("add session %p for operation cycle id %d", sessionRef, operCycleCtxPtr->operCycleId );
     taf_diagEvent_SessionRef_t* newSessionRefPtr =
             (taf_diagEvent_SessionRef_t *)le_mem_ForceAlloc(SessionRefPool);
 
@@ -3877,7 +3794,6 @@ taf_diagEvent_OperCycleCtx_t * taf_EventSvr::GetOperCycleCtxById
 
         if (operCycleCtxPtr->operCycleId == operCycleId)
         {
-            LE_DEBUG("Get opercycleCtxPtr %p by id %d", operCycleCtxPtr, operCycleId);
             return operCycleCtxPtr;
         }
     }
@@ -4066,14 +3982,14 @@ void taf_EventSvr::InitOperCycleContext()
  * Get DTC list and event list from configuration module, and initialize the contexts.
  */
 //--------------------------------------------------------------------------------------------------
-void taf_EventSvr::EventConfiguration(cfg::Node & node)
+void taf_EventSvr::EventConfiguration(DiagConf & cfgRoot)
 {
     uint32_t dtcCode;
     uint16_t eventId;
 
-    std::map<uint32_t, std::shared_ptr<cfg::Node>> dtc_map = cfg::get_dtc_nodes();
+    std::map<uint32_t, std::shared_ptr<DTCEntry>> dtc_map = cfg::get_dtc_nodes();
 
-    LE_DEBUG("Init %" PRIu64 " DTC codes", dtc_map.size());
+    LE_INFO("Init %" PRIu64 " DTCs", dtc_map.size());
 
     for (const auto & dtc: dtc_map)
     {
@@ -4084,7 +4000,7 @@ void taf_EventSvr::EventConfiguration(cfg::Node & node)
             LE_FATAL("Incorrect DTC code:%d",dtcCode);
         }
 
-        std::map<uint16_t, std::shared_ptr<cfg::Node>> ev_map = cfg::get_event_nodes(dtc.first);
+        std::map<uint16_t, std::shared_ptr<EventEntry>> ev_map = cfg::get_event_nodes(dtc.first);
         for (const auto & event : ev_map)
         {
             eventId = event.first;
@@ -4094,7 +4010,7 @@ void taf_EventSvr::EventConfiguration(cfg::Node & node)
                 LE_FATAL("Incorrect event id:%d", eventId);
             }
 
-            InitEventContext(dtc, event);
+            InitEventContext(dtc.second, event.second);
         }
     }
 
@@ -4161,7 +4077,7 @@ void taf_EventSvr::Init
     //Initialize the data from configuration module.
     try
     {
-        cfg::Node & root = cfg::get_root_node();
+        DiagConf & root = cfg::get_diag_config_root();
         EventConfiguration(root);
     }
     catch (const std::exception& e)

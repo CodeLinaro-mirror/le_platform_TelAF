@@ -1,82 +1,101 @@
 {
-    "routing_name" : "veth0",
     "systems" :
     [
         {
             "id" : "0x101",
-            "name" : "SERVER"
+            "name" : "PVM"
         },
         {
             "id" : "0x102",
-            "name" : "CLIENT"
+            "name" : "LXC"
         }
     ],
     "rpc_services" :
     [
         {
+            "name" : "rpcLatancy",
+            "user" : "telaf",
+            "offer_systems" : [ "PVM" ]
+        },
+        {
             "name" : "taf_ecall",
             "user" : "telaf",
-            "offer_systems" : [ "SERVER" ]
+            "offer_systems" : [ "PVM" ]
         },
         {
             "name" : "taf_audio",
             "user" : "telaf",
-            "offer_systems" : [ "SERVER" ]
+            "offer_systems" : [ "PVM" ]
         },
         {
             "name" : "taf_gpio",
             "user" : "telaf",
-            "offer_systems" : [ "SERVER" ]
+            "offer_systems" : [ "PVM" ]
         },
         {
             "name" : "taf_locGnss",
             "user" : "telaf",
-            "offer_systems" : [ "SERVER" ]
+            "offer_systems" : [ "PVM" ]
         },
         {
             "name" : "taf_locPos",
             "user" : "telaf",
-            "offer_systems" : [ "SERVER" ]
+            "offer_systems" : [ "PVM" ]
         },
         {
             "name" : "taf_locPosCtrl",
             "user" : "telaf",
-            "offer_systems" : [ "SERVER" ]
+            "offer_systems" : [ "PVM" ]
         },
         {
             "name" : "taf_mngdPm",
             "user" : "telaf",
-            "offer_systems" : [ "SERVER" ]
+            "offer_systems" : [ "PVM" ]
         },
         {
             "name" : "taf_mngdStorSecFile",
             "user" : "telaf",
-            "offer_systems" : [ "SERVER" ]
+            "offer_systems" : [ "PVM" ]
         },
         {
             "name" : "taf_mngdStorCfg",
             "user" : "telaf",
-            "offer_systems" : [ "SERVER" ]
+            "offer_systems" : [ "PVM" ]
         },
         {
             "name" : "taf_diagDataID",
             "user" : "telaf",
-            "offer_systems" : [ "SERVER" ]
+            "offer_systems" : [ "PVM" ]
         },
         {
             "name" : "taf_diagDTC",
             "user" : "telaf",
-            "offer_systems" : [ "SERVER" ]
+            "offer_systems" : [ "PVM" ]
+        },
+        {
+            "name" : "taf_diagEvent",
+            "user" : "telaf",
+            "offer_systems" : [ "PVM" ]
+        },
+        {
+            "name" : "taf_diag",
+            "user" : "telaf",
+            "offer_systems" : [ "PVM" ]
         },
         {
             "name" : "taf_hms",
             "user" : "telaf",
-            "offer_systems" : [ "SERVER" ]
+            "offer_systems" : [ "PVM" ]
         },
         {
             "name" : "taf_sim",
             "user" : "telaf",
-            "offer_systems" : [ "SERVER" ]
+            "offer_systems" : [ "PVM" ]
+        },
+        {
+            "name" : "taf_radio",
+            "user" : "telaf",
+            "offer_systems" : [ "PVM" ]
         }
     ]
 }

@@ -5,7 +5,6 @@
 
 #include "legato.h"
 #include "interfaces.h"
-#include <telux/sensor/SensorManager.hpp>
 #include "tafImuSensor.hpp"
 #include "tafSvcIF.hpp"
 
@@ -23,7 +22,7 @@ COMPONENT_INIT
     LE_INFO("tafSensor Service Ready...\n");
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_GetSensorList
 
@@ -37,18 +36,18 @@ COMPONENT_INIT
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-taf_imuSensor_SensorListRef_t taf_imuSensor_GetSensorList
-(
-    void
-)
+void taf_imuSensor_GetSensorList(taf_imuSensor_ServerCmdRef_t cmdRef)
 {
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.GetAvailableSensors();
+    auto& m = taf_Sensor::GetInstance();
+    le_msg_SessionRef_t sref = taf_imuSensor_GetClientSessionRef();
+    taf_imuSensor_SensorListRef_t listRef = m.GetAvailableSensors(sref);
+    taf_imuSensor_GetSensorListRespond(cmdRef, listRef);
 }
 
-/*======================================================================
+
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_DeleteSensorList
 
@@ -64,18 +63,17 @@ taf_imuSensor_SensorListRef_t taf_imuSensor_GetSensorList
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-le_result_t taf_imuSensor_DeleteSensorList
-(
-    taf_imuSensor_SensorListRef_t sensorListRef
-)
+void taf_imuSensor_DeleteSensorList(taf_imuSensor_ServerCmdRef_t cmdRef,
+                                   taf_imuSensor_SensorListRef_t sensorListRef)
 {
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.DeleteSensorList(sensorListRef);
+    auto& m = taf_Sensor::GetInstance();
+    le_result_t rc = m.DeleteSensorList(sensorListRef);
+    taf_imuSensor_DeleteSensorListRespond(cmdRef, rc);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_GetFirstSensor
 
@@ -91,18 +89,17 @@ le_result_t taf_imuSensor_DeleteSensorList
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-taf_imuSensor_SensorRef_t taf_imuSensor_GetFirstSensor
-(
-    taf_imuSensor_SensorListRef_t sensorListRef
-)
+void taf_imuSensor_GetFirstSensor(taf_imuSensor_ServerCmdRef_t cmdRef,
+                                 taf_imuSensor_SensorListRef_t sensorListRef)
 {
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.GetFirstSensor(sensorListRef);
+    auto& m = taf_Sensor::GetInstance();
+    taf_imuSensor_SensorRef_t s = m.GetFirstSensor(sensorListRef);
+    taf_imuSensor_GetFirstSensorRespond(cmdRef, s);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_GetNextSensor
 
@@ -118,18 +115,17 @@ taf_imuSensor_SensorRef_t taf_imuSensor_GetFirstSensor
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-taf_imuSensor_SensorRef_t taf_imuSensor_GetNextSensor
-(
-    taf_imuSensor_SensorListRef_t sensorListRef
-)
+void taf_imuSensor_GetNextSensor(taf_imuSensor_ServerCmdRef_t cmdRef,
+                                taf_imuSensor_SensorListRef_t sensorListRef)
 {
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.GetNextSensor(sensorListRef);
+    auto& m = taf_Sensor::GetInstance();
+    taf_imuSensor_SensorRef_t s = m.GetNextSensor(sensorListRef);
+    taf_imuSensor_GetNextSensorRespond(cmdRef, s);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_GetId
 
@@ -145,20 +141,18 @@ taf_imuSensor_SensorRef_t taf_imuSensor_GetNextSensor
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-le_result_t taf_imuSensor_GetId
-(
-    taf_imuSensor_SensorRef_t sensorRef,
-    uint32_t* sensorIdPtr
-)
+void taf_imuSensor_GetId(taf_imuSensor_ServerCmdRef_t cmdRef,
+                        taf_imuSensor_SensorRef_t sensorRef)
 {
-    TAF_ERROR_IF_RET_VAL(sensorIdPtr == NULL, LE_BAD_PARAMETER, "output pointer is NULL");
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.GetSensorId(sensorRef,sensorIdPtr);
+    auto& m = taf_Sensor::GetInstance();
+    uint32_t id = 0;
+    le_result_t rc = m.GetSensorId(sensorRef, &id);
+    taf_imuSensor_GetIdRespond(cmdRef, rc, id);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_GetName
 
@@ -174,21 +168,20 @@ le_result_t taf_imuSensor_GetId
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-le_result_t taf_imuSensor_GetName
-(
-    taf_imuSensor_SensorRef_t sensorRef,
-    char* sensorName,
-    size_t sensorNameSize
-)
+void taf_imuSensor_GetName(taf_imuSensor_ServerCmdRef_t cmdRef,
+                          taf_imuSensor_SensorRef_t sensorRef,
+                          size_t sensorNameSize)
 {
-    TAF_ERROR_IF_RET_VAL(sensorName == NULL, LE_BAD_PARAMETER, "output pointer is NULL");
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.GetSensorName(sensorRef,sensorName,sensorNameSize);
+    auto& m = taf_Sensor::GetInstance();
+    char nameBuf[TAF_IMUSENSOR_NAME_MAX_SIZE] = {0};
+    size_t cap = (sensorNameSize > sizeof(nameBuf)) ? sizeof(nameBuf) : sensorNameSize;
+    le_result_t rc = m.GetSensorName(sensorRef, nameBuf, cap);
+    taf_imuSensor_GetNameRespond(cmdRef, rc, nameBuf);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_GetVendorName
 
@@ -204,21 +197,20 @@ le_result_t taf_imuSensor_GetName
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-le_result_t taf_imuSensor_GetVendorName
-(
-    taf_imuSensor_SensorRef_t sensorRef,
-    char* sensorVendorName,
-    size_t sensorVendorNameSize
-)
+void taf_imuSensor_GetVendorName(taf_imuSensor_ServerCmdRef_t cmdRef,
+                                taf_imuSensor_SensorRef_t sensorRef,
+                                size_t vendorNameSize)
 {
-    TAF_ERROR_IF_RET_VAL(sensorVendorName == NULL, LE_BAD_PARAMETER, "output pointer is NULL");
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.GetSensorVendorName(sensorRef,sensorVendorName,sensorVendorNameSize);
+    auto& m = taf_Sensor::GetInstance();
+    char vendorBuf[TAF_IMUSENSOR_NAME_MAX_SIZE] = {0};
+    size_t cap = (vendorNameSize > sizeof(vendorBuf)) ? sizeof(vendorBuf) : vendorNameSize;
+    le_result_t rc = m.GetSensorVendorName(sensorRef, vendorBuf, cap);
+    taf_imuSensor_GetVendorNameRespond(cmdRef, rc, vendorBuf);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_GetType
 
@@ -234,20 +226,18 @@ le_result_t taf_imuSensor_GetVendorName
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-le_result_t taf_imuSensor_GetType
-(
-    taf_imuSensor_SensorRef_t sensorRef,
-    taf_imuSensor_SensorType_t* sensorTypePtr
-)
+void taf_imuSensor_GetType(taf_imuSensor_ServerCmdRef_t cmdRef,
+                          taf_imuSensor_SensorRef_t sensorRef)
 {
-    TAF_ERROR_IF_RET_VAL(sensorTypePtr == NULL, LE_BAD_PARAMETER, "output pointer is NULL");
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.GetSensorType(sensorRef,sensorTypePtr);
+    auto& m = taf_Sensor::GetInstance();
+    taf_imuSensor_SensorType_t t = TAF_IMUSENSOR_INVALID;
+    le_result_t rc = m.GetSensorType(sensorRef, &t);
+    taf_imuSensor_GetTypeRespond(cmdRef, rc, t);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_GetVersion
 
@@ -263,21 +253,20 @@ le_result_t taf_imuSensor_GetType
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-le_result_t taf_imuSensor_GetVersion
-(
-    taf_imuSensor_SensorRef_t sensorRef,
-    char* version,
-    size_t versionSize
-)
+void taf_imuSensor_GetVersion(taf_imuSensor_ServerCmdRef_t cmdRef,
+                             taf_imuSensor_SensorRef_t sensorRef,
+                             size_t versionSize)
 {
-    TAF_ERROR_IF_RET_VAL(version == NULL, LE_BAD_PARAMETER, "output pointer is NULL");
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.GetSensorVersion(sensorRef,version,versionSize);
+    auto& m = taf_Sensor::GetInstance();
+    char verBuf[SENSOR_VERSION_SIZE] = {0};
+    size_t cap = (versionSize > sizeof(verBuf)) ? sizeof(verBuf) : versionSize;
+    le_result_t rc = m.GetSensorVersion(sensorRef, verBuf, cap);
+    taf_imuSensor_GetVersionRespond(cmdRef, rc, verBuf);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_GetSupportedSamplingRate
 
@@ -293,22 +282,22 @@ le_result_t taf_imuSensor_GetVersion
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-le_result_t taf_imuSensor_GetSupportedSamplingRate
-(
-    taf_imuSensor_SensorRef_t sensorRef,
-    double* samplingRatesListPtr,
-    size_t* samplingRatesListSizePtr
-)
+void taf_imuSensor_GetSupportedSamplingRate(taf_imuSensor_ServerCmdRef_t cmdRef,
+                                           taf_imuSensor_SensorRef_t sensorRef,
+                                           size_t samplingRatesListCapacity)
 {
-    TAF_ERROR_IF_RET_VAL(samplingRatesListPtr == NULL, LE_BAD_PARAMETER, "output pointer is NULL");
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.GetSensorSamplingRateInfo(sensorRef,
-        samplingRatesListPtr,samplingRatesListSizePtr);
+    auto& m = taf_Sensor::GetInstance();
+    double rates[TAF_IMUSENSOR_MAX_NUM_SUPPORTED_SAMPLE_RATE] = {0};
+    size_t cap = (samplingRatesListCapacity > (size_t)TAF_IMUSENSOR_MAX_NUM_SUPPORTED_SAMPLE_RATE)
+                 ? (size_t)TAF_IMUSENSOR_MAX_NUM_SUPPORTED_SAMPLE_RATE
+                 : samplingRatesListCapacity;
+    le_result_t rc = m.GetSensorSamplingRateInfo(sensorRef, rates, &cap);
+    taf_imuSensor_GetSupportedSamplingRateRespond(cmdRef, rc, rates, (uint32_t)cap);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_GetSupportedBatchCount
 
@@ -324,23 +313,18 @@ le_result_t taf_imuSensor_GetSupportedSamplingRate
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-le_result_t taf_imuSensor_GetSupportedBatchCount
-(
-    taf_imuSensor_SensorRef_t sensorRef,
-    uint32_t* maxBatchCountSupportedPtr,
-    uint32_t* minBatchCountSupportedPtr
-)
+void taf_imuSensor_GetSupportedBatchCount(taf_imuSensor_ServerCmdRef_t cmdRef,
+                                         taf_imuSensor_SensorRef_t sensorRef)
 {
-    TAF_ERROR_IF_RET_VAL(maxBatchCountSupportedPtr == NULL || minBatchCountSupportedPtr == NULL,
-        LE_BAD_PARAMETER, "output pointer is NULL");
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.GetSensorBatchingInfo(sensorRef,
-        maxBatchCountSupportedPtr,minBatchCountSupportedPtr);
+    auto& m = taf_Sensor::GetInstance();
+    uint32_t maxC = 0, minC = 0;
+    le_result_t rc = m.GetSensorBatchingInfo(sensorRef, &maxC, &minC);
+    taf_imuSensor_GetSupportedBatchCountRespond(cmdRef, rc, maxC, minC);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_GetSensorRangeInfo
 
@@ -356,20 +340,18 @@ le_result_t taf_imuSensor_GetSupportedBatchCount
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-le_result_t taf_imuSensor_GetRange
-(
-    taf_imuSensor_SensorRef_t sensorRef,
-    double* rangePtr
-)
+void taf_imuSensor_GetRange(taf_imuSensor_ServerCmdRef_t cmdRef,
+                           taf_imuSensor_SensorRef_t sensorRef)
 {
-    TAF_ERROR_IF_RET_VAL(rangePtr == NULL, LE_BAD_PARAMETER, "output pointer is NULL");
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.GetSensorRangeInfo(sensorRef,rangePtr);
+    auto& m = taf_Sensor::GetInstance();
+    double r = 0;
+    le_result_t rc = m.GetSensorRangeInfo(sensorRef, &r);
+    taf_imuSensor_GetRangeRespond(cmdRef, rc, r);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_GetSensorResolution
 
@@ -385,20 +367,18 @@ le_result_t taf_imuSensor_GetRange
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-le_result_t taf_imuSensor_GetResolution
-(
-    taf_imuSensor_SensorRef_t sensorRef,
-    double* resolutionPtr
-)
+void taf_imuSensor_GetResolution(taf_imuSensor_ServerCmdRef_t cmdRef,
+                                taf_imuSensor_SensorRef_t sensorRef)
 {
-    TAF_ERROR_IF_RET_VAL(resolutionPtr == NULL, LE_BAD_PARAMETER, "output pointer is NULL");
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.GetSensorResolution(sensorRef,resolutionPtr);
+    auto& m = taf_Sensor::GetInstance();
+    double res = 0;
+    le_result_t rc = m.GetSensorResolution(sensorRef, &res);
+    taf_imuSensor_GetResolutionRespond(cmdRef, rc, res);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_SetRefCoordinateByEulerAngle
 
@@ -414,21 +394,18 @@ le_result_t taf_imuSensor_GetResolution
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-le_result_t taf_imuSensor_SetRefCoordinateByEulerAngle
-(
-    taf_imuSensor_SensorRef_t sensorRef,
-    double pitch,
-    double roll,
-    double yaw
-)
+void taf_imuSensor_SetRefCoordinateByEulerAngle(taf_imuSensor_ServerCmdRef_t cmdRef,
+                                               taf_imuSensor_SensorRef_t sensorRef,
+                                               double pitch, double roll, double yaw)
 {
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.SetEulerAngle(pitch,roll,yaw);
+    LE_UNUSED(sensorRef);
+    auto& m = taf_Sensor::GetInstance();
+    m.SetEulerAngle(cmdRef, pitch, roll, yaw);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_Activate
 
@@ -445,20 +422,18 @@ le_result_t taf_imuSensor_SetRefCoordinateByEulerAngle
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-le_result_t taf_imuSensor_Activate
-(
-    taf_imuSensor_SensorRef_t sensorRef,
-    double samplingRate,
-    uint32_t batchCount
-)
+void taf_imuSensor_Activate(taf_imuSensor_ServerCmdRef_t cmdRef,
+                           taf_imuSensor_SensorRef_t sensorRef,
+                           double samplingRate,
+                           uint32_t batchCount)
 {
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.Activate(sensorRef,samplingRate,batchCount);
+    auto& m = taf_Sensor::GetInstance();
+    m.Activate(cmdRef, sensorRef, samplingRate, batchCount, taf_imuSensor_GetClientSessionRef());
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_Deactivate
 
@@ -474,18 +449,16 @@ le_result_t taf_imuSensor_Activate
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-le_result_t taf_imuSensor_Deactivate
-(
-    taf_imuSensor_SensorRef_t sensorRef
-)
+void taf_imuSensor_Deactivate(taf_imuSensor_ServerCmdRef_t cmdRef,
+                             taf_imuSensor_SensorRef_t sensorRef)
 {
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.Deactivate(sensorRef);
+    auto& m = taf_Sensor::GetInstance();
+    m.Deactivate(cmdRef, sensorRef, taf_imuSensor_GetClientSessionRef());
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_AddDataHandler
 
@@ -499,20 +472,17 @@ le_result_t taf_imuSensor_Deactivate
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-taf_imuSensor_DataHandlerRef_t taf_imuSensor_AddDataHandler
-(
-    taf_imuSensor_SensorRef_t sensorRef,
-    taf_imuSensor_DataHandlerFunc_t handlerPtr,
-    void* contextPtr
-)
+taf_imuSensor_DataHandlerRef_t taf_imuSensor_AddDataHandler(taf_imuSensor_SensorRef_t sensorRef,
+                                                           taf_imuSensor_DataHandlerFunc_t handlerPtr,
+                                                           void* contextPtr)
 {
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.AddDataHandler(sensorRef,handlerPtr,contextPtr);
+    auto& m = taf_Sensor::GetInstance();
+    return m.AddDataHandler(sensorRef, handlerPtr, contextPtr);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_RemoveDataHandler
 
@@ -526,18 +496,15 @@ taf_imuSensor_DataHandlerRef_t taf_imuSensor_AddDataHandler
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-void taf_imuSensor_RemoveDataHandler
-(
-    taf_imuSensor_DataHandlerRef_t  handlerRef
-)
+void taf_imuSensor_RemoveDataHandler(taf_imuSensor_DataHandlerRef_t handlerRef)
 {
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.RemoveDataHandler(handlerRef);
+    auto& m = taf_Sensor::GetInstance();
+    m.RemoveDataHandler(handlerRef);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_GetRotatedData
 
@@ -553,24 +520,33 @@ void taf_imuSensor_RemoveDataHandler
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-le_result_t taf_imuSensor_GetRotatedData
-(
-    taf_imuSensor_SampleRef_t sampleRef,
-    taf_imuSensor_DataValue_t* RawDataPtr,
-    size_t* RawDataSizePtr,
-    taf_imuSensor_DataValue_t* BiasDataPtr,
-    size_t* BiasDataSizePtr
-)
+void taf_imuSensor_GetRotatedData(taf_imuSensor_ServerCmdRef_t cmdRef,
+                                 taf_imuSensor_SampleRef_t sampleRef,
+                                 size_t rawDataCapacity,
+                                 size_t biasDataCapacity)
 {
-    TAF_ERROR_IF_RET_VAL(RawDataPtr == NULL || BiasDataPtr == NULL,
-        LE_BAD_PARAMETER, "output pointer is NULL");
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.GetData(sampleRef,RawDataPtr, RawDataSizePtr,BiasDataPtr,BiasDataSizePtr);
+    auto& m = taf_Sensor::GetInstance();
+
+    const size_t maxCap = (size_t)TAF_SENSOR_MAX_EVENTS_SIZE;
+    size_t rawCap  = (rawDataCapacity  > maxCap) ? maxCap : rawDataCapacity;
+    size_t biasCap = (biasDataCapacity > maxCap) ? maxCap : biasDataCapacity;
+
+    if ((rawCap == 0) || (biasCap == 0))
+    {
+        taf_imuSensor_GetRotatedDataRespond(cmdRef, LE_BAD_PARAMETER, NULL, 0, NULL, 0);
+        return;
+    }
+
+    taf_imuSensor_DataValue_t rawBuf[TAF_SENSOR_MAX_EVENTS_SIZE];
+    taf_imuSensor_DataValue_t biasBuf[TAF_SENSOR_MAX_EVENTS_SIZE];
+
+    le_result_t rc = m.GetData(sampleRef, rawBuf, &rawCap, biasBuf, &biasCap);
+    taf_imuSensor_GetRotatedDataRespond(cmdRef, rc, rawBuf, rawCap, biasBuf, biasCap);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_DeleteData
 
@@ -586,18 +562,17 @@ le_result_t taf_imuSensor_GetRotatedData
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-le_result_t taf_imuSensor_DeleteData
-(
-    taf_imuSensor_SampleRef_t sampleRef
-)
+void taf_imuSensor_DeleteData(taf_imuSensor_ServerCmdRef_t cmdRef,
+                             taf_imuSensor_SampleRef_t sampleRef)
 {
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.DeleteData(sampleRef);
+    auto& m = taf_Sensor::GetInstance();
+    le_result_t rc = m.DeleteData(sampleRef);
+    taf_imuSensor_DeleteDataRespond(cmdRef, rc);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_SelfTest
 
@@ -613,20 +588,17 @@ le_result_t taf_imuSensor_DeleteData
 
  SIDE EFFECTS
 
-======================================================================*/
+==================================================================================================*/
 
-le_result_t taf_imuSensor_SelfTest
-(
-    taf_imuSensor_SensorRef_t sensorRef,
-    taf_imuSensor_SelfTestMode_t mode,
-    uint64_t* timestampPtr
-)
+void taf_imuSensor_SelfTest(taf_imuSensor_ServerCmdRef_t cmdRef,
+                           taf_imuSensor_SensorRef_t sensorRef,
+                           taf_imuSensor_SelfTestMode_t mode)
 {
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.SelfTest(sensorRef,mode,timestampPtr);
+    auto& m = taf_Sensor::GetInstance();
+    m.SelfTest(cmdRef, sensorRef, mode, taf_imuSensor_GetClientSessionRef());
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_AddSelfTestFailedHandler
 
@@ -640,19 +612,17 @@ le_result_t taf_imuSensor_SelfTest
 
  SIDE EFFECTS
 
-======================================================================*/
-taf_imuSensor_SelfTestFailedHandlerRef_t taf_imuSensor_AddSelfTestFailedHandler
-(
+==================================================================================================*/
+taf_imuSensor_SelfTestFailedHandlerRef_t taf_imuSensor_AddSelfTestFailedHandler(
     taf_imuSensor_SensorRef_t sensorRef,
     taf_imuSensor_SelfTestFailedHandlerFunc_t handlerPtr,
-    void* contextPtr
-)
+    void* contextPtr)
 {
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    return sensorMngr.AddSelfTestFailedHandler(sensorRef,handlerPtr,contextPtr);
+    auto& m = taf_Sensor::GetInstance();
+    return m.AddSelfTestFailedHandler(sensorRef, handlerPtr, contextPtr);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_RemoveSelfTestFailedHandler
 
@@ -666,17 +636,14 @@ taf_imuSensor_SelfTestFailedHandlerRef_t taf_imuSensor_AddSelfTestFailedHandler
 
  SIDE EFFECTS
 
-======================================================================*/
-void taf_imuSensor_RemoveSelfTestFailedHandler
-(
-    taf_imuSensor_SelfTestFailedHandlerRef_t handlerRef
-)
+==================================================================================================*/
+void taf_imuSensor_RemoveSelfTestFailedHandler(taf_imuSensor_SelfTestFailedHandlerRef_t handlerRef)
 {
-    auto& sensorMngr = taf_Sensor::GetInstance();
-    sensorMngr.RemoveSelfTestFailedHandler(handlerRef);
+    auto& m = taf_Sensor::GetInstance();
+    m.RemoveSelfTestFailedHandler(handlerRef);
 }
 
-/*======================================================================
+/*==================================================================================================
 
  FUNCTION       taf_imuSensor_ReleaseSelfTestRef
 
@@ -690,11 +657,107 @@ void taf_imuSensor_RemoveSelfTestFailedHandler
 
  SIDE EFFECTS
 
-======================================================================*/
-le_result_t taf_imuSensor_ReleaseSelfTestRef
-(
-    taf_imuSensor_SelfTestEventRef_t handlerRef
-)
+==================================================================================================*/
+void taf_imuSensor_ReleaseSelfTestRef(taf_imuSensor_ServerCmdRef_t cmdRef,
+                                     taf_imuSensor_SelfTestEventRef_t eventRef)
 {
-    return LE_OK;
+    LE_UNUSED(eventRef);
+    taf_imuSensor_ReleaseSelfTestRefRespond(cmdRef, LE_OK);
+}
+
+/*==================================================================================================
+
+ FUNCTION       taf_imuSensor_AddConfigUpdateHandler
+
+ DESCRIPTION    Registers a handler to be notified when the sensor configuration is updated.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS     [IN] taf_imuSensor_SensorRef_t sensorRef: reference to Sensor.
+                [IN] taf_imuSensor_ConfigUpdateHandlerFunc_t handlerPtr: handler function.
+                [IN] void* contextPtr: context pointer passed to the handler.
+
+ RETURN VALUE   taf_imuSensor_ConfigUpdateHandlerRef_t if registered successfully else NULL.
+
+ SIDE EFFECTS
+
+==================================================================================================*/
+taf_imuSensor_ConfigUpdateHandlerRef_t taf_imuSensor_AddConfigUpdateHandler(
+    taf_imuSensor_SensorRef_t sensorRef,
+    taf_imuSensor_ConfigUpdateHandlerFunc_t handlerPtr,
+    void* contextPtr)
+{
+    auto& m = taf_Sensor::GetInstance();
+    return m.AddConfigUpdateHandler(sensorRef, handlerPtr, contextPtr);
+}
+
+/*==================================================================================================
+
+ FUNCTION       taf_imuSensor_RemoveConfigUpdateHandler
+
+ DESCRIPTION    Removes the configuration update handler registered by
+                taf_imuSensor_AddConfigUpdateHandler.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS     [IN] taf_imuSensor_ConfigUpdateHandlerRef_t handlerRef: handler reference.
+
+ RETURN VALUE
+
+ SIDE EFFECTS
+
+==================================================================================================*/
+void taf_imuSensor_RemoveConfigUpdateHandler(
+    taf_imuSensor_ConfigUpdateHandlerRef_t handlerRef)
+{
+    auto& m = taf_Sensor::GetInstance();
+    m.RemoveConfigUpdateHandler(handlerRef);
+}
+
+/*==================================================================================================
+
+ FUNCTION       taf_imuSensor_AddCapabilityUpdateHandler
+
+ DESCRIPTION    Registers a handler to be notified when the sensor capability/status is updated.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS     [IN] taf_imuSensor_SensorRef_t sensorRef: reference to Sensor.
+                [IN] taf_imuSensor_CapabilityHandlerFunc_t handlerPtr: handler function.
+                [IN] void* contextPtr: context pointer passed to the handler.
+
+ RETURN VALUE   taf_imuSensor_CapabilityUpdateHandlerRef_t if registered successfully else NULL.
+
+ SIDE EFFECTS
+
+==================================================================================================*/
+taf_imuSensor_CapabilityUpdateHandlerRef_t taf_imuSensor_AddCapabilityUpdateHandler(
+    taf_imuSensor_SensorRef_t sensorRef,
+    taf_imuSensor_CapabilityUpdateHandlerFunc_t handlerPtr,
+    void* contextPtr)
+{
+    auto& m = taf_Sensor::GetInstance();
+    return m.AddCapabilityHandler(sensorRef, handlerPtr, contextPtr);
+}
+
+/*==================================================================================================
+
+ FUNCTION       taf_imuSensor_RemoveCapabilityUpdateHandler
+
+ DESCRIPTION    Removes the capability handler registered by taf_imuSensor_AddCapabilityUpdateHandler.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS     [IN] taf_imuSensor_CapabilityUpdateHandlerRef_t handlerRef: handler reference.
+
+ RETURN VALUE
+
+ SIDE EFFECTS
+
+==================================================================================================*/
+void taf_imuSensor_RemoveCapabilityUpdateHandler(
+    taf_imuSensor_CapabilityUpdateHandlerRef_t handlerRef)
+{
+    auto& m = taf_Sensor::GetInstance();
+    m.RemoveCapabilityHandler(handlerRef);
 }

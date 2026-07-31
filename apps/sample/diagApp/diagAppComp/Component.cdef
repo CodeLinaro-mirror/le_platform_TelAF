@@ -3,7 +3,7 @@ sources:
     diag.c
     diagSecurityAccess.c
     diagReadWriteDid.c
-    diagRequestFileTransfer.c
+    diagUpdate.c
     diagReset.c
     diagRoutineControl.c
     diagIOCtrl.c

@@ -5,8 +5,6 @@ cxxflags:
     -I$LEGATO_BUILD/framework/libjansson/include
     -I$TELAF_ROOT/components/tafHalComp
     -I$TELAF_ROOT/include/vhal
-    -ltelux_common
-    -ltelux_tel
     -I$TELAF_ROOT/components/tafGptpLibrary
     -I$TELAF_PA_DEFAULT/include
     -O
@@ -36,7 +34,7 @@ requires:
     api:
     {
         taf_mngdStorSecData.api [optional]
-        taf_pm.api
+        taf_pm.api              [optional]
         le_appInfo.api
     }
 

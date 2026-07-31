@@ -190,14 +190,11 @@ COMPONENT_INIT
     DidChangeHandlerRef = taf_diagDidStore_AddDataIdChangeHandler(diagStorgSvcRef, did1,
             DidChangeHandler, NULL);
 
-    taf_diagDidStore_DIDChangeHandlerRef_t handlerRef = taf_diagDidStore_GetDIDHandlerRef
-            (diagStorgSvcRef);
-
     // Add DID2, To get notification on change.
     LE_TEST_INFO("Add DID change notification for DID2: %x", did2);
-    taf_diagDidStore_AddDIDToHandler(handlerRef, did2);
+    taf_diagDidStore_AddDIDToHandler(diagStorgSvcRef, did2);
     // Duplicate DID2, adding same DID again.
-    le_result_t res1 = taf_diagDidStore_AddDIDToHandler(handlerRef, did2);
+    le_result_t res1 = taf_diagDidStore_AddDIDToHandler(diagStorgSvcRef, did2);
     LE_TEST_OK(res1 == LE_DUPLICATE, "Requested DID %x is already added", did2);
 
     // Write the data record for DID1, DID2 and DID3.
@@ -207,14 +204,14 @@ COMPONENT_INIT
 
     // Add DID3, To get notification on change.
     LE_TEST_INFO("Add DID change notification for DID3: %x", did3);
-    taf_diagDidStore_AddDIDToHandler(handlerRef, did3);
+    taf_diagDidStore_AddDIDToHandler(diagStorgSvcRef, did3);
     // Remove DID2.
     LE_TEST_INFO("Remove DID change notification for DID2: %x", did2);
-    taf_diagDidStore_RemoveDIDFromHandler(handlerRef, did2);
+    taf_diagDidStore_RemoveDIDFromHandler(diagStorgSvcRef, did2);
 
     // Remove DID4, Not added before.
     uint16_t did4 = 0xA0A1;
-    le_result_t res2 = taf_diagDidStore_RemoveDIDFromHandler(handlerRef, did4);
+    le_result_t res2 = taf_diagDidStore_RemoveDIDFromHandler(diagStorgSvcRef, did4);
     LE_TEST_OK(res2 == LE_NOT_FOUND, "Requested DID %x to remove was not added", did4);
 
     // Write/Update the data record for DID1, DID2 and DID3.
@@ -222,9 +219,9 @@ COMPONENT_INIT
 
     // Add some more DID to get notification on change as per DTool request.
     uint16_t did5 = 0xA5A5, did6 = 0xA0A0, did7 = 0xA0A2;
-    taf_diagDidStore_AddDIDToHandler(handlerRef, did5);
-    taf_diagDidStore_AddDIDToHandler(handlerRef, did6);
-    taf_diagDidStore_AddDIDToHandler(handlerRef, did7);
+    taf_diagDidStore_AddDIDToHandler(diagStorgSvcRef, did5);
+    taf_diagDidStore_AddDIDToHandler(diagStorgSvcRef, did6);
+    taf_diagDidStore_AddDIDToHandler(diagStorgSvcRef, did7);
 
     LE_INFO("DIDStore test app init completed !");
 }

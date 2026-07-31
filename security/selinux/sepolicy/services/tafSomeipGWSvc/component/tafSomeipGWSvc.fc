@@ -1,7 +1,10 @@
-# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
+
+# /tmp/vsomeip directory: use telaf_someiptmp_t so that the directory and its
+# contents (socket/lock files) share the same SELinux type.
+/tmp/vsomeip                                                                                          gen_context(system_u:object_r:telaf_someiptmp_t,s0)
 
 /legato/systems/current/appsWriteable/tafSomeipGWSvc/lib(/.*)?                                       gen_context(system_u:object_r:telaf_lib_t,s0)
 /legato/systems/current/appsWriteable/tafSomeipGWSvc/bin/tafSomeipGWSvc                              gen_context(system_u:object_r:telaf_tafSomeipGWSvc_exec_t,s0)
 /legato/apps/[^/]*/read-only/bin/tafSomeipGWSvc                                                      gen_context(system_u:object_r:telaf_tafSomeipGWSvc_exec_t,s0)
-

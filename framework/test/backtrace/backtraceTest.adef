@@ -1,0 +1,59 @@
+// backtraceTest.adef
+//
+// Multi-threaded backtrace regression test app.
+//
+// Build:   mkapp -t sa525m backtraceTest.adef
+// Install: app install backtraceTest.sa525m.update
+//
+// Run test script ON THE TARGET:
+//   /legato/systems/current/appsWriteable/backtraceTest/bin/backtraceTest.sh
+//   /legato/systems/current/appsWriteable/backtraceTest/bin/backtraceTest.sh 1
+//
+// Or set TEST_CASE and start manually:
+//   config set apps/backtraceTest/procs/backtraceTest/envVars/TEST_CASE 2
+//   app start backtraceTest
+//   logread -f
+//
+// Test cases (TEST_CASE env var):
+//   1 = null pointer read
+//   2 = null function pointer (PC=0)
+//   3 = stack overflow
+//   4 = crash during app stop (script sends 'app stop' after warmup)
+start: manual
+sandboxed: false
+
+executables:
+{
+    backtraceTest = ( backtraceTestComp )
+}
+
+bindings:
+{
+}
+
+processes:
+{
+    run:
+    {
+        ( backtraceTest )
+    }
+
+    // ignore: do not auto-restart between test cases.
+    // The test script controls start/stop explicitly.
+    faultAction: ignore
+
+    envVars:
+    {
+        TEST_CASE = "1"
+    }
+}
+
+bundles:
+{
+    file:
+    {
+        // Bundle the test script so it is available on the target at:
+        // /legato/systems/current/appsWriteable/backtraceTest/bin/backtraceTest.sh
+        [rx] backtraceTest.sh  /bin/
+    }
+}

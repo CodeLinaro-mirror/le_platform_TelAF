@@ -274,9 +274,9 @@ using namespace tafsvc::cfg;
             private:
 
                 taf_diagEvent_EventCtx_t* GetServiceObj( uint16_t eventId);
-                void InitEventContext(const std::pair<uint32_t, std::shared_ptr<cfg::Node>>& dtc,
-                        const std::pair<uint16_t, std::shared_ptr<cfg::Node>>& event);
-                void EventConfiguration(cfg::Node & node);
+                void InitEventContext(std::shared_ptr<DTCEntry> dtcEntryPtr,
+                        std::shared_ptr<EventEntry> eventEntryPtr);
+                void EventConfiguration(DiagConf & cfgRoot);
                 taf_diagEvent_DtcCtx_t* InitDtcContext(uint32_t dtcCode, uint16_t eventId);
                 void InitEventIdListForDtc(taf_diagEvent_DtcCtx_t* dtcCtxPtr, uint16_t eventId);
                 taf_diagEvent_DtcCtx_t* GetDtcCtxByCode(uint32_t dtcCode);

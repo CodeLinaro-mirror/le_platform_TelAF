@@ -1,0 +1,23 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+# File contexts for tafLegacyCApp.
+#
+# This is a bare native binary that is NOT packaged as a Legato app, so it does
+# not live under /legato.  On this platform the rootfs is read-only, there is no
+# /opt, /data and /tmp do not allow the SELinux domain transition (/data is
+# noexec; /tmp is nosuid which blocks the bounded transition), so the binary is
+# run from /var/volatile -- the only writable mount that is neither noexec nor
+# nosuid.
+#
+# Notes for /var/volatile (tmpfs):
+#  - It supports xattrs, so `restorecon -v /var/volatile/tafLegacyCApp` applies
+#    this label and lets the shell->app domain transition (tafLegacyCApp.te)
+#    fire.  Being neither noexec nor nosuid, the transition is not blocked.
+#  - The label is NOT persistent: /var/volatile is cleared on reboot, so
+#    re-copy and re-run restorecon after every boot.
+#  - The policy module must already be loaded in the image for the
+#    telaf_tafLegacyCApp_exec_t type to exist; otherwise restorecon falls back
+#    to the mount's default label (var_t) and no transition can occur.
+
+/var/volatile/tafLegacyCApp    --    gen_context(system_u:object_r:telaf_tafLegacyCApp_exec_t,s0)

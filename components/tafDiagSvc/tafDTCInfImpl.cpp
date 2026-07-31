@@ -11,6 +11,8 @@
 #include "tafEventSvr.hpp"
 #include "tafSecuritySvr.hpp"
 
+#include "serialization.hpp"
+
 using namespace tafsvc;
 
 //--------------------------------------------------------------------------------------------------
@@ -1055,15 +1057,18 @@ bool taf_DTCInf::IsDTCCurrentSesTypeConfig
     // Check DTC is supported in current active session or not.
     try
     {
-        cfg::Node & dtcNode = cfg::get_dtc_node(dtc);
-        cfg::Node & sesType = dtcNode.get_child("access.session");
+        DTCEntry & dtcNode = cfg::get_dtc_node(dtc);
 
-        for (const auto & session: sesType)
+	    //Access the `access` member of `dtcEntry`, then its `session` member directly.
+        const std::vector<std::string>& supportedSessions = dtcNode.access.session;
+
+        //Iterate directly over the vector of session strings.
+        for (const std::string& sessionName : supportedSessions)
         {
-            string type = session.second.get_value<string>("");
+            const DiagSessionEntry & sesEntry = cfg::get_diag_session_by_short_name(sessionName);
 
-            cfg::Node & sesNode = cfg::top_diagnostic_session<string>("short_name", type);
-            int session_id = sesNode.get<int>("id");
+            //Access the `id` member directly from the `DiagSessionEntry` struct.
+            int session_id = sesEntry.id;
 
             if ((uint8_t)session_id == currentSesType)
             {

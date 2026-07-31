@@ -19,6 +19,8 @@ le_clk_Time_t Timeout = { 3 , 0 };
 int status = EXIT_SUCCESS;
 const char* vHalTag = "vehichle_on";
 taf_mngdPm_wsRef_t wsRef = NULL;
+taf_mngdPm_wsNodeRef_t wsNodeRef = NULL;
+
 taf_mngdPm_NodePowerStateChangeBitMask_t stateMask = 0;
 
 static void PrintUsage
@@ -121,96 +123,6 @@ static void* test_stateChangeHandler(void* ctxPtr)
 
     le_sem_Post(semRef);
     le_event_RunLoop();
-}
-
-le_result_t SuspendSystem(const char* wakeuptype)
-{
-    le_result_t res = LE_FAULT;
-    uint8_t pmNodeId = 0;
-    if(strcmp(wakeuptype, "1") == 0) {
-        LE_INFO("NewNodeWakeupSource wakeuptype is SMS");
-        if(wsRef == NULL)
-        wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_SMS, vHalTag);
-        if(wsRef != NULL) {
-            LE_INFO("NewNodeWakeupSource ref is created for SMS");
-            res = taf_mngdPm_RelaxNode(wsRef);
-            if(res == LE_OK)
-                LE_INFO("suspended system with wakeuptype SMS");
-        }
-    }
-    else if(strcmp(wakeuptype, "2") == 0) {
-        LE_INFO("NewNodeWakeupSource wakeuptype is VOICE_CALL");
-        if(wsRef == NULL)
-        wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_VOICE_CALL, vHalTag);
-        if(wsRef != NULL) {
-            LE_INFO("NewNodeWakeupSource ref is created for VOICE_CALL");
-            res = taf_mngdPm_RelaxNode(wsRef);
-            if(res == LE_OK)
-                LE_INFO("suspended sysytem with wakeuptype VOICE_CALL");
-        }
-    }
-    else if(strcmp(wakeuptype, "3") == 0) {
-        LE_INFO("NewNodeWakeupSource wakeuptype is MCU_VHAL");
-        if(wsRef == NULL)
-        wsRef = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_MCU_VHAL, vHalTag);
-        if(wsRef != NULL) {
-            LE_INFO("NewNodeWakeupSource ref is created for MCU_VHAL");
-            res = taf_mngdPm_RelaxNode(wsRef);
-            if(res == LE_OK)
-                LE_INFO("suspended sysytem with wakeuptype MCU_VHAL");
-        }
-    }
-    else {
-        LE_ERROR("SuspendSystem failed due to unsupoorted wakeupSource type");
-        return res;
-    }
-    return res;
-}
-
-le_result_t ResumeSystem(const char* wakeuptype)
-{
-    le_result_t res = LE_FAULT;
-    if(strcmp(wakeuptype, "1") == 0) {
-        LE_INFO("NewNodeWakeupSource wakeuptype is SMS");
-        if(wsRef == NULL)
-        wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_SMS, vHalTag);
-        if(wsRef != NULL) {
-            LE_INFO("NewNodeWakeupSource ref is created for SMS");
-            res = taf_mngdPm_StayAwakeNode(wsRef);
-            if(res == LE_OK) {
-                LE_INFO("Resumed sysytem with wakeuptype SMS");
-             }
-        }
-    }
-    else if(strcmp(wakeuptype, "2") == 0) {
-        LE_INFO("NewNodeWakeupSource wakeuptype is VOICE_CALL");
-        if(wsRef == NULL)
-        wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_VOICE_CALL, vHalTag);
-        if(wsRef != NULL) {
-            LE_INFO("NewNodeWakeupSource ref is created for VOICE_CALL");
-            res = taf_mngdPm_StayAwakeNode(wsRef);
-            if(res == LE_OK) {
-                LE_INFO("Resumed sysytem with wakeuptype VOICE_CALL");
-             }
-        }
-    }
-    else if(strcmp(wakeuptype, "3") == 0) {
-        LE_INFO("NewNodeWakeupSource wakeuptype is SMS");
-        if(wsRef == NULL)
-        wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_MCU_VHAL, vHalTag);
-        if(wsRef != NULL) {
-            LE_INFO("NewNodeWakeupSource ref is created for MCU_VHAL");
-            res = taf_mngdPm_StayAwakeNode(wsRef);
-            if(res == LE_OK) {
-                LE_INFO("Resumed sysytem with wakeuptype MCU_VHAL");
-             }
-        }
-    }
-    else {
-        LE_ERROR("ResumeSystem failed");
-        return res;
-   }
-   return res;
 }
 
 void NodePowerStateChangeHandlerCB(

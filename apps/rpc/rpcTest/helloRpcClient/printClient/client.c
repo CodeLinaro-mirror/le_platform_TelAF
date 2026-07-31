@@ -23,7 +23,7 @@ static void TimerHandler
     uint16_t rspSystemId = 0;
 
     snprintf(reqMsg, sizeof(reqMsg), "HelloWorld_0x%x", MsgCnt++);
-    printer_Print(MySystemId, reqMsg, &rspSystemId, rspMsg, sizeof(rspMsg));
+    tafRpcPrinter_Print(MySystemId, reqMsg, &rspSystemId, rspMsg, sizeof(rspMsg));
 
     LE_INFO("Sent request: '%s'", reqMsg);
     LE_INFO("Received response from system(0x%x): '%s'", rspSystemId, rspMsg);
@@ -48,7 +48,7 @@ static void* ClientThread
 {
     LE_UNUSED(context);
 
-    printer_ConnectService();
+    tafRpcPrinter_ConnectService();
 
     Timer1Ref = le_timer_Create("Helloworld timer1");
     le_timer_SetMsInterval(Timer1Ref, 5000);
@@ -57,8 +57,8 @@ static void* ClientThread
     le_timer_SetWakeup(Timer1Ref, false);
     le_timer_Start(Timer1Ref);
 
-    printer_AddChangeHandler(3, ChangeHandler, NULL);
-    printer_AddChangeHandler(4, ChangeHandler, NULL);
+    tafRpcPrinter_AddChangeHandler(3, ChangeHandler, NULL);
+    tafRpcPrinter_AddChangeHandler(4, ChangeHandler, NULL);
 
     LE_INFO("HelloRPC client thread is running.");
     le_event_RunLoop();
@@ -76,8 +76,8 @@ COMPONENT_INIT
     le_timer_SetWakeup(TimerRef, false);
     le_timer_Start(TimerRef);
 
-    printer_AddChangeHandler(1, ChangeHandler, NULL);
-    printer_AddChangeHandler(2, ChangeHandler, NULL);
+    tafRpcPrinter_AddChangeHandler(1, ChangeHandler, NULL);
+    tafRpcPrinter_AddChangeHandler(2, ChangeHandler, NULL);
 
     ThreadRef = le_thread_Create("SubThread", ClientThread, NULL);
     le_thread_Start(ThreadRef);

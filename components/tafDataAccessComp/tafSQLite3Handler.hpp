@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -47,6 +47,7 @@ namespace dataAccess{
             sqlite3 *GetDbHandle();
             le_result_t GetVersion(int &ver);
             le_result_t SetVersion(int ver);
+            le_result_t EnableWAL();
         private:
             static int ExecuteCallback(void *data, int argc, char **argv, char **azCloName);
 
@@ -101,6 +102,11 @@ namespace dataAccess{
             le_result_t SetVersion(int ver) override
             {
                 return mDb.SetVersion(ver);
+            }
+
+            le_result_t EnableWAL() override
+            {
+                return mDb.EnableWAL();
             }
 
             le_result_t Add(T &entity) override

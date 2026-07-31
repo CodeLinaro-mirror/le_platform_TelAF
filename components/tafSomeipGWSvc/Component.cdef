@@ -49,7 +49,11 @@ bundles:
         // be modified accordingly based on target device's unicast
         // and multicast addresses.
     #if ${LE_CONFIG_FLAVOR_LXC} = y
-        [rw] tafSomeipGWSvcLXC.json  /tafSomeipGWSvc.json
+        #if ${LE_CONFIG_ENABLE_PVM_LXC_RPC_OVER_TCP} = y
+            [rw] tafSomeipGWSvcLXC.json  /
+        #else
+            [rw] tafSomeipGWProxy.json  /
+        #endif
     #elif ${MULTI_ROUTING_MANAGERS_TEST_DEVICE} = ""
         [rw] tafSomeipGWSvc.json   /
         [rw] tafSomeipGWSvc_1.json   /

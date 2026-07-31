@@ -1,3 +1,8 @@
+ldflags:
+{
+    -L$TELAF_DEFAULT_PA_LIB_DIR/lib
+}
+
 provides:
 {
     api:
@@ -15,7 +20,8 @@ requires:
     }
     lib:
     {
-        lib/libtelux_therm.so
+        libComponent_taf_pa_therm.so
+        libComponent_taf_pa_thermDef.so
     }
 }
 
@@ -23,10 +29,9 @@ cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
-    -ltelux_therm
-    -ltelux_common
     -DLE_CONFIG_ENABLE_THERMAL_GET_TRIP_ID
     -DLE_CONFIG_ENABLE_THERMAL_GET_ZONE_ID
+    -I$TELAF_PA_DEFAULT/include
 }
 
 cflags:

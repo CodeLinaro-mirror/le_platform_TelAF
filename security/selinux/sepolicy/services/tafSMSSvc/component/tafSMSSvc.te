@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafSMSSvc, 1.0)
@@ -15,6 +15,10 @@ files_type(telaf_tafSMSSvc_data_t);
 telaf_tafKeyStoreSvc_getKeyId(telaf_tafSMSSvc_t)
 
 init_telaf_app_domain(telaf_tafSMSSvc_t,telaf_tafSMSSvc_exec_t)
+gen_require(`
+    type telaf_tafKeyStoreSvc_t;
+')
+telaf_ipc_bind(telaf_tafSMSSvc_t, telaf_tafKeyStoreSvc_t)
 
 # Perform SMS related operations like set SMSC address
 ifdef(`sa525m',`
@@ -25,8 +29,11 @@ ifdef(`sa525m',`
     telux_allow_tel_sms_ops(telaf_tafSMSSvc_t)
 ')
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafSMSSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+# type_transition rules in telaf_manage_app_data_files() ensure that files
+# created at runtime under telaf_app_rw_t (appsWriteable/ and /data/le_fs/)
+# are automatically labeled telaf_tafSMSSvc_data_t.
+telaf_manage_app_data_files(telaf_tafSMSSvc_t, telaf_tafSMSSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafSMSSvc_exec_t)
 
 

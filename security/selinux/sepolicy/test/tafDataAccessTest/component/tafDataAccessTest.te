@@ -1,0 +1,32 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+policy_module(tafDataAccessTest, 1.0)
+
+gen_require(`
+  type node_t;
+  type cert_t;
+  type unreserved_port_t;
+  type load_policy_t;
+  type proc_net_t;
+')
+
+
+type telaf_tafDataAccessTest_exec_t;
+files_type(telaf_tafDataAccessTest_exec_t);
+
+type telaf_tafDataAccessTest_data_t;
+files_type(telaf_tafDataAccessTest_data_t);
+
+type telaf_tafDataAccessTest_t;
+
+init_telaf_app_domain(telaf_tafDataAccessTest_t,telaf_tafDataAccessTest_exec_t)
+
+telaf_admin_manage_all_files_perms(telaf_tafDataAccessTest_exec_t)
+telaf_admin_manage_all_files_perms(telaf_tafDataAccessTest_data_t)
+telaf_admin_file_perms(telaf_tafDataAccessTest_t, telaf_tafDataAccessTest_data_t)
+
+allow telaf_tafDataAccessTest_t cert_t:dir { search };
+allow telaf_tafDataAccessTest_t data_t:file { open read getattr };
+allow telaf_tafDataAccessTest_t data_t:file { map };
+allow telaf_tafDataAccessTest_t cert_t:file { open read getattr };

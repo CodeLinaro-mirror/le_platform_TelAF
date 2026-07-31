@@ -258,12 +258,13 @@ taf_mngdStorSecData_DataRef_t tafMngdStorageSvc::GetDataRef
                             nullptr,
                             "cannot get data path");
 
-    // Check if the data file exists
-    if(IsFileExisting(dataItemPath) == false)
+    int dataFd = taf_rfs_Open(dataItemPath, O_RDONLY, 0);
+    if (dataFd < 0)
     {
         LE_ERROR("The data item doesn't exist");
         return nullptr;
     }
+    taf_rfs_Close(dataFd);
 
     taf_mngdStorSecData_DataRef_t dataRef = nullptr;
     tafMngdStorage_ClientData_t *clientDataPtr = nullptr;
@@ -454,7 +455,7 @@ le_result_t tafMngdStorageSvc::GetDataPath
         snprintf(bufferPtr, bufferSize, "%s%s/%s", secDataStorage, storageName, dataName);
     }
 
-    LE_INFO("data path is: %s", bufferPtr);
+    LE_DEBUG("data path is: %s", bufferPtr);
 
     return LE_OK;
 }
@@ -469,7 +470,8 @@ int tafMngdStorageSvc::OpenTempFile
 {
     char temp_filename[LIMIT_MAX_PATH_BYTES + sizeof(SECURE_DATA_TEMP_EXTENSION)];
     snprintf(temp_filename, sizeof(temp_filename), "%s%s", filename, SECURE_DATA_TEMP_EXTENSION);
-    return taf_rfs_Open(temp_filename, O_CREAT|O_WRONLY|O_TRUNC, S_IRWXU);
+    // secStorage data files are non-executable; create as 0600 (rw-) not 0700 (CR 4551772).
+    return taf_rfs_Open(temp_filename, O_CREAT|O_WRONLY|O_TRUNC, S_IRUSR | S_IWUSR);
 }
 
 /**
@@ -570,7 +572,8 @@ le_result_t tafMngdStorageSvc::CreateDataItem
                             LE_BAD_PARAMETER,
                             "cannot get data item path");
 
-    dataPtr->writeOp.outputFd = taf_rfs_Open(dataItemPath, O_CREAT|O_WRONLY|O_TRUNC, S_IRWXU);
+    // secStorage data files are non-executable; create as 0600 (rw-) not 0700 (CR 4551772).
+    dataPtr->writeOp.outputFd = taf_rfs_Open(dataItemPath, O_CREAT|O_WRONLY|O_TRUNC, S_IRUSR | S_IWUSR);
     if (dataPtr->writeOp.outputFd >= 0)
     {
         LE_INFO("File %s created successfully.", dataItemPath);
@@ -630,7 +633,7 @@ void tafMngdStorageSvc::ReleaseDataRef
                 {
                     taf_rfs_Close(dataPtr->readOp.outputFd);
                     dataPtr->isInReadingProcess = false;
-                    dataPtr->writeOp.clientSessionRef = nullptr;
+                    dataPtr->readOp.clientSessionRef = nullptr;
                 }
             }
 

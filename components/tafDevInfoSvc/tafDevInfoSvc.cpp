@@ -7,11 +7,39 @@
 
 using namespace tafsvc;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * SIGTERM signal event handler.
+ *
+ * Invoked by the Legato signal event framework when the process receives SIGTERM.
+ */
+//--------------------------------------------------------------------------------------------------
+static void SigTermEventHandler
+(
+    int sigNum ///< [IN] Signal number received (expected: SIGTERM).
+)
+{
+    LE_INFO("SigTermEventHandler signal : %d", sigNum);
+
+#ifdef LE_CONFIG_GET_IMEI_SUPPORT
+    pa_result_t result = taf_pa_deviceinfo_Deinit();
+    if (result != PA_OK)
+        LE_ERROR("taf_pa_deviceinfo_Deinit failed, result: %d", result);
+    else
+        LE_INFO("taf_pa_deviceinfo_Deinit succeeded.");
+#endif
+
+    exit(EXIT_SUCCESS);
+}
+
 COMPONENT_INIT {
     LE_INFO("tafDevInfo Service Init...\n");
     auto& tafDevInfo = taf_devInfo::GetInstance();
     tafDevInfo.Init();
     LE_INFO("tafDevInfo Service Ready...\n");
+
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);
 }
 
 /*======================================================================

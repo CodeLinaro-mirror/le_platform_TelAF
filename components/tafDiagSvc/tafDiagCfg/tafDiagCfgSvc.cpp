@@ -111,6 +111,8 @@ COMPONENT_INIT
     //Init configuration module.
     init();
 
+    std::string tree_data_md5 = get_tree_data_md5();
+
     try
     {
         diag_config_init("./diag_template.yaml.json");
@@ -122,8 +124,8 @@ COMPONENT_INIT
     }
 
     { /* Output all information tafDiagGen tool generated */
-        LE_INFO("%s", tafDiagGen_tool_json_md5);
-        LE_INFO("%s", tafDiagGen_tool_evid_h_md5);
+        LE_INFO("%s, %s, tree_data_md5 = %s", tafDiagGen_tool_json_md5,
+                        tafDiagGen_tool_evid_h_md5, tree_data_md5.c_str());
     }
 
     uint8_t json_md5_runtime[MD5_DIGEST_LENGTH];
@@ -151,6 +153,36 @@ COMPONENT_INIT
         LE_INFO("MD5 of JSON file (tool-gn): %s", TAFDIAGGEN_JSON_MD5);
 
         LE_ERROR("MD5 of JSON file [Mismatched], FATAL!");
+        exit(EXIT_SUCCESS);
+    }
+
+    if (tree_data_md5.empty())
+    {
+        LE_ERROR("get_tree_data_md5 returned empty - tree_data MD5 not set");
+        exit(EXIT_SUCCESS);
+    }
+
+    LE_ASSERT(tree_data_md5.length() / 2 == MD5_DIGEST_LENGTH);
+
+    uint8_t serial_md5_origin[MD5_DIGEST_LENGTH];
+    ConvertHexToArray(tree_data_md5.c_str(),
+                  tree_data_md5.length(),
+                  serial_md5_origin,
+                  sizeof(serial_md5_origin));
+
+    uint8_t serial_md5_runtime[MD5_DIGEST_LENGTH];
+    LE_ASSERT(ComputeFileMD5("./tree_data", serial_md5_runtime) == LE_OK);
+
+    if (memcmp(serial_md5_runtime, serial_md5_origin, MD5_DIGEST_LENGTH) != 0)
+    {
+        char serial_md5_runtime_str[MD5_DIGEST_LENGTH * 2 + 1];
+        ConvertArrayToHex(serial_md5_runtime,
+                      MD5_DIGEST_LENGTH,
+                      serial_md5_runtime_str,
+                      sizeof(serial_md5_runtime_str));
+        LE_INFO("MD5 of tree_data (runtime): %s", serial_md5_runtime_str);
+        LE_INFO("MD5 of tree_data (tool-gn): %s", tree_data_md5.c_str());
+        LE_ERROR("MD5 of tree_data [Mismatched], FATAL!");
         exit(EXIT_SUCCESS);
     }
 

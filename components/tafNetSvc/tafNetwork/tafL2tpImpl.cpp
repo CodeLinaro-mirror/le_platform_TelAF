@@ -73,9 +73,6 @@ le_event_Id_t taf_L2tp::l2tpCmdId = nullptr;
 void taf_L2tp::Init(void)
 {
 
-    bool isReady = false;
-
-
     // Initiate the memory pool
 
     tunnelPool = le_mem_InitStaticPool(tunnelPool,
@@ -111,9 +108,9 @@ void taf_L2tp::Init(void)
                                                      TAF_NET_L2TP_MAX_TUNNEL_NUMBER,
                                                sizeof(TunnelHandlerMapping_t));
 
-    isReady = taf_pa_l2tp_Init();
+    pa_result_t result = taf_pa_l2tp_Init();
 
-    if(isReady)
+    if(result == PA_OK)
     {
         LE_INFO("l2tpManager component is ready...");
     }

@@ -35,7 +35,7 @@
 #include "legato.h"
 #include "interfaces.h"
 
-#include "taf_pa_fscrypt.h"
+#include "tafFscryptPa.h"
 
 #include <openssl/sha.h>
 #include <openssl/md5.h>

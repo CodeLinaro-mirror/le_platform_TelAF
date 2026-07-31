@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafMngdStorageSvc, 1.0)
@@ -7,6 +7,7 @@ gen_require(`
   type telaf_devmgr_data_t;
   type telaf_devmgr_t;
   type fs_t;
+  type telaf_tafKeyStoreSvc_t;
 ')
 
 # Framework definition for telaf
@@ -37,30 +38,36 @@ type telaf_tafMngdCfgStorageSvc_data_t;
 files_type(telaf_tafMngdCfgStorageSvc_data_t);
 
 init_telaf_app_domain(telaf_tafMngdSecDataStorageSvc_t,telaf_tafMngdSecDataStorageSvc_exec_t)
+# tafMngdSecDataStorageSvc uses tafKeyStoreSvc for key operations
+telaf_ipc_bind(telaf_tafMngdSecDataStorageSvc_t, telaf_tafKeyStoreSvc_t)
 
 init_telaf_app_domain(telaf_tafMngdSecFileStorageSvc_t,telaf_tafMngdSecFileStorageSvc_exec_t)
+# tafMngdSecFileStorageSvc uses tafKeyStoreSvc and tafMngdSecDataStorageSvc (taf_mngdStorSecData)
+telaf_ipc_bind(telaf_tafMngdSecFileStorageSvc_t, telaf_tafKeyStoreSvc_t)
+telaf_ipc_bind(telaf_tafMngdSecFileStorageSvc_t, telaf_tafMngdSecDataStorageSvc_t)
 
-ifdef(`sa525m',`
-    allow telaf_tafMngdSecDataStorageSvc_exec_t telaf_admin_t:lnk_file {read};
-')
-
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafMngdSecDataStorageSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafMngdSecDataStorageSvc_t, telaf_tafMngdSecDataStorageSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafMngdSecDataStorageSvc_exec_t)
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafMngdSecFileStorageSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafMngdSecFileStorageSvc_t, telaf_tafMngdSecFileStorageSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafMngdSecFileStorageSvc_exec_t)
 
 init_telaf_app_domain(telaf_tafMngdCfgStorageSvc_t,telaf_tafMngdCfgStorageSvc_exec_t)
+# tafMngdCfgStorageSvc uses tafKeyStoreSvc and tafMngdSecDataStorageSvc (taf_mngdStorSecData)
+telaf_ipc_bind(telaf_tafMngdCfgStorageSvc_t, telaf_tafKeyStoreSvc_t)
+telaf_ipc_bind(telaf_tafMngdCfgStorageSvc_t, telaf_tafMngdSecDataStorageSvc_t)
+telaf_use_config_tree(telaf_tafMngdCfgStorageSvc_t)
+telaf_use_device_manager(telaf_tafMngdCfgStorageSvc_t)
 
-ifdef(`sa525m',`
-    allow telaf_tafMngdCfgStorageSvc_exec_t telaf_admin_t:lnk_file {read};
-')
-
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafMngdCfgStorageSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafMngdCfgStorageSvc_t, telaf_tafMngdCfgStorageSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafMngdCfgStorageSvc_exec_t)
+
+telaf_app_read_proc_state(telaf_tafMngdSecDataStorageSvc_t)
+telaf_app_read_proc_state(telaf_tafMngdSecFileStorageSvc_t)
+telaf_app_read_proc_state(telaf_tafMngdCfgStorageSvc_t)
 
 # KeyStore rules
 
@@ -73,13 +80,8 @@ telaf_load_rfs_component(telaf_tafMngdSecDataStorageSvc_t)
 telaf_load_rfs_component(telaf_tafMngdSecFileStorageSvc_t)
 telaf_load_rfs_component(telaf_tafMngdCfgStorageSvc_t)
 
-allow telaf_admin_t telaf_tafMngdSecDataStorageSvc_exec_t:lnk_file { read };
-allow telaf_tafMngdSecDataStorageSvc_t self:capability { sys_admin sys_ptrace };
-allow telaf_tafMngdSecDataStorageSvc_t data_t:file { relabel_file_perms };
-
-allow telaf_admin_t telaf_tafMngdCfgStorageSvc_exec_t:lnk_file { read };
-allow telaf_tafMngdCfgStorageSvc_t self:capability { sys_admin };
-allow telaf_tafMngdCfgStorageSvc_t data_t:file { relabel_file_perms };
+allow telaf_tafMngdSecDataStorageSvc_t self:capability { sys_admin dac_override };
+allow telaf_tafMngdCfgStorageSvc_t self:capability { sys_admin dac_override };
 
 telaf_load_vhal_modules(telaf_tafMngdCfgStorageSvc_t)
 
@@ -87,6 +89,6 @@ telaf_load_vhal_modules(telaf_tafMngdCfgStorageSvc_t)
 telaf_tafKeyStoreSvc_FscInit(telaf_tafMngdCfgStorageSvc_t, telaf_tafMngdCfgStorageSvc_data_t)
 telaf_tafKeyStoreSvc_FscInit(telaf_tafMngdSecFileStorageSvc_t, telaf_tafMngdSecFileStorageSvc_data_t)
 
-allow telaf_tafMngdSecFileStorageSvc_t self:capability { sys_admin sys_ptrace };
+allow telaf_tafMngdSecFileStorageSvc_t self:capability { sys_admin dac_override };
 allow telaf_tafMngdSecFileStorageSvc_t init_t:key { search };
 allow telaf_tafMngdSecFileStorageSvc_t fs_t:filesystem { getattr };

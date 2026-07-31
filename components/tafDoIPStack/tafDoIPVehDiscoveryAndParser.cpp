@@ -653,7 +653,6 @@ void VehicleDiscovery::Init
 (
 )
 {
-    LE_INFO("vehicle discovery announcment started");
     waitTimerRef = le_timer_Create("announce wait timer");
 }
 
@@ -726,6 +725,7 @@ void VehicleDiscovery::VehicleAnnounceTimerHandler
     }
 
     vehicleDis.announceCount++;
+    LE_INFO("%d Announcement completed", vehicleDis.announceCount);
 
     if (vehicleDis.announceCount < vehicleDis.maxAnnounceCount)
     {

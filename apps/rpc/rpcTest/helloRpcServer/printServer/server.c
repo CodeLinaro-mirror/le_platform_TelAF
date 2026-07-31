@@ -9,9 +9,9 @@
 
 typedef struct
 {
-    printer_ChangeHandlerRef_t ref;
+    tafRpcPrinter_ChangeHandlerRef_t ref;
     uint32_t chgId;
-    printer_ChangeHandlerFunc_t handlefunc;
+    tafRpcPrinter_ChangeHandlerFunc_t handlefunc;
     void* context;
 }ChangeHandler_t;
 
@@ -20,7 +20,7 @@ static le_ref_MapRef_t ChangeHandlerRefMap = NULL;
 static le_timer_Ref_t TimerRef = NULL;
 static uint16_t MySystemId = 0;
 
-void printer_Print
+void tafRpcPrinter_Print
 (
     uint16_t reqSystemId,
     const char* reqMsg,
@@ -36,10 +36,10 @@ void printer_Print
     LE_INFO("sent response: '%s'", rspMsg);
 }
 
-printer_ChangeHandlerRef_t printer_AddChangeHandler
+tafRpcPrinter_ChangeHandlerRef_t tafRpcPrinter_AddChangeHandler
 (
     uint32_t chgId,
-    printer_ChangeHandlerFunc_t handlerPtr,
+    tafRpcPrinter_ChangeHandlerFunc_t handlerPtr,
     void* contextPtr
 )
 {
@@ -50,14 +50,14 @@ printer_ChangeHandlerRef_t printer_AddChangeHandler
     chgHandlerPtr->handlefunc = handlerPtr;
     chgHandlerPtr->context = contextPtr;
     chgHandlerPtr->ref =
-        (printer_ChangeHandlerRef_t)le_ref_CreateRef(ChangeHandlerRefMap, chgHandlerPtr);
+        (tafRpcPrinter_ChangeHandlerRef_t)le_ref_CreateRef(ChangeHandlerRefMap, chgHandlerPtr);
 
     return chgHandlerPtr->ref;
 }
 
-void printer_RemoveChangeHandler
+void tafRpcPrinter_RemoveChangeHandler
 (
-    printer_ChangeHandlerRef_t handlerRef
+    tafRpcPrinter_ChangeHandlerRef_t handlerRef
 )
 {
     ChangeHandler_t* chgHandlerPtr =

@@ -580,6 +580,6 @@ COMPONENT_INIT
     LE_INFO("TelAF Health Monitor Service init Started...");
     auto &hms = taf_Hms::GetInstance();
     hms.Init();
-    LE_INFO("TelAF Health Monitor Service init completed...");
+    LE_INFO("TelAF Health Monitor Service init completed and service advertised...");
 }
 

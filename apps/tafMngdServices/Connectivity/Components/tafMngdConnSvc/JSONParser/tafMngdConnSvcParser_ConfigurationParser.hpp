@@ -59,6 +59,7 @@ namespace tafsvc {
         uint8_t ID;
         uint8_t Use_Network_ID;
         char DataName[MCS_MAX_NAME_LEN];
+        char Interface[MCS_MAX_NAME_LEN];
         mcs_Configuration_Data_Profile_t Profile;
         mcs_Yes_No_t AutoStart; //Yes=1, No=0
         mcs_Configuration_DataStartRetry_t DataStartRetry;
@@ -153,6 +154,9 @@ private:
                                     std::string Value,
                                     int Index);
     static bool Validate_MCSC_Data_Name(mcs_Configuration_t &Configuration,
+                                    std::string Value,
+                                    int Index);
+    static bool Validate_MCSC_Data_Interface(mcs_Configuration_t &Configuration,
                                     std::string Value,
                                     int Index);
     static bool Validate_MCSC_Data_Profile_Number(mcs_Configuration_t &Configuration,

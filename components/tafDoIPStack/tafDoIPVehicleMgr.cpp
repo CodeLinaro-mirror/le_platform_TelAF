@@ -50,7 +50,6 @@ void VehicleManager::ParseJsonConfig
     bool isVinStored
 )
 {
-    LE_DEBUG("ParseJsonConfig");
 
     if (configPathPtr == NULL)
     {

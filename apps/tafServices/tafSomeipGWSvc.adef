@@ -37,6 +37,8 @@ processes:
 {
     envVars:
     {
+        VSOMEIP_CONFIGURATION_tafSomeipGWProxy = tafSomeipGWProxy.json
+        VSOMEIP_CONFIGURATION_tafSomeipGWSvcLXC = tafSomeipGWSvcLXC.json
         VSOMEIP_CONFIGURATION_tafSomeipGWSvc = tafSomeipGWSvc.json
         VSOMEIP_CONFIGURATION_tafSomeipGWSvc_1 = tafSomeipGWSvc_1.json
         VSOMEIP_CONFIGURATION_tafSomeipGWSvc_2 = tafSomeipGWSvc_2.json

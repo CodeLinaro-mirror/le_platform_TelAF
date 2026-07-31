@@ -47,8 +47,9 @@
 #include <mutex>
 #include <chrono>
 #include <bitset>
+#include <fstream>
 #include "tafSvcIF.hpp"
-#include "taf_pa_location.hpp"
+#include "tafLocationPa.hpp"
 
 using GnssReportTypeMask = uint32_t;
 using LocReqEngine = uint16_t;
@@ -66,6 +67,10 @@ const int DEFAULT_UNKNOWN = 0;
 #define TAF_LOCGNSS_NMEA_DEFAULT 0x1f8000fc0
 #define TAF_LOCGNSS_NMEA_CONFIG_DEFAULT 0
 #define TIMEOUT_SECONDS 5
+#define SBAS_STATION_ID_RANGE1_MIN 120
+#define SBAS_STATION_ID_RANGE1_MAX 158
+#define SBAS_STATION_ID_RANGE2_MIN 183
+#define SBAS_STATION_ID_RANGE2_MAX 191
 
 enum DataType
 {
@@ -228,6 +233,22 @@ namespace tafsvc {
         uint64_t gPtpTimeUnc;
         bool   leapSecondsUncValid;
         uint8_t leapSecondsUnc;
+        uint16_t dgnssStationIds[TAF_LOCGNSS_MAX_MONITOR_STATION_IDS];
+        uint8_t  dgnssStationIdsCount;
+        uint32_t navSolutionMask;
+        bool     navSolutionMaskValid;
+        double protectionLevelAlongTrack;
+        double protectionLevelCrossTrack;
+        double protectionLevelVertical;
+        double baselineLength;
+        uint64_t ageCorrections;
+        uint32_t integrityRiskUsed;
+        bool protectionLevelAlongTrackValid;
+        bool protectionLevelCrossTrackValid;
+        bool protectionLevelVerticalValid;
+        bool baselineLengthValid;
+        bool ageCorrectionsValid;
+        bool integrityRiskUsedValid;
         le_dls_Link_t   next;
     }
     taf_locGnss_PositionSample_t;
@@ -314,6 +335,7 @@ namespace tafsvc {
     typedef struct
     {
         taf_locGnss_LocCapabilityType_t locCapability;
+        le_msg_SessionRef_t*          clientSessionRefPtr;
     }
     CapabilityChangeEvent_t;
 
@@ -321,6 +343,7 @@ namespace tafsvc {
     {
         uint64_t timestamp;
         char nmeaMask[TAF_LOCGNSS_NMEA_STRING_MAX];
+        le_msg_SessionRef_t*          clientSessionRefPtr;
     }
     NmeaInfoEvent_t;
 
@@ -341,6 +364,29 @@ namespace tafsvc {
         le_dls_Link_t                   next;
     }
     taf_locGnss_MeasurementSampleRequest_t;
+
+    typedef struct
+    {
+        taf_locGnss_DgnssSourceRef_t sourceRef;
+        taf_locGnss_DgnssFormat_t format;
+        le_msg_SessionRef_t             sessionRef;
+    } taf_locGnss_DgnssSource_t;
+
+    typedef struct
+    {
+        taf_locGnss_DgnssStatus_t     dgnssStatus;
+        le_msg_SessionRef_t*          clientSessionRefPtr;
+    }
+    DgnssStatusEvent_t;
+
+    typedef struct taf_locGnss_DgnssStatusChangeHandler
+    {
+        taf_locGnss_DgnssStatusChangeHandlerRef_t handlerRef;
+        taf_locGnss_DgnssStatusChangeHandlerFunc_t handlerFuncPtr;
+        void*                         handlerContextPtr;
+        le_msg_SessionRef_t           sessionRef;
+        le_dls_Link_t                 next;
+    } taf_locGnss_DgnssStatusChangeHandler_t;
 
     typedef struct
     {
@@ -414,9 +460,31 @@ namespace tafsvc {
         std::mutex mMutex;
         le_mutex_Ref_t mGnssMutexRef;
         taf_locGnss_DRConfigValidityType_t drParamsMask;
+        taf_locGnss_DgnssSourceRef_t activeSourceRef;
+        taf_locGnss_DgnssFormat_t activeDgnssFormat;
         le_dls_Link_t               next;
     }
     taf_locGnss_Client_t;
+
+    typedef struct taf_locGnss_NmeaHandler
+    {
+        taf_locGnss_NmeaHandlerRef_t handlerRef;
+        taf_locGnss_NmeaHandlerFunc_t handlerFuncPtr;
+        void*                         handlerContextPtr;
+        le_msg_SessionRef_t           sessionRef;
+        le_dls_Link_t                 next;
+    }
+    taf_locGnss_NmeaHandler_t;
+
+    typedef struct taf_locGnss_CapHandler
+    {
+        taf_locGnss_CapabilityChangeHandlerRef_t handlerRef;
+        taf_locGnss_CapabilityChangeHandlerFunc_t handlerFuncPtr;
+        void*                         handlerContextPtr;
+        le_msg_SessionRef_t           sessionRef;
+        le_dls_Link_t                 next;
+    }
+    taf_locGnss_CapHandler_t;
 
     class taf_locGnss: public ITafSvc
     {
@@ -453,11 +521,11 @@ namespace tafsvc {
 
             taf_locGnss_CapabilityChangeHandlerRef_t AddCapabilityHandler(
                     taf_locGnss_CapabilityChangeHandlerFunc_t handlerPtr, void* contextPtr);
-            static void FirstLayerCapabilityHandler(void* reportPtr, void* secondLayerHandlerFunc);
+            static void GnssCapabilityHandler(void* reportPtr);
             void RemoveCapabilityHandler(taf_locGnss_CapabilityChangeHandlerRef_t handlerRef);
             taf_locGnss_NmeaHandlerRef_t AddNmeaHandler(taf_locGnss_NmeaHandlerFunc_t handlerPtr, void* contextPtr);
             void RemoveNmeaHandler(taf_locGnss_NmeaHandlerRef_t handlerRef);
-            static void FirstLayerNmeaHandler(void* reportPtr, void* secondLayerHandlerFunc);
+            static void GnssNmeaHandler(void* reportPtr);
 
             taf_locGnss_SampleRef_t GetLastSampleRef(void);
             void ReleaseClientRef( void* RefPtr);
@@ -576,6 +644,16 @@ namespace tafsvc {
             le_result_t SetNmeaConfiguration(taf_locGnss_NmeaBitMask_t nmeaMask, taf_locGnss_GeodeticDatumType_t datumType, taf_locGnss_LocEngineType_t engineType);
             le_result_t GetXtraStatus(taf_locGnss_XtraStatusParams_t* xtraParams);
             le_result_t GetGnssData(taf_locGnss_SampleRef_t positionSampleRef,taf_locGnss_GnssData_t* gnssDataPtr,size_t* maxSignalTypes);
+            le_result_t GetNavigationSolution(taf_locGnss_SampleRef_t positionSampleRef,uint32_t* navSolutionPtr);
+            le_result_t GetDgnssStationIds(taf_locGnss_SampleRef_t positionSampleRef,uint16_t* stationIdsPtr,size_t* stationIdsSizePtr);
+            le_result_t InjectDgnssCorrection(taf_locGnss_DgnssSourceRef_t sourceRef, const uint8_t* correctionDataPtr, size_t correctionDataSize);
+            taf_locGnss_DgnssSourceRef_t CreateDgnssSource(taf_locGnss_DgnssFormat_t dgnssDataFormat);
+            le_result_t ReleaseDgnssSource(taf_locGnss_DgnssSourceRef_t sourceRef);
+
+            static void DgnssStatusHandler(void* reportPtr);
+            taf_locGnss_DgnssStatusChangeHandlerRef_t AddDgnssStatusChangeHandler(
+                    taf_locGnss_DgnssStatusChangeHandlerFunc_t handlerPtr, void* contextPtr);
+            void RemoveDgnssStatusChangeHandler(taf_locGnss_DgnssStatusChangeHandlerRef_t handlerRef);
 
             le_result_t SetDRConfigValidity(taf_locGnss_DRConfigValidityType_t validMask);
             le_result_t GetGptpTime(taf_locGnss_SampleRef_t positionSampleRef,uint64_t* gPtpTime,uint64_t* gPtpTimeUnc);
@@ -593,6 +671,16 @@ namespace tafsvc {
             le_result_t GetMeasDataValidityMask(taf_locGnss_MeasSampleRef_t measSampleRef,
                 uint32_t* measDataValidityMaskPtr, size_t* measDataValidityMaskSizePtr);
 
+            le_result_t InjectMerkleData(const char* merkleTreeFilePath);
+            le_result_t ConfigureOsnma(bool galOsnma);
+
+            le_result_t SetEngineIntegrityRisk(taf_locGnss_EngineType_t engtype, uint32_t integrityRisk);
+            le_result_t GetProtectionLevels(taf_locGnss_SampleRef_t positionSampleRef,double* protectionLevelAlongTrackPtr,
+                    double* protectionLevelCrossTrackPtr,double* protectionLevelVerticalPtr);
+            le_result_t GetBaselineLength(taf_locGnss_SampleRef_t positionSampleRef, double* baselineLengthPtr);
+            le_result_t GetAgeOfCorrections(taf_locGnss_SampleRef_t positionSampleRef, uint64_t* ageCorrectionsPtr);
+            le_result_t GetIntegrityRiskUsed(taf_locGnss_SampleRef_t positionSampleRef, uint32_t* integrityRiskUsedPtr);
+
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionExHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
@@ -606,6 +694,10 @@ namespace tafsvc {
             le_ref_MapRef_t PositionHandlerRefMap;
             le_ref_MapRef_t MeasurementHandlerRefMap;
             le_ref_MapRef_t PositionExHandlerRefMap;
+            le_mem_PoolRef_t   NmeaHandlerPoolRef;
+            le_mem_PoolRef_t   NmeaSamplePoolRef;
+            le_mem_PoolRef_t   CapabilityHandlerPoolRef;
+            le_mem_PoolRef_t   CapSamplePoolRef;
             int32_t NumOfPositionHandlers;
             int32_t NumOfPositionExHandlers;
             int32_t NumOfCapabilityHandlers;
@@ -629,11 +721,26 @@ namespace tafsvc {
             le_event_HandlerRef_t HandlerRef;
             le_event_HandlerRef_t MeasurementHandlerRef;
             le_event_HandlerRef_t HandlerExRef;
+            le_event_HandlerRef_t NmeaHandlerRef;
+            le_event_HandlerRef_t CapHandlerRef;
+
 
             taf_locGnss_ConstellationBitMask_t mConstellationMask;
             taf_locGnss_NmeaBitMask_t mNmeaMask = 0;
             uint8_t mMinSvEle;
             std::mutex mtx;
+            le_ref_MapRef_t NmeaHandlerRefMap;
+            le_ref_MapRef_t CapHandlerRefMap;
+
+            tafpa::location::taf_pa_location_DgnssEventListener dgnssListener;
+            le_ref_MapRef_t DgnssSourceRefMap;
+            le_mem_PoolRef_t DgnssSourcePoolRef;
+            le_mem_PoolRef_t   DgnssStatusHandlerPoolRef;
+            le_mem_PoolRef_t DgnssStatusPoolRef;
+            le_ref_MapRef_t DgnssStatusHandlerRefMap;
+            int32_t NumOfDgnssStatusHandlers;
+            le_event_HandlerRef_t DgnssStatusHandlerRef;
+            le_event_Id_t dgnssStatusEventId;
 
         private:
             le_mem_PoolRef_t   ClientPoolRef;
@@ -663,6 +770,7 @@ namespace tafsvc {
 
             static void onCapabilitiesInfo(tafpa::location::taf_pa_location_LocationId clientId, const std::shared_ptr<tafpa::location::taf_pa_location_CapabilityChangeEvent_t>& capEventInfo, std::any context);
             static void onXtraStatusUpdate(tafpa::location::taf_pa_location_LocationId clientId, const std::shared_ptr<tafpa::location::taf_pa_location_XtraStatus_t>& xtraStatus, std::any context);
+            static void onDgnssStatusUpdate(const std::shared_ptr<tafpa::location::taf_pa_location_DgnssStatus_t>& dgnssStatus, std::any context);
 
     };
 }

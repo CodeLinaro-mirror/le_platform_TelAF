@@ -8,22 +8,20 @@ provides:
 
 requires:
 {
-    component:
-    {
-        $LEGATO_ROOT/components/watchdogChain
-    }
-
     lib:
     {
         libComponent_taf_pa_pms.so
         libComponent_taf_pa_pmsDef.so
     }
+
+    api:
+    {
+        le_framework.api
+    }
 }
 
 cxxflags:
 {
-    -I$LEGATO_ROOT/components/watchdogChain
-    -I$TELAF_ROOT/include
     -I$TELAF_PA_DEFAULT/include
 }
 

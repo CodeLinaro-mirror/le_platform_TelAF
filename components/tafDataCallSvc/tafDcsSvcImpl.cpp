@@ -198,6 +198,10 @@ void TafDcsSvc::createDCSEvents()
     paHwAccelerationChangeEvtId_ = le_event_CreateId("paHwAccelerationChangeEvtId_",
                                                         sizeof(TafDcsHwAccelerationChangeEvent_t));
 
+    // Event for throughput info change from PA
+    paThroughputEvtId_ = le_event_CreateId("paThroughputEvtId_",
+                                                sizeof(TafDcsThroughputInfoChangeEvent_t));
+
     LE_INFO("Internal PA events created.");
 }
 

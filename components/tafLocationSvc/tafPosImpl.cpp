@@ -1342,6 +1342,8 @@ le_result_t taf_locPos::sample_GetFixState
 {
     PosSampleRequest_t* posSampleRequestPtr = (PosSampleRequest_t*)le_ref_Lookup(PosSampleMap, positionSampleRef);
 
+    TAF_ERROR_IF_RET_VAL((NULL == statePtr), LE_BAD_PARAMETER, "Invalid parameters");
+
     TAF_KILL_CLIENT_IF_RET_VAL((posSampleRequestPtr == NULL), LE_BAD_PARAMETER, "Invalid reference (%p) provided!",positionSampleRef);
 
     TAF_KILL_CLIENT_IF_RET_VAL(( posSampleRequestPtr->posSampleNodePtr == NULL), LE_FAULT, "Invalid reference (%p) provided!",positionSampleRef);

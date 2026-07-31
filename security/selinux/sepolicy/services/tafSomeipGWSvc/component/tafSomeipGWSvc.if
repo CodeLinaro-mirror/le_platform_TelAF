@@ -50,5 +50,6 @@ interface(`telaf_tafSomeipGWSvc_write',`
 
     allow telaf_tafSomeipGWSvc_t $1:sock_file { write };
     allow $1 telaf_tafSomeipGWSvc_t:sock_file { write };
-    allow $1 telaf_someiptmp_t:sock_file { write };
+    allow $1 telaf_someiptmp_t:sock_file { create read write open getattr setattr unlink };
+    allow $1 telaf_someiptmp_t:dir { search write add_name remove_name };
 ')

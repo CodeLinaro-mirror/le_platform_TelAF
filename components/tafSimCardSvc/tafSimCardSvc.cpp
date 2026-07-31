@@ -39,12 +39,7 @@
 #include <iostream>
 #include <string>
 #include <memory>
-#include <telux/tel/PhoneFactory.hpp>
 #include "tafSimCard.hpp"
-#include "tafRSP.hpp"
-
-using namespace telux::tel;
-using namespace telux::common;
 using namespace tafsvc;
 using namespace std;
 
@@ -62,11 +57,6 @@ COMPONENT_INIT
     auto &sim = taf_sim::GetInstance();
     sim.Init();
     LE_INFO(" Sim Card service Ready...\n");
-    LE_INFO("tafRSP Service Init...\n");
-    auto &rsp = taf_simRsp::GetInstance();
-    rsp.Init();
-    LE_INFO(" RSP service Ready...\n");
-
 }
 
 taf_sim_NewStateHandlerRef_t taf_sim_AddNewStateHandler(taf_sim_NewStateHandlerFunc_t handlerPtr,
@@ -273,8 +263,6 @@ le_result_t taf_sim_Lock( taf_sim_Id_t slotId, taf_sim_LockType_t lockType,
                         LE_UNDERFLOW , "pin length is not enough");
     auto &sim = taf_sim::GetInstance();
     return sim.SetCardLock(slotId, lockType, pinPtr, true);
-
-    return LE_OK;
 }
 
 le_result_t taf_sim_Unlock( taf_sim_Id_t slotId, taf_sim_LockType_t lockType,
@@ -338,11 +326,11 @@ void taf_sim_RemoveAuthenticationResponseHandler(
     sim.RemoveAuthenticationResponseHandler(handlerRef);
 }
 
-le_result_t  taf_sim_GetEID( taf_sim_Id_t slotId, char* eidPtr, size_t eidLen) {
+le_result_t  taf_sim_GetEID(taf_sim_Id_t simId, char* eidPtr, size_t eidLen) {
     TAF_ERROR_IF_RET_VAL(eidPtr == NULL, LE_BAD_PARAMETER, "eidPtr is NULL");
     TAF_ERROR_IF_RET_VAL(eidLen < TAF_SIM_EID_BYTES, LE_OVERFLOW, "Incorrect buffer size");
-    auto &rsp = taf_simRsp::GetInstance();
-    return rsp.GetEID(slotId, eidPtr, eidLen);
+    auto &sim = taf_sim::GetInstance();
+    return sim.GetEID(simId, eidPtr, eidLen);
 }
 
 le_result_t taf_sim_SetAutomaticSelection( bool enable) {

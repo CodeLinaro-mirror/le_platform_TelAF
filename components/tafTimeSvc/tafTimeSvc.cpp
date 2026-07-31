@@ -18,7 +18,7 @@ DECLARE_SAFE_CALL();
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add handler for time source status change registration.
+ * Register a handler to be notified when the system time source changes.
  *
  * @return
  *  - taf_time_AddTimeSourceChangeHandlerRef_t Handler reference.
@@ -28,7 +28,7 @@ DECLARE_SAFE_CALL();
 taf_time_TimeSourceChangeHandlerRef_t taf_time_AddTimeSourceChangeHandler
 (
     taf_time_TimeSourceChangeHandlerFunc_t handlerPtr,
-        ///< [IN] Handler function for time source status change registration.
+        ///< [IN] Handler function for system time source status change registration.
     void* contextPtr
         ///< [IN] Handler context.
 )
@@ -459,19 +459,18 @@ le_result_t taf_time_GetTimeDayAdj
 //-------------------------------------------------------------------------------------------------
 void taf_time_service_int(void)
 {
-    LE_INFO("Time Service Init...");
     auto &time = taf_Time::GetInstance();
 // load driver
-    LE_INFO("Loading the driver");
+    LE_DEBUG("Loading the driver");
     time.timeInf = (time_Inf_t*)taf_devMgr_LoadDrv(TAF_TIME_MODULE_NAME, nullptr);
     if (time.timeInf == nullptr)
     {
-        LE_ERROR("Can not load the driver %s", TAF_TIME_MODULE_NAME);
+        LE_WARN("Can not load the driver %s", TAF_TIME_MODULE_NAME);
         time.isDrvPresent = false;
     }
     else // successfully loaded
     {
-        LE_INFO("Driver loaded successfully....");
+        LE_DEBUG("Driver loaded successfully....");
         time.isDrvPresent = true;
 
         // init first
@@ -485,7 +484,6 @@ void taf_time_service_int(void)
         }
     }
     time.Init();
-    LE_INFO("Time Service ready");
     return;
 }
 
@@ -592,6 +590,7 @@ le_result_t taf_time_SetTrustTime
 */
 COMPONENT_INIT
 {
+    LE_INFO("Time Service is starting ...");
     taf_time_service_int();
-    LE_INFO("TelAf time service initialization done\n");
+    LE_INFO("Time service initialization done\n");
 }

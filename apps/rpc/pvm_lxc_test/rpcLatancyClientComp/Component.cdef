@@ -1,0 +1,12 @@
+sources:
+{
+    rpcLatancyClientTest.c
+}
+
+requires:
+{
+    api:
+    {
+        rpcLatancy.api
+    }
+}

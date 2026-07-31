@@ -14,17 +14,16 @@
 #include "tafSvcIF.hpp"
 #include <map>
 #include <string>
-#include "le_singlyLinkedList.h"
-#include "telux/common/CommonDefines.hpp"
-#include <telux/therm/ThermalDefines.hpp>
-#include <telux/therm/ThermalFactory.hpp>
-#include <telux/therm/ThermalListener.hpp>
-#include <telux/therm/ThermalManager.hpp>
+#include "tafThermPa.hpp"
 
 #define TAF_THERM_MAX_LIST_POOL_SIZE 100
 #define TAF_THERM_MAX_ZONE_POOL_SIZE 50
+
+// On sa525m the trip point number will reach to 71, so here set it to 80.
+#define TAF_THERM_MAX_TRIP_POINT_POOL_SIZE 80
+
 #define TAF_THERM_ZONE_TYPE_MAX_SIZE 32
-#define TAF_THERM_MANAGER_TIMEOUT 30
+#define TAF_THERM_EVENT_POOL_SIZE 50
 
 typedef struct {
     uint32_t coolingDeviceId;
@@ -38,8 +37,8 @@ typedef struct {
 typedef struct
 {
     taf_therm_TripType_t tripType;
-    uint32_t threshold;
-    uint32_t hysteresis;
+    int32_t threshold;
+    int32_t hysteresis;
     uint32_t tripId;    //supported in sa525m
     uint32_t tZoneId;   //supported in sa525m
     le_sls_Link_t link;
@@ -49,9 +48,9 @@ typedef struct
 typedef struct
 {
     uint32_t tZoneId;
-    uint32_t currTemp;
-    uint32_t passiveTemp;
-    char Type[50];
+    int32_t currTemp;
+    int32_t passiveTemp;
+    char Type[TAF_THERM_ZONE_TYPE_MAX_SIZE];
     uint32_t tripPointListSize;
     uint32_t boundCoolingDeviceListSize;
     le_sls_List_t TripPointList;
@@ -75,7 +74,7 @@ typedef struct
     uint32_t cDevId;
     uint32_t maxCoolingLevel;
     uint32_t currentCoolingLevel;
-    char description[50];
+    char description[TAF_THERM_ZONE_TYPE_MAX_SIZE];
     le_sls_Link_t link;
     taf_therm_CoolingDeviceRef_t ref;
 } taf_CoolingDevice_t;
@@ -91,31 +90,29 @@ typedef struct
 
 typedef struct
 {
-   taf_TripPoint_t* tripPoint;
+   taf_TripPoint_t tripPoint;
    taf_therm_TripEventType_t tripEvent;
+   taf_therm_TripEventHandlerFunc_t handlerFuncPtr;
+   taf_therm_TripEventHandlerRef_t handlerRef;
+   le_msg_SessionRef_t sessionRef;
+   void* contextPtr;
 }taf_TripEventInfo_t;
-
 
 typedef struct
 {
-    taf_CoolingDevice_t* cDevice;
-}coolingLevelChangeInfo_t;
+    taf_CoolingDevice_t cDevice;
+    taf_therm_CoolingLevelChangeEventHandlerFunc_t handlerFuncPtr;
+    taf_therm_CoolingLevelChangeEventHandlerRef_t handlerRef;
+    le_msg_SessionRef_t sessionRef;
+    void* contextPtr;
+}taf_coolingLevelChangeInfo_t;
 
     namespace tafsvc {
 
-        class taf_ThermServiceListener : public telux::therm::IThermalListener {
-        public:
-            virtual void onServiceStatusChange(telux::common::ServiceStatus serviceStatus) override;
-            void onTripEvent(std::shared_ptr<telux::therm::ITripPoint> tripPoint,
-                    telux::therm::TripEvent tripEvent) override;
-            void onCoolingDeviceLevelChange(
-                   std::shared_ptr<telux::therm::ICoolingDevice> coolingDevice) override;
-        };
-
-        class taf_Therm : public ITafSvc {
-        public:
-            taf_Therm() {};
-            ~taf_Therm() {};
+    class taf_Therm : public ITafSvc {
+    public:
+        taf_Therm() {};
+        ~taf_Therm() {};
 
             static taf_Therm& GetInstance();
             void Init();
@@ -127,6 +124,8 @@ typedef struct
             le_mem_PoolRef_t tripPointPool;
             le_mem_PoolRef_t boundCDPool;
             le_mem_PoolRef_t boundTripPointCDPool;
+            le_mem_PoolRef_t onTripPointEventPool;
+            le_mem_PoolRef_t coolingLevelChangeEventPool;
 
             le_ref_MapRef_t cDevListRefMap;
             le_ref_MapRef_t cDevRefMap;
@@ -135,31 +134,26 @@ typedef struct
             le_ref_MapRef_t tripPointRefMap;
             le_ref_MapRef_t boundCDRefMap;
             le_ref_MapRef_t boundTripPointRefMap;
+            le_ref_MapRef_t onTripPointEventRefMap;
+            le_ref_MapRef_t coolingLevelChangeEventRefMap;
 
-            le_event_Id_t stateChangeEvent;
-            le_event_Id_t onCoolingLevelChangeEvent;
+            le_event_Id_t tripEventId;
+            le_event_Id_t coolingLevelChangeEventId;
 
-            std::shared_ptr<telux::therm::IThermalManager> thermalManager;
-            std::shared_ptr<taf_ThermServiceListener> thermalListener;
-            std::shared_ptr<taf_ThermServiceListener> thermalServiceListener;
-            std::map <std::string, int> zoneNameToIdMap;
-            std::map <std::string, int> CDevNameToIdMap;
+        le_result_t ReleaseThermalZoneRef(taf_therm_ThermalZoneRef_t tZoneRef);
+        le_result_t ReleaseTripEventRef(taf_therm_TripPointRef_t tripEventRef);
+        le_result_t ReleaseCoolingDeviceRef(taf_therm_CoolingDeviceRef_t cDevRef);
 
-            le_result_t ReleaseThermalZoneRef(taf_therm_ThermalZoneRef_t tZoneRef);
-            le_result_t ReleaseTripEventRef(taf_therm_TripPointRef_t tripEventRef);
-            le_result_t ReleaseCoolingDeviceRef(taf_therm_CoolingDeviceRef_t cDevRef);
+        taf_therm_TripEventHandlerRef_t AddTripEventHandler (
+                taf_therm_TripEventHandlerFunc_t handlerPtr, void* contextPtr);
+        void RemoveTripEventHandler(taf_therm_TripEventHandlerRef_t handlerRef);
+        bool HasTripEventHandlers(void);
 
-            static void EventChanged(void* reportPtr, void* SecondLayeredHandlerFunc);
-            taf_therm_TripEventHandlerRef_t AddTripEventHandler (
-                    taf_therm_TripEventHandlerFunc_t handlerPtr, void* contextPtr);
-            void RemoveTripEventHandler(taf_therm_TripEventHandlerRef_t handlerRef);
-            const char* TripEventToString(telux::therm::TripEvent state);
-
-            static void CoolingLevelChanged(void* reportPtr, void* SecondLayeredHandlerFunc);
             taf_therm_CoolingLevelChangeEventHandlerRef_t AddCoolingLevelChangeEventHandler
             (taf_therm_CoolingLevelChangeEventHandlerFunc_t handlerPtr, void* contextPtr);
             void RemoveCoolingLevelChangeEventHandler(
                     taf_therm_CoolingLevelChangeEventHandlerRef_t handlerRef);
+            bool HasCoolingLevelHandlers(void);
 
             taf_therm_ThermalZoneListRef_t GetThermalZonesList();
             taf_therm_ThermalZoneRef_t GetFirstThermalZone(taf_therm_ThermalZoneListRef_t);
@@ -178,13 +172,13 @@ typedef struct
                     uint32_t* listSize);
 
             le_result_t GetThermalZoneID(taf_therm_ThermalZoneRef_t, uint32_t* thermalZoneID);
-            le_result_t GetThermalZoneCurrentTemp(taf_therm_ThermalZoneRef_t, uint32_t* currTemp);
+            le_result_t GetThermalZoneCurrentTemp(taf_therm_ThermalZoneRef_t, int32_t* currTemp);
             le_result_t GetThermalZonePassiveTemp(taf_therm_ThermalZoneRef_t,
-                    uint32_t* passiveTemp);
+                    int32_t* passiveTemp);
             le_result_t GetThermalZoneType(taf_therm_ThermalZoneRef_t, char*, size_t );
             le_result_t GetTripPointType(taf_therm_TripPointRef_t,  char*,size_t );
-            le_result_t GetTripPointThreshold(taf_therm_TripPointRef_t, uint32_t* threshold);
-            le_result_t GetTripPointHysterisis(taf_therm_TripPointRef_t, uint32_t* hysterisis);
+            le_result_t GetTripPointThreshold(taf_therm_TripPointRef_t, int32_t* threshold);
+            le_result_t GetTripPointHysterisis(taf_therm_TripPointRef_t, int32_t* hysterisis);
 
             #if defined(LE_CONFIG_ENABLE_THERMAL_GET_TRIP_ID)
             le_result_t GetTripPointTripID(taf_therm_TripPointRef_t, uint32_t* tripID);
@@ -198,9 +192,9 @@ typedef struct
 
             le_result_t GetBoundTripPointType(taf_therm_TripPointRef_t, char*, size_t );
             le_result_t GetBoundTripPointThreshold(taf_therm_TripPointRef_t,
-                    uint32_t* boundThreshold);
+                    int32_t* boundThreshold);
             le_result_t GetBoundTripPointHysterisis(taf_therm_TripPointRef_t,
-                    uint32_t* boundHysterisis);
+                    int32_t* boundHysterisis);
             le_result_t GetBoundCoolingId(taf_therm_BoundCoolingDeviceRef_t,
                     uint32_t* boundCoolingId);
             le_result_t GetBoundTripPointListSize(taf_therm_BoundCoolingDeviceRef_t,
@@ -220,16 +214,14 @@ typedef struct
             le_result_t GetCDevCurrentCoolingLevel(taf_therm_CoolingDeviceRef_t,
                      uint32_t* currentCoolingLevel);
 
-            taf_therm_ThermalZoneRef_t GetThermalZoneByName(const char*);
-            taf_therm_CoolingDeviceRef_t GetCoolingDeviceByName(const char*);
-            int MapThermalZonetoId(const char*);
-            int MapCDevtoId(const char*);
-        };
-        class taf_Handler : public ITafSvc {
-        public:
-         void Init(void);
-         taf_Handler();
-         ~taf_Handler();
+        taf_therm_ThermalZoneRef_t GetThermalZoneByName(const char*);
+        taf_therm_CoolingDeviceRef_t GetCoolingDeviceByName(const char*);
+    };
+
+    class taf_Handler : public ITafSvc {
+    public:
+        taf_Handler() = default;
+        ~taf_Handler() = default;
         //taf service handlers
          static void OnClientDisconnection(le_msg_SessionRef_t sessionRef, void* contextPtr);
         };

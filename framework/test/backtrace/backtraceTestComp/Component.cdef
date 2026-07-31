@@ -1,0 +1,17 @@
+// Component definition for backtraceTest
+sources:
+{
+    backtraceTest.c
+}
+
+cflags:
+{
+    // Keep frame pointers so the FP chain walk works correctly.
+    // Without this the compiler may omit x29 setup and the FP chain
+    // will be empty or broken.
+    -fno-omit-frame-pointer
+
+    // Disable tail-call optimisation so intermediate frames are visible
+    // in the backtrace (otherwise the compiler collapses call chains).
+    -fno-optimize-sibling-calls
+}

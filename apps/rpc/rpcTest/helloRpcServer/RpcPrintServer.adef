@@ -1,25 +1,26 @@
 username: telaf
 maxThreads: 600
 sandboxed: false
+start: manual
 executables:
 {
-    server = (printServer)
+    exe_RpcPrintServer = (printServer)
 }
 
 processes:
 {
     run:
     {
-        (server)
+        RpcPrintServer = (exe_RpcPrintServer)
     }
 }
 
 extern:
 {
-    printer = server.printServer.printer
+    tafRpcPrinter = exe_RpcPrintServer.printServer.tafRpcPrinter
 }
 
 bindings:
 {
-    server.printServer.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt
+    exe_RpcPrintServer.printServer.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt
 }

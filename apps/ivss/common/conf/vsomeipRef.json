@@ -65,10 +65,12 @@
             "unreliable" : "31000"
         },
         {
-            "service" : "0xED85",
-            "instance" : "0x0001",
-            "reliable" : { "port" : "30509", "enable-magic-cookies" : "false" },
-            "unreliable" : "31000"
+            "service" : "0xEE01",
+            "instance" : "0x1",
+            "unreliable" : "30501",
+            "someip-tp": {
+                "service-to-client": ["0x8065", "0x8066", "0x8067", "0x8068"]
+            }
         }
     ],
     "max-payload-size-unreliable" : "18432",

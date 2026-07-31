@@ -11,7 +11,7 @@
 #include <iostream>
 #include "tafSvcIF.hpp"
 
-#include "taf_pa_nat.hpp"
+#include "tafNatPa.hpp"
 /*
  * @brief The struct of static destination nat entry.
  */

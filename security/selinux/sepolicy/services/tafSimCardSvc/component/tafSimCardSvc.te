@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafSimCardSvc, 1.0)
@@ -13,6 +13,10 @@ type telaf_tafSimCardSvc_data_t;
 files_type(telaf_tafSimCardSvc_data_t);
 
 init_telaf_app_domain(telaf_tafSimCardSvc_t,telaf_tafSimCardSvc_exec_t)
+gen_require(`
+    type telaf_tafPMSvc_t;
+')
+telaf_ipc_bind(telaf_tafSimCardSvc_t, telaf_tafPMSvc_t)
 
 # Read Remote SIM provisioning operations like request profile list, server address and EID
 ifdef(`sa525m',`
@@ -31,6 +35,6 @@ ifdef(`sa525m',`
     telux_allow_tel_multisim_mgmt(telaf_tafSimCardSvc_t)
 ')
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafSimCardSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafSimCardSvc_t, telaf_tafSimCardSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafSimCardSvc_exec_t)

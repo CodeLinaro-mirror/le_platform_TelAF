@@ -1,0 +1,29 @@
+// TelAF SELinux runtime validation integration test app.
+// This app intentionally performs operations expected to be denied.  Expected
+// denials are treated as PASS by the test.
+
+sandboxed: false
+start: manual
+maxThreads: 10
+
+username: telaf
+
+executables:
+{
+    tafSelinuxDenyIntTest = ( tafSelinuxDenyIntTestComp )
+}
+
+processes:
+{
+    run:
+    {
+        ( tafSelinuxDenyIntTest )
+    }
+
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+
+    faultAction: stopApp
+}

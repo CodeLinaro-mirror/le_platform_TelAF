@@ -3,6 +3,7 @@ sources:
     tafUDSCommunicationMgr.cpp
     tafUDSStack.cpp
     tafSecurityAccess.cpp
+    tafIDPS.cpp
 }
 
 cflags:

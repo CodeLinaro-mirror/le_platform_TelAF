@@ -5,7 +5,7 @@
 
 #include "legato.h"
 #include "interfaces.h"
-#include "taf_pa_ecall.hpp"
+#include "tafEcallPa.hpp"
 #include "tafSvcIF.hpp"
 
 // For using VHAL
@@ -60,6 +60,8 @@ using namespace std;
 #define MAX_MSD_MESSAGE_IDENTIFIER 255
 #define MIN_MSD_MESSAGE_IDENTIFIER 1
 #define MSD_TIMESTAMP_STR_INVALID "INVALID"
+#define MIN_PHONE_ID  1
+#define MAX_PHONE_ID  2
 
     namespace tafsvc {
 

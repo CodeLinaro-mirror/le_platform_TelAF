@@ -14,6 +14,7 @@
 #include "configuration.hpp"
 #include "tafDiagBackend.hpp"
 #include "tafDiagSvr.hpp"
+#include "tafIDPSSvr.hpp"
 
 #ifndef LE_CONFIG_DIAG_VSTACK
 #include "tafEventSvr.hpp"
@@ -83,9 +84,17 @@ COMPONENT_INIT
 
     auto& tafBackend = taf_DiagBackend::GetInstance();
     tafBackend.Init();
-    LE_INFO("TelAF Diag service initialization completed!");
 
 #endif
+
+    if(cfg::IsIDPSAvailable())
+    {
+        LE_INFO("init IDPS");
+        auto& idpsSvc = taf_IdpsSvr::GetInstance();
+        idpsSvc.Init();
+    }
+    LE_INFO("TelAF Diag service initialization completed!");
+
     // Add boot KPI marker
     const char *kpi_file = "/sys/kernel/boot_kpi/kpi_values";
     const char *kpi_marker = "L - TelAF diagnostic service is ready";

@@ -8,6 +8,7 @@
 #include "interfaces.h"
 #include "tafUDSStack.h"
 #include "tafUDSCommunicationMgr.hpp"
+#include "tafIDPS.hpp"
 
 using namespace taf::uds;
 
@@ -19,7 +20,6 @@ le_result_t taf_uds_SendDiagResp
     uint8_t err                                ///< [IN] Error code.
 )
 {
-    LE_DEBUG("taf_uds_SendDiagResp");
 
     if(addrInfoPtr == NULL)
     {
@@ -27,7 +27,7 @@ le_result_t taf_uds_SendDiagResp
         return LE_BAD_PARAMETER;
     }
 
-    LE_DEBUG("ifName=%s", addrInfoPtr->ifName);
+    LE_DEBUG("SendDiagResp: ifName=%s, serviceId=%d, err=%d", addrInfoPtr->ifName, serviceId, err);
     auto udsCmMgr = UdsCommunicationMgr::GetInstance(addrInfoPtr->ifName);
     if(udsCmMgr == NULL)
     {
@@ -57,7 +57,6 @@ le_result_t taf_uds_SetData
     taf_uds_DataType_t dataType                   ///< [IN] Data type.
 )
 {
-    LE_DEBUG("taf_uds_SetData");
 
     if(addrInfoPtr == NULL || diagMsgPtr == NULL || diagMsgPtr->dataPtr == NULL)
     {
@@ -96,7 +95,6 @@ taf_uds_DiagIndicationHandlerRef_t taf_uds_AddDiagIndicationHandler
     void*                                userPtr                 ///< [IN] User-defined pointer.
 )
 {
-    LE_DEBUG("taf_uds_AddDiagIndicationHandler");
 
     void* handlerRef;
 
@@ -136,8 +134,6 @@ void taf_uds_RemoveDiagIndicationHandler
     taf_uds_DiagIndicationHandlerRef_t handerRef   ///< [IN] The handler reference.
 )
 {
-    LE_DEBUG("taf_uds_RemoveDiagIndicationHandler");
-
 
     taf_UDSIndicationHandler_t* handlerPtr =
             (taf_UDSIndicationHandler_t*)le_ref_Lookup(UdsCommunicationMgr::udsHandlerRefMap,
@@ -146,6 +142,63 @@ void taf_uds_RemoveDiagIndicationHandler
     if (handlerPtr != NULL)
     {
         le_ref_DeleteRef(UdsCommunicationMgr::udsHandlerRefMap, handlerPtr->safeRef);
+        handlerPtr->safeRef = NULL;
+    }
+
+    return;
+}
+
+taf_uds_IdpsIndicationHandlerRef_t taf_uds_AddIdpsHandler
+(
+    taf_uds_IdpsIndicationHandlerFunc_t  idpsHandlerPtr,   ///< [IN] Hander function.
+    void*                                userPtr                 ///< [IN] User-defined pointer.
+)
+{
+    void* handlerRef;
+
+    if(idpsHandlerPtr == NULL)
+    {
+        LE_ERROR("idpsHandlerPtr is Null");
+        return NULL;
+    }
+
+    if(UdsIdps::udsIdpsHandlerRefMap == NULL)
+    {
+        LE_ERROR("IDPS handler ref map not initialized");
+        return NULL;
+    }
+
+    // Remove previous handler reference
+    if (UdsIdps::idpsIndicationHandler.safeRef != NULL &&
+        le_ref_Lookup(UdsIdps::udsIdpsHandlerRefMap, UdsIdps::idpsIndicationHandler.safeRef))
+    {
+        le_ref_DeleteRef(UdsIdps::udsIdpsHandlerRefMap,
+                UdsIdps::idpsIndicationHandler.safeRef);
+    }
+
+    handlerRef = le_ref_CreateRef(UdsIdps::udsIdpsHandlerRefMap, &UdsIdps::idpsIndicationHandler);
+    UdsIdps::idpsIndicationHandler.funcPtr = idpsHandlerPtr;
+    UdsIdps::idpsIndicationHandler.ctxPtr = userPtr;
+    UdsIdps::idpsIndicationHandler.safeRef = handlerRef;
+
+    return (taf_uds_IdpsIndicationHandlerRef_t)handlerRef;
+}
+
+void taf_uds_RemoveIdpsIndicationHandler
+(
+    taf_uds_IdpsIndicationHandlerRef_t handerRef   ///< [IN] The handler reference.
+)
+{
+    LE_DEBUG("taf_uds_RemoveIdpsIndicationHandler");
+
+
+    taf_udsIdpsHandler_t* handlerPtr =
+            (taf_udsIdpsHandler_t*)le_ref_Lookup(UdsIdps::udsIdpsHandlerRefMap,
+            handerRef);
+
+    if (handlerPtr != NULL)
+    {
+        le_ref_DeleteRef(UdsIdps::udsIdpsHandlerRefMap, handlerPtr->safeRef);
         handlerPtr->safeRef = NULL;
     }
 
@@ -166,7 +219,6 @@ le_result_t taf_uds_Stop
 (
 )
 {
-    LE_DEBUG("taf_uds_Stop");
 
     return UdsCommunicationMgr::UdsStop();
 }
@@ -176,7 +228,6 @@ void taf_uds_GetFileXferActiveStateList
     le_dls_List_t* fileXferStateListPtr
 )
 {
-    LE_DEBUG("taf_uds_GetFileXferActiveState");
 
     return UdsCommunicationMgr::GetFileXferActiveStateList(fileXferStateListPtr);
 }
@@ -186,12 +237,11 @@ void taf_uds_GetVlanIdList
     le_dls_List_t* vlanIDListPtr
 )
 {
-    LE_DEBUG("taf_uds_GetVlanIdList");
 
     return UdsCommunicationMgr::GetVlanIdList(vlanIDListPtr);
 }
 
 COMPONENT_INIT
 {
-    LE_INFO("UDS component init once start...");
+    LE_DEBUG("UDS component init once start...");
 }

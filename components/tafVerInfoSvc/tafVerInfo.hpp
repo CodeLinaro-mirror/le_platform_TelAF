@@ -40,26 +40,92 @@
 //--------------------------------------------------------------------------------------------------
 #define LXC_HASH_FILE "/lxcrootfs/etc/hash"
 
-    namespace tafsvc
-    {
-        class taf_verInfo : public ITafSvc
-        {
-            public:
-                taf_verInfo() = default;
-                ~taf_verInfo() = default;
+namespace tafsvc
+{
 
-                static taf_verInfo& GetInstance();
-                void Init();
-                le_result_t GetRevisions(taf_pi_version_Comp_t component, char* versionPtr,
-                    size_t versionSize);
-                le_result_t GetHash(taf_pi_hash_Comp_t component, taf_pi_hash_Bank_t bank,
-                    uint8_t* hashPtr, size_t* hashSizePtr);
-                le_result_t GetBootBank(taf_verInfo_Bank_t* bank);
-                le_result_t StringToHash(char* strPtr, uint8_t* hashPtr, size_t* hashSizePtr);
+class taf_verInfo : public ITafSvc
+{
+public:
+    taf_verInfo() = default;
+    ~taf_verInfo() = default;
 
-                version_Inf_t* versionInfPtr;
-                hash_Inf_t* hashInfPtr;
-		};
-    }
+    /**
+     * Gets the singleton instance.
+     *
+     * @return
+     *  - Reference to the singleton instance.
+     */
+    static taf_verInfo& GetInstance();
+
+    /**
+     * Initialization.
+     */
+    void Init();
+
+    /**
+     * Gets revisions.
+     *
+     * @return
+     *  - LE_FAULT -- Version plug-in does not define the format callback.
+     *  - LE_OK -- Revision string was generated, or a fallback revision such as
+     *    0.0.0 / 0.0 / 0 was appended when major, minor, or patch retrieval
+     *    failed.
+     */
+    le_result_t GetRevisions
+    (
+        taf_pi_version_Comp_t component, ///< [IN] Component.
+        char* versionPtr,                ///< [OUT] Version string.
+        size_t versionSize               ///< [IN] Size of the version string.
+    );
+
+    /**
+     * Gets hash.
+     *
+     * @return
+     *  - LE_FAULT -- Hash plug-in getHash callback reported failure.
+     *  - LE_OK -- Hash information was obtained, or no hash callback is
+     *    provided by the plug-in.
+     */
+    le_result_t GetHash
+    (
+        taf_pi_hash_Comp_t component, ///< [IN] Component.
+        taf_pi_hash_Bank_t bank,      ///< [IN] Bank.
+        uint8_t* hashPtr,             ///< [OUT] Hash string.
+        size_t* hashSizePtr           ///< [IN] Size of the hash string.
+    );
+
+    /**
+     * Gets boot bank.
+     *
+     * @return
+     *  - LE_FAULT -- Failed to execute/read the boot-slot command, or the
+     *    reported slot is not mapped to bank A or bank B.
+     *  - LE_OK -- Boot bank was detected successfully.
+     */
+    le_result_t GetBootBank
+    (
+        taf_verInfo_Bank_t* bank ///< [OUT] Bank.
+    );
+
+    /**
+     * Converts string to hash.
+     *
+     * @return
+     *  - LE_OK -- Conversion completed. Parsing stops at the first non-hex
+     *    character and the decoded byte count is returned through
+     *    hashSizePtr.
+     */
+    le_result_t StringToHash
+    (
+        char* strPtr,       ///< [IN] Character string.
+        uint8_t* hashPtr,   ///< [OUT] Hash string.
+        size_t* hashSizePtr ///< [OUT] Size of the hash string.
+    );
+
+    version_Inf_t* versionInfPtr;
+    hash_Inf_t* hashInfPtr;
+};
+
+} // namespace tafsvc
 
 #endif

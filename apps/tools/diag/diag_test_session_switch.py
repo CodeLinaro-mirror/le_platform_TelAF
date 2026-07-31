@@ -44,7 +44,7 @@ class Test_SessionSwitchBasedOnPattern(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        sever_ip = os.environ.get("U_REMOTE_IP", "192.168.80.2")
+        sever_ip = os.environ.get("U_REMOTE_IP", "192.168.225.1")
         phy_address = os.environ.get("U_PHY_ADDR", 0x0201)
         self.diag = DiagClient(sever_ip, phy_address)
 
@@ -131,5 +131,64 @@ class Test_SessionSwitchBasedOnPattern(unittest.TestCase):
 
         # 0x02 [unlocked] -> 0x60
         self.diag.u.change_session(0x60)
+        self.assertTrue(response.valid)
+        self.assertTrue(response.positive)
+
+    def test_programming_l1_unlock_to_system_supplier(self):
+
+        # 0. Switch to default session (0x01)
+        response = self.diag.u.change_session(0x01)
+        self.assertTrue(response.valid)
+        self.assertTrue(response.positive)
+
+        # 1. Switch to programming session (0x02)
+        response = self.diag.u.change_session(0x02)
+        self.assertTrue(response.valid)
+        self.assertTrue(response.positive)
+
+        # 2. Unlock with level 1 security access (0x27 0x01/0x02)
+        response = self.diag.u.request_seed(0x01)
+        self.assertTrue(response.valid)
+        self.assertTrue(response.positive)
+
+        seed = response.service_data.seed
+        key = algo_for_0x27(level=0x01, seed=seed)
+        response = self.diag.u.send_key(0x02, key)
+        self.assertTrue(response.valid)
+        self.assertTrue(response.positive)
+
+        # 3. Switch to system supplier session (0x60)
+        response = self.diag.u.change_session(0x60)
+        self.assertTrue(response.valid)
+        self.assertFalse(response.positive)
+        self.assertEqual(response.original_payload.hex(), "7f1022")
+
+    def test_programming_l61_unlock_to_system_supplier(self):
+
+        # 1. Switch to default session (0x01)
+        response = self.diag.u.change_session(0x01)
+        self.assertTrue(response.valid)
+        self.assertTrue(response.positive)
+
+        # 2. Switch to programming session (0x02)
+        response = self.diag.u.change_session(0x02)
+        self.assertTrue(response.valid)
+        self.assertTrue(response.positive)
+
+        # 3. Unlock with level 61 security access (0x27 0x61/0x62)
+        response = self.diag.u.request_seed(0x61)
+        self.assertTrue(response.valid)
+        self.assertTrue(response.positive)
+
+        seed = response.service_data.seed
+        # FIXME: There is one issue in diagApp to handle the different security level!!
+        # This is a workaround for different levels.
+        key = algo_for_0x27(level=0x01, seed=seed)
+        response = self.diag.u.send_key(0x62, key)
+        self.assertTrue(response.valid)
+        self.assertTrue(response.positive)
+
+        # 4. Switch to system supplier session (0x60)
+        response = self.diag.u.change_session(0x60)
         self.assertTrue(response.valid)
         self.assertTrue(response.positive)

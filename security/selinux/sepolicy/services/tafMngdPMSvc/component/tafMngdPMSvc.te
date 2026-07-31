@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafMngdPMSvc, 1.0)
@@ -13,13 +13,18 @@ type telaf_tafMngdPMSvc_data_t;
 files_type(telaf_tafMngdPMSvc_data_t);
 
 init_telaf_app_domain(telaf_tafMngdPMSvc_t,telaf_tafMngdPMSvc_exec_t)
+gen_require(`
+    type telaf_tafPMSvc_t;
+')
+telaf_ipc_bind(telaf_tafMngdPMSvc_t, telaf_tafPMSvc_t)
+telaf_use_device_manager(telaf_tafMngdPMSvc_t)
 
 ifdef(`sa525m',`
     allow telaf_tafMngdPMSvc_exec_t telaf_admin_t:lnk_file {read};
 ')
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafMngdPMSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafMngdPMSvc_t, telaf_tafMngdPMSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafMngdPMSvc_exec_t)
 
 # use VHAL driver object

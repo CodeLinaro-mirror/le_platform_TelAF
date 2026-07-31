@@ -26,31 +26,50 @@
 # IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # Changes from Qualcomm Innovation Center are provided under the following license:
-# Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 /legato                                                          gen_context(system_u:object_r:telaf_fw_t,s0)
 /legato/apps(/.*)?                                               gen_context(system_u:object_r:telaf_app_bundle_t,s0)
 /legato/systems(/.*)?                                            gen_context(system_u:object_r:telaf_sys_t,s0)
 /legato/systems/current/bin(/.*)?                                gen_context(system_u:object_r:telaf_bin_t,s0)
+/legato/systems/current/lib(/.*)?                                gen_context(system_u:object_r:telaf_lib_t,s0)
+/legato/systems/current/modules(/.*)?                            gen_context(system_u:object_r:telaf_mod_t,s0)
+/legato/systems/current/appsWriteable(/.*)?                      gen_context(system_u:object_r:telaf_app_rw_t,s0)
+/legato/systems/current/appsWriteable/[^/]*/lib(/.*)?            gen_context(system_u:object_r:telaf_lib_t,s0)
+/legato/systems/current/appsWriteable/[^/]*/bin(/.*)?            gen_context(system_u:object_r:telaf_bin_t,s0)
 /legato/systems/current/bin/supervisor               --          gen_context(system_u:object_r:telaf_admin_exec_t,s0)
 /legato/start                                        --          gen_context(system_u:object_r:telaf_admin_exec_t,s0)
 /legato/systems/current/bin/start                    --          gen_context(system_u:object_r:telaf_admin_exec_t,s0)
 /legato/systems/current/bin/startSystem              --          gen_context(system_u:object_r:telaf_admin_exec_t,s0)
+/legato/systems/current/bin/saveLogs                 --          gen_context(system_u:object_r:telaf_admin_exec_t,s0)
 /legato/systems/current/bin/logCtrlDaemon            --          gen_context(system_u:object_r:telaf_logd_exec_t,s0)
 /legato/systems/current/bin/configTree               --          gen_context(system_u:object_r:telaf_cfgtree_exec_t,s0)
 /legato/systems/current/bin/serviceDirectory         --          gen_context(system_u:object_r:telaf_sdir_exec_t,s0)
+/legato/systems/current/bin/sdir                     --          gen_context(system_u:object_r:telaf_sdirtool_exec_t,s0)
 /legato/systems/current/bin/watchdog                 --          gen_context(system_u:object_r:telaf_wdog_exec_t,s0)
 /legato/systems/current/bin/updateDaemon             --          gen_context(system_u:object_r:telaf_update_exec_t,s0)
 /legato/systems/current/bin/deviceManager            --          gen_context(system_u:object_r:telaf_devmgr_exec_t,s0)
+/legato/systems/current/bin/config                   --          gen_context(system_u:object_r:telaf_config_tool_exec_t,s0)
+/legato/systems/current/bin/log                      --          gen_context(system_u:object_r:telaf_log_tool_exec_t,s0)
+/legato/systems/current/bin/app                      --          gen_context(system_u:object_r:telaf_app_tool_exec_t,s0)
+/legato/systems/current/bin/cm                       --          gen_context(system_u:object_r:telaf_cm_tool_exec_t,s0)
+/legato/systems/current/appsWriteable/[^/]*/bin/cm      --          gen_context(system_u:object_r:telaf_cm_tool_exec_t,s0)
+/legato/systems/current/appsWriteable/[^/]*/scripts/cm  --          gen_context(system_u:object_r:telaf_cm_tool_exec_t,s0)
+/legato/apps/[^/]*/read-only/bin/cm                     --          gen_context(system_u:object_r:telaf_cm_tool_exec_t,s0)
+/legato/apps/[^/]*/read-only/scripts/cm                 --          gen_context(system_u:object_r:telaf_cm_tool_exec_t,s0)
+/legato/systems/current/bin/gnss                     --          gen_context(system_u:object_r:telaf_gnss_tool_exec_t,s0)
+/legato/systems/current/bin/fwupdate                 --          gen_context(system_u:object_r:telaf_fwupdate_tool_exec_t,s0)
+/legato/systems/current/bin/update                   --          gen_context(system_u:object_r:telaf_update_tool_exec_t,s0)
+/legato/systems/current/bin/inspect                  --          gen_context(system_u:object_r:telaf_inspect_tool_exec_t,s0)
+/legato/systems/current/bin/xattr                    --          gen_context(system_u:object_r:telaf_xattr_tool_exec_t,s0)
+/legato/systems/current/bin/sbtrace                  --          gen_context(system_u:object_r:telaf_sbtrace_tool_exec_t,s0)
+/legato/systems/current/bin/pm                       --          gen_context(system_u:object_r:telaf_pm_tool_exec_t,s0)
+/legato/systems/current/bin/_appStopClient           --          gen_context(system_u:object_r:telaf_appstopclient_tool_exec_t,s0)
 
-/legato/systems/current/lib(/.*)?                                gen_context(system_u:object_r:telaf_lib_t,s0)
-/legato/systems/current/appsWriteable(/.*)?                      gen_context(system_u:object_r:telaf_app_rw_t,s0)
-
-/legato/systems/current/modules(/.*)?                            gen_context(system_u:object_r:telaf_mod_t,s0)
-
-/data/le_fs(/.*)?                                                gen_context(system_u:object_r:telaf_sys_t,s0)
+/data/le_fs(/.*)?                                                gen_context(system_u:object_r:telaf_app_rw_t,s0)
 /data/le_fs/resets/expected                          --          gen_context(system_u:object_r:telaf_sys_t,s0)
-/etc/initscripts/overlay_selinuxrw-workdir.sh        --          gen_context(system_u:object_r:telaf_overlay_exec_t,s0)
-/legato/SMACK_DISABLED                               --          gen_context(system_u:object_r:telaf_sys_t,s0)
 /data/ManagedServices(/.*)?                                      gen_context(system_u:object_r:telaf_sys_t,s0)
+/legato/SMACK_DISABLED                               --          gen_context(system_u:object_r:telaf_sys_t,s0)
+
+/etc/initscripts/overlay_selinuxrw-workdir.sh        --          gen_context(system_u:object_r:telaf_overlay_exec_t,s0)

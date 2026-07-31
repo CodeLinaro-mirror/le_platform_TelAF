@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafRFSUnitTest, 1.0)
@@ -23,5 +23,5 @@ init_telaf_app_domain(telaf_tafRFSUnitTest_t,telaf_tafRFSUnitTest_exec_t)
 telaf_load_rfs_component(telaf_tafRFSUnitTest_t)
 
 allow telaf_admin_t telaf_tafRFSUnitTest_exec_t:lnk_file { read };
-allow telaf_tafRFSUnitTest_t self:capability { sys_admin };
+allow telaf_tafRFSUnitTest_t self:capability { sys_admin dac_read_search };
 allow telaf_tafRFSUnitTest_t data_t:file { relabel_file_perms };

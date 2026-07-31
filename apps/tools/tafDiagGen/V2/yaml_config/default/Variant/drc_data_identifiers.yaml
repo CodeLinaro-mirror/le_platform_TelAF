@@ -42,6 +42,32 @@ did_all:
         execution_authorization_pattern_io: pattern_s29
         execution_authentication_pattern_io: [ b1 ]
 
+  0x9007:
+    identification:
+      code: 0x9007
+    implementation:
+      did_size: 1
+      endianness: MSB
+      bytes:
+        0:
+          7:
+            data_ref_mnemonic: IO_Control_LCD
+    supported_functions:
+      write_did: False
+      read_did: True
+      snapshot: False
+      io_control: True
+      routine_did: False
+      io_control_description:
+        return_control_to_ecu: true
+        reset_to_default: false
+        freeze_current_state: false
+        short_term_adjustment: true
+    did_accessibility:
+      diagnostic_session_and_security_level:
+        execution_authorization_pattern_read: did_read_app
+        execution_authorization_pattern_io: base
+
   0xA5A5:
     identification:
       code: 0xA5A5

@@ -1,0 +1,725 @@
+/*
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
+import "platform:/plugin/org.genivi.commonapi.someip/deployment/CommonAPI-4-SOMEIP_deployment_spec.fdepl"
+import "ets.fidl"
+
+define org.genivi.commonapi.someip.deployment for interface someip.testability.ETS {
+    SomeIpServiceID = 257
+
+    enumeration Enum {
+    }
+
+    array uint8ArrayArray {
+        SomeIpArrayMaxLength = 5
+        SomeIpArrayMinLength = 0
+    }
+
+    array uint8ArrayReturnArray {
+        SomeIpArrayMaxLength = 5
+        SomeIpArrayMinLength = 0
+    }
+
+    method checkByteOrder {
+        SomeIpMethodID = 31
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method clientServiceActivate {
+        SomeIpMethodID = 47
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method clientServiceDeactivate {
+        SomeIpMethodID = 48
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method clientServiceGetLastValueOfEventUDPMulticast {
+        SomeIpMethodID = 61
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method clientServiceGetLastValueOfEventUDPUnicast {
+        SomeIpMethodID = 60
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method clientServiceSubscribeEventgroup {
+        SomeIpMethodID = 50
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method echoBitfields {
+        SomeIpMethodID = 65
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method echoCommonDatatypes {
+        SomeIpMethodID = 35
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method echoENUM {
+        SomeIpMethodID = 23
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method echoFLOAT64 {
+        SomeIpMethodID = 18
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method echoINT8 {
+        SomeIpMethodID = 14
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method echoStaticUINT8Array {
+        SomeIpMethodID = 54
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+        in {
+            echoStaticUINT8Array_ReqArg1 {
+                SomeIpArrayMaxLength = 5
+                SomeIpArrayMinLength = 5
+                SomeIpArrayLengthWidth = 0
+            }
+        }
+        out {
+            echoStaticUINT8Array_ResArg1 {
+                SomeIpArrayMaxLength = 5
+                SomeIpArrayMinLength = 5
+                SomeIpArrayLengthWidth = 0
+            }
+        }
+    }
+
+    method echoUINT8 {
+        SomeIpMethodID = 8
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method echoUINT8Array {
+        SomeIpMethodID = 9
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+        in {
+            echoUINT8Array_ReqArg2 {
+                SomeIpArrayMaxLength = 5
+                SomeIpArrayMinLength = 0
+            }
+        }
+        out {
+            echoUINT8Array_ResArg2 {
+                SomeIpArrayMaxLength = 5
+                SomeIpArrayMinLength = 0
+            }
+        }
+    }
+
+    method echoUINT8Array16BitLength {
+        SomeIpMethodID = 63
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+        in {
+            echoUINT8Array16BitLength_ReqArg2 {
+                SomeIpArrayMaxLength = 5
+                SomeIpArrayMinLength = 0
+                SomeIpArrayLengthWidth = 2
+            }
+        }
+        out {
+            echoUINT8Array16BitLength_ResArg2 {
+                SomeIpArrayMaxLength = 5
+                SomeIpArrayMinLength = 0
+                SomeIpArrayLengthWidth = 2
+            }
+        }
+    }
+
+    method echoUINT8Array2Dim {
+        SomeIpMethodID = 53
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+        in {
+            echoUINT8Array2Dim_ReqArg2 {
+                SomeIpArrayMaxLength = 5
+                SomeIpArrayMinLength = 0
+            }
+        }
+        out {
+            echoUINT8Array2Dim_ResArg2 {
+                SomeIpArrayMaxLength = 5
+                SomeIpArrayMinLength = 0
+            }
+        }
+    }
+
+    method echoUINT8Array8BitLength {
+        SomeIpMethodID = 62
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+        in {
+            echoUINT8Array8BitLength_ReqArg2 {
+                SomeIpArrayMaxLength = 5
+                SomeIpArrayMinLength = 0
+                SomeIpArrayLengthWidth = 1
+            }
+        }
+        out {
+            echoUINT8Array8BitLength_ResArg2 {
+                SomeIpArrayMaxLength = 5
+                SomeIpArrayMinLength = 0
+                SomeIpArrayLengthWidth = 1
+            }
+        }
+    }
+
+    method echoUINT8ArrayMinSize {
+        SomeIpMethodID = 55
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+        in {
+            echoUINT8ArrayMinSize_ReqArg2 {
+                SomeIpArrayMaxLength = 5
+                SomeIpArrayMinLength = 3
+            }
+        }
+        out {
+            echoUINT8ArrayMinSize_ResArg2 {
+                SomeIpArrayMaxLength = 5
+                SomeIpArrayMinLength = 3
+            }
+        }
+    }
+
+    method echoUTF16DYNAMIC {
+        SomeIpMethodID = 22
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+        in {
+            echoUTF16DYNAMIC_ReqArg2 {
+                SomeIpStringEncoding = utf16be
+                SomeIpStringLengthWidth = 4
+            }
+        }
+        out {
+            echoUTF16DYNAMIC_ResArg2 {
+                SomeIpStringEncoding = utf16be
+                SomeIpStringLengthWidth = 4
+            }
+        }
+    }
+
+    method echoUTF16FIXED {
+        SomeIpMethodID = 20
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+        in {
+            echoUTF16FIXED_ReqArg1 {
+                SomeIpStringEncoding = utf16be
+                SomeIpStringLength = 64
+                SomeIpStringLengthWidth = 0
+            }
+        }
+        out {
+            echoUTF16FIXED_ResArg1 {
+                SomeIpStringEncoding = utf16be
+                SomeIpStringLength = 64
+                SomeIpStringLengthWidth = 0
+            }
+        }
+    }
+
+    method echoUTF8DYNAMIC {
+        SomeIpMethodID = 21
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+        in {
+            echoUTF8DYNAMIC_ReqArg2 {
+                SomeIpStringLengthWidth = 4
+            }
+        }
+        out {
+            echoUTF8DYNAMIC_ResArg2 {
+                SomeIpStringLengthWidth = 4
+            }
+        }
+    }
+
+    method echoUTF8FIXED {
+        SomeIpMethodID = 19
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+        in {
+            echoUTF8FIXED_ReqArg1 {
+                SomeIpStringLength = 64
+                SomeIpStringLengthWidth = 0
+            }
+        }
+        out {
+            echoUTF8FIXED_ResArg1 {
+                SomeIpStringLength = 64
+                SomeIpStringLengthWidth = 0
+            }
+        }
+    }
+
+    method resetInterface {
+        SomeIpMethodID = 1
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method suspendInterface {
+        SomeIpMethodID = 2
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method triggerEventUINT8 {
+        SomeIpMethodID = 3
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method triggerEventUINT8Array {
+        SomeIpMethodID = 4
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method triggerEventUINT8E2E {
+        SomeIpMethodID = 6
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method triggerEventUINT8Multicast {
+        SomeIpMethodID = 58
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method echoUINT8E2E{
+        SomeIpMethodID = 11
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    broadcast TestEventUINT8 {
+        SomeIpEventID = 32769
+        SomeIpReliable = false
+        SomeIpBroadcastMaxRetentionTime = 5
+        SomeIpBroadcastDebounceTime = 100
+        SomeIpEventGroups = {
+            2, 5
+        }
+    }
+
+    broadcast TestEventUINT8Array {
+        SomeIpEventID = 32770
+        SomeIpReliable = false
+        SomeIpBroadcastMaxRetentionTime = 5
+        SomeIpBroadcastDebounceTime = 100
+        SomeIpEventGroups = {
+            2, 5
+        }
+        out {
+            uINT8Array {
+                SomeIpArrayMaxLength = 2000
+                SomeIpArrayMinLength = 0
+            }
+        }
+    }
+
+    broadcast TestEventUINT8E2E {
+        SomeIpEventID = 32772
+        SomeIpReliable = false
+        SomeIpBroadcastMaxRetentionTime = 5
+        SomeIpBroadcastDebounceTime = 100
+        SomeIpEventGroups = {
+            2, 5
+        }
+    }
+
+    broadcast TestEventUINT8Multicast {
+        SomeIpEventID = 32779
+        SomeIpReliable = false
+        SomeIpBroadcastMaxRetentionTime = 5
+        SomeIpBroadcastDebounceTime = 100
+        SomeIpEventGroups = {
+            2, 5, 6
+        }
+    }
+
+    method echoUINT8ArrayLengthTP {
+        SomeIpMethodID = 112
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+        in {
+            inUINT8Array_ReqArg1 {
+                SomeIpArrayMaxLength = 255242
+                SomeIpArrayMinLength = 0
+            }
+        }
+        out {
+            outUINT8Array_ResArg1 {
+                SomeIpArrayMaxLength = 255242
+                SomeIpArrayMinLength = 0
+            }
+        }
+    }
+
+    method echoUINT8ArrayLengthInTP {
+        SomeIpMethodID = 113
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+        in {
+            inUINT8Array_ReqArg1 {
+                SomeIpArrayMaxLength = 255242
+                SomeIpArrayMinLength = 0
+            }
+        }
+    }
+
+    method echoUINT8ArrayLengthOutTP {
+        SomeIpMethodID = 114
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+        out {
+            outUINT8Array_ResArg1 {
+                SomeIpArrayMaxLength = 255242
+                SomeIpArrayMinLength = 0
+            }
+        }
+    }
+
+    method echoUINT8ArrayLengthTPNoResponse {
+        SomeIpMethodID = 79
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+        in {
+            echoUINT8ArrayLengthTPNoResponse_ReqArg1 {
+                SomeIpArrayMaxLength = 255242
+                SomeIpArrayMinLength = 0
+            }
+        }
+    }
+
+    method triggerEventUINT8ArrayTP {
+        SomeIpMethodID = 77
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+        in {
+            triggerEventUINT8ArrayTP_ReqArg1 {
+                SomeIpArrayMaxLength = 255242
+                SomeIpArrayMinLength = 0
+            }
+        }
+    }
+
+    broadcast TestEventUINT8ArrayTP {
+        SomeIpEventID = 32780
+        SomeIpReliable = false
+        SomeIpBroadcastMaxRetentionTime = 5
+        SomeIpBroadcastDebounceTime = 100
+        SomeIpEventGroups = {
+            2, 5
+        }
+        out {
+            outUINT8EventArray {
+                SomeIpArrayMaxLength = 255242
+                SomeIpArrayMinLength = 0
+            }
+        }
+    }
+
+    method triggerEventUINT8ArrayTPNoReqTPPayload {
+        SomeIpMethodID = 78
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method triggerEventUINT32Periodic {
+        SomeIpMethodID = 75
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    broadcast TestEventUINT32Periodic {
+        SomeIpEventID = 32781
+        SomeIpReliable = false
+        SomeIpBroadcastMaxRetentionTime = 5
+        SomeIpBroadcastDebounceTime = 100
+        SomeIpEventGroups = {
+            7
+        }
+    }
+
+    method triggerEventUINT32UpdateOnChange {
+        SomeIpMethodID = 76
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    broadcast TestEventUINT32UpdateOnChange {
+        SomeIpEventID = 32782
+        SomeIpReliable = false
+        SomeIpBroadcastMaxRetentionTime = 5
+        SomeIpBroadcastDebounceTime = 100
+        SomeIpEventGroups = {
+            7
+        }
+    }
+
+    method activateTestSerivce {
+        SomeIpMethodID = 82
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method deactivateTestSerivce {
+        SomeIpMethodID = 83
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    attribute ETSInterfaceVersion {
+        SomeIpGetterID = 37
+        SomeIpAttributeReliable = false
+        SomeIpNotifierID = 32773
+        SomeIpNotifierMaxRetentionTime = 5
+        SomeIpNotifierDebounceTime = 100
+        SomeIpGetterMaxRetentionTime = 5
+        SomeIpGetterRequestDebounceTime = 100
+        SomeIpNotifierEventGroups = {
+            2, 5
+        }
+    }
+
+    attribute TestFieldUINT8 {
+        SomeIpGetterID = 38
+        SomeIpAttributeReliable = false
+        SomeIpSetterID = 39
+        SomeIpNotifierID = 32774
+        SomeIpNotifierMaxRetentionTime = 5
+        SomeIpNotifierDebounceTime = 100
+        SomeIpGetterMaxRetentionTime = 5
+        SomeIpGetterRequestDebounceTime = 100
+        SomeIpSetterMaxRetentionTime = 5
+        SomeIpSetterRequestDebounceTime = 100
+        SomeIpNotifierEventGroups = {
+            2, 5
+        }
+    }
+
+    attribute TestFieldUINT8Array {
+        SomeIpGetterID = 40
+        SomeIpAttributeReliable = false
+        SomeIpSetterID = 41
+        SomeIpNotifierID = 32775
+        SomeIpNotifierMaxRetentionTime = 5
+        SomeIpNotifierDebounceTime = 100
+        SomeIpGetterMaxRetentionTime = 5
+        SomeIpGetterRequestDebounceTime = 100
+        SomeIpSetterMaxRetentionTime = 5
+        SomeIpSetterRequestDebounceTime = 100
+        SomeIpNotifierEventGroups = {
+            2, 5
+        }
+        SomeIpArrayMaxLength = 5
+        SomeIpArrayMinLength = 0
+    }
+
+    attribute TestFieldUINT8Reliable {
+        SomeIpGetterID = 42
+        SomeIpAttributeReliable = true
+        SomeIpSetterID = 43
+        SomeIpNotifierID = 32776
+        SomeIpNotifierMaxRetentionTime = 5
+        SomeIpNotifierDebounceTime = 100
+        SomeIpGetterMaxRetentionTime = 5
+        SomeIpGetterRequestDebounceTime = 100
+        SomeIpSetterMaxRetentionTime = 5
+        SomeIpSetterRequestDebounceTime = 100
+        SomeIpNotifierEventGroups = {
+            2
+        }
+    }
+
+    method echoUINT8RELIABLE {
+        SomeIpMethodID = 10
+        SomeIpReliable = true
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    broadcast TestEventUINT8Reliable {
+        SomeIpEventID = 32771
+        SomeIpReliable = true
+        SomeIpBroadcastMaxRetentionTime = 5
+        SomeIpBroadcastDebounceTime = 100
+        SomeIpEventGroups = {
+            2
+        }
+    }
+
+    method clientServiceGetLastValueOfEventTCP {
+        SomeIpMethodID = 59
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+
+    method triggerEventUINT8Reliable {
+        SomeIpMethodID = 5
+        SomeIpReliable = true
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+}
+
+define org.genivi.commonapi.someip.deployment for provider as Service {
+    instance someip.testability.ETS {
+        InstanceId = "someip.testability.ETS"
+        SomeIpInstanceID = 1
+    }
+}
+
+define org.genivi.commonapi.someip.deployment for interface someip.testability.ETSSecondaryService {
+    SomeIpServiceID = 258
+
+    broadcast SecondaryEventUINT8 {
+        SomeIpEventID = 32901
+        SomeIpReliable = false
+        SomeIpBroadcastMaxRetentionTime = 5
+        SomeIpBroadcastDebounceTime = 100
+        SomeIpEventGroups = {
+            8
+        }
+    }
+
+    broadcast SecondaryMulticastEventUINT8 {
+        SomeIpEventID = 32902
+        SomeIpReliable = false
+        SomeIpBroadcastMaxRetentionTime = 5
+        SomeIpBroadcastDebounceTime = 100
+        SomeIpEventGroups = {
+            9
+        }
+    }
+
+    broadcast SecondaryEventUINT8Reliable {
+        SomeIpEventID = 32903
+        SomeIpReliable = true
+        SomeIpBroadcastMaxRetentionTime = 5
+        SomeIpBroadcastDebounceTime = 100
+        SomeIpEventGroups = {
+            10
+        }
+    }
+}
+
+define org.genivi.commonapi.someip.deployment for provider as Service {
+    instance someip.testability.ETSSecondaryService {
+        InstanceId = "someip.testability.ETSSecondaryService"
+        SomeIpInstanceID = 244
+    }
+}
+
+define org.genivi.commonapi.someip.deployment for interface someip.testability.ETSTestService1 {
+    SomeIpServiceID = 259
+
+    method echoUINT32 {
+        SomeIpMethodID = 80
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+}
+
+define org.genivi.commonapi.someip.deployment for provider as Service {
+    instance someip.testability.ETSTestService1 {
+        InstanceId = "someip.testability.ETSTestService1Context1"
+        SomeIpInstanceID = 1
+    }
+}
+
+define org.genivi.commonapi.someip.deployment for provider as Service {
+    instance someip.testability.ETSTestService1 {
+        InstanceId = "someip.testability.ETSTestService1Context2"
+        SomeIpInstanceID = 2
+    }
+}
+
+define org.genivi.commonapi.someip.deployment for interface someip.testability.ETSTestService2 {
+    SomeIpServiceID = 260
+
+    method echoUINT32 {
+        SomeIpMethodID = 81
+        SomeIpReliable = false
+        SomeIpMethodMaxRetentionTime = 5
+        SomeIpMethodRequestDebounceTime = 100
+    }
+}
+
+define org.genivi.commonapi.someip.deployment for provider as Service {
+    instance someip.testability.ETSTestService2 {
+        InstanceId = "someip.testability.ETSTestService2Context1"
+        SomeIpInstanceID = 1
+    }
+}

@@ -1,0 +1,7 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+/legato/systems/current/appsWriteable/tafEtsSvc/lib(/.*)?                                  gen_context(system_u:object_r:telaf_lib_t,s0)
+/legato/systems/current/appsWriteable/tafEtsSvc/bin/tafEtsSvc                         gen_context(system_u:object_r:telaf_tafEtsSvc_exec_t,s0)
+/legato/apps/[^/]*/read-only/bin/tafEtsSvc                                                 gen_context(system_u:object_r:telaf_tafEtsSvc_exec_t,s0)
+

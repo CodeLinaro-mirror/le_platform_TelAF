@@ -29,15 +29,26 @@ static void Test_ECall_OperationMode()
 {
     le_result_t res = LE_FAULT;
     taf_ecall_OpMode_t opMode = TAF_ECALL_MODE_NORMAL;
+    uint8_t phoneId = 0;
 
-    res = taf_ecall_ForceOnlyMode(DEFAULT_PHONE_ID);
+    res = taf_ecall_ForceOnlyMode(phoneId);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "taf_ecall_ForceOnlyMode done");
+    res = taf_ecall_ExitOnlyMode(phoneId);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "taf_ecall_ExitOnlyMode done");
+    res = taf_ecall_ForcePersistentOnlyMode(phoneId);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "taf_ecall_ForcePersistentOnlyMode done");
+    res = taf_ecall_GetConfiguredOperationMode(phoneId, &opMode);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "taf_eCall_GetConfiguredOperationMode done");
+
+    phoneId = DEFAULT_PHONE_ID;
+    res = taf_ecall_ForceOnlyMode(phoneId);
     LE_TEST_OK(res == LE_OK, "taf_ecall_ForceOnlyMode done");
-    res = taf_ecall_GetConfiguredOperationMode(DEFAULT_PHONE_ID, &opMode);
+    res = taf_ecall_GetConfiguredOperationMode(phoneId, &opMode);
     LE_TEST_OK(opMode == TAF_ECALL_MODE_ECALL, "taf_eCall_GetConfiguredOperationMode done");
 
-    res = taf_ecall_ExitOnlyMode(DEFAULT_PHONE_ID);
+    res = taf_ecall_ExitOnlyMode(phoneId);
     LE_TEST_OK(res == LE_OK, "taf_ecall_ExitOnlyMode done");
-    res = taf_ecall_GetConfiguredOperationMode(DEFAULT_PHONE_ID, &opMode);
+    res = taf_ecall_GetConfiguredOperationMode(phoneId, &opMode);
     LE_TEST_OK(opMode == TAF_ECALL_MODE_NORMAL, "taf_ecall_GetConfiguredOperationMode done");
 }
 

@@ -175,27 +175,6 @@ void taf_diagDidStore_RemoveDataIdChangeHandler
     return didStore.RemoveDataIdChangeHandler(handlerRef);
 }
 
-//-------------------------------------------------------------------------------------------------
-/**
- * Gets the reference of a DID change handler.
- *
- * @instaging
- * @return
- *     - Reference to the DID change handler.
- *     - NULL if errors.
- *
- */
-//-------------------------------------------------------------------------------------------------
-taf_diagDidStore_DIDChangeHandlerRef_t taf_diagDidStore_GetDIDHandlerRef
-(
-    taf_diagDidStore_ServiceRef_t svcRef
-        ///< [IN] Service reference.
-)
-{
-    auto &didStore = taf_diagDidStore::GetInstance();
-    return didStore.GetDIDHandlerRef(svcRef);
-}
-
 //--------------------------------------------------------------------------------------------------
 /**
  * Add data id to handler for change notification.
@@ -203,21 +182,21 @@ taf_diagDidStore_DIDChangeHandlerRef_t taf_diagDidStore_GetDIDHandlerRef
  * @instaging
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Invalid handlerRef.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
  *     - LE_DUPLICATE -- Data identifier already added.
  *
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_diagDidStore_AddDIDToHandler
 (
-    taf_diagDidStore_DIDChangeHandlerRef_t handlerRef,
+    taf_diagDidStore_ServiceRef_t svcRef,
         ///< [IN] Handler reference.
     uint16_t dataId
         ///< [IN] Data identifier.
 )
 {
     auto &didStore = taf_diagDidStore::GetInstance();
-    return didStore.AddDIDToHandler(handlerRef, dataId);
+    return didStore.AddDIDToHandler(svcRef, dataId);
 }
 //--------------------------------------------------------------------------------------------------
 /**
@@ -226,21 +205,21 @@ le_result_t taf_diagDidStore_AddDIDToHandler
  * @instaging
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Invalid handlerRef.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
  *     - LE_NOT_FOUND -- Data identifier not found.
  *
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_diagDidStore_RemoveDIDFromHandler
 (
-    taf_diagDidStore_DIDChangeHandlerRef_t handlerRef,
+    taf_diagDidStore_ServiceRef_t svcRef,
         ///< [IN] Handler reference.
     uint16_t dataId
         ///< [IN] Data identifier.
 )
 {
     auto &didStore = taf_diagDidStore::GetInstance();
-    return didStore.RemoveDIDFromHandler(handlerRef, dataId);
+    return didStore.RemoveDIDFromHandler(svcRef, dataId);
 }
 
 /**

@@ -1,0 +1,16 @@
+username: telaf
+sandboxed: false
+start: manual
+
+executables:
+{
+    tafTestLoggingStorm = (loggingStorm)
+}
+
+// There is not 'processes' section for this app.
+// Please start this app like below examples:
+//  > app runProc tafTestLoggingStorm --exe=tafTestLoggingStorm -- -ms 1000 -n 10 --logging-first &
+//  > app runProc tafTestLoggingStorm --exe=tafTestLoggingStorm -- -ms 2000 -n 20 &
+//  > app runProc tafTestLoggingStorm --exe=tafTestLoggingStorm -- -ms 3000 -n 30 --logging-first &
+
+// By default, the logCtrlDaemon was connected by each app

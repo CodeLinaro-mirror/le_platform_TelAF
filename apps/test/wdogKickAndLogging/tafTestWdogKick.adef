@@ -1,0 +1,33 @@
+// The user 'telaf' is required, if 'root' user, the watchdog daemon will crash!!
+username: telaf
+
+// Must under 'non-sandbox' mode for this app
+sandboxed: false
+
+start: manual
+
+executables:
+{
+    tafTestWdogKick = (wdogKick)
+}
+
+// The unit is 'ms'
+// We're using the app configuration instead of proc configuration in this case.
+watchdogTimeout: 3600000 // 60 mins
+maxWatchdogTimeout : 6000000 // 100 mins
+watchdogAction: stop
+
+// There is no 'processes' section for this app, run this app with below commands:
+//   > app runProc tafTestWdogKick --exe=tafTestWdogKick -- --help
+//   > app runProc tafTestWdogKick --exe=tafTestWdogKick -- -s 2 &
+//   > app runProc tafTestWdogKick --exe=tafTestWdogKick -- -s 3 &
+//   > app runProc tafTestWdogKick --exe=tafTestWdogKick -- -s 5 &
+
+// NOTE: below commands are not working!!
+//   > app start tafTestWdogKick
+//   > /legato/systems/current/appsWriteable/tafTestWdogKick/bin/tafTestWdogKick -s 5
+
+bindings:
+{
+    tafTestWdogKick.watchdogChain.le_wdog -> <tafcore>.le_wdog
+}

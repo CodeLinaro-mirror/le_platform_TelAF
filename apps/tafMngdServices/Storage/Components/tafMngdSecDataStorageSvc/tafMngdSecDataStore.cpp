@@ -203,7 +203,7 @@ le_result_t tafMngdStorageSvc::GetStoragePath
 
     snprintf(bufferPtr, bufferSize, "%s%s", secDataStorage, nsStr);
 
-    LE_INFO("storage path is: %s", bufferPtr);
+    LE_DEBUG("storage path is: %s", bufferPtr);
 
     return LE_OK;
 }
@@ -283,7 +283,7 @@ le_result_t tafMngdStorageSvc::GetClientNamespace
     if (le_appInfo_GetName(pid, appPath, sizeof(appPath)) == LE_OK)
     {
         snprintf(namespaceStr, strSize, "%s", appPath);
-        LE_INFO("Get namespaceStr: %s.", namespaceStr);
+        LE_DEBUG("Get namespaceStr: %s.", namespaceStr);
     }
     else
     {

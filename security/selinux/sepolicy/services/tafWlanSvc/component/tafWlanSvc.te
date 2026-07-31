@@ -23,18 +23,15 @@ type telaf_tafWlanSvc_data_t;
 files_type(telaf_tafWlanSvc_data_t);
 
 allow NetworkManager_t telaf_tafWlanSvc_t:unix_dgram_socket sendto;
-
+# NetworkManager (which hosts wpa_supplicant) writes control sockets under /tmp.
 allow NetworkManager_t tmp_t:sock_file write;
-
 allow telaf_tafWlanSvc_t NetworkManager_t:unix_dgram_socket sendto;
 
-allow telaf_tafWlanSvc_t tmp_t:sock_file { create unlink write};
-
 allow telaf_tafWlanSvc_t NetworkManager_var_run_t:dir { write search };
-
 allow telaf_tafWlanSvc_t NetworkManager_var_run_t:sock_file { write };
 
 # For WLAN AP
+# hostapd writes control sockets under /tmp for wpa_cli communication.
 allow hostapd_t tmp_t:sock_file write;
 allow hostapd_t telaf_tafWlanSvc_t:unix_dgram_socket sendto;
 allow telaf_tafWlanSvc_t hostapd_var_run_t:dir search_dir_perms;
@@ -42,12 +39,19 @@ allow telaf_tafWlanSvc_t hostapd_var_run_t:dir { write search };
 allow telaf_tafWlanSvc_t hostapd_var_run_t:sock_file { read write  };
 allow telaf_tafWlanSvc_t hostapd_t:unix_dgram_socket { sendto };
 
+# tafWlanSvc creates its own IPC socket under /tmp (tmp_t label before
+# type_transition fires); unlink cleans up stale sockets on restart.
+allow telaf_tafWlanSvc_t tmp_t:sock_file { create unlink write };
+
 telaf_tafKeyStoreSvc_getKeyId(telaf_tafWlanSvc_t)
 
 init_telaf_app_domain(telaf_tafWlanSvc_t,telaf_tafWlanSvc_exec_t)
+write_telux_log_file(telaf_tafWlanSvc_t)
+telux_allow_tel(telaf_tafWlanSvc_t)
+telaf_use_device_manager(telaf_tafWlanSvc_t)
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafWlanSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafWlanSvc_t, telaf_tafWlanSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafWlanSvc_exec_t)
 
 telux_allow_wlan_device_config(telaf_tafWlanSvc_t)

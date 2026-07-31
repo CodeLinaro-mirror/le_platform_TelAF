@@ -46,10 +46,14 @@ def add_default_info_to_services_all(final_yaml):
     # Conversion -> services_all
     logger.info("Conversion -> services_all")
     # Mark the absence of 'supported' as false
+    # Mark the absence of 'IDPS_supported' as false
     for sid, svc in final_yaml['services_all'].items():
         if 'supported' not in svc.keys(): # Service layer
             svc['supported'] = False
             logger.debug(f"@mark services_all -> {sid} supported = false")
+        if 'IDPS_supported' not in svc.keys(): # Service layer
+            svc['IDPS_supported'] = False
+            logger.debug(f"@mark services_all -> {sid} IDPS_supported = false")
         if 'sub_functions' in svc.keys():
             for sub_id, sub in svc['sub_functions'].items():
                 if 'supported' not in sub.keys():

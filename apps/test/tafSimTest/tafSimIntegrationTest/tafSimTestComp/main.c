@@ -64,12 +64,6 @@ static void DisplayAppUsage(void) {
     printf("SIM Swap Profiles test: app runProc tafSimIntTest --exe=tafSimIntTest -- swapProfiles <slot1/slot2/unknown> <0/1/2/3/4/5>\n");
     printf("Get Forbidden PLMN list: app runProc tafSimIntTest --exe=tafSimIntTest -- fplmnList <slot1/slot2/unknown>\n");
     printf("Create Forbidden PLMN list: app runProc tafSimIntTest --exe=tafSimIntTest -- createFplmnList <slot1/slot2/unknown>\n");
-    printf("Add Forbidden PLMN operator: app runProc tafSimIntTest --exe=tafSimIntTest -- addFplmnOp <slot1/slot2/unknown> <mcc> <mnc>\n");
-    printf("Write Forbidden PLMN list: app runProc tafSimIntTest --exe=tafSimIntTest -- writeFplmnOp <slot1/slot2/unknown> <mcc> <mnc>\n");
-    printf("Write Forbidden PLMNs list: app runProc tafSimIntTest --exe=tafSimIntTest -- writeFplmnList <slot1/slot2/unknown>\n");
-    printf("Get First FPLMN operator: app runProc tafSimIntTest --exe=tafSimIntTest -- firstFplmnOp <slot1/slot2/unknown>\n");
-    printf("Get Next FPLMN operator: app runProc tafSimIntTest --exe=tafSimIntTest -- nextFplmnOp <slot1/slot2/unknown>\n");
-    printf("Delete Next FPLMN List: app runProc tafSimIntTest --exe=tafSimIntTest -- deleteFplmnList <slot1/slot2/unknown>\n");
     printf("SIM refresh: app runProc tafSimIntTest --exe=tafSimIntTest -- refresh <slot1/slot2/unknown> <Session type> <Refresh mode> <Refresh allow>\n");
 }
 
@@ -186,7 +180,12 @@ static void TestRefreshChangeHandler
     }
 
 }
-
+static int read_line(char *buf, size_t bufsz)
+{
+    if (fgets(buf, bufsz, stdin) == NULL) return -1;
+    buf[strcspn(buf, "\r\n")] = '\0';   // remove newline
+    return 0;
+}
 COMPONENT_INIT
 {
     taf_sim_Id_t simId = taf_sim_GetSelectedCard();
@@ -581,65 +580,115 @@ COMPONENT_INIT
     {
         tafSimTest_sim_isEmergency(simId);
     }
+
     else if (strncmp(testType, "fplmnList", 9) == 0)
     {
-        tafSimTest_fplmnList_test(simId);
-    }
-    else if (strncmp(testType, "createFplmnList", 15) == 0)
-    {
-        tafSimTest_createFplmnList_test(simId);
-    }
-    else if (strncmp(testType, "addFplmnOp", 10) == 0)
-    {
-        const char* mcc = le_arg_GetArg(2);
-        if (NULL == mcc)
+        char line[64];
+        int ninstance = 0;
+        printf("Enter the number of instance: ");
+        if (read_line(line, sizeof(line)) != 0)
         {
-            LE_ERROR("mcc is NULL");
+            LE_ERROR("Invalid instance count");
             DisplayAppUsage();
             exit(EXIT_FAILURE);
         }
-        const char* mnc = le_arg_GetArg(3);
-        if (NULL == mnc)
+        ninstance = (int)strtol(line, NULL, 10);
+        if (ninstance <= 0)
         {
-            LE_ERROR("mnc is NULL");
+            LE_ERROR("Invalid instance count");
             DisplayAppUsage();
             exit(EXIT_FAILURE);
         }
-        tafSimTest_addFplmnOperator_test(simId, mcc, mnc);
-    }
-    else if (strcmp(testType, "writeFplmnOp") == 0)
-    {
-        const char* mccPtr = le_arg_GetArg(2);
-        if (NULL == mccPtr)
+        char mcc[ninstance][4];
+        char mnc[ninstance][3];
+
+        for (int i = 0; i < ninstance; i++)
         {
-            LE_ERROR("mcc is NULL");
-            DisplayAppUsage();
-            exit(EXIT_FAILURE);
+            printf("Enter mcc for fplmnList[%d]: ", i + 1);
+            if (read_line(line, sizeof(line)) != 0)
+            {   exitApplication = true;
+                return;
+            }
+            if (strlen(line) < 3)
+            {
+                LE_ERROR("MCC too short");
+                exitApplication = true;
+                return;
+            }
+            snprintf(mcc[i], sizeof(mcc[i]), "%.3s", line);
+            printf("Enter mnc for fplmnList[%d]: ", i + 1);
+            if (read_line(line, sizeof(line)) != 0) {
+                exitApplication = true;
+                return;
+            }
+            if (strlen(line) < 2) {
+                LE_ERROR("MNC too short");
+                exitApplication = true;
+                return;
+            }
+            snprintf(mnc[i], sizeof(mnc[i]), "%.2s", line);
         }
-        const char* mncPtr = le_arg_GetArg(3);
-        if (NULL == mncPtr)
+        exitApplication = false;
+        le_result_t res = LE_FAULT;
+        res = tafSimTest_createFplmnList_test(simId);
+        if(res == LE_OK)
         {
-            LE_ERROR("mnc is NULL");
-            DisplayAppUsage();
-            exit(EXIT_FAILURE);
+            exitApplication = false;
+            if (ninstance <= 0) {
+                LE_ERROR("No instances to process");
+                exitApplication = true;
+                return;
+            }
+            for (int i = 0; i < ninstance; i++)
+            {
+                res = tafSimTest_addFplmnOperator_test(simId, mcc[i], mnc[i]);
+                if (res != LE_OK)
+                {
+                    LE_ERROR("Failed to add FPLMN operator at instance %d", i + 1);
+                    exitApplication = true;
+                    return;
+                }
+            }
         }
-        tafSimTest_writeFplmnList_test(simId, mccPtr, mncPtr);
-    }
-    else if (strcmp(testType, "writeFplmnList") == 0)
-    {
-        tafSimTest_writeFplmnLists_test(simId);
-    }
-    else if (strncmp(testType, "firstFplmnOp", 13) == 0)
-    {
-        tafSimTest_getFirstFplmnOperator_test(simId);
-    }
-    else if (strncmp(testType, "nextFplmnOp", 11) == 0)
-    {
-        tafSimTest_getNextFplmnOperator_test(simId);
-    }
-    else if (strncmp(testType, "deleteFplmnList", 15) == 0)
-    {
+        if(res == LE_OK)
+        {
+            res = tafSimTest_writeFplmnList_test(simId);
+            if(res != LE_OK)
+            {
+                exitApplication = true;
+                return;
+            }
+
+            res =  tafSimIntTest_ReadFPLMNList(simId);
+            if(res != LE_OK)
+            {
+               exitApplication = true;
+               return;
+            }
+        }
+
+        res = tafSimTest_addFplmnOperator_test(simId, "101", "10");
+        if (res == LE_OK)
+        {
+            res = tafSimTest_writeFplmnList_test(simId);
+            if(res == LE_OK)
+            {
+                res =  tafSimIntTest_ReadFPLMNList(simId);
+            }
+            else
+            {
+               exitApplication = true;
+               return;
+            }
+        }
+        else
+        {
+            LE_ERROR("Failed to add FPLMN operator at instance");
+            exitApplication = true;
+            return;
+        }
         tafSimTest_deleteFplmnList_test(simId);
+        exitApplication = true;
     }
     else if (strcmp(testType, "refresh") == 0)
     {

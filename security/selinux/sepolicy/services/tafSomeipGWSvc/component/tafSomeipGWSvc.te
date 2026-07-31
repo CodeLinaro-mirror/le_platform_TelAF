@@ -1,16 +1,32 @@
-# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafSomeipGWSvc, 1.0)
 
 gen_require(`
-  type sysfs_t;
   type systemd_tmpfiles_t;
   type tmp_t;
   type proc_net_t;
   type unreserved_port_t;
   type node_t;
 ')
+
+# SELinux rules for vsomeip UDS-based communication between host routing manager
+# and LXC container routing proxy via shared /tmp/vsomeip directory.
+gen_require(`
+    type lxc_script_app_t;
+    type lxc_tmp_t;
+')
+
+# Allow vsomeip routing manager to connect back to the routing proxy's Unix stream socket
+# (lxc_script_app_t). The routing manager initiates connections to registered clients.
+allow telaf_tafSomeipGWSvc_t lxc_script_app_t:unix_stream_socket connectto;
+
+# Allow vsomeip routing manager to write to the LXC routing proxy's socket file
+# (lxc_tmp_t). The routing manager sends data to the proxy's connected client socket.
+# Also allow unlink: the routing manager cleans up stale socket files left by the
+# LXC routing proxy (lxc_tmp_t context) during shutdown or restart.
+allow telaf_tafSomeipGWSvc_t lxc_tmp_t:sock_file { write unlink };
 
 # Framework definition for telaf
 type telaf_tafSomeipGWSvc_exec_t;
@@ -21,32 +37,37 @@ type telaf_tafSomeipGWSvc_t;
 type telaf_tafSomeipGWSvc_data_t;
 files_type(telaf_tafSomeipGWSvc_data_t);
 
-# Setup for tmp directory
+# Setup for tmp directory.
+# telaf_someiptmp_t is used for both the /tmp/vsomeip directory itself (see .fc)
+# and the socket/lock files created inside it by the routing manager.
+# The directory is created by systemd tmpfiles.d, not by telaf_tafSomeipGWSvc_t.
 type telaf_someiptmp_t;
 files_tmp_file(telaf_someiptmp_t)
-files_tmp_filetrans(telaf_tafSomeipGWSvc_t,telaf_someiptmp_t, { sock_file file dir })
-manage_sock_files_pattern(telaf_tafSomeipGWSvc_t, telaf_someiptmp_t, telaf_someiptmp_t);
-manage_files_pattern(telaf_tafSomeipGWSvc_t, telaf_someiptmp_t, telaf_someiptmp_t);
+files_tmp_filetrans(telaf_tafSomeipGWSvc_t, telaf_someiptmp_t, { sock_file file dir })
 allow telaf_tafSomeipGWSvc_t telaf_someiptmp_t:sock_file { write };
 
 # Run the service in its own confined domain
 init_telaf_app_domain(telaf_tafSomeipGWSvc_t,telaf_tafSomeipGWSvc_exec_t)
 
-# Allow update daemon to install/uninstall this service
+# Allow service to manage its own data directory; registers with admin domain.
 telaf_admin_manage_all_files_perms(telaf_tafSomeipGWSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafSomeipGWSvc_exec_t)
 
-# Allow systemd to get attribute of /tmp/vsomeip-0
+# vsomeip uses /tmp for shared-memory socket files; manage via a dedicated type.
+manage_dirs_pattern(telaf_tafSomeipGWSvc_t, telaf_someiptmp_t, telaf_someiptmp_t)
+manage_files_pattern(telaf_tafSomeipGWSvc_t, telaf_someiptmp_t, telaf_someiptmp_t)
+manage_sock_files_pattern(telaf_tafSomeipGWSvc_t, telaf_someiptmp_t, telaf_someiptmp_t)
+
+# Allow systemd to inspect /tmp/vsomeip-* socket files.
 allow systemd_tmpfiles_t tmp_t:sock_file { getattr };
 
-# Allow tafSomeipGWSvc to manipulate dir in tmpfs
-allow telaf_tafSomeipGWSvc_t tmp_t:dir manage_dir_perms;
+# Allow systemd to get attribute of socket files in /tmp/vsomeip/
+allow systemd_tmpfiles_t telaf_someiptmp_t:sock_file { getattr };
 
-# Allow tafSomeipGWSvc to manipulate file in tmpfs
-allow telaf_tafSomeipGWSvc_t tmp_t:file manage_file_perms;
-
-# Allow tafSomeipGWSvc to manipulate sock file in tmpfs
-allow telaf_tafSomeipGWSvc_t tmp_t:sock_file manage_sock_file_perms;
+# Allow tafSomeipGWSvc to manage the /tmp/vsomeip directory and its contents (telaf_someiptmp_t)
+allow telaf_tafSomeipGWSvc_t telaf_someiptmp_t:dir manage_dir_perms;
+allow telaf_tafSomeipGWSvc_t telaf_someiptmp_t:file manage_file_perms;
+allow telaf_tafSomeipGWSvc_t telaf_someiptmp_t:sock_file manage_sock_file_perms;
 
 # Allow tafSomeipGWSvc to manipulate udp/tcp socket
 allow telaf_tafSomeipGWSvc_t self:udp_socket create_socket_perms;

@@ -13,6 +13,8 @@
 #include "tafDataAccessCompImpl.hpp"
 #include "configuration.hpp"
 
+#include "serialization.hpp"
+
 using namespace tafsvc;
 using namespace std;
 using namespace taf::dataAccess;
@@ -69,6 +71,9 @@ void DemDataHandler::Init
 
     // Update the DEM user_version after initialization.
     tafDtcDao.GetDaoHandler()->SetVersion(DEM_DB_VERSION);
+
+    // Ebale WAL
+    tafDtcDao.GetDaoHandler()->EnableWAL();
 }
 
 le_result_t DemDataHandler::Load
@@ -77,73 +82,83 @@ le_result_t DemDataHandler::Load
 {
     le_result_t ret;
 
-    // Get configuration from diagConfig module.
     try
     {
-        std::vector<uint32_t> dtc_code_list = cfg::get_dtc_codes();
-        for (const auto & dtc_code: dtc_code_list)
+        const auto& all_dtcs = cfg::get_all_dtc_entries();
+        const auto& all_freeze_frames = cfg::get_all_freeze_frames();
+        const auto& all_extended_data_records = cfg::get_all_extended_data_records();
+
+        for (const auto& dtc_pair : all_dtcs)
         {
-            cfg::Node & dtc = cfg::get_dtc_node(dtc_code);
+            const uint32_t dtc_code = static_cast<uint32_t>(dtc_pair.first);
+            const DTCEntry& dtc_entry = dtc_pair.second;
 
-            // Init snapshot.
-            cfg::Node & ffs = dtc.get_child("snapshots.freeze_frames");
-            for (auto &ff : ffs)
+            // --- Process Snapshots (Freeze Frames) ---
+            for (const std::string& ff_name : dtc_entry.snapshots.freeze_frames)
             {
-                string item = ff.second.get_value<string>("");
+                auto it = all_freeze_frames.find(ff_name);
+                if (it != all_freeze_frames.end())
+                {
+                    int rn = it->second.record_number;
 
-                // Lookup the info from freeze frames.
-                cfg::Node & ffNode = cfg::top_freeze_frames<string>("short_name", item);
-                int rn = ffNode.get<int>("record_number");
-                if (std::string("firstOccurrence") == item)
-                {
-                    snapshotRnVec.push_back(std::make_tuple(
-                            rn, dtc_code, Snapshot_FirstOccurrence)
-                            );
-                }
-                else if (std::string("lastOccurrence") == item)
-                {
-                    snapshotRnVec.push_back(std::make_tuple(
-                            rn, dtc_code, Snapshot_LastOccurrence)
-                            );
-                }
-                else if (std::string("lastDisappearance") == item)
-                {
-                    snapshotRnVec.push_back(std::make_tuple(
-                            rn, dtc_code, Snapshot_LastDisappearance)
-                            );
+                    if (ff_name == "firstOccurrence")
+                    {
+                        snapshotRnVec.push_back(std::make_tuple(
+                            rn, dtc_code, Snapshot_FirstOccurrence));
+                    }
+                    else if (ff_name == "lastOccurrence")
+                    {
+                        snapshotRnVec.push_back(std::make_tuple(
+                            rn, dtc_code, Snapshot_LastOccurrence));
+                    }
+                    else if (ff_name == "lastDisappearance")
+                    {
+                        snapshotRnVec.push_back(std::make_tuple(
+                            rn, dtc_code, Snapshot_LastDisappearance));
+                    }
+                    else
+                    {
+                        LE_WARN("Unexpected FreezeFrame name '%s' for DTC 0x%x",
+                                ff_name.c_str(), dtc_code);
+                    }
                 }
                 else
                 {
-                    LE_WARN("Unexpected FF(%s) for DTC0x%x", item.c_str(), dtc_code);
+                    LE_ERROR("FreezeFrame '%s' (referenced by DTC 0x%x) not found.",
+                             ff_name.c_str(), dtc_code);
                 }
             }
 
-            // Init extended data.
-            cfg::Node & extds = dtc.get_child("identification.extended_data_records");
-            for (auto &extd : extds)
+            // --- Process Extended Data Records ---
+            for (const std::string& extd_name : dtc_entry.identification.extended_data_records)
             {
-                string item = extd.second.get_value<string>("");
+                auto it = all_extended_data_records.find(extd_name);
+                if (it != all_extended_data_records.end())
+                {
+                    int rn = it->second.record_number;
 
-                // Lookup the info from freeze frames.
-                cfg::Node & extdNode = cfg::top_extended_data_records<string>("short_name", item);
-                int rn = extdNode.get<int>("record_number");
-                if (std::string("OccurrenceCounter") == item)
-                {
-                    extendedRnVec.push_back(std::make_tuple(
-                            rn, dtc_code, ExtendData_OccurenceCounter)
-                            );
+                    if (extd_name == "OccurrenceCounter")
+                    {
+                        extendedRnVec.push_back(std::make_tuple(
+                            rn, dtc_code, ExtendData_OccurenceCounter));
+                    }
+                    else
+                    {
+                        LE_WARN("Unexpected ExtendedData name '%s' for DTC 0x%x",
+                                extd_name.c_str(), dtc_code);
+                    }
                 }
-                else  // Only supported OccurenceCounter for extended data records.
+                else
                 {
-                    LE_WARN("Unexpected ExtData(%s) for DTC0x%x", item.c_str(), dtc_code);
+                    LE_ERROR("ExtendedData '%s' (referenced by DTC 0x%x) not found.",
+                             extd_name.c_str(), dtc_code);
                 }
             }
         }
     }
     catch (const std::exception& e)
     {
-        // Failed to read diag configuration.
-        LE_WARN("Exception: %s", e.what() );
+        LE_ERROR("Exception during configuration load: %s", e.what());
         return LE_FAULT;
     }
 
@@ -228,43 +243,50 @@ le_result_t DemDataHandler::GetSupportedDtc
     taf_DataAccess_DTCStatusRec_t *dtcStatusPtr
 )
 {
-    // 1. Get the supported DTCs from YAML file
-    // 2. Call int32_t GetStatusByDtc(int32_t dtc) to get status.
-    int32_t status = 0;
-    int32_t occurrence = 0;
-    int32_t activation = 1;
+    int32_t status      = 0;
+    int32_t occurrence  = 0;
+    int32_t activation  = 1;
     int32_t suppression = 0;
     le_result_t ret;
-    taf_DataAccess_DTCStatus_t *dtcStaPtr;
+    taf_DataAccess_DTCStatus_t* dtcStaPtr;
 
     try
     {
-        std::vector<uint32_t> dtc_code_list = cfg::get_dtc_codes();
-        auto &tafDtcDao = DtcEntityDao::GetInstance();
+        // 1. Get a direct reference to the map of all DTC entries.
+        const auto& all_dtcs = cfg::get_all_dtc_entries();
+        auto& tafDtcDao = DtcEntityDao::GetInstance();
 
         dtcStatusPtr->dtcStatusRecList = LE_DLS_LIST_INIT;
-        for (const auto & dtc_code: dtc_code_list)
+
+        // 2. Iterate directly over the map of strongly-typed DTCEntry objects.
+        for (const auto& dtc_pair : all_dtcs)
         {
+            // The key of the map pair is the DTC code.
+            const uint32_t dtc_code = static_cast<uint32_t>(dtc_pair.first);
+
             ret = tafDtcDao.ReadStatusByDtc(dtc_code, status, occurrence, activation, suppression);
+
             if (ret != LE_OK)
             {
-                // Not found or other error.
+                // Not found in DAO or other error, set status to 0.
                 status = 0;
             }
-            else
+            else if (suppression != 0)
             {
-                if (suppression != 0)
-                {
-                    // Skip the suppressional DTC
-                    continue;
-                }
+                // Skip this DTC if it is suppressed.
+                continue;
             }
 
+            // Allocate memory and populate the DTC status structure.
             dtcStaPtr = (taf_DataAccess_DTCStatus_t*)le_mem_ForceAlloc(supportedDtcPool);
+            if (dtcStaPtr == nullptr) {
+                LE_ERROR("Memory allocation failed for DTC status entry.");
+                continue;
+            }
             memset(dtcStaPtr, 0, sizeof(taf_DataAccess_DTCStatus_t));
 
-            LE_DEBUG("Get status0x%x for DTC0x%x", dtc_code, status);
-            dtcStaPtr->dtc = static_cast<uint32_t>(dtc_code);
+            LE_DEBUG("Get status 0x%x for DTC 0x%x", status, dtc_code);
+            dtcStaPtr->dtc = dtc_code;
             dtcStaPtr->status = static_cast<uint8_t>(status & GetAvailableStatusMask());
             dtcStaPtr->link = LE_DLS_LINK_INIT;
             le_dls_Queue(&dtcStatusPtr->dtcStatusRecList, &dtcStaPtr->link);
@@ -274,8 +296,7 @@ le_result_t DemDataHandler::GetSupportedDtc
     }
     catch (const std::exception& e)
     {
-        // Not event in this DTC
-        LE_WARN("Exception: %s", e.what() );
+        LE_WARN("Exception while retrieving DTCs from configuration: %s", e.what());
         return LE_FAULT;
     }
 

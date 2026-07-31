@@ -7,9 +7,17 @@
 
 #define TXN_NAME "tafUpdateConfigTreeHelper"
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get a boolean value from the config tree.
+ *
+ * @return
+ *  - The boolean value stored at the given key, or false if the key is empty or not found.
+ */
+//--------------------------------------------------------------------------------------------------
 bool tafsvc::tafUpdate_ConfigTree_GetBool
 (
-    const std::string key
+    const std::string key ///< [IN] Config tree key.
 )
 {
     bool defaultValue = false;
@@ -26,10 +34,15 @@ bool tafsvc::tafUpdate_ConfigTree_GetBool
     return ret;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set a boolean value in the config tree.
+ */
+//--------------------------------------------------------------------------------------------------
 void tafsvc::tafUpdate_ConfigTree_SetBool
 (
-    const std::string key,
-    const bool value
+    const std::string key, ///< [IN] Config tree key.
+    const bool value       ///< [IN] Boolean value to set.
 )
 {
     if (key.empty())
@@ -45,9 +58,17 @@ void tafsvc::tafUpdate_ConfigTree_SetBool
         value ? "true" : "false");
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get an integer value from the config tree.
+ *
+ * @return
+ *  - The integer value stored at the given key, or 0 if the key is empty or not found.
+ */
+//--------------------------------------------------------------------------------------------------
 uint32_t tafsvc::tafUpdate_ConfigTree_GetInt
 (
-    const std::string key
+    const std::string key ///< [IN] Config tree key.
 )
 {
     int32_t defaultValue = 0;
@@ -64,10 +85,15 @@ uint32_t tafsvc::tafUpdate_ConfigTree_GetInt
     return static_cast<uint32_t>(ret);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set an integer value in the config tree.
+ */
+//--------------------------------------------------------------------------------------------------
 void tafsvc::tafUpdate_ConfigTree_SetInt
 (
-    const std::string key,
-    const uint32_t value
+    const std::string key,  ///< [IN] Config tree key.
+    const uint32_t value    ///< [IN] Integer value to set.
 )
 {
     if (key.empty())
@@ -82,10 +108,20 @@ void tafsvc::tafUpdate_ConfigTree_SetInt
     LE_DEBUG("Setting value of %s as %u", key.c_str(), value);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get a string value from the config tree.
+ *
+ * @return
+ *  - LE_OK             The string value was retrieved successfully.
+ *  - LE_BAD_PARAMETER  key is empty.
+ *  - LE_NOT_FOUND      The key does not exist in the config tree.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t tafsvc::tafUpdate_ConfigTree_GetString
 (
-    const std::string key,
-    std::string &value
+    const std::string key, ///< [IN] Config tree key.
+    std::string &value     ///< [OUT] String value retrieved from the config tree.
 )
 {
     le_result_t leRet = LE_OK;
@@ -120,10 +156,19 @@ le_result_t tafsvc::tafUpdate_ConfigTree_GetString
     return leRet;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set a string value in the config tree.
+ *
+ * @return
+ *  - LE_OK             The string value was set successfully.
+ *  - LE_BAD_PARAMETER  key or value is empty.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t tafsvc::tafUpdate_ConfigTree_SetString
 (
-    const std::string key,
-    const std::string value
+    const std::string key,   ///< [IN] Config tree key.
+    const std::string value  ///< [IN] String value to set.
 )
 {
     if (key.empty() || value.empty())
@@ -139,7 +184,15 @@ le_result_t tafsvc::tafUpdate_ConfigTree_SetString
     return LE_OK;
 }
 
-void tafsvc::tafUpdate_ConfigTree_ClearTree()
+//--------------------------------------------------------------------------------------------------
+/**
+ * Clear the entire config tree.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafsvc::tafUpdate_ConfigTree_ClearTree
+(
+    void
+)
 {
     LE_DEBUG("Clearing entire config tree");
     le_cfg_IteratorRef_t iterRef = le_cfg_CreateWriteTxn(TXN_NAME);

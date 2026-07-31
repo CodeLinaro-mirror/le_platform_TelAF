@@ -4,23 +4,23 @@ sandboxed: false
 start: manual
 executables:
 {
-    client = (printClient)
+    exe_RpcPrintClient = (printClient)
 }
 
 processes:
 {
     run:
     {
-        (client)
+        RpcPrintClient = (exe_RpcPrintClient)
     }
 }
 
 extern:
 {
-    rpcClientPrinter = client.printClient.printer
+    rpcClientPrinter = exe_RpcPrintClient.printClient.tafRpcPrinter
 }
 
 bindings:
 {
-    client.printClient.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt
+    exe_RpcPrintClient.printClient.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt
 }

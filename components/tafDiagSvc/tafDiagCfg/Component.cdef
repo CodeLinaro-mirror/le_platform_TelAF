@@ -12,11 +12,17 @@ provides:
     }
 }
 
+ldflags:
+{
+    -lboost_serialization
+}
+
 bundles:
 {
     file:
     {
         [rw] ${CURDIR}/diag_template.yaml.json /diag_template.yaml.json
+        [rw] ${CURDIR}/tree_data /tree_data
     }
 }
 

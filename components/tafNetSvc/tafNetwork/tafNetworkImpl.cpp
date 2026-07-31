@@ -15,7 +15,7 @@
 #include "tafSvcIF.hpp"
 #include "tafNetworkImpl.hpp"
 #include "tafNetUtility.hpp"
-#include "taf_pa_net.hpp"
+#include "tafNetPa.hpp"
 #include <arpa/inet.h>
 #include <time.h>
 

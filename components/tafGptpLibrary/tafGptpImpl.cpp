@@ -128,7 +128,7 @@ LE_SHARED taf_gptpTime_Ref_t taf_gptpTime_CreateRef
         {
             LE_ERROR("Create netlink socket failed");
             le_fd_Close(gptpTime->fd);
-            le_ref_DeleteRef(GptpTimeRefMap, gptpTime);
+            le_ref_DeleteRef(GptpTimeRefMap, gptpTime->safeRef);
             le_mem_Release(gptpTime);
             return NULL;
         }
@@ -154,14 +154,11 @@ LE_SHARED le_result_t taf_gptpTime_GetTimeValue
     }
 
     bool gptpSyncStatus = gptpGetSyncStatus();
-    LE_INFO("gptpSyncStatus: %d", gptpSyncStatus);
-
     if (!gptpSyncStatus)
     {
         LE_ERROR("Gptp time is not synced.");
         return LE_UNAVAILABLE;
     }
-
 
     taf_GptpTime_t* gptpPtr = (taf_GptpTime_t*)le_ref_Lookup(GptpTimeRefMap, gptpTimeRef);
     if(gptpPtr == NULL)
@@ -207,11 +204,11 @@ LE_SHARED le_result_t taf_gptpTime_GetTimeValue
 
 LE_SHARED le_result_t taf_gptpTime_DeleteRef
 (
-    taf_gptpTime_Ref_t gptpTimeRef
+    taf_gptpTime_Ref_t gptSafeRef
 )
 {
     int result;
-    taf_GptpTime_t* gptpPtr = (taf_GptpTime_t*)le_ref_Lookup(GptpTimeRefMap, gptpTimeRef);
+    taf_GptpTime_t* gptpPtr = (taf_GptpTime_t*)le_ref_Lookup(GptpTimeRefMap, gptSafeRef);
     if(gptpPtr == NULL)
     {
         LE_ERROR("GPTP Reference is not found!");
@@ -241,7 +238,7 @@ LE_SHARED le_result_t taf_gptpTime_DeleteRef
     {
         TeardownNetlinkSocket();
     }
-    le_ref_DeleteRef(GptpTimeRefMap, gptpTimeRef);
+    le_ref_DeleteRef(GptpTimeRefMap, gptSafeRef);
     le_mem_Release(gptpPtr);
     return LE_OK;
 }
@@ -269,6 +266,7 @@ void DeviceOpenTimerHandler(le_timer_Ref_t timerRef)
             {
                 LE_ERROR("Create netlink socket failed");
                 le_fd_Close(gptpTime->fd);
+                gptpTime->fd = -1;
                 return;
             }
         }

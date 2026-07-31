@@ -6,7 +6,8 @@ maxMemoryBytes: 60000K
 
 executables:
 {
-    tafMRCIntTest = ( tafMRCIntTest )
+    client = ( tafMRCIntTest/client )
+    server = ( tafMRCIntTest/server )
 }
 
 start: manual
@@ -15,7 +16,7 @@ processes:
 {
     run:
     {
-        (tafMRCIntTest)
+        (server)
     }
     maxFileBytes: 1048576K
     faultAction: stopApp
@@ -23,5 +24,6 @@ processes:
 
 bindings:
 {
-    tafMRCIntTest.tafMRCIntTest.taf_mrc -> tafMRCSvc.taf_mrc
+    server.server.taf_mrc -> tafMRCSvc.taf_mrc
+    client.client.tafMRCIntTest -> server.server.tafMRCIntTest
 }

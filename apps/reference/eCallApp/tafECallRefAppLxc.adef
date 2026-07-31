@@ -1,0 +1,41 @@
+maxThreads: 600
+sandboxed: false
+executables:
+{
+    tafECallRefApp = ( eCallAppComp )
+    ecallctl       = ( ctrlComponent )
+}
+
+
+processes:
+{
+    run:
+    {
+        (tafECallRefApp)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = INFO
+    }
+}
+
+start: manual
+
+bindings:
+{
+    tafECallRefApp.eCallAppComp.taf_ecall -> <telaf>.rpcServer_101_telaf_taf_ecall
+    tafECallRefApp.eCallAppComp.taf_locGnss -> <telaf>.rpcServer_101_telaf_taf_locGnss
+    tafECallRefApp.eCallAppComp.taf_gpio -> <telaf>.rpcServer_101_telaf_taf_gpio
+    tafECallRefApp.eCallAppComp.taf_audio -> <telaf>.rpcServer_101_telaf_taf_audio
+    tafECallRefApp.eCallAppComp.taf_mngdPm -> <telaf>.rpcServer_101_telaf_taf_mngdPm
+    tafECallRefApp.eCallAppComp.taf_diagDataID -> <telaf>.rpcServer_101_telaf_taf_diagDataID
+    tafECallRefApp.eCallAppComp.taf_diagDTC -> <telaf>.rpcServer_101_telaf_taf_diagDTC
+    tafECallRefApp.eCallAppComp.taf_diagEvent -> <telaf>.rpcServer_101_telaf_taf_diagEvent
+    tafECallRefApp.eCallAppComp.taf_diag -> <telaf>.rpcServer_101_telaf_taf_diag
+    tafECallRefApp.eCallAppComp.taf_hms -> <telaf>.rpcServer_101_telaf_taf_hms
+    tafECallRefApp.eCallAppComp.taf_sim -> <telaf>.rpcServer_101_telaf_taf_sim
+    tafECallRefApp.eCallAppComp.taf_radio -> <telaf>.rpcServer_101_telaf_taf_radio
+
+    // ecall command-line tool -> eCallApp IPC service
+    ecallctl.ctrlComponent.ctrlEcall -> tafECallRefApp.eCallAppComp.ctrlEcall
+}

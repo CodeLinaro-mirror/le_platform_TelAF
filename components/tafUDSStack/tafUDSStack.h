@@ -13,6 +13,7 @@
 #include "legato.h"
 
 #define MAX_INTERFACE_NAME_LEN 30
+#define MAX_IDPS_DATA_LEN 32
 #ifdef  __cplusplus
 extern "C" {
 #endif
@@ -23,6 +24,13 @@ extern "C" {
  */
 //-------------------------------------------------------------------------------------------------
 typedef struct taf_uds_DiagIndicationHandlerRef* taf_uds_DiagIndicationHandlerRef_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Reference type for UDS IDPS indication handler.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef struct taf_uds_IdpsIndicationHandlerRef* taf_uds_IdpsIndicationHandlerRef_t;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -82,6 +90,29 @@ typedef struct
     uint16_t            vlanId;     ///< VLAN ID. =0 if the interface is not vlan port.
     char                ifName[MAX_INTERFACE_NAME_LEN]; ///< Interface name.
 }taf_uds_AddrInfo_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Logical address information structure in uds communication.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint16_t            sa;         ///< Source address of message senders.
+    uint16_t            ta;         ///< Target address of message recipients.
+    uint16_t            vlanId;     ///< VLAN ID. =0 if the interface is not vlan port.
+}taf_uds_IdpsAddrInfo_t;
+
+typedef struct
+{
+    uint8_t securityLevel; ///< Security level.
+    uint8_t sid;                                ///< Service ID.
+    uint8_t status;                             ///< 0 = successful, or NRC.
+    uint16_t dataLen;                           ///< Length of data field.
+    uint8_t data[MAX_IDPS_DATA_LEN];          ///< Data payload.
+    uint16_t extraDataLen;                      ///< Length of extra data field.
+    uint8_t extraData[MAX_IDPS_DATA_LEN];     ///< Extra data payload.
+} taf_uds_IdpsStatusInfo_t;
 
 typedef struct
 {
@@ -162,6 +193,19 @@ typedef void (*taf_uds_DiagIndicationHandlerFunc_t)
     void*                      userPtr         ///< [IN] User-defined pointer.
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Callback to indicate IDPS message.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+typedef void (*taf_uds_IdpsIndicationHandlerFunc_t)
+(
+    const taf_uds_IdpsAddrInfo_t*  addrInfoPtr,   ///< [IN] Logical address information pointer.
+    const taf_uds_IdpsStatusInfo_t*  diagMsgPtr,  ///< [IN] IDPS status information pointer.
+    void*                      userPtr            ///< [IN] User-defined pointer.
+);
+
 //-------------------------------------------------------------------------------------------------
 /**
  * Adds a handler to indicate UDS message.
@@ -208,6 +252,31 @@ LE_SHARED le_result_t taf_uds_Stop();
 LE_SHARED void taf_uds_RemoveDiagIndicationHandler
 (
     taf_uds_DiagIndicationHandlerRef_t handerRef    ///< [IN] The handler reference.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Adds a handler to indicate IDPS message.
+ *
+ * @return
+ *  - A handler reference   success.
+ *  - NULL                  FAILURE.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED taf_uds_IdpsIndicationHandlerRef_t taf_uds_AddIdpsHandler
+(
+    taf_uds_IdpsIndicationHandlerFunc_t  idpsHandlerPtr,   ///< [IN] Hander function.
+    void*                                userPtr                 ///< [IN] User-defined pointer.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Removes the IDPS indication handler.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED void taf_uds_RemoveIdpsIndicationHandler
+(
+    taf_uds_IdpsIndicationHandlerRef_t handerRef   ///< [IN] The handler reference.
 );
 
 //-------------------------------------------------------------------------------------------------

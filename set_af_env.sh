@@ -164,7 +164,7 @@ build_extras() {
             cp -r "${PREBUILT_DIR}" "${DIST_DIR}/"
             export TELAF_${EXTRA_TYPE^^}="${DIST_DIR}/telaf-${EXTRA_TYPE}/lib"
         else
-            echo "Error: Unable to find the required prebuilt files for telaf-${EXTRA_TYPE}."
+            echo "Warning: Unable to find the required prebuilt files for telaf-${EXTRA_TYPE}."
         fi
     fi
 }
@@ -173,6 +173,7 @@ build_extras_pa() {
     local EXTRA_SRC_PATH=$1
     local INSTALL_DIR=$2
     local DLT_LOGGING="false"
+    local EXTRA_NAME=$(basename "${EXTRA_SRC_PATH}")
 
     if [ "${ENABLE_DLT_LOGGING:-}" = "1" ]; then
         echo "ENABLE_DLT_LOGGING is set for building PA."
@@ -192,7 +193,25 @@ build_extras_pa() {
             return 1
         fi
         echo ">>> Build completed. Output: ${INSTALL_DIR}"
+        return 0
     fi
+
+    # Fallback to HY11 prebuilt packages for standalone builds where source trees
+    # such as telaf-noship are not available. Prefer the PVM variant explicitly.
+    local PREBUILT_ROOT="${CURDIR}/../../prebuilt_HY11"
+    local PREBUILT_FILE="${PREBUILT_ROOT}/${EXTRA_NAME}-build_"*"_pvm.tar.gz"
+
+    if compgen -G "${PREBUILT_FILE}" > /dev/null; then
+        local SELECTED_PREBUILT
+        SELECTED_PREBUILT=$(compgen -G "${PREBUILT_FILE}" | head -n 1)
+        echo ">>> Using HY11 prebuilt for ${EXTRA_NAME}: ${SELECTED_PREBUILT}"
+        rm -rf "${INSTALL_DIR}" && mkdir -p "${INSTALL_DIR}"
+        tar -xzf "${SELECTED_PREBUILT}" -C "${INSTALL_DIR}" --strip-components=3
+        echo ">>> Prebuilt extracted to ${INSTALL_DIR}"
+        return 0
+    fi
+
+    echo "Warning: ${EXTRA_NAME} source/prebuilt not found. EXTRA_SRC_PATH=${EXTRA_SRC_PATH}"
 }
 
 clean_extra_build() {
@@ -236,18 +255,11 @@ function build_target() {
         return
     fi
 
-    # Build telaf-noship source code if exists
-    build_extras "noship" "${TARGET}"
-
-    build_extras "pa" "${TARGET}"
-
     # Repack TelAF image
     local TELAF_REPACK_DIR="${TELAF_ROOT}/build/${TARGET}/"
     local TELAF_NOSHIP_BUILD_DIR="${TELAF_ROOT}/build/${TARGET}/telaf-noship"
     local TELAF_PROP_BUILD_DIR="${TELAF_ROOT}/build/${TARGET}/telaf-prop"
     local TELAF_PA_BUILD_DIR="${TELAF_ROOT}/build/${TARGET}/telaf-pa"
-
-    [[ ! -d $TELAF_NOSHIP_BUILD_DIR ]] && TELAF_NOSHIP_BUILD_DIR=$TELAF_NOSHIP
 
     build_extras_pa "${TELAF_PROP}" "${TELAF_PROP_BUILD_DIR}/"
     if [ $? -ne 0 ]; then

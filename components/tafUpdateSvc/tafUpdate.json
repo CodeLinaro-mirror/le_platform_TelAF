@@ -16,12 +16,16 @@
 
         "post-install":
         {
-            "user-script": "/tmp/firmware/script/post-install"
+            "user-script": "/etc/firmware/post-install",
+            "cancel":
+            {
+                "user-script": "/etc/firmware/post-install-cancel"
+            }
         },
 
         "post-rollback":
         {
-            "user-script": "/tmp/firmware/script/post-rollback"
+            "user-script": "/etc/firmware/post-rollback"
         }
     }
 }

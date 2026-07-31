@@ -9,7 +9,7 @@ import "SensorSvc.fidl"
 
 define org.genivi.commonapi.core.deployment for typeCollection com.qualcomm.qti.telephony.SensorSvcTypes
 {
-    enumeration TelephonyResultT
+    enumeration SensorReturnT
     {
         EnumBackingType = UInt8
     }
@@ -18,15 +18,82 @@ define org.genivi.commonapi.core.deployment for typeCollection com.qualcomm.qti.
     {
         EnumBackingType = UInt8
     }
+
+    enumeration SensorStateT
+    {
+        EnumBackingType = UInt8
+    }
+
+    enumeration SensorServiceStateMaskT
+    {
+        EnumBackingType = UInt8
+    }
 }
 
 define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.telephony.SensorSvc
 {
-    SomeIpServiceID = 0xED85
+    SomeIpServiceID = 0xEE01
 
-    method GetSensorList
+    /* ---- Broadcast Events ---- */
+
+    /* SensorCapabilities: EventID 0x8065 = 32869 */
+    broadcast SensorCapabilities
     {
-        SomeIpMethodID = 801
+        SomeIpEventID = 32869
+        SomeIpEventGroups = { 8293 }
+    }
+
+    /* SensorConfigUpdate: EventID 0x8066 = 32870 */
+    broadcast SensorConfigUpdate
+    {
+        SomeIpEventID = 32870
+        SomeIpEventGroups = { 8293 }
+    }
+
+    /* SensorImuDataRead: EventID 0x8067 = 32871 */
+    broadcast SensorImuDataRead
+    {
+        SomeIpEventID = 32871
+        SomeIpEventGroups = { 8293 }
+    }
+
+    /* SensorHeadingDataRead: EventID 0x8068 = 32872 */
+    broadcast SensorHeadingDataRead
+    {
+        SomeIpEventID = 32872
+        SomeIpEventGroups = { 8293 }
+    }
+
+    /* ---- Methods ---- */
+
+    /* RegisterSensorClientReq: MethodID 0x65 = 101 */
+    method RegisterSensorClientReq
+    {
+        SomeIpMethodID = 101
+    }
+
+    /* DeRegisterSensorClientReq: MethodID 0x66 = 102 */
+    method DeRegisterSensorClientReq
+    {
+        SomeIpMethodID = 102
+    }
+
+    /* GetSensorListReq: MethodID 0x67 = 103 */
+    method GetSensorListReq
+    {
+        SomeIpMethodID = 103
+    }
+
+    /* SensorConfigReq: MethodID 0x68 = 104 */
+    method SensorConfigReq
+    {
+        SomeIpMethodID = 104
+    }
+
+    /* SensorControlReq: MethodID 0x69 = 105 */
+    method SensorControlReq
+    {
+        SomeIpMethodID = 105
     }
 }
 
@@ -34,7 +101,7 @@ define org.genivi.commonapi.someip.deployment for provider as Service
 {
     instance com.qualcomm.qti.telephony.SensorSvc
     {
-        InstanceId = "telephony.SensorSvc"
+        InstanceId = "com.qualcomm.qti.sensor.SensorInterface"
 
         SomeIpInstanceID = 1
     }

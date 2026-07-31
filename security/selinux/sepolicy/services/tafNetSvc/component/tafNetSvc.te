@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafNetSvc, 1.0)
@@ -22,26 +22,33 @@ type telaf_tafNetSvc_t;
 type telaf_tafNetSvc_data_t;
 files_type(telaf_tafNetSvc_data_t);
 
-allow telaf_tafNetSvc_t self:netlink_route_socket rw_netlink_socket_perms;
+# Network routing: netlink_route_socket + net_admin + kernel network state.
+telaf_use_network_routing(telaf_tafNetSvc_t)
+# TCP/UDP socket creation for outbound/inbound connections.
+telaf_create_stream_sockets(telaf_tafNetSvc_t)
+# Bind to unreserved ports and node addresses.
+telaf_bind_network_ports(telaf_tafNetSvc_t)
+
+# Shell and ifconfig for network configuration scripts.
 allow telaf_tafNetSvc_t shell_exec_t:file { exec_file_perms };
-allow telaf_tafNetSvc_t self:udp_socket { create ioctl};
-# need to access /proc by adding route index
-allow telaf_tafNetSvc_t proc_t:file { read_file_perms };
 allow telaf_tafNetSvc_t ifconfig_exec_t:file { exec_file_perms };
-# gateway modification support
+# Read /proc/net for route index lookups.
+allow telaf_tafNetSvc_t proc_t:file { read_file_perms };
 allow telaf_tafNetSvc_t proc_net_t:file read_file_perms;
-# DNS modification, access resolv.conf
+# DNS modification: read/write resolv.conf and systemd-resolved socket.
 allow telaf_tafNetSvc_t etc_t:{ file lnk_file } { rw_file_perms };
 allow telaf_tafNetSvc_t systemd_resolved_var_run_t:dir search_dir_perms;
 allow telaf_tafNetSvc_t systemd_resolved_var_run_t:file rw_file_perms;
-
-# Alloc to use ip command to set route
-allow telaf_tafNetSvc_t self:capability { net_admin };
-
-# Access /run/resolv.conf
+# Access /run/resolv.conf (net_conf_t).
 allow telaf_tafNetSvc_t net_conf_t:file { rw_file_perms };
 
 init_telaf_app_domain(telaf_tafNetSvc_t,telaf_tafNetSvc_exec_t)
+gen_require(`
+    type telaf_tafDataCallSvc_t;
+    type telaf_tafPMSvc_t;
+')
+telaf_ipc_bind(telaf_tafNetSvc_t, telaf_tafPMSvc_t)
+telaf_ipc_bind(telaf_tafNetSvc_t, telaf_tafDataCallSvc_t)
 
 ifdef(`sa525m',`
       # Get access for network operations APIs
@@ -50,8 +57,8 @@ ifdef(`sa525m',`
         telux_allow_data_setting(telaf_tafNetSvc_t)
     ')
 
-# Allow update daemon to install/uninstall this service
-telaf_admin_manage_all_files_perms(telaf_tafNetSvc_data_t)
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafNetSvc_t, telaf_tafNetSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafNetSvc_exec_t)
 
 

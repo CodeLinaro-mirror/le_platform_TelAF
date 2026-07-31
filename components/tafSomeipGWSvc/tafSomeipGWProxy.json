@@ -1,0 +1,19 @@
+{
+    "logging" :
+    {
+        "level" : "error",
+        "console" : "true",
+        "file" : { "enable" : "false", "path" : "/tmp/vsomeip.log" },
+        "version" : { "enable" : "false", "interval" : "10" },
+        "dlt" : "false"
+    },
+    "applications" :
+    [
+        {
+            "name" : "tafSomeipGWProxy",
+            "id" : "0x0102"
+        }
+    ],
+    "routing" : "tafSomeipGWSvc_1",
+    "network" : "tafSomeipGWSvc_1"
+}

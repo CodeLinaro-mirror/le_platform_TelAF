@@ -13,7 +13,7 @@ requires:
 
     component:
     {
-        $TELAF_ROOT/simulation/stub/taf_simula_linux/taf_pa_ioctl
+        $SIMULATION_ROOT/stub/taf_simula_linux/taf_pa_ioctl
     }
 }
 

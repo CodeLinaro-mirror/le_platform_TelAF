@@ -36,9 +36,19 @@ le_result_t RtcAsyncBaseDataIntStatus = LE_UNAVAILABLE;
 
 le_result_t MssConnectStatusMainThread = LE_FAULT;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Last known tafPMSvc power state.
+ *
+ * Written by PowerStateChangeHandler() on the main thread and read by SyncTimeTimerHandler() on the
+ * SyncTimeThread, so it must be atomic.
+ */
+//--------------------------------------------------------------------------------------------------
 std::atomic<taf_pm_State_t> PowerSuspendResumeState{TAF_PM_STATE_RESUME};
 le_thread_Ref_t SyncTimeThreadRef = NULL;
 le_timer_Ref_t  pmRetryTimerRef   = NULL;
+
+static bool IsPmStateChangeHandlerRegistered = false;
 
 taf_time_setRTCCb_t tafsvc::taf_Time::setRTCCBtoClient;
 taf_time_getRTCCb_t tafsvc::taf_Time::getRTCCBtoClient;
@@ -62,6 +72,7 @@ taf_time_TimeSpec_t* GnssDeltaTime = NULL;
 
 // Function definition
 void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr);
+static bool TryConnectToPmsvc(void);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -76,14 +87,14 @@ taf_Time &taf_Time::GetInstance()
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Helper function to stop a timer.
+ * Helper function to release a timer and clear the caller's reference.
  */
 //--------------------------------------------------------------------------------------------------
-static inline void _StopTimerIfRunning(le_timer_Ref_t& ref)
+static inline void ReleaseTimer(le_timer_Ref_t& ref)
 {
     if (ref != nullptr)
     {
-        le_timer_Stop(ref);
+        le_timer_Delete(ref);
         ref = nullptr;
     }
 }
@@ -2205,6 +2216,19 @@ bool isSecLableCreated(taf_time_TimeSources_t sourceId)
     return false;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for a non-exit disconnect of the secure storage (taf_mngdStorSecData) server. Just
+ * marks the connection as unavailable so the next isSecStorageConnected() call lazily
+ * reconnects (and re-registers this handler on success).
+ */
+//--------------------------------------------------------------------------------------------------
+static void MssServerDisconnectHandler(void* contextPtr)
+{
+    LE_WARN("Secure storage service disconnected");
+    MssConnectStatusMainThread = LE_UNAVAILABLE;
+}
+
 bool isSecStorageConnected(void)
 {
     if (MssConnectStatusMainThread == LE_OK)
@@ -2215,6 +2239,7 @@ bool isSecStorageConnected(void)
     MssConnectStatusMainThread = taf_mngdStorSecData_TryConnectService();
     if(MssConnectStatusMainThread == LE_OK)
     {
+        taf_mngdStorSecData_SetNonExitServerDisconnectHandler(MssServerDisconnectHandler, NULL);
         LE_INFO("Successfully connected to secure storage service");
         return true;
     }
@@ -3398,7 +3423,7 @@ void StopSyncTimeTasksThread(void)
     auto& tafTime = taf_Time::GetInstance();
     LE_INFO("StopSyncTimeTasksThread: stopping ...");
 
-    _StopTimerIfRunning(tafTime.syncTimeTimerRef);
+    ReleaseTimer(tafTime.syncTimeTimerRef);
 
     if (InitNetworkManagerStatus == LE_OK)
     {
@@ -3438,9 +3463,10 @@ static void TafSigTermEventHandler(int sigNum)
     }
 
     // Phase-2: main-thread resource cleanup
-    _StopTimerIfRunning(tafTime.sysTimeUdTimerRef);
-    _StopTimerIfRunning(tafTime.syncSecStorageRef);
-    _StopTimerIfRunning(pmRetryTimerRef);
+    ReleaseTimer(tafTime.sysTimeUdTimerRef);
+    ReleaseTimer(tafTime.syncSecStorageRef);
+    ReleaseTimer(pmRetryTimerRef);
+    IsPmStateChangeHandlerRegistered = false;
 
     if (MssConnectStatusMainThread == LE_OK)
     {
@@ -3454,7 +3480,6 @@ static void TafSigTermEventHandler(int sigNum)
 
     exit(EXIT_SUCCESS);
 }
-
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -4231,6 +4256,83 @@ le_result_t taf_Time::InitAsyncRtcBaseData(void)
     return result;
 }
 
+static void PmServiceRetryTimerHandler(le_timer_Ref_t timerRef);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Start the tafPMSvc reconnect timer, if it is not started already.
+ */
+//--------------------------------------------------------------------------------------------------
+static void StartPmSvcReconnectTimer(void)
+{
+    if (pmRetryTimerRef != NULL)
+    {
+        // Already retrying.
+        return;
+    }
+
+    pmRetryTimerRef = le_timer_Create("pmSvcReconnectTimer");
+    if (pmRetryTimerRef == NULL)
+    {
+        LE_ERROR("Failed to create pmRetryTimerRef. tafPMSvc will not be reconnected.");
+        return;
+    }
+
+    le_timer_SetMsInterval(pmRetryTimerRef, TAF_PM_CONNECT_RETRY_INTERVAL_SEC * 1000);
+
+    // Retry indefinitely (0 = forever). Do not bound this: Legato would stop the timer once the
+    // count was exhausted while pmRetryTimerRef stayed non-NULL, so the guard above would
+    // treat tafPMSvc as "already retrying" and no later attempt would ever reconnect it.
+    le_timer_SetRepeat(pmRetryTimerRef, 0);
+    le_timer_SetHandler(pmRetryTimerRef, PmServiceRetryTimerHandler);
+    le_timer_SetWakeup(pmRetryTimerRef, false);
+    le_timer_Start(pmRetryTimerRef);
+
+    LE_INFO("pmRetryTimerRef started, retrying every %d secs until tafPMSvc is back.",
+            TAF_PM_CONNECT_RETRY_INTERVAL_SEC);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Disconnect handler for tafPMSvc.
+ * Called when tafPMSvc crashes or exits. Resets the connection state and starts the retry timer.
+ */
+//--------------------------------------------------------------------------------------------------
+static void PmServerDisconnectHandler(void* contextPtr)
+{
+    IsPmStateChangeHandlerRegistered = false;
+
+    LE_WARN("tafPMSvc disconnected");
+
+    StartPmSvcReconnectTimer();
+}
+
+static bool TryConnectToPmsvc(void)
+{
+    if (IsPmStateChangeHandlerRegistered)
+    {
+        return true;
+    }
+
+    if (taf_pm_TryConnectService() == LE_OK)
+    {
+        taf_pm_SetNonExitServerDisconnectHandler(PmServerDisconnectHandler, NULL);
+        if (taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL) == NULL)
+        {
+            LE_ERROR("Failed to add the power state change handler. Will retry.");
+            return false;
+        }
+
+        IsPmStateChangeHandlerRegistered = true;
+        LE_INFO("Successfully connected to tafPMSvc");
+
+        // Replay the current state to recover any transition missed while disconnected.
+        PowerStateChangeHandler(taf_pm_GetPowerState(), NULL);
+        return true;
+    }
+    return false;
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Timer handler that retries connecting to the optional tafPMSvc on the main thread.
@@ -4239,44 +4341,12 @@ le_result_t taf_Time::InitAsyncRtcBaseData(void)
 //--------------------------------------------------------------------------------------------------
 static void PmServiceRetryTimerHandler(le_timer_Ref_t timerRef)
 {
-    if (taf_pm_TryConnectService() == LE_OK)
+    if (TryConnectToPmsvc())
     {
-        taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
-        LE_INFO("Successfully connected to tafPMSvc with retry");
-        le_timer_Stop(timerRef);
-        pmRetryTimerRef = NULL;
-        return;
-    }
+        LE_INFO("tafPMSvc reconnected successfully after %d attempt(s).",
+                (timerRef != NULL) ? (int)le_timer_GetExpiryCount(timerRef) : 0);
 
-    // Stop retrying after the limit is reached to avoid running forever.
-    if (le_timer_GetExpiryCount(timerRef) >= TAF_PM_CONNECT_RETRY_MAX)
-    {
-        LE_WARN("tafPMSvc still unavailable after %d retries, giving up",
-                TAF_PM_CONNECT_RETRY_MAX);
-        le_timer_Stop(timerRef);
-        pmRetryTimerRef = NULL;
-    }
-}
-
-static void TryConnectToPmsvc(void)
-{
-    // If tafPMSvc is not yet available at boot, start a self-cancelling retry timer
-    // so the handler is registered as soon as the service comes up.
-    if (taf_pm_TryConnectService() == LE_OK)
-    {
-        taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
-        LE_INFO("Successfully connected to tafPMSvc");
-    }
-    else
-    {
-        LE_WARN("tafPMSvc not available, starting retry (max %d retries every %d s)",
-                TAF_PM_CONNECT_RETRY_MAX, TAF_PM_CONNECT_RETRY_INTERVAL_SEC);
-        pmRetryTimerRef = le_timer_Create("pmServiceRetryTimer");
-        le_timer_SetMsInterval(pmRetryTimerRef, TAF_PM_CONNECT_RETRY_INTERVAL_SEC * 1000);
-        le_timer_SetRepeat(pmRetryTimerRef, TAF_PM_CONNECT_RETRY_MAX);
-        le_timer_SetHandler(pmRetryTimerRef, PmServiceRetryTimerHandler);
-        le_timer_SetWakeup(pmRetryTimerRef, false);
-        le_timer_Start(pmRetryTimerRef);
+        ReleaseTimer(pmRetryTimerRef);
     }
 }
 
@@ -5236,7 +5306,12 @@ void taf_Time::Init(void)
     le_thread_Start(SyncTimeThreadRef);
 
     // 4. Register PM power-state handler on the main thread (optional service).
-    TryConnectToPmsvc();
+    if (!TryConnectToPmsvc())
+    {
+        LE_WARN("tafPMSvc not available, starting retry indefinitely(every %d s)",
+                TAF_PM_CONNECT_RETRY_INTERVAL_SEC);
+        StartPmSvcReconnectTimer();
+    }
 
     // 5. Create event ID for time source status change.
     timeSourceStatusEventId =

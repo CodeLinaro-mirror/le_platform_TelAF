@@ -73,8 +73,8 @@
 
 #define TAF_TIME_SYNC_TIME_TIMER_INTERVAL (61000)
 #define INIT_SYNC_VALIDI_WITH_MSS_COUNTER  30
-#define TAF_PM_CONNECT_RETRY_INTERVAL_SEC   5   ///< Seconds between tafPMSvc connection retries.
-#define TAF_PM_CONNECT_RETRY_MAX           30   ///< Max retries (30 x 5s = 150s total).
+#define TAF_PM_CONNECT_RETRY_INTERVAL_SEC   3   ///< Seconds between tafPMSvc connection retries.
+#define TAF_PM_CONNECT_RETRY_MAX           30   ///< Max retries (30 x 3s = 9s total).
 //-------------------------------------------------------------------------------------------------
 /**
  * Macro definition for network time.

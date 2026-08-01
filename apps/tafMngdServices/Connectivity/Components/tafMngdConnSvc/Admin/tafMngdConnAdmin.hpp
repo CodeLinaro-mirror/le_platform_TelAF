@@ -112,6 +112,8 @@ namespace tafsvc {
         le_msg_SessionRef_t sessionRef;
         // Result of an asynchronous connectivity test.
         bool                boolResult;
+        // Generation of the connectivity test this result belongs to. Zero for all other events.
+        uint32_t            connTestGeneration;
     } stateMachineEvent_t;
 
     /* Internal structure to report Data State */
@@ -165,6 +167,7 @@ namespace tafsvc {
     {
         uint8_t                       dataId;
         mcs_EventType_t               doneEvent;   // completion event to post back
+        uint32_t                      generation;  // dispatch this test belongs to
         char                          url[MCS_MAX_CONNECTION_URL_LEN];
         char                          ipv4Addr[MCS_MAX_IPV4_LEN];
         char                          intfName[TAF_DCS_NAME_MAX_LEN];
@@ -184,6 +187,7 @@ namespace tafsvc {
         bool                          dataRetry;              // DataRetry enabled/disabled
         bool                          isDStartConnTestInProgress; // DataStartConnectionTest in
                                                                   // progress.
+        uint32_t                      connTestGeneration; // Bumped on every conn-test dispatch.
         uint8_t                       profileNumber;          // Profile number
         char                          dataName[MCS_MAX_NAME_LEN]; //DataName
         bool                          autoStart;              // Auto start or not
@@ -370,8 +374,16 @@ namespace tafsvc {
             void EventDataStartConnectionTest(uint8_t dataId);
             void EventDataPeriodicConnectivityTest(uint8_t dataId);
             // Completion handlers, run on MngdEvtThread when the worker reports a result.
-            void EventDataStartConnectionTestDone(uint8_t dataId, bool passed);
-            void EventDataPeriodicConnectivityTestDone(uint8_t dataId, bool passed);
+            void EventDataStartConnectionTestDone(uint8_t dataId, bool passed,
+                                                 uint32_t generation);
+            void EventDataPeriodicConnectivityTestDone(uint8_t dataId, bool passed,
+                                                       uint32_t generation);
+            // True when a returning test result has been superseded by a later dispatch.
+            bool IsConnTestResultStale(mcs_DataCtx_t *dataCtxPtr, uint32_t generation);
+            // True when the data context has left the state that dispatched the test, so no test
+            // result is applicable any more.
+            bool IsConnTestResultObsolete(mcs_DataCtx_t *dataCtxPtr,
+                                          mcs_Admin_State_t expectedState);
             // Dispatch the (blocking) connectivity test to the worker thread; doneEvent carries
             // the result back to the state machine thread.
             void ScheduleConnectivityTest(uint8_t dataId, mcs_EventType_t doneEvent);

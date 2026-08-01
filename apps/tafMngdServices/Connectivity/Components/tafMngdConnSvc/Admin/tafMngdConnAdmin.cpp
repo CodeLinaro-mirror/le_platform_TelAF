@@ -2371,13 +2371,15 @@ void tafMngdConnAdmin::StateMachineEvtHandlerFunc(void *reqPtr)
         case MCS_EVT_DATA_START_CONNECTIONTEST_DONE:
             LE_DEBUG("DataStartConnectionTest done. Result: %d", eventReq->boolResult);
             mngdConnAdmin.EventDataStartConnectionTestDone(eventReq->dataId,
-                                                           eventReq->boolResult);
+                                                           eventReq->boolResult,
+                                                           eventReq->connTestGeneration);
             break;
 
         case MCS_EVT_DATA_PERIODIC_CONNECTIONTEST_DONE:
             LE_DEBUG("PeriodicConnectivityTest done. Result: %d", eventReq->boolResult);
             mngdConnAdmin.EventDataPeriodicConnectivityTestDone(eventReq->dataId,
-                                                                eventReq->boolResult);
+                                                                eventReq->boolResult,
+                                                                eventReq->connTestGeneration);
             break;
 
         case MCS_EVT_CONN_RECOVERY_SCHEDULE_L1:
@@ -2567,6 +2569,7 @@ tafMngdConnAdmin::CreateDataCtx(
     dataCtxPtr->isConnectivityRecoveryScheduled = false;
     dataCtxPtr->wasL1ConnectivityRecoveryDone = false;
     dataCtxPtr->isDStartConnTestInProgress = false;
+    dataCtxPtr->connTestGeneration = 0;
     dataCtxPtr->link = LE_DLS_LINK_INIT;
 
     if(conn_test_url != NULL)
@@ -3468,15 +3471,85 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Check whether a connectivity test result that just came back has been superseded by a later
+ * dispatch. A test describes the bearer that was up when it started; if the bearer was torn down
+ * and rebuilt while the (blocking) test was running, a newer test now owns the outcome and this
+ * result must not be applied.
+ */
+//--------------------------------------------------------------------------------------------------
+bool tafMngdConnAdmin::IsConnTestResultStale(mcs_DataCtx_t *dataCtxPtr, uint32_t generation)
+{
+    if (generation != dataCtxPtr->connTestGeneration)
+    {
+        LE_INFO("Discarding superseded connectivity test result for dataID: %d "
+                "(result generation %u, current %u)",
+                dataCtxPtr->dataId, (unsigned)generation,
+                (unsigned)dataCtxPtr->connTestGeneration);
+        return true;
+    }
+    return false;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Check whether a connectivity test result has been made obsolete by the data context leaving the
+ * state that dispatched it. The generation check only catches a *newer* test; when the bearer is
+ * torn down without a new one replacing it (network detach, SIM removal, StopData) no further
+ * dispatch happens, so the generation still matches while the result describes a bearer that is
+ * gone. Applying it would resurrect a dead connection: a stale "pass" overwrites the current state
+ * with MCS_DATA_CONNECTED_ACTIVE, and EventNetworkRegState() does not act on that state, so the
+ * next registration never triggers a reconnect.
+ */
+//--------------------------------------------------------------------------------------------------
+bool tafMngdConnAdmin::IsConnTestResultObsolete(mcs_DataCtx_t *dataCtxPtr,
+                                                mcs_Admin_State_t expectedState)
+{
+    if (expectedState != dataCtxPtr->adminState)
+    {
+        LE_INFO("Discarding obsolete connectivity test result for dataID: %d "
+                "(state is %d(%s), expected %d(%s))",
+                dataCtxPtr->dataId,
+                dataCtxPtr->adminState, StateToString(dataCtxPtr->adminState),
+                expectedState, StateToString(expectedState));
+        return true;
+    }
+    return false;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handle the completion of an asynchronous DataStartConnectionTest. Runs on MngdEvtThread.
  */
 //--------------------------------------------------------------------------------------------------
-void tafMngdConnAdmin::EventDataStartConnectionTestDone(uint8_t dataId, bool passed)
+void tafMngdConnAdmin::EventDataStartConnectionTestDone(uint8_t dataId, bool passed,
+                                                        uint32_t generation)
 {
     mcs_DataCtx_t *dataCtxPtr = GetDataCtx(dataId);
     if (nullptr == dataCtxPtr)
     {
         LE_ERROR("Unable to get reference for data id: %d", dataId);
+        return;
+    }
+
+    // A later dispatch owns the outcome for this data id. Applying this result would drive a
+    // stop/retry against a bearer it never tested, and the resulting MCS_EVT_DATA_STOP would
+    // clear an armed data retry timer or overwrite a scheduled recovery.
+    if (IsConnTestResultStale(dataCtxPtr, generation))
+    {
+        return;
+    }
+
+    // The bearer this test ran on is gone and nothing replaced it (so the generation still
+    // matches). Only MCS_DATA_START_CONNECTIONTEST_START can consume a start-test result; every
+    // other state means the state machine has moved on. This also subsumes the
+    // MCS_RECOVERY_SCHEDULED_* case: an armed recovery outranks a connectivity-test result of
+    // either polarity, and RecoveryScheduleTimerHandler() would drop the recovery if adminState
+    // were overwritten here.
+    if (IsConnTestResultObsolete(dataCtxPtr, MCS_DATA_START_CONNECTIONTEST_START))
+    {
+        // No test is in flight any more, so release the StopData guard. This differs from the
+        // stale case above, where a newer test is still running and must keep the flag set.
+        dataCtxPtr->isDStartConnTestInProgress = false;
         return;
     }
 
@@ -3536,12 +3609,29 @@ void tafMngdConnAdmin::EventDataPeriodicConnectivityTest(uint8_t dataId)
  * Handle the completion of an asynchronous PeriodicConnectivityTest. Runs on MngdEvtThread.
  */
 //--------------------------------------------------------------------------------------------------
-void tafMngdConnAdmin::EventDataPeriodicConnectivityTestDone(uint8_t dataId, bool passed)
+void tafMngdConnAdmin::EventDataPeriodicConnectivityTestDone(uint8_t dataId, bool passed,
+                                                             uint32_t generation)
 {
     mcs_DataCtx_t *dataCtxPtr = GetDataCtx(dataId);
     if (nullptr == dataCtxPtr)
     {
         LE_ERROR("Unable to get reference for data id: %d", dataId);
+        return;
+    }
+
+    // A later dispatch owns the outcome for this data id; this result describes a bearer that is
+    // no longer current.
+    if (IsConnTestResultStale(dataCtxPtr, generation))
+    {
+        return;
+    }
+
+    // The connection this test was probing is no longer active and nothing replaced it, so the
+    // generation still matches. A periodic result is only meaningful while the data stays
+    // connected; applying it otherwise would re-arm the periodic timer on a dead bearer, or
+    // report STALLED/CONNECTED against a connection that is already down.
+    if (IsConnTestResultObsolete(dataCtxPtr, MCS_DATA_CONNECTED_ACTIVE))
+    {
         return;
     }
 
@@ -3610,9 +3700,16 @@ void tafMngdConnAdmin::ScheduleConnectivityTest(uint8_t dataId, mcs_EventType_t 
         return;
     }
 
+    // Every dispatch supersedes whatever test may still be running for this data id: a new
+    // CONNECTED means a new bearer, so an older result no longer describes the current link.
+    // Bump here and only here, so one generation always pairs with exactly one dispatch and a
+    // discarded result can never leave the state machine with no test in flight.
+    dataCtxPtr->connTestGeneration++;
+
     mcs_ConnTestCtx_t testCtx = {};
     testCtx.dataId = dataId;
     testCtx.doneEvent = doneEvent;
+    testCtx.generation = dataCtxPtr->connTestGeneration;
     if (MCS_EVT_DATA_PERIODIC_CONNECTIONTEST_DONE == doneEvent)
     {
         le_utf8_Copy(testCtx.url, dataCtxPtr->conn_periodic_test_url, sizeof(testCtx.url), NULL);
@@ -3693,6 +3790,7 @@ void tafMngdConnAdmin::ConnTestEvtHandlerFunc(void *reqPtr)
     stateMachineEvt.event = testCtxPtr->doneEvent;
     stateMachineEvt.dataId = testCtxPtr->dataId;
     stateMachineEvt.boolResult = passed;
+    stateMachineEvt.connTestGeneration = testCtxPtr->generation;
     le_event_Report(mngdConnAdmin.GetStateMachineEventId(), &stateMachineEvt,
                     sizeof(stateMachineEvent_t));
 }

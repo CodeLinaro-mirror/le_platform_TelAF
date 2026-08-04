@@ -1118,6 +1118,98 @@ void tafMngdPMSvc::WakeSourceTimerHandler(le_timer_Ref_t timerRef)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Convert StayAwakeReason enum to a readable string.
+ */
+//-------------------------------------------------------------------------------------------------
+static const char* StayAwakeReasonToStr(taf_mngdPm_StayAwakeReason_t reason)
+{
+    switch (reason)
+    {
+        case TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL:           return "STAY_AWAKE_REASON_NORMAL";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE:     return "STAY_AWAKE_REASON_ECALL_ACTIVE";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_CALLBACK:   return "STAY_AWAKE_REASON_ECALL_CALLBACK";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_SW_UPDATE:        return "STAY_AWAKE_REASON_SW_UPDATE";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VEH_NETWORK:      return "STAY_AWAKE_REASON_VEH_NETWORK";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_1:         return "STAY_AWAKE_REASON_VENDOR_1";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_2:         return "STAY_AWAKE_REASON_VENDOR_2";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_3:         return "STAY_AWAKE_REASON_VENDOR_3";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_4:         return "STAY_AWAKE_REASON_VENDOR_4";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_5:         return "STAY_AWAKE_REASON_VENDOR_5";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_6:         return "STAY_AWAKE_REASON_VENDOR_6";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_7:         return "STAY_AWAKE_REASON_VENDOR_7";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_8:         return "STAY_AWAKE_REASON_VENDOR_8";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_9:         return "STAY_AWAKE_REASON_VENDOR_9";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_10:        return "STAY_AWAKE_REASON_VENDOR_10";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_11:        return "STAY_AWAKE_REASON_VENDOR_11";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_12:        return "STAY_AWAKE_REASON_VENDOR_12";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_13:        return "STAY_AWAKE_REASON_VENDOR_13";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_14:        return "STAY_AWAKE_REASON_VENDOR_14";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_15:        return "STAY_AWAKE_REASON_VENDOR_15";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_16:        return "STAY_AWAKE_REASON_VENDOR_16";
+        default:                                             return "STAY_AWAKE_REASON_UNKNOWN";
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Periodic timer handler: dumps all wake source state to LE_DEBUG every 10 seconds.
+ */
+//-------------------------------------------------------------------------------------------------
+void tafMngdPMSvc::WsDumpTimerHandler(le_timer_Ref_t timerRef)
+{
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    size_t listCount = le_dls_NumLinks(&mpms.wsRefList);
+
+    LE_DEBUG("[>] WakeSource Dump (wsTotal=%zu, acquiredCount=%d, awakeReasonMask=0x%08X)",
+             listCount, (int)mpms.wsCount, (unsigned int)mpms.stayAwakeReasonMask.to_ulong());
+
+    // pmVHAL — always shown; no IPC session, no reason, always authorized
+    LE_DEBUG("[*] pmVHAL");
+    LE_DEBUG("    %-8s : %s", "acquired", (mpms.vhalWsState == WAKE_SOURCE_ACQUIRED) ? "yes" : "no");
+    LE_DEBUG("    %-8s : %s", "auth", "Authorized");
+
+    // Regular wake sources
+    le_dls_Link_t* linkPtr = le_dls_PeekTail(&mpms.wsRefList);
+    int idx = 0;
+    while (linkPtr)
+    {
+        taf_wsRefCtx_t* wsRefCtxPtr = CONTAINER_OF(linkPtr, taf_wsRefCtx_t, link);
+        linkPtr = le_dls_PeekPrev(&mpms.wsRefList, linkPtr);
+        if (!wsRefCtxPtr) { continue; }
+        ++idx;
+
+        bool isAuth = (wsRefCtxPtr->reason < 32) && mpms.stayAwakeReasonMask.test(wsRefCtxPtr->reason);
+
+        const char* procName = "unknown";
+        pid_t       pid      = -1;
+        if (wsRefCtxPtr->sessionRef)
+        {
+            taf_mngdPm_SessionNode_t* sn = (taf_mngdPm_SessionNode_t*)
+                le_hashmap_Get(mpms.mngdPmClientInfo.clients, wsRefCtxPtr->sessionRef);
+            if (sn) { procName = sn->name; pid = sn->procId; }
+        }
+
+        char reasonStr[48];
+        snprintf(reasonStr, sizeof(reasonStr), "%s(%d)",
+                 StayAwakeReasonToStr(wsRefCtxPtr->reason), (int)wsRefCtxPtr->reason);
+
+        char pidStr[16];
+        if (pid >= 0) { snprintf(pidStr, sizeof(pidStr), "%d", (int)pid); }
+        else          { snprintf(pidStr, sizeof(pidStr), "N/A"); }
+
+        LE_DEBUG(" ");
+        LE_DEBUG("[%d] %s", idx, wsRefCtxPtr->wsTag ? wsRefCtxPtr->wsTag : "(null)");
+        LE_DEBUG("    %-8s : %s",  "acquired", (wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_ACQUIRED) ? "yes" : "no");
+        LE_DEBUG("    %-8s : %s",  "reason",   reasonStr);
+        LE_DEBUG("    %-8s : %s",  "auth",     isAuth ? "Authorized" : "Unauthorized");
+        LE_DEBUG("    %-8s : %p",  "session",  wsRefCtxPtr->sessionRef);
+        LE_DEBUG("    %-8s : %s",  "process",  procName);
+        LE_DEBUG("    %-8s : %s",  "pid",      pidStr);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Load PM VHAL module. If succeeded, send EVT_LOAD_PMVHAL_READY event.
  */
  //-------------------------------------------------------------------------------------------------
@@ -2170,6 +2262,8 @@ std::bitset<32>  tafMngdPMSvc::previousStayAwakeReasonMask;
 //resources for clients state change acknowledgement
 le_timer_Ref_t tafMngdPMSvc::stateChangeAckTimerRef;
 taf_mngdPm_NodePowerState_t tafMngdPMSvc::currentStateChangePtr;
+
+le_timer_Ref_t tafMngdPMSvc::wsDumpTimerRef = nullptr;
 
 le_mem_PoolRef_t tafMngdPMSvc::cbHandlerPool;
 le_ref_MapRef_t tafMngdPMSvc::cbLocalMap;

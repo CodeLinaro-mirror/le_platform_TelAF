@@ -1108,7 +1108,34 @@ taf_mngdPm_NodePowerStateChangeHandlerRef_t taf_mngdPm_AddNodePowerStateChangeHa
             mpms.nodePowerStateHandlerMap, handlerCtxPtr);
     handlerCtxPtr->link = LE_DLS_LINK_INIT;
     handlerCtxPtr->nodePowerStateHandlerCtxPtr = contextPtr;
+
     le_dls_Queue((&(mpms.nodePowerStateHandlerList)), &handlerCtxPtr->link);
+
+    // Immediately notify this client with the current node state (if interested).
+    if (mpms.IsConfiguredBitMask(tafMngdPMSvc::currentNodePowerState, stateMask))
+    {
+        LE_INFO("Immediate notify client with current node power state: %d",
+                tafMngdPMSvc::currentNodePowerState);
+
+        // Create a short-lived nodeStateRef; no PMS ack timer involved for immediate notify
+        taf_NodePowerStateRef_t* immediateNodePwStatePtr =
+            (taf_NodePowerStateRef_t*)le_mem_ForceAlloc(mpms.nodePowerStateRefPool);
+        immediateNodePwStatePtr->nodeStateRef =
+            (taf_mngdPm_nodePowerStateRef_t)le_ref_CreateRef(mpms.nodePowerStateRefMap, immediateNodePwStatePtr);
+
+        handlerCtxPtr->initialNodePowerState.nodeStateRef = immediateNodePwStatePtr->nodeStateRef;
+        handlerCtxPtr->initialNodePowerState.sessionRef   = handlerCtxPtr->sessionRef;
+        handlerCtxPtr->initialNodePowerState.state        = tafMngdPMSvc::currentNodePowerState;
+        handlerCtxPtr->initialNodePowerState.isAcked      = false;
+
+
+        // Call the client handler directly
+        handlerCtxPtr->handlerPtr(
+            handlerCtxPtr->pmNodeId,
+            immediateNodePwStatePtr->nodeStateRef,
+            handlerCtxPtr->initialNodePowerState.state,
+            handlerCtxPtr->nodePowerStateHandlerCtxPtr);
+    }
 
     return (taf_mngdPm_NodePowerStateChangeHandlerRef_t)handlerCtxPtr->handlerRef;
 }
@@ -1133,6 +1160,29 @@ void taf_mngdPm_RemoveNodePowerStateChangeHandler(taf_mngdPm_NodePowerStateChang
         linkHandlerPtr = le_dls_PeekPrev(&(mpms.nodePowerStateHandlerList), linkHandlerPtr);
         if (handlerCtxPtr && handlerCtxPtr->handlerRef == handlerRef)
         {
+            // Release the per-handler immediate-notify node state ref, if any
+            if (handlerCtxPtr->initialNodePowerState.nodeStateRef)
+            {
+                taf_NodePowerStateRef_t* nodeRefPtr =
+                    (taf_NodePowerStateRef_t*) le_ref_Lookup(
+                        mpms.nodePowerStateRefMap,
+                        handlerCtxPtr->initialNodePowerState.nodeStateRef);
+
+                if (nodeRefPtr)
+                {
+                    LE_INFO("Releasing initialNodePowerState ref %p for sessionRef %p",
+                        handlerCtxPtr->initialNodePowerState.nodeStateRef,
+                        handlerCtxPtr->initialNodePowerState.sessionRef);
+                    le_ref_DeleteRef(
+                        mpms.nodePowerStateRefMap,
+                        handlerCtxPtr->initialNodePowerState.nodeStateRef);
+                    le_mem_Release(nodeRefPtr);
+                }
+
+                handlerCtxPtr->initialNodePowerState.nodeStateRef = NULL;
+                handlerCtxPtr->initialNodePowerState.isAcked = false;
+            }
+
             le_ref_DeleteRef(mpms.nodePowerStateHandlerMap, handlerRef);
             le_dls_Remove(&(mpms.nodePowerStateHandlerList), &handlerCtxPtr->link);
             le_mem_Release((void*)handlerCtxPtr);
@@ -1194,13 +1244,38 @@ le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
     sessionNodePtr = mpms.To_taf_mngdPm_SessionNode_t(le_hashmap_Get(mpms.mngdPmClientInfo.clients,
             taf_mngdPm_GetClientSessionRef()));
 
-    taf_mngdPm_NodePowerState_t state = TAF_MNGDPM_NODE_STATE_RESUME;
     if(pmNodeId == 1)
     {
         auto &rpcPm = tafMngdRpcPm::GetInstance();
         le_result_t res = rpcPm.SendRpcNodePowerStateChangeAck(pmNodeId, Ref, ack);
         return res;
     }
+
+    taf_mngdPm_NodePowerState_t state = TAF_MNGDPM_NODE_STATE_RESUME;
+
+    // Iterate handler list and match input Ref
+    // against handlerCtxPtr->initialNodePowerState.nodeStateRef.
+    // If it matches, set the per-handler flag to true; else continue.
+    le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.nodePowerStateHandlerList));
+    while (linkHandlerPtr)
+    {
+        taf_mngdPm_NodePowerStateCtxt_t * handlerCtxPtr =
+            CONTAINER_OF(linkHandlerPtr, taf_mngdPm_NodePowerStateCtxt_t, link);
+        linkHandlerPtr = le_dls_PeekPrev(&(mpms.nodePowerStateHandlerList), linkHandlerPtr);
+
+        if (!handlerCtxPtr)
+            continue;
+
+        if (handlerCtxPtr->initialNodePowerState.nodeStateRef == Ref)
+        {
+            LE_INFO("Immediate-notify ACK matched: node=%u ref=%p ack=%d, no PMS ack needed",
+                    pmNodeId, Ref, ack);
+
+            handlerCtxPtr->initialNodePowerState.isAcked = true;
+            return LE_OK;
+        }
+    }
+
     // validate client record existed in state change registered clients
     bool isClientPresent = false;
     for (const auto &client : mpms.regClientrecrd) {
@@ -1216,6 +1291,7 @@ le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
         LE_ERROR("Client with sessionRef:%p not found in the regClientrecrd", taf_mngdPm_GetClientSessionRef());
         return LE_FAULT;
     }
+
     if(mpms.IsSameAsCurrentState(state, mpms.stateMachine.currentState) && sessionNodePtr)
     {
         if(!(le_timer_IsRunning(mpms.stateChangeAckTimerRef)))

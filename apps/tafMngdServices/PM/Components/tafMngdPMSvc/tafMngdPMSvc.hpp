@@ -159,6 +159,14 @@ typedef struct
 
 typedef struct
 {
+    taf_mngdPm_nodePowerStateRef_t nodeStateRef;
+    le_msg_SessionRef_t sessionRef;
+    taf_mngdPm_NodePowerState_t state;
+    bool isAcked;
+}taf_mngdPm_NodePowerStateChangeCtxt_t;
+
+typedef struct
+{
     taf_mngdPm_NodePowerStateChangeHandlerFunc_t handlerPtr;
     uint8_t pmNodeId;
     le_dls_Link_t link;               // Link to handler list
@@ -166,20 +174,15 @@ typedef struct
     taf_mngdPm_NodePowerStateChangeBitMask_t powerStateMask;
     taf_mngdPm_NodePowerStateChangeHandlerRef_t handlerRef;
     void* nodePowerStateHandlerCtxPtr;
+
+    // Per-handler snapshot of the current node power state (used for immediate notify)
+    taf_mngdPm_NodePowerStateChangeCtxt_t initialNodePowerState;
 }taf_mngdPm_NodePowerStateCtxt_t;
 
 typedef struct
 {
     taf_mngdPm_NodePowerState_t state;
 }taf_mngdPm_NodePowerStateChange_t;
-
-typedef struct
-{
-    taf_mngdPm_nodePowerStateRef_t nodeStateRef;
-    le_msg_SessionRef_t sessionRef;
-    taf_mngdPm_NodePowerState_t state;
-    bool isAcked;
-}taf_mngdPm_NodePowerStateChangeCtxt_t;
 
 typedef struct
 {

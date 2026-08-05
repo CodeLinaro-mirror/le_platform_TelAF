@@ -863,7 +863,7 @@ le_result_t taf_sim::SetRefreshAllow(taf_sim_RefreshRef_t refreshSessionRef, boo
     for (int i = 0; i < (int) clientRequestPtr->refreshRegFilesSize; i++) {
         int pathStrLen = 0;
         refreshPAFiles[i].file_id = clientRequestPtr->refreshRegFiles[i].file_id;
-        if(clientRequestPtr->refreshRegFiles[i].path != NULL) {
+        if(clientRequestPtr->refreshRegFiles[i].path[0] != '\0') {
             pathStrLen = strlen(clientRequestPtr->refreshRegFiles[i].path);
             refreshPAFiles[i].path_len = pathStrLen/2;
         } else {

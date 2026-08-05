@@ -69,6 +69,8 @@ PatchSDK()
 
     if [ -d "$(echo $TOOLCHAIN_PATH | grep sa515m)" ]; then
         INITIAL_TOOLCHAIN=$TOOLCHAIN_PATH/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
+    elif [ -d "$(echo $TOOLCHAIN_PATH | grep sa510m)" ]; then
+        INITIAL_TOOLCHAIN=$TOOLCHAIN_PATH/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
     elif [ -d "$(echo $TOOLCHAIN_PATH | grep sa525m)" ]; then
         INITIAL_TOOLCHAIN=$TOOLCHAIN_PATH/environment-setup-aarch64-oe-linux
     elif [ -d "$(echo $TOOLCHAIN_PATH | grep simulation)" ]; then

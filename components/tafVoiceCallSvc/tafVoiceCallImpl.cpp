@@ -912,7 +912,7 @@ le_result_t VoiceCallSvc::DeleteCall(taf_voicecall_CallRef_t callRef, le_msg_Ses
     }
 
     size_t refCount = le_mem_GetRefCount(callCtxPtr);
-    LE_INFO("CallRef %p has been used by %ld sessions", callRef, refCount);
+    LE_INFO("CallRef %p has been used by %zu sessions", callRef, refCount);
 
     le_mem_Release(callCtxPtr);
 

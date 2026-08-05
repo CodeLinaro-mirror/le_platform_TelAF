@@ -473,7 +473,7 @@ le_result_t ut_tafVoiceCall_ValidCall_Start()
                 AppCtx.destId[readCnt-1] = '\0';
                 if(isCallNumberValid(AppCtx.destId) != LE_OK)
                 {
-                    LE_INFO("Phone number %s is not valid and use the default call number!, readCnt:%ld", AppCtx.destId, readCnt);
+                    LE_INFO("Phone number %s is not valid and use the default call number!, readCnt:%zu", AppCtx.destId, readCnt);
                     le_utf8_Copy(AppCtx.destId, "10010", MAX_DESTINATION_LEN, NULL);
                 }
             }

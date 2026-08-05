@@ -33,6 +33,9 @@ setup_toolchain_default_location() {
         source /opt/qct/sa415m/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
     elif [ "$TARGET" == "sa515m" ]; then
         source /opt/qct/sa515m/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
+    elif [ "$TARGET" == "sa510m" ]; then
+        export GCC_PREFIX="arm-oe-linux-gnueabi"
+        source /opt/qct/sa510m/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
     elif [ "$TARGET" == "sa525m" ]; then
         if [ -e /opt/qct/sa525m/environment-setup-armv7at2hf-neon-oemllib32-linux-gnueabi ]; then
             # For 32bit tool chain build
@@ -80,6 +83,14 @@ setup_toolchain_custom_location() {
         fi
     elif [ "$TARGET" == "sa515m" ]; then
         if [ -e $TC_BASE_PATH/environment-setup-armv7at2hf-neon-oe-linux-gnueabi ]; then
+            source $TC_BASE_PATH/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
+        else
+            echo "Invalid toolchain path"
+            return
+        fi
+    elif [ "$TARGET" == "sa510m" ]; then
+        if [ -e $TC_BASE_PATH/environment-setup-armv7at2hf-neon-oe-linux-gnueabi ]; then
+            export GCC_PREFIX="arm-oe-linux-gnueabi"
             source $TC_BASE_PATH/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
         else
             echo "Invalid toolchain path"
@@ -344,6 +355,15 @@ function build-sa515m-af() {
     build_target "${TARGET}"
 }
 
+function build-sa510m-af() {
+    local TARGET="sa510m"
+    if [ "$TARGET" != "$TARGET_GLOBAL" ]; then
+        echo "Error: Target parameter mismatch. Expected: $TARGET_GLOBAL, Actual: $TARGET"
+        return 1
+    fi
+    build_target "${TARGET}"
+}
+
 function build-sa525m-af() {
     local TARGET="sa525m"
     if [ "$TARGET" != "$TARGET_GLOBAL" ]; then
@@ -398,5 +418,5 @@ elif [ $# -eq 2 ]; then
     setup_toolchain_custom_location "$TARGET_GLOBAL" $2
 else
     echo "Correct Usage: source $PROG_NAME <target> <toolchain location(optional)>"
-    echo "Valid targets: sa415m, sa515m, sa525m, simulation"
+    echo "Valid targets: sa415m, sa515m, sa510m, sa525m, simulation"
 fi

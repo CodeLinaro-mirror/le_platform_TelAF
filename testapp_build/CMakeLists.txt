@@ -35,45 +35,49 @@ add_custom_target(
 add_custom_target(All ALL DEPENDS BuildDgtool)
 
 # Build unit test apps
-file(GLOB_RECURSE UNITTEST_ADEF_FILES ${TESTAPP_PATH}/*UnitTest*.adef)
-foreach( unittestfile  ${UNITTEST_ADEF_FILES} )
-    message(STATUS "adef file: ${unittestfile}")
-    mkapp (${unittestfile} -i ${Interfaces} -i ${Interfaces}/staging ${MKAPP_CFLAGS_LIST})
-endforeach()
+# Restricted to tafVoiceCallUnitTest only; rest of the unit test apps are disabled.
+set(VoiceCallUnitTestAdef ${TESTAPP_PATH}/tafVoiceCallTest/tafVoiceCallUnitTest/tafVoiceCallUnitTest.adef)
+message(STATUS "adef file: ${VoiceCallUnitTestAdef}")
+mkapp (${VoiceCallUnitTestAdef} -i ${Interfaces} -i ${Interfaces}/staging ${MKAPP_CFLAGS_LIST})
+# file(GLOB_RECURSE UNITTEST_ADEF_FILES ${TESTAPP_PATH}/*UnitTest*.adef)
+# foreach( unittestfile  ${UNITTEST_ADEF_FILES} )
+#     message(STATUS "adef file: ${unittestfile}")
+#     mkapp (${unittestfile} -i ${Interfaces} -i ${Interfaces}/staging ${MKAPP_CFLAGS_LIST})
+# endforeach()
 
-set(MrcTestApiDir $ENV{TELAF_ROOT}/apps/test/tafMRCTest/tafMRCIntTest)
-# Build integration test apps
-set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Integration_testapp)
-file(GLOB_RECURSE UNITTEST_ADEF_FILES ${TESTAPP_PATH}/*Int*Test.adef)
-foreach( unittestfile  ${UNITTEST_ADEF_FILES} )
-    message(STATUS "adef file: ${unittestfile}")
-    mkapp( ${unittestfile} -i ${Interfaces} -i ${Interfaces}/staging -i ${MrcTestApiDir} ${MKAPP_CFLAGS_LIST})
-endforeach()
+# set(MrcTestApiDir $ENV{TELAF_ROOT}/apps/test/tafMRCTest/tafMRCIntTest)
+# # Build integration test apps
+# set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Integration_testapp)
+# file(GLOB_RECURSE UNITTEST_ADEF_FILES ${TESTAPP_PATH}/*Int*Test.adef)
+# foreach( unittestfile  ${UNITTEST_ADEF_FILES} )
+#     message(STATUS "adef file: ${unittestfile}")
+#     mkapp( ${unittestfile} -i ${Interfaces} -i ${Interfaces}/staging -i ${MrcTestApiDir} ${MKAPP_CFLAGS_LIST})
+# endforeach()
 
-# Build console test apps
-set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Console_testapp)
-set(TESTAPP_PATH  $ENV{TELAF_ROOT}/apps/test/ConsoleApp)
-file(GLOB_RECURSE CONSOLEAPP_ADEF_FILES ${TESTAPP_PATH}/*.adef)
-foreach( consoleappfile  ${CONSOLEAPP_ADEF_FILES} )
-    message(STATUS "adef file: ${consoleappfile}")
-    mkapp( ${consoleappfile} -i ${Interfaces} -i ${Interfaces}/staging ${MKAPP_CFLAGS_LIST})
-endforeach()
+# # Build console test apps
+# set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Console_testapp)
+# set(TESTAPP_PATH  $ENV{TELAF_ROOT}/apps/test/ConsoleApp)
+# file(GLOB_RECURSE CONSOLEAPP_ADEF_FILES ${TESTAPP_PATH}/*.adef)
+# foreach( consoleappfile  ${CONSOLEAPP_ADEF_FILES} )
+#     message(STATUS "adef file: ${consoleappfile}")
+#     mkapp( ${consoleappfile} -i ${Interfaces} -i ${Interfaces}/staging ${MKAPP_CFLAGS_LIST})
+# endforeach()
 
-# Build sample test apps
-set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Console_testapp)
-set(TESTAPP_PATH  $ENV{TELAF_ROOT}/apps/sample)
-file(GLOB_RECURSE CONSOLEAPP_ADEF_FILES ${TESTAPP_PATH}/*.adef)
-foreach( consoleappfile  ${CONSOLEAPP_ADEF_FILES} )
-    if((${consoleappfile} MATCHES "tafRSPApp.adef$") OR
-       (${consoleappfile} MATCHES "tafRSimApp.adef$") OR
-       (${consoleappfile} MATCHES "tafDiagApp.adef") OR
-       (${consoleappfile} MATCHES "tafSAPProviderApp.adef$") OR
-       (${consoleappfile} MATCHES "tafECallApp.adef$") OR
-       (${consoleappfile} MATCHES "tafDiagEventApp.adef$"))
-           message(STATUS "adef file: ${consoleappfile}")
-           mkapp( ${consoleappfile} -i ${Interfaces} -i ${Interfaces}/staging ${MKAPP_CFLAGS_LIST})
-    endif()
-endforeach()
+# # Build sample test apps
+# set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Console_testapp)
+# set(TESTAPP_PATH  $ENV{TELAF_ROOT}/apps/sample)
+# file(GLOB_RECURSE CONSOLEAPP_ADEF_FILES ${TESTAPP_PATH}/*.adef)
+# foreach( consoleappfile  ${CONSOLEAPP_ADEF_FILES} )
+#     if((${consoleappfile} MATCHES "tafRSPApp.adef$") OR
+#        (${consoleappfile} MATCHES "tafRSimApp.adef$") OR
+#        (${consoleappfile} MATCHES "tafDiagApp.adef") OR
+#        (${consoleappfile} MATCHES "tafSAPProviderApp.adef$") OR
+#        (${consoleappfile} MATCHES "tafECallApp.adef$") OR
+#        (${consoleappfile} MATCHES "tafDiagEventApp.adef$"))
+#            message(STATUS "adef file: ${consoleappfile}")
+#            mkapp( ${consoleappfile} -i ${Interfaces} -i ${Interfaces}/staging ${MKAPP_CFLAGS_LIST})
+#     endif()
+# endforeach()
 
 # Build legato sample apps
 set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Console_testapp)
@@ -85,19 +89,19 @@ foreach( consoleappfile  ${CONSOLEAPP_ADEF_FILES} )
 endforeach()
 
 # Build Managed Connectivity testapps
-set(MngInterfaces $ENV{TELAF_ROOT}/apps/tafMngdServices/interfaces)
-set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Unit_testapp)
-set(TESTAPP_PATH  $ENV{TELAF_ROOT}/apps/tafMngdServices/tafMngdTest)
-file(GLOB_RECURSE MNGD_ADEF_FILES ${TESTAPP_PATH}/*UnitTest.adef )
-foreach( mngdappfile  ${MNGD_ADEF_FILES} )
-	 message(STATUS "adef file: ${mngdappfile}")
-	 mkapp( ${mngdappfile} -i ${Interfaces} -i ${MngInterfaces} -i ${MngInterfaces}/staging ${MKAPP_CFLAGS_LIST})
-endforeach()
+# set(MngInterfaces $ENV{TELAF_ROOT}/apps/tafMngdServices/interfaces)
+# set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Unit_testapp)
+# set(TESTAPP_PATH  $ENV{TELAF_ROOT}/apps/tafMngdServices/tafMngdTest)
+# file(GLOB_RECURSE MNGD_ADEF_FILES ${TESTAPP_PATH}/*UnitTest.adef )
+# foreach( mngdappfile  ${MNGD_ADEF_FILES} )
+# 	 message(STATUS "adef file: ${mngdappfile}")
+# 	 mkapp( ${mngdappfile} -i ${Interfaces} -i ${MngInterfaces} -i ${MngInterfaces}/staging ${MKAPP_CFLAGS_LIST})
+# endforeach()
 
-set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Integration_testapp)
-file(GLOB_RECURSE MNGD_ADEF_FILES ${TESTAPP_PATH}/*Int*Test.adef )
-foreach( mngdappfile  ${MNGD_ADEF_FILES} )
-         message(STATUS "adef file: ${mngdappfile}")
-         mkapp( ${mngdappfile} -i ${Interfaces} -i ${MngInterfaces}  -i ${MngInterfaces}/staging ${MKAPP_CFLAGS_LIST})
-endforeach()
+# set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Integration_testapp)
+# file(GLOB_RECURSE MNGD_ADEF_FILES ${TESTAPP_PATH}/*Int*Test.adef )
+# foreach( mngdappfile  ${MNGD_ADEF_FILES} )
+#          message(STATUS "adef file: ${mngdappfile}")
+#          mkapp( ${mngdappfile} -i ${Interfaces} -i ${MngInterfaces}  -i ${MngInterfaces}/staging ${MKAPP_CFLAGS_LIST})
+# endforeach()
 

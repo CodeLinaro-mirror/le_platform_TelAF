@@ -93,6 +93,12 @@ define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.tel
         SomeIpEventGroups = { 33069 }
     }
 
+    broadcast NetRegState
+    {
+        SomeIpEventID = 33073
+        SomeIpEventGroups = { 33069 }
+    }
+
     method GetGsmSignalMetrics
     {
         SomeIpMethodID = 301

@@ -11,7 +11,7 @@ package com.qualcomm.qti.telephony
             
 **/
 typeCollection RadioSvcTypes {
-    version { major 2 minor 1 }
+    version { major 2 minor 2 }
     
     /**
         @description :
@@ -398,7 +398,7 @@ typeCollection RadioSvcTypes {
 
 **/
 interface RadioSvc {
-    version { major 2 minor 1 }
+    version { major 2 minor 2 }
     
 
     /**
@@ -539,7 +539,42 @@ interface RadioSvc {
     
     
         
-            
+
+   /**
+        
+        @description :
+            Event to report network registration state change.
+                        
+        @experimental: asil-level  : ASIL_QM
+        
+        @experimental: exclusion_time  : 500.0 ms
+    **/
+    broadcast NetRegState {
+        out {
+
+            /**
+                @description : None 
+                
+            **/
+            RadioSvcTypes.ValueState valueState
+
+            /**
+                @description : Phone ID
+                
+            **/
+            RadioSvcTypes.PhoneIdT phoneId
+
+            /**
+                @description : Network registration state
+                
+            **/
+            RadioSvcTypes.RadioNetRegStateT netRegState
+
+        }
+    }
+
+
+
     /**
         @description :
             Gets GSM signal metrics.

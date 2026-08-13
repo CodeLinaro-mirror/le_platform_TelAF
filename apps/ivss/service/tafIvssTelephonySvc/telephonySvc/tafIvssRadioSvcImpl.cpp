@@ -990,6 +990,28 @@ void tafIvssRadioSvc::taf_ivss_radio_CellInfoChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for network registration state change.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssRadioSvc::taf_ivss_radio_NetRegStateHandler
+(
+    taf_radio_NetRegStateInd_t* netRegStateIndPtr, ///< [IN] Indication on net reg state change.
+    void* contextPtr                               ///< [IN] Handler context.
+)
+{
+    TAF_ERROR_IF_RET_NIL(netRegStateIndPtr == NULL, "Null ptr(netRegStateIndPtr)");
+
+    LE_DEBUG("tafIvssRadioSvc NetRegState Event: phoneId=%d state=%d",
+        netRegStateIndPtr->phoneId, static_cast<int>(netRegStateIndPtr->state));
+
+    auto ivssRadio = tafIvssRadioSvc::GetInstance();
+    ivssRadio->fireNetRegStateEvent(RadioSvcTypes::ValueState::VALUE_STATE_VALID,
+        PhoneIdUint8ToIvssRadio(netRegStateIndPtr->phoneId),
+        NetRegRadioToIvss(netRegStateIndPtr->state));
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for Radio Access Technology change.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1087,6 +1109,8 @@ void tafIvssRadioSvc::Init
         (taf_radio_CellInfoChangeHandlerFunc_t)taf_ivss_radio_CellInfoChangeHandler, NULL);
     RatChangeHandlerRef = taf_radio_AddRatChangeHandler(
         (taf_radio_RatChangeHandlerFunc_t)taf_ivss_radio_RatChangeHandler, NULL);
+    NetRegStateEventHandlerRef = taf_radio_AddNetRegStateEventHandler(
+        (taf_radio_NetRegStateHandlerFunc_t)taf_ivss_radio_NetRegStateHandler, NULL);
 
     LE_INFO("tafIvssRadioSvc Service initialized");
 };

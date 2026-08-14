@@ -41,7 +41,8 @@ static void DcsSigTermEventHandler
     // Call deinit function to cleanup
     auto &tafDcsSvc = TafDcsSvc::GetInstance();
     tafDcsSvc.Deinit();
-    exit(EXIT_SUCCESS);
+
+    _exit(EXIT_SUCCESS);
 }
 
 

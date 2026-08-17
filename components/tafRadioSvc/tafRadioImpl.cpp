@@ -103,6 +103,13 @@ LE_MEM_DEFINE_STATIC_POOL(caInfo, CA_INFO_MAX_COUNT, sizeof(CAInfo_t));
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Static pool for open client session-tracking nodes.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_MEM_DEFINE_STATIC_POOL(SessionNodePool, TAF_RADIO_MAX_SESSIONS, sizeof(SessionNode_t));
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Static pool for connection status.
  */
 //--------------------------------------------------------------------------------------------------
@@ -161,6 +168,66 @@ const uint8_t Factory::PM_MAX_RETRIES =
     sizeof(Factory::PM_RETRY_INTERVALS_MS) /
     sizeof(Factory::PM_RETRY_INTERVALS_MS[0]);
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Marks a session as open by inserting it into s_openSessions.
+ * s_openSessions is accessed only on the main thread (service open/close notifications and async
+ * response dispatch all run there), so no locking is required.
+ */
+//--------------------------------------------------------------------------------------------------
+static void MarkSessionOpen(le_msg_SessionRef_t sessionRef)
+{
+    auto& factory = Factory::GetInstance();
+    SessionNode_t* nodePtr = (SessionNode_t*)le_mem_ForceAlloc(factory.s_sessionNodePool);
+    nodePtr->sessionRef = sessionRef;
+    nodePtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&factory.s_openSessions, &nodePtr->link);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Marks a session as closed by removing it from s_openSessions.
+ * Called on the main thread from the service-close handler; s_openSessions is main-thread-only.
+ */
+//--------------------------------------------------------------------------------------------------
+static void MarkSessionClosed(le_msg_SessionRef_t sessionRef)
+{
+    auto& factory = Factory::GetInstance();
+    le_dls_Link_t* linkPtr = le_dls_Peek(&factory.s_openSessions);
+    while (linkPtr != nullptr)
+    {
+        SessionNode_t* nodePtr = CONTAINER_OF(linkPtr, SessionNode_t, link);
+        if (nodePtr->sessionRef == sessionRef)
+        {
+            le_dls_Remove(&factory.s_openSessions, linkPtr);
+            le_mem_Release(nodePtr);
+            return;
+        }
+        linkPtr = le_dls_PeekNext(&factory.s_openSessions, linkPtr);
+    }
+    LE_WARN("Session %p not found in open-sessions list (already removed?).", sessionRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Returns true if the session is still in the open-sessions list.
+ * Called on the main thread; s_openSessions is main-thread-only.
+ */
+//--------------------------------------------------------------------------------------------------
+static bool IsSessionOpen(le_msg_SessionRef_t sessionRef)
+{
+    if (sessionRef == nullptr) return false;
+    auto& factory = Factory::GetInstance();
+    le_dls_Link_t* linkPtr = le_dls_Peek(&factory.s_openSessions);
+    while (linkPtr != nullptr)
+    {
+        SessionNode_t* nodePtr = CONTAINER_OF(linkPtr, SessionNode_t, link);
+        if (nodePtr->sessionRef == sessionRef)
+            return true;
+        linkPtr = le_dls_PeekNext(&factory.s_openSessions, linkPtr);
+    }
+    return false;
+}
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3385,54 +3452,151 @@ static void RequestHandler
         return;
     }
 
+    // Handle sentinel drain request before anything else.
+    if (requestPtr->command == COMMAND_UNKNOWN)
+    {
+        LE_INFO("RequestHandler: drain sentinel received.");
+        if (requestPtr->contextPtr != nullptr)
+        {
+            le_sem_Post((le_sem_Ref_t)requestPtr->contextPtr);
+        }
+        return;
+    }
+
+    if (requestPtr->clientSessionRef == NULL)
+    {
+        LE_ERROR("Client session closed before async response; discarding request (cmd=%d).",
+                requestPtr->command);
+        return;
+    }
+
+    Response_t response;
+    memset(&response, 0, sizeof(Response_t));
+    response.command = requestPtr->command;
+    response.phone = requestPtr->phone;
+    response.handlerFuncPtr = requestPtr->handlerFuncPtr;
+    response.contextPtr = requestPtr->contextPtr;
+    response.clientSessionRef = requestPtr->clientSessionRef;
+
     switch (requestPtr->command)
     {
         case COMMAND_SET_NETWORK_SELECTION_PREFERENCE:
         {
-            le_result_t result = Utility::Common::ManualNetworkSelection(requestPtr->phone,
+            response.result = Utility::Common::ManualNetworkSelection(requestPtr->phone,
                 requestPtr->preference.mcc, requestPtr->preference.mnc);
+            break;
+        }
+        case COMMAND_PERFORM_PLMN_NETWORK_SCAN:
+        {
+            response.listRef = (void*)Utility::Common::PlmnNetworkScan(requestPtr->phone);
+            break;
+        }
+        case COMMAND_PERFORM_PCI_NETWORK_SCAN:
+        {
+            response.listRef = (void*)Utility::Common::PciNetworkScan(requestPtr->phone,
+                requestPtr->rat);
+            break;
+        }
+        default:
+            LE_ERROR("Invalid command %d.", requestPtr->command);
+            return;
+    }
 
+    // Hand the result back to the main thread for the session check and client callback.
+    le_event_Report(Factory::staticEvents.response, &response, sizeof(Response_t));
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Async response handler.
+ *
+ * Invoked on the main thread. Verifies the originating client session is still open (s_openSessions
+ * is only touched here on the main thread) and, if so, invokes the client completion callback. If
+ * the client has disconnected, any scan list allocated by RequestThread is freed so it is not
+ * leaked, and the callback is intentionally not invoked (there is no live client to receive it).
+ */
+//--------------------------------------------------------------------------------------------------
+static void ResponseHandler
+(
+    void* contextPtr ///< [IN] Response_t payload pointer.
+)
+{
+    Response_t* responsePtr = (Response_t*)contextPtr;
+    if (responsePtr == nullptr)
+    {
+        LE_ERROR("responsePtr is nullptr.");
+        return;
+    }
+
+    bool sessionOpen = IsSessionOpen(responsePtr->clientSessionRef);
+
+    switch (responsePtr->command)
+    {
+        case COMMAND_SET_NETWORK_SELECTION_PREFERENCE:
+        {
+            if (!sessionOpen)
+            {
+                LE_WARN("Client session %p disconnected during manual selection; discarding response.",
+                        responsePtr->clientSessionRef);
+                break;
+            }
             taf_radio_ManualSelectionHandlerFunc_t handlerFunc =
-                (taf_radio_ManualSelectionHandlerFunc_t)requestPtr->handlerFuncPtr;
+                (taf_radio_ManualSelectionHandlerFunc_t)responsePtr->handlerFuncPtr;
             if (handlerFunc != nullptr)
-                handlerFunc(result, requestPtr->contextPtr);
+                handlerFunc(responsePtr->result, responsePtr->contextPtr);
             else
                 LE_WARN("Handler function for setting network selection preference is null.");
-
             break;
         }
         case COMMAND_PERFORM_PLMN_NETWORK_SCAN:
         {
             taf_radio_ScanInformationListRef_t listRef =
-                Utility::Common::PlmnNetworkScan(requestPtr->phone);
-
+                (taf_radio_ScanInformationListRef_t)responsePtr->listRef;
+            if (!sessionOpen)
+            {
+                LE_WARN("Client session %p disconnected during PLMN scan; discarding response.",
+                        responsePtr->clientSessionRef);
+                if (listRef != nullptr)
+                {
+                    taf_radio_DeleteCellularNetworkScan(listRef);
+                }
+                break;
+            }
             taf_radio_CellularNetworkScanHandlerFunc_t handlerFunc =
-                (taf_radio_CellularNetworkScanHandlerFunc_t)requestPtr->handlerFuncPtr;
+                (taf_radio_CellularNetworkScanHandlerFunc_t)responsePtr->handlerFuncPtr;
             if (handlerFunc != nullptr)
-                handlerFunc(listRef, requestPtr->contextPtr);
+                handlerFunc(listRef, responsePtr->contextPtr);
             else
                 LE_WARN("Handler function for performing PLMN network scan is null.");
-
             break;
         }
         case COMMAND_PERFORM_PCI_NETWORK_SCAN:
         {
             taf_radio_PciScanInformationListRef_t listRef =
-                Utility::Common::PciNetworkScan(requestPtr->phone, requestPtr->rat);
-
+                (taf_radio_PciScanInformationListRef_t)responsePtr->listRef;
+            if (!sessionOpen)
+            {
+                LE_WARN("Client session %p disconnected during PCI scan; discarding response.",
+                        responsePtr->clientSessionRef);
+                if (listRef != nullptr)
+                {
+                    taf_radio_DeletePciNetworkScan(listRef);
+                }
+                break;
+            }
             taf_radio_PciNetworkScanHandlerFunc_t handlerFunc =
-                (taf_radio_PciNetworkScanHandlerFunc_t)requestPtr->handlerFuncPtr;
+                (taf_radio_PciNetworkScanHandlerFunc_t)responsePtr->handlerFuncPtr;
             if (handlerFunc != nullptr)
-                handlerFunc(listRef, requestPtr->phone, requestPtr->contextPtr);
+                handlerFunc(listRef, responsePtr->phone, responsePtr->contextPtr);
             else
                 LE_WARN("Handler function for performing PCI network scan is null.");
-
             break;
         }
         default:
-            LE_ERROR("Invalid command %d.", requestPtr->command);
+            LE_ERROR("Invalid command %d.", responsePtr->command);
     }
 }
+
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3586,6 +3750,21 @@ static void SigTermEventHandler
 
     RegisterIndication(DISABLE_INDICATION, TAF_PA_RADIO_DISABLE_IND_MODE_ALL);
 
+    Request_t sentinel;
+    memset(&sentinel, 0, sizeof(Request_t));
+    sentinel.command = COMMAND_UNKNOWN;
+    le_sem_Ref_t drainSem = le_sem_Create("drainSem", 0);
+    sentinel.contextPtr = (void*)drainSem; // reuse contextPtr to carry semaphore
+    le_event_Report(Factory::staticEvents.request, &sentinel, sizeof(Request_t));
+    le_clk_Time_t drainTimeout = { .sec = DRAIN_TIMEOUT_SEC, .usec = 0 };
+    le_result_t drainResult = le_sem_WaitWithTimeOut(drainSem, drainTimeout);
+    if (drainResult == LE_TIMEOUT)
+    {
+        LE_WARN("Drain sentinel not processed within %d s; an in-flight request is still running. "
+                "Proceeding with shutdown.", DRAIN_TIMEOUT_SEC);
+    }
+    le_sem_Delete(drainSem);
+
     pa_result_t result = taf_pa_radio_Deinit();
     if (result != PA_OK)
     {
@@ -3702,6 +3881,26 @@ static void ServiceStatusSessionCloseHandler
     }
 }
 
+static void ClientSessionCloseHandler
+(
+    le_msg_SessionRef_t sessionRef,
+    void*               contextPtr
+)
+{
+    LE_INFO("Client session %p closed; removing from open-sessions list.", sessionRef);
+    MarkSessionClosed(sessionRef);
+}
+
+static void ClientSessionOpenHandler
+(
+    le_msg_SessionRef_t sessionRef,
+    void*               contextPtr
+)
+{
+    LE_INFO("Client session %p opened; adding to open-sessions list.", sessionRef);
+    MarkSessionOpen(sessionRef);
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Component initializer.
@@ -3723,7 +3922,16 @@ COMPONENT_INIT
     le_event_AddHandler("RegStateIndEventHandler",
         Factory::staticEvents.regStateInd, RegStateIndEventHandler);
 
+    Factory::staticEvents.response = le_event_CreateId("response", sizeof(Response_t));
+    le_event_AddHandler("ResponseHandler", Factory::staticEvents.response, ResponseHandler);
+
+    le_msg_AddServiceOpenHandler(taf_radio_GetServiceRef(), ClientSessionOpenHandler, nullptr);
+    le_msg_AddServiceCloseHandler(taf_radio_GetServiceRef(), ClientSessionCloseHandler, nullptr);
+
     auto& factory = Factory::GetInstance();
+
+    factory.s_sessionNodePool = le_mem_InitStaticPool(SessionNodePool, TAF_RADIO_MAX_SESSIONS,
+        sizeof(SessionNode_t));
 
     factory.events.networkRejection = le_event_CreateIdWithRefCounting("NetworkRejection");
     factory.events.ratChange = le_event_CreateIdWithRefCounting("RatChange");

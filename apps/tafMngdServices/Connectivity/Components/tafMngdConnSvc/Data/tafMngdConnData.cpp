@@ -404,7 +404,7 @@ void tafMngdConnData::StartSessionAsyncHandlerFunc(taf_dcs_ProfileRef_t profileR
     LE_DEBUG("Handler for Asynchornous session -- Begin");
     LE_INFO("profileId= %d, result: %d", profileId, result);
     LE_DEBUG("Handler for Asynchornous session -- End");
-    if (bWaitingForPromise.load()) {
+    if (bWaitingForPromise.exchange(false)) {
         LE_DEBUG("AsyncAPIPromise.set_value");
         AsyncAPIPromise.set_value(result);
     }
@@ -421,7 +421,7 @@ void tafMngdConnData::StopSessionAsyncHandlerFunc(taf_dcs_ProfileRef_t profileRe
     LE_DEBUG("Handler for Asynchornous session -- Begin");
     LE_INFO("profileId= %d, result: %d", profileId, result);
     LE_DEBUG("Handler for Asynchornous session -- End");
-    if (bWaitingForPromise.load())
+    if (bWaitingForPromise.exchange(false))
     {
         LE_DEBUG("AsyncAPIPromise.set_value");
         AsyncAPIPromise.set_value(result);

@@ -8,6 +8,7 @@
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
 #include <future>
+#include <atomic>
 #include <curl/curl.h>
 #include "tafMngdConn_Common.hpp"
 #include "tafMngdConnSvcJSONParser.hpp"
@@ -288,6 +289,7 @@ namespace tafsvc {
 
             le_mem_PoolRef_t dataStatePool;
             std::promise<le_result_t> CmdSynchronousPromise;
+            std::atomic<bool> bWaitingForCmdSynchronousPromise = {false};
 
             le_dls_List_t DataCtxList = LE_DLS_LIST_INIT;
             le_mem_PoolRef_t DataCtxPool = NULL;
@@ -375,6 +377,9 @@ namespace tafsvc {
 
             bool ReadJSONFileNamesFromConfigTree(char *ConfigurationFileNamePtr);
 
+
+            void FulfillCmdSynchronousPromise(le_result_t result);
+            void ResetCmdSynchronousPromise(void);
 
             // TelAF event handler and callback functions
             // Entry function for thread that receives events from TelAF services.

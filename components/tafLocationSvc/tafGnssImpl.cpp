@@ -2088,6 +2088,10 @@ void taf_locGnss::GnssPositionHandler
 
         if (posSampleReqPtr->sessionRef != *currentPosPtr->clientSessionRefPtr) {
             LE_DEBUG("GnssPositionHandler session ref does not match! ReqPtr.sessionRef: %p, Sample.sessionRef: %p", posSampleReqPtr->sessionRef, *currentPosPtr->clientSessionRefPtr);
+            if (posSampleReqPtr->positionSampleNodePtr) {
+                le_mem_Release(posSampleReqPtr->positionSampleNodePtr);
+            }
+            le_mem_Release(posSampleReqPtr);
             continue;
         }
         posSampleReqPtr->positionSampleRef =
@@ -10606,7 +10610,7 @@ void taf_locGnss::CloseEventHandler
                     void* safeRef = (void*)le_ref_GetSafeRef(handlerIter);
                     handlerRes = le_ref_NextNode(handlerIter);
 
-                    if (handlerPtr) {
+                    if (handlerPtr && handlerPtr->sessionRef == sessionRef) {
                         LE_DEBUG("Force releasing memory for handlerRef %p, safeRef %p",
                             handlerPtr->handlerRef, safeRef);
 

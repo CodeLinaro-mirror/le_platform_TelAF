@@ -614,6 +614,8 @@ taf_doip_Result_t CommunicationMgr::InformUdsMessage
         if (ta != sourceAddr)
         {
             LE_ERROR("Invalid TA(0x%x). Expect 0x%x\n", ta, sourceAddr);
+            le_mem_Release(dataPtr);
+            le_mem_Release(diagInfoPtr);
             return TAF_DOIP_RESULT_UNKNOWN_TA;
         }
 

@@ -4,7 +4,7 @@
  */
 
 /**
- * @file rpcLatancyServerTest.c
+ * @file rpcLatencyServerTest.c
  *
  * RPC latency test server component.
  * Implements ShortMessageTest, MidMessageTest and LongMessageTest APIs.
@@ -29,8 +29,8 @@
 
 typedef struct
 {
-    rpcLatancy_TestEventHandlerRef_t  ref;
-    rpcLatancy_TestEventHandlerFunc_t handlerFunc;
+    rpcLatency_TestEventHandlerRef_t  ref;
+    rpcLatency_TestEventHandlerFunc_t handlerFunc;
     void*                             context;
 } TestEventHandler_t;
 
@@ -42,9 +42,9 @@ static le_ref_MapRef_t  TestEventHandlerRefMap = NULL;
  * Register a TestEvent handler.
  */
 //--------------------------------------------------------------------------------------------------
-rpcLatancy_TestEventHandlerRef_t rpcLatancy_AddTestEventHandler
+rpcLatency_TestEventHandlerRef_t rpcLatency_AddTestEventHandler
 (
-    rpcLatancy_TestEventHandlerFunc_t handlerPtr,
+    rpcLatency_TestEventHandlerFunc_t handlerPtr,
     void*                             contextPtr
 )
 {
@@ -54,7 +54,7 @@ rpcLatancy_TestEventHandlerRef_t rpcLatancy_AddTestEventHandler
 
     objPtr->handlerFunc = handlerPtr;
     objPtr->context     = contextPtr;
-    objPtr->ref         = (rpcLatancy_TestEventHandlerRef_t)
+    objPtr->ref         = (rpcLatency_TestEventHandlerRef_t)
                               le_ref_CreateRef(TestEventHandlerRefMap, objPtr);
 
     LE_INFO("TestEventHandler registered: ref=%p", objPtr->ref);
@@ -66,9 +66,9 @@ rpcLatancy_TestEventHandlerRef_t rpcLatancy_AddTestEventHandler
  * Unregister a TestEvent handler.
  */
 //--------------------------------------------------------------------------------------------------
-void rpcLatancy_RemoveTestEventHandler
+void rpcLatency_RemoveTestEventHandler
 (
-    rpcLatancy_TestEventHandlerRef_t handlerRef
+    rpcLatency_TestEventHandlerRef_t handlerRef
 )
 {
     TestEventHandler_t* objPtr =
@@ -123,7 +123,7 @@ static void EventTimerHandler
  * ShortMessageTest handler – 64-byte payload.
  */
 //--------------------------------------------------------------------------------------------------
-uint32_t rpcLatancy_ShortMessageTest
+uint32_t rpcLatency_ShortMessageTest
 (
     const uint8_t* dataPtr,
     size_t         dataSize
@@ -139,7 +139,7 @@ uint32_t rpcLatancy_ShortMessageTest
  * MidMessageTest handler – 1500-byte payload.
  */
 //--------------------------------------------------------------------------------------------------
-uint32_t rpcLatancy_MidMessageTest
+uint32_t rpcLatency_MidMessageTest
 (
     const uint8_t* dataPtr,
     size_t         dataSize
@@ -155,7 +155,7 @@ uint32_t rpcLatancy_MidMessageTest
  * LongMessageTest handler – 16384-byte payload.
  */
 //--------------------------------------------------------------------------------------------------
-uint32_t rpcLatancy_LongMessageTest
+uint32_t rpcLatency_LongMessageTest
 (
     const uint8_t* dataPtr,
     size_t         dataSize

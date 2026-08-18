@@ -840,11 +840,42 @@ void taf_WlanSvcImpl::GetFirstBandIntConfigTimerHdlr(le_timer_Ref_t timerRef)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * SIGTERM signal event handler.
+ *
+ * Invoked by the Legato signal event framework when the process receives SIGTERM. Deinitializes
+ * the WLAN platform adaptor and exits cleanly.
+ */
+//--------------------------------------------------------------------------------------------------
+static void SigTermEventHandler
+(
+    int sigNum ///< [IN] Signal number received (expected: SIGTERM).
+)
+{
+    LE_INFO("SigTermEventHandler signal : %d", sigNum);
+
+    taf_pa_result_t result = taf::pa::wlan::Deinit();
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::wlan::Deinit reason=%d", result);
+    }
+    else
+    {
+        LE_INFO("WLAN platform adaptor shutdown complete.");
+    }
+
+    _exit(EXIT_SUCCESS);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Service initialization function
  */
 //--------------------------------------------------------------------------------------------------
 void taf_WlanSvcImpl::Init(void)
 {
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);
+
     // Initialize cached configs
     ResetBandIntCfg(bandIntCfgCurrent);
     ResetBandIntCfg(bandIntCfgToSet);

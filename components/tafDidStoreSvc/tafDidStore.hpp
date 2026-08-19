@@ -204,6 +204,7 @@ class taf_diagDidStore: public ITafSvc
             void ConnectDiagSvc();
             static void RetryHandler(le_timer_Ref_t timerRef);
             static void ReadyEvtHandler(void * reportPtr);
+            static void DiagDataIDDisconnectHandler(void* contextPtr);
 
             static taf_diagDataID_ServiceRef_t DiagDataIDSvcRef;
             static taf_diagDataID_RxReadDIDMsgHandlerRef_t DiagReadDataIDMsgRef;

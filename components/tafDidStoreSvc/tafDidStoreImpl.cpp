@@ -16,6 +16,10 @@ using namespace tafsvc;
 #define RETRY_TIMER_INTERVAL  3000
 #define TIMER_SAFECALL 5
 #define MAX_REQ_DID_CNT  32
+#define MAX_NUM_OF_DIAG_CONN_ATTEMPTS 3
+#define MAX_NUM_OF_DIAG_TIMER_REPEAT  2
+#define DIAG_DELAY_TIMER_INTERVAL     32000
+#define DIAG_CONN_RETRY_TIMER_INTERVAL 1000
 DECLARE_SAFE_CALL();
 
 le_sem_Ref_t read_semaphore = NULL;
@@ -25,6 +29,14 @@ le_sem_Ref_t write_semaphore = NULL;
 taf_diagDataID_ServiceRef_t taf_diagDidStore::DiagDataIDSvcRef = NULL;
 taf_diagDataID_RxReadDIDMsgHandlerRef_t taf_diagDidStore::DiagReadDataIDMsgRef = NULL;
 taf_diagDataID_RxWriteDIDMsgHandlerRef_t taf_diagDidStore::DiagWriteDataIDMsgRef = NULL;
+
+static le_timer_Ref_t DiagSvcRetryTimer = nullptr;
+static le_timer_Ref_t DiagSvcDelayTimer = nullptr;
+static uint32_t DiagSvcTimerRepeat = 0;
+
+static void DiagSvcConnectHandler(le_timer_Ref_t timerRef);
+static void DiagSvcDelayHandler(le_timer_Ref_t timerRef);
+static void StartDiagSvcRetryTimer(void);
 
 le_dls_List_t didStorageNotifyList = LE_DLS_LIST_INIT;
 
@@ -1291,6 +1303,125 @@ void taf_diagDidStore::LoadPlugin()
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handle taf_diagDataID server disconnect. Mark the service as not ready and start reconnect
+ * retries. The ready-event handler re-registers the ReadDID/WriteDID handlers after reconnection.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_diagDidStore::DiagDataIDDisconnectHandler(void* contextPtr)
+{
+    LE_UNUSED(contextPtr);
+    LE_ERROR("taf_diagDataID server disconnected");
+
+    auto& inst = GetInstance();
+    inst.isDiagSvcReady = false;
+    inst.DiagDataIDSvcRef = NULL;
+    inst.DiagReadDataIDMsgRef = NULL;
+    inst.DiagWriteDataIDMsgRef = NULL;
+    DiagSvcTimerRepeat = 0;
+    StartDiagSvcRetryTimer();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Start/restart the diag service reconnect retry timer.
+ */
+//--------------------------------------------------------------------------------------------------
+static void StartDiagSvcRetryTimer(void)
+{
+    if (DiagSvcRetryTimer == nullptr)
+    {
+        DiagSvcRetryTimer = le_timer_Create("diagSvcRetryTimer");
+        if (DiagSvcRetryTimer == nullptr)
+        {
+            LE_ERROR("Failed to create diag service retry timer");
+            return;
+        }
+
+        le_timer_SetHandler(DiagSvcRetryTimer, DiagSvcConnectHandler);
+        le_timer_SetWakeup(DiagSvcRetryTimer, false);
+        le_timer_SetMsInterval(DiagSvcRetryTimer, DIAG_CONN_RETRY_TIMER_INTERVAL);
+    }
+
+    // Reset the retry count each time a disconnect starts a new retry sequence.
+    le_timer_SetRepeat(DiagSvcRetryTimer, MAX_NUM_OF_DIAG_CONN_ATTEMPTS);
+    le_timer_Start(DiagSvcRetryTimer);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Attempt to reconnect to the diag service and schedule another retry round if needed.
+ */
+//--------------------------------------------------------------------------------------------------
+static void DiagSvcConnectHandler(le_timer_Ref_t timerRef)
+{
+    auto& inst = taf_diagDidStore::GetInstance();
+    uint32_t expiryCount = le_timer_GetExpiryCount(timerRef);
+
+    if (!inst.isDiagSvcReady)
+    {
+        inst.ConnectDiagSvc();
+        LE_INFO("Diag service reconnect attempt %d/%d", expiryCount,
+                MAX_NUM_OF_DIAG_CONN_ATTEMPTS);
+    }
+
+    if (inst.isDiagSvcReady)
+    {
+        LE_INFO("Successfully reconnected to diag service");
+        le_timer_Stop(DiagSvcRetryTimer);
+        DiagSvcTimerRepeat = 0;
+        if (DiagSvcDelayTimer != nullptr)
+        {
+            le_timer_Delete(DiagSvcDelayTimer);
+            DiagSvcDelayTimer = nullptr;
+        }
+    }
+    else if (expiryCount >= MAX_NUM_OF_DIAG_CONN_ATTEMPTS &&
+             DiagSvcTimerRepeat < MAX_NUM_OF_DIAG_TIMER_REPEAT)
+    {
+        LE_INFO("Diag reconnect round exhausted; retrying after delay");
+        le_timer_Stop(DiagSvcRetryTimer);
+        if (DiagSvcDelayTimer == nullptr)
+        {
+            DiagSvcDelayTimer = le_timer_Create("diagSvcDelayTimer");
+            if (DiagSvcDelayTimer == nullptr)
+            {
+                LE_ERROR("Failed to create diag service retry delay timer");
+                return;
+            }
+            le_timer_SetHandler(DiagSvcDelayTimer, DiagSvcDelayHandler);
+            le_timer_SetWakeup(DiagSvcDelayTimer, false);
+            le_timer_SetMsInterval(DiagSvcDelayTimer, DIAG_DELAY_TIMER_INTERVAL);
+        }
+        le_timer_Start(DiagSvcDelayTimer);
+        DiagSvcTimerRepeat++;
+    }
+    else if (expiryCount >= MAX_NUM_OF_DIAG_CONN_ATTEMPTS &&
+             DiagSvcTimerRepeat >= MAX_NUM_OF_DIAG_TIMER_REPEAT)
+    {
+        LE_ERROR("Diag service reconnect retries exhausted");
+        le_timer_Stop(DiagSvcRetryTimer);
+        DiagSvcTimerRepeat = 0;
+        if (DiagSvcDelayTimer != nullptr)
+        {
+            le_timer_Delete(DiagSvcDelayTimer);
+            DiagSvcDelayTimer = nullptr;
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Restart the diag service retry timer after the inter-round delay.
+ */
+//--------------------------------------------------------------------------------------------------
+static void DiagSvcDelayHandler(le_timer_Ref_t timerRef)
+{
+    le_timer_Stop(timerRef);
+    StartDiagSvcRetryTimer();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Connect diag service. If succeeded, send EVT_CONNECT_DIAG_SVC_READY event.
  */
  //-------------------------------------------------------------------------------------------------
@@ -1306,6 +1437,7 @@ void taf_diagDidStore::ConnectDiagSvc()
 
     //Connect Diag service successfully.
     LE_INFO("Connect Diag service successfully");
+    taf_diagDataID_SetNonExitServerDisconnectHandler(DiagDataIDDisconnectHandler, NULL);
     taf_didStore_ReadyEvtType_t readyType;
     readyType.type = EVT_CONNECT_DIAG_SVC_READY;
     isDiagSvcReady = true;

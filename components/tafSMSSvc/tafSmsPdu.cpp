@@ -498,57 +498,6 @@ uint8_t GetByteAtPos
     return buf[pos];
 }
 
-uint8_t pduDecodeAddr(const unsigned char* buffer, uint8_t addrLen, char* outputAddr)
-{
-    LE_DEBUG("pduDecodeAddr");
-
-    uint idx = 0;
-
-    LE_DEBUG("buffer[0]: 0x%.2X", (int)buffer[0]);
-
-    if(buffer[0] == 0x91)
-    {
-        outputAddr[idx++] = '+';
-    }
-
-    for (uint8_t i = 0; i < addrLen; ++i)
-    {
-        uint8_t byte = buffer[(i / 2) + 1];
-        char nibble;
-
-        if (i % 2 == 0)
-        {
-            nibble = (byte & BITMASK_LOW_4BITS) + '0';
-        }
-        else
-        {
-            nibble = ((byte & BITMASK_HIGH_4BITS) >> 4) + '0';
-        }
-
-        if (nibble > '9')
-        {
-            nibble += 'A' - '0' - 10;
-        }
-
-        if (nibble == 'F')
-        {
-            outputAddr[idx++] = '\0';
-            break;
-        }
-        else
-        {
-            outputAddr[idx++] = nibble;
-        }
-        LE_DEBUG("outputAddr: %s", outputAddr);
-    }
-
-    outputAddr[idx] = '\0';
-
-    LE_INFO("outputAddr: %s", outputAddr);
-
-    return addrLen;
-}
-
 int32_t pduDecode7BitsTo8Bits
 (
     const uint8_t *bufferIn_7bit,
@@ -622,6 +571,92 @@ int32_t pduDecode7BitsTo8Bits
     return w_indx;
 }
 
+uint8_t pduDecodeAddr(const unsigned char* buffer,
+                      uint8_t addrLen,
+                      char* outputAddr,
+                      size_t outputAddrSize)
+{
+    LE_DEBUG("pduDecodeAddr");
+    if (outputAddr == NULL || outputAddrSize == 0)
+    {
+        return addrLen;
+    }
+    outputAddr[0] = '\0';
+    uint idx = 0;
+    uint8_t toa = buffer[0];
+    uint8_t ton = (toa >> 4) & 0x07;
+    LE_DEBUG("buffer[0]: 0x%.2X ton=%u", (int)toa, ton);
+
+    // TON=5 means alphanumeric address. It is GSM 7-bit packed and must not be
+    // decoded as semi-octet BCD digits. For these addresses, the address length
+    // in this decoder is used to locate the next TPDU field as semi-octets, so
+    // decode only the available address-value octets.
+    if (ton == 5)
+    {
+        uint8_t addrOctets = (addrLen + 1) / 2;
+        uint8_t septetCount = (addrOctets * 8) / 7;
+        int32_t decodedLen = pduDecode7BitsTo8Bits(buffer + 1,
+                                                   septetCount,
+                                                   (uint8_t*)outputAddr,
+                                                   outputAddrSize - 1);
+        if (decodedLen < 0)
+        {
+            LE_WARN("Failed to decode alphanumeric address, toa=0x%02X addrLen=%u", toa, addrLen);
+            outputAddr[0] = '\0';
+            return addrLen;
+        }
+
+        outputAddr[decodedLen] = '\0';
+        LE_INFO("outputAddr(alpha): %s", outputAddr);
+        return addrLen;
+    }
+
+    if (buffer[0] == 0x91 && idx < (outputAddrSize - 1))
+    {
+        outputAddr[idx++] = '+';
+    }
+
+    for (uint8_t i = 0; i < addrLen; ++i)
+    {
+        if (idx >= (outputAddrSize - 1))
+        {
+            break;
+        }
+        uint8_t byte = buffer[(i / 2) + 1];
+        char nibble;
+
+        if (i % 2 == 0)
+        {
+            nibble = (byte & BITMASK_LOW_4BITS) + '0';
+        }
+        else
+        {
+            nibble = ((byte & BITMASK_HIGH_4BITS) >> 4) + '0';
+        }
+
+        if (nibble > '9')
+        {
+            nibble += 'A' - '0' - 10;
+        }
+
+        if (nibble == 'F')
+        {
+            break;
+        }
+        else
+        {
+            outputAddr[idx++] = nibble;
+        }
+        LE_DEBUG("outputAddr: %s", outputAddr);
+    }
+
+    outputAddr[idx] = '\0';
+
+    LE_INFO("outputAddr: %s", outputAddr);
+
+    return addrLen;
+}
+
 static int16_t pduDecodeUserData
 (
     pdu_Encoding_t encoding,
@@ -632,14 +667,25 @@ static int16_t pduDecodeUserData
 {
     LE_DEBUG("pduDecodeUserData");
 
-    uint8_t outputDataLen = 0;
+    int16_t outputDataLen = 0;
 
     switch(encoding)
     {
         case PDU_ENCODING_7_BITS:
         {
-            outputDataLen = pduDecode7BitsTo8Bits((uint8_t*)buffer, userDataLen, (uint8_t*)userData, TAF_SMS_TEXT_BYTES);
+            outputDataLen = pduDecode7BitsTo8Bits((uint8_t*)buffer,
+                                                  userDataLen,
+                                                  (uint8_t*)userData,
+                                                  TAF_SMS_TEXT_BYTES);
+            if (outputDataLen < 0)
+            {
+                return outputDataLen;
+            }
 
+            if (outputDataLen < TAF_SMS_TEXT_BYTES)
+            {
+                userData[outputDataLen] = '\0';
+            }
             break;
         }
 
@@ -709,7 +755,7 @@ le_result_t sms_DecodeDeliver
  TAF_ERROR_IF_RET_VAL((size_t)smsAddrLen + TAF_SMS_ADDR_PLUS_CHARS + TAF_SMS_ADDR_NULL_CHARS > sizeof(smsPduPtr->addr),
                          LE_OVERFLOW, "addr size overflow");
 
-    pduDecodeAddr(dataPtr + pos_smsAddr, smsAddrLen, smsPduPtr->addr);
+    pduDecodeAddr(dataPtr + pos_smsAddr, smsAddrLen, smsPduPtr->addr, sizeof(smsPduPtr->addr));
 
     const uint8_t pos_smsPid = pos_smsDeliver + 3 + (dataPtr[pos_smsDeliver + 1] + 1) / 2;
 
@@ -812,7 +858,7 @@ le_result_t smsPdu_Decode
     return result;
 }
 
-uint8_t pduEncode8BitsTo7Bits
+int32_t pduEncode8BitsTo7Bits
 (
     const uint8_t *bufferIn_8bit,
     uint8_t       pos,
@@ -1007,14 +1053,14 @@ le_result_t sms_EncodeGsm
         case PDU_ENCODING_7_BITS:
         {
             uint8_t newmsgLen;
-            uint8_t size = pduEncode8BitsTo7Bits(sms->msgData,
+            int32_t size = pduEncode8BitsTo7Bits(sms->msgData,
                                                 0,
                                                 msgLen,
                                                 &smsPdu->data[pos + 1],
                                                 TAF_SMS_PDU_PAYLOAD,
                                                 &newmsgLen);
 
-            TAF_ERROR_IF_RET_VAL(size == LE_OVERFLOW, LE_OVERFLOW, "Overflow - encoding 7-bit PDU");
+            TAF_ERROR_IF_RET_VAL(size < 0, LE_OVERFLOW, "Overflow - encoding 7-bit PDU");
 
             SetByteAtPos(smsPdu->data, pos++, newmsgLen);
             pos += size;

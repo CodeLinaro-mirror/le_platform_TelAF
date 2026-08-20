@@ -49,6 +49,49 @@ LE_MEM_DEFINE_STATIC_POOL(SmsSendStatus, MAX_OF_SMS_MSG, sizeof(tafSmsSendStatus
 
 taf_Sms* taf_Handler::TafSmsPtr = NULL;
 
+#define TP_MTI_MASK                 0x03
+#define TP_MTI_SMS_DELIVER          0x00
+#define TP_PID_SHORT_MESSAGE_TYPE_0 0x40
+static bool IsFullGsmPduSmsDeliverType0
+(
+   const uint8_t* pduData,
+   size_t         pduLen
+)
+{
+   if (pduData == nullptr || pduLen < 2)
+   {
+      return false;
+   }
+   const size_t smscLen = pduData[0];
+   if ((1 + smscLen) >= pduLen)
+   {
+      LE_DEBUG("Cannot check Type 0 SMS: invalid SMSC length=%zu pduLen=%zu",
+               smscLen, pduLen);
+      return false;
+   }
+   const size_t posSmsDeliver = 1 + smscLen;
+   if ((pduLen - posSmsDeliver) < 3)
+   {
+      LE_DEBUG("Cannot check Type 0 SMS: PDU too short for SMS-DELIVER header");
+      return false;
+   }
+   const uint8_t smsType = pduData[posSmsDeliver];
+   if ((smsType & TP_MTI_MASK) != TP_MTI_SMS_DELIVER)
+   {
+      return false;
+   }
+   const uint8_t smsAddrLen = pduData[posSmsDeliver + 1];
+   const size_t smsAddrOctets = (smsAddrLen + 1) / 2;
+   const size_t headerBeforePidLen = 3 + smsAddrOctets;
+   if ((pduLen - posSmsDeliver) <= headerBeforePidLen)
+   {
+      LE_DEBUG("Cannot check Type 0 SMS: PDU too short for TP-PID");
+      return false;
+   }
+   const size_t posSmsPid = posSmsDeliver + headerBeforePidLen;
+   return pduData[posSmsPid] == TP_PID_SHORT_MESSAGE_TYPE_0;
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Encode PDU message
@@ -171,6 +214,14 @@ void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
 
    pduMsg.length = strlen(newMsgPtr->pdu) / 2;
    LE_DEBUG("pduMsg.length = %d", pduMsg.length);
+
+   if (IsFullGsmPduSmsDeliverType0(pduMsg.data, pduMsg.length))
+   {
+      LE_INFO("Drop SMS Type 0 message, TP-PID=0x%02X. Do not store or notify applications.",
+              TP_PID_SHORT_MESSAGE_TYPE_0);
+      le_mem_Release(tafNewMsg);
+      return;
+   }
 
    tafNewMsg->pduReady = true;
 

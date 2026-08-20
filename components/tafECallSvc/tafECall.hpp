@@ -363,8 +363,8 @@ using namespace std;
                 static void ProcessRxECallEvent(void* msgPtr);
                 void* CloneEventData(const RxECallEvent_t* eventPtr);
                 void FreeEventData(RxECallEventType_t eventType, void* data);
-                void HandleCallEnd(int phoneId, int callIndex);
                 void ProcessPendingCallEvents(int phoneId, int callIndex);
+                void HandleCallEnd(int phoneId, int callIndex);
                 taf_ecall_StateChangeHandlerRef_t AddStateChangeHandler (taf_ecall_StateChangeHandlerFunc_t handlerPtr,
                                                                                         void* contextPtr);
                 void RemoveStateChangeHandler (taf_ecall_StateChangeHandlerRef_t handlerRef);
@@ -392,12 +392,6 @@ using namespace std;
                 le_event_Id_t RxECallEventId;
                 le_mem_PoolRef_t RxECallEventPool = NULL;
 
-                std::promise<pa_result_t> updateMsdProm;
-                std::promise<pa_result_t> hangupProm;
-                std::promise<pa_result_t> rejectProm;
-                std::promise<pa_result_t> answerProm;
-                std::promise<pa_result_t> makeEcallProm;
-                std::promise<pa_result_t> makePrieCallProm;
                 taf_pa_ecall_termination_t CallEndError = taf_pa_ecall_termination_t::NORMAL;
 
                 eCall_Inf_t *eCallInf = nullptr;
@@ -418,7 +412,6 @@ using namespace std;
                 std::unordered_map<uint64_t, std::shared_ptr<taf_pa_ecall_CallInfo_t>> callStore_;
                 std::atomic<uint64_t> callNextToken_{1};
                 std::vector<PendingECallEvent> pendingECallEvents;
-                std::mutex pendingECallEventsMtx;
                 taf_ECall_t ECallObject;
                 taf_pa_ecall_event_listener_t eventListener;
 

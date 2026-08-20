@@ -47,6 +47,7 @@
 #define TAF_MNGDPM_STATE_SUSPENDING 7
 #define TAF_MNGDPM_STATE_SHUTTING_DOWN 8
 #define TAF_MNGDPM_STATE_WAKING_UP 9
+#define WS_DUMP_TIMER_INTERVAL 10000
 
 namespace tafsvc {
 
@@ -378,6 +379,10 @@ class tafMngdPMSvc: public ITafSvc
         //resources for clients state change acknowledgement
         static le_timer_Ref_t stateChangeAckTimerRef;
         static void StateChangeAckTimerHandler(le_timer_Ref_t timerRef);
+
+        // periodic wake source dump timer
+        static le_timer_Ref_t wsDumpTimerRef;
+        static void WsDumpTimerHandler(le_timer_Ref_t timerRef);
         static taf_mngdPm_NodePowerState_t currentStateChangePtr;
 
         static le_mem_PoolRef_t cbHandlerPool;

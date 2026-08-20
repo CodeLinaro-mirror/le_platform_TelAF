@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -27,6 +27,40 @@ taf_radio_CellInfoChangeHandlerRef_t cellInfoChangeHandlerRef;
 taf_radio_NrIconTypeHandlerRef_t nrIconTypeHandlerRef;
 taf_radio_CAInfoHandlerRef_t lteCaInfoHandlerRef;
 taf_radio_ConnectionStatusHandlerRef_t connStatusHandlerRef;
+taf_radio_ServiceStatusChangeHandlerRef_t ratSvcStatusHandlerRefA; ///< Client A: configurable mask.
+taf_radio_ServiceStatusChangeHandlerRef_t ratSvcStatusHandlerRefB; ///< Client B: configurable mask.
+taf_radio_ServiceStatusChangeHandlerRef_t ratSvcStatusHandlerRefC; ///< Client C: all masks (reference).
+taf_radio_ServiceStatusBitMask_t ratSvcStatusBitMaskA; ///< Registered mask for Client A.
+taf_radio_ServiceStatusBitMask_t ratSvcStatusBitMaskB; ///< Registered mask for Client B.
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Context structure for a configurable ServiceStatus client.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    const char*                      name;    ///< Client name shown in logs (e.g. "ClientA").
+    taf_radio_ServiceStatusBitMask_t mask;    ///< Registered bitmask.
+    uint8_t                          phoneId; ///< Phone ID filter. 0 means all phones.
+} RatSvcClientCtx_t;
+
+static RatSvcClientCtx_t ratSvcClientCtxA; ///< Context for Client A.
+static RatSvcClientCtx_t ratSvcClientCtxB; ///< Context for Client B.
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Context structure passed to HandlerTestThread.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_sem_Ref_t             semaphore; ///< Semaphore to signal thread is ready.
+    taf_radio_ServiceStatusBitMask_t maskA;    ///< Bitmask for Client A.
+    taf_radio_ServiceStatusBitMask_t maskB;    ///< Bitmask for Client B.
+    uint8_t                  phoneIdA;  ///< Phone ID filter for Client A. 0 means all phones.
+    uint8_t                  phoneIdB;  ///< Phone ID filter for Client B. 0 means all phones.
+} HandlerTestThreadCtx_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -62,7 +96,8 @@ void PrintHelpMenu
         "band <phone> <rat|status> [<band_bitmask>]\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
         "ims <phone> <mode> [<service>|<user_agent>]\n"
-        "    app runProc tafRadioIntTest tafRadioIntTest -- handler\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- handler <time>"
+        " [--maskA=<hex>] [--maskB=<hex>] [--phoneIdA=<id>] [--phoneIdB=<id>]\n"
         "\n"
         "DESCRIPTION:\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- help\n"
@@ -163,9 +198,23 @@ void PrintHelpMenu
         "       service    : 'registation', 'voip', 'vonr', 'rtt' or 'sms'.\n"
         "       user_agent : user agent string.\n"
         "\n"
-        "    app runProc tafRadioIntTest tafRadioIntTest -- handler <time>\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- handler <time>"
+        " [--maskA=<hex>] [--maskB=<hex>] [--phoneIdA=<id>] [--phoneIdB=<id>]\n"
         "       Handler for network changes, can test with 'cm radio' configurations.\n"
-        "       time : monitor time in seconds.\n"
+        "       time               : monitor time in seconds.\n"
+        "       --maskA=<hex>      : hex bitmask for Client A (optional, default 0x1 = NO_SERVICE).\n"
+        "       --maskB=<hex>      : hex bitmask for Client B (optional, default 0x4 = SERVICE).\n"
+        "       --phoneIdA=<id>    : phone ID filter for Client A (optional, default 0 = all phones).\n"
+        "       --phoneIdB=<id>    : phone ID filter for Client B (optional, default 0 = all phones).\n"
+        "       Named options can be given in any order and are all optional.\n"
+        "       Client C always registers all masks and all phones as reference.\n"
+        "       Bitmask values:\n"
+        "           NO_SERVICE       : 0x1.\n"
+        "           LIMITED          : 0x2.\n"
+        "           SERVICE          : 0x4.\n"
+        "           LIMITED_REGIONAL : 0x8.\n"
+        "           POWER_SAVE       : 0x10.\n"
+        "           ALL              : 0x1f.\n"
         "\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- cellularCapability <phone>\n"
         "       To show hardware capabilities related to SIM and hardware RAT.\n"
@@ -1488,6 +1537,48 @@ void NrIconTypeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Generic configurable ServiceStatus handler.
+ * contextPtr points to a RatSvcClientCtx_t holding the client name and registered mask.
+ * Logs the client name, mask, and received status.
+ */
+//--------------------------------------------------------------------------------------------------
+void ServiceStatusHandler
+(
+    taf_radio_Rat_t          rat,     ///< [IN] Serving RAT that produced this status.
+    taf_radio_RatSvcStatus_t status,  ///< [IN] Current service status.
+    uint8_t phoneId,                  ///< [IN] Phone ID.
+    void* contextPtr                  ///< [IN] RatSvcClientCtx_t pointer.
+)
+{
+    RatSvcClientCtx_t* ctx = (RatSvcClientCtx_t*)contextPtr;
+    const char* name = (ctx != NULL && ctx->name != NULL) ? ctx->name : "Unknown";
+    taf_radio_ServiceStatusBitMask_t mask =
+        (ctx != NULL) ? ctx->mask : (taf_radio_ServiceStatusBitMask_t)0;
+    uint8_t filterPhoneId = (ctx != NULL) ? ctx->phoneId : 0;
+    LE_INFO("[%s][mask=0x%x][phoneId_filter=%d] Phone %d rat=%d status=%d",
+            name, mask, filterPhoneId, phoneId, rat, status);
+    PrintRatSvcStatus(status);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Client C handler: always registered with all masks as reference client.
+ */
+//--------------------------------------------------------------------------------------------------
+void ServiceStatusHandlerC
+(
+    taf_radio_Rat_t          rat,     ///< [IN] Serving RAT that produced this status.
+    taf_radio_RatSvcStatus_t status,  ///< [IN] Current service status.
+    uint8_t phoneId,                  ///< [IN] Phone ID.
+    void* contextPtr                  ///< [IN] Handler context.
+)
+{
+    LE_INFO("[ClientC][ALL_MASKS] Phone %d rat=%d status=%d", phoneId, rat, status);
+    PrintRatSvcStatus(status);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for GSM signal strength changes.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1964,6 +2055,8 @@ void* HandlerTestThread
     void* contextPtr ///< [IN] Thread context.
 )
 {
+    HandlerTestThreadCtx_t* ctx = (HandlerTestThreadCtx_t*)contextPtr;
+
     // Connect to service.
     taf_radio_ConnectService();
 
@@ -2012,6 +2105,46 @@ void* HandlerTestThread
         (taf_radio_ConnectionStatusHandlerFunc_t)ConnectionStatusHandler, NULL);
     LE_TEST_OK(connStatusHandlerRef != NULL, "taf_radio_AddConnectionStatusHandler - !NULL");
 
+    // Client A: configurable mask from command line.
+    ratSvcStatusBitMaskA = ctx->maskA;
+    ratSvcClientCtxA.name    = "ClientA";
+    ratSvcClientCtxA.mask    = ratSvcStatusBitMaskA;
+    ratSvcClientCtxA.phoneId = ctx->phoneIdA;
+    LE_INFO("[ClientA] registering with mask=0x%x phoneId=%d", ratSvcStatusBitMaskA, ctx->phoneIdA);
+    ratSvcStatusHandlerRefA = taf_radio_AddServiceStatusChangeHandler(
+        ratSvcStatusBitMaskA,
+        ctx->phoneIdA,
+        (taf_radio_ServiceStatusChangeHandlerFunc_t)ServiceStatusHandler,
+        &ratSvcClientCtxA);
+    LE_TEST_OK(ratSvcStatusHandlerRefA != NULL, "taf_radio_AddServiceStatusChangeHandler ClientA - !NULL");
+
+    // Client B: configurable mask from command line.
+    ratSvcStatusBitMaskB = ctx->maskB;
+    ratSvcClientCtxB.name    = "ClientB";
+    ratSvcClientCtxB.mask    = ratSvcStatusBitMaskB;
+    ratSvcClientCtxB.phoneId = ctx->phoneIdB;
+    LE_INFO("[ClientB] registering with mask=0x%x phoneId=%d", ratSvcStatusBitMaskB, ctx->phoneIdB);
+    ratSvcStatusHandlerRefB = taf_radio_AddServiceStatusChangeHandler(
+        ratSvcStatusBitMaskB,
+        ctx->phoneIdB,
+        (taf_radio_ServiceStatusChangeHandlerFunc_t)ServiceStatusHandler,
+        &ratSvcClientCtxB);
+    LE_TEST_OK(ratSvcStatusHandlerRefB != NULL, "taf_radio_AddServiceStatusChangeHandler ClientB - !NULL");
+
+    // Client C: always all masks as reference, phoneId=0 means all phones.
+    ratSvcStatusHandlerRefC = taf_radio_AddServiceStatusChangeHandler(
+        TAF_RADIO_SERVICE_STATUS_BIT_MASK_NO_SERVICE       |
+        TAF_RADIO_SERVICE_STATUS_BIT_MASK_LIMITED          |
+        TAF_RADIO_SERVICE_STATUS_BIT_MASK_SERVICE          |
+        TAF_RADIO_SERVICE_STATUS_BIT_MASK_LIMITED_REGIONAL |
+        TAF_RADIO_SERVICE_STATUS_BIT_MASK_POWER_SAVE,
+        0,
+        (taf_radio_ServiceStatusChangeHandlerFunc_t)ServiceStatusHandlerC,
+        NULL);
+    LE_TEST_OK(ratSvcStatusHandlerRefC != NULL, "taf_radio_AddServiceStatusChangeHandler ClientC - !NULL");
+
+    le_sem_Post(ctx->semaphore);
+
     le_sem_Post((le_sem_Ref_t)contextPtr);
     le_event_RunLoop();
 
@@ -2025,15 +2158,26 @@ void* HandlerTestThread
 //--------------------------------------------------------------------------------------------------
 void CreateHandlerTestThread
 (
-    void
+    taf_radio_ServiceStatusBitMask_t maskA,    ///< [IN] Bitmask for Client A.
+    taf_radio_ServiceStatusBitMask_t maskB,    ///< [IN] Bitmask for Client B.
+    uint8_t                          phoneIdA, ///< [IN] Phone ID filter for Client A. 0 means all phones.
+    uint8_t                          phoneIdB  ///< [IN] Phone ID filter for Client B. 0 means all phones.
 )
 {
-    le_sem_Ref_t semaphore = le_sem_Create("semaphore", 0);
+    HandlerTestThreadCtx_t* ctx = (HandlerTestThreadCtx_t*)malloc(sizeof(HandlerTestThreadCtx_t));
+    LE_ASSERT(ctx != NULL);
+    ctx->semaphore = le_sem_Create("semaphore", 0);
+    ctx->maskA     = maskA;
+    ctx->maskB     = maskB;
+    ctx->phoneIdA  = phoneIdA;
+    ctx->phoneIdB  = phoneIdB;
     le_thread_Ref_t threadRef = le_thread_Create("HandlerTestThread", HandlerTestThread,
-        (void*)semaphore);
+        (void*)ctx);
     le_thread_Start(threadRef);
-    le_sem_Wait(semaphore);
-    le_sem_Delete(semaphore);
+    le_sem_Wait(ctx->semaphore);
+    le_sem_Delete(ctx->semaphore);
+    ctx->semaphore = NULL;
+    free(ctx);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2080,6 +2224,15 @@ void RemoveTestHandler
 
     taf_radio_RemoveConnectionStatusHandler(connStatusHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveConnectionStatusHandler - void");
+
+    taf_radio_RemoveServiceStatusChangeHandler(ratSvcStatusHandlerRefA);
+    LE_TEST_OK(true, "taf_radio_RemoveServiceStatusChangeHandler ClientA - void");
+
+    taf_radio_RemoveServiceStatusChangeHandler(ratSvcStatusHandlerRefB);
+    LE_TEST_OK(true, "taf_radio_RemoveServiceStatusChangeHandler ClientB - void");
+
+    taf_radio_RemoveServiceStatusChangeHandler(ratSvcStatusHandlerRefC);
+    LE_TEST_OK(true, "taf_radio_RemoveServiceStatusChangeHandler ClientC - void");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2968,7 +3121,42 @@ COMPONENT_INIT
         }
         long time = strtol(timeStr, NULL, 10);
 
-        CreateHandlerTestThread();
+        // Named optional args: --maskA=, --maskB=, --phoneIdA=, --phoneIdB=
+        // Defaults: maskA=NO_SERVICE(0x1), maskB=SERVICE(0x4), phoneIdA=0, phoneIdB=0.
+        taf_radio_ServiceStatusBitMask_t maskA   = TAF_RADIO_SERVICE_STATUS_BIT_MASK_NO_SERVICE;
+        taf_radio_ServiceStatusBitMask_t maskB   = TAF_RADIO_SERVICE_STATUS_BIT_MASK_SERVICE;
+        uint8_t                          phoneIdA = 0;
+        uint8_t                          phoneIdB = 0;
+
+        for (unsigned int argIdx = 2; le_arg_GetArg(argIdx) != NULL; argIdx++)
+        {
+            const char* arg = le_arg_GetArg(argIdx);
+            unsigned long val;
+            if (sscanf(arg, "--maskA=%lx", &val) == 1)
+            {
+                maskA = (taf_radio_ServiceStatusBitMask_t)val;
+            }
+            else if (sscanf(arg, "--maskB=%lx", &val) == 1)
+            {
+                maskB = (taf_radio_ServiceStatusBitMask_t)val;
+            }
+            else if (sscanf(arg, "--phoneIdA=%lu", &val) == 1)
+            {
+                phoneIdA = (uint8_t)val;
+            }
+            else if (sscanf(arg, "--phoneIdB=%lu", &val) == 1)
+            {
+                phoneIdB = (uint8_t)val;
+            }
+            else
+            {
+                LE_WARN("handler: unknown option '%s', ignored.", arg);
+            }
+        }
+
+        LE_TEST_INFO("ClientA mask=0x%x phoneId=%d  ClientB mask=0x%x phoneId=%d  ClientC mask=ALL phoneId=0(all)",
+                     maskA, phoneIdA, maskB, phoneIdB);
+        CreateHandlerTestThread(maskA, maskB, phoneIdA, phoneIdB);
         // Wait for handler's response.
         le_thread_Sleep(time);
         RemoveTestHandler();

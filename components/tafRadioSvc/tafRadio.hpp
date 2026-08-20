@@ -41,6 +41,7 @@
 
 #include <string>
 #include <map>
+#include <vector>
 
 #include "tafRadioPa.hpp"
 
@@ -50,6 +51,7 @@
 #define BITMASK_RAT_LTE 0x1
 #define BITMASK_RAT_5G_NSA 0x2
 #define PLMN_SCAN_TIMEOUT 210
+#define TAF_RADIO_SVC_STATUS_HANDLER_MAX_NUM 10
 
 #define COMMON_LIST_TYPE_NUM 4
 #define COMMON_LIST_MAX_COUNT (INSTANCE_MAX_COUNT * COMMON_LIST_TYPE_NUM)
@@ -63,6 +65,7 @@
 #define PREF_NET_MAX_COUNT (INSTANCE_MAX_COUNT * TAF_PA_RADIO_PREFERRED_NETWORK_MAX_COUNT)
 #define NGBR_CELL_MAX_COUNT (INSTANCE_MAX_COUNT * TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT)
 #define SAFE_REF_MAX_COUNT (COMMON_RERERENCE_MAX_COUNT + PCI_CELL_MAX_COUNT + PLMN_ID_MAX_COUNT+ PLMN_INFO_MAX_COUNT + PREF_NET_MAX_COUNT + NGBR_CELL_MAX_COUNT)
+#define TAF_RADIO_SERVICE_STATUS_BIT_MASK_COUNT 5 ///< Number of bits in ServiceStatusBitMask.
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -258,6 +261,11 @@ typedef struct
     le_event_Id_t nrIconChange;                 ///< NR icon change indications.
     le_event_Id_t caInfoChange;                 ///< Carrier aggregation information change indications.
     le_event_Id_t connStatusChange;             ///< Connection status indications.
+    le_event_Id_t svcStatusNoServiceChange;
+    le_event_Id_t svcStatusLimitedChange;
+    le_event_Id_t svcStatusServiceChange;
+    le_event_Id_t svcStatusLimitedRegionalChange;
+    le_event_Id_t svcStatusPowerSaveChange;
 } Event_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -290,6 +298,8 @@ typedef struct
     le_mem_PoolRef_t signalStrengthInfo;         ///< Pool for cached signal strength info.
     le_mem_PoolRef_t caInfo;                     ///< Pool for cached CA info.
     le_mem_PoolRef_t connStatus;                 ///< Pool for cached connection status info.
+    le_mem_PoolRef_t svcStatusInd;               ///< Pool for service status indication.
+    le_mem_PoolRef_t svcStatusHandlerCtx;        ///< Pool for service status handler indication.
 } Pool_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -304,6 +314,7 @@ typedef struct
     le_ref_MapRef_t signalStrengthInfo;  ///< Map for signal strength info handles.
     le_ref_MapRef_t caInfo;              ///< Map for CA info handles.
     le_ref_MapRef_t connStatus;          ///< Map for connection status handles.
+    le_ref_MapRef_t svcStatusRefMap;     ///< Map for service status handles.
 } Map_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -486,6 +497,53 @@ typedef struct
     taf_radio_CAInfoRef_t caInfoRefs[INSTANCE_MAX_COUNT]; ///< Cached CA references.
     taf_radio_ConnStatusRef_t connStatusRefs[INSTANCE_MAX_COUNT]; ///< Cached connection refs.
 } Cache_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * service status indication structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t                  phone;  ///< Phone Id.
+    taf_radio_Rat_t          rat;    ///< Current serving RAT.
+    taf_radio_RatSvcStatus_t status; ///< Current service status.
+} ServiceStatusInd_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * PA RAT service status indication structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_pa_radio_Rat_t              rat;        ///< PA RAT type.
+    bool                            valid;      ///< Is this RAT's status valid?
+    taf_pa_radio_RatServiceStatus_t status;     ///< Service status for this RAT.
+} RatSvcInfo_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Service status handler context structure.
+ * Holds one handler reference per status mask bit, the phoneId filter, and the original
+ * user contextPtr. The ctxPtr itself is stored via le_event_SetContextPtr() so that
+ * LayerServiceStatusHandler can access all fields without a separate wrapper allocation.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    /// One handlerRef per statusMask bit; nullptr if that bit was not registered.
+    le_event_HandlerRef_t handlerRefs[TAF_RADIO_SERVICE_STATUS_BIT_MASK_COUNT];
+    /// Phone ID filter: 0 means all phones; non-zero means only that specific phone.
+    uint8_t phoneId;
+    /// Original contextPtr supplied by the caller of AddServiceStatusChangeHandler.
+    void*   userCtx;
+    /// Owning client session — used to clean up if the client disconnects/crashes.
+    le_msg_SessionRef_t sessionRef;
+    /// Link in taf_Radio::svcStatusCtxList.
+    le_dls_Link_t link;
+    taf_radio_ServiceStatusChangeHandlerRef_t safeRef;
+} ServiceStatusHandlerCtx_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -975,6 +1033,17 @@ class Utility
                     void* reportPtr,     ///< [IN] Ref-counted payload.
                     void* handlerFuncPtr ///< [IN] Client callback.
                 );
+
+                /**
+                 * Dispatches service status indications and releases the ref-counted payload.
+                 */
+                static void ServiceStatusChange
+                (
+                    void* reportPtr,     ///< [IN] Ref-counted payload.
+                    void* handlerFuncPtr ///< [IN] Client callback.
+                );
+
+
         };
 
         /**
@@ -1071,6 +1140,8 @@ class Factory
         void StartPmRetryTimer();
         static void PmRetryHandler(le_timer_Ref_t timerRef);
         static void PMServerDisconnectHandler(void* contextPtr);
+        le_dls_List_t svcStatusCtxList;
+        void ApplyServiceStatusModemFiltering(void);
 };
 
 #endif /* #ifndef TAFRADIO_HPP */

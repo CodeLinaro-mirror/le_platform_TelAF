@@ -4517,6 +4517,142 @@ void taf_radio_RemoveNetStatusChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Add handler function for EVENT 'taf_radio_ServiceStatusChange'
+ *
+ * Event to report service status changes.
+ *
+ * @note statusMask filters which service status values trigger the handler.
+ *       Pass all bits set to receive all status changes.
+ *
+ * @note phoneId filters which phone's service status changes trigger the handler.
+ *       Pass 0 to receive status changes from all phones.
+ *
+ * @return
+ *  - taf_radio_ServiceStatusChangeHandlerRef_t Handler reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_ServiceStatusChangeHandlerRef_t taf_radio_AddServiceStatusChangeHandler
+(
+    taf_radio_ServiceStatusBitMask_t statusMask,
+        ///< [IN] Service status bitmask filter.
+    uint8_t phoneId,
+        ///< [IN] Phone ID filter. 0 means all phones.
+    taf_radio_ServiceStatusChangeHandlerFunc_t handlerPtr,
+        ///< [IN] Handler for service status change.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    if (statusMask == 0 || handlerPtr == NULL)
+    {
+        LE_ERROR("AddServiceStatusChangeHandler: invalid statusMask=0x%x or NULL handlerPtr",
+                 statusMask);
+        return NULL;
+    }
+
+    if (phoneId > INSTANCE_MAX_COUNT)
+    {
+        LE_ERROR("AddServiceStatusChangeHandler: invalid phoneId=%d (max=%d)",
+                 phoneId, INSTANCE_MAX_COUNT);
+        return NULL;
+    }
+
+    auto& factory = Factory::GetInstance();
+
+    ServiceStatusHandlerCtx_t* ctxPtr =
+        (ServiceStatusHandlerCtx_t*)le_mem_ForceAlloc(
+            factory.pools.svcStatusHandlerCtx);
+    memset(ctxPtr, 0, sizeof(ServiceStatusHandlerCtx_t));
+    ctxPtr->phoneId = phoneId;
+    ctxPtr->userCtx = contextPtr;
+    ctxPtr->link = LE_DLS_LINK_INIT;
+    ctxPtr->sessionRef = taf_radio_GetClientSessionRef();
+
+    bool wasEmpty = le_dls_IsEmpty(&factory.svcStatusCtxList);
+    le_dls_Queue(&factory.svcStatusCtxList, &ctxPtr->link);
+
+    struct { taf_radio_ServiceStatusBitMask_t bit; le_event_Id_t eventId; const char* name; } entries[] =
+    {
+        { TAF_RADIO_SERVICE_STATUS_BIT_MASK_NO_SERVICE,       factory.events.svcStatusNoServiceChange,        "ServiceStatusNoServiceChange"       },
+        { TAF_RADIO_SERVICE_STATUS_BIT_MASK_LIMITED,          factory.events.svcStatusLimitedChange,          "ServiceStatusLimitedChange"          },
+        { TAF_RADIO_SERVICE_STATUS_BIT_MASK_SERVICE,          factory.events.svcStatusServiceChange,          "ServiceStatusServiceChange"          },
+        { TAF_RADIO_SERVICE_STATUS_BIT_MASK_LIMITED_REGIONAL, factory.events.svcStatusLimitedRegionalChange,  "ServiceStatusLimitedRegionalChange"  },
+        { TAF_RADIO_SERVICE_STATUS_BIT_MASK_POWER_SAVE,       factory.events.svcStatusPowerSaveChange,        "ServiceStatusPowerSaveChange"        },
+    };
+    for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++)
+    {
+        if (!(statusMask & entries[i].bit))
+        {
+            continue;
+        }
+
+        ctxPtr->handlerRefs[i] = le_event_AddLayeredHandler(entries[i].name,
+            entries[i].eventId, Utility::LayeredFunction::ServiceStatusChange,
+            (void*)handlerPtr);
+        le_event_SetContextPtr(ctxPtr->handlerRefs[i], ctxPtr);
+
+    }
+
+    if (wasEmpty)
+    {
+        factory.ApplyServiceStatusModemFiltering();
+    }
+
+    taf_radio_ServiceStatusChangeHandlerRef_t safeRef =
+    (taf_radio_ServiceStatusChangeHandlerRef_t)le_ref_CreateRef(factory.maps.svcStatusRefMap, ctxPtr);
+
+    ctxPtr->safeRef = safeRef;
+
+    return safeRef;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_radio_ServiceStatusChange'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_radio_RemoveServiceStatusChangeHandler
+(
+    taf_radio_ServiceStatusChangeHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    auto& factory = Factory::GetInstance();
+
+    ServiceStatusHandlerCtx_t* ctxPtr =
+        (ServiceStatusHandlerCtx_t*)le_ref_Lookup(
+            factory.maps.svcStatusRefMap, handlerRef);
+
+    if (ctxPtr == nullptr)
+    {
+        LE_WARN("RemoveServiceStatusChangeHandler: ref %p already deleted or invalid",
+                handlerRef);
+        return;
+    }
+
+    le_ref_DeleteRef(factory.maps.svcStatusRefMap, handlerRef);
+
+    le_dls_Remove(&factory.svcStatusCtxList, &ctxPtr->link);
+
+    for (size_t i = 0; i < TAF_RADIO_SERVICE_STATUS_BIT_MASK_COUNT; i++)
+    {
+        if (ctxPtr->handlerRefs[i] != nullptr)
+        {
+            le_event_RemoveHandler(ctxPtr->handlerRefs[i]);
+            ctxPtr->handlerRefs[i] = nullptr;
+        }
+    }
+
+    le_mem_Release(ctxPtr);
+
+    if (le_dls_IsEmpty(&factory.svcStatusCtxList))
+    {
+        factory.ApplyServiceStatusModemFiltering();
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Gets the IMS reference.
  *
  * @return

@@ -288,8 +288,34 @@ void UdsCommunicationMgr::UdsTimerHandler
             }
             else
             {
-                LE_DEBUG("Start S3 timer");
+                LE_DEBUG("Start S3 timer, interval=%d", eventReq->interval);
                 le_timer_Start(udsCmMgr->s3TimerRef);
+            }
+            break;
+
+        case TAF_UDS_S3_TIMER_RESTART:
+            if(le_timer_IsRunning(udsCmMgr->s3TimerRef))
+            {
+                LE_DEBUG("Restart S3 timer, interval=%d", eventReq->interval);
+                le_timer_SetMsInterval(udsCmMgr->s3TimerRef, eventReq->interval);
+                le_timer_Restart(udsCmMgr->s3TimerRef);
+            }
+            break;
+
+        case TAF_UDS_S3_TIMER_CHECK_TO_RESTART:
+            if(le_timer_IsRunning(udsCmMgr->s3TimerRef))
+            {
+                uint32_t remainingTime = le_timer_GetMsTimeRemaining(udsCmMgr->s3TimerRef);
+                LE_DEBUG("check if need to restart remainingTime = %d, s3 timer = %d",
+                    remainingTime, eventReq->interval);
+                if(remainingTime >= eventReq->interval)
+                {
+                    LE_DEBUG("11111No need to restart S3 timer");
+                    return;
+                }
+
+                le_timer_SetMsInterval(udsCmMgr->s3TimerRef, eventReq->interval);
+                le_timer_Restart(udsCmMgr->s3TimerRef);
             }
             break;
 
@@ -334,15 +360,6 @@ void UdsCommunicationMgr::UdsTimerHandler
             le_timer_SetMsInterval(udsCmMgr->authDelayTimerRef, eventReq->interval);
             LE_DEBUG("Start auth delay timer");
             le_timer_Start(udsCmMgr->authDelayTimerRef);
-            break;
-
-        case TAF_UDS_S3_TIMER_RESTART:
-            if(le_timer_IsRunning(udsCmMgr->s3TimerRef))
-            {
-                LE_DEBUG("Restart S3 timer");
-                le_timer_SetMsInterval(udsCmMgr->s3TimerRef, eventReq->interval);
-                le_timer_Restart(udsCmMgr->s3TimerRef);
-            }
             break;
 
         case TAF_UDS_P2STAR_TIMER_STOP:
@@ -415,12 +432,12 @@ void UdsCommunicationMgr::UdsTimerHandler
             le_timer_SetMsInterval(udsCmMgr->testerStateTimerRef, eventReq->interval);
             if(le_timer_IsRunning(udsCmMgr->testerStateTimerRef))
             {
-                LE_DEBUG("Restart tester state timer");
+                LE_DEBUG("Restart tester state timer, interval=%d", eventReq->interval);
                 le_timer_Restart(udsCmMgr->testerStateTimerRef);
             }
             else
             {
-                LE_DEBUG("Start tester state timer");
+                LE_DEBUG("Start tester state timer, interval=%d", eventReq->interval);
                 le_timer_Start(udsCmMgr->testerStateTimerRef);
 
                 LE_INFO("Timer start: Tester state ON");
@@ -431,7 +448,23 @@ void UdsCommunicationMgr::UdsTimerHandler
         case TAF_UDS_TESTER_STATE_TIMER_RESTART:
             if(le_timer_IsRunning(udsCmMgr->testerStateTimerRef))
             {
-                LE_DEBUG("Restart Tester state timer");
+                LE_DEBUG("Restart Tester state timer, interval=%d", eventReq->interval);
+                le_timer_SetMsInterval(udsCmMgr->testerStateTimerRef, eventReq->interval);
+                le_timer_Restart(udsCmMgr->testerStateTimerRef);
+            }
+            break;
+        case TAF_UDS_TESTER_STATE_TIMER_CHECK_TO_RESTART:
+            if(le_timer_IsRunning(udsCmMgr->testerStateTimerRef))
+            {
+                uint32_t remainingTime = le_timer_GetMsTimeRemaining(udsCmMgr->testerStateTimerRef);
+                LE_DEBUG("remainingTime = %d, tester state time = %d", remainingTime,
+                    eventReq->interval);
+                if(remainingTime >= eventReq->interval)
+                {
+                    LE_DEBUG("No need to restart tester state timer");
+                    return;
+                }
+
                 le_timer_SetMsInterval(udsCmMgr->testerStateTimerRef, eventReq->interval);
                 le_timer_Restart(udsCmMgr->testerStateTimerRef);
             }
@@ -769,9 +802,9 @@ void UdsCommunicationMgr::TesterStateTimeoutHandler
 
 void UdsCommunicationMgr::CheckAndRestartTesterStateTimer
 (
+    bool isRespFromSvc
 )
 {
-    LE_DEBUG("CheckAndRestartTesterStateTimer");
 
     float p2StarServerInterval;
     uint32_t maxNumberOfRcrrp, testerStateTimer;
@@ -812,26 +845,44 @@ void UdsCommunicationMgr::CheckAndRestartTesterStateTimer
     //If Tester state timer is running, restart it with smaller interval.
     if(testerStateTimer < p2StarServerInterval*maxNumberOfRcrrp)
     {
-        UdsTimerEventReport(TAF_UDS_TESTER_STATE_TIMER_RESTART, testerStateTimer,
+        //When a req is handled and NRC is sent or tester present resp is sent
+        if(!isRespFromSvc)
+        {
+            UdsTimerEventReport(TAF_UDS_TESTER_STATE_TIMER_CHECK_TO_RESTART, testerStateTimer,
                 (char*)interface);
+        }
+        //When resp is sent by app, restart the timer with a smaller value
+        else
+        {
+            UdsTimerEventReport(TAF_UDS_TESTER_STATE_TIMER_RESTART, testerStateTimer,
+                (char*)interface);
+        }
     }
 }
 #endif
 
 void UdsCommunicationMgr::CheckAndRestartS3Timer
 (
-    uint8_t serviceId
+    uint8_t serviceId,
+    bool isRespFromSvc
 )
 {
+    LE_DEBUG("serviceId = 0x%x, isRespFromSvc=%d", serviceId, isRespFromSvc);
+
     float p2StarServerInterval;
     uint32_t maxNumberOfRcrrp, s3ServerInterval;
 
-    UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_STOP, 0, (char*)interface);
-    //If previous value of readyToRecvData is false, check if app set FileXfer state and set it
-    if (!readyToRecvData.load())
+    //Resp is sent from svc, stop p2*
+    if(isRespFromSvc)
     {
-        readyToRecvData.store(true);
-        CheckAndSendCancelFileXferEvent();
+        UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_STOP, 0, (char*)interface);
+        //If previous value of readyToRecvData is false, check if app set FileXfer state and set it
+        //don't reset
+        if (!readyToRecvData.load())
+        {
+            readyToRecvData.store(true);
+            CheckAndSendCancelFileXferEvent();
+        }
     }
 
     //Get P2* server interval;
@@ -878,12 +929,22 @@ void UdsCommunicationMgr::CheckAndRestartS3Timer
         LE_ERROR("Exception: %s. Use default value:%dms", e.what(), s3ServerInterval);
     }
 
-    //If S3 timer is running, restart it with smaller interval.
-    if((serviceId != SESSION_CONTROL_REQUEST_ID) && (s3ServerInterval <
-            p2StarServerInterval*maxNumberOfRcrrp))
+    //Only restart s3 timer when s3 time value is less than the p2star* maxNumberOfRcrrp
+    if(s3ServerInterval < p2StarServerInterval*maxNumberOfRcrrp)
     {
-        UdsTimerEventReport(TAF_UDS_S3_TIMER_RESTART, s3ServerInterval, (char*)interface);
+        //When a req is handled and NRC is sent or tester present resp is sent
+        if(!isRespFromSvc)
+        {
+            UdsTimerEventReport(TAF_UDS_S3_TIMER_CHECK_TO_RESTART, s3ServerInterval,
+                (char*)interface);
+        }
+        //When resp is sent by app, restart the timer with a smaller value ignore 0x10
+        else if(serviceId != SESSION_CONTROL_REQUEST_ID)
+        {
+            UdsTimerEventReport(TAF_UDS_S3_TIMER_RESTART, s3ServerInterval, (char*)interface);
+        }
     }
+
 }
 
 static taf_doip_PowerMode_t PowerModeQueryHandler
@@ -1116,13 +1177,25 @@ le_result_t UdsCommunicationMgr::SendNRC
 {
     LE_DEBUG("SendNRC, sid= 0x%x, error code=0x%x",sid, errorCode);
 
+    //Send tester present with tpBuf
+    if(sid == TESTER_PRESENT_REQUEST_ID)
+    {
+        // pack the NRC data for tester present
+        tpBuf[0] = UDS_NEGATIVE_RESP_SID;
+        tpBuf[1] = TESTER_PRESENT_REQUEST_ID;
+        tpBuf[2] = errorCode;
+        tpDataLen = UDS_NEG_RESP_LEN;
+        SendData(sid, errorCode, addrInfoPtr);
+        return LE_OK;
+    }
+
     // pack the NRC data
     sendBuf[0] = UDS_NEGATIVE_RESP_SID;
     sendBuf[1] = sid;
     sendBuf[2] = errorCode;
     sendDataLen = UDS_NEG_RESP_LEN;
 
-    SendData(addrInfoPtr);
+    SendData(sid, errorCode, addrInfoPtr);
 
     if(errorCode == REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING)
     {
@@ -1148,6 +1221,8 @@ le_result_t UdsCommunicationMgr::SendNRC
 
 void UdsCommunicationMgr::SendData
 (
+    uint8_t sid,
+    uint8_t errorCode,
     taf_doip_AddrInfo_t*  addrInfoPtr
 )
 {
@@ -1160,13 +1235,29 @@ void UdsCommunicationMgr::SendData
     respAddrInfo.taType = addrInfoPtr->taType;
     respAddrInfo.vlanId = addrInfoPtr->vlanId;
     le_utf8_Copy(respAddrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
-    respDiagMsg.dataPtr = sendBuf;
-    respDiagMsg.dataLen = sendDataLen;
+
+    if(sid == TESTER_PRESENT_REQUEST_ID)
+    {
+        respDiagMsg.dataPtr = tpBuf;
+        respDiagMsg.dataLen = tpDataLen;
+    }
+    else
+    {
+        respDiagMsg.dataPtr = sendBuf;
+        respDiagMsg.dataLen = sendDataLen;
+    }
 
     ret = taf_doip_DiagRequest(&respAddrInfo, &respDiagMsg);
     if(ret == LE_OK)
     {
-        LE_DEBUG("Send Diagnostic response successfully");
+        //Don't restart timer for 0x78.
+        if(errorCode != REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING)
+        {
+            CheckAndRestartS3Timer(sid, false);
+        #ifdef LE_CONFIG_DIAG_FEATURE_A
+            CheckAndRestartTesterStateTimer(false);
+        #endif
+        }
     }
     else
     {
@@ -3540,13 +3631,13 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
  */
 le_result_t UdsCommunicationMgr::TesterPresentResp
 (
+    uint8_t originSubFunc,
+    uint16_t recvTpDataLen,
     taf_doip_AddrInfo_t*  addrInfoPtr
 )
 {
-    LE_DEBUG("TesterPresentResp");
-
     // received service ID
-    uint8_t sid = recvBuf[0];
+    uint8_t sid = TESTER_PRESENT_REQUEST_ID;
 
     // Check the pointer.
     if(addrInfoPtr == NULL)
@@ -3556,20 +3647,27 @@ le_result_t UdsCommunicationMgr::TesterPresentResp
     }
 
     // Step 1: Subfunction minimum length check. UDS_0x3E_NRC_13
-    if(recvDataLen != UDS_TESTER_PRESENT_REQ_LEN)
+    if(recvTpDataLen < UDS_TESTER_PRESENT_REQ_LEN)
     {
-        LE_WARN("recvDataLen is incorrect.");
+        LE_WARN("recvTpDataLen is less than minimum length.");
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // subFunction
-    uint8_t subFunc = recvBuf[1] & 0x7F;
+    uint8_t subFunc = originSubFunc & 0x7F;
 
     // Step 2: Subfunction supported check. UDS_0x3E_NRC_12
     if(!IsSubFuncSupported(sid, subFunc))
     {
         LE_WARN("Requested subfunction type is not supported/configured: 0x%x", subFunc);
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr); // NRC 0x12
+    }
+
+    //Exact length check. UDS_0x3E_NRC_13
+    if(recvTpDataLen != UDS_TESTER_PRESENT_REQ_LEN)
+    {
+        LE_WARN("recvTpDataLen : %d of service 0x3e is incorrect.", recvTpDataLen);
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // Step 3: Subfunction Authentication check. UDS_0x19_NRC_34
@@ -3594,20 +3692,27 @@ le_result_t UdsCommunicationMgr::TesterPresentResp
         return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr); // NRC 0x33
     }
 
-    uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
+    uint8_t suppressPosRspFlag = (originSubFunc >> 7) & 0x1;
     if (suppressPosRspFlag == 1)
     {
         LE_DEBUG("Don't send response");
+
+        CheckAndRestartS3Timer(sid, false);
+    #ifdef LE_CONFIG_DIAG_FEATURE_A
+        LE_DEBUG("Restart Tester state timer");
+        CheckAndRestartTesterStateTimer(false);
+    #endif
+
         return LE_OK;
     }
 
     // Fill the response data
-    sendBuf[0] = TESTER_PRESENT_RESPONSE_ID;
-    sendBuf[1] = 0;
-    sendDataLen = UDS_TESTER_PRESENT_RESP_LEN;
+    tpBuf[0] = TESTER_PRESENT_RESPONSE_ID;
+    tpBuf[1] = 0;
+    tpDataLen = UDS_TESTER_PRESENT_RESP_LEN;
 
-    //Send positive response
-    SendData(addrInfoPtr);
+    //Send positive response for tester present with tpBuf
+    SendData(TESTER_PRESENT_REQUEST_ID, 0, addrInfoPtr);
 
     return LE_OK;
 }
@@ -4282,17 +4387,11 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
-    // copy addressInfo locally to use while sending internal indication.
-    udsCmMgr->addrInfo.sa = addrInfoPtr->sa;
-    udsCmMgr->addrInfo.ta = addrInfoPtr->ta;
-    udsCmMgr->addrInfo.taType = addrInfoPtr->taType;
-    udsCmMgr->addrInfo.vlanId = addrInfoPtr->vlanId;
-    le_utf8_Copy(udsCmMgr->addrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
-
     if (result == TAF_DOIP_RESULT_SA_DEREGISTERED)
     {
         LE_INFO("Disconnected, stopped the running timer");
 
+        udsCmMgr->addrInfo = *addrInfoPtr;
         udsCmMgr->UdsTimerEventReport(TAF_UDS_S3_TIMER_STOP, 0, addrInfoPtr->ifName);
     #ifdef LE_CONFIG_DIAG_FEATURE_A
         // Indicate the Tester state is OFF.
@@ -4384,6 +4483,23 @@ void UdsCommunicationMgr::DiagIndicationHandler
     // received service ID
     uint8_t sid = diagMsgPtr->dataPtr[0];
 
+    LE_DEBUG("Request service id = 0x%x",sid);
+
+    //Handle tester prensent, don't copy data to recvBuf
+    if(sid == TESTER_PRESENT_REQUEST_ID)
+    {
+        // General server response behaviour check, NRC check for 0x11, 0x34, 0x7f, 0x33.
+        if(udsCmMgr->GeneralServerResp(addrInfoPtr, TESTER_PRESENT_REQUEST_ID) != LE_OK)
+        {
+            // Original sub function data
+            uint8_t originSubFunc = diagMsgPtr->dataPtr[1];
+            uint16_t recvTpDataLen = diagMsgPtr->dataLen;
+            udsCmMgr->TesterPresentResp(originSubFunc, recvTpDataLen, addrInfoPtr);
+        }
+
+        return;
+    }
+
     // Send NRC 0x22 if diag service is paused
     if (udsCmMgr->isPaused.load())
     {
@@ -4400,6 +4516,7 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
+    udsCmMgr->addrInfo = *addrInfoPtr;
     size_t copyLen = (diagMsgPtr->dataLen < UDS_MAX_DATA_SIZE) ? diagMsgPtr->dataLen :
         UDS_MAX_DATA_SIZE;
     if (copyLen > 0)
@@ -4413,16 +4530,10 @@ void UdsCommunicationMgr::DiagIndicationHandler
     // General server response behaviour check, NRC check for 0x11, 0x34, 0x7f, 0x33
     if(udsCmMgr->GeneralServerResp(addrInfoPtr, sid) == LE_OK)
     {
-        LE_DEBUG("General server negative response, Restart S3 timer");
-        udsCmMgr->CheckAndRestartS3Timer(sid);
-    #ifdef LE_CONFIG_DIAG_FEATURE_A
-        LE_DEBUG("Restart Tester state timer");
-        udsCmMgr->CheckAndRestartTesterStateTimer();
-    #endif
+        LE_DEBUG("General server negative response");
         return;
     }
 
-    LE_DEBUG("-------Request service id = 0x%x",sid);
     //Handle the request message according to the service id
     switch (sid)
     {
@@ -4518,13 +4629,6 @@ void UdsCommunicationMgr::DiagIndicationHandler
             // Check NRC and then send indication to TelAf diag service if necessary
             // for RequestFileTransfer request msg.
             ret = udsCmMgr->IndicateRxFileXferReq(addrInfoPtr, &isInternalHandle);
-        }
-        break;
-        case TESTER_PRESENT_REQUEST_ID:  // 0x3E
-        {
-            // Check NRC and Handle it internally and then response to client.
-            ret = udsCmMgr->TesterPresentResp(addrInfoPtr);
-            isInternalHandle = true;
         }
         break;
         case RESPONSE_ON_EVENT_REQUEST_ID:  // 0x86
@@ -4829,10 +4933,10 @@ le_result_t UdsCommunicationMgr::SendUDSResp
             SendIdpsIndMsg();
 
         LE_DEBUG("Requested Diagnostic message response sent. Restart S3 timer");
-        udsCmMgr->CheckAndRestartS3Timer(serviceId);
+        udsCmMgr->CheckAndRestartS3Timer(serviceId, true);
     #ifdef LE_CONFIG_DIAG_FEATURE_A
         LE_DEBUG("Restart Tester state timer");
-        udsCmMgr->CheckAndRestartTesterStateTimer();
+        udsCmMgr->CheckAndRestartTesterStateTimer(true);
     #endif
     }
 
@@ -5119,7 +5223,8 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
         // Switched to non-default session.
         else
         {
-            LE_INFO("other session:need to start s3 timer");
+            LE_INFO("other session:start s3 timer, interval:%d, interface:%s", s3ServerInterval,
+                interface);
 
             UdsTimerEventReport(TAF_UDS_S3_TIMER_START, s3ServerInterval, interface);
         }

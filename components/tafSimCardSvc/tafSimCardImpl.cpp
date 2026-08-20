@@ -60,16 +60,17 @@ void tafCardListener:: onCardInfoChanged(int slotId)
     auto &sim = taf_sim::GetInstance();
     sim_event_t simEvent;
     auto slotWithCard = slotId;
-    if(sim.cards[slotWithCard] == nullptr && slotWithCard == DEFAULT_SLOT_ID){
+    if(sim.isSingleActive && sim.slot > 0 && sim.slot < TAF_SIM_ID_MAX) {
+        slotWithCard = sim.slot;
+        LE_INFO("Map SDK logical slot %d to active physical slot %d", slotId, slotWithCard);
+    }
+    else if(sim.cards[slotWithCard] == nullptr && slotWithCard == DEFAULT_SLOT_ID){
         // Map sdk logical slot to physical slot.
         slotWithCard = SLOT_ID_2;
     }
     simEvent.simId = (taf_sim_Id_t)slotWithCard;
     simEvent.state =  sim.getState((taf_sim_Id_t)slotWithCard);
     if (simEvent.state == TAF_SIM_ABSENT) {
-        // Revert to original slotId for initialization
-        slotWithCard = slotId;
-        simEvent.simId = (taf_sim_Id_t)slotWithCard;
         sim.InitializeSimInfo(nullptr, (taf_sim_Id_t)slotWithCard);
     }
     le_event_Report(sim.NewStateEventId, &simEvent, sizeof(simEvent));
@@ -90,7 +91,12 @@ void tafSubscriptionListener:: onSubscriptionInfoChanged
     telux::common::Status status;
     if(subscription) {
         auto slotWithCard = subscription->getSlotId();
-        if(sim.cards[slotWithCard] == nullptr && slotWithCard == DEFAULT_SLOT_ID){
+        if(sim.isSingleActive && sim.slot > 0 && sim.slot < TAF_SIM_ID_MAX) {
+            slotWithCard = sim.slot;
+            LE_INFO("Map subscription logical slot %d to active physical slot %d",
+                    subscription->getSlotId(), slotWithCard);
+        }
+        else if(sim.cards[slotWithCard] == nullptr && slotWithCard == DEFAULT_SLOT_ID){
             slotWithCard = SLOT_ID_2;
             auto card = sim.cardManager->getCard(DEFAULT_SLOT_ID, &status);
             LE_INFO("Update cards[%d] as %s", slotWithCard, card == nullptr ? "null" : "non-null");

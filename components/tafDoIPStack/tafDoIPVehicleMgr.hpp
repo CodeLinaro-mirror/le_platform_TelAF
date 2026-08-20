@@ -13,6 +13,7 @@
 
 #define CFG_DOIP_VIN_PATH "tafDiagSvc:/doip"
 #define CFG_DOIP_VIN_NODE "VehIdentNum"
+#define MAX_MDS (64*1024)
 
 typedef struct
 {

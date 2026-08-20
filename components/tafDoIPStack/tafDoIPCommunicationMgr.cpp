@@ -672,8 +672,13 @@ taf_doip_Result_t CommunicationMgr::TransUdsMessage
         return TAF_DOIP_RESULT_UNKNOWN_SA;
     }
 
+    diagDataPtr = (char*)le_mem_TryAlloc(connectionMgrPtr->udsMsgPool);
+    if (diagDataPtr == NULL)
+    {
+        LE_WARN("Failed to allocate uds buffer for sending.");
+        return TAF_DOIP_RESULT_OUT_OF_MEMORY;
+    }
     diagInfoPtr = (taf_doipDiagDataInfo_t*)le_mem_ForceAlloc(udsInfoPool);
-    diagDataPtr = (char*)le_mem_ForceAlloc(connectionMgrPtr->udsMsgPool);
     diagAddrInfoPtr = (taf_doipDiagDataInfo_t*)le_mem_ForceAlloc(udsInfoPool);
 
     // Pack DoIP header.

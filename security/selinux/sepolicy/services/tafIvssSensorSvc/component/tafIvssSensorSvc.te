@@ -61,3 +61,7 @@ telaf_tafSomeipGWSvc_connect(telaf_tafIvssSensorSvc_t)
 
 # Allow telaf_tafIvssSensorSvc_t and telaf_tafSomeipGWSvc_t write to each other
 telaf_tafSomeipGWSvc_write(telaf_tafIvssSensorSvc_t)
+
+# reads the gptp tmpfs state file and the qgptp device node to get
+# PTP time sync status
+telaf_use_gptp(telaf_tafIvssSensorSvc_t)

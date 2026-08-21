@@ -42,6 +42,7 @@
 #include <mutex>
 #define DEFAULT_TIMEOUT_IN_SECONDS 10
 #define TAF_SIM_SUBSYSTEM_TIMEOUT 30
+#define DEFAULT_PHYSICAL_SLOT_COUNT 2
 
 using namespace std;
 
@@ -203,6 +204,7 @@ using namespace std;
                 static taf_sim_Session_t* DiscoverSessionRef(taf_sim_RefreshRef_t sessionRef);
                 static taf_pa_sim_SessionType_t ConvertTafSessionTypeToPaSessionType(taf_sim_SessionType_t sessionType);
                 le_result_t getICCID(taf_sim_Id_t simId, char *iccid, int length);
+                le_result_t getICCIDWithoutSlotSwitch(taf_sim_Id_t simId, char *iccid, int length);
                 le_result_t getSubscriberPhoneNumber(taf_sim_Id_t simId, char *phoneNumber, int length);
                 le_result_t getIMSI(taf_sim_Id_t simId, char *imsi, int length);
                 le_result_t getHomeNetworkOperator(taf_sim_Id_t simId, char *namePtr, int length);

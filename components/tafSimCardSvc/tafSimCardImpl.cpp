@@ -659,16 +659,8 @@ taf_sim_info_t* taf_sim::GetSimContext(taf_sim_Id_t simId) {
 }
 
 bool taf_sim::isValidSimId(taf_sim_Id_t simId) {
-    int slotCount = 1;
-    auto &sim = taf_sim::GetInstance();
-    le_result_t result = sim.getSlotCount(&slotCount);
-    if(result != LE_OK)
-    {
-        LE_INFO("Fail to get slot count via PA OSS API.");
-        return false;
-    }
-    LE_INFO("isValidSimId: slot count: %d, input simId: %d", slotCount, (int)simId);
-    if ((simId > 0 && simId <= slotCount) || simId == TAF_SIM_UNSPECIFIED ) {
+    if ((simId > 0 && simId <= DEFAULT_PHYSICAL_SLOT_COUNT) || simId == TAF_SIM_UNSPECIFIED ) {
+        LE_INFO("isValidSimId for input simId: %d", (int)simId);
         return true;
     }
     return false;
@@ -762,22 +754,22 @@ void taf_sim::CheckAndSendProfileSwitchEvent() {
 
     char iccid1[TAF_SIM_ICCID_BYTES];
     char iccid2[TAF_SIM_ICCID_BYTES];
-    char iccid[TAF_SIM_ICCID_BYTES]  = {0};
-
     LE_DEBUG("ICCID change and profile swap");
 
     le_result_t result = LE_FAULT;
     memset(iccid1, 0, TAF_SIM_ICCID_BYTES);
     memset(iccid2, 0, TAF_SIM_ICCID_BYTES);
 
-    if (getICCID(TAF_SIM_SLOT_ID_1, iccid, sizeof(iccid)) == LE_OK)
+    if (getICCIDWithoutSlotSwitch(TAF_SIM_SLOT_ID_1,iccid1,sizeof(iccid1)) != LE_OK)
     {
-        le_utf8_Copy(iccid1, iccid, TAF_SIM_ICCID_BYTES, NULL);
+        LE_ERROR("Failed to get ICCID for SIM slot 1");
+        iccid1[0] = '\0';
     }
-    memset(iccid, 0, sizeof(iccid));
-    if (getICCID(TAF_SIM_SLOT_ID_2, iccid, sizeof(iccid)) == LE_OK)
+
+    if (getICCIDWithoutSlotSwitch(TAF_SIM_SLOT_ID_2,iccid2,sizeof(iccid2)) != LE_OK)
     {
-        le_utf8_Copy(iccid2, iccid, TAF_SIM_ICCID_BYTES, NULL);
+        LE_ERROR("Failed to get ICCID for SIM slot 2");
+        iccid2[0] = '\0';
     }
 
     std::unique_lock<std::mutex> lock(sim.eventMutex);
@@ -820,16 +812,19 @@ void taf_sim::CheckAndSendRefreshEvent(taf_sim_Id_t SimId) {
     int slotCount =1;
     char iccid1[TAF_SIM_ICCID_BYTES] = {0};
     char iccid2[TAF_SIM_ICCID_BYTES] = {0};
-    char iccid[TAF_SIM_ICCID_BYTES] = {0};
-    if (getICCID(TAF_SIM_SLOT_ID_1, iccid, sizeof(iccid)) == LE_OK)
+
+    if (getICCIDWithoutSlotSwitch(TAF_SIM_SLOT_ID_1,iccid1,sizeof(iccid1)) != LE_OK)
     {
-        le_utf8_Copy(iccid1, iccid, TAF_SIM_ICCID_BYTES, NULL);
+        LE_ERROR("Failed to get ICCID for SIM slot 1");
+        iccid1[0] = '\0';
     }
-    memset(iccid, 0, sizeof(iccid));
-    if (getICCID(TAF_SIM_SLOT_ID_2, iccid, sizeof(iccid)) == LE_OK)
+
+    if (getICCIDWithoutSlotSwitch(TAF_SIM_SLOT_ID_2,iccid2,sizeof(iccid2)) != LE_OK)
     {
-        le_utf8_Copy(iccid2, iccid, TAF_SIM_ICCID_BYTES, NULL);
+        LE_ERROR("Failed to get ICCID for SIM slot 2");
+        iccid2[0] = '\0';
     }
+
     le_result_t result = sim.getSlotCount(&slotCount);
     if(result != LE_OK)
     {
@@ -1094,7 +1089,6 @@ taf_sim_Session_t* taf_sim::DiscoverSessionRef
 }
 
 le_result_t taf_sim::CreateSession(taf_sim_SessionType_t sessionType, taf_sim_RefreshRef_t* refreshSessionRef) {
-    char iccid[TAF_SIM_ICCID_BYTES] = {0};
     taf_sim_Session_t* clientRequestPtr = NULL;
     taf_sim_RefreshRef_t sessionRef = (taf_sim_RefreshRef_t) taf_sim_GetClientSessionRef();
     LE_INFO("CreateSession client session ref %p", sessionRef);
@@ -1152,15 +1146,19 @@ le_result_t taf_sim::CreateSession(taf_sim_SessionType_t sessionType, taf_sim_Re
     LE_INFO("res->sessionRef %p, *reference %p", res->ref, *refreshSessionRef);
     memset(res->simProfileIccid1, 0, TAF_SIM_ICCID_BYTES);
     memset(res->simProfileIccid2, 0, TAF_SIM_ICCID_BYTES);
-    if (getICCID(TAF_SIM_SLOT_ID_1, iccid, sizeof(iccid)) == LE_OK)
+
+    if (getICCIDWithoutSlotSwitch(TAF_SIM_SLOT_ID_1,res->simProfileIccid1,sizeof(res->simProfileIccid1)) != LE_OK)
     {
-        le_utf8_Copy(res->simProfileIccid1, iccid, TAF_SIM_ICCID_BYTES, NULL);
+        LE_ERROR("Failed to get ICCID for SIM slot 1");
+        res->simProfileIccid1[0] = '\0';
     }
-    memset(iccid, 0, sizeof(iccid));
-    if (getICCID(TAF_SIM_SLOT_ID_2, iccid, sizeof(iccid)) == LE_OK)
+
+    if (getICCIDWithoutSlotSwitch(TAF_SIM_SLOT_ID_2,res->simProfileIccid2,sizeof(res->simProfileIccid2)) != LE_OK)
     {
-        le_utf8_Copy(res->simProfileIccid2, iccid, TAF_SIM_ICCID_BYTES, NULL);
+        LE_ERROR("Failed to get ICCID for SIM slot 2");
+        res->simProfileIccid2[0] = '\0';
     }
+
     LE_INFO("Refresh create session done: iccid1: %s, iccid2: %s", res->simProfileIccid1, res->simProfileIccid2);
     if (sessionRef!=nullptr) {
         //External client increase Client ref count
@@ -1841,9 +1839,10 @@ le_result_t taf_sim::selectSimSlot(taf_sim_Id_t simId) {
 le_result_t taf_sim::getICCID(taf_sim_Id_t simId, char *iccid, int length)
 {
     std::string iccIdStr = "";
-    if (selectSimSlot(simId) != LE_OK) {
+    if(selectSimSlot(simId) != LE_OK) {
         return LE_BAD_PARAMETER;
     }
+
     pa_result_t paResult = taf_pa_sim_GetIccid((taf_pa_sim_Id_t)simId, iccIdStr);
     if (paResult != TAF_PA_SIM_RESULT_OK)
     {
@@ -1852,6 +1851,28 @@ le_result_t taf_sim::getICCID(taf_sim_Id_t simId, char *iccid, int length)
 
     }
     LE_INFO("iccIdStr: %s", iccIdStr.c_str());
+    return le_utf8_Copy(iccid, iccIdStr.c_str(), length, NULL);
+}
+
+le_result_t taf_sim::getICCIDWithoutSlotSwitch(taf_sim_Id_t simId,char* iccid, int length)
+{
+    if ((iccid == nullptr) || (length <= 0))
+    {
+        return LE_BAD_PARAMETER;
+    }
+
+    std::string iccIdStr;
+
+    pa_result_t paResult =taf_pa_sim_GetIccid((taf_pa_sim_Id_t)simId, iccIdStr);
+
+    if (paResult != TAF_PA_SIM_RESULT_OK)
+    {
+        LE_ERROR("Failed to get ICCID via PA OSS API for simId %d",simId);
+        iccid[0] = '\0';
+        return LE_FAULT;
+    }
+
+    LE_INFO("ICCID for simId %d: %s", simId, iccIdStr.c_str());
     return le_utf8_Copy(iccid, iccIdStr.c_str(), length, NULL);
 }
 
@@ -3232,6 +3253,9 @@ void taf_sim::HandleSubscriptionInfoChanged_Queued(void* param1, void* param2)
     le_utf8_Copy(simPtr->ICCID,evt->ICCID,TAF_SIM_ICCID_BYTES,NULL);
     sim.UpdateLocalSimState(simPtr,evt);
     le_event_Report(sim.IccidChangeEventId, evt, sizeof(*evt));
-    sim.CheckAndSendProfileSwitchEvent();
+    if(evt->simId !=TAF_SIM_UNSPECIFIED)
+    {
+        sim.CheckAndSendProfileSwitchEvent();
+    }
     le_mem_Release(evt);
 }

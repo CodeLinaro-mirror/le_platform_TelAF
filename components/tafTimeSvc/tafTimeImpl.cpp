@@ -8,6 +8,7 @@
 #include "taf_gptpTime.h"
 #include <time.h>
 #include <sstream>
+#include <atomic>
 
 using namespace tafsvc;
 using namespace std;
@@ -42,7 +43,16 @@ le_result_t MssConnectStatusMainThread = LE_FAULT;
 le_thread_Ref_t SyncTimeThreadRef = NULL;
 
 static bool IsPmStateChangeHandlerRegistered = false;
-taf_pm_State_t PowerSuspendResumeState = TAF_PM_STATE_RESUME;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Last known tafPMSvc power state.
+ *
+ * Written by PowerStateChangeHandler() on the main thread and read by SyncTimeTimerHandler() on the
+ * SyncTimeThread, so it must be atomic.
+ */
+//--------------------------------------------------------------------------------------------------
+std::atomic<taf_pm_State_t> PowerSuspendResumeState{TAF_PM_STATE_RESUME};
 
 taf_time_setRTCCb_t tafsvc::taf_Time::setRTCCBtoClient;
 taf_time_getRTCCb_t tafsvc::taf_Time::getRTCCBtoClient;
@@ -75,17 +85,19 @@ taf_Time &taf_Time::GetInstance()
  */
 //--------------------------------------------------------------------------------------------------
 void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr);
+static bool TryConnectPmService(void);
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Helper function to stop a timer.
+ * Helper function to release a timer and clear the caller's reference.
+ * @note Legato timers are thread-affine. Call this from the thread that created the timer.
  */
 //--------------------------------------------------------------------------------------------------
-static inline void _StopTimerIfRunning(le_timer_Ref_t& ref)
+static inline void ReleaseTimer(le_timer_Ref_t& ref)
 {
     if (ref != nullptr)
     {
-        le_timer_Stop(ref);
+        le_timer_Delete(ref);
         ref = nullptr;
     }
 }
@@ -2072,6 +2084,19 @@ bool isSecLableCreated(taf_time_TimeSources_t sourceId)
     return false;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Disconnect handler for tafMngdStorageSvc (taf_mngdStorSecData).
+ * Called when tafMngdStorageSvc crashes or exits. Resets the connection state so that the next
+ * call to isSecStorageConnected() will attempt to reconnect.
+ */
+//--------------------------------------------------------------------------------------------------
+static void MssDisconnectHandler(void* contextPtr)
+{
+    LE_WARN("tafMngdStorageSvc disconnected unexpectedly. Will attempt to reconnect.");
+    MssConnectStatusMainThread = LE_FAULT;
+}
+
 bool isSecStorageConnected(void)
 {
     if (MssConnectStatusMainThread == LE_OK)
@@ -2082,6 +2107,7 @@ bool isSecStorageConnected(void)
     MssConnectStatusMainThread = taf_mngdStorSecData_TryConnectService();
     if(MssConnectStatusMainThread == LE_OK)
     {
+        taf_mngdStorSecData_SetNonExitServerDisconnectHandler(MssDisconnectHandler, NULL);
         LE_INFO("Successfully connected to secure storage service");
         return true;
     }
@@ -3109,6 +3135,74 @@ static bool IsRtcTrustInfoSyncedWithMss(void)
 }
 //--------------------------------------------------------------------------------------------------
 /**
+ * Retry timer handler to reconnect to tafPMSvc after an unexpected disconnection.
+ */
+//--------------------------------------------------------------------------------------------------
+static void PmSvcReconnectTimerHandler(le_timer_Ref_t timerRef)
+{
+    if (TryConnectPmService())
+    {
+        auto &tafTime = taf_Time::GetInstance();
+
+        LE_INFO("tafPMSvc reconnected successfully after %d attempt(s).",
+                (timerRef != NULL) ? (int)le_timer_GetExpiryCount(timerRef) : 0);
+
+        ReleaseTimer(tafTime.pmSvcReconnectTimerRef);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Start the tafPMSvc reconnect timer, if it is not started already.
+ */
+//--------------------------------------------------------------------------------------------------
+static void StartPmSvcReconnectTimer(void)
+{
+    auto &tafTime = taf_Time::GetInstance();
+
+    if (tafTime.pmSvcReconnectTimerRef != NULL)
+    {
+        // Already retrying.
+        return;
+    }
+
+    tafTime.pmSvcReconnectTimerRef = le_timer_Create("pmSvcReconnectTimer");
+    if (tafTime.pmSvcReconnectTimerRef == NULL)
+    {
+        LE_ERROR("Failed to create pmSvcReconnectTimer. tafPMSvc will not be reconnected.");
+        return;
+    }
+
+    le_timer_SetMsInterval(tafTime.pmSvcReconnectTimerRef, TAF_TIME_PM_RECONNECT_INTERVAL_MS);
+
+    // Retry indefinitely (0 = forever). Do not bound this: Legato would stop the timer once the
+    // count was exhausted while pmSvcReconnectTimerRef stayed non-NULL, so the guard above would
+    // treat tafPMSvc as "already retrying" and no later attempt would ever reconnect it.
+    le_timer_SetRepeat(tafTime.pmSvcReconnectTimerRef, 0);
+    le_timer_SetHandler(tafTime.pmSvcReconnectTimerRef, PmSvcReconnectTimerHandler);
+    le_timer_SetWakeup(tafTime.pmSvcReconnectTimerRef, false);
+    le_timer_Start(tafTime.pmSvcReconnectTimerRef);
+
+    LE_INFO("pmSvcReconnectTimer started, retrying every %d ms until tafPMSvc is back.",
+            TAF_TIME_PM_RECONNECT_INTERVAL_MS);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Disconnect handler for tafPMSvc.
+ * Called when tafPMSvc crashes or exits. Resets the connection state and starts the retry timer.
+ */
+//--------------------------------------------------------------------------------------------------
+static void PmSvcDisconnectHandler(void* contextPtr)
+{
+    LE_WARN("tafPMSvc disconnected unexpectedly. Will attempt to reconnect.");
+    IsPmStateChangeHandlerRegistered = false;
+
+    StartPmSvcReconnectTimer();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Try connecting to tafPMSvc and register the power state change handler.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3122,9 +3216,20 @@ static bool TryConnectPmService(void)
 
     if (taf_pm_TryConnectService() == LE_OK)
     {
-        taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
+        taf_pm_SetNonExitServerDisconnectHandler(PmSvcDisconnectHandler, NULL);
+
+        if (taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL) == NULL)
+        {
+            LE_ERROR("Failed to add the power state change handler. Will retry.");
+            return false;
+        }
+
         IsPmStateChangeHandlerRegistered = true;
         LE_INFO("Successfully connected to tafPMSvc");
+
+        // Replay the current state to recover any transition missed while disconnected.
+        PowerStateChangeHandler(taf_pm_GetPowerState(), NULL);
+
         return true;
     }
 
@@ -3191,6 +3296,14 @@ static void StartupRetryHandler
                  (int)(time),
                  IsPmStateChangeHandlerRegistered,
                  (RtcVhalIntStatus == LE_OK) ? IsRtcTrustInfoSyncedWithMss() : false);
+
+        if (!IsPmStateChangeHandlerRegistered)
+        {
+            LE_WARN("tafPMSvc was not reached in %d attempts, start retry timer.",
+                    TAF_TIME_START_UP_RETRY_COUNTER);
+
+            StartPmSvcReconnectTimer();
+        }
     }
 }
 
@@ -3336,7 +3449,7 @@ void StopSyncTimeTasksThread(void)
     auto& tafTime = taf_Time::GetInstance();
     LE_INFO("StopSyncTimeTasksThread: stopping ...");
 
-    _StopTimerIfRunning(tafTime.syncTimeTimerRef);
+    ReleaseTimer(tafTime.syncTimeTimerRef);
 
     le_thread_Exit(nullptr);
 }
@@ -3364,8 +3477,9 @@ static void TafSigTermEventHandler(int sigNum)
     }
 
     // Phase-2: main-thread resource cleanup
-    _StopTimerIfRunning(tafTime.sysTimeUdTimerRef);
-    _StopTimerIfRunning(tafTime.StartupRetryTimerRef);
+    ReleaseTimer(tafTime.sysTimeUdTimerRef);
+    ReleaseTimer(tafTime.StartupRetryTimerRef);
+    ReleaseTimer(tafTime.pmSvcReconnectTimerRef);
     IsPmStateChangeHandlerRegistered = false;
 
 
@@ -4045,7 +4159,7 @@ void PowerStateChangeHandler
     auto &tafTime = taf_Time::GetInstance();
 
     PowerSuspendResumeState = state;
-    if (PowerSuspendResumeState == TAF_PM_STATE_RESUME)
+    if (state == TAF_PM_STATE_RESUME)
     {
         LE_DEBUG("Power state change to RESUME");
         if (InitNetwork1Status == LE_OK)
@@ -4060,7 +4174,7 @@ void PowerStateChangeHandler
 
         tafTime.RegisterPtpDevice();
     }
-    else if (PowerSuspendResumeState == TAF_PM_STATE_SUSPEND)
+    else if (state == TAF_PM_STATE_SUSPEND)
     {
         LE_DEBUG("Power state change to SUSPEND");
         if (InitNetwork1Status == LE_OK)

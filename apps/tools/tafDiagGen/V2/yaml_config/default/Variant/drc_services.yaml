@@ -53,6 +53,7 @@ services_all:
   0x22:
     supported: true
     IDPS_supported: false
+    functional_addressed: true
   0x23:
     supported: false
     IDPS_supported: true

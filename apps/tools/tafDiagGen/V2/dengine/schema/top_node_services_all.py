@@ -44,6 +44,13 @@ def schema__services_all(top_node):
                 need_to_stop = True
                 return
 
+        # Optional -> functional_addressed: If not present, defaults to False
+        if 'functional_addressed' in value.keys():
+            if not Bool()(value['functional_addressed']):
+                logger.error(f"{Tname} . {key} . functional_addressed <-- Invalid value")
+                need_to_stop = True
+                return
+
         if 'sub_functions' in value.keys():
             assert isinstance(value['sub_functions'], dict)
             for k,v in value['sub_functions'].items():

@@ -54,6 +54,9 @@ def add_default_info_to_services_all(final_yaml):
         if 'IDPS_supported' not in svc.keys(): # Service layer
             svc['IDPS_supported'] = False
             logger.debug(f"@mark services_all -> {sid} IDPS_supported = false")
+        if 'functional_addressed' not in svc.keys(): # Service layer
+            svc['functional_addressed'] = False
+            logger.debug(f"@mark services_all -> {sid} functional_addressed = false")
         if 'sub_functions' in svc.keys():
             for sub_id, sub in svc['sub_functions'].items():
                 if 'supported' not in sub.keys():
@@ -151,6 +154,11 @@ def convert_patterns_in_did_all(final_yaml, final_pattern):
     # Don't care the 'access' attribute anymore !!
 
     for did_name, did_node in final_yaml['did_all'].items():
+        # Mark the absence of 'functional_addressed' as false (DID layer)
+        if 'functional_addressed' not in did_node.keys():
+            did_node['functional_addressed'] = False
+            logger.debug(f"@mark did_all -> {hex(did_name)} functional_addressed = false")
+
         if 'did_accessibility' not in did_node.keys():
             logger.warning(f"Not found 'did_accessibility' in DID [{hex(did_name) }]")
             continue

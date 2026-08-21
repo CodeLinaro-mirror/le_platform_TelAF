@@ -267,6 +267,11 @@ EXPORT_SYM const DidEntry& get_did_entry(uint16_t did_code)
     return it->second;          // const DidEntry&
 }
 
+EXPORT_SYM bool IsDidFunctionalAddressed(uint16_t did_code)
+{
+    return false;
+}
+
 EXPORT_SYM const EventEntry& get_event_entry(uint16_t event_id)
 {
     NEED_INITED();
@@ -466,6 +471,11 @@ EXPORT_SYM bool IsIDPSAvailable(void)
 }
 
 EXPORT_SYM bool IsIDPSSupported(uint16_t sid)
+{
+    return false;
+}
+
+EXPORT_SYM bool IsServiceFunctionalAddressed(uint16_t sid)
 {
     return false;
 }

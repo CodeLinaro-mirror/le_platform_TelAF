@@ -310,7 +310,7 @@ void UdsCommunicationMgr::UdsTimerHandler
                     remainingTime, eventReq->interval);
                 if(remainingTime >= eventReq->interval)
                 {
-                    LE_DEBUG("11111No need to restart S3 timer");
+                    LE_DEBUG("No need to restart S3 timer");
                     return;
                 }
 
@@ -2077,6 +2077,8 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
     uint8_t sid = recvBuf[0];
     uint8_t updatedRecvBuf[UDS_DATA_SIZE];
     uint16_t updatedRecvDataLen = 0;
+    // For functional requests, count the DIDs that are configured as functionally addressed.
+    uint16_t funcAddrDidNum = 0;
 
     if(addrInfoPtr == NULL || isInternalHandle == NULL)
     {
@@ -2123,6 +2125,19 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
     {
         dataId = ((recvBuf[i*UDS_DID_LEN + 1]) << 8) + recvBuf[i*UDS_DID_LEN + 2];
         LE_INFO("DID: 0x%X(%d)", dataId, dataId);
+
+        if( (addrInfoPtr->taType == TAF_DOIP_TA_TYPE_FUNCTIONAL) &&
+            !cfg::IsDidFunctionalAddressed(dataId) )
+        {
+            LE_DEBUG("dataId:0x%x is not functionally addressed", dataId);
+            continue;
+        }
+
+        // Count functionally addressed DIDs for functional requests.
+        if(addrInfoPtr->taType == TAF_DOIP_TA_TYPE_FUNCTIONAL)
+        {
+            funcAddrDidNum++;
+        }
 
         const DidEntry* pDid = nullptr;
         try
@@ -2211,19 +2226,42 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
         updatedRecvDataLen = updatedRecvDataLen + 2;
     }
 
-    if(updatedRecvDataLen == sizeof(sid))
+    // At least one DID was accepted when updatedRecvDataLen grew beyond the SID.
+    bool anySupported = (updatedRecvDataLen != sizeof(sid));
+
+    if(addrInfoPtr->taType == TAF_DOIP_TA_TYPE_PHYSICAL)
     {
-        LE_WARN("None of DIDs is supported in the active session.");
-        return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
+        // Physical address, none of the DIDs supported -> NRC.
+        if(!anySupported)
+        {
+            LE_WARN("None of DIDs is supported in the active session.");
+            return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
+        }
+    }
+    else // TAF_DOIP_TA_TYPE_FUNCTIONAL
+    {
+        // No DID in the request is functionally addressed, no response.
+        if(funcAddrDidNum == 0)
+        {
+            LE_WARN("None of the DIDs is functionally addressed. No response.");
+            return LE_OK;
+        }
+
+        // Functionally addressed DID(s) present but none is supported in the active session -> NRC.
+        if(!anySupported)
+        {
+            LE_WARN("None of the functionally addressed DIDs is supported in the active session.");
+            return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
+        }
     }
 
+    // Positive response.
     memcpy(recvBuf, updatedRecvBuf, updatedRecvDataLen);
     recvDataLen = updatedRecvDataLen;
 
     *isInternalHandle = false;
     return LE_OK;
 }
-
 
 /**
  * Indicate received WriteDataByIdentifier message to Diag service.
@@ -4360,18 +4398,15 @@ void UdsCommunicationMgr::DiagIndicationHandler
     void* userPtr
 )
 {
-    LE_DEBUG("DiagIndicationHandler");
-
     if(addrInfoPtr == NULL)
     {
         LE_ERROR("addrInfoPtr invalid.");
         return;
     }
 
-    LE_DEBUG("ifName=%s, vlanId=%d", addrInfoPtr->ifName, addrInfoPtr->vlanId);
+    LE_DEBUG("DiagIndication: ifName=%s, vlanId=%d", addrInfoPtr->ifName, addrInfoPtr->vlanId);
 
-    UdsCommunicationMgr * udsCmMgr =
-            UdsCommunicationMgr::GetInstance(addrInfoPtr->ifName);
+    UdsCommunicationMgr * udsCmMgr = UdsCommunicationMgr::GetInstance(addrInfoPtr->ifName);
     if(udsCmMgr == NULL)
     {
         LE_ERROR("Can't get instance by ifName %s", addrInfoPtr->ifName);
@@ -4457,8 +4492,8 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
-    LE_DEBUG("UDS requst is from 0x%x to 0x%x", addrInfoPtr->sa, addrInfoPtr->ta);
-    LE_DEBUG("Data pack length: %" PRIuS, diagMsgPtr->dataLen);
+    LE_DEBUG("UDS requst SA: 0x%x, TA: 0x%x, TA type: %d, lenth: %" PRIuS "", addrInfoPtr->sa,
+        addrInfoPtr->ta, addrInfoPtr->taType, diagMsgPtr->dataLen);
 
     if (result != TAF_DOIP_RESULT_OK)
     {
@@ -4473,17 +4508,25 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
+    // received service ID
+    uint8_t sid = diagMsgPtr->dataPtr[0];
+
+    LE_DEBUG("Request service id = 0x%x", sid);
+
+    //Support ePTI, don't handle the functional addressed service which is not supported in yaml.
+    if( (addrInfoPtr->taType == TAF_DOIP_TA_TYPE_FUNCTIONAL) &&
+        !cfg::IsServiceFunctionalAddressed(sid) )
+    {
+        LE_WARN("Functional addressed service 0x%x unsupported", sid);
+        return;
+    }
+
     //Ignore other requests if hardware reset is in progress until system is restarted
     if(udsCmMgr->isResetInProgress)
     {
         LE_ERROR("Hardware reset is in progress, ignore other requests");
         return;
     }
-
-    // received service ID
-    uint8_t sid = diagMsgPtr->dataPtr[0];
-
-    LE_DEBUG("Request service id = 0x%x",sid);
 
     //Handle tester prensent, don't copy data to recvBuf
     if(sid == TESTER_PRESENT_REQUEST_ID)

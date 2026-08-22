@@ -15,6 +15,8 @@
 
 // For reading json configuration file
 #include "jansson.h"
+#include <atomic>
+#include <mutex>
 #include <iostream>
 #include <vector>
 #include <algorithm>
@@ -202,8 +204,6 @@ typedef struct
                                                  ///  local time. Possible values: 0, 1, and 2.
     bool isBaseStruct = false;                   /// Variable to distinguish between base structure
                                                  /// and event handler structure
-    taf_mngdStorSecData_DataRef_t secStrgdataRef = nullptr; ///< Managed storage service reference
-                                                 /// for storing
     le_msg_SessionRef_t sessionRef;              ///< Client that connected to the service.
     taf_time_StatusEventType_t eventType;        ///< Type of event to which client want to
                                                  /// subscribe for.
@@ -324,7 +324,6 @@ struct ValidityParams
             int64_t allowOverrideAfterFail;
             std::vector<std::string> validClientList;
             std::string gptpDeviceName;
-            int sourceArrySize;
             int sourceVectorSize;
 
             // Constructor for TimeSources
@@ -373,7 +372,7 @@ struct ValidityParams
             // Add one more room for source vector
             void addSizeToSource(int position)
             {
-                if (position == (int)source.size() && position + 1 < sourceVectorSize)
+                if (position == (int)source.size() && position < sourceVectorSize)
                 {
                     source.push_back(Source(0, 0, "", TAF_TIME_THRESHOLD_MILLISEC, 0));
                 }
@@ -485,7 +484,6 @@ struct ValidityParams
                 le_result_t GetRtcTime(taf_time_TimeSpec_t* timeValPtr, bool isAllowGetInternalRTCTime);
                 le_result_t GetGnssTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetExSetTimeStatus(void);
-                le_result_t GetAsyncRtcSetTimeStatus(void);
                 le_result_t GetSystemTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetInternalRtcTime(taf_time_TimeSpec_t* timeVal);
 
@@ -532,7 +530,6 @@ struct ValidityParams
                 static void* SyncTimeTasks(void* contextPtr);
                 static void SyncTimeTimerHandler(le_timer_Ref_t timerRef);
                 static void SystemTimeUpdateTimerHandler(le_timer_Ref_t timerRef);
-                static void SyncGnssTime(void);
                 static void LayerTimeSourceChangeHandler(void* reportPtr,
                                                                         void* layerHandlerFuncPtr);
 
@@ -572,7 +569,6 @@ struct ValidityParams
 
                 le_event_Id_t timeSourceChangeId;
 
-                le_timer_Ref_t syncSecStorageRef = NULL;
                 le_timer_Ref_t syncTimeTimerRef = NULL;
                 le_timer_Ref_t sysTimeUdTimerRef = NULL;
                 le_timer_Ref_t StartupRetryTimerRef = NULL;
@@ -672,10 +668,6 @@ struct ValidityParams
                 void RegisterPtpDevice(void);
 
                 struct SetTimeStatus* SetTimeSt = NULL;
-                NetworkInfoUpdateArgs_t NetworkUpdateInfo1  = {};
-                NetworkInfoUpdateArgs_t NetworkUpdateInfo2  = {};
-                NetworkInfoUpdateArgs_t NetworkHandlerInfo  = {};
-                int sigTermSignalNum = -1;
 
             private:
                 int64_t AllowOverrideAfterFail = -1;

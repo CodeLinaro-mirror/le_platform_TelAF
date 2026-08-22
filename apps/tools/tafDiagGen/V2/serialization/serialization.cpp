@@ -194,9 +194,22 @@ void serialize_servicesAll(std::map<std::string, ServiceEntry>& servicesAll, ptr
         serviceEntry.execution_authorization_pattern =
             service_data.get<std::string>("execution_authorization_pattern", "");
 
-        if (auto access_node = service_data.get_child_optional("access.session")) {
-            for (const auto& s : *access_node) {
-                serviceEntry.access.session.push_back(s.second.get_value<std::string>());
+        if (auto access_node = service_data.get_child_optional("access")) {
+            const ptree& acc = *access_node;
+
+            serviceEntry.access.security_type = acc.get<uint8_t>("security_type", 0);
+
+            if (auto sess_node = acc.get_child_optional("session")) {
+                for (const auto& s : *sess_node) {
+                    serviceEntry.access.session.push_back(s.second.get_value<std::string>());
+                }
+            }
+
+            if (auto secl_node = acc.get_child_optional("security_level")) {
+                for (const auto& s : *secl_node) {
+                    serviceEntry.access.security_level.push_back(
+                        s.second.get_value<std::string>());
+                }
             }
         }
 
@@ -210,9 +223,22 @@ void serialize_servicesAll(std::map<std::string, ServiceEntry>& servicesAll, ptr
                 sub_func.execution_authorization_pattern =
                     sub_data.get<std::string>("execution_authorization_pattern", "");
 
-                if (auto sub_access = sub_data.get_child_optional("access.session")) {
-                    for (const auto& s : *sub_access) {
-                        sub_func.access.session.push_back(s.second.get_value<std::string>());
+                if (auto sub_access = sub_data.get_child_optional("access")) {
+                    const ptree& subAcc = *sub_access;
+
+                    sub_func.access.security_type = subAcc.get<uint8_t>("security_type", 0);
+
+                    if (auto sess_node = subAcc.get_child_optional("session")) {
+                        for (const auto& s : *sess_node) {
+                            sub_func.access.session.push_back(s.second.get_value<std::string>());
+                        }
+                    }
+
+                    if (auto secl_node = subAcc.get_child_optional("security_level")) {
+                        for (const auto& s : *secl_node) {
+                            sub_func.access.security_level.push_back(
+                                s.second.get_value<std::string>());
+                        }
                     }
                 }
 

@@ -2423,6 +2423,43 @@ uint32_t taf_ecall::ReadMsdMsgIdFromConfigTree()
     return messageIdentifier;
 }
 
+le_result_t taf_ecall::SetMsdControlBits(taf_ecall_CallRef_t ecallRef,
+    bool automaticActivation, bool testCall)
+{
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
+    TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+    if (eCallPtr->isMsdUpdated)
+    {
+        LE_ERROR("MSD control bits are set by importing MSD");
+        return LE_DUPLICATE;
+    }
+
+    if (automaticActivation && testCall)
+    {
+        LE_ERROR("Invalid MSD control bits: automaticActivation and testCall cannot both be true");
+        return LE_BAD_PARAMETER;
+    }
+
+    eCallPtr->msd.control.automaticActivation = automaticActivation;
+    eCallPtr->msd.control.testCall = testCall;
+
+    if (testCall)
+    {
+        eCallPtr->type = TAF_ECALL_TYPE_TEST;
+    }
+    else if (automaticActivation)
+    {
+        eCallPtr->type = TAF_ECALL_TYPE_AUTO;
+    }
+    else
+    {
+        eCallPtr->type = TAF_ECALL_TYPE_MANUAL;
+    }
+    LE_INFO("Set MSD control bits: automaticActivation=%d, testCall=%d",
+            automaticActivation, testCall);
+    return LE_OK;
+}
+
 le_result_t taf_ecall::ImportMsd( taf_ecall_CallRef_t ecallRef, const uint8_t* pduMsd, size_t msdLength)
 {
     taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);

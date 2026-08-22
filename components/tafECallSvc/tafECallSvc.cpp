@@ -1270,6 +1270,37 @@ le_result_t taf_ecall_ResetMsdTimeStamp
 
 /*======================================================================
 
+ FUNCTION       taf_ecall_SetMsdControlBits
+
+ DESCRIPTION    Sets the MSD control automaticActivation and testCall bits.
+
+ DEPENDENCIES   Initialization of ECall service
+
+ PARAMETERS     [IN] ecallRef : reference for ecall
+                [IN] automaticActivation : automatic activation bit
+                [IN] testCall : test call bit
+
+ RETURN VALUE   le_result_t
+                    LE_BAD_PARAMETER:     Bad eCall reference or invalid bit combination.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
+ NOTE           The process exits when an invalid eCall reference is given.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_SetMsdControlBits
+(
+    taf_ecall_CallRef_t ecallRef,
+    bool automaticActivation,
+    bool testCall
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetMsdControlBits(ecallRef, automaticActivation, testCall);
+}
+
+/*======================================================================
  FUNCTION        taf_ecall_StartTest
 
  DESCRIPTION    Initiate a test voice eCall with a configured telephone

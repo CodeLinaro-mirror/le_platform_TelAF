@@ -46,8 +46,6 @@ using namespace std;
 
 COMPONENT_INIT
 {
-    LE_INFO("tafSim Service Init...");
-
     taf_sim::mainThread = le_thread_GetCurrent();
     if (taf_sim::mainThread == NULL)
     {
@@ -61,7 +59,6 @@ COMPONENT_INIT
         LE_ERROR("Failed to initialize platform adaptor.");
     }
 
-    LE_INFO("tafSimcard Service Init...\n");
     auto &sim = taf_sim::GetInstance();
     sim.Init();
 

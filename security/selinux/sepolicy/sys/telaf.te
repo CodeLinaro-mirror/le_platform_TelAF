@@ -1009,7 +1009,7 @@ allow load_policy_t telaf_update_t:unix_stream_socket { read write };
             type initrc_t;
         ')
         allow telaf_admin_t proc_t:file { ioctl };
-        #allow telaf_admin_t power_unit_t:service { start status stop };
+        telaf_control_power_units(telaf_admin_t)
         #=========== To support adding boot KPI marker ==============
         allow telaf_app_domain boot_kpi_values_t:file { write open getattr };
         allow initrc_t boot_kpi_values_t:file { write open getattr };

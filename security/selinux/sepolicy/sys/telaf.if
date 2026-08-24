@@ -922,3 +922,24 @@ interface(`telaf_use_gptp',`
         gptp_rw_qgptp_device($1)
         gptp_rw_gptp_sock_file($1)
 ')
+
+########################################
+## <summary>
+##      Allow a domain to control systemd power units (e.g. reboot.target),
+##      used for triggering a graceful system reboot/shutdown.
+## </summary>
+## <param name="domain">
+##      <summary>
+##      Domain allowed to control power units.
+##      </summary>
+## </param>
+#
+interface(`telaf_control_power_units',`
+        gen_require(`
+                type power_unit_t;
+                class service stop;
+        ')
+        systemd_start_power_units($1)
+        systemd_status_power_units($1)
+        allow $1 power_unit_t:service stop;
+')

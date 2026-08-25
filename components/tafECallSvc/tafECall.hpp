@@ -11,6 +11,7 @@
 #include <telux/platform/SubsystemManager.hpp>
 #include "tafSvcIF.hpp"
 #include <unordered_map>
+#include <map>
 
 // For using VHAL
 #include "tafHalLib.hpp"
@@ -42,6 +43,33 @@ using namespace std;
 #define CFG_NODE_HLAPTIMERELAPSED_T9 "T9ElapsedTime"
 #define CFG_NODE_HLAPTIMERELAPSED_T10 "T10ElapsedTime"
 #define CFG_NODE_LASTECALL_PHONEID "LasteCallPhoneId"
+#define CFG_ECALL_RECOVERY_PATH "tafeCallSvc:/eCall/recovery"
+#define CFG_NODE_RECOVERY_VALID "valid"
+#define CFG_NODE_RECOVERY_INPROGRESS "inProgressHint"
+#define CFG_NODE_RECOVERY_CLEANENDED "cleanEnded"
+#define CFG_NODE_RECOVERY_PHONEID "phoneId"
+#define CFG_NODE_RECOVERY_CALLINDEX "callIndex"
+#define CFG_NODE_RECOVERY_CALLSTATE "callState"
+#define CFG_NODE_RECOVERY_CALLDIRECTION "callDirection"
+#define CFG_NODE_RECOVERY_CALLENDCAUSE "callEndCause"
+#define CFG_NODE_RECOVERY_ECALLTYPE "eCallType"
+#define CFG_NODE_RECOVERY_ECALLSESSION "eCallSession"
+#define CFG_NODE_RECOVERY_TAFSTATE "tafState"
+#define CFG_NODE_RECOVERY_WAITFORALACK "waitForALACKPos"
+#define CFG_NODE_RECOVERY_REDIALPENDING "redialPendingHint"
+#define CFG_NODE_RECOVERY_REDIALREASON "redialReason"
+#define CFG_NODE_RECOVERY_EXCLUDED "excluded"
+#define CFG_ECALL_EXCLUDED_PATH "tafeCallSvc:/eCall/recovery/excluded"
+#define TAF_ECALL_MAX_EXCLUDED_CALLS 8
+#define CFG_ECALL_HELDMT_PATH "tafeCallSvc:/eCall/heldMt"
+#define CFG_NODE_HELDMT_PHONEID "phoneId"
+#define CFG_NODE_HELDMT_CALLINDEX "callIndex"
+#define CFG_ECALL_MSD_PATH "tafeCallSvc:/eCall/msd"
+#define CFG_NODE_MSD_PDU "pduHex"
+#define CFG_NODE_MSD_SIZE "pduSize"
+#define CFG_NODE_MSD_UPDATED "isMsdUpdated"
+#define MAX_NUM_OF_HMS_CONN_ATTEMPTS 60
+#define HMS_CONN_RETRY_TIMER_INTERVAL 1000
 #define ISOWMI_START 0
 #define ISOWMI_LENGTH 3
 #define ISOVDS_START (ISOWMI_START + ISOWMI_LENGTH)
@@ -244,6 +272,23 @@ using namespace std;
             int32_t callIndex;
             void* eventData;
         };
+
+        typedef struct {
+            bool valid;
+            bool inProgressHint;
+            bool cleanEnded;
+            int8_t phoneId;
+            int32_t callIndex;
+            telux::tel::CallState callState;
+            telux::tel::CallDirection callDirection;
+            telux::tel::CallEndCause callEndCause;
+            taf_ecall_Type_t eCallType;
+            tafECallSession_t eCallSession;
+            taf_ecall_State_t tafState;
+            bool waitForALACKPos;
+            bool redialPendingHint;
+            taf_ecall_TerminationRedialReason_t redialReason;
+        } taf_ECallRecoveryCtx_t;
 
         class tafCallCommandCallback : public telux::tel::IMakeCallCallback {
             public:
@@ -468,6 +513,39 @@ using namespace std;
                 bool needReportT10Start = false;
                 bool needReportCallEndOnReboot = false;
                 void InitializeECallPtr();
+                tafECallSession_t MapCallStateToSession(telux::tel::CallState callState);
+                taf_ecall_State_t MapCallStateToTafState(telux::tel::CallState callState);
+                void PersistRecoveryContext(bool inProgressHint, bool cleanEnded);
+                bool LoadRecoveryContext(taf_ECallRecoveryCtx_t* ctxPtr);
+                bool BindRecoveredCall(std::shared_ptr<telux::tel::ICall> call,
+                    const taf_ECallRecoveryCtx_t* ctxPtr, bool reportState);
+                bool TryRecoverActiveCall(bool reportState);
+                void RecoverAfterServiceRestart();
+                void ClearRecoveryContext();
+                void PersistMsdPdu();
+                void LoadMsdPdu();
+                bool HasLiveCallInModem();
+                void InvalidateStaleRecoveryContext(bool reportEnded);
+                bool pendingReportEndedAfterRestart = false;
+                int8_t pendingReportEndedPhoneId = -1;
+                bool redialInProgress = false;
+                bool waitingForRedialVerdict = false;
+                bool IsRedialCapableType(taf_ecall_Type_t type);
+                std::map<int32_t, telux::tel::CallDirection> excludedCalls;
+                void SnapshotExcludedCalls(int phoneId);
+                bool IsExcludedCall(int32_t callIndex, telux::tel::CallDirection callDirection);
+                void RemoveExcludedCall(int32_t callIndex);
+                void PersistExcludedCalls();
+                void LoadExcludedCalls(int phoneId);
+                bool SwitchMtToRedialAttempt(int phoneId, int32_t callIndex);
+                std::shared_ptr<telux::tel::ICall> heldMtCall = nullptr;
+                bool IsHeldMtCall(int phoneId, int32_t callIndex, telux::tel::CallDirection callDirection);
+                bool HasLiveHeldMtCall();
+                le_result_t HangupHeldMtCall();
+                void SetHeldMtCall(std::shared_ptr<telux::tel::ICall> call);
+                void LoadHeldMtCall();
+                void HandleHeldMtCallInfo(int phoneId, int32_t callIndex, telux::tel::CallState callState,
+                    telux::tel::CallEndCause callEndCause);
 
         };
     }

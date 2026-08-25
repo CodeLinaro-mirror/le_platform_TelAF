@@ -22,6 +22,8 @@ using namespace tafsvc;
 // handler from more than one client thread. Only the first callback may deinitialize the service.
 static std::atomic_bool DcsDisconnectHandled{false};
 
+#define MCS_PM_SUSPEND_RETRY_DELAY_MS (30000)
+
 /**
  * Initialize static variables
  */
@@ -735,6 +737,13 @@ le_result_t tafMngdConnAdmin::Startdata(taf_mngdConn_DataRef_t dataRef)
 {
     le_result_t result = LE_OK;
     mcs_DataCtx_t* dataCtxPtr = NULL;
+
+    if (TAF_PM_STATE_SUSPEND == taf_pm_GetPowerState())
+    {
+        LE_WARN("System is suspended. Rejecting StartData request.");
+        return LE_NOT_PERMITTED;
+    }
+
     ResetCmdSynchronousPromise();
     std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
 
@@ -795,6 +804,13 @@ le_result_t tafMngdConnAdmin::Stopdata(taf_mngdConn_DataRef_t dataRef)
 {
     le_result_t result = LE_OK;
     mcs_DataCtx_t* dataCtxPtr = NULL;
+
+    if (TAF_PM_STATE_SUSPEND == taf_pm_GetPowerState())
+    {
+        LE_WARN("System is suspended. Rejecting StopData request.");
+        return LE_NOT_PERMITTED;
+    }
+
     ResetCmdSynchronousPromise();
     std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
 
@@ -1003,6 +1019,13 @@ le_result_t tafMngdConnAdmin::GetConnectionIPAddresses
 le_result_t tafMngdConnAdmin::StartDataRetry(taf_mngdConn_DataRef_t dataRef)
 {
     TAF_ERROR_IF_RET_VAL(nullptr == dataRef, LE_BAD_PARAMETER, "Null ptr(dataRef)");
+
+    if (TAF_PM_STATE_SUSPEND == taf_pm_GetPowerState())
+    {
+        LE_WARN("System is suspended. Rejecting StartDataRetry request.");
+        return LE_NOT_PERMITTED;
+    }
+
     mcs_DataCtx_t *dataCtxPtr = (mcs_DataCtx_t *)le_ref_Lookup(DataRefMap, (void *)dataRef);
     TAF_ERROR_IF_RET_VAL(nullptr == dataCtxPtr, LE_NOT_FOUND, "Data reference not found");
 
@@ -3346,6 +3369,15 @@ void tafMngdConnAdmin::DataRetryTimerHandler(le_timer_Ref_t timerRef)
     //If need to reconnect, start a data call
     if(dataCtxPtr->adminState == MCS_DATA_NOT_CONNECTED_RETRYING)
     {
+        if (TAF_PM_STATE_SUSPEND == taf_pm_GetPowerState())
+        {
+            LE_INFO("System is suspended. Deferring data start retry for %d ms.",
+                    MCS_PM_SUSPEND_RETRY_DELAY_MS);
+            le_timer_SetMsInterval(timerRef, MCS_PM_SUSPEND_RETRY_DELAY_MS);
+            le_timer_Start(timerRef);
+            return;
+        }
+
         // Send MCS_EVT_DATA_START event to admin
         LE_INFO("Send MCS_EVT_DATA_START event");
         stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};

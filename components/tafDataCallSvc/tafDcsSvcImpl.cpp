@@ -90,16 +90,6 @@ void TafDcsSvc::Init()
     LE_INFO("AddSubsystemStateChangeCallback result: %d, Id: %d",
                                                 TO_INT(result), subsystemStateChangeCallbackId_);
 
-    // Add power state change handler
-    powerStateChangeHandlerRef_= taf_pm_AddStateChangeHandler(powerStateChangeHandler, NULL);
-    if (nullptr == powerStateChangeHandlerRef_)
-    {
-        LE_ERROR("Unable to register power state change handler.");
-    }
-    else
-    {
-        LE_INFO("Power state change handler registered.");
-    }
 }
 
 void TafDcsSvc::tafPaSubsystemStateChangeCallback
@@ -122,34 +112,6 @@ void TafDcsSvc::tafPaSubsystemStateChangeCallback
     }
 }
 
-void TafDcsSvc::powerStateChangeHandler(taf_pm_State_t state, void *contextPtr)
-{
-    LE_UNUSED(contextPtr);
-    if (state == TAF_PM_STATE_RESUME)
-    {
-        LE_INFO("Power state change to RESUME");
-        taf_pa_result_t paResult = taf::pa::data::RegisterSDKCallbacks();
-        if (paResult != TAF_PA_OK)
-        {
-            LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::RegisterSDKCallbacks reason=%d",
-                     paResult);
-        }
-    }
-    else if (state == TAF_PM_STATE_SUSPEND)
-    {
-        LE_INFO("Power state change to SUSPEND");
-        taf_pa_result_t paResult = taf::pa::data::DeregisterSDKCallbacks();
-        if (paResult != TAF_PA_OK)
-        {
-            LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::DeregisterSDKCallbacks reason=%d",
-                     paResult);
-        }
-    }
-    else
-    {
-        LE_WARN("Unknown power state: %d", TO_INT(state));
-    }
-}
 
 void TafDcsSvc::Deinit()
 {

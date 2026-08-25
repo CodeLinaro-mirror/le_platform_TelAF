@@ -14,11 +14,6 @@ requires:
         libComponent_taf_pa_data.so
         libComponent_taf_pa_dataDef.so
     }
-
-    api:
-    {
-        taf_pm.api
-    }
 }
 
 cxxflags:

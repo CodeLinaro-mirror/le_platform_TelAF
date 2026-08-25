@@ -13,10 +13,6 @@ type telaf_tafDataCallSvc_data_t;
 files_type(telaf_tafDataCallSvc_data_t);
 
 init_telaf_app_domain(telaf_tafDataCallSvc_t,telaf_tafDataCallSvc_exec_t)
-gen_require(`
-    type telaf_tafPMSvc_t;
-')
-telaf_ipc_bind(telaf_tafDataCallSvc_t, telaf_tafPMSvc_t)
 
 ifdef(`sa525m',`
     # Use qti network manager unix datagram sockets

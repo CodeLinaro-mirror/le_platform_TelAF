@@ -6,6 +6,7 @@ policy_module(tafRFSUnitTest, 1.0)
 gen_require(`
   type telaf_admin_t;
   type data_t;
+  type sysctl_t;
   type sysctl_vm_t;
 ')
 
@@ -29,5 +30,6 @@ allow telaf_tafRFSUnitTest_t data_t:file { relabel_file_perms };
 
 # power_loss_stress test writes /proc/sys/vm/drop_caches to emulate a power loss
 # (discard non-persisted page cache) and verify RFS data/xattr durability.
+allow telaf_tafRFSUnitTest_t sysctl_t:dir { search };
 allow telaf_tafRFSUnitTest_t sysctl_vm_t:dir { search };
 allow telaf_tafRFSUnitTest_t sysctl_vm_t:file { open write getattr };

@@ -12,6 +12,7 @@
 #include <future>
 #include <unistd.h>
 #include <vector>
+#include <mutex>
 
 using namespace std;
 
@@ -100,6 +101,16 @@ typedef struct {
     taf_pm_State_t state;
 } FinalConsolidatedInfo_t;
 
+/**
+ * Enumeration for last requested power state change command
+ */
+typedef enum
+{
+    TAF_PM_LAST_REQ_OPERATION_SUSPEND,
+    TAF_PM_LAST_REQ_OPERATION_SHUTDOWN,
+    TAF_PM_LAST_REQ_OPERATION_RESUME
+} taf_pm_LastReqOperation_t;
+
 static FinalConsolidatedInfo_t FinalConsolidatedInfo;
 
 static class taf_PM
@@ -130,6 +141,10 @@ public:
     le_ref_MapRef_t  refmap_WakeupInfo;
     le_ref_MapRef_t  refmap_AckNeededClients;
     le_ref_MapRef_t  refmap_VmList;
+
+    taf_pm_LastReqOperation_t lastRequestedTcuState;
+    bool wasTcuUnavailable;
+    std::mutex tcuStateMutex;
 
     // For 'powerMode'
     void SetPowerMode(taf_pm_PowerMode_t m);
@@ -191,6 +206,11 @@ private:
     static void Handle_evt_RestartTimerExpired
     (
         le_timer_Ref_t timerRef
+    );
+
+    static void Handle_evt_RetryPowerState
+    (
+        void * reportPtr
     );
 
     static void Handle_evt_ConsolidatedAckInfo
@@ -260,6 +280,7 @@ private:
 
     le_event_Id_t evt_ConsolidatedAckInfo;
     le_event_Id_t evt_StateChanged;
+    le_event_Id_t evt_RetryPowerState;
     le_event_Id_t evt_PaInd;
     le_event_HandlerRef_t ref_PaEventHandler;
 
@@ -440,6 +461,23 @@ le_result_t taf_PM::SetPowerState
     LE_INFO("Wants to change from [%s] to [%s]",
             to_StateText(currentState),
             to_StateText(state));
+
+    // Cache the last requested operation, restart is ignored, as is not handled through PMD
+    {
+        std::lock_guard<std::mutex> lock(pm.tcuStateMutex);
+        if (state == TAF_PM_STATE_SUSPEND)
+            pm.lastRequestedTcuState = TAF_PM_LAST_REQ_OPERATION_SUSPEND;
+        else if (state == TAF_PM_STATE_SHUTDOWN)
+            pm.lastRequestedTcuState = TAF_PM_LAST_REQ_OPERATION_SHUTDOWN;
+        else if (state == TAF_PM_STATE_RESUME)
+            pm.lastRequestedTcuState = TAF_PM_LAST_REQ_OPERATION_RESUME;
+
+        if (pm.wasTcuUnavailable)
+        {
+            LE_WARN("PMD not available, command cached");
+            return LE_OK;
+        }
+    }
 
     switch(state)
     {
@@ -1121,6 +1159,15 @@ void taf_PM::AllocateResource()
         evt_StateChangedAckNeeded,
         Handle_evt_StateChangedAckNeeded);
 
+    evt_RetryPowerState =
+        le_event_CreateId(
+            "retry-power-state",
+            sizeof(taf_pm_LastReqOperation_t));
+    le_event_AddHandler(
+        "retry-power-state",
+        evt_RetryPowerState,
+        Handle_evt_RetryPowerState);
+
     refmap_WakeupInfo =
         le_ref_CreateMap(
             "wakeup-info-m",
@@ -1144,6 +1191,8 @@ void taf_PM::AllocateResource()
         taf_PM::OnClientDisconnected,
         nullptr);
 
+    wasTcuUnavailable = false;
+    lastRequestedTcuState = TAF_PM_LAST_REQ_OPERATION_RESUME;
     // Re-register the 'sig-terminate(15)' to do some cleanup
     le_sig_Block(SIGTERM);
     le_sig_SetEventHandler(SIGTERM, taf_PM::Handle_sig_SIGTERM);
@@ -1202,10 +1251,80 @@ void taf_PM::PaHandler_evt_ServiceAvailable
     if (status == SVC_AVAILABLE)
     {
         LE_INFO("PA svc is available");
+
+        taf_pm_LastReqOperation_t operationToRetry = TAF_PM_LAST_REQ_OPERATION_RESUME;
+        taf_pm_State_t tcuCurrentState = TAF_PM_STATE_RESUME;
+        bool shouldRetryOperation = false;
+
+        {
+            std::lock_guard<std::mutex> lock(pm.tcuStateMutex);
+            tcuCurrentState = pm.GetCurrentState();
+
+            if (pm.wasTcuUnavailable)
+            {
+                pm.wasTcuUnavailable = false;
+                operationToRetry = pm.lastRequestedTcuState;
+
+                // A resume request is already satisfied when the service
+                // comes back while PMS is still in RESUME
+                shouldRetryOperation = !(
+                    tcuCurrentState == TAF_PM_STATE_RESUME &&
+                    operationToRetry == TAF_PM_LAST_REQ_OPERATION_RESUME);
+            }
+        }
+
+        if (shouldRetryOperation)
+        {
+            // Defer replay until the event loop has returned from the PA
+            // indication handler
+            le_event_Report(pm.evt_RetryPowerState, &operationToRetry, sizeof(operationToRetry));
+        }
+        else if (tcuCurrentState == TAF_PM_STATE_RESUME)
+        {
+            LE_DEBUG("Node already in RESUME state, skipping retry");
+        }
+    }
+    else if (status == SVC_UNAVAILABLE)
+    {
+        std::lock_guard<std::mutex> lock(pm.tcuStateMutex);
+        pm.wasTcuUnavailable = true;
+        LE_WARN("PA svc is unavailable");
     }
     else
     {
-        LE_WARN("PA svc is unavailable");
+        LE_WARN("Unknown PA service status: %d", status);
+    }
+}
+
+void taf_PM::Handle_evt_RetryPowerState
+(
+    void * reportPtr
+)
+{
+    taf_pm_LastReqOperation_t operationToRetry =
+        *(taf_pm_LastReqOperation_t *) reportPtr;
+
+    LE_INFO("PMD was unavailable, trying the last requested command: %i",
+            operationToRetry);
+
+    switch (operationToRetry)
+    {
+        case TAF_PM_LAST_REQ_OPERATION_SUSPEND:
+            pm.SetPowerState(TAF_PM_STATE_SUSPEND, "ALL_MACHINES");
+            break;
+        case TAF_PM_LAST_REQ_OPERATION_SHUTDOWN:
+            pm.SetPowerState(TAF_PM_STATE_SHUTDOWN, "ALL_MACHINES");
+            break;
+        case TAF_PM_LAST_REQ_OPERATION_RESUME:
+        {
+            taf_pm_State_t state = TAF_PM_STATE_RESUME;
+            le_event_Report(pm.evt_StateChanged, &state, sizeof(state));
+            le_event_Report(pm.evt_StateChangedAckNeeded, &state, sizeof(state));
+            pm.SetCurrentState(state);
+            break;
+        }
+        default:
+            LE_WARN("Unknown power-state operation: %d", operationToRetry);
     }
 }
 

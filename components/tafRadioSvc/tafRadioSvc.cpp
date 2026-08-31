@@ -339,6 +339,12 @@ le_result_t taf_radio_AddPreferredOperator
         return LE_BAD_PARAMETER;
     }
 
+    if (bitmask & (TAF_RADIO_RAT_BIT_MASK_NR5G_NSA | TAF_RADIO_RAT_BIT_MASK_NR5G_SA))
+    {
+        LE_ERROR("Granular NR5G_NSA/NR5G_SA bits are not supported for preferred operators.");
+        return LE_BAD_PARAMETER;
+    }
+
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_PreferredNetworkConfig_t config;
     config.clearPrevious = 0;
@@ -533,6 +539,16 @@ taf_radio_PreferredOperatorListRef_t taf_radio_GetPreferredOperatorsList
     {
         LE_ERROR("No preferred networks.");
         return nullptr;
+    }
+
+    for (uint32_t i = 0; i < networks.nonStaticNetworkCount &&
+        i < TAF_PA_RADIO_PREFERRED_NETWORK_MAX_COUNT; i++)
+    {
+        if (networks.nonStaticNetworks[i].bitmask &
+            (TAF_PA_RADIO_BITMASK_RAT_NR5G_NSA | TAF_PA_RADIO_BITMASK_RAT_NR5G_SA))
+        {
+              LE_WARN("Preferred operator contains NR5G_NSA/NR5G_SA bits");
+        }
     }
 
     auto& factory = Factory::GetInstance();
@@ -862,6 +878,22 @@ le_result_t taf_radio_SetRatPreferences
     uint8_t phone                   ///< [IN] Phone.
 )
 {
+    if ((bitmask & TAF_RADIO_RAT_BIT_MASK_NR5G) &&
+        (bitmask & (TAF_RADIO_RAT_BIT_MASK_NR5G_NSA | TAF_RADIO_RAT_BIT_MASK_NR5G_SA)))
+    {
+        LE_ERROR("Combined NR5G bit cannot be combined with NR5G_NSA/NR5G_SA bits.");
+        return LE_BAD_PARAMETER;
+    }
+
+    // NR5G_NSA together with NR5G_SA is equivalent to the combined NR5G preference. Normalize to
+    // the combined bit so the PA/TelSDK mapping is unambiguous.
+    if ((bitmask & TAF_RADIO_RAT_BIT_MASK_NR5G_NSA) &&
+        (bitmask & TAF_RADIO_RAT_BIT_MASK_NR5G_SA))
+    {
+        bitmask &= ~(TAF_RADIO_RAT_BIT_MASK_NR5G_NSA | TAF_RADIO_RAT_BIT_MASK_NR5G_SA);
+        bitmask |= TAF_RADIO_RAT_BIT_MASK_NR5G;
+    }
+
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_RatBitMask_t rat = Utility::Convert::Rat(bitmask);
     pa_result_t result = taf_pa_radio_SetPreferredRat(instance, rat);
@@ -3829,6 +3861,12 @@ taf_radio_PciScanInformationListRef_t taf_radio_PerformPciNetworkScan
     uint8_t phone                   ///< [IN] Phone.
 )
 {
+    if (bitmask & (TAF_RADIO_RAT_BIT_MASK_NR5G_NSA | TAF_RADIO_RAT_BIT_MASK_NR5G_SA))
+    {
+        LE_ERROR("Granular NR5G_NSA/NR5G_SA bits are not supported for PCI network scan.");
+        return nullptr;
+    }
+
     return Utility::Common::PciNetworkScan(phone, bitmask);
 }
 
@@ -3846,6 +3884,14 @@ void taf_radio_PerformPciNetworkScanAsync
     uint8_t phone                                         ///< [IN] Phone.
 )
 {
+    if (bitmask & (TAF_RADIO_RAT_BIT_MASK_NR5G_NSA | TAF_RADIO_RAT_BIT_MASK_NR5G_SA))
+    {
+        LE_ERROR("Granular NR5G_NSA/NR5G_SA bits are not supported for PCI network scan.");
+        if (handlerFuncPtr != nullptr)
+            handlerFuncPtr(nullptr, phone, contextPtr);
+        return;
+    }
+
     Request_t request;
     memset(&request, 0, sizeof(Request_t));
 
@@ -6583,6 +6629,151 @@ le_result_t taf_radio_GetEndcConnectionStatus
     }
 
     *statusPtr = *availabilityPtr;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the NR5G band capabilities for a given NR5G type.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetNrBandCapabilities
+(
+    taf_radio_RatBitMask_t bitmask, ///< [IN] RAT bitmask.
+    uint64_t* bitmaskPtr,      ///< [OUT] The NR5G band capabilities.
+    size_t* bitmaskPtrSize,    ///< [OUT] The NR5G band capabilities size.
+    uint8_t phone              ///< [IN] Phone.
+)
+{
+    if (bitmaskPtr == nullptr)
+    {
+        LE_ERROR("bitmaskPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (bitmaskPtrSize == nullptr)
+    {
+        LE_ERROR("bitmaskPtrSize is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_Nr5gBand_t band = {0};
+    pa_result_t paResult = taf_pa_radio_GetNr5gBandCapabilities(instance,
+        Utility::Convert::Rat(bitmask), &band);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get NR5G band capabilities.");
+        return result;
+    }
+
+    for (uint32_t i = 0; i < TAF_PA_RADIO_NR5G_BAND_GROUP_COUNT; i++)
+        bitmaskPtr[i] = band.bitmask[i];
+
+    *bitmaskPtrSize = TAF_PA_RADIO_NR5G_BAND_GROUP_COUNT;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the NR5G band preferences for a given NR5G type.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetNrBandPreferences
+(
+    taf_radio_RatBitMask_t bitmask, ///< [IN] RAT bitmask.
+    const uint64_t* bitmaskPtr, ///< [IN] The NR5G band preferences.
+    size_t bitmaskPtrSize,      ///< [IN] The size of NR5G band preferences.
+    uint8_t phone                ///< [IN] Phone.
+)
+{
+    if (bitmaskPtr == nullptr)
+    {
+        LE_ERROR("bitmaskPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (bitmaskPtrSize < TAF_RADIO_NR_BAND_GROUP_NUM)
+    {
+        LE_ERROR("Invalid bitmaskPtrSize %" PRIuS ".", bitmaskPtrSize);
+        return LE_BAD_PARAMETER;
+    }
+
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_Nr5gBand_t band = {0};
+    for (uint32_t i = 0; i < TAF_PA_RADIO_NR5G_BAND_GROUP_COUNT; i++)
+        band.bitmask[i] = bitmaskPtr[i];
+
+    pa_result_t result = taf_pa_radio_SetNr5gBandPreferences(instance,
+        Utility::Convert::Rat(bitmask), &band);
+
+    return Utility::Convert::Result(result);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the NR5G band preferences for a given NR5G type.
+ *
+ * @return
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_TIMEOUT -- Timeout.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetNrBandPreferences
+(
+    taf_radio_RatBitMask_t bitmask, ///< [IN] RAT bitmask.
+    uint64_t* bitmaskPtr,      ///< [OUT] The NR5G band preferences.
+    size_t* bitmaskPtrSize,    ///< [OUT] The NR5G band preferences size.
+    uint8_t phone              ///< [IN] Phone.
+)
+{
+    if (bitmaskPtr == nullptr)
+    {
+        LE_ERROR("bitmaskPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (bitmaskPtrSize == nullptr)
+    {
+        LE_ERROR("bitmaskPtrSize is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_Nr5gBand_t band = {0};
+    pa_result_t paResult = taf_pa_radio_GetNr5gBandPreferences(instance,
+        Utility::Convert::Rat(bitmask), &band);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get NR5G band preferences.");
+        return result;
+    }
+
+    for (uint32_t i = 0; i < TAF_PA_RADIO_NR5G_BAND_GROUP_COUNT; i++)
+        bitmaskPtr[i] = band.bitmask[i];
+
+    *bitmaskPtrSize = TAF_PA_RADIO_NR5G_BAND_GROUP_COUNT;
 
     return LE_OK;
 }

@@ -740,6 +740,16 @@ void TestTafRadioAccessTechnoloy
     result = taf_radio_SetRatPreferences(ratMask, DEFAULT_PHONE_ID);
     LE_TEST_OK(result == LE_OK, "taf_radio_SetRatPreferences - LE_OK");
 
+    result = taf_radio_SetRatPreferences(
+        TAF_RADIO_RAT_BIT_MASK_NR5G | TAF_RADIO_RAT_BIT_MASK_NR5G_NSA, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_BAD_PARAMETER,
+        "taf_radio_SetRatPreferences NR5G|NR5G_NSA - LE_BAD_PARAMETER");
+
+    result = taf_radio_SetRatPreferences(
+        TAF_RADIO_RAT_BIT_MASK_NR5G | TAF_RADIO_RAT_BIT_MASK_NR5G_SA, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_BAD_PARAMETER,
+        "taf_radio_SetRatPreferences NR5G|NR5G_SA - LE_BAD_PARAMETER");
+
     // wait for network registation.
     le_thread_Sleep(5);
 
@@ -816,6 +826,8 @@ void TestTafRadioBand
     taf_radio_BandBitMask_t bandMask = 0x0;
     uint64_t lteBand[TAF_RADIO_LTE_BAND_GROUP_NUM] = {0};
     size_t lteBandSize = 0;
+    uint64_t nrBand[TAF_RADIO_NR_BAND_GROUP_NUM] = {0};
+    size_t nrBandSize = 0;
 
     le_result_t result = taf_radio_GetBandPreferences(&bandMask, DEFAULT_PHONE_ID);
     LE_TEST_OK(result == LE_OK, "taf_radio_GetBandPreferences - LE_OK");
@@ -835,6 +847,30 @@ void TestTafRadioBand
 
     result = taf_radio_GetLteBandCapabilities(lteBand, &lteBandSize, DEFAULT_PHONE_ID);
     LE_TEST_OK(result == LE_OK, "taf_radio_GetLteBandCapabilities - LE_OK");
+
+    result = taf_radio_GetNrBandCapabilities(TAF_RADIO_RAT_BIT_MASK_NR5G_SA, nrBand,
+        &nrBandSize, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetNrBandCapabilities NR5G_SA - LE_OK");
+
+    result = taf_radio_GetNrBandCapabilities(TAF_RADIO_RAT_BIT_MASK_NR5G_NSA, nrBand,
+        &nrBandSize, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetNrBandCapabilities NR5G_NSA - LE_OK");
+
+    result = taf_radio_GetNrBandPreferences(TAF_RADIO_RAT_BIT_MASK_NR5G_SA, nrBand,
+        &nrBandSize, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetNrBandPreferences NR5G_SA - LE_OK");
+
+    result = taf_radio_GetNrBandPreferences(TAF_RADIO_RAT_BIT_MASK_NR5G_NSA, nrBand,
+        &nrBandSize, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetNrBandPreferences NR5G_NSA - LE_OK");
+
+    result = taf_radio_SetNrBandPreferences(TAF_RADIO_RAT_BIT_MASK_NR5G_SA, nrBand,
+        TAF_RADIO_NR_BAND_GROUP_NUM, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK,"taf_radio_SetNrBandPreferences NR5G_SA - LE_OK");
+
+    result = taf_radio_SetNrBandPreferences(TAF_RADIO_RAT_BIT_MASK_NR5G_NSA, nrBand,
+        TAF_RADIO_NR_BAND_GROUP_NUM, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK,"taf_radio_SetNrBandPreferences NR5G_NSA - LE_OK");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -862,6 +898,16 @@ void TestTafRadioOperatorPreferences
     result = taf_radio_AddPreferredOperator(mccStr, mncStr,
         TAF_RADIO_RAT_BIT_MASK_NR5G, DEFAULT_PHONE_ID);
     LE_TEST_OK(result == LE_OK, "taf_radio_AddPreferredOperator - LE_OK");
+
+    result = taf_radio_AddPreferredOperator(mccStr, mncStr,
+        TAF_RADIO_RAT_BIT_MASK_NR5G_NSA, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_BAD_PARAMETER,
+        "taf_radio_AddPreferredOperator NR5G_NSA - LE_BAD_PARAMETER");
+
+    result = taf_radio_AddPreferredOperator(mccStr, mncStr,
+        TAF_RADIO_RAT_BIT_MASK_NR5G_SA, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_BAD_PARAMETER,
+        "taf_radio_AddPreferredOperator NR5G_SA - LE_BAD_PARAMETER");
 
     taf_radio_PreferredOperatorListRef_t listRef =
         taf_radio_GetPreferredOperatorsList(DEFAULT_PHONE_ID);
@@ -1352,6 +1398,15 @@ void TestTafRadioNetworkScan
     taf_radio_PciScanInformationListRef_t pciListRef =
         taf_radio_PerformPciNetworkScan(TAF_RADIO_RAT_BIT_MASK_LTE, DEFAULT_PHONE_ID);
 
+
+    taf_radio_PciScanInformationListRef_t pciRejectRef =
+        taf_radio_PerformPciNetworkScan(TAF_RADIO_RAT_BIT_MASK_NR5G_NSA, DEFAULT_PHONE_ID);
+    LE_TEST_OK(pciRejectRef == NULL, "taf_radio_PerformPciNetworkScan NR5G_NSA - NULL");
+
+    pciRejectRef =
+        taf_radio_PerformPciNetworkScan(TAF_RADIO_RAT_BIT_MASK_NR5G_SA, DEFAULT_PHONE_ID);
+    LE_TEST_OK(pciRejectRef == NULL, "taf_radio_PerformPciNetworkScan NR5G_SA - NULL");
+
     if (pciListRef != NULL)
     {
         LE_TEST_OK(true, "taf_radio_PerformPciNetworkScan - !NULL");
@@ -1554,6 +1609,8 @@ void TestTafRadioCellularCaps
     result = taf_radio_GetHardwareSimRatCapabilities(&deviceRatCapMask,&simRatCapMask,
              DEFAULT_PHONE_ID);
     LE_TEST_OK(result == LE_OK, "taf_radio_GetHardwareSIMRatCapabilities - LE_OK");
+    LE_INFO("deviceRatCapMask: 0x%08X", (unsigned int)deviceRatCapMask);
+    LE_INFO("simRatCapMask:    0x%08X", (unsigned int)simRatCapMask);
 }
 
 void TestTafRadioEndcStatus

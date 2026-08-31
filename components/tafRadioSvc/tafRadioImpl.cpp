@@ -1630,6 +1630,12 @@ taf_pa_radio_RatBitMask_t Utility::Convert::Rat
     if (bitmask & TAF_RADIO_RAT_BIT_MASK_NR5G)
         result |= TAF_PA_RADIO_BITMASK_RAT_NR5G;
 
+    if (bitmask & TAF_RADIO_RAT_BIT_MASK_NR5G_NSA)
+        result |= TAF_PA_RADIO_BITMASK_RAT_NR5G_NSA;
+
+    if (bitmask & TAF_RADIO_RAT_BIT_MASK_NR5G_SA)
+        result |= TAF_PA_RADIO_BITMASK_RAT_NR5G_SA;
+
     return result;
 }
 
@@ -1663,10 +1669,15 @@ taf_radio_RatBitMask_t Utility::Convert::Rat
     if (bitmask & TAF_PA_RADIO_BITMASK_RAT_NR5G)
         result |= TAF_RADIO_RAT_BIT_MASK_NR5G;
 
+    if (bitmask & TAF_PA_RADIO_BITMASK_RAT_NR5G_NSA)
+        result |= TAF_RADIO_RAT_BIT_MASK_NR5G_NSA;
+
+    if (bitmask & TAF_PA_RADIO_BITMASK_RAT_NR5G_SA)
+        result |= TAF_RADIO_RAT_BIT_MASK_NR5G_SA;
+
     const taf_radio_RatBitMask_t allRatMask = TAF_RADIO_RAT_BIT_MASK_GSM |
         TAF_RADIO_RAT_BIT_MASK_CDMA | TAF_RADIO_RAT_BIT_MASK_UMTS |
-        TAF_RADIO_RAT_BIT_MASK_TDSCDMA | TAF_RADIO_RAT_BIT_MASK_LTE |
-        TAF_RADIO_RAT_BIT_MASK_NR5G;
+        TAF_RADIO_RAT_BIT_MASK_TDSCDMA | TAF_RADIO_RAT_BIT_MASK_LTE | TAF_RADIO_RAT_BIT_MASK_NR5G;
 
     if ((result & allRatMask) == allRatMask)
         return TAF_RADIO_RAT_BIT_MASK_ALL;

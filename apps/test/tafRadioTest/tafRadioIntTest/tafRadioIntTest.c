@@ -128,6 +128,8 @@ void PrintHelpMenu
         "           LTE     : 0x10.\n"
         "           NR5G    : 0x20.\n"
         "           ALL     : 0x40.\n"
+        "           NR5G_NSA : 0x80 (cannot be combined with NR5G).\n"
+        "           NR5G_SA  : 0x100 (cannot be combined with NR5G).\n"
         "\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
         "domain <phone> <prefer|status> [<cs|ps|all>]\n"
@@ -151,6 +153,7 @@ void PrintHelpMenu
         "           LTE     : 0x10.\n"
         "           NR5G    : 0x20.\n"
         "           ALL     : 0x40.\n"
+        "       Note: granular NR5G_NSA (0x80) / NR5G_SA (0x100) are rejected for operators.\n"
         "\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
         "signal <phone> <monitor|metrics|delta> [<time|rat>] [<signal_delta>]\n"
@@ -181,14 +184,16 @@ void PrintHelpMenu
         "           LTE     : 0x10.\n"
         "\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
-        "band <phone> <rat|status> [<band_bitmask>]\n"
+        "band <phone> <2G+3G|LTE|NR|status> [<band_bitmask>]\n"
         "       Set band preferences.\n"
         "       phone        : '1' or '2'.\n"
-        "       Set '2G+3G' or 'LTE' band preferences, or show band capabilities and preferences "
-        "with'status'.\n"
-        "       band_bitmask : band bitmask, required with '2G+3G' or 'LTE' option\n"
+        "       Set '2G+3G', 'LTE' or 'NR' band preferences, or show band capabilities and "
+        "preferences with'status'.\n"
+        "       band_bitmask : band bitmask, required with '2G+3G', 'LTE' or 'NR' option\n"
         "           2G+3G : refer to BandBitMask in api.\n"
         "           LTE   : 4 LTE band bit masks in 64 bit.\n"
+        "           NR    : <rat_mask> followed by 8 NR band bit masks in 64 bit.\n"
+        "                   rat_mask: NR5G 0x20, NR5G_NSA 0x80, NR5G_SA 0x100.\n"
         "\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
         "ims <phone> <mode> [<service>|<user_agent>]\n"
@@ -497,6 +502,16 @@ void PrintRatBitMask
     if (ratBitMask & TAF_RADIO_RAT_BIT_MASK_NR5G)
     {
         LE_INFO("NR5G");
+    }
+
+    if (ratBitMask & TAF_RADIO_RAT_BIT_MASK_NR5G_NSA)
+    {
+        LE_INFO("NR5G_NSA");
+    }
+
+    if (ratBitMask & TAF_RADIO_RAT_BIT_MASK_NR5G_SA)
+    {
+        LE_INFO("NR5G_SA");
     }
 }
 
@@ -862,6 +877,58 @@ void PrintBandStatus
                 LE_INFO("Phone %d LTE band capabilities (band %d)", phoneId, i * 64 + j + 1);
             }
             lteBandMask = lteBandMask >> 1;
+        }
+    }
+
+    uint64_t nrBand[TAF_RADIO_NR_BAND_GROUP_NUM] = {0};
+    uint64_t nrBandMask = 0;
+    size_t nrBandSize = 0;
+
+    const struct
+    {
+        taf_radio_RatBitMask_t ratMask;
+        const char* name;
+    } nrRats[] = {
+        {TAF_RADIO_RAT_BIT_MASK_NR5G_NSA, "NSA"},
+        {TAF_RADIO_RAT_BIT_MASK_NR5G_SA,  "SA"},
+    };
+
+    for (uint8_t r = 0; r < NUM_ARRAY_MEMBERS(nrRats); r++)
+    {
+        result = taf_radio_GetNrBandPreferences(nrRats[r].ratMask, nrBand,
+            &nrBandSize, phoneId);
+        LE_TEST_OK(result == LE_OK,"taf_radio_GetNrBandPreferences - OK");
+        for (i = 0; i < nrBandSize; i++)
+        {
+            nrBandMask = nrBand[i];
+
+            for (j = 0; j < 64; j++)
+            {
+                if (nrBandMask & 0x1)
+                {
+                    LE_INFO("Phone %d NR5G %s band preferences (band %d)", phoneId,
+                        nrRats[r].name, i * 64 + j + 1);
+                }
+                nrBandMask = nrBandMask >> 1;
+            }
+        }
+
+        result = taf_radio_GetNrBandCapabilities(nrRats[r].ratMask, nrBand,
+            &nrBandSize, phoneId);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetNrBandCapabilities - OK");
+        for (i = 0; i < nrBandSize; i++)
+        {
+            nrBandMask = nrBand[i];
+
+            for (j = 0; j < 64; j++)
+            {
+                if (nrBandMask & 0x1)
+                {
+                    LE_INFO("Phone %d NR5G %s band capabilities (band %d)", phoneId,
+                        nrRats[r].name, i * 64 + j + 1);
+                }
+                nrBandMask = nrBandMask >> 1;
+            }
         }
     }
 }
@@ -3100,6 +3167,21 @@ COMPONENT_INIT
             }
             result = taf_radio_SetLteBandPreferences(band, TAF_RADIO_LTE_BAND_GROUP_NUM, phoneId);
             LE_TEST_OK(result == LE_OK, "taf_radio_SetLteBandPreferences - OK");
+        }
+        else if (strncmp(op, "NR", strlen("NR")) == 0)
+        {
+            CheckArgs(4 + TAF_RADIO_NR_BAND_GROUP_NUM);
+            taf_radio_RatBitMask_t ratMask =
+                (taf_radio_RatBitMask_t)strtoull(le_arg_GetArg(3), NULL, 16);
+            uint64_t band[TAF_RADIO_NR_BAND_GROUP_NUM];
+            uint8_t i;
+            for (i = 0; i < TAF_RADIO_NR_BAND_GROUP_NUM; i++)
+            {
+                band[i] = strtoull(le_arg_GetArg(4 + i), NULL, 16);
+            }
+            result = taf_radio_SetNrBandPreferences(ratMask, band,
+                TAF_RADIO_NR_BAND_GROUP_NUM, phoneId);
+            LE_TEST_OK(result == LE_OK, "taf_radio_SetNrBandPreferences - OK");
         }
         else if (strncmp(op, "status", strlen("status")) == 0)
         {

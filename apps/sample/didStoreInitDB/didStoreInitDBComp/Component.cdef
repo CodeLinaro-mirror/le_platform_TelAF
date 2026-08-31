@@ -1,0 +1,13 @@
+sources:
+{
+    didStoreInitDB.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_diagDidStore.api
+    }
+}
+

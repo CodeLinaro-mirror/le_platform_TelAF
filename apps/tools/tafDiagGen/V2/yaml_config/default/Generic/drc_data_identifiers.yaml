@@ -63,6 +63,7 @@ did_all:
         extended_diagnostic_session: [ R ]
       diagnostic_session_and_security_level:
         execution_authorization_pattern_read: base
+    functional_addressed: true
   0xF190:
     identification:
       code: 0xF190

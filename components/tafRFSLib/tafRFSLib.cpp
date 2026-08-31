@@ -263,6 +263,85 @@ static le_result_t SetFileMD5ToExtendedAttrValue(const char* filePath, const cha
     return LE_OK;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Durably persists a single file: its data and metadata (including the MD5 xattr) are flushed
+ * to stable storage. This is scoped to the given file only (no global sync), to keep the
+ * performance impact minimal while guaranteeing that the content and its integrity attribute
+ * are never lost across an unexpected power loss / reboot / suspend.
+ *
+ * @return LE_OK on success, LE_FAULT otherwise.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_result_t PersistFile(const char* filePath)
+{
+    int fd = open(filePath, O_RDONLY);
+    if (fd < 0)
+    {
+        LE_ERROR("Persist: failed to open %s: %s", filePath, strerror(errno));
+        return LE_FAULT;
+    }
+
+    // fsync flushes the file content AND this file's inode metadata, which includes
+    // the extended attribute (security.md5). It is scoped to this file only.
+    if (fsync(fd) != 0)
+    {
+        LE_ERROR("Persist: fsync failed for %s: %s", filePath, strerror(errno));
+        close(fd);
+        return LE_FAULT;
+    }
+
+    close(fd);
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Durably persists the directory entry of a file (e.g. after create/rename/unlink), so the
+ * file name -> inode mapping survives a power loss / reboot. Scoped to the parent directory only.
+ *
+ * @return LE_OK on success, LE_FAULT otherwise.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_result_t PersistParentDir(const char* filePath)
+{
+    char dirBuf[LIMIT_MAX_PATH_BYTES] = {0};
+    snprintf(dirBuf, sizeof(dirBuf), "%s", filePath);
+
+    char* lastSlash = strrchr(dirBuf, '/');
+    if (lastSlash == NULL)
+    {
+        return LE_OK;
+    }
+
+    if (lastSlash == dirBuf)
+    {
+        // file in root directory
+        lastSlash[1] = '\0';
+    }
+    else
+    {
+        *lastSlash = '\0';
+    }
+
+    int dfd = open(dirBuf, O_RDONLY | O_DIRECTORY);
+    if (dfd < 0)
+    {
+        LE_ERROR("Persist: failed to open dir %s: %s", dirBuf, strerror(errno));
+        return LE_FAULT;
+    }
+
+    if (fsync(dfd) != 0)
+    {
+        LE_ERROR("Persist: fsync failed for dir %s: %s", dirBuf, strerror(errno));
+        close(dfd);
+        return LE_FAULT;
+    }
+
+    close(dfd);
+    return LE_OK;
+}
+
 static le_result_t ValidateFileMD5WithExtendedAttr(const char* filePath)
 {
     char storedMd5Str[(MD5_DIGEST_LENGTH * 2) + 1] = {0};
@@ -422,6 +501,15 @@ static le_result_t ReplaceFileWithBackup(const char* filePath)
         return LE_FAULT;
     }
 
+    // Durably persist the restored primary file (content + MD5 xattr) and its directory entry,
+    // so the restore result survives an unexpected power loss / reboot. Scoped to this file/dir.
+    if (PersistFile(filePath) != LE_OK)
+    {
+        LE_ERROR("Failed to persist restored primary file %s", filePath);
+        return LE_FAULT;
+    }
+    PersistParentDir(filePath);
+
     return LE_OK;
 }
 
@@ -482,6 +570,16 @@ static le_result_t BackUpFileAndSELinuxContext(const char* sourcePath, const cha
 #endif
     close(inputFd);
     close(outputFd);
+
+    // Durably persist the freshly written backup file and its directory entry, so the backup
+    // (and later its MD5 xattr) cannot be lost on an unexpected power loss / reboot.
+    if (PersistFile(targetPath) != LE_OK)
+    {
+        LE_ERROR("Failed to persist backup file %s", targetPath);
+        return LE_FAULT;
+    }
+    PersistParentDir(targetPath);
+
     return LE_OK;
 }
 
@@ -595,6 +693,14 @@ static le_result_t BackupFileToStorage
     if (SetFileMD5ToExtendedAttrValue(backupPath, primaryMd5Str) != LE_OK)
     {
         LE_ERROR("Failed to set MD5 for backup file %s", backupPath);
+        return LE_FAULT;
+    }
+
+    // Persist the backup's MD5 xattr to stable storage. This is the critical step that
+    // prevents the "backup content present but MD5 xattr missing after reboot" failure.
+    if (PersistFile(backupPath) != LE_OK)
+    {
+        LE_ERROR("Failed to persist backup MD5 xattr for %s", backupPath);
         return LE_FAULT;
     }
 
@@ -876,15 +982,6 @@ extern "C" LE_SHARED int taf_rfs_Close
         hasWritePermission = ((flags & O_WRONLY) || (flags & O_RDWR));
     }
 
-    if (hasWritePermission)
-    {
-        if (fsync(fd) != 0)
-        {
-            LE_ERROR("Failed to fsync fd %d for %s", fd, actualPath);
-            return -1;
-        }
-    }
-
     int closeResult = close(fd);
     if (closeResult != 0)
     {
@@ -905,6 +1002,14 @@ extern "C" LE_SHARED int taf_rfs_Close
         if (SetFileMD5ToExtendedAttrValue(actualPath, primaryMd5Str) != LE_OK)
         {
             LE_ERROR("Failed to update MD5 for primary file %s", actualPath);
+            return -1;
+        }
+
+        // Persist the primary file's content + MD5 xattr to stable storage immediately, so a
+        // power loss / reboot right after this write cannot leave "content present, xattr lost".
+        if (PersistFile(actualPath) != LE_OK)
+        {
+            LE_ERROR("Failed to persist primary file %s", actualPath);
             return -1;
         }
 
@@ -1035,6 +1140,9 @@ int taf_rfs_Rename
     // Try POSIX rename()
     if (rename(sourcePath, destPath) == 0)
     {
+        // Persist the new directory entry (the renamed file name) so it survives a power loss.
+        PersistParentDir(destPath);
+
         DeleteBackup(sourcePath);
 
         BackupFileToStorage(destPath);

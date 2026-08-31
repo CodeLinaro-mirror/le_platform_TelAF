@@ -122,6 +122,31 @@ le_result_t tafMngdPMSvc::ParseJsonConfiguration(std::string configPath)
 }
 
 /**
+ * Map PM (TCU) state to node power state
+ */
+taf_mngdPm_NodePowerState_t tafMngdPMSvc::ToNodePowerStateFromPm(taf_pm_State_t state)
+{
+    switch (state)
+    {
+        case TAF_PM_STATE_RESUME:   return TAF_MNGDPM_NODE_STATE_RESUME;
+        case TAF_PM_STATE_SUSPEND:  return TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE;
+        case TAF_PM_STATE_SHUTDOWN: return TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE;
+        case TAF_PM_STATE_RESTART:  return TAF_MNGDPM_NODE_STATE_RESTART_PREPARE;
+        default:                    return TAF_MNGDPM_NODE_STATE_RESUME;
+    }
+}
+
+/**
+ * Initialize service-wide current node state snapshot based on PMS
+ */
+void tafMngdPMSvc::InitializeCurrentNodePowerState()
+{
+    taf_pm_State_t pmState = taf_pm_GetPowerState();
+    currentNodePowerState = ToNodePowerStateFromPm(pmState);
+    LE_INFO("Initialized currentNodePowerState to %d ", currentNodePowerState);
+}
+
+/**
  * Set shutdown state to NAD
  */
 le_result_t tafMngdPMSvc::ShutdownNAD()
@@ -724,6 +749,26 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
                 CONTAINER_OF(nodePowerStateListHandlerPtr, taf_mngdPm_NodePowerStateCtxt_t, link);
         nodePowerStateListHandlerPtr = le_dls_PeekPrev(&nodePowerStateHandlerList, nodePowerStateListHandlerPtr);
         // Release the per-handler immediate-notify node state ref, if any
+        if (handlerCtxPtr->initialNodePowerState.nodeStateRef)
+        {
+            taf_NodePowerStateRef_t* nodeRefPtr =
+                (taf_NodePowerStateRef_t*) le_ref_Lookup(
+                    mpms.nodePowerStateRefMap,
+                    handlerCtxPtr->initialNodePowerState.nodeStateRef);
+
+            if (nodeRefPtr)
+            {
+                LE_INFO("Releasing initialNodePowerState ref %p for sessionRef %p",
+                    handlerCtxPtr->initialNodePowerState.nodeStateRef,
+                    handlerCtxPtr->initialNodePowerState.sessionRef);
+                le_ref_DeleteRef(
+                    mpms.nodePowerStateRefMap,
+                    handlerCtxPtr->initialNodePowerState.nodeStateRef);
+                le_mem_Release(nodeRefPtr);
+            }
+            handlerCtxPtr->initialNodePowerState.nodeStateRef = NULL;
+            handlerCtxPtr->initialNodePowerState.isAcked = false;
+        }
         LE_INFO("Clearing node power state handler for client sessionRef %p",
             handlerCtxPtr->sessionRef);
         le_ref_DeleteRef(mpms.nodePowerStateHandlerMap, handlerCtxPtr->handlerRef);
@@ -1114,6 +1159,98 @@ void tafMngdPMSvc::WakeSourceTimerHandler(le_timer_Ref_t timerRef)
     le_result_t res = ReleaseWakeLock();
     if(res == LE_OK)
         LE_INFO("ReleaseWakeLock after %ld msec timeout", mpms.config.bootup_awake_time);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert StayAwakeReason enum to a readable string.
+ */
+//-------------------------------------------------------------------------------------------------
+static const char* StayAwakeReasonToStr(taf_mngdPm_StayAwakeReason_t reason)
+{
+    switch (reason)
+    {
+        case TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL:           return "STAY_AWAKE_REASON_NORMAL";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE:     return "STAY_AWAKE_REASON_ECALL_ACTIVE";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_CALLBACK:   return "STAY_AWAKE_REASON_ECALL_CALLBACK";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_SW_UPDATE:        return "STAY_AWAKE_REASON_SW_UPDATE";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VEH_NETWORK:      return "STAY_AWAKE_REASON_VEH_NETWORK";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_1:         return "STAY_AWAKE_REASON_VENDOR_1";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_2:         return "STAY_AWAKE_REASON_VENDOR_2";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_3:         return "STAY_AWAKE_REASON_VENDOR_3";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_4:         return "STAY_AWAKE_REASON_VENDOR_4";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_5:         return "STAY_AWAKE_REASON_VENDOR_5";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_6:         return "STAY_AWAKE_REASON_VENDOR_6";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_7:         return "STAY_AWAKE_REASON_VENDOR_7";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_8:         return "STAY_AWAKE_REASON_VENDOR_8";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_9:         return "STAY_AWAKE_REASON_VENDOR_9";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_10:        return "STAY_AWAKE_REASON_VENDOR_10";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_11:        return "STAY_AWAKE_REASON_VENDOR_11";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_12:        return "STAY_AWAKE_REASON_VENDOR_12";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_13:        return "STAY_AWAKE_REASON_VENDOR_13";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_14:        return "STAY_AWAKE_REASON_VENDOR_14";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_15:        return "STAY_AWAKE_REASON_VENDOR_15";
+        case TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_16:        return "STAY_AWAKE_REASON_VENDOR_16";
+        default:                                             return "STAY_AWAKE_REASON_UNKNOWN";
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Periodic timer handler: dumps all wake source state to LE_DEBUG every 10 seconds.
+ */
+//-------------------------------------------------------------------------------------------------
+void tafMngdPMSvc::WsDumpTimerHandler(le_timer_Ref_t timerRef)
+{
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    size_t listCount = le_dls_NumLinks(&mpms.wsRefList);
+
+    LE_DEBUG("[>] WakeSource Dump (wsTotal=%zu, acquiredCount=%d, awakeReasonMask=0x%08X)",
+             listCount, (int)mpms.wsCount, (unsigned int)mpms.stayAwakeReasonMask.to_ulong());
+
+    // pmVHAL — always shown; no IPC session, no reason, always authorized
+    LE_DEBUG("[*] pmVHAL");
+    LE_DEBUG("    %-8s : %s", "acquired", (mpms.vhalWsState == WAKE_SOURCE_ACQUIRED) ? "yes" : "no");
+    LE_DEBUG("    %-8s : %s", "auth", "Authorized");
+
+    // Regular wake sources
+    le_dls_Link_t* linkPtr = le_dls_PeekTail(&mpms.wsRefList);
+    int idx = 0;
+    while (linkPtr)
+    {
+        taf_wsRefCtx_t* wsRefCtxPtr = CONTAINER_OF(linkPtr, taf_wsRefCtx_t, link);
+        linkPtr = le_dls_PeekPrev(&mpms.wsRefList, linkPtr);
+        if (!wsRefCtxPtr) { continue; }
+        ++idx;
+
+        bool isAuth = (wsRefCtxPtr->reason < 32) && mpms.stayAwakeReasonMask.test(wsRefCtxPtr->reason);
+
+        const char* procName = "unknown";
+        pid_t       pid      = -1;
+        if (wsRefCtxPtr->sessionRef)
+        {
+            taf_mngdPm_SessionNode_t* sn = (taf_mngdPm_SessionNode_t*)
+                le_hashmap_Get(mpms.mngdPmClientInfo.clients, wsRefCtxPtr->sessionRef);
+            if (sn) { procName = sn->name; pid = sn->procId; }
+        }
+
+        char reasonStr[48];
+        snprintf(reasonStr, sizeof(reasonStr), "%s(%d)",
+                 StayAwakeReasonToStr(wsRefCtxPtr->reason), (int)wsRefCtxPtr->reason);
+
+        char pidStr[16];
+        if (pid >= 0) { snprintf(pidStr, sizeof(pidStr), "%d", (int)pid); }
+        else          { snprintf(pidStr, sizeof(pidStr), "N/A"); }
+
+        LE_DEBUG(" ");
+        LE_DEBUG("[%d] %s", idx, wsRefCtxPtr->wsTag ? wsRefCtxPtr->wsTag : "(null)");
+        LE_DEBUG("    %-8s : %s",  "acquired", (wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_ACQUIRED) ? "yes" : "no");
+        LE_DEBUG("    %-8s : %s",  "reason",   reasonStr);
+        LE_DEBUG("    %-8s : %s",  "auth",     isAuth ? "Authorized" : "Unauthorized");
+        LE_DEBUG("    %-8s : %p",  "session",  wsRefCtxPtr->sessionRef);
+        LE_DEBUG("    %-8s : %s",  "process",  procName);
+        LE_DEBUG("    %-8s : %s",  "pid",      pidStr);
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1779,7 +1916,6 @@ bool tafMngdPMSvc::IsConfiguredBitMask(taf_mngdPm_NodePowerState_t state, taf_mn
     }
     else
     {
-        LE_ERROR("IsConfiguredBitMask: false");
         isSameBitMask = false;
     }
     LE_INFO("IsConfiguredBitMask: %d", isSameBitMask);
@@ -1910,6 +2046,10 @@ void tafMngdPMSvc::NodePowerStateChanged(void* reportPtr)
 {
     TAF_ERROR_IF_RET_NIL(reportPtr == nullptr, "Null ptr(reportPtr)");
     taf_mngdPm_NodePowerStateChange_t* powerStateChange =(taf_mngdPm_NodePowerStateChange_t*)reportPtr;
+
+    // Update the service-wide snapshot when MPMS receives node power state change events.
+    currentNodePowerState = powerStateChange->state;
+
     if(powerStateChange->state == TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE)
     {
         CallNodePowerStateHandlerFunc(powerStateChange->state);
@@ -2170,6 +2310,8 @@ std::bitset<32>  tafMngdPMSvc::previousStayAwakeReasonMask;
 //resources for clients state change acknowledgement
 le_timer_Ref_t tafMngdPMSvc::stateChangeAckTimerRef;
 taf_mngdPm_NodePowerState_t tafMngdPMSvc::currentStateChangePtr;
+
+le_timer_Ref_t tafMngdPMSvc::wsDumpTimerRef = nullptr;
 
 le_mem_PoolRef_t tafMngdPMSvc::cbHandlerPool;
 le_ref_MapRef_t tafMngdPMSvc::cbLocalMap;

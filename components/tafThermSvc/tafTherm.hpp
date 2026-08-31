@@ -116,6 +116,7 @@ typedef struct
 
             static taf_Therm& GetInstance();
             void Init();
+            static void SigTermEventHandler(int sigNum);
 
             le_mem_PoolRef_t cDevListPool;
             le_mem_PoolRef_t cDevPool;

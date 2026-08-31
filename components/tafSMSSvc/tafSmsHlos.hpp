@@ -173,7 +173,7 @@ LE_SHARED taf_sms_LockStatus_t taf_sms_hlos_GetLockStatus(
  * Store new message to HLOS storage
  */
 //--------------------------------------------------------------------------------------------------
-LE_SHARED void taf_sms_hlos_StoreNewMsgToHLOS(void* newMsg);
+LE_SHARED le_result_t taf_sms_hlos_StoreNewMsgToHLOS(void* newMsg);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -188,8 +188,8 @@ LE_SHARED le_result_t taf_sms_hlos_EncryptFromStorage(taf_sms_Storage_t storage,
  * Store delivered message to HLOS storage
  */
 //--------------------------------------------------------------------------------------------------
-uint32_t taf_sms_hlos_storeRxMsg(uint8_t pduData[TAF_SMS_PDU_BYTES],
-    uint32_t dataLen, uint32_t* index);
+le_result_t taf_sms_hlos_storeRxMsg(uint8_t pduData[TAF_SMS_PDU_BYTES],
+    uint32_t dataLen, uint32_t* index, uint32_t* occupiedSlot);
 
 //--------------------------------------------------------------------------------------------------
 /**

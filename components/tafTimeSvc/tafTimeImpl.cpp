@@ -8,6 +8,7 @@
 #include "taf_gptpTime.h"
 #include <time.h>
 #include <sstream>
+#include <atomic>
 
 using namespace tafsvc;
 using namespace std;
@@ -26,13 +27,13 @@ taf_SourceInf_t *LatestTimeSourceInfo;
  * Global variables for logic control.
  */
 //--------------------------------------------------------------------------------------------------
-bool GnssErrStatusUpdateFlag = true;
+std::atomic<bool> GnssErrStatusUpdateFlag{true};
 le_result_t GnssBaseDataIntStatus = LE_UNAVAILABLE;
-le_result_t InitGnssTimeStatus = LE_UNAVAILABLE;
+std::atomic<le_result_t> InitGnssTimeStatus{LE_UNAVAILABLE};
 
 le_result_t NetworkBaseDataIntStatus = LE_UNAVAILABLE;
-le_result_t InitNetwork1Status = LE_UNAVAILABLE;
-le_result_t InitNetwork2Status = LE_UNAVAILABLE;
+std::atomic<le_result_t> InitNetwork1Status{LE_UNAVAILABLE};
+std::atomic<le_result_t> InitNetwork2Status{LE_UNAVAILABLE};
 
 le_result_t RtcVhalIntStatus = LE_UNAVAILABLE;
 le_result_t RtcAsyncBaseDataIntStatus = LE_UNAVAILABLE;
@@ -41,13 +42,27 @@ le_result_t MssConnectStatusMainThread = LE_FAULT;
 
 le_thread_Ref_t SyncTimeThreadRef = NULL;
 
+// Serializes calls into the VHAL async-RTC request API. 'GetRtcTimeReqAsync' is reachable
+// from BOTH the main thread (client API 'taf_time_GetRtcTimeReqAsync') and SyncTimeThread
+// ('SyncTimeTasks' / 'SyncTimeTimerHandler'). This guards the single 'getRTCCBtoClient'
+// callback slot and serializes the driver invocation so the two threads cannot enter the
+// VHAL request concurrently.
+static std::mutex RtcAsyncReqMutex;
+
 static bool IsPmStateChangeHandlerRegistered = false;
-taf_pm_State_t PowerSuspendResumeState = TAF_PM_STATE_RESUME;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Last known tafPMSvc power state.
+ *
+ * Written by PowerStateChangeHandler() on the main thread and read by SyncTimeTimerHandler() on the
+ * SyncTimeThread, so it must be atomic.
+ */
+//--------------------------------------------------------------------------------------------------
+std::atomic<taf_pm_State_t> PowerSuspendResumeState{TAF_PM_STATE_RESUME};
 
 taf_time_setRTCCb_t tafsvc::taf_Time::setRTCCBtoClient;
 taf_time_getRTCCb_t tafsvc::taf_Time::getRTCCBtoClient;
-
-pthread_mutex_t ProtectlocalTime_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -75,17 +90,19 @@ taf_Time &taf_Time::GetInstance()
  */
 //--------------------------------------------------------------------------------------------------
 void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr);
+static bool TryConnectPmService(void);
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Helper function to stop a timer.
+ * Helper function to release a timer and clear the caller's reference.
+ * @note Legato timers are thread-affine. Call this from the thread that created the timer.
  */
 //--------------------------------------------------------------------------------------------------
-static inline void _StopTimerIfRunning(le_timer_Ref_t& ref)
+static inline void ReleaseTimer(le_timer_Ref_t& ref)
 {
     if (ref != nullptr)
     {
-        le_timer_Stop(ref);
+        le_timer_Delete(ref);
         ref = nullptr;
     }
 }
@@ -287,8 +304,6 @@ le_result_t ReadWriteDeltaTime
         return LE_BAD_PARAMETER;
     }
 
-    pthread_mutex_lock(&ProtectlocalTime_mutex);
-
     switch (ReadWriteType)
     {
         case TAF_TIME_DATA_READ:
@@ -311,8 +326,6 @@ le_result_t ReadWriteDeltaTime
             LE_ERROR("Unownk type %d\n", ReadWriteType);
             break;
     }
-
-    pthread_mutex_unlock(&ProtectlocalTime_mutex);
 
     return result;
 }
@@ -458,7 +471,6 @@ void SourceValidityUpdate(bool validity, taf_time_TimeSources_t sourceId)
 //--------------------------------------------------------------------------------------------------
 void NetworkTimeResponseUpdateHandler(void* param)
 {
-    auto &tafTime = taf_Time::GetInstance();
     NetworkInfoUpdateArgs_t* networkInfo = (NetworkInfoUpdateArgs_t*) param;
     if (networkInfo == NULL)
     {
@@ -466,8 +478,13 @@ void NetworkTimeResponseUpdateHandler(void* param)
         return;
     }
 
-    tafTime.NetworkTimeResponseUpdate(networkInfo->sourceId,
-         networkInfo->info, networkInfo->error);
+    taf_time_TimeSources_t sourceId = networkInfo->sourceId;
+    taf_time_NetTimeInfo_t info = networkInfo->info;
+    le_result_t error = networkInfo->error;
+    delete networkInfo;
+
+    auto &tafTime = taf_Time::GetInstance();
+    tafTime.NetworkTimeResponseUpdate(sourceId, info, error);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -482,17 +499,15 @@ void Network1RespPAHandler
     taf_pa_result_t error            ///< [IN] Error code.
 )
 {
-    auto &tafTime = taf_Time::GetInstance();
-
-    tafTime.NetworkUpdateInfo1.sourceId = TAF_TIME_SRC_NAME_NETWORK;
-    tafTime.NetworkUpdateInfo1.error = (le_result_t)error;
-    tafTime.NetworkUpdateInfo1.info = info;
-    tafTime.NetworkUpdateInfo1.slotId = slotId;
+    NetworkInfoUpdateArgs_t* NetworkUpdateInfo1 = new NetworkInfoUpdateArgs_t();
+    NetworkUpdateInfo1->sourceId = TAF_TIME_SRC_NAME_NETWORK;
+    NetworkUpdateInfo1->error = (le_result_t)error;
+    NetworkUpdateInfo1->info = info;
+    NetworkUpdateInfo1->slotId = slotId;
 
     le_event_QueueFunctionToThread(mainThreadRef,
         (le_event_DeferredFunc_t)NetworkTimeResponseUpdateHandler,
-        &tafTime.NetworkUpdateInfo1, NULL);
-
+        NetworkUpdateInfo1, NULL);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -507,15 +522,15 @@ void Network2RespPAHandler
     taf_pa_result_t error            ///< [IN] Error code.
 )
 {
-    auto &tafTime = taf_Time::GetInstance();
-    tafTime.NetworkUpdateInfo2.sourceId = TAF_TIME_SRC_NAME_NETWORK2;
-    tafTime.NetworkUpdateInfo2.error = (le_result_t)error;
-    tafTime.NetworkUpdateInfo2.info = info;
-    tafTime.NetworkUpdateInfo2.slotId = slotId;
+    NetworkInfoUpdateArgs_t* NetworkUpdateInfo2 = new NetworkInfoUpdateArgs_t();
+    NetworkUpdateInfo2->sourceId = TAF_TIME_SRC_NAME_NETWORK2;
+    NetworkUpdateInfo2->error = (le_result_t)error;
+    NetworkUpdateInfo2->info = info;
+    NetworkUpdateInfo2->slotId = slotId;
 
     le_event_QueueFunctionToThread(mainThreadRef,
         (le_event_DeferredFunc_t)NetworkTimeResponseUpdateHandler,
-        &tafTime.NetworkUpdateInfo2, NULL);
+        NetworkUpdateInfo2, NULL);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -539,13 +554,15 @@ void NetworkTimeChangeHandlerInfoUpdate(void* param)
         // 1. Don't use the destructor of "taf_Time::".
         // 2. Need to exit at once before sending another event to event loop.
         LE_DEBUG("The 'network status' was not ready, do nothing.");
+        delete handleData;
         return;
     }
 
-    auto &tafTime = taf_Time::GetInstance();
-
     taf_time_NetTimeInfo_t info = handleData->info;
     int slotId = handleData->slotId;
+    delete handleData;
+
+    auto &tafTime = taf_Time::GetInstance();
 
     taf_time_TimeSpec_t timeVal = {0};
     taf_time_TimeSources_t sourceId;
@@ -589,19 +606,86 @@ void OnNetworkTimeChangePAHandler
     int slotId
 )
 {
-    auto &tafTime = taf_Time::GetInstance();
-
-    tafTime.NetworkHandlerInfo.info = info;
-    tafTime.NetworkHandlerInfo.slotId = slotId;
+    NetworkInfoUpdateArgs_t* networkHandlerInfo = new NetworkInfoUpdateArgs_t();
+    networkHandlerInfo->info = info;
+    networkHandlerInfo->slotId = slotId;
 
     le_event_QueueFunctionToThread(mainThreadRef,
         (le_event_DeferredFunc_t)NetworkTimeChangeHandlerInfoUpdate,
-        &tafTime.NetworkHandlerInfo, NULL);
+        networkHandlerInfo, NULL);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deregister the GNSS time listener on SyncTimeThread.
+ * PA APIs may hang - must never be called directly from Main Thread.
+ */
+//--------------------------------------------------------------------------------------------------
+static void DeregGnssTimeListenerOnSyncThread(void* param)
+{
+    if (InitGnssTimeStatus != LE_OK)
+    {
+        return;
+    }
+
+    taf_Time& tafTime = taf_Time::GetInstance();
+
+    // Keep all GNSS listener de-registration operations on SyncTimeThread.
+    tafTime.DeregGnssTimeListener();
+}
+
+static void QueueDeregGnssTimeListenerToSyncThread(void)
+{
+    if (SyncTimeThreadRef == NULL)
+    {
+        LE_WARN("SyncTimeThreadRef is NULL, cannot deregister GNSS time listener");
+        return;
+    }
+
+    le_event_QueueFunctionToThread(SyncTimeThreadRef,
+        (le_event_DeferredFunc_t)DeregGnssTimeListenerOnSyncThread, NULL, NULL);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Register network time listeners on SyncTimeThread.
+ * PA APIs may hang - must never be called directly from Main Thread.
+ */
+//--------------------------------------------------------------------------------------------------
+static void RegNetworkListenersOnSyncThread(void* param)
+{
+    if (InitNetwork1Status == LE_OK)
+    {
+        taf_pa_time_RegNetworkTimeListener(NETWORK_SLOT_1);
+    }
+    if (InitNetwork2Status == LE_OK)
+    {
+        taf_pa_time_RegNetworkTimeListener(NETWORK_SLOT_2);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deregister network time listeners on SyncTimeThread.
+ * PA APIs may hang - must never be called directly from Main Thread.
+ */
+//--------------------------------------------------------------------------------------------------
+static void DeregNetworkListenersOnSyncThread(void* param)
+{
+    if (InitNetwork1Status == LE_OK)
+    {
+        taf_pa_time_DeregNetworkTimeListener(NETWORK_SLOT_1);
+    }
+    if (InitNetwork2Status == LE_OK)
+    {
+        taf_pa_time_DeregNetworkTimeListener(NETWORK_SLOT_2);
+    }
 }
 
 void GnssUtcTimeUpdateHandler(void* param)
 {
-    GnssEvent_t* gEvt = static_cast<GnssEvent_t*>(param);
+    GnssEvent_t* gEvt = (GnssEvent_t*) param;
+
     if (gEvt == NULL)
     {
         LE_ERROR("gEvt pointer is NULL");
@@ -632,15 +716,15 @@ void GnssUtcTimeUpdateHandler(void* param)
         // Set both validity and availability to true, clean the failed loops.
         tafTime.SourceStatusUpdate(LE_OK, true, sourceId);
         tafTime.ReportTimeValueChange(TAF_TIME_SRC_NAME_GNSS, timeVal, NULL);
-        tafTime.DeregGnssTimeListener();
+        le_mem_Release(gEvt);
+        QueueDeregGnssTimeListenerToSyncThread();
     }
     else
     {
         // Update the availability to false.
         tafTime.SourceStatusUpdate(LE_FAULT, false, sourceId);
+        le_mem_Release(gEvt);
     }
-
-    le_mem_Release(gEvt);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -814,7 +898,6 @@ le_result_t taf_Time::ReadSourceConf
         LE_WARN("Source number: %ld, but we only accept: %d\n",
                                     arraySize, TAF_TIME_MAX_SOURCE_NUMBER);
     }
-    serviceCfg.sourceArrySize = arraySize;
     for (i = 0; i < arraySize; i++)
     {
         arrayData = json_array_get(sourceCfgArray, i);
@@ -1009,7 +1092,7 @@ void taf_Time::DeleteNotSupportedSource
 {
     std::vector<std::string> srcName;
 
-    for (int i = 0; i < serviceCfg.sourceArrySize; ++i)
+    for (size_t i = 0; i < serviceCfg.source.size(); ++i)
     {
         if (SourceNameStrToIndex(serviceCfg.source[i].sourceName.c_str())
                                             == TAF_TIME_SRC_NAME_UNKNOWN)
@@ -1189,14 +1272,14 @@ le_result_t taf_Time::GetRtcTime
             return LE_FAULT;
         }
 
-        if ((*(timeInf->getRtcTimeReqAsync)) != nullptr)
+        if (timeInf->getRtcTimeReqAsync != nullptr)
         {
             result = GetTimeFromLocalCache(timeValPtr, RtcAsyncDeltaTimePtr, TAF_TIME_SRC_NAME_RTC);
         }
-        else if ((*(timeInf->getRtcTimeHAL)) != nullptr)
+        else if (timeInf->getRtcTimeHAL != nullptr)
         {
             struct TimeSpec obj;
-            result = (*(timeInf->getRtcTimeHAL))(&obj);
+            result = timeInf->getRtcTimeHAL(&obj);
             if (result != LE_OK || obj.sec <= 0)
             {
                 LE_ERROR("getRtcTimeHAL failed, obj.sec: %" PRIu64 "", obj.sec);
@@ -1721,6 +1804,8 @@ void taf_Time::RemoveTimeValueChangeHandler
         LE_INFO("Removed tsrHandlerRef(%p).", handlerRef);
 
         // Free the handler.
+        tsrHandlerPtr->func = NULL;
+        tsrHandlerPtr->context = NULL;
         le_ref_DeleteRef(TimeRefMap, handlerRef);
         le_mem_Release(tsrHandlerPtr);
     }
@@ -1742,6 +1827,12 @@ void NotifyRefTimeClient
     TS_Event_t* tsEventPtr
 )
 {
+    if (tsEventPtr == NULL)
+    {
+        LE_ERROR("tsEventPtr is NULL");
+        return;
+    }
+
     taf_TimeInf_t* srcTimePtr = NULL;
     void* eventRef = tsEventPtr->ref;
     auto &tafTime = taf_Time::GetInstance();
@@ -2072,6 +2163,19 @@ bool isSecLableCreated(taf_time_TimeSources_t sourceId)
     return false;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Disconnect handler for tafMngdStorageSvc (taf_mngdStorSecData).
+ * Called when tafMngdStorageSvc crashes or exits. Resets the connection state so that the next
+ * call to isSecStorageConnected() will attempt to reconnect.
+ */
+//--------------------------------------------------------------------------------------------------
+static void MssDisconnectHandler(void* contextPtr)
+{
+    LE_WARN("tafMngdStorageSvc disconnected unexpectedly. Will attempt to reconnect.");
+    MssConnectStatusMainThread = LE_FAULT;
+}
+
 bool isSecStorageConnected(void)
 {
     if (MssConnectStatusMainThread == LE_OK)
@@ -2082,6 +2186,7 @@ bool isSecStorageConnected(void)
     MssConnectStatusMainThread = taf_mngdStorSecData_TryConnectService();
     if(MssConnectStatusMainThread == LE_OK)
     {
+        taf_mngdStorSecData_SetNonExitServerDisconnectHandler(MssDisconnectHandler, NULL);
         LE_INFO("Successfully connected to secure storage service");
         return true;
     }
@@ -2526,8 +2631,7 @@ le_result_t UpdateTimeAndValidity
     if (sourceId != TAF_TIME_SRC_NAME_RTC
         && RtcVhalIntStatus == LE_OK)
     {
-        le_event_QueueFunctionToThread(mainThreadRef,
-        (le_event_DeferredFunc_t)RtcTrustTimeUpdateHandler, NULL, NULL);
+        RtcTrustTimeUpdateHandler();
     }
 
     return LE_OK;
@@ -2902,7 +3006,6 @@ void InitializeSystemTimeAttr(void)
     LatestTimeSourceInfo->sessionRef = taf_time_GetClientSessionRef();
     LatestTimeSourceInfo->ref =
         (taf_time_SourceRef_t)le_ref_CreateRef(tafTime.SrcRefMap, LatestTimeSourceInfo);
-    LatestTimeSourceInfo->secStrgdataRef = nullptr;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -3109,10 +3212,77 @@ static bool IsRtcTrustInfoSyncedWithMss(void)
 }
 //--------------------------------------------------------------------------------------------------
 /**
+ * Retry timer handler to reconnect to tafPMSvc after an unexpected disconnection.
+ */
+//--------------------------------------------------------------------------------------------------
+static void PmSvcReconnectTimerHandler(le_timer_Ref_t timerRef)
+{
+    if (TryConnectPmService())
+    {
+        auto &tafTime = taf_Time::GetInstance();
+
+        LE_INFO("tafPMSvc reconnected successfully after %d attempt(s).",
+                (timerRef != NULL) ? (int)le_timer_GetExpiryCount(timerRef) : 0);
+
+        ReleaseTimer(tafTime.pmSvcReconnectTimerRef);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Start the tafPMSvc reconnect timer, if it is not started already.
+ */
+//--------------------------------------------------------------------------------------------------
+static void StartPmSvcReconnectTimer(void)
+{
+    auto &tafTime = taf_Time::GetInstance();
+
+    if (tafTime.pmSvcReconnectTimerRef != NULL)
+    {
+        // Already retrying.
+        return;
+    }
+
+    tafTime.pmSvcReconnectTimerRef = le_timer_Create("pmSvcReconnectTimer");
+    if (tafTime.pmSvcReconnectTimerRef == NULL)
+    {
+        LE_ERROR("Failed to create pmSvcReconnectTimer. tafPMSvc will not be reconnected.");
+        return;
+    }
+
+    le_timer_SetMsInterval(tafTime.pmSvcReconnectTimerRef, TAF_TIME_PM_RECONNECT_INTERVAL_MS);
+
+    // Retry indefinitely (0 = forever). Do not bound this: Legato would stop the timer once the
+    // count was exhausted while pmSvcReconnectTimerRef stayed non-NULL, so the guard above would
+    // treat tafPMSvc as "already retrying" and no later attempt would ever reconnect it.
+    le_timer_SetRepeat(tafTime.pmSvcReconnectTimerRef, 0);
+    le_timer_SetHandler(tafTime.pmSvcReconnectTimerRef, PmSvcReconnectTimerHandler);
+    le_timer_SetWakeup(tafTime.pmSvcReconnectTimerRef, false);
+    le_timer_Start(tafTime.pmSvcReconnectTimerRef);
+
+    LE_INFO("pmSvcReconnectTimer started, retrying every %d ms until tafPMSvc is back.",
+            TAF_TIME_PM_RECONNECT_INTERVAL_MS);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Disconnect handler for tafPMSvc.
+ * Called when tafPMSvc crashes or exits. Resets the connection state and starts the retry timer.
+ */
+//--------------------------------------------------------------------------------------------------
+static void PmSvcDisconnectHandler(void* contextPtr)
+{
+    LE_WARN("tafPMSvc disconnected unexpectedly. Will attempt to reconnect.");
+    IsPmStateChangeHandlerRegistered = false;
+
+    StartPmSvcReconnectTimer();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Try connecting to tafPMSvc and register the power state change handler.
  */
 //--------------------------------------------------------------------------------------------------
-
 static bool TryConnectPmService(void)
 {
     if (IsPmStateChangeHandlerRegistered)
@@ -3122,9 +3292,20 @@ static bool TryConnectPmService(void)
 
     if (taf_pm_TryConnectService() == LE_OK)
     {
-        taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
+        taf_pm_SetNonExitServerDisconnectHandler(PmSvcDisconnectHandler, NULL);
+
+        if (taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL) == NULL)
+        {
+            LE_ERROR("Failed to add the power state change handler. Will retry.");
+            return false;
+        }
+
         IsPmStateChangeHandlerRegistered = true;
         LE_INFO("Successfully connected to tafPMSvc");
+
+        // Replay the current state to recover any transition missed while disconnected.
+        PowerStateChangeHandler(taf_pm_GetPowerState(), NULL);
+
         return true;
     }
 
@@ -3191,6 +3372,14 @@ static void StartupRetryHandler
                  (int)(time),
                  IsPmStateChangeHandlerRegistered,
                  (RtcVhalIntStatus == LE_OK) ? IsRtcTrustInfoSyncedWithMss() : false);
+
+        if (!IsPmStateChangeHandlerRegistered)
+        {
+            LE_WARN("tafPMSvc was not reached in %d attempts, start retry timer.",
+                    TAF_TIME_START_UP_RETRY_COUNTER);
+
+            StartPmSvcReconnectTimer();
+        }
     }
 }
 
@@ -3275,7 +3464,6 @@ void InitTimeSource(void)
         src->isBaseStruct = true;
         src->sessionRef = NULL;
         src->ref = (taf_time_SourceRef_t)le_ref_CreateRef(tafTime.SrcRefMap, src);
-        src->secStrgdataRef = NULL;
     }
 
     // 4. Init GNSS time source base data.
@@ -3336,7 +3524,25 @@ void StopSyncTimeTasksThread(void)
     auto& tafTime = taf_Time::GetInstance();
     LE_INFO("StopSyncTimeTasksThread: stopping ...");
 
-    _StopTimerIfRunning(tafTime.syncTimeTimerRef);
+    ReleaseTimer(tafTime.syncTimeTimerRef);
+
+    if (InitGnssTimeStatus == LE_OK)
+    {
+        InitGnssTimeStatus = LE_UNAVAILABLE;
+        tafTime.DeregGnssTimeListener();
+    }
+
+    if (InitNetwork1Status == LE_OK)
+    {
+        InitNetwork1Status = LE_UNAVAILABLE;
+        taf_pa_time_DeregNetworkTimeListener(NETWORK_SLOT_1);
+    }
+
+    if (InitNetwork2Status == LE_OK)
+    {
+        InitNetwork2Status = LE_UNAVAILABLE;
+        taf_pa_time_DeregNetworkTimeListener(NETWORK_SLOT_2);
+    }
 
     le_thread_Exit(nullptr);
 }
@@ -3364,33 +3570,21 @@ static void TafSigTermEventHandler(int sigNum)
     }
 
     // Phase-2: main-thread resource cleanup
-    _StopTimerIfRunning(tafTime.sysTimeUdTimerRef);
-    _StopTimerIfRunning(tafTime.StartupRetryTimerRef);
+    ReleaseTimer(tafTime.sysTimeUdTimerRef);
+    ReleaseTimer(tafTime.StartupRetryTimerRef);
+    ReleaseTimer(tafTime.pmSvcReconnectTimerRef);
     IsPmStateChangeHandlerRegistered = false;
-
-
-    if (InitNetwork1Status == LE_OK)
-    {
-        InitNetwork1Status = LE_UNAVAILABLE;
-        taf_pa_time_DeregNetworkTimeListener(NETWORK_SLOT_1);
-    }
-
-    if (InitNetwork2Status == LE_OK)
-    {
-        InitNetwork2Status = LE_UNAVAILABLE;
-        taf_pa_time_DeregNetworkTimeListener(NETWORK_SLOT_2);
-    }
-
-    if (InitGnssTimeStatus == LE_OK)
-    {
-        InitGnssTimeStatus = LE_UNAVAILABLE;
-        tafTime.DeregGnssTimeListener();
-    }
 
     if (MssConnectStatusMainThread == LE_OK)
     {
         MssConnectStatusMainThread = LE_UNAVAILABLE;
         (void)taf_mngdStorSecData_DisconnectService();
+    }
+
+    taf_pa_result_t result = taf_pa_time_Deinit();
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("taf_pa_time_Deinit, err : %d", (int)result);
     }
 
     tafTime.ReleasePtpDevice();
@@ -3467,6 +3661,7 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
     le_event_RunLoop();
 
     LE_WARN("Warning: SyncTimeTasks exit!\n");
+    return NULL;
 }
 
 void StartSetTimeForSystem(void)
@@ -3478,10 +3673,6 @@ void StartSetTimeForSystem(void)
         return;
     }
 
-    if (TimeSourceConf.pollingInterval <= 0)
-    {
-        TimeSourceConf.pollingInterval = TAF_TIME_SECOND_PER_LOOP_DEFAULT;
-    }
     // Update the system time as quickly as possible.
     SystemTimeUpdateTimerHandler(NULL);
 
@@ -3976,10 +4167,8 @@ le_result_t taf_Time::RtcVhalInitStatus(void)
 
     // At least one API pair (async get/set or sync get/set) must be functional.
     // Return an error if neither pair works.
-    if (!( (*(timeInf->setRtcTimeHAL) && *(timeInf->getRtcTimeHAL)) ||
-            (*(timeInf->setRtcTimeReqAsync) && *(timeInf->getRtcTimeReqAsync))
-          )
-       )
+    if (!((timeInf->setRtcTimeHAL != nullptr && timeInf->getRtcTimeHAL != nullptr) ||
+          (timeInf->setRtcTimeReqAsync != nullptr && timeInf->getRtcTimeReqAsync != nullptr)))
     {
         LE_ERROR("Vhal API pair was not correctly implemented");
         return LE_UNAVAILABLE;
@@ -4003,8 +4192,9 @@ le_result_t taf_Time::InitAsyncRtcBaseData(void)
         return LE_UNAVAILABLE;
     }
 
-    if (*(timeInf->getRtcTimeReqAsync) == nullptr ||
-        *(timeInf->setRtcTimeReqAsync) == nullptr)
+    if (timeInf == nullptr ||
+        timeInf->getRtcTimeReqAsync == nullptr ||
+        timeInf->setRtcTimeReqAsync == nullptr)
     {
         LE_ERROR("The vhal async API pair is not correctly implemented");
         return LE_UNAVAILABLE;
@@ -4039,37 +4229,26 @@ void PowerStateChangeHandler
     auto &tafTime = taf_Time::GetInstance();
 
     PowerSuspendResumeState = state;
-    if (PowerSuspendResumeState == TAF_PM_STATE_RESUME)
+    if (state == TAF_PM_STATE_RESUME)
     {
         LE_DEBUG("Power state change to RESUME");
-        if (InitNetwork1Status == LE_OK)
+        // Queue network listener registration to SyncTimeThread.
+        if (SyncTimeThreadRef != NULL)
         {
-            taf_pa_time_RegNetworkTimeListener(NETWORK_SLOT_1);
+            le_event_QueueFunctionToThread(SyncTimeThreadRef,
+                (le_event_DeferredFunc_t)RegNetworkListenersOnSyncThread, NULL, NULL);
         }
-
-        if (InitNetwork2Status == LE_OK)
-        {
-            taf_pa_time_RegNetworkTimeListener(NETWORK_SLOT_2);
-        }
-
         tafTime.RegisterPtpDevice();
     }
-    else if (PowerSuspendResumeState == TAF_PM_STATE_SUSPEND)
+    else if (state == TAF_PM_STATE_SUSPEND)
     {
         LE_DEBUG("Power state change to SUSPEND");
-        if (InitNetwork1Status == LE_OK)
+        // Queue both network deregistration to SyncTimeThread.
+        if (SyncTimeThreadRef != NULL)
         {
-            taf_pa_time_DeregNetworkTimeListener(NETWORK_SLOT_1);
-        }
-
-        if (InitNetwork2Status == LE_OK)
-        {
-            taf_pa_time_DeregNetworkTimeListener(NETWORK_SLOT_2);
-        }
-
-        if (InitGnssTimeStatus == LE_OK)
-        {
-            tafTime.DeregGnssTimeListener();
+            le_event_QueueFunctionToThread(SyncTimeThreadRef,
+                (le_event_DeferredFunc_t)DeregNetworkListenersOnSyncThread, NULL, NULL);
+            QueueDeregGnssTimeListenerToSyncThread();
         }
         tafTime.ReleasePtpDevice();
     }
@@ -4168,10 +4347,17 @@ void getRtcTimeRespCbEvtHandler(const struct TimeSpec& timeVal, le_result_t resp
              response, rtcTime.sec, time.rtcDeltaMsec);
 
     // This part is for client only.
+    // Save and clear the callback before invoking it so that subsequent internal RTC
+    // requests (e.g. from SyncTimeTimerHandler) do not re-invoke a stale callback
+    // whose context may already have been freed by the client.
     if (time.getRTCCBtoClient.getRTCCallbackFunc)
     {
-        time.getRTCCBtoClient.getRTCCallbackFunc(&rtcTime, response,
-                                                              time.getRTCCBtoClient.getRTCCtxPtr);
+        taf_time_AsyncGetTimeReqHandlerFunc_t cb = time.getRTCCBtoClient.getRTCCallbackFunc;
+        void* ctx                                = time.getRTCCBtoClient.getRTCCtxPtr;
+        time.getRTCCBtoClient.getRTCCallbackFunc = NULL;
+        time.getRTCCBtoClient.getRTCCtxPtr       = NULL;
+        time.getRTCCBtoClient.sessionRef         = NULL;
+        cb(&rtcTime, response, ctx);
     }
 
     // This is part is for time service internal use.
@@ -4324,17 +4510,17 @@ le_result_t taf_Time::SetTimeToRtc
         return LE_UNSUPPORTED;
     }
 
-    if ((*(timeInf->setRtcTimeReqAsync)) != nullptr)
+    if (timeInf->setRtcTimeReqAsync != nullptr)
     {
         result = SetRtcTimeReqAsync(&timeVal, NULL, &setRtcTrustTimeRespCB, NULL);
     }
-    else if ((*(timeInf->setRtcTimeHAL)) != nullptr)
+    else if (timeInf->setRtcTimeHAL != nullptr)
     {
         struct TimeSpec time;
         time.sec = timeVal.sec;
         time.nanosec = timeVal.nanosec;
 
-        result = (*(timeInf->setRtcTimeHAL))(time);
+        result = timeInf->setRtcTimeHAL(time);
         setRtcTrustTimeValidityHandler(result);
     }
     else
@@ -4353,6 +4539,11 @@ le_result_t taf_Time::GetRtcTimeReqAsync
 {
     le_result_t result = LE_UNSUPPORTED;
 
+    // Serialize the whole request: this function runs on both the main thread (client API)
+    // and SyncTimeThread (internal sync). The lock protects the shared 'getRTCCBtoClient'
+    // slot and prevents the two threads from invoking the VHAL request concurrently.
+    std::lock_guard<std::mutex> lock(RtcAsyncReqMutex);
+
     if (RtcAsyncBaseDataIntStatus != LE_OK)
     {
      // This function "GetRtcTimeReqAsync" may be called directly by the external API
@@ -4365,17 +4556,24 @@ le_result_t taf_Time::GetRtcTimeReqAsync
 
     if (isDrvPresent)
     {
-        if ((timeInf == nullptr) || ((*(timeInf->getRtcTimeReqAsync)) == nullptr))
+        if ((timeInf == nullptr) || (timeInf->getRtcTimeReqAsync == nullptr))
         {
             LE_ERROR("getRtcTimeHAL not initialized - Async");
             return LE_BAD_PARAMETER;
         }
 
-        (taf_Time::getRTCCBtoClient).getRTCCallbackFunc = toClientHandlerPtr;
-        (tafsvc::taf_Time::getRTCCBtoClient).getRTCCtxPtr = contextPtr;
-        (tafsvc::taf_Time::getRTCCBtoClient).sessionRef = taf_time_GetClientSessionRef();
+        // Only update the client callback when a real callback is provided.
+        // Internal calls from SyncTimeThread always pass nullptr and must NOT overwrite
+        // a pending client callback, and must NOT call taf_time_GetClientSessionRef()
+        // from a non-main thread.
+        if (toClientHandlerPtr != NULL)
+        {
+            (taf_Time::getRTCCBtoClient).getRTCCallbackFunc = toClientHandlerPtr;
+            (tafsvc::taf_Time::getRTCCBtoClient).getRTCCtxPtr = contextPtr;
+            (tafsvc::taf_Time::getRTCCBtoClient).sessionRef = taf_time_GetClientSessionRef();
+        }
 
-        result = (*(timeInf->getRtcTimeReqAsync))(taf_Time::getRtcTimeRespCB);
+        result = timeInf->getRtcTimeReqAsync(taf_Time::getRtcTimeRespCB);
     }
     else
     {
@@ -4410,7 +4608,7 @@ le_result_t taf_Time::SetRtcTimeReqAsync
 
     if (isDrvPresent)
     {
-        if ((timeInf == NULL) || ((*(timeInf->setRtcTimeReqAsync)) == NULL))
+        if ((timeInf == NULL) || (timeInf->setRtcTimeReqAsync == NULL))
         {
             LE_ERROR("setRtcTimeReqAsync not initialized");
             return LE_FAULT;
@@ -4424,7 +4622,7 @@ le_result_t taf_Time::SetRtcTimeReqAsync
         timeSpec.sec = timeValPtr->sec;
         timeSpec.nanosec = timeValPtr->nanosec;
 
-        result = (*(timeInf->setRtcTimeReqAsync))(&timeSpec, cbFromClient);
+        result = timeInf->setRtcTimeReqAsync(&timeSpec, cbFromClient);
     }
     else
     {
@@ -4818,7 +5016,6 @@ le_result_t taf_Time::CheckSetValidityPermission(void)
             {
                LE_INFO("App '%s' is in the client valid list", appName);
                return LE_OK;
-               break;
             }
         }
     }
@@ -4840,12 +5037,6 @@ le_result_t taf_Time::WriteValidtyToSecStorage(taf_SourceInf_t* sourcePtr, bool 
     taf_mngdStorSecData_DataRef_t dataRef =
         taf_mngdStorSecData_GetDataRef(SourceNameIndexToStr(sourcePtr->sourceId));
     TAF_ERROR_IF_RET_VAL(dataRef == nullptr, LE_NOT_FOUND, "data ref does not exist");
-
-    // Updating reference for time source if NULL
-    if(sourcePtr->secStrgdataRef == nullptr)
-    {
-        sourcePtr->secStrgdataRef = dataRef;
-    }
 
     res = taf_mngdStorSecData_WriteDataStart(dataRef);
     if(res != LE_OK)
@@ -4882,6 +5073,7 @@ le_result_t taf_Time::ReadValidityFromSecStorage
 {
     le_result_t res;
     TAF_ERROR_IF_RET_VAL(sourcePtr == NULL, LE_BAD_PARAMETER, "sourcePtr is NULL");
+    TAF_ERROR_IF_RET_VAL(validity == NULL, LE_BAD_PARAMETER, "validity is NULL");
 
     taf_mngdStorSecData_DataRef_t dataRef =
         taf_mngdStorSecData_GetDataRef(SourceNameIndexToStr(sourcePtr->sourceId));
@@ -4890,12 +5082,6 @@ le_result_t taf_Time::ReadValidityFromSecStorage
         LE_DEBUG("MSS storage reference not found for %s time source",
             SourceNameIndexToStr(sourcePtr->sourceId));
         return LE_NOT_FOUND;
-    }
-
-    // Updating reference for time source if NULL
-    if(sourcePtr->secStrgdataRef == nullptr)
-    {
-        sourcePtr->secStrgdataRef = dataRef;
     }
 
     uint8_t readBuf;
@@ -4967,6 +5153,11 @@ void taf_Time::Init(void)
     }
 
     InitTimeSource();
+
+    if (TimeSourceConf.pollingInterval <= 0)
+    {
+        TimeSourceConf.pollingInterval = TAF_TIME_SECOND_PER_LOOP_DEFAULT;
+    }
 
     // 3. Create thread for runtime sync time.
     SyncTimeThreadRef = le_thread_Create("SyncTimeThread", SyncTimeTasks, NULL);

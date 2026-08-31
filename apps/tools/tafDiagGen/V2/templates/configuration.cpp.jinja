@@ -426,6 +426,20 @@ EXPORT_SYM const DidEntry& get_did_entry(uint16_t did_code)
     return it->second;          // const DidEntry&
 }
 
+EXPORT_SYM bool IsDidFunctionalAddressed(uint16_t did_code)
+{
+    NEED_INITED();
+
+    auto it = diagConf.did_all.find(static_cast<int>(did_code));
+    if (it == diagConf.did_all.end())
+    {
+        LE_WARN("DID 0x%X not found in configuration", did_code);
+        return false;
+    }
+
+    return it->second.functional_addressed;
+}
+
 EXPORT_SYM const EventEntry& get_event_entry(uint16_t event_id)
 {
     NEED_INITED();
@@ -583,6 +597,20 @@ EXPORT_SYM bool IsIDPSSupported(uint16_t sid)
     }
 
     return it->second.IDPS_supported;
+}
+
+EXPORT_SYM bool IsServiceFunctionalAddressed(uint16_t sid)
+{
+    NEED_INITED();
+
+    auto it = diagConf.services_all.find(std::to_string(sid));
+    if (it == diagConf.services_all.end())
+    {
+        LE_WARN("Service 0x%X not found in configuration", sid);
+        return false;
+    }
+
+    return it->second.functional_addressed;
 }
 
 EXPORT_SYM bool is_authentication_supported(uint16_t sid)

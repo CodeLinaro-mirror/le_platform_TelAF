@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -27,6 +27,40 @@ taf_radio_CellInfoChangeHandlerRef_t cellInfoChangeHandlerRef;
 taf_radio_NrIconTypeHandlerRef_t nrIconTypeHandlerRef;
 taf_radio_CAInfoHandlerRef_t lteCaInfoHandlerRef;
 taf_radio_ConnectionStatusHandlerRef_t connStatusHandlerRef;
+taf_radio_ServiceStatusChangeHandlerRef_t ratSvcStatusHandlerRefA; ///< Client A: configurable mask.
+taf_radio_ServiceStatusChangeHandlerRef_t ratSvcStatusHandlerRefB; ///< Client B: configurable mask.
+taf_radio_ServiceStatusChangeHandlerRef_t ratSvcStatusHandlerRefC; ///< Client C: all masks (reference).
+taf_radio_ServiceStatusBitMask_t ratSvcStatusBitMaskA; ///< Registered mask for Client A.
+taf_radio_ServiceStatusBitMask_t ratSvcStatusBitMaskB; ///< Registered mask for Client B.
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Context structure for a configurable ServiceStatus client.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    const char*                      name;    ///< Client name shown in logs (e.g. "ClientA").
+    taf_radio_ServiceStatusBitMask_t mask;    ///< Registered bitmask.
+    uint8_t                          phoneId; ///< Phone ID filter. 0 means all phones.
+} RatSvcClientCtx_t;
+
+static RatSvcClientCtx_t ratSvcClientCtxA; ///< Context for Client A.
+static RatSvcClientCtx_t ratSvcClientCtxB; ///< Context for Client B.
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Context structure passed to HandlerTestThread.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_sem_Ref_t             semaphore; ///< Semaphore to signal thread is ready.
+    taf_radio_ServiceStatusBitMask_t maskA;    ///< Bitmask for Client A.
+    taf_radio_ServiceStatusBitMask_t maskB;    ///< Bitmask for Client B.
+    uint8_t                  phoneIdA;  ///< Phone ID filter for Client A. 0 means all phones.
+    uint8_t                  phoneIdB;  ///< Phone ID filter for Client B. 0 means all phones.
+} HandlerTestThreadCtx_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -62,7 +96,8 @@ void PrintHelpMenu
         "band <phone> <rat|status> [<band_bitmask>]\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
         "ims <phone> <mode> [<service>|<user_agent>]\n"
-        "    app runProc tafRadioIntTest tafRadioIntTest -- handler\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- handler <time>"
+        " [--maskA=<hex>] [--maskB=<hex>] [--phoneIdA=<id>] [--phoneIdB=<id>]\n"
         "\n"
         "DESCRIPTION:\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- help\n"
@@ -163,12 +198,34 @@ void PrintHelpMenu
         "       service    : 'registation', 'voip', 'vonr', 'rtt' or 'sms'.\n"
         "       user_agent : user agent string.\n"
         "\n"
-        "    app runProc tafRadioIntTest tafRadioIntTest -- handler <time>\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- handler <time>"
+        " [--maskA=<hex>] [--maskB=<hex>] [--phoneIdA=<id>] [--phoneIdB=<id>]\n"
         "       Handler for network changes, can test with 'cm radio' configurations.\n"
-        "       time : monitor time in seconds.\n"
+        "       time               : monitor time in seconds.\n"
+        "       --maskA=<hex>      : hex bitmask for Client A (optional, default 0x1 = NO_SERVICE).\n"
+        "       --maskB=<hex>      : hex bitmask for Client B (optional, default 0x4 = SERVICE).\n"
+        "       --phoneIdA=<id>    : phone ID filter for Client A (optional, default 0 = all phones).\n"
+        "       --phoneIdB=<id>    : phone ID filter for Client B (optional, default 0 = all phones).\n"
+        "       Named options can be given in any order and are all optional.\n"
+        "       Client C always registers all masks and all phones as reference.\n"
+        "       Bitmask values:\n"
+        "           NO_SERVICE       : 0x1.\n"
+        "           LIMITED          : 0x2.\n"
+        "           SERVICE          : 0x4.\n"
+        "           LIMITED_REGIONAL : 0x8.\n"
+        "           POWER_SAVE       : 0x10.\n"
+        "           ALL              : 0x1f.\n"
         "\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- cellularCapability <phone>\n"
         "       To show hardware capabilities related to SIM and hardware RAT.\n"
+        "\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- endc <phone>\n"
+        "       To show ENDC (E-UTRA NR Dual Connectivity) connection status.\n"
+	    "       phone : '1' or '2'.\n"
+        "\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- lte-ca <phone>\n"
+        "       To show LTE Carrier Aggregation (CA) information (PCell/SCell).\n"
+        "       phone : '1' or '2'.\n"
         "\n"
     );
 
@@ -1063,40 +1120,147 @@ void PrintRFBandwidth
     }
 }
 
-void PrintCAStatus
-(
-    uint8_t phoneId,             ///< [IN] Phone ID.
-    taf_radio_CAStatus_t status ///< [IN] CA status.
-)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts LTE CA status to a printable string.
+ */
+//--------------------------------------------------------------------------------------------------
+static const char* CaStatusToStr(taf_radio_CAStatus_t status)
 {
     switch (status)
     {
-        case TAF_RADIO_CA_STATUS_DEACTIVATED:
-            LE_INFO("Phone %d CA status : Deactivated.", phoneId);
-            break;
-        case TAF_RADIO_CA_STATUS_ACTIVATED:
-            LE_INFO("Phone %d CA status : Activated.", phoneId);
-            break;
-        default:
-            LE_INFO("Phone %d CA status : Unknown.", phoneId);
-            break;
+        case TAF_RADIO_CA_STATUS_DEACTIVATED: return "DEACTIVATED";
+        case TAF_RADIO_CA_STATUS_ACTIVATED:   return "ACTIVATED";
+        default:                              return "UNKNOWN";
     }
 }
 
-void PrintLteCAInfo
-(
-    uint8_t phoneId,              ///< [IN] Phone ID.
-    taf_radio_CAInfoRef_t infoRef ///< [IN] CA information reference.
-)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts LTE CA SCell state to a printable string.
+ */
+//--------------------------------------------------------------------------------------------------
+static const char* CaScellStateToStr(taf_radio_CAScellState_t state)
 {
-    taf_radio_CAStatus_t status = TAF_RADIO_CA_STATUS_DEACTIVATED;
-    uint32_t count = 0;
-    le_result_t result =  taf_radio_GetLteCAStatus(infoRef, &status, &count);
-    LE_TEST_OK(result == LE_OK, "taf_radio_GetLteCAStatus - OK");
-    if (result == LE_OK)
+    switch (state)
     {
-        PrintCAStatus(phoneId, status);
-        LE_INFO("Phone %d CA activated CC number : %d", phoneId, count);
+        case TAF_RADIO_CA_SCELL_STATE_DECONFIGURED:
+            return "DECONFIGURED";
+        case TAF_RADIO_CA_SCELL_STATE_CONFIGURED_DEACTIVATED:
+            return "CONFIGURED_DEACTIVATED";
+        case TAF_RADIO_CA_SCELL_STATE_CONFIGURED_ACTIVATED:
+            return "CONFIGURED_ACTIVATED";
+        case TAF_RADIO_CA_SCELL_STATE_INVALID:
+        default:
+            return "INVALID";
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts LTE CA bandwidth to a printable string.
+ */
+//--------------------------------------------------------------------------------------------------
+static inline const char* LteCphyCaBandwidthToStr(taf_radio_RFBandWidth_t bandwidth)
+{
+    switch (bandwidth)
+    {
+        case TAF_RADIO_RF_BANDWIDTH_LTE_BW_1_4:   return "NRB_6 (1.4MHz)";
+        case TAF_RADIO_RF_BANDWIDTH_LTE_BW_3:  return "NRB_15 (3MHz)";
+        case TAF_RADIO_RF_BANDWIDTH_LTE_BW_5:  return "NRB_25 (5MHz)";
+        case TAF_RADIO_RF_BANDWIDTH_LTE_BW_10:  return "NRB_50 (10MHz)";
+        case TAF_RADIO_RF_BANDWIDTH_LTE_BW_15:  return "NRB_75 (15MHz)";
+        case TAF_RADIO_RF_BANDWIDTH_LTE_BW_20: return "NRB_100 (20MHz)";
+        case TAF_RADIO_RF_BANDWIDTH_INVALID: return "UNKNOWN";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Prints LTE CA PCell/SCell information for a CA information reference.
+ */
+//--------------------------------------------------------------------------------------------------
+static void PrintLteCAInfo(uint8_t phoneId, taf_radio_CAInfoRef_t infoRef)
+{
+    le_result_t result;
+    taf_radio_CAStatus_t caStatus = TAF_RADIO_CA_STATUS_DEACTIVATED;
+    uint32_t ccCount = 0;
+    uint16_t pPci = 0;
+    uint32_t pFreq = 0;
+    taf_radio_RFBandWidth_t pDlBw = 0;
+    uint16_t pBand = 0;
+
+    result = taf_radio_GetLteCAStatus(infoRef, &caStatus, &ccCount);
+    if (result == LE_OK) LE_TEST_INFO("LTE CA Status: %s, Active CC Count: %u", CaStatusToStr(caStatus), ccCount);
+    else LE_TEST_INFO("GetLteCAStatus failed: %d", result);
+
+    result = taf_radio_GetLteCAPCellPci(infoRef, &pPci);
+    if (result == LE_OK) LE_TEST_INFO("PCell PCI: %u", pPci);
+    else LE_TEST_INFO("GetLteCAPCellPci failed: %d", result);
+
+    result = taf_radio_GetLteCAPCellFreq(infoRef, &pFreq);
+    if (result == LE_OK) LE_TEST_INFO("PCell Freq: %u", pFreq);
+    else LE_TEST_INFO("GetLteCAPCellFreq failed: %d", result);
+
+    result = taf_radio_GetLteCAPCellDlBandwidth(infoRef, &pDlBw);
+    if (result == LE_OK) LE_TEST_INFO("PCell DL BW: %s", LteCphyCaBandwidthToStr(pDlBw));
+    else LE_TEST_INFO("GetLteCAPCellDlBandwidth failed: %d", result);
+
+    result = taf_radio_GetLteCAPCellBand(infoRef, &pBand);
+    if (result == LE_OK) LE_TEST_INFO("PCell Band: %u", pBand);
+    else LE_TEST_INFO("GetLteCAPCellBand failed: %d", result);
+
+    uint32_t scellCount = 0;
+    result = taf_radio_GetLteCASCellCount(infoRef, &scellCount);
+    if (result != LE_OK)
+    {
+        LE_TEST_INFO("GetLteCASCellCount failed: %d", result);
+        return;
+    }
+
+    LE_TEST_INFO("SCell Count: %u", scellCount);
+
+    for (uint32_t i = 0; i < scellCount; i++)
+    {
+        uint16_t sPci = 0;
+        uint32_t sFreq = 0;
+        taf_radio_RFBandWidth_t sDlBw = 0;
+        uint16_t sBand = 0;
+        taf_radio_CAScellState_t sState = 0;
+        uint8_t  sIndex = 0;
+        bool     sUlCfg = false;
+
+        LE_TEST_INFO("---- SCell[%u] ----", i);
+
+        result = taf_radio_GetLteCASCellPci(infoRef, i, &sPci);
+        if (result == LE_OK) LE_TEST_INFO("PCI: %u", sPci);
+        else LE_TEST_INFO("GetLteCASCellPci failed: %d", result);
+
+        result = taf_radio_GetLteCASCellFreq(infoRef, i, &sFreq);
+        if (result == LE_OK) LE_TEST_INFO("Freq: %u", sFreq);
+        else LE_TEST_INFO("GetLteCASCellFreq failed: %d", result);
+
+        result = taf_radio_GetLteCASCellDlBandwidth(infoRef, i, &sDlBw);
+        if (result == LE_OK) LE_TEST_INFO("DL BW: %s", LteCphyCaBandwidthToStr(sDlBw));
+        else LE_TEST_INFO("GetLteCASCellDlBandwidth failed: %d", result);
+
+        result = taf_radio_GetLteCASCellBand(infoRef, i, &sBand);
+        if (result == LE_OK) LE_TEST_INFO("Band: %u", sBand);
+        else LE_TEST_INFO("GetLteCASCellBand failed: %d", result);
+
+        result = taf_radio_GetLteCASCellState(infoRef, i, &sState);
+        if (result == LE_OK) LE_TEST_INFO("State: %s", CaScellStateToStr(sState));
+        else LE_TEST_INFO("GetLteCASCellState failed: %d", result);
+
+        result = taf_radio_GetLteCASCellIndex(infoRef, i, &sIndex);
+        if (result == LE_OK) LE_TEST_INFO("SCellIndex: %u", sIndex);
+        else LE_TEST_INFO("GetLteCASCellIndex failed: %d", result);
+
+        result = taf_radio_GetLteCASCellUlConfigured(infoRef, i, &sUlCfg);
+        if (result == LE_OK) LE_TEST_INFO("UL Configured: %s", sUlCfg ? "true" : "false");
+        else LE_TEST_INFO("GetLteCASCellUlConfigured failed: %d", result);
     }
 }
 
@@ -1155,6 +1319,7 @@ void LteCaInfoHandler
     void* contextPtr                  ///< [IN] Handler context.
 )
 {
+    LE_INFO("LTE CA Info changed: Phone %d, infoRef: %p.", phoneId, infoRef);
     PrintLteCAInfo(phoneId, infoRef);
 }
 
@@ -1368,6 +1533,48 @@ void NrIconTypeHandler
 {
     LE_INFO("Phone %d NR icon type change.", phoneId);
     PrintNrIcon(type);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Generic configurable ServiceStatus handler.
+ * contextPtr points to a RatSvcClientCtx_t holding the client name and registered mask.
+ * Logs the client name, mask, and received status.
+ */
+//--------------------------------------------------------------------------------------------------
+void ServiceStatusHandler
+(
+    taf_radio_Rat_t          rat,     ///< [IN] Serving RAT that produced this status.
+    taf_radio_RatSvcStatus_t status,  ///< [IN] Current service status.
+    uint8_t phoneId,                  ///< [IN] Phone ID.
+    void* contextPtr                  ///< [IN] RatSvcClientCtx_t pointer.
+)
+{
+    RatSvcClientCtx_t* ctx = (RatSvcClientCtx_t*)contextPtr;
+    const char* name = (ctx != NULL && ctx->name != NULL) ? ctx->name : "Unknown";
+    taf_radio_ServiceStatusBitMask_t mask =
+        (ctx != NULL) ? ctx->mask : (taf_radio_ServiceStatusBitMask_t)0;
+    uint8_t filterPhoneId = (ctx != NULL) ? ctx->phoneId : 0;
+    LE_INFO("[%s][mask=0x%x][phoneId_filter=%d] Phone %d rat=%d status=%d",
+            name, mask, filterPhoneId, phoneId, rat, status);
+    PrintRatSvcStatus(status);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Client C handler: always registered with all masks as reference client.
+ */
+//--------------------------------------------------------------------------------------------------
+void ServiceStatusHandlerC
+(
+    taf_radio_Rat_t          rat,     ///< [IN] Serving RAT that produced this status.
+    taf_radio_RatSvcStatus_t status,  ///< [IN] Current service status.
+    uint8_t phoneId,                  ///< [IN] Phone ID.
+    void* contextPtr                  ///< [IN] Handler context.
+)
+{
+    LE_INFO("[ClientC][ALL_MASKS] Phone %d rat=%d status=%d", phoneId, rat, status);
+    PrintRatSvcStatus(status);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1848,6 +2055,8 @@ void* HandlerTestThread
     void* contextPtr ///< [IN] Thread context.
 )
 {
+    HandlerTestThreadCtx_t* ctx = (HandlerTestThreadCtx_t*)contextPtr;
+
     // Connect to service.
     taf_radio_ConnectService();
 
@@ -1896,6 +2105,46 @@ void* HandlerTestThread
         (taf_radio_ConnectionStatusHandlerFunc_t)ConnectionStatusHandler, NULL);
     LE_TEST_OK(connStatusHandlerRef != NULL, "taf_radio_AddConnectionStatusHandler - !NULL");
 
+    // Client A: configurable mask from command line.
+    ratSvcStatusBitMaskA = ctx->maskA;
+    ratSvcClientCtxA.name    = "ClientA";
+    ratSvcClientCtxA.mask    = ratSvcStatusBitMaskA;
+    ratSvcClientCtxA.phoneId = ctx->phoneIdA;
+    LE_INFO("[ClientA] registering with mask=0x%x phoneId=%d", ratSvcStatusBitMaskA, ctx->phoneIdA);
+    ratSvcStatusHandlerRefA = taf_radio_AddServiceStatusChangeHandler(
+        ratSvcStatusBitMaskA,
+        ctx->phoneIdA,
+        (taf_radio_ServiceStatusChangeHandlerFunc_t)ServiceStatusHandler,
+        &ratSvcClientCtxA);
+    LE_TEST_OK(ratSvcStatusHandlerRefA != NULL, "taf_radio_AddServiceStatusChangeHandler ClientA - !NULL");
+
+    // Client B: configurable mask from command line.
+    ratSvcStatusBitMaskB = ctx->maskB;
+    ratSvcClientCtxB.name    = "ClientB";
+    ratSvcClientCtxB.mask    = ratSvcStatusBitMaskB;
+    ratSvcClientCtxB.phoneId = ctx->phoneIdB;
+    LE_INFO("[ClientB] registering with mask=0x%x phoneId=%d", ratSvcStatusBitMaskB, ctx->phoneIdB);
+    ratSvcStatusHandlerRefB = taf_radio_AddServiceStatusChangeHandler(
+        ratSvcStatusBitMaskB,
+        ctx->phoneIdB,
+        (taf_radio_ServiceStatusChangeHandlerFunc_t)ServiceStatusHandler,
+        &ratSvcClientCtxB);
+    LE_TEST_OK(ratSvcStatusHandlerRefB != NULL, "taf_radio_AddServiceStatusChangeHandler ClientB - !NULL");
+
+    // Client C: always all masks as reference, phoneId=0 means all phones.
+    ratSvcStatusHandlerRefC = taf_radio_AddServiceStatusChangeHandler(
+        TAF_RADIO_SERVICE_STATUS_BIT_MASK_NO_SERVICE       |
+        TAF_RADIO_SERVICE_STATUS_BIT_MASK_LIMITED          |
+        TAF_RADIO_SERVICE_STATUS_BIT_MASK_SERVICE          |
+        TAF_RADIO_SERVICE_STATUS_BIT_MASK_LIMITED_REGIONAL |
+        TAF_RADIO_SERVICE_STATUS_BIT_MASK_POWER_SAVE,
+        0,
+        (taf_radio_ServiceStatusChangeHandlerFunc_t)ServiceStatusHandlerC,
+        NULL);
+    LE_TEST_OK(ratSvcStatusHandlerRefC != NULL, "taf_radio_AddServiceStatusChangeHandler ClientC - !NULL");
+
+    le_sem_Post(ctx->semaphore);
+
     le_sem_Post((le_sem_Ref_t)contextPtr);
     le_event_RunLoop();
 
@@ -1909,15 +2158,26 @@ void* HandlerTestThread
 //--------------------------------------------------------------------------------------------------
 void CreateHandlerTestThread
 (
-    void
+    taf_radio_ServiceStatusBitMask_t maskA,    ///< [IN] Bitmask for Client A.
+    taf_radio_ServiceStatusBitMask_t maskB,    ///< [IN] Bitmask for Client B.
+    uint8_t                          phoneIdA, ///< [IN] Phone ID filter for Client A. 0 means all phones.
+    uint8_t                          phoneIdB  ///< [IN] Phone ID filter for Client B. 0 means all phones.
 )
 {
-    le_sem_Ref_t semaphore = le_sem_Create("semaphore", 0);
+    HandlerTestThreadCtx_t* ctx = (HandlerTestThreadCtx_t*)malloc(sizeof(HandlerTestThreadCtx_t));
+    LE_ASSERT(ctx != NULL);
+    ctx->semaphore = le_sem_Create("semaphore", 0);
+    ctx->maskA     = maskA;
+    ctx->maskB     = maskB;
+    ctx->phoneIdA  = phoneIdA;
+    ctx->phoneIdB  = phoneIdB;
     le_thread_Ref_t threadRef = le_thread_Create("HandlerTestThread", HandlerTestThread,
-        (void*)semaphore);
+        (void*)ctx);
     le_thread_Start(threadRef);
-    le_sem_Wait(semaphore);
-    le_sem_Delete(semaphore);
+    le_sem_Wait(ctx->semaphore);
+    le_sem_Delete(ctx->semaphore);
+    ctx->semaphore = NULL;
+    free(ctx);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1964,6 +2224,15 @@ void RemoveTestHandler
 
     taf_radio_RemoveConnectionStatusHandler(connStatusHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveConnectionStatusHandler - void");
+
+    taf_radio_RemoveServiceStatusChangeHandler(ratSvcStatusHandlerRefA);
+    LE_TEST_OK(true, "taf_radio_RemoveServiceStatusChangeHandler ClientA - void");
+
+    taf_radio_RemoveServiceStatusChangeHandler(ratSvcStatusHandlerRefB);
+    LE_TEST_OK(true, "taf_radio_RemoveServiceStatusChangeHandler ClientB - void");
+
+    taf_radio_RemoveServiceStatusChangeHandler(ratSvcStatusHandlerRefC);
+    LE_TEST_OK(true, "taf_radio_RemoveServiceStatusChangeHandler ClientC - void");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2634,9 +2903,13 @@ COMPONENT_INIT
             {
                 int32_t rssi;
                 uint32_t ber;
+                int32_t ss;
                 result = taf_radio_GetGsmSignalMetrics(metrics, &rssi, &ber);
                 LE_TEST_OK(result == LE_OK, "taf_radio_GetGsmSignalMetrics - OK");
-                LE_INFO("GSM signal strength %d dBm.", rssi);
+                result = taf_radio_GetGsmSignalMetricsSs(metrics, &ss);
+                LE_TEST_OK(result == LE_OK, "taf_radio_GetGsmSignalMetricsSs - OK");
+                LE_INFO("GSM RSSI %d dBm.", rssi);
+                LE_INFO("GSM signal strength %d dBm.", ss);
                 LE_INFO("GSM bit error rate %d.", ber);
             }
 
@@ -2645,11 +2918,18 @@ COMPONENT_INIT
                 int32_t ss;
                 uint32_t bler;
                 int32_t rscp;
+                int32_t ecio;
                 result = taf_radio_GetUmtsSignalMetrics(metrics, &ss, &bler, &rscp);
                 LE_TEST_OK(result == LE_OK, "taf_radio_GetUmtsSignalMetrics - OK");
+                if (ratMask & TAF_RADIO_RAT_BIT_MASK_UMTS)
+                {
+                    result = taf_radio_GetUmtsSignalMetricsEcio(metrics, &ecio);
+                    LE_TEST_OK(result == LE_OK, "taf_radio_GetUmtsSignalMetricsEcio - OK");
+                }
                 LE_INFO("UMTS signal strength %d dBm.", ss);
                 LE_INFO("UMTS block error rate %d.", bler);
                 LE_INFO("UMTS received signal channel power %d dBm.", rscp);
+                LE_INFO("UMTS Ec/Io %d dB.", ecio);
             }
 
             if (ratMask & TAF_RADIO_RAT_BIT_MASK_LTE)
@@ -2658,9 +2938,13 @@ COMPONENT_INIT
                 int32_t rsrq;
                 int32_t rsrp;
                 int32_t snr;
+                int32_t rssi;
                 result = taf_radio_GetLteSignalMetrics(metrics, &ss, &rsrq, &rsrp, &snr);
                 LE_TEST_OK(result == LE_OK, "taf_radio_GetLteSignalMetrics - OK");
+                result = taf_radio_GetLteSignalMetricsRssi(metrics, &rssi);
+                LE_TEST_OK(result == LE_OK, "taf_radio_GetLteSignalMetricsRssi - OK");
                 LE_INFO("LTE signal strength %d dBm.", ss);
+                LE_INFO("LTE RSSI %d dBm.", rssi);
                 LE_INFO("LTE reference signal receive quality %d dB.", rsrq);
                 LE_INFO("LTE reference signal receive power %d dBm.", rsrp);
                 LE_INFO("LTE signal to noise ratio %f dB.", (float)snr / 10);
@@ -2837,7 +3121,42 @@ COMPONENT_INIT
         }
         long time = strtol(timeStr, NULL, 10);
 
-        CreateHandlerTestThread();
+        // Named optional args: --maskA=, --maskB=, --phoneIdA=, --phoneIdB=
+        // Defaults: maskA=NO_SERVICE(0x1), maskB=SERVICE(0x4), phoneIdA=0, phoneIdB=0.
+        taf_radio_ServiceStatusBitMask_t maskA   = TAF_RADIO_SERVICE_STATUS_BIT_MASK_NO_SERVICE;
+        taf_radio_ServiceStatusBitMask_t maskB   = TAF_RADIO_SERVICE_STATUS_BIT_MASK_SERVICE;
+        uint8_t                          phoneIdA = 0;
+        uint8_t                          phoneIdB = 0;
+
+        for (unsigned int argIdx = 2; le_arg_GetArg(argIdx) != NULL; argIdx++)
+        {
+            const char* arg = le_arg_GetArg(argIdx);
+            unsigned long val;
+            if (sscanf(arg, "--maskA=%lx", &val) == 1)
+            {
+                maskA = (taf_radio_ServiceStatusBitMask_t)val;
+            }
+            else if (sscanf(arg, "--maskB=%lx", &val) == 1)
+            {
+                maskB = (taf_radio_ServiceStatusBitMask_t)val;
+            }
+            else if (sscanf(arg, "--phoneIdA=%lu", &val) == 1)
+            {
+                phoneIdA = (uint8_t)val;
+            }
+            else if (sscanf(arg, "--phoneIdB=%lu", &val) == 1)
+            {
+                phoneIdB = (uint8_t)val;
+            }
+            else
+            {
+                LE_WARN("handler: unknown option '%s', ignored.", arg);
+            }
+        }
+
+        LE_TEST_INFO("ClientA mask=0x%x phoneId=%d  ClientB mask=0x%x phoneId=%d  ClientC mask=ALL phoneId=0(all)",
+                     maskA, phoneIdA, maskB, phoneIdB);
+        CreateHandlerTestThread(maskA, maskB, phoneIdA, phoneIdB);
         // Wait for handler's response.
         le_thread_Sleep(time);
         RemoveTestHandler();

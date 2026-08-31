@@ -40,8 +40,8 @@
 #include "interfaces.h"
 
 #include <string>
-#include <mutex>
 #include <map>
+#include <vector>
 
 #include "tafRadioPa.hpp"
 
@@ -51,6 +51,7 @@
 #define BITMASK_RAT_LTE 0x1
 #define BITMASK_RAT_5G_NSA 0x2
 #define PLMN_SCAN_TIMEOUT 210
+#define TAF_RADIO_SVC_STATUS_HANDLER_MAX_NUM 10
 
 #define COMMON_LIST_TYPE_NUM 4
 #define COMMON_LIST_MAX_COUNT (INSTANCE_MAX_COUNT * COMMON_LIST_TYPE_NUM)
@@ -64,6 +65,7 @@
 #define PREF_NET_MAX_COUNT (INSTANCE_MAX_COUNT * TAF_PA_RADIO_PREFERRED_NETWORK_MAX_COUNT)
 #define NGBR_CELL_MAX_COUNT (INSTANCE_MAX_COUNT * TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT)
 #define SAFE_REF_MAX_COUNT (COMMON_RERERENCE_MAX_COUNT + PCI_CELL_MAX_COUNT + PLMN_ID_MAX_COUNT+ PLMN_INFO_MAX_COUNT + PREF_NET_MAX_COUNT + NGBR_CELL_MAX_COUNT)
+#define TAF_RADIO_SERVICE_STATUS_BIT_MASK_COUNT 5 ///< Number of bits in ServiceStatusBitMask.
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -193,12 +195,45 @@ typedef struct
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Indication type tag used inside RegStateIndEvent_t to identify which PA indication
+ * was received and which union member is valid.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    REG_STATE_IND_VOICE_SERVICE_INFO  = 0, ///< Voice service info indication.
+    REG_STATE_IND_DATA_SERVICE_STATUS = 1, ///< Data service status indication.
+    REG_STATE_IND_DATA_ROAMING_STATUS = 2, ///< Data roaming status indication.
+} RegStateIndType_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Unified payload forwarded from PA indication callbacks to the main-thread event loop.
+ * The type field identifies which union member carries the indication data.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint32_t instance;        ///< Instance index.
+    RegStateIndType_t type;   ///< Identifies the active union member.
+    union
+    {
+        taf_pa_radio_VoiceServiceInfoIndication_t  voiceServiceInfo;  ///< Valid when type == VOICE_SERVICE_INFO.
+        taf_pa_radio_DataServiceStatusIndication_t dataServiceStatus; ///< Valid when type == DATA_SERVICE_STATUS.
+        taf_pa_radio_DataRoamingStatusIndication_t dataRoamingStatus; ///< Valid when type == DATA_ROAMING_STATUS.
+    };
+} RegStateIndEvent_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Static event identifiers owned by the component.
  */
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
-    le_event_Id_t request; ///< Event used to dispatch internal asynchronous requests.
+    le_event_Id_t request;          ///< Event used to dispatch internal asynchronous requests.
+    le_event_Id_t lteCphyCaRefresh; ///< Event used to refresh LTE CPHY CA info cache.
+    le_event_Id_t regStateInd;///< Forwards voice/data/roaming PA indications to main thread.
 } StaticEvent_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -226,6 +261,11 @@ typedef struct
     le_event_Id_t nrIconChange;                 ///< NR icon change indications.
     le_event_Id_t caInfoChange;                 ///< Carrier aggregation information change indications.
     le_event_Id_t connStatusChange;             ///< Connection status indications.
+    le_event_Id_t svcStatusNoServiceChange;
+    le_event_Id_t svcStatusLimitedChange;
+    le_event_Id_t svcStatusServiceChange;
+    le_event_Id_t svcStatusLimitedRegionalChange;
+    le_event_Id_t svcStatusPowerSaveChange;
 } Event_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -247,6 +287,7 @@ typedef struct
     le_mem_PoolRef_t nrIconChange;               ///< Pool for NR icon change indications.
     le_mem_PoolRef_t caInfoChange;               ///< Pool for CA info change indications.
     le_mem_PoolRef_t connStatusChange;           ///< Pool for connection status change indications.
+    le_mem_PoolRef_t regStateIndEvent;           ///< Pool for RegStateIndEvent_t payloads.
     le_mem_PoolRef_t commonList;                 ///< Pool for CommonList_t containers.
     le_mem_PoolRef_t pciCell;                    ///< Pool for PCI scan cell entries.
     le_mem_PoolRef_t plmnId;                     ///< Pool for PLMN ID entries.
@@ -257,6 +298,8 @@ typedef struct
     le_mem_PoolRef_t signalStrengthInfo;         ///< Pool for cached signal strength info.
     le_mem_PoolRef_t caInfo;                     ///< Pool for cached CA info.
     le_mem_PoolRef_t connStatus;                 ///< Pool for cached connection status info.
+    le_mem_PoolRef_t svcStatusInd;               ///< Pool for service status indication.
+    le_mem_PoolRef_t svcStatusHandlerCtx;        ///< Pool for service status handler indication.
 } Pool_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -271,6 +314,7 @@ typedef struct
     le_ref_MapRef_t signalStrengthInfo;  ///< Map for signal strength info handles.
     le_ref_MapRef_t caInfo;              ///< Map for CA info handles.
     le_ref_MapRef_t connStatus;          ///< Map for connection status handles.
+    le_ref_MapRef_t svcStatusRefMap;     ///< Map for service status handles.
 } Map_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -355,6 +399,20 @@ typedef struct
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Payload used to request an LTE CPHY CA cache refresh on the service event loop.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint32_t instance;                         ///< Internal instance index (0-based).
+    bool reportChange;                         ///< True to report CA event if status/count changed.
+    bool queryPa;                              ///< True to refresh from PA instead of indication.
+    taf_radio_CAInfoRef_t reference;           ///< Cached CA info reference to refresh.
+    taf_pa_radio_LteCphyCaIndication_t indication; ///< CA indication snapshot, used when queryPa=false.
+} LteCphyCaRefresh_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Payload forwarded through layered events for connection status indications.
  */
 //--------------------------------------------------------------------------------------------------
@@ -367,6 +425,35 @@ typedef struct
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * LTE CA primary cell (PCell) information cached in a CA info reference.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint16_t pci;                  ///< Physical cell ID.
+    uint32_t freq;                 ///< Frequency/EARFCN.
+    taf_radio_RFBandWidth_t dlBw;  ///< Downlink bandwidth.
+    uint16_t band;                 ///< LTE band.
+} CA_PCellInfo_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * LTE CA secondary cell (SCell) information cached in a CA info reference.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint16_t pci;                         ///< Physical cell ID.
+    uint32_t freq;                        ///< Frequency/EARFCN.
+    taf_radio_RFBandWidth_t  dlBw;        ///< Downlink bandwidth.
+    uint16_t band;                        ///< LTE band.
+    taf_radio_CAScellState_t scellState;  ///< SCell activation state.
+    uint8_t  scellIndex;                  ///< Modem SCell index.
+    bool     ulConfigured;                ///< True if uplink is configured for this SCell.
+} CA_SCellInfo_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Carrier aggregation information cached per instance.
  */
 //--------------------------------------------------------------------------------------------------
@@ -374,6 +461,9 @@ typedef struct
 {
     taf_radio_CAStatus_t status; ///< CA activation status.
     uint32_t cellCount;          ///< Number of component carriers (PCell + active SCells).
+    CA_PCellInfo_t pcellInfo; ///< Primary cell information.
+    uint32_t scellInfoCount;  ///< Number of valid entries in scellInfo[].
+    CA_SCellInfo_t scellInfo[TAF_PA_RADIO_LTE_CPHY_SCELL_INFO_MAX_COUNT]; ///< SCell info.
 } CAInfo_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -398,6 +488,7 @@ typedef struct
     taf_pa_radio_Rat_t rat[INSTANCE_MAX_COUNT];          ///< Cached RAT per instance.
     taf_pa_radio_DataServiceState_t dataServiceState[INSTANCE_MAX_COUNT]; ///< Cached data svc state.
     taf_radio_NetRegState_t packetSwitchedState[INSTANCE_MAX_COUNT]; ///< Cached PS reg state.
+    taf_radio_NetRegState_t netRegState[INSTANCE_MAX_COUNT];             ///< Last reported combined net reg state (dedup).
     HysteresisConfig_t hysteresisConfig[INSTANCE_MAX_COUNT]; ///< Cached hysteresis config.
     taf_radio_NetStatusRef_t netStatusRefs[INSTANCE_MAX_COUNT]; ///< Cached net status references.
     taf_pa_radio_RatServiceStatus_t ratSvcState[INSTANCE_MAX_COUNT]; ///< Cached RAT svc state.
@@ -405,9 +496,54 @@ typedef struct
     taf_radio_ImsRef_t imsRefs[INSTANCE_MAX_COUNT];      ///< Cached IMS references.
     taf_radio_CAInfoRef_t caInfoRefs[INSTANCE_MAX_COUNT]; ///< Cached CA references.
     taf_radio_ConnStatusRef_t connStatusRefs[INSTANCE_MAX_COUNT]; ///< Cached connection refs.
-    taf_radio_NetRegState_t netRegState[INSTANCE_MAX_COUNT]; ///< Cached network reg state.
-    std::mutex sNetRegStateMutex[INSTANCE_MAX_COUNT];
 } Cache_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * service status indication structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t                  phone;  ///< Phone Id.
+    taf_radio_Rat_t          rat;    ///< Current serving RAT.
+    taf_radio_RatSvcStatus_t status; ///< Current service status.
+} ServiceStatusInd_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * PA RAT service status indication structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_pa_radio_Rat_t              rat;        ///< PA RAT type.
+    bool                            valid;      ///< Is this RAT's status valid?
+    taf_pa_radio_RatServiceStatus_t status;     ///< Service status for this RAT.
+} RatSvcInfo_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Service status handler context structure.
+ * Holds one handler reference per status mask bit, the phoneId filter, and the original
+ * user contextPtr. The ctxPtr itself is stored via le_event_SetContextPtr() so that
+ * LayerServiceStatusHandler can access all fields without a separate wrapper allocation.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    /// One handlerRef per statusMask bit; nullptr if that bit was not registered.
+    le_event_HandlerRef_t handlerRefs[TAF_RADIO_SERVICE_STATUS_BIT_MASK_COUNT];
+    /// Phone ID filter: 0 means all phones; non-zero means only that specific phone.
+    uint8_t phoneId;
+    /// Original contextPtr supplied by the caller of AddServiceStatusChangeHandler.
+    void*   userCtx;
+    /// Owning client session — used to clean up if the client disconnects/crashes.
+    le_msg_SessionRef_t sessionRef;
+    /// Link in taf_Radio::svcStatusCtxList.
+    le_dls_Link_t link;
+    taf_radio_ServiceStatusChangeHandlerRef_t safeRef;
+} ServiceStatusHandlerCtx_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -621,6 +757,22 @@ class Utility
                 static taf_radio_RFBandWidth_t Bandwidth
                 (
                     taf_pa_radio_Bandwidth_t bandwidth ///< [IN] PA bandwidth.
+                );
+
+                /**
+                 * Converts PA LTE CPHY CA bandwidth to public RF bandwidth.
+                 */
+                static taf_radio_RFBandWidth_t LteCphyCaBandwidth
+                (
+                    taf_pa_radio_LteCphyCaBandwidth_t bandwidth ///< [IN] PA LTE CA bandwidth.
+                );
+
+                /**
+                 * Converts PA LTE CPHY SCell state to public CA SCell state.
+                 */
+                static taf_radio_CAScellState_t LteCphyCaScellState
+                (
+                    taf_pa_radio_LteCphyScellState_t state ///< [IN] PA LTE CA SCell state.
                 );
 
                 /**
@@ -880,6 +1032,17 @@ class Utility
                     void* reportPtr,     ///< [IN] Ref-counted payload.
                     void* handlerFuncPtr ///< [IN] Client callback.
                 );
+
+                /**
+                 * Dispatches service status indications and releases the ref-counted payload.
+                 */
+                static void ServiceStatusChange
+                (
+                    void* reportPtr,     ///< [IN] Ref-counted payload.
+                    void* handlerFuncPtr ///< [IN] Client callback.
+                );
+
+
         };
 
         /**
@@ -967,6 +1130,17 @@ class Factory
         Event_t events;                    ///< Event identifiers used to fan out indications.
         Pool_t pools;                      ///< Memory pools used by this component.
         Map_t maps;                        ///< Reference maps used by this component.
+
+        static const uint32_t PM_RETRY_INTERVALS_MS[];
+        static const uint8_t PM_MAX_RETRIES;
+        le_timer_Ref_t pmRetryTimer = nullptr;
+        uint8_t pmRetryIndex = 0;
+        bool indicationRegistered = false;
+        void StartPmRetryTimer();
+        static void PmRetryHandler(le_timer_Ref_t timerRef);
+        static void PMServerDisconnectHandler(void* contextPtr);
+        le_dls_List_t svcStatusCtxList;
+        void ApplyServiceStatusModemFiltering(void);
 };
 
 #endif /* #ifndef TAFRADIO_HPP */

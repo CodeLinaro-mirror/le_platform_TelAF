@@ -69,6 +69,7 @@ struct SubFunction {
 struct ServiceEntry {
     bool supported = false;
     bool IDPS_supported = false;
+    bool functional_addressed = false;
     bool authentication = false;
     std::string execution_authorization_pattern;
     Access access;
@@ -78,6 +79,7 @@ struct ServiceEntry {
     void serialize(Archive& ar, const unsigned int version) {
         ar & supported;
         ar & IDPS_supported;
+        ar & functional_addressed;
         ar & authentication;
         ar & execution_authorization_pattern;
         ar & access;
@@ -219,6 +221,7 @@ struct DidEntry {
     std::vector<std::string> read_role;
     std::vector<std::string> write_role;
     EnableConditionData data_enable_condition;
+    bool functional_addressed = false;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
@@ -230,6 +233,7 @@ struct DidEntry {
         ar & read_role;
         ar & write_role;
         ar & data_enable_condition;
+        ar & functional_addressed;
     }
 };
 

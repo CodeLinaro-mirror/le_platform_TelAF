@@ -211,7 +211,9 @@ namespace uds{
         TAF_UDS_AUTH_DELAY_TIMER_START = 0x0A,
         TAF_UDS_TESTER_STATE_TIMER_STOP  = 0x0B,
         TAF_UDS_TESTER_STATE_TIMER_START = 0x0C,
-        TAF_UDS_TESTER_STATE_TIMER_RESTART = 0x0D
+        TAF_UDS_TESTER_STATE_TIMER_RESTART = 0x0D,
+        TAF_UDS_S3_TIMER_CHECK_TO_RESTART  = 0x0E,
+        TAF_UDS_TESTER_STATE_TIMER_CHECK_TO_RESTART  = 0x0F
     }taf_UDSTimer_EventType_t;
 
     typedef enum
@@ -267,15 +269,19 @@ namespace uds{
         CLEAR_DIAG_INFO_REQUEST_ID = 0x14,
         READ_DTC_INFO_REQUEST_ID = 0x19,
         READ_DID_REQUEST_ID = 0x22,
+        READ_MEMORY_BY_ADDR_REQUEST_ID = 0x23,
         SECURITY_ACCESS_REQUEST_ID = 0x27,
         AUTHENTICATION_REQUEST_ID = 0x29,
+        DYNAMICALLY_DEFINE_DID_REQUEST_ID = 0x2C,
         WRITE_DID_REQUEST_ID = 0x2E,
         INPUT_OUTPUT_CONTROL_REQUEST_ID = 0x2F,
         ROUTINE_CONTROL_REQUEST_ID = 0x31,
         REQUEST_DOWNLOAD_REQUEST_ID = 0x34,
+        REQUEST_UPLOAD_REQUEST_ID = 0x35,
         TRANSFER_DATA_REQUEST_ID = 0x36,
         REQUEST_TRANSFER_EXIT_REQUEST_ID = 0x37,
         REQUEST_FILE_TRANSFER_REQUEST_ID = 0x38,
+        WRITE_MEMORY_BY_ADDR_REQUEST_ID = 0x3D,
         TESTER_PRESENT_REQUEST_ID = 0x3E,
         CONTROL_DTC_SETTING_REQUEST_ID = 0x85,
         RESPONSE_ON_EVENT_REQUEST_ID = 0x86
@@ -433,7 +439,7 @@ namespace uds{
 
             le_result_t SetNRC(uint8_t sid, uint8_t errorCode);
             le_result_t SendNRC(uint8_t sid, uint8_t errorCode, taf_doip_AddrInfo_t*  addrInfoPtr);
-            void SendData(taf_doip_AddrInfo_t*  addrInfoPtr);
+            void SendData(uint8_t sid, uint8_t errorCode, taf_doip_AddrInfo_t*  addrInfoPtr);
             le_result_t CheckAndSendInd(uint8_t sid, taf_doip_AddrInfo_t* addrInfoPtr);
 
             static void P2StarTimeoutHandler(le_timer_Ref_t timerRef);
@@ -456,8 +462,10 @@ namespace uds{
 
             uint8_t recvBuf[UDS_MAX_DATA_SIZE];
             uint8_t sendBuf[UDS_MAX_DATA_SIZE];
+            uint8_t tpBuf[UDS_NEG_RESP_LEN];//UDS_NEG_RESP_LEN(3) > UDS_TESTER_PRESENT_RESP_LEN(2)
             uint16_t recvDataLen = 0;
             uint16_t sendDataLen = 0;
+            uint8_t tpDataLen = 0;
             uint8_t recvSid = 0;
             uint8_t recvSubFunc = 0;
             std::atomic<bool> readyToRecvData = {true};
@@ -521,11 +529,12 @@ namespace uds{
             // Tester present state change notification.
             static void IndicateTesterStateChange(const char* ifName,
                         taf_TesterState_t currentState);
-            void CheckAndRestartTesterStateTimer();
+            void CheckAndRestartTesterStateTimer(bool isRespFromSvc);
         #endif
 
             // Internally check and Respond UDS message to uds client (through DoIP stack).
-            le_result_t TesterPresentResp(taf_doip_AddrInfo_t*  addrInfoPtr);    // (0x3E)
+            le_result_t TesterPresentResp(uint8_t originSubFunc, uint16_t recvTpDataLen,
+                taf_doip_AddrInfo_t*  addrInfoPtr);
 
             // Send UDS response message from Diag service.
             le_result_t SessionCtrlResp(uint8_t serviceId, uint8_t err);
@@ -560,7 +569,7 @@ namespace uds{
             static void UdsTimerHandler(void* reqPtr);
             void UdsTimerEventReport(taf_UDSTimer_EventType_t timerEvent, uint32_t interval,
                         const char* ifName);
-            void CheckAndRestartS3Timer(uint8_t serviceId);
+            void CheckAndRestartS3Timer(uint8_t serviceId, bool isRespFromSvc);
             bool IsSessTypeMatched(const ServiceEntry& serviceEntry);
             bool IsSecurityAccessMatched(const RoutineEntry& routineEntry);
             bool IsAuthRoleMatched(taf_UDSReqSvcID_t serviceType, const DidEntry& didEntry);

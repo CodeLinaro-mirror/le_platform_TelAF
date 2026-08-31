@@ -767,7 +767,33 @@ taf_fsc_StorageRef_t taf_fsc_GetStorageRef
         }
         else
         {
-            storageAlreadyExist = true;
+            struct fscrypt_policy policy;
+            le_result_t ret = IoControl_get_policy(dirPath, &policy);
+            if(ret == LE_OK)
+            {
+                storageAlreadyExist = true;
+            }
+            else if (ret == LE_UNAVAILABLE)
+            {
+                if(IsDirectoryEmpty(dirPath) == true)
+                {
+                    storageAlreadyExist = false;
+                }
+                else
+                {
+                    LE_ERROR("Directory '%s' has a pre-existing key but contains unencrypted "
+                             "data (non-empty, no fscrypt policy); cannot proceed", dirPath);
+                    *result = LE_NOT_PERMITTED;
+                    return NULL;
+                }
+            }
+            else
+            {
+                LE_ERROR("Directory '%s' has a pre-existing key but IoControl_get_policy "
+                         "failed with %s; cannot proceed", dirPath, LE_RESULT_TXT(ret));
+                *result = LE_FAULT;
+                return NULL;
+            }
         }
     }
     else

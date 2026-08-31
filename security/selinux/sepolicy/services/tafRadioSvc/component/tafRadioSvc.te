@@ -34,3 +34,5 @@ telaf_ipc_bind(telaf_tafRadioSvc_t, telaf_tafPMSvc_t)
 # Allow service to manage its own data directory; registers with admin domain.
 telaf_manage_app_data_files(telaf_tafRadioSvc_t, telaf_tafRadioSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafRadioSvc_exec_t)
+
+telaf_read_vm_overcommit_sysctl(telaf_tafRadioSvc_t)

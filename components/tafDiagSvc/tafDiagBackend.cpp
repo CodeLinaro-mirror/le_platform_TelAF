@@ -147,17 +147,6 @@ le_result_t taf_DiagBackend::RegisterUdsService
         return LE_BAD_PARAMETER;
     }
 
-    if (regstFlag == 0)
-    {
-        // Bring up UDS stack
-        if (InitUdsStack() != LE_OK)
-        {
-            LE_ERROR("UDS stack can not start.");
-            return LE_COMM_ERROR;
-        }
-        regstFlag = 1;
-    }
-
     svcMap.insert(make_pair(sid, service));
 
     return LE_OK;

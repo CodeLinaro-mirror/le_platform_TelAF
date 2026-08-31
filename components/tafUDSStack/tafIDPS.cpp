@@ -181,6 +181,11 @@ void UdsIdps::IdpsHandler
                 case ROUTINE_CONTROL_REQUEST_ID:
                 case REQUEST_TRANSFER_EXIT_REQUEST_ID:
                 case REQUEST_FILE_TRANSFER_REQUEST_ID:
+                case REQUEST_DOWNLOAD_REQUEST_ID:
+                case REQUEST_UPLOAD_REQUEST_ID:
+                case READ_MEMORY_BY_ADDR_REQUEST_ID:
+                case WRITE_MEMORY_BY_ADDR_REQUEST_ID:
+                case DYNAMICALLY_DEFINE_DID_REQUEST_ID:
                     break; // allow fall-through to report
                 default:
                     return; // not monitored

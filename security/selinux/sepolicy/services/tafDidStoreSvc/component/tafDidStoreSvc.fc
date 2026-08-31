@@ -4,3 +4,4 @@
 /legato/systems/current/appsWriteable/tafDidStoreSvc/lib(/.*)?                               gen_context(system_u:object_r:telaf_lib_t,s0)
 /legato/systems/current/appsWriteable/tafDidStoreSvc/bin/tafDidStoreSvc                      gen_context(system_u:object_r:telaf_tafDidStoreSvc_exec_t,s0)
 /legato/apps/[^/]*/read-only/bin/tafDidStoreSvc                                              gen_context(system_u:object_r:telaf_tafDidStoreSvc_exec_t,s0)
+/data/diag(/.*)?                                                                             gen_context(system_u:object_r:telaf_sys_t,s0)

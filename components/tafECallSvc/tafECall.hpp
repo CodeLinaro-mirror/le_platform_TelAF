@@ -7,6 +7,9 @@
 #include "interfaces.h"
 #include "tafEcallPa.hpp"
 #include "tafSvcIF.hpp"
+#include <unordered_map>
+#include <mutex>
+#include <atomic>
 
 // For using VHAL
 #include "tafHalLib.hpp"
@@ -35,6 +38,8 @@ using namespace std;
 #define CFG_NODE_PROPULSION_OTHER "Other"
 #define CFG_ECALL_HLAPTIMERELAPSED_PATH "tafeCallSvc:/eCall/hlapTimerElapsed"
 #define CFG_NODE_HLAPTIMERELAPSED_T9 "T9ElapsedTime"
+#define CFG_NODE_HLAPTIMERELAPSED_T10 "T10ElapsedTime"
+#define CFG_NODE_LASTECALL_PHONEID "LasteCallPhoneId"
 #define ISOWMI_START 0
 #define ISOWMI_LENGTH 3
 #define ISOVDS_START (ISOWMI_START + ISOWMI_LENGTH)
@@ -62,6 +67,9 @@ using namespace std;
 #define MSD_TIMESTAMP_STR_INVALID "INVALID"
 #define MIN_PHONE_ID  1
 #define MAX_PHONE_ID  2
+#define RX_ECALL_EVENT_POOL_SIZE 50
+#define MAX_T9_T10_ELAPSED_TIME_SEC 43200
+#define NSEC_PER_SEC 1000000000L
 
     namespace tafsvc {
 
@@ -117,6 +125,7 @@ using namespace std;
             taf_DialRedial_t                    dialRedial;
             bool                                waitForALACKPos;
             int8_t                              phoneId;
+            taf_ecall_TerminationRedialReason_t redialReason;
         }
         taf_ECall_t;
 
@@ -142,15 +151,18 @@ using namespace std;
 
         typedef enum
         {
-            EVENT_MODEM_REBOOT,
+            EVENT_MODEM_OPERATIONALSTATUS_UNAVILABLE,
+            EVENT_MODEM_OPERATIONALSTATUS_OPERATIONAL,
             EVENT_SAVE_HLAP_TIMER_ELAPSED,
-            EVENT_ECALL_MODE_CHANGE
+            EVENT_ECALL_IN_PROGRESS_MODEM_REBOOT,
+            EVENT_RESUME_HLAP_TIMER_ON_MODE_CHANGE
         }
         Event_t;
 
         typedef enum
         {
-            HLAP_TIMER_TYPE_T9
+            HLAP_TIMER_TYPE_T9,
+            HLAP_TIMER_TYPE_T10
         }HlapTimerType_t;
 
         typedef enum
@@ -171,6 +183,67 @@ using namespace std;
             int8_t phoneId;
             taf_pa_ecall_mode_t eCallMode;
         }ResumeHlapTimerEvent_t;
+
+        typedef enum {
+            ECALL_EVENT_INCOMING_CALL,
+            ECALL_EVENT_CALL_INFO_CHANGE,
+            ECALL_EVENT_MSD_TRANSMISSION_STATUS,
+            ECALL_EVENT_HLAP_TIMER,
+            ECALL_EVENT_MSD_UPDATE_REQ,
+            ECALL_EVENT_REDIAL,
+            ECALL_EVENT_MAKECALL_RESP
+        } RxECallEventType_t;
+
+        typedef struct {
+            uint64_t callToken;
+            int32_t callIndex;
+            taf_pa_ecall_call_status_t callState;
+            char remotePartyNumber[MAX_DESTINATION_LEN];
+        } RxECallIncomingCallParam_t;
+
+        typedef struct {
+            uint64_t callToken;
+            int32_t callIndex;
+            taf_pa_ecall_call_status_t callState;
+            taf_pa_ecall_dir_t callDirection;
+            taf_pa_ecall_termination_t callEndCause;
+        } RxECallInfoChangeParam_t;
+
+        typedef struct {
+            taf_pa_ecall_msd_status_t msdTransmissionStatus;
+        } RxECallMsdTransmissionStatusParam_t;
+
+        typedef struct {
+            taf_pa_ecall_hlap_timer_events_t timerEvents;
+        } RxECallHlapTimerParam_t;
+
+        typedef struct {
+            taf_pa_ecall_redial_info_t redialInfo;
+        } RxECallRedialParam_t;
+
+        typedef struct {
+            int32_t callIndex;
+        } RxECallMakeCallResponse;
+
+        typedef struct {
+            RxECallEventType_t eventType;
+            int phoneId;
+            union {
+                RxECallIncomingCallParam_t incomingCall;
+                RxECallInfoChangeParam_t infoChange;
+                RxECallMsdTransmissionStatusParam_t msdTransmissionStatus;
+                RxECallHlapTimerParam_t hlapTimer;
+                RxECallRedialParam_t redial;
+                RxECallMakeCallResponse response;
+            } param;
+        } RxECallEvent_t;
+
+        struct PendingECallEvent {
+            RxECallEventType_t eventType;
+            int phoneId;
+            int32_t callIndex;
+            void* eventData;
+        };
 
         class tafCallCommandCallback{
             public:
@@ -239,6 +312,8 @@ using namespace std;
                 static void WriteMsdTimeStampToConfigTree(const char* nodeName, const char* timestampStr);
                 le_result_t SetMsdTimeStamp(taf_ecall_CallRef_t ecallRef, uint32_t timeStamp);
                 le_result_t ResetMsdTimeStamp(taf_ecall_CallRef_t ecallRef);
+                le_result_t SetMsdControlBits(taf_ecall_CallRef_t ecallRef,
+                    bool automaticActivation, bool testCall);
                 static void WriteMsdMsgIdToConfigTree(uint32_t msgId);
                 static uint32_t ReadMsdMsgIdFromConfigTree();
                 le_result_t SetPsapNumber( const char* psapNumber );
@@ -258,17 +333,40 @@ using namespace std;
                 le_result_t GetHlapTimerState(taf_ecall_HlapTimerType_t timerType, taf_ecall_HlapTimerStatus_t* timerStatus, uint16_t* elapsedTime);
                 taf_ecall_HlapTimerStatus_t GetHlapTimerStatus(taf_ecall_HlapTimerType_t timerType);
                 taf_ecall_HlapTimerStatus_t ConvertHlapTimerStatus(taf_pa_ecall_hlap_timer_state_t status);
-                uint16_t ConvertElapsedTime(std::chrono::time_point<std::chrono::steady_clock> startTime);
+                uint16_t ConvertElapsedTime(const timespec& start);
                 static void T9TimerExpiryHandler(le_timer_Ref_t timerRef);
                 static void T10TimerExpiryHandler(le_timer_Ref_t timerRef);
-                void* StartHlapElapsedTimer(HlapTimerType_t type, HlapTimerEventType_t event);
+                static void ResumeHlapTimerModeWaitHandler(le_timer_Ref_t timerRef);
                 HlapTimerEventType_t ConvertHlapTimerEvent(taf_pa_ecall_hlap_event_t event);
+                void ArmPendingResume(bool needResumeT9, bool needResumeT10);
+                void ResumeHlapTimers(bool needResumeT9, bool needResumeT10, taf_ecall_OpMode_t opMode);
                 le_result_t ResumeHlapTimer(taf_ecall_HlapTimerType_t timerType);
+                void OnEventResumeHlapTimerOnModeChange(taf_pa_ecall_mode_t eCallMode);
+                void OnEventModemUnavailable();
+                void OnEventModemOperational();
+                void OnEventSaveHlapTimerElapsed(HlapTimerType_t type, HlapTimerEventType_t event);
+                void OnEventEcallInProgressModemReboot();
                 static void ResumeHlapTimerEventHandler(void* reqPtr);
                 le_result_t IsInProgress(taf_ecall_CallRef_t ecallRef, bool* isInProgress);
                 le_result_t ConfigureInitialDialRedial(std::vector<int> redialPara);
                 le_result_t SetInitialDialAttempts(uint8_t attempts);
                 le_result_t SetInitialDialIntervalBetweenDialAttempts(const uint16_t* interval, size_t intervalLength);
+                taf_ecall_TerminationRedialReason_t MapRedialReason(taf_pa_ecall_reason_type_t redialReson);
+                le_result_t GetTerminationRedialReason(taf_ecall_CallRef_t ecallRef, taf_ecall_TerminationRedialReason_t* reason);
+                uint64_t StashCall(std::shared_ptr<taf_pa_ecall_CallInfo_t> sp);
+                std::shared_ptr<taf_pa_ecall_CallInfo_t> TakeCall(uint64_t token);
+                void HandleIncomingCall(int phoneId, const RxECallIncomingCallParam_t& incomingCall);
+                void HandleCallInfoChange(int phoneId, const RxECallInfoChangeParam_t& infoChange);
+                void HandleMsdTransmissionStatus(int phoneId, taf_pa_ecall_msd_status_t status);
+                void HandleHlapTimerEvent(int phoneId, taf_pa_ecall_hlap_timer_events_t timerEvents);
+                void HandleMsdUpdateRequest(int phoneId);
+                void HandleRedial(int phoneId, taf_pa_ecall_redial_info_t redialInfo);
+                void HandleMakeCallResp(int phoneId, RxECallMakeCallResponse resp);
+                static void ProcessRxECallEvent(void* msgPtr);
+                void* CloneEventData(const RxECallEvent_t* eventPtr);
+                void FreeEventData(RxECallEventType_t eventType, void* data);
+                void ProcessPendingCallEvents(int phoneId, int callIndex);
+                void HandleCallEnd(int phoneId, int callIndex);
                 taf_ecall_StateChangeHandlerRef_t AddStateChangeHandler (taf_ecall_StateChangeHandlerFunc_t handlerPtr,
                                                                                         void* contextPtr);
                 void RemoveStateChangeHandler (taf_ecall_StateChangeHandlerRef_t handlerRef);
@@ -285,39 +383,50 @@ using namespace std;
                 le_result_t UpdateMsdVehicleInfo();
                 le_result_t UpdateMsdInformation(taf_ecall_CallRef_t ecallRef);
                 void SetSessionState(tafECallSession_t session);
-                void SetECallState(taf_ecall_State_t state);
+                void SetStateAndReport(taf_ecall_State_t state, int phoneId, const std::string &dest);
                 void ClearPduMsd();
                 taf_ecall_CallRef_t GetECallReference();
                 void SetCallIndex(int32_t callIndex);
                 void SetCallPhoneId(int8_t phoneId);
+                void SetLastCallPhoneId(int8_t phoneId);
+                int8_t GetLastCallPhoneId();
                 le_event_Id_t StateChangeEventId;
+                le_event_Id_t RxECallEventId;
+                le_mem_PoolRef_t RxECallEventPool = NULL;
 
-                std::promise<taf_pa_result_t> updateMsdProm;
-                std::promise<taf_pa_result_t> hangupProm;
-                std::promise<taf_pa_result_t> rejectProm;
-                std::promise<taf_pa_result_t> answerProm;
-                std::promise<taf_pa_result_t> makeEcallProm;
-                std::promise<taf_pa_result_t> makePrieCallProm;
                 taf_pa_ecall_termination_t CallEndError = taf_pa_ecall_termination_t::NORMAL;
 
-                std::chrono::time_point<std::chrono::steady_clock> t2StartTime;
-                std::chrono::time_point<std::chrono::steady_clock> t9StartTime;
-                std::chrono::time_point<std::chrono::steady_clock> t10StartTime;
-                bool t2StartTimeSet = false;
-                bool t9StartTimeSet = false;
-                bool t10StartTimeSet = false;
-                uint16_t ElapsedTimeT9 = 0;
                 eCall_Inf_t *eCallInf = nullptr;
                 bool isDrvPresent = false;
 
                 le_ref_MapRef_t ECallPtrRefMap = NULL;
 
                 le_event_Id_t ResumeHlapTimerEventId;
-                le_timer_Ref_t elapsedTimeT9Ref;
-                bool pendingToResumeHlapTimer = false;
+                le_timer_Ref_t resumeModeWaitTimerRef;
+                bool pendingResumeT9 = false;
+                bool pendingResumeT10 = false;
+                bool needReportT9Start = false;
+                bool needReportT10Start = false;
+                bool needReportCallEndOnReboot = false;
+                int8_t lastCallPhoneId = -1;
             private:
+                std::mutex callMtx_;
+                std::unordered_map<uint64_t, std::shared_ptr<taf_pa_ecall_CallInfo_t>> callStore_;
+                std::atomic<uint64_t> callNextToken_{1};
+                std::vector<PendingECallEvent> pendingECallEvents;
                 taf_ECall_t ECallObject;
                 taf_pa_ecall_event_listener_t eventListener;
+
+                timespec t2StartTime{};
+                timespec t9StartTime{};
+                timespec t10StartTime{};
+                bool t2StartTimeSet = false;
+                bool t9StartTimeSet = false;
+                bool t10StartTimeSet = false;
+                uint16_t ElapsedTimeT9 = 0;
+                uint16_t ElapsedTimeT10 = 0;
+                le_timer_Ref_t elapsedTimeT9Ref;
+                le_timer_Ref_t elapsedTimeT10Ref;
                 void InitializeECallPtr();
 
         };
@@ -344,8 +453,6 @@ using namespace std;
             static void onStateChange(std::shared_ptr<taf_pa_ecall_subsystem_info_t> info,
                 taf_pa_ecall_operational_status_t status,
                 std::any context);
-            static taf_ecall_State_t eCallMsdTransmissionStatusToState(
-                taf_pa_ecall_msd_status_t status);
         };
     }
 

@@ -9,21 +9,6 @@ export PATH=/legato/systems/current/bin:/mnt/legato/system/bin:/sbin:$PATH
 
 TELAF_INSTALLED_VERSION=/legato/systems/current/version
 
-xPS=
-if ls -l $(which ps) | grep busybox > /dev/null
-then
-    if [ -n "${TELAF_IN_CONTAINER}" ]; then
-        # For LXC container
-        xPS="ps -w"
-    else
-        # For PVM
-        xPS="ps -e"
-    fi
-else
-    # For Docker container
-    xPS="ps -aux"
-fi
-
 TelafPrintUsage()
 {
     echo "NAME"
@@ -62,32 +47,57 @@ IsSystemInstalled()
 }
 
 # Get the last component after the final "/" in the cgroup v2 (hierarchy 0) path.
-# PVM supervisor:  0::/system.slice/telaf.service  -> "telaf.service"
-# LXC supervisor:  0::/lxc.payload.telaflxc/.lxc   -> ".lxc"  (from PVM)
-#                  0::/.lxc                         -> ".lxc"  (from inside LXC)
+# PVM supervisor: 0::/system.slice/telaf.service -> "telaf.service"
 GetCgroupV2Suffix()
 {
     grep "^0::" /proc/$1/cgroup 2>/dev/null | sed 's|.*/||'
 }
 
-# Expected cgroup v2 suffix based on current environment.
-if [ -n "${TELAF_IN_CONTAINER}" ]; then
-    EXPECTED_CGROUP_SUFFIX=".lxc"
-else
-    EXPECTED_CGROUP_SUFFIX="telaf.service"
-fi
-
 IsFrameworkRunning()
 {
     local version=$(cat ${TELAF_INSTALLED_VERSION} | sed 's/_modified$//')
-    local found=0
-    for pid in $(${xPS} | grep "$version" | grep -v grep | awk '{print $1}'); do
-        if [ "$(GetCgroupV2Suffix $pid)" = "$EXPECTED_CGROUP_SUFFIX" ]; then
-            found=1
-            break
+    local comm
+    local pid
+
+    # Only the supervisor needs looking at, so pick the candidates out by
+    # reading /proc/<pid>/comm with the shell, which costs no child process,
+    # and confirm the installed version on the few that remain.
+    for commfile in /proc/[0-9]*/comm
+    do
+        read -r comm < "$commfile" 2>/dev/null || continue
+        [ "$comm" = "supervisor" ] || continue
+
+        pid=${commfile#/proc/}
+        pid=${pid%/comm}
+
+        # Match the version against the raw cmdline instead of 'ps' output: the
+        # PID column differs between busybox and procps, and busybox truncates
+        # long command lines to the terminal width, which cuts the version
+        # string short.
+        grep -q "$version" /proc/$pid/cmdline 2>/dev/null || continue
+
+        if [ -n "${TELAF_IN_CONTAINER}" ]
+        then
+            # Inside the LXC container and inside the simulation container /proc
+            # only lists our own PID namespace, so any match belongs to us. No
+            # cgroup filtering is needed, and there is no single suffix to pin:
+            # LXC reports 0::/ when the framework was started by the container
+            # init and 0::/.lxc when it was started from an lxc-attach session,
+            # whose cgroup the supervisor inherits, and the simulation container
+            # reports 0::/__cgroot__.
+            return 0
+        fi
+
+        # On PVM /proc also lists the LXC payload processes, which are not the
+        # framework running here. Requiring the telaf.service cgroup keeps them
+        # out.
+        if [ "$(GetCgroupV2Suffix $pid)" = "telaf.service" ]
+        then
+            return 0
         fi
     done
-    [ $found -eq 1 ]
+
+    return 1
 }
 
 TelafStatus()

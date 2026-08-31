@@ -289,6 +289,8 @@ namespace tafsvc {
             static taf_Hms& GetInstance();
             void Init();
             void AdvertiseService();
+            void CleanupOnSigTerm();
+            static void SigTermEventHandler(int sigNum);
             static void OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *contextPtr);
             le_result_t GetCpuLoad(double* cpuCurrentLoadPtr);
             uint32_t GetCpuCoreNum(void);

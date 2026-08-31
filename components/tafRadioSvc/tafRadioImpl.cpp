@@ -146,17 +146,36 @@ LE_REF_DEFINE_STATIC_MAP(connStatus, CONN_STATUS_MAX_COUNT);
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Static map for service status.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_REF_DEFINE_STATIC_MAP(svcStatusRefMap, TAF_RADIO_SVC_STATUS_HANDLER_MAX_NUM);
+
+
+const uint32_t Factory::PM_RETRY_INTERVALS_MS[] =
+{
+    10000, 30000, 60000, 120000
+};
+
+const uint8_t Factory::PM_MAX_RETRIES =
+    sizeof(Factory::PM_RETRY_INTERVALS_MS) /
+    sizeof(Factory::PM_RETRY_INTERVALS_MS[0]);
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Registers radio indications from the platform adaptor for all supported instances.
  */
 //--------------------------------------------------------------------------------------------------
 static void RegisterIndication
 (
-    uint8_t registration ///< [IN] Registration mask.
+    uint8_t registration, ///< [IN] Registration mask.
+    taf_pa_radio_DisableIndicationMode_t mode   ///< [IN] Disable mode.
 )
 {
     for (uint32_t i = 0; i < INSTANCE_MAX_COUNT; i++)
     {
-        taf_pa_result_t result = taf_pa_radio_RegisterIndication(i, registration, TAF_PA_RADIO_DISABLE_IND_MODE_NONE);
+        taf_pa_result_t result = taf_pa_radio_RegisterIndication(i, registration, mode);
         switch(result)
         {
             case TAF_PA_OK:
@@ -176,6 +195,39 @@ static void RegisterIndication
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Posts an internal LTE CPHY CA cache refresh request to the service event loop.
+ */
+//--------------------------------------------------------------------------------------------------
+static void PostLteCphyCaRefresh
+(
+    uint32_t instance,                                           ///< [IN] Instance index.
+    bool reportChange,                                           ///< [IN] Report status/count change.
+    bool queryPa,                                                ///< [IN] Query PA for full snapshot.
+    const taf_pa_radio_LteCphyCaIndication_t* indicationPtr      ///< [IN] Optional indication.
+)
+{
+    if (instance >= INSTANCE_MAX_COUNT)
+    {
+        LE_ERROR("Invalid instance %u.", instance);
+        return;
+    }
+
+    auto& factory = Factory::GetInstance();
+    LteCphyCaRefresh_t refresh = {};
+    refresh.instance = instance;
+    refresh.reportChange = reportChange;
+    refresh.queryPa = queryPa;
+    refresh.reference = factory.cache.caInfoRefs[instance];
+    if (indicationPtr != nullptr)
+    {
+        refresh.indication = *indicationPtr;
+    }
+
+    le_event_Report(Factory::staticEvents.lteCphyCaRefresh, &refresh, sizeof(refresh));
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for power state change notifications.
  *
  * When the system resumes, indications are re-enabled. When the system suspends, indications are
@@ -184,19 +236,97 @@ static void RegisterIndication
 //--------------------------------------------------------------------------------------------------
 static void PowerStateChangeHandler
 (
-    taf_pm_State_t state, ///< [IN] Power management state.
-    void* contextPtr      ///< [IN] Context.
+    taf_pm_State_t state,   ///< [IN] Power management state.
+    void* contextPtr        ///< [IN] Context.
 )
 {
+    auto& factory = Factory::GetInstance();
+
     if (state == TAF_PM_STATE_RESUME)
     {
-        LE_INFO("Power state change to RESUME");
-        RegisterIndication(ENABLE_INDICATION);
+        LE_DEBUG("Power state change to RESUME");
+
+        RegisterIndication(ENABLE_INDICATION, TAF_PA_RADIO_DISABLE_IND_MODE_NONE);
+
+        for(auto i = 0; i < INSTANCE_MAX_COUNT; i++)
+        {
+            PostLteCphyCaRefresh(i, true, true, nullptr);
+
+            taf_pa_result_t limitRes = taf_pa_radio_SetSysInfoIndLimit(
+                                    i, TAF_PA_RADIO_SYS_INFO_IND_LIMIT_NONE);
+            if (limitRes != TAF_PA_OK)
+            {
+                LE_ERROR("PowerStateChangeHandler: Failed to set SYS_INFO limit for instance %d "
+                        "on RESUME [rc=%d]", i, limitRes);
+            }
+            else
+            {
+                LE_INFO("PowerStateChangeHandler: SYS_INFO limit (STATE_NONE) "
+                        "set for %d instance", i);
+            }
+        }
     }
     else if (state == TAF_PM_STATE_SUSPEND)
     {
         LE_INFO("Power state change to SUSPEND");
-        RegisterIndication(DISABLE_INDICATION);
+
+        if (!le_dls_IsEmpty(&factory.svcStatusCtxList))
+        {
+
+            RegisterIndication(DISABLE_INDICATION,
+                               TAF_PA_RADIO_DISABLE_IND_MODE_SKIP_NAS_SYS_INFO_IND);
+
+            for(auto i = 0; i < INSTANCE_MAX_COUNT; i++)
+            {
+                taf_pa_result_t limitRes = taf_pa_radio_SetSysInfoIndLimit(
+                                        i, TAF_PA_RADIO_SYS_INFO_IND_LIMIT_BY_STATE_TOGGLE);
+                if (limitRes != TAF_PA_OK)
+                {
+                    LE_ERROR("PowerStateChangeHandler: Failed to set SYS_INFO limit for instance %d "
+                            "(STATE_TOGGLE) on SUSPEND [rc=%d]", i, limitRes);
+                }
+                else
+                {
+                    LE_INFO("PowerStateChangeHandler: SYS_INFO limit (STATE_TOGGLE) "
+                            "set for %d instance", i);
+                }
+            }
+        }
+        else
+        {
+            RegisterIndication(DISABLE_INDICATION, TAF_PA_RADIO_DISABLE_IND_MODE_ALL);
+        }
+    }
+}
+
+static taf_radio_Rat_t ConvertPaRatToSvcRat(taf_pa_radio_Rat_t paRat)
+{
+    switch (paRat)
+    {
+        case TAF_PA_RADIO_RAT_GSM:      return TAF_RADIO_RAT_GSM;
+        case TAF_PA_RADIO_RAT_UMTS:     return TAF_RADIO_RAT_UMTS;
+        case TAF_PA_RADIO_RAT_LTE:      return TAF_RADIO_RAT_LTE;
+        case TAF_PA_RADIO_RAT_NR5G:     return TAF_RADIO_RAT_NR5G;
+        case TAF_PA_RADIO_RAT_UNKNOWN:
+        default:
+            LE_WARN("ConvertPaRatToSvcRat: unmapped PA RAT=%d, defaulting to UNKNOWN", paRat);
+            return TAF_RADIO_RAT_UNKNOWN;
+    }
+}
+
+static taf_radio_RatSvcStatus_t ConvertPaSvcStatusToSvcStatus(taf_pa_radio_RatServiceStatus_t  paStatus)
+{
+    switch (paStatus)
+    {
+        case TAF_PA_RADIO_RAT_SERVICE_STATUS_NO_SERVICE:           return TAF_RADIO_RAT_SVC_STATUS_NO_SERVICE;
+        case TAF_PA_RADIO_RAT_SERVICE_STATUS_LIMITED:              return TAF_RADIO_RAT_SVC_STATUS_LIMITED;
+        case TAF_PA_RADIO_RAT_SERVICE_STATUS_SERVICE:              return TAF_RADIO_RAT_SVC_STATUS_SERVICE;
+        case TAF_PA_RADIO_RAT_SERVICE_STATUS_LIMITED_REGIONAL:     return TAF_RADIO_RAT_SVC_STATUS_LIMITED_REGIONAL;
+        case TAF_PA_RADIO_RAT_SERVICE_STATUS_POWER_SAVE:           return TAF_RADIO_RAT_SVC_STATUS_POWER_SAVE;
+        case TAF_PA_RADIO_RAT_SERVICE_STATUS_UNKNOWN:
+        default:
+            LE_WARN("ConvertPaSvcStatusToSvcStatus: unmapped PA status=%d, defaulting to UNKNOWN", paStatus);
+            return TAF_RADIO_RAT_SVC_STATUS_UNKNOWN;
     }
 }
 
@@ -296,6 +426,8 @@ static void RatChangeHandler
     auto& factory = Factory::GetInstance();
     if (instance < INSTANCE_MAX_COUNT && indication.rat != factory.cache.rat[instance])
     {
+        factory.cache.rat[instance] = indication.rat;
+
         taf_radio_RatChangeInd_t* indPtr = (taf_radio_RatChangeInd_t*)le_mem_ForceAlloc(
             factory.pools.ratChange);
 
@@ -308,7 +440,245 @@ static void RatChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for voice service information indications.
+ * Reports a net reg state event if the new value differs from the cached value, then
+ * updates the cache.  Used by both the indication handler and the resync path.
+ */
+//--------------------------------------------------------------------------------------------------
+static void ReportNetRegStateIfChanged
+(
+    le_event_Id_t eventId,              ///< [IN] Event to report on.
+    taf_radio_NetRegState_t& cached,    ///< [IN/OUT] Cached value (updated on change).
+    uint8_t phoneId,                    ///< [IN] Phone ID for the payload.
+    taf_radio_NetRegState_t newState    ///< [IN] Newly computed state.
+)
+{
+    if (newState == cached)
+    {
+        LE_DEBUG("ReportNetRegStateIfChanged: phoneId=%d state=%d unchanged, skip.",
+                 phoneId, newState);
+        return;
+    }
+    LE_INFO("ReportNetRegStateIfChanged: phoneId=%d state %d -> %d.",
+            phoneId, cached, newState);
+    cached = newState;
+
+    auto& factory = Factory::GetInstance();
+    taf_radio_NetRegStateInd_t* indPtr =
+        (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(factory.pools.netRegState);
+    indPtr->phoneId = phoneId;
+    indPtr->state   = newState;
+    le_event_ReportWithRefCounting(eventId, (void*)indPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Main-thread handler for registration state indications (voice / data service / data roaming).
+ *
+ * Runs on the main event loop so it never executes concurrently with other main-thread events
+ * and never blocks the PA callback thread.
+ */
+//--------------------------------------------------------------------------------------------------
+static void RegStateIndEventHandler
+(
+    void* contextPtr ///< [IN] Ref-counted RegStateIndEvent_t pointer.
+)
+{
+    auto* eventPtr    = (RegStateIndEvent_t*)contextPtr;
+    uint32_t instance = eventPtr->instance;
+
+    if (instance >= INSTANCE_MAX_COUNT)
+    {
+        LE_ERROR("RegStateIndEventHandler: invalid instance %d.", instance);
+        le_mem_Release(contextPtr);
+        return;
+    }
+
+    auto& factory   = Factory::GetInstance();
+    uint8_t phoneId = Utility::Convert::InstanceToPhone(instance);
+
+    switch (eventPtr->type)
+    {
+        case REG_STATE_IND_VOICE_SERVICE_INFO:
+        {
+            taf_radio_NetRegState_t voiceState =
+                Utility::Convert::NetRegState(&eventPtr->voiceServiceInfo.info);
+
+            taf_radio_NetRegState_t psState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+            if (taf_radio_GetPacketSwitchedState(&psState, phoneId) != LE_OK)
+            {
+                LE_WARN("RegStateIndEventHandler: failed to get PS state for phoneId %d.",
+                        phoneId);
+            }
+
+            taf_radio_NetRegState_t combinedState =
+                Utility::Convert::CombineNetRegState(voiceState, psState);
+
+            LE_DEBUG("RegStateIndEventHandler: VOICE instance=%d voice=%d ps=%d combined=%d.",
+                    instance, voiceState, psState, combinedState);
+
+            ReportNetRegStateIfChanged(
+                factory.events.netRegState,
+                factory.cache.netRegState[instance],
+                phoneId, combinedState);
+            break;
+        }
+
+        case REG_STATE_IND_DATA_SERVICE_STATUS:
+        {
+            taf_pa_radio_DataServiceState_t dataState = eventPtr->dataServiceStatus.state;
+            factory.cache.dataServiceState[instance] = dataState;
+
+            taf_radio_NetRegState_t psState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+            switch (dataState)
+            {
+                case TAF_PA_RADIO_DATA_SERVICE_STATE_IN_SERVICE:
+                {
+                    taf_pa_radio_DataRoamingStatus_t roamingStatus =
+                        TAF_PA_RADIO_DATA_ROAMING_STATUS_UNKNOWN;
+                    taf_pa_result_t result =
+                        taf_pa_radio_GetDataCurrRoamingStatus(instance, &roamingStatus);
+
+                    if (result == 0 && roamingStatus == TAF_PA_RADIO_DATA_ROAMING_STATUS_ON)
+                    {
+                        psState = TAF_RADIO_NET_REG_STATE_ROAMING;
+                    }
+                    else
+                    {
+                        psState = TAF_RADIO_NET_REG_STATE_HOME;
+                    }
+                    LE_DEBUG("RegStateIndEventHandler: DATA_SERVICE instance=%d "
+                            "dataState=IN_SERVICE roamingResult=%d roamingStatus=%d ps=%d.",
+                            instance, result, roamingStatus, psState);
+                    break;
+                }
+
+                case TAF_PA_RADIO_DATA_SERVICE_STATE_OUT_OF_SERVICE:
+                    psState = TAF_RADIO_NET_REG_STATE_NONE;
+                    LE_DEBUG("RegStateIndEventHandler: DATA_SERVICE instance=%d "
+                            "dataState=OUT_OF_SERVICE ps=%d.", instance, psState);
+                    break;
+
+                default:
+                    psState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+                    LE_DEBUG("RegStateIndEventHandler: DATA_SERVICE instance=%d "
+                            "dataState=%d ps=UNKNOWN.", instance, dataState);
+                    break;
+            }
+
+            ReportNetRegStateIfChanged(
+                factory.events.packetSwitchedState,
+                factory.cache.packetSwitchedState[instance],
+                phoneId, psState);
+
+            taf_pa_radio_VoiceServiceInfo_t voiceInfo;
+            taf_radio_NetRegState_t voiceState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+            if (taf_pa_radio_GetVoiceServiceInfo(instance, &voiceInfo) == 0)
+            {
+                voiceState = Utility::Convert::NetRegState(&voiceInfo);
+            }
+            else
+            {
+                LE_WARN("RegStateIndEventHandler: failed to get voice info for instance %d.",
+                        instance);
+            }
+
+            taf_radio_NetRegState_t combinedState =
+                Utility::Convert::CombineNetRegState(voiceState, psState);
+
+            LE_DEBUG("RegStateIndEventHandler: DATA_SERVICE instance=%d voice=%d ps=%d "
+                    "combined=%d.", instance, voiceState, psState, combinedState);
+
+            ReportNetRegStateIfChanged(
+                factory.events.netRegState,
+                factory.cache.netRegState[instance],
+                phoneId, combinedState);
+            break;
+        }
+
+        case REG_STATE_IND_DATA_ROAMING_STATUS:
+        {
+            taf_radio_NetRegState_t psState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+            if (eventPtr->dataRoamingStatus.status == TAF_PA_RADIO_DATA_ROAMING_STATUS_ON)
+            {
+                psState = TAF_RADIO_NET_REG_STATE_ROAMING;
+            }
+            else if (factory.cache.dataServiceState[instance] ==
+                     TAF_PA_RADIO_DATA_SERVICE_STATE_IN_SERVICE)
+            {
+                psState = TAF_RADIO_NET_REG_STATE_HOME;
+            }
+            else
+            {
+                psState = TAF_RADIO_NET_REG_STATE_NONE;
+            }
+
+            LE_DEBUG("RegStateIndEventHandler: DATA_ROAMING instance=%d roamingStatus=%d "
+                    "cachedDataState=%d ps=%d.",
+                    instance, eventPtr->dataRoamingStatus.status,
+                    factory.cache.dataServiceState[instance], psState);
+
+            ReportNetRegStateIfChanged(
+                factory.events.packetSwitchedState,
+                factory.cache.packetSwitchedState[instance],
+                phoneId, psState);
+
+            taf_pa_radio_VoiceServiceInfo_t voiceInfo;
+            taf_radio_NetRegState_t voiceState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+            if (taf_pa_radio_GetVoiceServiceInfo(instance, &voiceInfo) == 0)
+            {
+                voiceState = Utility::Convert::NetRegState(&voiceInfo);
+            }
+            else
+            {
+                LE_WARN("RegStateIndEventHandler: failed to get voice info for instance %d.",
+                        instance);
+            }
+
+            taf_radio_NetRegState_t combinedState =
+                Utility::Convert::CombineNetRegState(voiceState, psState);
+
+            LE_DEBUG("RegStateIndEventHandler: DATA_ROAMING instance=%d voice=%d ps=%d "
+                    "combined=%d.", instance, voiceState, psState, combinedState);
+
+            ReportNetRegStateIfChanged(
+                factory.events.netRegState,
+                factory.cache.netRegState[instance],
+                phoneId, combinedState);
+            break;
+        }
+
+        default:
+            LE_ERROR("RegStateIndEventHandler: unknown type %d.", eventPtr->type);
+            le_mem_Release(contextPtr);
+            return;
+    }
+
+    le_mem_Release(contextPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Helper: allocates a RegStateIndEvent_t, fills instance and type, and posts it to the
+ * main-thread event loop via Factory::staticEvents.regStateInd.
+ */
+//--------------------------------------------------------------------------------------------------
+static RegStateIndEvent_t* AllocRegStateIndEvent
+(
+    uint32_t instance,   ///< [IN] Instance index.
+    RegStateIndType_t type ///< [IN] Indication type.
+)
+{
+    auto* eventPtr = (RegStateIndEvent_t*)le_mem_ForceAlloc(
+        Factory::GetInstance().pools.regStateIndEvent);
+    eventPtr->instance = instance;
+    eventPtr->type     = type;
+    return eventPtr;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * PA callback handler for voice service info indications.
+ * Stores the indication payload and forwards it to the main thread event loop.
  */
 //--------------------------------------------------------------------------------------------------
 static void VoiceServiceInfoHandler
@@ -319,48 +689,14 @@ static void VoiceServiceInfoHandler
 )
 {
     (void)contextPtr;
-
     if (instance >= INSTANCE_MAX_COUNT)
     {
-        LE_ERROR("Invalid instance %d.", instance);
+        LE_ERROR("VoiceServiceInfoHandler: invalid instance %d.", instance);
         return;
     }
-
-    auto& factory = Factory::GetInstance();
-    uint8_t phoneId = Utility::Convert::InstanceToPhone(instance);
-
-    taf_radio_NetRegState_t vState = Utility::Convert::NetRegState(&indication.info);
-
-    taf_radio_NetRegState_t dState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
-    if (taf_radio_GetPacketSwitchedState(&dState, phoneId) != LE_OK)
-    {
-        LE_WARN("Failed to get Data Service Info for phoneId %d", phoneId);
-    }
-
-    taf_radio_NetRegState_t combinedState =
-        Utility::Convert::CombineNetRegState(vState, dState);
-
-    bool changed = false;
-    {
-        std::lock_guard<std::mutex> lock(factory.cache.sNetRegStateMutex[instance]);
-
-        if (combinedState != factory.cache.netRegState[instance])
-        {
-            factory.cache.netRegState[instance] = combinedState;
-            changed = true;
-        }
-    }
-
-    if (changed)
-    {
-        taf_radio_NetRegStateInd_t* indPtr =
-            (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(factory.pools.netRegState);
-
-        indPtr->phoneId = phoneId;
-        indPtr->state = combinedState;
-
-        le_event_ReportWithRefCounting(factory.events.netRegState, (void*)indPtr);
-    }
+    auto* eventPtr = AllocRegStateIndEvent(instance, REG_STATE_IND_VOICE_SERVICE_INFO);
+    eventPtr->voiceServiceInfo = indication;
+    le_event_ReportWithRefCounting(Factory::staticEvents.regStateInd, (void*)eventPtr);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -379,92 +715,12 @@ static void DataServiceStatusHandler
 
     if (instance >= INSTANCE_MAX_COUNT)
     {
-        LE_ERROR("Invalid instance %d.", instance);
+        LE_ERROR("DataServiceStatusHandler: invalid instance %d.", instance);
         return;
     }
-
-    auto& factory = Factory::GetInstance();
-    uint8_t phoneId = Utility::Convert::InstanceToPhone(instance);
-
-    factory.cache.dataServiceState[instance] = indication.state;
-
-    taf_radio_NetRegState_t state = TAF_RADIO_NET_REG_STATE_UNKNOWN;
-    switch (indication.state)
-    {
-        case TAF_PA_RADIO_DATA_SERVICE_STATE_IN_SERVICE:
-        {
-            taf_pa_radio_DataRoamingStatus_t status =
-                TAF_PA_RADIO_DATA_ROAMING_STATUS_UNKNOWN;
-
-            taf_pa_result_t result =
-                taf_pa_radio_GetDataCurrRoamingStatus(instance, &status);
-
-            if (result == TAF_PA_OK &&
-                status == TAF_PA_RADIO_DATA_ROAMING_STATUS_ON)
-            {
-                state = TAF_RADIO_NET_REG_STATE_ROAMING;
-            }
-            else
-            {
-                state = TAF_RADIO_NET_REG_STATE_HOME;
-            }
-            break;
-        }
-
-        case TAF_PA_RADIO_DATA_SERVICE_STATE_OUT_OF_SERVICE:
-            state = TAF_RADIO_NET_REG_STATE_NONE;
-            break;
-
-        default:
-            state = TAF_RADIO_NET_REG_STATE_UNKNOWN;
-            break;
-    }
-
-    if (state != factory.cache.packetSwitchedState[instance])
-    {
-        factory.cache.packetSwitchedState[instance] = state;
-
-        taf_radio_NetRegStateInd_t* indPtr =
-            (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(factory.pools.netRegState);
-
-        indPtr->phoneId = phoneId;
-        indPtr->state = state;
-
-        le_event_ReportWithRefCounting(factory.events.packetSwitchedState, (void*)indPtr);
-    }
-
-    taf_pa_radio_VoiceServiceInfo_t voiceInfo;
-    taf_radio_NetRegState_t vState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
-
-    if (taf_pa_radio_GetVoiceServiceInfo(phoneId, &voiceInfo) == TAF_PA_OK)
-    {
-        vState = Utility::Convert::NetRegState(&voiceInfo);
-    }
-
-    taf_radio_NetRegState_t combinedState =
-        Utility::Convert::CombineNetRegState(vState, state);
-
-    bool changed = false;
-    {
-        std::lock_guard<std::mutex> lock(factory.cache.sNetRegStateMutex[instance]);
-
-        if (combinedState != factory.cache.netRegState[instance])
-        {
-            factory.cache.netRegState[instance] = combinedState;
-            changed = true;
-        }
-    }
-
-    if (changed)
-    {
-        taf_radio_NetRegStateInd_t* indPtr =
-            (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(factory.pools.netRegState);
-
-        indPtr->phoneId = phoneId;
-        indPtr->state = combinedState;
-
-        le_event_ReportWithRefCounting(factory.events.netRegState, (void*)indPtr);
-    }
+    auto* eventPtr = AllocRegStateIndEvent(instance, REG_STATE_IND_DATA_SERVICE_STATUS);
+    eventPtr->dataServiceStatus = indication;
+    le_event_ReportWithRefCounting(Factory::staticEvents.regStateInd, (void*)eventPtr);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -479,32 +735,15 @@ static void DataRoamingStatusHandler
     void* contextPtr                                       ///< [IN] Context.
 )
 {
+    (void)contextPtr;
     if (instance >= INSTANCE_MAX_COUNT)
     {
-        LE_ERROR("Invalid instance %d.", instance);
+        LE_ERROR("DataRoamingStatusHandler: invalid instance %d.", instance);
         return;
     }
-
-    auto& factory = Factory::GetInstance();
-    taf_radio_NetRegState_t state = TAF_RADIO_NET_REG_STATE_UNKNOWN;
-    if (indication.status == TAF_PA_RADIO_DATA_ROAMING_STATUS_ON)
-        state = TAF_RADIO_NET_REG_STATE_ROAMING;
-    else if (factory.cache.dataServiceState[instance] ==
-        TAF_PA_RADIO_DATA_SERVICE_STATE_IN_SERVICE)
-        state = TAF_RADIO_NET_REG_STATE_HOME;
-    else
-        state = TAF_RADIO_NET_REG_STATE_NONE;
-
-    if (state != factory.cache.packetSwitchedState[instance])
-    {
-        factory.cache.packetSwitchedState[instance] = state;
-
-        taf_radio_NetRegStateInd_t* indPtr = (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(
-            factory.pools.netRegState);
-        indPtr->phoneId = Utility::Convert::InstanceToPhone(instance);
-        indPtr->state = state;
-        le_event_ReportWithRefCounting(factory.events.packetSwitchedState, (void*)indPtr);
-    }
+    auto* eventPtr = AllocRegStateIndEvent(instance, REG_STATE_IND_DATA_ROAMING_STATUS);
+    eventPtr->dataRoamingStatus = indication;
+    le_event_ReportWithRefCounting(Factory::staticEvents.regStateInd, (void*)eventPtr);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -642,6 +881,60 @@ static void OperatingModeChangeHandler
     le_event_ReportWithRefCounting(factory.events.operatingModeChange, (void*)modePtr);
 }
 
+static RatSvcInfo_t SelectServingRat(const std::vector<RatSvcInfo_t>& ratVec)
+{
+    RatSvcInfo_t best = { TAF_PA_RADIO_RAT_UNKNOWN, false,
+    TAF_PA_RADIO_RAT_SERVICE_STATUS_UNKNOWN };
+
+    for (const auto& entry : ratVec)
+    {
+        if (entry.valid && entry.status == TAF_PA_RADIO_RAT_SERVICE_STATUS_SERVICE)
+        {
+            best = entry;
+            break;
+        }
+    }
+
+    if (best.rat == TAF_PA_RADIO_RAT_UNKNOWN)
+    {
+        for (const auto& entry : ratVec)
+        {
+            if (entry.valid && (entry.status == TAF_PA_RADIO_RAT_SERVICE_STATUS_LIMITED
+                            || entry.status == TAF_PA_RADIO_RAT_SERVICE_STATUS_LIMITED_REGIONAL))
+            {
+                best = entry;
+                break;
+            }
+        }
+    }
+
+    if (best.rat == TAF_PA_RADIO_RAT_UNKNOWN)
+    {
+        for (const auto& entry : ratVec)
+        {
+            if (entry.valid && entry.status == TAF_PA_RADIO_RAT_SERVICE_STATUS_POWER_SAVE)
+            {
+                best = entry;
+                break;
+            }
+        }
+    }
+
+    if (best.rat == TAF_PA_RADIO_RAT_UNKNOWN)
+    {
+        for (const auto& entry : ratVec)
+        {
+            if (entry.valid && entry.status == TAF_PA_RADIO_RAT_SERVICE_STATUS_NO_SERVICE)
+            {
+                best = entry;
+                break;
+            }
+        }
+    }
+
+    return best;
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for RAT service status indications.
@@ -649,42 +942,98 @@ static void OperatingModeChangeHandler
 //--------------------------------------------------------------------------------------------------
 static void RatSvcStatusHandler
 (
-    uint32_t instance,                                ///< [IN] Instance index.
-    taf_pa_radio_RatSvcStatusIndication_t indication, ///< [IN] Indication payload.
-    void* contextPtr                                  ///< [IN] Context.
+    uint32_t                              instance,    ///< [IN] Instance index.
+    taf_pa_radio_RatSvcStatusIndication_t indication,  ///< [IN] Indication payload.
+    void*                                 contextPtr   ///< [IN] Context.
 )
 {
-    taf_pa_radio_RatServiceStatus_t status = TAF_PA_RADIO_RAT_SERVICE_STATUS_UNKNOWN;
+    LE_UNUSED(contextPtr);
 
-    if (indication.gsmSvcStatusValid && indication.gsmSvcStatus > status)
-        status = indication.gsmSvcStatus;
+    const std::vector<RatSvcInfo_t> ratSvcVec =
+    {
+        {
+            TAF_PA_RADIO_RAT_GSM,
+            static_cast<bool>(indication.gsmSvcStatusValid),
+            indication.gsmSvcStatusValid ? indication.gsmSvcStatus
+                                        : TAF_PA_RADIO_RAT_SERVICE_STATUS_UNKNOWN
+        },
+        {
+            TAF_PA_RADIO_RAT_UMTS,
+            static_cast<bool>(indication.umtsSvcStatusValid),
+            indication.umtsSvcStatusValid ? indication.umtsSvcStatus
+                                        : TAF_PA_RADIO_RAT_SERVICE_STATUS_UNKNOWN
+        },
+        {
+            TAF_PA_RADIO_RAT_LTE,
+            static_cast<bool>(indication.lteSvcStatusValid),
+            indication.lteSvcStatusValid ? indication.lteSvcStatus
+                                        : TAF_PA_RADIO_RAT_SERVICE_STATUS_UNKNOWN
+        },
+        {
+            TAF_PA_RADIO_RAT_NR5G,
+            static_cast<bool>(indication.nr5gSvcStatusValid),
+            indication.nr5gSvcStatusValid ? indication.nr5gSvcStatus
+                                        : TAF_PA_RADIO_RAT_SERVICE_STATUS_UNKNOWN
+        },
+    };
 
-    if (indication.cdmaSvcStatusValid && indication.cdmaSvcStatus > status)
-        status = indication.cdmaSvcStatus;
-
-    if (indication.umtsSvcStatusValid && indication.umtsSvcStatus > status)
-        status = indication.umtsSvcStatus;
-
-    if (indication.tdscdmaSvcStatusValid && indication.tdscdmaSvcStatus > status)
-        status = indication.tdscdmaSvcStatus;
-
-    if (indication.lteSvcStatusValid && indication.lteSvcStatus > status)
-        status = indication.lteSvcStatus;
-
-    if (indication.nr5gSvcStatusValid && indication.nr5gSvcStatus > status)
-        status = indication.nr5gSvcStatus;
+    RatSvcInfo_t serving = SelectServingRat(ratSvcVec);
 
     auto& factory = Factory::GetInstance();
 
-    if (instance < INSTANCE_MAX_COUNT && status != factory.cache.ratSvcState[instance])
+    LE_DEBUG("RatSvcStatusHandler instance=%d oldStatus=%d newStatus=%d rat=%d",
+             instance, factory.cache.ratSvcState[instance], serving.status, serving.rat);
+
+    if ((instance >= INSTANCE_MAX_COUNT) || (factory.cache.ratSvcState[instance] == serving.status))
     {
-        factory.cache.ratSvcState[instance] = status;
-        NetStatusInd_t* indPtr = (NetStatusInd_t*)le_mem_ForceAlloc(factory.pools.netStatusChange);
-        indPtr->phone = Utility::Convert::InstanceToPhone(instance);
-        indPtr->bitmask = TAF_RADIO_NET_STATUS_IND_BIT_MASK_RAT_SVC_STATUS;
-        indPtr->reference = factory.cache.netStatusRefs[instance];
-        le_event_ReportWithRefCounting(factory.events.netStatusChange, (void*)indPtr);
+        LE_DEBUG("RatSvcStatusHandler instance=%d status=%d unchanged, skip",
+                 instance, serving.status);
+        return;
     }
+
+    if (instance < INSTANCE_MAX_COUNT &&
+        serving.status != factory.cache.ratSvcState[instance])
+    {
+        factory.cache.ratSvcState[instance] = serving.status;
+        NetStatusInd_t* netIndPtr =
+            (NetStatusInd_t*)le_mem_ForceAlloc(factory.pools.netStatusChange);
+        netIndPtr->phone   = Utility::Convert::InstanceToPhone(instance);
+        netIndPtr->bitmask = TAF_RADIO_NET_STATUS_IND_BIT_MASK_RAT_SVC_STATUS;
+        netIndPtr->reference = factory.cache.netStatusRefs[instance];
+        le_event_ReportWithRefCounting(factory.events.netStatusChange, (void*)netIndPtr);
+    }
+
+    le_event_Id_t svcEvId = nullptr;
+    switch (serving.status)
+    {
+        case TAF_PA_RADIO_RAT_SERVICE_STATUS_NO_SERVICE:
+            svcEvId = factory.events.svcStatusNoServiceChange;       break;
+        case TAF_PA_RADIO_RAT_SERVICE_STATUS_LIMITED:
+            svcEvId = factory.events.svcStatusLimitedChange;         break;
+        case TAF_PA_RADIO_RAT_SERVICE_STATUS_SERVICE:
+            svcEvId = factory.events.svcStatusServiceChange;         break;
+        case TAF_PA_RADIO_RAT_SERVICE_STATUS_LIMITED_REGIONAL:
+            svcEvId = factory.events.svcStatusLimitedRegionalChange; break;
+        case TAF_PA_RADIO_RAT_SERVICE_STATUS_POWER_SAVE:
+            svcEvId = factory.events.svcStatusPowerSaveChange;       break;
+        default:
+            LE_WARN("RatSvcStatusHandler: unexpected svcStatus=%d instance=%d",
+                    serving.status, instance);
+            return;
+    }
+
+    factory.cache.ratSvcState[instance]  = serving.status;
+    factory.cache.rat[instance]          = serving.rat;
+
+    ServiceStatusInd_t* svcIndPtr =
+        (ServiceStatusInd_t*)le_mem_ForceAlloc(factory.pools.svcStatusInd);
+    svcIndPtr->phone  = Utility::Convert::InstanceToPhone(instance);
+    svcIndPtr->status = ConvertPaSvcStatusToSvcStatus(serving.status);
+    svcIndPtr->rat    = ConvertPaRatToSvcRat(serving.rat);
+    le_event_ReportWithRefCounting(svcEvId, (void*)svcIndPtr);
+
+    LE_DEBUG("RatSvcStatusHandler phone=%d -> status=%d rat=%d",
+             svcIndPtr->phone, svcIndPtr->status, svcIndPtr->rat);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -831,7 +1180,146 @@ static void NrIconChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Builds a cached CA snapshot from an LTE CPHY CA indication.
+ */
+//--------------------------------------------------------------------------------------------------
+static void LteCphyCaIndicationToInfo
+(
+    const taf_pa_radio_LteCphyCaIndication_t* indicationPtr, ///< [IN] Cached indication.
+    CAInfo_t* infoPtr                                        ///< [OUT] Cached CA info.
+)
+{
+    if (indicationPtr == nullptr || infoPtr == nullptr)
+    {
+        LE_ERROR("Bad parameters.");
+        return;
+    }
+
+    *infoPtr = {};
+    infoPtr->status = TAF_RADIO_CA_STATUS_DEACTIVATED;
+    infoPtr->cellCount = indicationPtr->pcellInfoValid ? 1 : 0;
+
+    if (indicationPtr->pcellInfoValid)
+    {
+        infoPtr->pcellInfo.pci = indicationPtr->pcellInfo.pci;
+        infoPtr->pcellInfo.freq = indicationPtr->pcellInfo.freq;
+        infoPtr->pcellInfo.dlBw = Utility::Convert::LteCphyCaBandwidth(
+            indicationPtr->pcellInfo.cphyCaDlBandwidth);
+        infoPtr->pcellInfo.band = (uint16_t)indicationPtr->pcellInfo.band;
+    }
+
+    if (indicationPtr->scellInfoValid)
+    {
+        uint32_t max = TAF_PA_RADIO_LTE_CPHY_SCELL_INFO_MAX_COUNT;
+        uint32_t n = (indicationPtr->scellInfoCount < max) ? indicationPtr->scellInfoCount : max;
+
+        for (uint32_t i = 0; i < n; i++)
+        {
+            infoPtr->scellInfo[i].pci = indicationPtr->scellInfo[i].pci;
+            infoPtr->scellInfo[i].freq = indicationPtr->scellInfo[i].freq;
+            infoPtr->scellInfo[i].dlBw = Utility::Convert::LteCphyCaBandwidth(
+                indicationPtr->scellInfo[i].cphyCaDlBandwidth);
+            infoPtr->scellInfo[i].band = (uint16_t)indicationPtr->scellInfo[i].band;
+            infoPtr->scellInfo[i].scellState = Utility::Convert::LteCphyCaScellState(
+                indicationPtr->scellInfo[i].scellState);
+            infoPtr->scellInfo[i].scellIndex = indicationPtr->scellInfo[i].scellIndex;
+            infoPtr->scellInfo[i].ulConfigured = (indicationPtr->scellInfo[i].ulConfigured != 0);
+
+            if (indicationPtr->scellInfo[i].scellState ==
+                TAF_PA_RADIO_LTE_CPHY_SCELL_STATE_CONFIGURED_ACTIVATED)
+            {
+                infoPtr->status = TAF_RADIO_CA_STATUS_ACTIVATED;
+                infoPtr->cellCount++;
+            }
+        }
+
+        infoPtr->scellInfoCount = n;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Refreshes the cached LTE CPHY CA snapshot on the service event loop.
+ *
+ * PA indication requests carry an indication snapshot in the internal payload. Reinit/PM-resume
+ * requests set queryPa=true to refresh the complete snapshot from PA. The public CAInfo event is
+ * reported only when LTE CA activation status or active CC count changes.
+ */
+//--------------------------------------------------------------------------------------------------
+static void LteCphyCaRefreshHandler
+(
+    void* contextPtr ///< [IN] Event payload pointer.
+)
+{
+    LteCphyCaRefresh_t* refreshPtr = (LteCphyCaRefresh_t*)contextPtr;
+    if (refreshPtr == nullptr)
+    {
+        LE_ERROR("refreshPtr is nullptr.");
+        return;
+    }
+
+    uint32_t instance = refreshPtr->instance;
+    if (instance >= INSTANCE_MAX_COUNT)
+    {
+        LE_ERROR("Invalid instance %u.", instance);
+        return;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_radio_CAInfoRef_t reference = refreshPtr->reference;
+    if (reference == nullptr)
+    {
+        reference = factory.cache.caInfoRefs[instance];
+    }
+
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("CA info cache is nullptr for instance %u.", instance);
+        return;
+    }
+
+    taf_radio_CAStatus_t oldStatus = infoPtr->status;
+    uint32_t oldCellCount = infoPtr->cellCount;
+
+    CAInfo_t newInfo = {};
+    if (refreshPtr->queryPa)
+    {
+        taf_pa_radio_LteCphyCaInfo_t paInfo = {};
+        taf_pa_result_t paResult = taf_pa_radio_GetLteCphyCaInfo(instance, &paInfo);
+        if (paResult != 0)
+        {
+            LE_ERROR("Failed to refresh LTE CPHY CA info for instance %u, result=%d.",
+                instance, paResult);
+            return;
+        }
+
+        Utility::Convert::LteCphyCaInfo(&paInfo, &newInfo);
+    }
+    else
+    {
+        LteCphyCaIndicationToInfo(&refreshPtr->indication, &newInfo);
+    }
+
+    *infoPtr = newInfo;
+
+    if (refreshPtr->reportChange &&
+        (oldStatus != newInfo.status || oldCellCount != newInfo.cellCount))
+    {
+        CAInfoInd_t* indPtr = (CAInfoInd_t*)le_mem_ForceAlloc(factory.pools.caInfoChange);
+        indPtr->phone = Utility::Convert::InstanceToPhone(instance);
+        indPtr->reference = reference;
+        le_event_ReportWithRefCounting(factory.events.caInfoChange, (void*)indPtr);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for LTE CPHY carrier aggregation indications.
+ *
+ * This PA callback only validates the instance, puts the indication snapshot in an internal event,
+ * and schedules processing on the service event loop. It intentionally avoids safe-reference map
+ * access here because the callback thread is owned by the PA layer.
  */
 //--------------------------------------------------------------------------------------------------
 static void LteCphyCaHandler
@@ -841,42 +1329,15 @@ static void LteCphyCaHandler
     void* contextPtr                               ///< [IN] Context.
 )
 {
-    uint32_t count = 0;
-    taf_radio_CAStatus_t status = TAF_RADIO_CA_STATUS_DEACTIVATED;
+    (void)contextPtr;
 
-    if (indication.pcellInfoValid)
-        count++;
-
-    if (indication.scellInfoValid)
+    if (instance >= INSTANCE_MAX_COUNT)
     {
-        for (uint32_t i = 0; i < indication.scellInfoCount &&
-            i < TAF_PA_RADIO_LTE_CPHY_SCELL_INFO_MAX_COUNT; i++)
-        {
-            if (indication.scellInfo[i].scellState ==
-                TAF_PA_RADIO_LTE_CPHY_SCELL_STATE_CONFIGURED_ACTIVATED)
-            {
-                status = TAF_RADIO_CA_STATUS_ACTIVATED;
-                count++;
-            }
-        }
+        LE_ERROR("Invalid instance %u.", instance);
+        return;
     }
 
-    auto& factory = Factory::GetInstance();
-    if (instance < INSTANCE_MAX_COUNT)
-    {
-        CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo,
-            factory.cache.caInfoRefs[instance]);
-        if (count != infoPtr->cellCount || infoPtr->status != status)
-        {
-            infoPtr->status = status;
-            infoPtr->cellCount = count;
-
-            CAInfoInd_t* indPtr = (CAInfoInd_t*)le_mem_ForceAlloc(factory.pools.caInfoChange);
-            indPtr->phone = Utility::Convert::InstanceToPhone(instance);
-            indPtr->reference = factory.cache.caInfoRefs[instance];
-            le_event_ReportWithRefCounting(factory.events.caInfoChange, (void*)indPtr);
-        }
-    }
+    PostLteCphyCaRefresh(instance, true, false, &indication);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1199,6 +1660,14 @@ taf_radio_RatBitMask_t Utility::Convert::Rat
 
     if (bitmask & TAF_PA_RADIO_BITMASK_RAT_NR5G)
         result |= TAF_RADIO_RAT_BIT_MASK_NR5G;
+
+    const taf_radio_RatBitMask_t allRatMask = TAF_RADIO_RAT_BIT_MASK_GSM |
+        TAF_RADIO_RAT_BIT_MASK_CDMA | TAF_RADIO_RAT_BIT_MASK_UMTS |
+        TAF_RADIO_RAT_BIT_MASK_TDSCDMA | TAF_RADIO_RAT_BIT_MASK_LTE |
+        TAF_RADIO_RAT_BIT_MASK_NR5G;
+
+    if ((result & allRatMask) == allRatMask)
+        return TAF_RADIO_RAT_BIT_MASK_ALL;
 
     return result;
 }
@@ -1706,6 +2175,49 @@ taf_radio_RFBandWidth_t Utility::Convert::Bandwidth
     return TAF_RADIO_RF_BANDWIDTH_INVALID;
 }
 
+taf_radio_RFBandWidth_t Utility::Convert::LteCphyCaBandwidth
+(
+    taf_pa_radio_LteCphyCaBandwidth_t bandwidth
+)
+{
+    switch (bandwidth)
+    {
+        case TAF_PA_RADIO_LTE_CPHY_CA_BANDWIDTH_NRB_6:   return TAF_RADIO_RF_BANDWIDTH_LTE_BW_1_4;
+        case TAF_PA_RADIO_LTE_CPHY_CA_BANDWIDTH_NRB_15:  return TAF_RADIO_RF_BANDWIDTH_LTE_BW_3;
+        case TAF_PA_RADIO_LTE_CPHY_CA_BANDWIDTH_NRB_25:  return TAF_RADIO_RF_BANDWIDTH_LTE_BW_5;
+        case TAF_PA_RADIO_LTE_CPHY_CA_BANDWIDTH_NRB_50:  return TAF_RADIO_RF_BANDWIDTH_LTE_BW_10;
+        case TAF_PA_RADIO_LTE_CPHY_CA_BANDWIDTH_NRB_75:  return TAF_RADIO_RF_BANDWIDTH_LTE_BW_15;
+        case TAF_PA_RADIO_LTE_CPHY_CA_BANDWIDTH_NRB_100: return TAF_RADIO_RF_BANDWIDTH_LTE_BW_20;
+        case TAF_PA_RADIO_LTE_CPHY_CA_BANDWIDTH_UNKNOWN:
+        default:
+            LE_ERROR("Unknown LTE CPHY CA bandwidth %d.", (int)bandwidth);
+            return TAF_RADIO_RF_BANDWIDTH_INVALID;
+    }
+}
+
+taf_radio_CAScellState_t Utility::Convert::LteCphyCaScellState
+(
+	taf_pa_radio_LteCphyScellState_t state
+)
+{
+    switch (state)
+    {
+        case TAF_PA_RADIO_LTE_CPHY_SCELL_STATE_DECONFIGURED:
+            return TAF_RADIO_CA_SCELL_STATE_DECONFIGURED;
+
+        case TAF_PA_RADIO_LTE_CPHY_SCELL_STATE_CONFIGURED_DEACTIVATED:
+            return TAF_RADIO_CA_SCELL_STATE_CONFIGURED_DEACTIVATED;
+
+        case TAF_PA_RADIO_LTE_CPHY_SCELL_STATE_CONFIGURED_ACTIVATED:
+            return TAF_RADIO_CA_SCELL_STATE_CONFIGURED_ACTIVATED;
+
+        case TAF_PA_RADIO_LTE_CPHY_SCELL_STATE_UNKNOWN:
+        default:
+            LE_ERROR("Unknown LTE CPHY CA scell state %d.", (int)state);
+            return TAF_RADIO_CA_SCELL_STATE_INVALID;
+    }
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Converts PA IMS registration status to public IMS registration status.
@@ -2162,12 +2674,33 @@ void Utility::Convert::LteCphyCaInfo
         return;
     }
 
-    infoPtr->cellCount = 1;
     infoPtr->status = TAF_RADIO_CA_STATUS_DEACTIVATED;
+    infoPtr->cellCount = 1;
+    infoPtr->scellInfoCount = 0;
 
-    for (uint32_t i = 0; i < paInfoPtr->scellInfoCount &&
-        i < TAF_PA_RADIO_LTE_CPHY_SCELL_INFO_MAX_COUNT; i++)
+    infoPtr->pcellInfo.pci = paInfoPtr->pcellInfo.pci;
+    infoPtr->pcellInfo.freq = paInfoPtr->pcellInfo.freq;
+    infoPtr->pcellInfo.dlBw =
+        Utility::Convert::LteCphyCaBandwidth(paInfoPtr->pcellInfo.cphyCaDlBandwidth);
+
+    infoPtr->pcellInfo.band = (uint16_t)paInfoPtr->pcellInfo.band;
+
+    uint32_t max = TAF_PA_RADIO_LTE_CPHY_SCELL_INFO_MAX_COUNT;
+    uint32_t n = (paInfoPtr->scellInfoCount < max) ? paInfoPtr->scellInfoCount : max;
+
+    for (uint32_t i = 0; i < n; i++)
     {
+        infoPtr->scellInfo[i].pci = paInfoPtr->scellInfo[i].pci;
+        infoPtr->scellInfo[i].freq = paInfoPtr->scellInfo[i].freq;
+        infoPtr->scellInfo[i].dlBw =
+            Utility::Convert::LteCphyCaBandwidth(paInfoPtr->scellInfo[i].cphyCaDlBandwidth);
+        infoPtr->scellInfo[i].band = (uint16_t)paInfoPtr->scellInfo[i].band;
+
+        infoPtr->scellInfo[i].scellState =
+            Utility::Convert::LteCphyCaScellState(paInfoPtr->scellInfo[i].scellState);
+        infoPtr->scellInfo[i].scellIndex = paInfoPtr->scellInfo[i].scellIndex;
+        infoPtr->scellInfo[i].ulConfigured = (paInfoPtr->scellInfo[i].ulConfigured != 0);
+
         if (paInfoPtr->scellInfo[i].scellState ==
             TAF_PA_RADIO_LTE_CPHY_SCELL_STATE_CONFIGURED_ACTIVATED)
         {
@@ -2175,6 +2708,8 @@ void Utility::Convert::LteCphyCaInfo
             infoPtr->cellCount++;
         }
     }
+
+    infoPtr->scellInfoCount = n;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2410,6 +2945,55 @@ void Utility::LayeredFunction::NetStatusChange
 
     le_mem_Release(reportPtr);
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Dispatches service status indications and releases the ref-counted payload.
+ */
+//--------------------------------------------------------------------------------------------------
+void Utility::LayeredFunction::ServiceStatusChange
+(
+    void* reportPtr,     ///< [IN] Ref-counted payload.
+    void* handlerFuncPtr ///< [IN] Client callback.
+)
+{
+    if (reportPtr == nullptr)
+    {
+        LE_ERROR("reportPtr is nullptr");
+        return;
+    }
+
+    taf_radio_ServiceStatusChangeHandlerFunc_t  handlerFunc =
+        (taf_radio_ServiceStatusChangeHandlerFunc_t )handlerFuncPtr;
+
+    if (handlerFunc)
+    {
+        ServiceStatusInd_t* indPtr = (ServiceStatusInd_t*)reportPtr;
+
+        // ctxPtr holds both the phoneId filter and the original user contextPtr.
+        ServiceStatusHandlerCtx_t* ctxPtr =
+            (ServiceStatusHandlerCtx_t*)le_event_GetContextPtr();
+        uint8_t filterPhoneId = (ctxPtr != NULL) ? ctxPtr->phoneId : 0;
+        void*   userCtx       = (ctxPtr != NULL) ? ctxPtr->userCtx  : NULL;
+
+        LE_INFO("LayerServiceStatusHandler: phone=%d status=%d filterPhoneId=%d ctxPtr=%p",
+                indPtr->phone, indPtr->status, filterPhoneId, (void*)ctxPtr);
+
+        // phoneId == 0 means "all phones"; otherwise only report when phone matches.
+        if (filterPhoneId == 0 || filterPhoneId == indPtr->phone)
+        {
+            handlerFunc(indPtr->rat, indPtr->status, indPtr->phone, userCtx);
+        }
+        else
+        {
+            LE_INFO("ServiceStatusChange: skip phone=%d (filter=%d) ctxPtr=%p",
+                    indPtr->phone, filterPhoneId, (void*)ctxPtr);
+        }
+    }
+
+    le_mem_Release(reportPtr);
+}
+
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2759,9 +3343,10 @@ uint32_t Utility::Common::FindServingCell
  * Static events.
  */
 //--------------------------------------------------------------------------------------------------
-StaticEvent_t Factory::staticEvents = 
+StaticEvent_t Factory::staticEvents =
 {
-    .request = nullptr
+    .request = nullptr,
+    .lteCphyCaRefresh = nullptr
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -2872,6 +3457,114 @@ static void* RequestThread
     return nullptr;
 }
 
+
+void Factory::PmRetryHandler(le_timer_Ref_t timerRef)
+{
+    auto &radio = Factory::GetInstance();
+
+    le_result_t result = taf_pm_TryConnectService();
+
+    LE_INFO("PM retry attempt %d/%d", radio.pmRetryIndex + 1, radio.PM_MAX_RETRIES);
+
+    if (result == LE_OK)
+    {
+        LE_INFO("Connected to PM service");
+
+        taf_pm_SetNonExitServerDisconnectHandler(radio.PMServerDisconnectHandler, nullptr);
+
+        taf_pm_AddStateChangeHandler(PowerStateChangeHandler, nullptr);
+
+        // Register indication once
+        if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND && !radio.indicationRegistered){
+            RegisterIndication(ENABLE_INDICATION, TAF_PA_RADIO_DISABLE_IND_MODE_NONE);
+            radio.indicationRegistered = true;
+        }
+
+        // Cleanup timer
+        if (radio.pmRetryTimer)
+        {
+            le_timer_Delete(radio.pmRetryTimer);
+            radio.pmRetryTimer = nullptr;
+        }
+
+        radio.pmRetryIndex = 0;
+        return;
+    }
+
+    radio.pmRetryIndex++;
+
+    // Schedule next retry
+    if (radio.pmRetryIndex < radio.PM_MAX_RETRIES)
+    {
+        uint32_t interval = radio.PM_RETRY_INTERVALS_MS[radio.pmRetryIndex];
+
+        LE_WARN("PM connect failed (res=%d), retry in %d ms", result, interval);
+
+        le_timer_SetMsInterval(timerRef, interval);
+        le_timer_Start(timerRef);
+
+    }
+    else
+    {
+        LE_ERROR("Max PM retries reached");
+
+        le_timer_Stop(timerRef);
+        le_timer_Delete(timerRef);
+
+        radio.pmRetryTimer = nullptr;
+        radio.pmRetryIndex = 0;
+
+        // Ensure indications still enabled
+        if (!radio.indicationRegistered)
+        {
+            RegisterIndication(ENABLE_INDICATION, TAF_PA_RADIO_DISABLE_IND_MODE_NONE);
+            radio.indicationRegistered = true;
+        }
+    }
+}
+
+
+void Factory::StartPmRetryTimer()
+{
+    auto& factory = Factory::GetInstance();
+
+    if (factory.pmRetryTimer == nullptr)
+    {
+        factory.pmRetryTimer = le_timer_Create("pmRetryTimer");
+        if (!factory.pmRetryTimer)
+        {
+            LE_ERROR("Failed to create PM retry timer");
+            return;
+        }
+
+        le_timer_SetHandler(factory.pmRetryTimer, factory.PmRetryHandler);
+        le_timer_SetWakeup(factory.pmRetryTimer, false);
+    }
+
+    factory.pmRetryIndex = 0;
+
+    le_timer_SetMsInterval(factory.pmRetryTimer, PM_RETRY_INTERVALS_MS[0]);
+    le_timer_Start(factory.pmRetryTimer);
+
+    LE_INFO("PM retry mechanism started");
+}
+
+
+void Factory::PMServerDisconnectHandler(void* contextPtr)
+{
+    auto &radio = Factory::GetInstance();
+
+    LE_WARN("PM service disconnected");
+
+    radio.indicationRegistered = false;
+
+    if (radio.pmRetryTimer == nullptr)
+    {
+        radio.StartPmRetryTimer();
+    }
+}
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * SIGTERM signal event handler.
@@ -2885,9 +3578,11 @@ static void SigTermEventHandler
     int sigNum ///< [IN] Signal number received (expected: SIGTERM).
 )
 {
+    auto& factory = Factory::GetInstance();
+
     LE_INFO("SigTermEventHandler signal : %d", sigNum);
 
-    RegisterIndication(DISABLE_INDICATION);
+    RegisterIndication(DISABLE_INDICATION, TAF_PA_RADIO_DISABLE_IND_MODE_ALL);
 
     taf_pa_result_t result = taf_pa_radio_Deinit();
     if (result != TAF_PA_OK)
@@ -2899,7 +3594,110 @@ static void SigTermEventHandler
         LE_INFO("Radio platform adaptor shutdown complete.");
     }
 
+    if (factory.pmRetryTimer)
+    {
+        le_timer_Delete(factory.pmRetryTimer);
+        factory.pmRetryTimer = nullptr;
+    }
+
+    factory.indicationRegistered = false;
+
     exit(EXIT_SUCCESS);
+}
+
+void Factory::ApplyServiceStatusModemFiltering(void)
+{
+    auto& factory = Factory::GetInstance();
+
+    if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
+    {
+        return;
+    }
+
+    bool haveClients = !le_dls_IsEmpty(&factory.svcStatusCtxList);
+
+    if (haveClients)
+    {
+        for(auto i = 0; i < INSTANCE_MAX_COUNT; i++)
+        {
+            taf_pa_result_t limitRes = taf_pa_radio_SetSysInfoIndLimit(i,
+                TAF_PA_RADIO_SYS_INFO_IND_LIMIT_BY_STATE_TOGGLE);
+            if (limitRes != TAF_PA_OK)
+            {
+                LE_ERROR("ApplyServiceStatusModemFiltering: arm STATE_TOGGLE failed [rc=%d] for"
+                    "phoneId=%d", limitRes, i);
+            }
+            else
+            {
+                LE_DEBUG("ApplyServiceStatusModemFiltering: SYS_INFO STATE_TOGGLE set phoneId=%d", i);
+            }
+        }
+    }
+    else
+    {
+        for(auto i = 0; i < INSTANCE_MAX_COUNT; i++)
+        {
+            taf_pa_result_t limitRes = taf_pa_radio_SetSysInfoIndLimit(i,
+                TAF_PA_RADIO_SYS_INFO_IND_LIMIT_NONE);
+            if (limitRes != TAF_PA_OK)
+            {
+                LE_ERROR("ApplyServiceStatusModemFiltering:Disable SYS_INFO wakeup failed [rc=%d]"
+                    "for phoneId:%d", limitRes, i);
+            }
+            else
+            {
+                LE_DEBUG("ApplyServiceStatusModemFiltering:SYS_INFO wakeup disabled phoneId:%d",i);
+            }
+        }
+    }
+}
+
+static void ServiceStatusSessionCloseHandler
+(
+    le_msg_SessionRef_t sessionRef,
+    void*               contextPtr
+)
+{
+    LE_UNUSED(contextPtr);
+    auto& factory = Factory::GetInstance();
+
+    le_dls_Link_t* linkPtr = le_dls_Peek(&factory.svcStatusCtxList);
+    while (linkPtr != nullptr)
+    {
+        ServiceStatusHandlerCtx_t* ctxPtr =
+            CONTAINER_OF(linkPtr, ServiceStatusHandlerCtx_t, link);
+
+        le_dls_Link_t* nextPtr = le_dls_PeekNext(&factory.svcStatusCtxList, linkPtr);
+
+        if (ctxPtr->sessionRef == sessionRef)
+        {
+            LE_DEBUG("ServiceStatusSessionCloseHandler: cleaning up ctx for closed session");
+            le_dls_Remove(&factory.svcStatusCtxList, linkPtr);
+
+            if (ctxPtr->safeRef != nullptr)
+            {
+                le_ref_DeleteRef(factory.maps.svcStatusRefMap, ctxPtr->safeRef);
+                ctxPtr->safeRef = nullptr;
+            }
+
+            for (size_t i = 0; i < TAF_RADIO_SERVICE_STATUS_BIT_MASK_COUNT; i++)
+            {
+                if (ctxPtr->handlerRefs[i] != nullptr)
+                {
+                    le_event_RemoveHandler(ctxPtr->handlerRefs[i]);
+                    ctxPtr->handlerRefs[i] = nullptr;
+                }
+            }
+            le_mem_Release(ctxPtr);
+        }
+
+        linkPtr = nextPtr;
+    }
+
+    if (le_dls_IsEmpty(&factory.svcStatusCtxList))
+    {
+        factory.ApplyServiceStatusModemFiltering();
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2914,6 +3712,14 @@ static void SigTermEventHandler
 COMPONENT_INIT
 {
     Factory::staticEvents.request = le_event_CreateId("request", sizeof(Request_t));
+    Factory::staticEvents.lteCphyCaRefresh = le_event_CreateId("LteCphyCaRefresh",
+        sizeof(LteCphyCaRefresh_t));
+    le_event_AddHandler("LteCphyCaRefreshHandler", Factory::staticEvents.lteCphyCaRefresh,
+        LteCphyCaRefreshHandler);
+    Factory::staticEvents.regStateInd =
+        le_event_CreateIdWithRefCounting("RegStateInd");
+    le_event_AddHandler("RegStateIndEventHandler",
+        Factory::staticEvents.regStateInd, RegStateIndEventHandler);
 
     auto& factory = Factory::GetInstance();
 
@@ -2941,6 +3747,12 @@ COMPONENT_INIT
     factory.events.nrIconChange = le_event_CreateIdWithRefCounting("NrIconChange");
     factory.events.caInfoChange = le_event_CreateIdWithRefCounting("CAInfoChange");
     factory.events.connStatusChange = le_event_CreateIdWithRefCounting("ConnStatusChange");
+    factory.events.svcStatusNoServiceChange = le_event_CreateIdWithRefCounting("svcStatusNoServiceChange");
+    factory.events.svcStatusLimitedChange = le_event_CreateIdWithRefCounting("svcStatusLimitedChange");
+    factory.events.svcStatusServiceChange = le_event_CreateIdWithRefCounting("svcStatusServiceChange");
+    factory.events.svcStatusLimitedRegionalChange = le_event_CreateIdWithRefCounting("svcStatusLimitedRegionalChange");
+    factory.events.svcStatusPowerSaveChange = le_event_CreateIdWithRefCounting("svcStatusPowerSaveChange");
+
 
     factory.pools.networkRejection = le_mem_CreatePool("NetworkRejection",
         sizeof(taf_radio_NetRegRejInd_t));
@@ -2956,9 +3768,14 @@ COMPONENT_INIT
     factory.pools.netStatusChange = le_mem_CreatePool("NetStatusChange", sizeof(NetStatusInd_t));
     factory.pools.imsStatusChange = le_mem_CreatePool("ImsStatusChange", sizeof(ImsStatusInd_t));
     factory.pools.cellInfoChange = le_mem_CreatePool("CellInfoChange", sizeof(CellInfoInd_t));
-	factory.pools.nrIconChange = le_mem_CreatePool("NrIconChange", sizeof(NrIconInd_t));
-	factory.pools.caInfoChange = le_mem_CreatePool("CaInfoChange", sizeof(CAInfoInd_t));
-	factory.pools.connStatusChange = le_mem_CreatePool("ConnStatusChange", sizeof(ConnStatusInd_t));
+    factory.pools.nrIconChange = le_mem_CreatePool("NrIconChange", sizeof(NrIconInd_t));
+    factory.pools.caInfoChange = le_mem_CreatePool("CaInfoChange", sizeof(CAInfoInd_t));
+    factory.pools.connStatusChange = le_mem_CreatePool("ConnStatusChange", sizeof(ConnStatusInd_t));
+    factory.pools.regStateIndEvent = le_mem_CreatePool("RegStateIndEvent", sizeof(RegStateIndEvent_t));
+    le_mem_ExpandPool(factory.pools.regStateIndEvent, 3 * INSTANCE_MAX_COUNT * 2);
+    factory.pools.svcStatusInd = le_mem_CreatePool("ServiceStatusChange", sizeof(ServiceStatusInd_t));
+    factory.pools.svcStatusHandlerCtx = le_mem_CreatePool("ServiceStatusHandlerChange", sizeof(ServiceStatusHandlerCtx_t));
+
 
     factory.pools.commonList = le_mem_InitStaticPool(commonList, COMMON_LIST_MAX_COUNT,
         sizeof(CommonList_t));
@@ -2981,8 +3798,10 @@ COMPONENT_INIT
     factory.maps.signalStrengthInfo = le_ref_InitStaticMap(signalStrengthInfo, INSTANCE_MAX_COUNT);
     factory.maps.caInfo = le_ref_InitStaticMap(caInfo, CA_INFO_MAX_COUNT);
     factory.maps.connStatus = le_ref_InitStaticMap(connStatus, CONN_STATUS_MAX_COUNT);
+    factory.maps.svcStatusRefMap = le_ref_InitStaticMap(svcStatusRefMap, TAF_RADIO_SVC_STATUS_HANDLER_MAX_NUM);
     for (uint32_t i = 0; i < INSTANCE_MAX_COUNT; i++)
     {
+        factory.cache.rat[i] = TAF_PA_RADIO_RAT_UNKNOWN;
         SafeRef_t* netRefPtr = (SafeRef_t*)le_mem_ForceAlloc(factory.pools.safeRef);
         factory.cache.netStatusRefs[i] = (taf_radio_NetStatusRef_t)le_ref_CreateRef(
             factory.maps.safeRef, (void*)netRefPtr);
@@ -2992,6 +3811,10 @@ COMPONENT_INIT
             factory.maps.safeRef, (void*)imsRefPtr);
 
         CAInfo_t* caInfoPtr = (CAInfo_t*)le_mem_ForceAlloc(factory.pools.caInfo);
+        caInfoPtr->status = TAF_RADIO_CA_STATUS_DEACTIVATED;
+        caInfoPtr->cellCount = 0;
+        caInfoPtr->pcellInfo = {};
+        caInfoPtr->scellInfoCount = 0;
         factory.cache.caInfoRefs[i] = (taf_radio_CAInfoRef_t)le_ref_CreateRef(
             factory.maps.caInfo, (void*)caInfoPtr);
 
@@ -3000,7 +3823,11 @@ COMPONENT_INIT
         factory.cache.connStatusRefs[i] = (taf_radio_ConnStatusRef_t)le_ref_CreateRef(
             factory.maps.connStatus, (void*)availabilityPtr);
     }
-    
+
+    factory.svcStatusCtxList = LE_DLS_LIST_INIT;
+
+    le_msg_AddServiceCloseHandler(taf_radio_GetServiceRef(), ServiceStatusSessionCloseHandler, nullptr);
+
     le_sem_Ref_t semaphore = le_sem_Create("semaphore", 0);
     le_thread_Ref_t thread = le_thread_Create("RequestThread", RequestThread, (void*)semaphore);
     le_thread_Start(thread);
@@ -3012,6 +3839,34 @@ COMPONENT_INIT
     {
         LE_ERROR("Failed to initialize platform adaptor.");
         return;
+    }
+
+    // Initialize ratSvcState cache with the current modem state before registering
+    // the handler, so the first real status change is never silently dropped.
+    for (uint8_t instance = 0; instance < INSTANCE_MAX_COUNT; instance++)
+    {
+        taf_pa_radio_RatServiceStatus_t initStatus = TAF_PA_RADIO_RAT_SERVICE_STATUS_UNKNOWN ;
+        taf_pa_radio_Rat_t rat = TAF_PA_RADIO_RAT_UNKNOWN;
+
+        taf_pa_result_t ratRes = taf_pa_radio_GetServingRat(instance, &rat);
+        if(ratRes == TAF_PA_OK)
+        {
+            factory.cache.rat[instance] = rat;
+            taf_pa_result_t result = taf_pa_radio_GetRatSvcStatus(instance, rat, &initStatus);
+            if (result == TAF_PA_OK)
+            {
+                factory.cache.ratSvcState[instance] = initStatus;
+                LE_INFO("Init: phone=%d ratSvcState initialized to %d", instance, initStatus);
+            }
+            else
+            {
+                LE_WARN("Init: phone=%d GetRatSvcStatus failed result=%d, ratSvcState stays UNKNOWN",
+                        instance, result);
+            }
+        }else{
+            LE_WARN("Init: phone=%d GetServingRAT failed result=%d, rat stays UNKNOWN",
+                        instance, ratRes);
+        }
     }
 
     taf_pa_radio_NetworkRejectHandlerRef_t networkRejectHandlerRef = nullptr;
@@ -3079,9 +3934,64 @@ COMPONENT_INIT
 
 #undef ADD_PA_RADIO_HANDLER
 
-    taf_pm_AddStateChangeHandler(PowerStateChangeHandler, nullptr);
-    if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
-        RegisterIndication(ENABLE_INDICATION);
+    le_result_t pm_result = taf_pm_TryConnectService();
+
+    if (pm_result == LE_OK)
+    {
+        LE_INFO("Initial PM connection successful!!");
+
+        taf_pm_SetNonExitServerDisconnectHandler(factory.PMServerDisconnectHandler, nullptr);
+
+        taf_pm_AddStateChangeHandler(PowerStateChangeHandler, nullptr);
+
+        if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND){
+            RegisterIndication(ENABLE_INDICATION, TAF_PA_RADIO_DISABLE_IND_MODE_NONE);
+            factory.indicationRegistered = true;
+
+            for(auto i = 0; i < INSTANCE_MAX_COUNT; i++)
+            {
+                taf_pa_result_t limitRes = taf_pa_radio_SetSysInfoIndLimit(
+                                        i, TAF_PA_RADIO_SYS_INFO_IND_LIMIT_NONE);
+                if (limitRes != TAF_PA_OK)
+                {
+                    LE_ERROR("Failed to set SYS_INFO limit for instance %d "
+                            "on RESUME [rc=%d]", i, limitRes);
+                }
+                else
+                {
+                    LE_DEBUG("SYS_INFO limit (STATE_NONE) "
+                            "set for %d instance", i);
+                }
+            }
+        }
+    }
+    else
+    {
+        LE_WARN("Initial PM connection failed (result=%d)", pm_result);
+
+        factory.StartPmRetryTimer();
+
+        // Fallback: enable indications anyway
+        RegisterIndication(ENABLE_INDICATION, TAF_PA_RADIO_DISABLE_IND_MODE_NONE);
+        factory.indicationRegistered = true;
+
+        for(auto i = 0; i < INSTANCE_MAX_COUNT; i++)
+        {
+            taf_pa_result_t limitRes = taf_pa_radio_SetSysInfoIndLimit(
+                                    i, TAF_PA_RADIO_SYS_INFO_IND_LIMIT_NONE);
+            if (limitRes != TAF_PA_OK)
+            {
+                LE_ERROR("Failed to set SYS_INFO limit for instance %d "
+                        "on RESUME [rc=%d]", i, limitRes);
+            }
+            else
+            {
+                LE_DEBUG("SYS_INFO limit (STATE_NONE) "
+                        "set for %d instance", i);
+            }
+        }
+    }
+
 
     le_sig_Block(SIGTERM);
     le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);

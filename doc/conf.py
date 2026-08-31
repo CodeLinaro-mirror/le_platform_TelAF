@@ -24,7 +24,8 @@ extensions = [
               'breathe',
               'exhale',
               'sphinx_rtd_theme',
-              'sphinx.ext.autosectionlabel']
+              'sphinx.ext.autosectionlabel',
+              'sphinxcontrib.mermaid']
 #              'linuxdoc.rstFlatTable' requires linuxdoc package, but is useful for complicated tables in rst
 
 autosectionlabel_prefix_document = False

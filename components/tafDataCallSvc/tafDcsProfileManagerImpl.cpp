@@ -26,6 +26,10 @@ using namespace taf::svc::datacall;
 static le_mem_PoolRef_t QosStatusPoolRef = nullptr;
 static le_ref_MapRef_t  QosStatusRefMap = nullptr;
 
+// Per-profile cap on tracked QoS flows. QoS memory is reclaimed only when no client is
+// listening, so this bounds not-yet-reclaimed state. Aligns with the QMI QoS flow limit.
+#define TAF_DCS_MAX_QOS_FLOWS_PER_PROFILE 64
+
 /**
  * Get a reference to TafDcsProfile object that matches profileRef
  * The macro provides "profile" reference that can be used with subsequent TafDcsProfile APIs.
@@ -2603,6 +2607,108 @@ taf_dcs_QosFlowRef_t TafDcsProfileManager::findQosRef(uint8_t phoneId, uint32_t 
     return nullptr;
 }
 
+void TafDcsProfileManager::releaseAllQosFlowsForProfile(uint8_t phoneId, uint32_t profileId)
+{
+    // Resolve the profile so we can iterate its authoritative list of QoS flow references.
+    auto profileOptWrapper = getProfile(phoneId, profileId);
+    TAF_ERROR_IF_RET_NIL((!profileOptWrapper.has_value()),
+                         "profile[%d,%d] not found", phoneId, profileId);
+    TafDcsProfile &profile = profileOptWrapper.value().get();
+
+    // Make a local copy of the active flows so the underlying vector can be mutated safely
+    // while we release each entry.
+    std::vector<taf_dcs_QosFlowRef_t> activeQosRefs = profile.GetQosFlowRefs();
+
+    for (auto qosRef : activeQosRefs)
+    {
+        QOSFlowCtxStatus_t *qosStatus = (QOSFlowCtxStatus_t *)le_ref_Lookup(QosStatusRefMap, qosRef);
+
+        // Delete the safe reference first so its slot can no longer be looked up, then free
+        // the backing memory.
+        le_ref_DeleteRef(QosStatusRefMap, qosRef);
+        if (qosStatus) {
+            le_mem_Release(qosStatus);
+        }
+
+        // Remove the ticket from the profile's list.
+        profile.RemoveQosFlowRef(qosRef);
+    }
+
+    if (!activeQosRefs.empty()) {
+        LE_DEBUG("Released all (%zu) QoS flows for profile[%d,%d]",
+                 activeQosRefs.size(), phoneId, profileId);
+    }
+}
+
+void TafDcsProfileManager::markAllQosFlowsDeletedForProfile(uint8_t phoneId, uint32_t profileId)
+{
+    // Mark all flows DELETED without releasing; reclaimed later once no client is listening.
+    auto profileOptWrapper = getProfile(phoneId, profileId);
+    TAF_ERROR_IF_RET_NIL((!profileOptWrapper.has_value()),
+                         "profile[%d,%d] not found", phoneId, profileId);
+    TafDcsProfile &profile = profileOptWrapper.value().get();
+
+    std::vector<taf_dcs_QosFlowRef_t> qosRefs = profile.GetQosFlowRefs();
+    for (auto qosRef : qosRefs)
+    {
+        QOSFlowCtxStatus_t *qosStatus = (QOSFlowCtxStatus_t *)le_ref_Lookup(QosStatusRefMap, qosRef);
+        if (qosStatus) {
+            qosStatus->state = TAF_DCS_QOS_DELETED;
+        }
+    }
+
+    if (!qosRefs.empty()) {
+        LE_DEBUG("Marked all (%zu) QoS flows DELETED for profile[%d,%d]",
+                 qosRefs.size(), phoneId, profileId);
+    }
+}
+
+int TafDcsProfileManager::getProfileQosFlowCount(uint8_t phoneId, uint32_t profileId)
+{
+    auto profileOptWrapper = getProfile(phoneId, profileId);
+    TAF_ERROR_IF_RET_VAL((!profileOptWrapper.has_value()), 0,
+                         "profile[%d,%d] not found", phoneId, profileId);
+    return static_cast<int>(profileOptWrapper.value().get().GetQosFlowRefs().size());
+}
+
+bool TafDcsProfileManager::evictOldestDeletedQosFlow(uint8_t phoneId, uint32_t profileId)
+{
+    // Reclaim the oldest (smallest seq) DELETED flow; never evict active flows.
+    auto profileOptWrapper = getProfile(phoneId, profileId);
+    TAF_ERROR_IF_RET_VAL((!profileOptWrapper.has_value()), false,
+                         "profile[%d,%d] not found", phoneId, profileId);
+    TafDcsProfile &profile = profileOptWrapper.value().get();
+
+    taf_dcs_QosFlowRef_t oldestRef = nullptr;
+    QOSFlowCtxStatus_t *oldestStatus = nullptr;
+    uint32_t oldestSeq = UINT32_MAX;
+
+    for (auto qosRef : profile.GetQosFlowRefs())
+    {
+        QOSFlowCtxStatus_t *qosStatus = (QOSFlowCtxStatus_t *)le_ref_Lookup(QosStatusRefMap, qosRef);
+        if (qosStatus && qosStatus->state == TAF_DCS_QOS_DELETED && qosStatus->seq < oldestSeq)
+        {
+            oldestSeq = qosStatus->seq;
+            oldestRef = qosRef;
+            oldestStatus = qosStatus;
+        }
+    }
+
+    if (oldestRef == nullptr)
+    {
+        LE_WARN("No DELETED QoS flow to evict for profile[%d,%d]; cap reached with all active",
+                phoneId, profileId);
+        return false;
+    }
+
+    LE_DEBUG("Evicting oldest DELETED QoS flow %d (seq %u) for profile[%d,%d]",
+             oldestStatus->qosFlowId, oldestSeq, phoneId, profileId);
+    le_ref_DeleteRef(QosStatusRefMap, oldestRef);
+    le_mem_Release(oldestStatus);
+    profile.RemoveQosFlowRef(oldestRef);
+    return true;
+}
+
 le_result_t TafDcsProfileManager::SvcGetQosProfile
 (
     taf_dcs_QosFlowRef_t qosFlowRef,
@@ -3115,7 +3221,8 @@ taf_dcs_QosStatusHandlerRef_t TafDcsProfileManager::SvcAddQosStatusHandler
 (
     taf_dcs_ProfileRef_t profileRef,
     taf_dcs_QosStatusHandlerFunc_t handlerPtr,
-    void *contextPtr
+    void *contextPtr,
+    le_msg_SessionRef_t clientRef
 )
 {
     // Get a reference (profile) to TafDcsProfile object object that matches profileRef
@@ -3133,13 +3240,59 @@ taf_dcs_QosStatusHandlerRef_t TafDcsProfileManager::SvcAddQosStatusHandler
 
     le_event_SetContextPtr(handlerRef, contextPtr);
 
+    // Track (profile, client) and bump the profile's listener count. QoS memory is kept until
+    // this count returns to zero.
+    std::unique_lock<std::shared_mutex> lock(qosHandlerMapMutex_);
+    qosHandlerMap_[handlerRef] = std::make_pair(profileRef, clientRef);
+    qosListenerCountMap_[profileRef]++;
+
     return (taf_dcs_QosStatusHandlerRef_t)(handlerRef);
 }
 
 void TafDcsProfileManager::SvcRemoveQosStatusHandler(taf_dcs_QosStatusHandlerRef_t handlerRef)
 {
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+
+    // Drop this handler; release the profile's QoS memory if it has no more listeners.
+    std::unique_lock<std::shared_mutex> lock(qosHandlerMapMutex_);
+    auto it = qosHandlerMap_.find((le_event_HandlerRef_t)handlerRef);
+    if (it != qosHandlerMap_.end())
+    {
+        taf_dcs_ProfileRef_t profileRef = it->second.first;
+        qosHandlerMap_.erase(it);
+        decrementQosListenerAndMaybeReleaseLocked(profileRef);
+    }
     return;
+}
+
+// Decrement a profile's QoS listener count; release its QoS memory at zero. Caller holds
+// qosHandlerMapMutex_.
+void TafDcsProfileManager::decrementQosListenerAndMaybeReleaseLocked(taf_dcs_ProfileRef_t profileRef)
+{
+    auto cit = qosListenerCountMap_.find(profileRef);
+    if (cit == qosListenerCountMap_.end())
+    {
+        return;
+    }
+
+    if (--(cit->second) <= 0)
+    {
+        qosListenerCountMap_.erase(cit);
+
+        // Resolve the profile to (phoneId, profileId) and reclaim its QoS flows.
+        auto profileOptWrapper = getProfile(profileRef);
+        if (profileOptWrapper.has_value())
+        {
+            TafDcsProfile &profile = profileOptWrapper.value().get();
+            uint8_t phoneId = 0;
+            uint32_t profileId = 0;
+            profile.GetPhoneId(phoneId);
+            profile.GetId(profileId);
+            LE_DEBUG("No more QoS listeners for profile[%d,%d]; releasing QoS flows",
+                     phoneId, profileId);
+            releaseAllQosFlowsForProfile(phoneId, profileId);
+        }
+    }
 }
 
 /**
@@ -3384,28 +3537,9 @@ le_result_t TafDcsProfileManager::updateSessionDetails(const TafDcsSessionChange
 
     if (TAF_DCS_DISCONNECTED == eventPtr->connState)
     {
-        // Auto clean up QoS flow on call termination
-        // Make a local copy of the active flows so it won't crash when removing them
-        std::vector<taf_dcs_QosFlowRef_t> activeQosRefs = profile.GetQosFlowRefs();
-
-        if (!activeQosRefs.empty())
-        {
-            for (auto qosRef : activeQosRefs)
-            {
-                // Release the Legato memory
-                QOSFlowCtxStatus_t *qosStatus = (QOSFlowCtxStatus_t *)le_ref_Lookup(QosStatusRefMap, qosRef);
-                if (qosStatus) {
-                    le_mem_Release(qosStatus);
-                }
-
-                // Delete the Legato safe reference ticket
-                le_ref_DeleteRef(QosStatusRefMap, qosRef);
-
-                // Remove the specific ticket from the Profile's vector
-                profile.RemoveQosFlowRef(qosRef);
-            }
-            LE_DEBUG("Cleaned up QoS flow reference due to Call Disconnect.");
-        }
+        // Mark DELETED but keep the flows so a client can still resolve the ref in its DELETED
+        // callback; reclaimed only once no client is listening.
+        markAllQosFlowsDeletedForProfile(eventPtr->profile.phoneId, eventPtr->profile.profileId);
     }
 
     if (TAF_DCS_CONNECTED == eventPtr->connState && TAF_DCS_CONNECTED == eventPtr->ipv4ConnState)
@@ -4606,6 +4740,27 @@ void TafDcsProfileManager::clientDisconnectedEvtHandler(void *reqPtr)
 
     // Check all profiles for this client and remove from dataReqClients_ set, stop data (if needed)
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
+
+    // Fallback: It could be case that dropping this client's QoS handlers without calling
+    // SvcRemoveQosStatusHandler, so clear its QoS bookkeeping here (releases QoS memory at zero).
+    {
+        std::unique_lock<std::shared_mutex> lock(tafDcsProfileManager.qosHandlerMapMutex_);
+        auto it = tafDcsProfileManager.qosHandlerMap_.begin();
+        while (it != tafDcsProfileManager.qosHandlerMap_.end())
+        {
+            if (it->second.second == clientRef)
+            {
+                taf_dcs_ProfileRef_t profileRef = it->second.first;
+                it = tafDcsProfileManager.qosHandlerMap_.erase(it);
+                tafDcsProfileManager.decrementQosListenerAndMaybeReleaseLocked(profileRef);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+    }
+
     std::vector<taf::pa::data::PhoneId_e> phoneIDs;
     tafDcsProfileManager.GetPhones(phoneIDs);
     LE_DEBUG("Phones count: %zu", phoneIDs.size());
@@ -5126,8 +5281,36 @@ void TafDcsProfileManager::paQosTftEvtHandler(void *reqPtr)
     if (qosTftEvt->state == TAF_DCS_QOS_ACTIVATED)
     {
         if (qosRef != nullptr) {
-            LE_DEBUG("QoS Flow ID %d already activated", qosTftEvt->qosFlowId);
+            // A flow entry with this qosFlowId already exists (it may be a genuine repeat
+            // ACTIVATED, or a previously DELETED entry kept for deferred reclaim that is now
+            // reactivated). Refresh its parameters and reuse the existing reference.
+            QOSFlowCtxStatus_t *qosStatusPtr = (QOSFlowCtxStatus_t *)le_ref_Lookup(QosStatusRefMap, qosRef);
+            if (qosStatusPtr) {
+                bool wasDeleted = (qosStatusPtr->state == TAF_DCS_QOS_DELETED);
+                qosStatusPtr->paramMask = qosTftEvt->paramMask;
+                qosStatusPtr->state     = TAF_DCS_QOS_ACTIVATED;
+                if (!wasDeleted) {
+                    // Genuine duplicate ACTIVATED for a still-active flow: refresh silently,
+                    // do not re-notify the client.
+                    LE_DEBUG("QoS Flow ID %d already activated, refreshed", qosTftEvt->qosFlowId);
+                    return;
+                }
+                LE_DEBUG("QoS Flow ID %d reactivated", qosTftEvt->qosFlowId);
+            }
         } else {
+            // Enforce per-profile cap: since reclaim is deferred, evict the oldest DELETED flow.
+            if (tafDcsProfileManager.getProfileQosFlowCount(qosTftEvt->phoneId, qosTftEvt->profileId) >=
+                                                                        TAF_DCS_MAX_QOS_FLOWS_PER_PROFILE)
+            {
+                if (!tafDcsProfileManager.evictOldestDeletedQosFlow(qosTftEvt->phoneId, qosTftEvt->profileId))
+                {
+                    LE_ERROR("QoS flow cap reached for profile[%d,%d] with no DELETED flow to "
+                             "evict; dropping flow %d", qosTftEvt->phoneId, qosTftEvt->profileId,
+                             qosTftEvt->qosFlowId);
+                    return;
+                }
+            }
+
             // Allocate memory and generate a safe reference
             QOSFlowCtxStatus_t *qosStatusPtr = (QOSFlowCtxStatus_t *)le_mem_ForceAlloc(QosStatusPoolRef);
 
@@ -5137,6 +5320,7 @@ void TafDcsProfileManager::paQosTftEvtHandler(void *reqPtr)
             qosStatusPtr->qosFlowId = qosTftEvt->qosFlowId;  // Updated from qosID
             qosStatusPtr->state     = TAF_DCS_QOS_ACTIVATED; // Updated from qosState
             qosStatusPtr->paramMask = qosTftEvt->paramMask;  // Updated from qosMask
+            qosStatusPtr->seq       = tafDcsProfileManager.qosFlowSeq_++; // Monotonic creation order
 
             qosRef = (taf_dcs_QosFlowRef_t)le_ref_CreateRef(QosStatusRefMap, (void *)qosStatusPtr);
 
@@ -5164,14 +5348,12 @@ void TafDcsProfileManager::paQosTftEvtHandler(void *reqPtr)
             QOSFlowCtxStatus_t *qosStatusPtr = (QOSFlowCtxStatus_t *)le_ref_Lookup(QosStatusRefMap, qosRef);
             if (qosStatusPtr && qosStatusPtr->qosFlowId == qosTftEvt->qosFlowId)
             {
-                // Remove the ticket from the profile BEFORE deleting the reference
-                profileOptWrapper.value().get().RemoveQosFlowRef(qosRef);
-
-                // Discard the ticket and return the coat rack space
-                le_ref_DeleteRef(QosStatusRefMap, qosRef);
-                le_mem_Release(qosStatusPtr);
-                LE_DEBUG("QoS flow %d successfully released", qosTftEvt->qosFlowId);
-                qosRef = nullptr;
+                // Do NOT free here: sendQosTftEvent() below reports asynchronously, so the client
+                // may still query this ref in its DELETED callback. Freeing now would let the slot
+                // be recycled and alias another flow. Reclaimed only when no client is listening,
+                // or reused if the same qosFlowId reactivates.
+                qosStatusPtr->state = TAF_DCS_QOS_DELETED;
+                LE_DEBUG("QoS flow %d marked DELETED (deferred reclaim)", qosTftEvt->qosFlowId);
             }
         }
         else {

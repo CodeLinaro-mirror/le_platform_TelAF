@@ -21,6 +21,8 @@
 
 #define EFS_STATUS  "status"
 #define EFS_PERIOD  "period"
+#define EFS_DIST    "dist"
+#define EFS_RANGE   "range"
 
 #define TOGGLE_REQUESTED "requested"
 #define TOGGLE_SUCCEEDED "succeeded"
@@ -85,6 +87,12 @@ static void PrintHelpMenu
         "        period <seconds>\n"
         "            Sets the time interval for the EFS backup period.\n"
         "            <seconds>: Time in seconds for the backup period\n"
+        "        dist\n"
+        "            Prints the EFS block distribution across the default PE (Program/Erase) "
+        "count bands (20K/40K/60K).\n"
+        "        range <lower> <upper>\n"
+        "            Prints the number of EFS blocks whose PE count is within [lower, upper).\n"
+        "            <lower>: Lower bound (inclusive)  <upper>: Upper bound (exclusive)\n"
         "\n"
         "    toggle <status>\n"
         "        Sets the GPIO toggle status.\n"
@@ -265,6 +273,74 @@ static void HandleEfsStatus
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Print the number of EFS blocks whose PE count falls within the range [lower, upper).
+ */
+//--------------------------------------------------------------------------------------------------
+static void PrintEfsBand
+(
+    uint32_t lower,   ///< [IN] Lower bound (inclusive).
+    uint32_t upper    ///< [IN] Upper bound (exclusive).
+)
+{
+    uint32_t count = 0;
+    le_result_t result = tafMRCIntTest_GetEfsBlocksInPECountRange(lower, upper, &count);
+    if (result != LE_OK)
+    {
+        LE_ERROR("tafMRCIntTest_GetEfsBlocksInPECountRange([%u, %u)) failed: %d",
+            lower, upper, result);
+        return;
+    }
+    LE_INFO("PE band [%u, %u): %u", lower, upper, count);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handle EFS PE count distribution query using the default thresholds.
+ *
+ * The bands are derived from the ascending thresholds below; extend this array to add more bands.
+ */
+//--------------------------------------------------------------------------------------------------
+static void HandleEfsDistribution
+(
+    void
+)
+{
+    // Default PE-count thresholds (in ascending order). N thresholds yield N + 1 bands.
+    static const uint32_t thresholds[] = { 20000, 40000, 60000 };
+    size_t numThresholds = NUM_ARRAY_MEMBERS(thresholds);
+
+    uint32_t lower = 0;
+    for (size_t i = 0; i < numThresholds; i++)
+    {
+        PrintEfsBand(lower, thresholds[i]);
+        lower = thresholds[i];
+    }
+    // Highest open-ended band: [last threshold, MAX).
+    PrintEfsBand(lower, UINT32_MAX);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handle EFS PE count query for a user-specified range [lower, upper).
+ */
+//--------------------------------------------------------------------------------------------------
+static void HandleEfsRange
+(
+    void
+)
+{
+    CheckArgs(4);
+    const char* lowerArg = GetArg(2);
+    const char* upperArg = GetArg(3);
+
+    uint32_t lower = (uint32_t)strtoul(lowerArg, NULL, 10);
+    uint32_t upper = (uint32_t)strtoul(upperArg, NULL, 10);
+
+    PrintEfsBand(lower, upper);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handle EFS backup period setting.
  */
 //--------------------------------------------------------------------------------------------------
@@ -301,6 +377,14 @@ static void HandleEfsCommand
     else if (IsCommand(option, EFS_PERIOD))
     {
         HandleEfsPeriod();
+    }
+    else if (IsCommand(option, EFS_DIST))
+    {
+        HandleEfsDistribution();
+    }
+    else if (IsCommand(option, EFS_RANGE))
+    {
+        HandleEfsRange();
     }
     else
     {

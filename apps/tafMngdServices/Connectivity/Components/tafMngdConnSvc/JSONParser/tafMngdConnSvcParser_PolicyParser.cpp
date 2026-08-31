@@ -298,7 +298,6 @@ bool mcs_PolicyParser::Validate_DS_CR_RadioOffOnInterval(mcs_Policy_t &Policy,
                                                                std::string Value,
                                                                int Index)
 {
-    LE_DEBUG("%s", Value.c_str());
     int localInt = 0;
 
     if (MCS_JSON_DATA_TYPE_NUMBER != mcs_GetDataType(Value))
@@ -336,7 +335,6 @@ bool mcs_PolicyParser::Validate_DS_CR_SimOffOnInterval(mcs_Policy_t &Policy,
                                                                std::string Value,
                                                                int Index)
 {
-    LE_DEBUG("%s", Value.c_str());
     int localInt = 0;
 
     if (MCS_JSON_DATA_TYPE_NUMBER != mcs_GetDataType(Value))
@@ -374,7 +372,6 @@ bool mcs_PolicyParser::Validate_DS_CR_AllowCancel(mcs_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
-    LE_DEBUG("%s", Value.c_str());
     // Check the JSON version to be atleast 24.12.00
     if (Policy.Version < MCS_JSON_VERSION_24_12_00)
     {
@@ -404,7 +401,6 @@ bool mcs_PolicyParser::Validate_DS_CR_VerifyCancelingApp(mcs_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
-    LE_DEBUG("%s", Value.c_str());
     // Check the JSON version to be atleast 24.12.00
     if (Policy.Version < MCS_JSON_VERSION_24_12_00)
     {
@@ -434,7 +430,6 @@ bool mcs_PolicyParser::Validate_DS_AMCR_Enable(mcs_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
-    LE_DEBUG("%s", Value.c_str());
     // Check the JSON version to be atleast 24.12.00
     if (Policy.Version < MCS_JSON_VERSION_24_12_00)
     {
@@ -464,7 +459,6 @@ bool mcs_PolicyParser::Validate_DS_AMCR_VerifyCallingApp(mcs_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
-    LE_DEBUG("%s", Value.c_str());
     // Check the JSON version to be atleast 24.12.00
     if (Policy.Version < MCS_JSON_VERSION_24_12_00)
     {
@@ -495,7 +489,6 @@ bool mcs_PolicyParser::Validate_DS_AMCR_MinTimeBetweenTriggers(mcs_Policy_t &Pol
                                                     std::string Value,
                                                     int Index)
 {
-    LE_DEBUG("%s", Value.c_str());
     // Check the JSON version to be atleast 24.12.00
     if (Policy.Version < MCS_JSON_VERSION_24_12_00)
     {
@@ -529,7 +522,6 @@ bool mcs_PolicyParser::Validate_DS_AMCR_MaxTimeBetweenTriggers(mcs_Policy_t &Pol
                                                     std::string Value,
                                                     int Index)
 {
-    LE_DEBUG("%s", Value.c_str());
     // Check the JSON version to be atleast 24.12.00
     if (Policy.Version < MCS_JSON_VERSION_24_12_00)
     {
@@ -563,7 +555,6 @@ bool mcs_PolicyParser::Validate_DS_APIM_StartDataTimeout(mcs_Policy_t &Policy,
                                                     std::string Value,
                                                     int Index)
 {
-    LE_DEBUG("%s", Value.c_str());
     // Check the JSON version to be atleast 25.03.00
     if (Policy.Version < MCS_JSON_VERSION_25_03_00)
     {
@@ -596,7 +587,6 @@ bool mcs_PolicyParser::Validate_DS_APIM_StopDataTimeout(mcs_Policy_t &Policy,
                                                     std::string Value,
                                                     int Index)
 {
-    LE_DEBUG("%s", Value.c_str());
     // Check the JSON version to be atleast 25.03.00
     if (Policy.Version < MCS_JSON_VERSION_25_03_00)
     {
@@ -670,7 +660,7 @@ bool mcs_PolicyParser::ParseAndUpdatePolicyJSON(mcs_Policy_t &Policy,
         return false;
     }
 
-    std::string log, JSON_Property, JSON_Value;
+    std::string JSON_Property, JSON_Value;
 
     //  Keep track of mandatory objets. If they are absent return an error.
     bool bDataConnectionAvailable            = false;
@@ -680,19 +670,11 @@ bool mcs_PolicyParser::ParseAndUpdatePolicyJSON(mcs_Policy_t &Policy,
     for (auto & element: tree) {
 
        if ("ManagedConnectivityService" == element.first ) {
-            log.clear();
-            log = "Top Element: " + element.first;
-            LE_DEBUG ("%s", log.c_str() );
-
             for (auto & property: element.second) {
 
                 if ("Policy" == property.first){
                     for (auto & parent: property.second) {
                         if ("Name" == parent.first){
-                            log.clear();
-                            log = "Key: " + parent.first + ", Value: " +
-                                                    parent.second.get_value < std::string > ();
-                            LE_DEBUG ("%s", log.c_str() );
                             JSON_Property.clear();
                             JSON_Property.append (property.first + ":" + parent.first);
                             JSON_Value.clear();
@@ -712,25 +694,13 @@ bool mcs_PolicyParser::ParseAndUpdatePolicyJSON(mcs_Policy_t &Policy,
                         // Get the elements within "DataSession"
                         if ( "DataSession" == parent.first ) {
                             bDataConnectionAvailable = true;
-                            log.clear();
-                            log.append("Section: " + parent.first);
-                            LE_DEBUG ("%s", log.c_str() );
                             for (auto & child: parent.second) {
                                 if ("DataConnection" == child.first) {
                                     int ElementCount = 0;
                                     // Use an iterator to get into the DataConnection array
                                     for (auto &it: child.second) {
-                                        log.clear();
-                                        log.append ("DataConnection["
-                                        + to_string (ElementCount) + "]");
-                                        LE_DEBUG ("%s", log.c_str() );
                                         // Use an iterator to go through  the DataConnection array
                                         for (auto &it2: it.second) {
-                                            log.clear();
-                                            log.append ( std::string ("\t") + "Key: "
-                                                        + it2.first +
-                                                        ", Value: " + it2.second.data() );
-                                            LE_DEBUG ("%s", log.c_str() );
                                             JSON_Property.clear();
                                             JSON_Property.append(parent.first + ":"
                                             + child.first + ":" +
@@ -757,11 +727,6 @@ bool mcs_PolicyParser::ParseAndUpdatePolicyJSON(mcs_Policy_t &Policy,
                                     bMultiDataSessionAvailable = true;
                                     // Use an iterator to go through  the MultiDataSession elements
                                     for (auto &it: child.second) {
-                                            log.clear();
-                                            log.append ( std::string ("\t") + "Key: "
-                                                        + it.first +
-                                                        ", Value: " + it.second.data() );
-                                            LE_DEBUG ("%s", log.c_str() );
                                             JSON_Property.clear();
                                             JSON_Property.append(parent.first + ":"
                                             + child.first + ":" +
@@ -785,11 +750,6 @@ bool mcs_PolicyParser::ParseAndUpdatePolicyJSON(mcs_Policy_t &Policy,
                                     bConnectivityRecoveryAvailable = true;
                                  // Use an iterator to go through  the ConnectivityRecovery elements
                                     for (auto &it: child.second) {
-                                            log.clear();
-                                            log.append ( std::string ("\t") + "Key: "
-                                                        + it.first +
-                                                        ", Value: " + it.second.data() );
-                                            LE_DEBUG ("%s", log.c_str() );
                                             JSON_Property.clear();
                                             JSON_Property.append(parent.first + ":"
                                             + child.first + ":" +
@@ -814,11 +774,6 @@ bool mcs_PolicyParser::ParseAndUpdatePolicyJSON(mcs_Policy_t &Policy,
                                  // Use an iterator to go through  the
                                  // AppManagedConnectivityRecovery elements
                                     for (auto &it: child.second) {
-                                            log.clear();
-                                            log.append ( std::string ("\t") + "Key: "
-                                                        + it.first +
-                                                        ", Value: " + it.second.data() );
-                                            LE_DEBUG ("%s", log.c_str() );
                                             JSON_Property.clear();
                                             JSON_Property.append(parent.first + ":"
                                             + child.first + ":" +
@@ -842,11 +797,6 @@ bool mcs_PolicyParser::ParseAndUpdatePolicyJSON(mcs_Policy_t &Policy,
                                  // Use an iterator to go through  the
                                  // APIManagement elements
                                     for (auto &it: child.second) {
-                                            log.clear();
-                                            log.append ( std::string ("\t") + "Key: "
-                                                        + it.first +
-                                                        ", Value: " + it.second.data() );
-                                            LE_DEBUG ("%s", log.c_str() );
                                             JSON_Property.clear();
                                             JSON_Property.append(parent.first + ":"
                                             + child.first + ":" +

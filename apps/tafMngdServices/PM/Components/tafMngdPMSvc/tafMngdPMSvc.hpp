@@ -47,6 +47,7 @@
 #define TAF_MNGDPM_STATE_SUSPENDING 7
 #define TAF_MNGDPM_STATE_SHUTTING_DOWN 8
 #define TAF_MNGDPM_STATE_WAKING_UP 9
+#define WS_DUMP_TIMER_INTERVAL 10000
 
 namespace tafsvc {
 
@@ -158,6 +159,14 @@ typedef struct
 
 typedef struct
 {
+    taf_mngdPm_nodePowerStateRef_t nodeStateRef;
+    le_msg_SessionRef_t sessionRef;
+    taf_mngdPm_NodePowerState_t state;
+    bool isAcked;
+}taf_mngdPm_NodePowerStateChangeCtxt_t;
+
+typedef struct
+{
     taf_mngdPm_NodePowerStateChangeHandlerFunc_t handlerPtr;
     uint8_t pmNodeId;
     le_dls_Link_t link;               // Link to handler list
@@ -165,20 +174,15 @@ typedef struct
     taf_mngdPm_NodePowerStateChangeBitMask_t powerStateMask;
     taf_mngdPm_NodePowerStateChangeHandlerRef_t handlerRef;
     void* nodePowerStateHandlerCtxPtr;
+
+    // Per-handler snapshot of the current node power state (used for immediate notify)
+    taf_mngdPm_NodePowerStateChangeCtxt_t initialNodePowerState;
 }taf_mngdPm_NodePowerStateCtxt_t;
 
 typedef struct
 {
     taf_mngdPm_NodePowerState_t state;
 }taf_mngdPm_NodePowerStateChange_t;
-
-typedef struct
-{
-    taf_mngdPm_nodePowerStateRef_t nodeStateRef;
-    le_msg_SessionRef_t sessionRef;
-    taf_mngdPm_NodePowerState_t state;
-    bool isAcked;
-}taf_mngdPm_NodePowerStateChangeCtxt_t;
 
 typedef struct
 {
@@ -378,6 +382,10 @@ class tafMngdPMSvc: public ITafSvc
         //resources for clients state change acknowledgement
         static le_timer_Ref_t stateChangeAckTimerRef;
         static void StateChangeAckTimerHandler(le_timer_Ref_t timerRef);
+
+        // periodic wake source dump timer
+        static le_timer_Ref_t wsDumpTimerRef;
+        static void WsDumpTimerHandler(le_timer_Ref_t timerRef);
         static taf_mngdPm_NodePowerState_t currentStateChangePtr;
 
         static le_mem_PoolRef_t cbHandlerPool;

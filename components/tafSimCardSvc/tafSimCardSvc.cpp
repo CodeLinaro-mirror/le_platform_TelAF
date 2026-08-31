@@ -46,16 +46,22 @@ using namespace std;
 
 COMPONENT_INIT
 {
-    LE_INFO("tafSim Service Init...");
+    taf_sim::mainThread = le_thread_GetCurrent();
+    if (taf_sim::mainThread == NULL)
+    {
+        LE_FATAL("Failed to initialize Legato thread");
+    }
+
+    // PA must be initialized before sim.Init() uses it
     taf_pa_result_t result = taf_pa_sim_Init();
     if (result != TAF_PA_OK)
     {
         LE_ERROR("Failed to initialize platform adaptor.");
     }
 
-    LE_INFO("tafSimcard Service Init...\n");
     auto &sim = taf_sim::GetInstance();
     sim.Init();
+
     LE_INFO(" Sim Card service Ready...\n");
 }
 
@@ -132,6 +138,12 @@ le_result_t taf_sim_SetRefreshAllow(taf_sim_RefreshRef_t refreshSessionRef, bool
     LE_INFO("tafSimCard SetRefreshAllow refreshAllow: %d", (int) isRefreshAllowed);
     auto &sim = taf_sim::GetInstance();
     return sim.SetRefreshAllow(refreshSessionRef, isRefreshAllowed);
+}
+
+le_result_t taf_sim_DeleteSession(taf_sim_RefreshRef_t refreshSessionRef) {
+    LE_INFO("tafSimCard taf_sim_DeleteSession");
+    auto &sim = taf_sim::GetInstance();
+    return sim.DeleteSession(refreshSessionRef);
 }
 
 void taf_sim_RemoveRefreshChangeHandler(taf_sim_RefreshChangeHandlerRef_t handlerRef)

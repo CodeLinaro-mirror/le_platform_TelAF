@@ -1,0 +1,28 @@
+username: telaf
+sandboxed: false
+executables:
+{
+    tafDidStoreInitDB = ( didStoreInitDBComp )
+}
+
+
+processes:
+{
+    run:
+    {
+        (tafDidStoreInitDB)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+
+    maxFileBytes: 8192K
+}
+
+start: manual
+
+bindings:
+{
+    tafDidStoreInitDB.didStoreInitDBComp.taf_diagDidStore -> tafDidStoreSvc.taf_diagDidStore
+}

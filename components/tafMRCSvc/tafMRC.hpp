@@ -30,6 +30,8 @@ typedef struct
     uint32_t avgCount;      ///< Average P/E count
     uint32_t sdValue;       ///< Standard deviation of P/E count
     uint32_t badBlockCount; ///< Bad block count
+    uint32_t blockCount;    ///< Number of valid per-block P/E counts
+    uint32_t peCount[TAF_PA_MRC_EFS_PARTITION_BLOCKS]; ///< Per-block P/E counts
 } Metrics_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -47,7 +49,7 @@ typedef struct
  */
 typedef struct
 {
-    le_event_Id_t toggleBank; ///< Event used to dispatch bank toggle indications to clients.
+    le_event_Id_t toggleBank;  ///< Event used to dispatch bank toggle indications to clients.
 } Event_t;
 
 //--------------------------------------------------------------------------------------------------

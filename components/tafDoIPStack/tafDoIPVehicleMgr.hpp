@@ -13,6 +13,7 @@
 
 #define CFG_DOIP_VIN_PATH "tafDiagSvc:/doip"
 #define CFG_DOIP_VIN_NODE "VehIdentNum"
+#define MAX_MDS (64*1024)
 
 typedef struct
 {
@@ -41,6 +42,9 @@ typedef struct
     uint16_t udpPort;
     uint16_t tcpPort;
     uint16_t udpSrc;    // UDP source port.
+    bool isTLS;
+    char certFile[TAF_DOIP_CERT_PATH_LEN];
+    char pkFile[TAF_DOIP_CERT_PATH_LEN];
     le_dls_List_t funcGroupList;
     bool parseStatus = false;     // This flag will indicate that whether json is parsed or not
 }taf_doip_Config_t;
@@ -97,6 +101,10 @@ namespace doip{
             taf_doip_Result_t GetTcpPort(uint16_t *tcpPortPtr);
 
             taf_doip_Result_t GetUdpSrcPort(uint16_t *udpSrcPortPtr);
+
+            taf_doip_Result_t GetTLSFlag(bool *isTLSPtr);
+            taf_doip_Result_t GetTLSCertFile(char *certFilePtr);
+            taf_doip_Result_t GetTLSPKFile(char *pkFilePtr);
 
             taf_doip_Result_t GetNetType(char* netTypePtr);
 

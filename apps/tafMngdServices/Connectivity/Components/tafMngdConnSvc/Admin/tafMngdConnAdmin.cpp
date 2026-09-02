@@ -431,35 +431,12 @@ void tafMngdConnAdmin::OnClientDisconnect(le_msg_SessionRef_t sessionRef, void *
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Callback thread destructor.
- */
-//--------------------------------------------------------------------------------------------------
-void tafMngdConnAdmin::callback_thread_destructor(void *contextPtr)
-{
-    auto &data = tafMngdConnData::GetInstance();
-    data.UnregisterEvents();
-    taf_dcs_DisconnectService();
-
-    auto &radio = tafMngdConnRadio::GetInstance();
-    radio.UnregisterEvents ();
-    taf_radio_DisconnectService();
-
-    auto &sim = tafMngdConnSim::GetInstance();
-    sim.UnregisterEvents ();
-    taf_sim_DisconnectService();
-    LE_DEBUG("Disconnect done");
-}
-//--------------------------------------------------------------------------------------------------
-/**
  * Callback thread function.
  */
 //--------------------------------------------------------------------------------------------------
 void *tafMngdConnAdmin::callback_thread_func(void *contextPtr)
 {
     LE_DEBUG("MngdCbThread Entry");
-
-    // Add a destructor
-    le_thread_AddDestructor(callback_thread_destructor, NULL);
 
     le_sem_Ref_t semRef = (le_sem_Ref_t)contextPtr;
 
@@ -2101,33 +2078,11 @@ void tafMngdConnAdmin::EventDataDisconnected(uint8_t dataId)
 /*===================================End Event process functions.=================================*/
 //--------------------------------------------------------------------------------------------------
 /**
- * StateMachineEvtThread Destructor
- */
-//--------------------------------------------------------------------------------------------------
-void tafMngdConnAdmin::StateMachineEvtThreadDestructorFunc(void *contextPtr)
-{
-    LE_INFO("Disconnect from services");
-    taf_radio_DisconnectService();
-    taf_dcs_DisconnectService();
-    taf_sim_DisconnectService();
-    taf_pm_DisconnectService();
-#ifndef LE_CONFIG_TARGET_SIMULATION
-    taf_net_DisconnectService();
-    taf_mngdPm_DisconnectService();
-    taf_ecall_DisconnectService();
-#endif
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
  * StateMachineEventThreadFunc.
  */
 //--------------------------------------------------------------------------------------------------
 void *tafMngdConnAdmin::StateMachineEventThreadFunc(void *contextPtr)
 {
-    // Add a destructor
-    le_thread_AddDestructor(StateMachineEvtThreadDestructorFunc, NULL);
-
     le_sem_Ref_t semRef = (le_sem_Ref_t)contextPtr;
 
     auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();

@@ -145,32 +145,6 @@ void tafMngdConnData::SessionStateChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Unregister data connection event handler.
- */
-//--------------------------------------------------------------------------------------------------
-void tafMngdConnData::UnregisterEvents()
-{
-    // Iterate through the map and remove all session state handlers
-    for (auto& entry : sessionStateHandlerMap_)
-    {
-        auto& key = entry.first;
-        auto& handlerRef = entry.second;
-
-        if (handlerRef != NULL)
-        {
-            taf_dcs_RemoveSessionStateHandler(handlerRef);
-            LE_DEBUG("Unregistered session state handler for phoneId %d, profileId %d",
-                    key.first, key.second);
-        }
-    }
-
-    // Clear the map
-    sessionStateHandlerMap_.clear();
-    LE_DEBUG("All data event callbacks have been unregistered");
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Register data connection event handler.
  */
 //--------------------------------------------------------------------------------------------------
@@ -213,9 +187,6 @@ void tafMngdConnData::RegisterEvents()
                 continue;
             }
 
-            // Store the handler in the map with (phoneId, profileId) as key
-            auto key = std::make_pair(phoneId, profileInfoPtr->index);
-            sessionStateHandlerMap_[key] = handlerRef;
             LE_INFO("Registered session state handler for phoneId %d, profileId %d",
                     phoneId, profileInfoPtr->index);
         }
@@ -339,25 +310,12 @@ le_result_t tafMngdConnData::Startdata(uint8_t phoneId, uint32_t profileId, uint
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Datasession thread destructor.
- */
-//--------------------------------------------------------------------------------------------------
-void tafMngdConnData::DataThreadDestructor(void *contextPtr)
-{
-    LE_DEBUG("Disconnect from DCS");
-    taf_dcs_DisconnectService();
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Datasession thread handler.
  */
 //--------------------------------------------------------------------------------------------------
 void *tafMngdConnData::DataThreadHandler(void *contextPtr)
 {
     LE_DEBUG("DataThreadHandler Entry");
-
-    le_thread_AddDestructor(DataThreadDestructor, NULL);
 
     le_sem_Ref_t semRef = (le_sem_Ref_t)contextPtr;
 

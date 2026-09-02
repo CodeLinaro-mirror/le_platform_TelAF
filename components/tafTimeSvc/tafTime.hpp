@@ -81,6 +81,19 @@
 #define TAF_TIME_EVENT_TYPE_LOWER_BOUND 0
 #define TAF_TIME_EVENT_TYPE_UPPER_BOUND 3
 
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert a PA result code to a Legato result code.
+ * Unrecognized PA errors are mapped to LE_FAULT.
+ */
+//--------------------------------------------------------------------------------------------------
+#define PA_TO_LE_RESULT_FAULT(result) \
+    (((result) == PA_OK) ? LE_OK : \
+     ((result) == PA_NOT_IMPLEMENTED) ? LE_CAP_NOT_IMPLEMENTED : \
+     ((result) == PA_UNSUPPORTED) ?     LE_CAP_UNSUPPORTED : \
+     LE_FAULT)
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Identifies the type of data read write.

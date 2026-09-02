@@ -307,7 +307,7 @@ BITMASK StayAwakeReasonBitMask
 ENUM RestartReason
 {
     RESTART_REASON_NORMAL,             ///< Restart Reason normal.
-    RESTART_REASON_SW_UPDATE,       ///< Restart Reason for ecall active.
+    RESTART_REASON_SW_UPDATE,          ///< Restart Reason for software update.
     RESTART_REASON_ECALL_RECOVERY,     ///< Restart Reason for ecall callback.
 
     RESTART_REASON_VENDOR_1 = 16,      ///< Tier-1 product specific Restart Reason.
@@ -632,8 +632,10 @@ EVENT NodeModemAwake
  * @instaging
  * @return
  *     - LE_OK             Successfully sets the targeted power mode.
- *     - LE_BAD_PARAMETER  The given pmNodeId is invalid.
  *     - LE_FAULT          Failed.
+ *     - LE_UNSUPPORTED    The client session is invalid.
+ *     - LE_NOT_PERMITTED  The current system state does not allow the requested power mode
+ *                         transition.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetNodeTargetedPowerMode
@@ -650,7 +652,8 @@ FUNCTION le_result_t SetNodeTargetedPowerMode
  * @return
  *     - LE_OK             Successfully sent the request.
  *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
- *     - LE_FAULT          Failed to send the request.
+ *     - LE_BUSY           A shutdown request is already in progress.
+ *     - LE_UNSUPPORTED    The client session is invalid or the shutdown reason is not supported.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ShutdownReqAsync
@@ -668,7 +671,8 @@ FUNCTION le_result_t ShutdownReqAsync
  * @return
  *     - LE_OK             Successfully sent the request.
  *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
- *     - LE_FAULT          Failed to send the request.
+ *     - LE_BUSY           A shutdown or restart request is already in progress.
+ *     - LE_UNSUPPORTED    The client session is invalid or the restart reason is not supported.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RestartReqAsync
@@ -686,7 +690,9 @@ FUNCTION le_result_t RestartReqAsync
  * @return
  *     - LE_OK             Successfully sent the request.
  *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
- *     - LE_FAULT          Failed to send the request.
+ *     - LE_BUSY           A wakeup vehicle request is already in progress.
+ *     - LE_UNSUPPORTED    The client session is invalid, the current state does not allow wakeup,
+ *                         or the VHAL driver is not available.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t WakeupVehicleReqAsync
@@ -701,9 +707,9 @@ FUNCTION le_result_t WakeupVehicleReqAsync
  *
  * @instaging
  * @return
- *     - LE_OK             Successfully sent the request.
- *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
- *     - LE_FAULT          Failed to send the request.
+ *     - A valid wsNode reference if the wake source is created successfully.
+ *     - NULL if the node ID is unsupported, the client is invalid, or the wsTag already exists
+ *       for this session.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION wsNode CreateNodeWakeupSource (
@@ -720,6 +726,9 @@ FUNCTION wsNode CreateNodeWakeupSource (
  * @return
  *     - LE_OK             Successfully sent the request.
  *     - LE_FAULT          Failed to send the request.
+ *     - LE_BAD_PARAMETER  The given wsRef is NULL.
+ *     - LE_UNSUPPORTED    The client session is invalid.
+ *     - LE_UNAVAILABLE    The wake source has not been acquired.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RelaxNode (
@@ -732,8 +741,13 @@ FUNCTION le_result_t RelaxNode (
  *
  * @instaging
  * @return
- *     - LE_OK             Successfully sent the request.
- *     - LE_FAULT          Failed to send the request.
+ *     - LE_OK                    Successfully sent the request.
+ *     - LE_FAULT                 Failed to send the request.
+ *     - LE_BAD_PARAMETER         The given wsRef is NULL.
+ *     - LE_UNSUPPORTED           The client session is invalid.
+ *     - LE_DUPLICATE             The wake source has already been acquired.
+ *     - LE_CAP_NOT_IMPLEMENTED   The underlying platform has not implemented this capability.
+ *     - LE_CAP_UNSUPPORTED       Unsupported due to platform capability/SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StayAwakeNode(
@@ -746,9 +760,11 @@ FUNCTION le_result_t StayAwakeNode(
  *
  * @instaging
  * @return
- *     - LE_OK             Successfully shuts down for the given node.
- *     - LE_BAD_PARAMETER  The given pmNodeId is invalid.
- *     - LE_FAULT          Failed.
+ *     - LE_OK                    Successfully shuts down for the given node.
+ *     - LE_FAULT                 Failed.
+ *     - LE_UNSUPPORTED           The client session is invalid.
+ *     - LE_CAP_NOT_IMPLEMENTED   The underlying platform has not implemented this capability.
+ *     - LE_CAP_UNSUPPORTED       Unsupported due to platform capability/SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ShutdownNode
@@ -762,9 +778,11 @@ FUNCTION le_result_t ShutdownNode
  *
  * @instaging
  * @return
- *     - LE_OK             Successfully restarts for the given node.
- *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
- *     - LE_FAULT          Failed to send the request.
+ *     - LE_OK                    Successfully restarts for the given node.
+ *     - LE_FAULT                 Failed to send the request.
+ *     - LE_UNSUPPORTED           The client session is invalid.
+ *     - LE_CAP_NOT_IMPLEMENTED   The underlying platform has not implemented this capability.
+ *     - LE_CAP_UNSUPPORTED       Unsupported due to platform capability/SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RestartNode
@@ -780,6 +798,7 @@ FUNCTION le_result_t RestartNode
  *     - LE_OK             Succeed.
  *     - LE_BAD_PARAMETER  Invalid report ID.
  *     - LE_FAULT          No VHAL module detected.
+ *     - LE_UNSUPPORTED    The client session is invalid.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetInfoReport
@@ -793,16 +812,16 @@ FUNCTION le_result_t GetInfoReport
  *
  * @instaging
  * @return
- *     - LE_OK             Successfully restarts for the given node.
- *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
- *     - LE_FAULT          Failed to send the request.
+ *     - LE_OK             Successfully sent the acknowledgement.
+ *     - LE_FAULT          Failed to send the acknowledgement.
+ *     - LE_UNSUPPORTED    The client session is invalid.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendNodePowerStateChangeAck
 (
-    uint8 pmNodeId IN,   ///< The Node ID given.
-    nodePowerState Ref,
-    NodeClientAck ack
+    uint8 pmNodeId IN,     ///< The Node ID given.
+    nodePowerState Ref IN, ///< The node power state reference
+    NodeClientAck ack IN   ///< The acknowledgement of the power state.
 ) =19;
 
 //--------------------------------------------------------------------------------------------------
@@ -812,8 +831,6 @@ FUNCTION le_result_t SendNodePowerStateChangeAck
  * @instaging
  * @return
  *     - LE_OK             Successfully authorize the StayAwake reason bitmask.
- *     - LE_BAD_PARAMETER  Invalid requested StayAwake reason bitmask.
- *     - LE_FAULT          Failed to Authorize StayAwake reason bitmask.
  */
 
 //--------------------------------------------------------------------------------------------------
@@ -828,9 +845,8 @@ FUNCTION le_result_t AuthorizeStayAwakeReason
  *
  * @instaging
  * @return
- *     - LE_OK             Successfully sent the request.
- *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
- *     - LE_FAULT          Failed to send the request.
+ *     - A valid ws reference if the wake source is created successfully.
+ *     - NULL if the client is invalid, the wsTag is NULL, or the StayAwakeReason is unsupported.
  */
 
 //--------------------------------------------------------------------------------------------------
@@ -848,6 +864,9 @@ FUNCTION ws CreateWakeupSource (
  * @return
  *     - LE_OK             Successfully sent the request.
  *     - LE_FAULT          Failed to send the request.
+ *     - LE_UNSUPPORTED    The client session is invalid.
+ *     - LE_UNAVAILABLE    The wake source has not been acquired.
+ *     - LE_NOT_PERMITTED  The current system state does not allow releasing the wake source.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Relax (
@@ -860,8 +879,13 @@ FUNCTION le_result_t Relax (
  *
  * @instaging
  * @return
- *     - LE_OK             Successfully sent the request.
- *     - LE_FAULT          Failed to send the request.
+ *     - LE_OK                    Successfully sent the request.
+ *     - LE_FAULT                 Failed to send the request.
+ *     - LE_UNSUPPORTED           The client session is invalid.
+ *     - LE_DUPLICATE             The wake source has already been acquired.
+ *     - LE_NOT_PERMITTED         The StayAwake reason is not authorized in the current system state.
+ *     - LE_CAP_NOT_IMPLEMENTED   The underlying platform has not implemented this capability.
+ *     - LE_CAP_UNSUPPORTED       Unsupported due to platform capability/SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StayAwake(
@@ -875,6 +899,12 @@ FUNCTION le_result_t StayAwake(
  * @b NOTE: This is supported only on SA525M.
  *
  * @instaging
+ * @return
+ *     - LE_OK                    Successfully set the modem wakeup selection.
+ *     - LE_FAULT                 Failed to set the modem wakeup selection.
+ *     - LE_UNSUPPORTED           The client session is invalid.
+ *     - LE_CAP_NOT_IMPLEMENTED   The underlying platform has not implemented this capability.
+ *     - LE_CAP_UNSUPPORTED       Unsupported due to platform capability/SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetNodeModemWakeupSel
@@ -890,6 +920,13 @@ FUNCTION le_result_t SetNodeModemWakeupSel
  * @b NOTE: This is supported only on SA525M.
  *
  * @instaging
+ * @return
+ *     - LE_OK                    Successfully retrieved the modem wakeup selection.
+ *     - LE_FAULT                 Failed to retrieve the modem wakeup selection.
+ *     - LE_UNSUPPORTED           The client session is invalid.
+ *     - LE_BAD_PARAMETER         Invalid wsBitmask.
+ *     - LE_CAP_NOT_IMPLEMENTED   The underlying platform has not implemented this capability.
+ *     - LE_CAP_UNSUPPORTED       Unsupported due to platform capability/SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNodeModemWakeupSel
@@ -905,6 +942,10 @@ FUNCTION le_result_t GetNodeModemWakeupSel
  * @b NOTE: This is supported only on SA525M.
  *
  * @instaging
+ * @return
+ *     - LE_OK             Successfully retrieved the last modem wakeup reason.
+ *     - LE_BAD_PARAMETER  Invalid wsBitmask.
+ *     - LE_UNSUPPORTED    The client session is invalid.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNodeModemAwakeReason
@@ -918,6 +959,11 @@ FUNCTION le_result_t GetNodeModemAwakeReason
  * Deletes the given wakeup source.
  *
  * @instaging
+ * @return
+ *     - LE_OK             Successfully deleted the wakeup source.
+ *     - LE_NOT_PERMITTED  The wakeup source is currently acquired and cannot be deleted.
+ *     - LE_NOT_FOUND      The wakeup source reference was not found.
+ *     - LE_UNSUPPORTED    The client session is invalid.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteWakeupSource
@@ -930,6 +976,10 @@ FUNCTION le_result_t DeleteWakeupSource
  * Gets the node power state.
  *
  * @instaging
+ * @return
+ *     - LE_OK             Successfully retrieved the node power state.
+ *     - LE_BAD_PARAMETER  The given pmNodeId or state pointer is invalid.
+ *     - LE_FAULT          Failed to retrieve the node power state.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNodePowerState
@@ -940,9 +990,15 @@ FUNCTION le_result_t GetNodePowerState
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Deletes the given wakeup source.
+ * Deletes the given node-level wakeup source.
  *
  * @instaging
+ * @return
+ *     - LE_OK             Successfully deleted the node wakeup source.
+ *     - LE_BAD_PARAMETER  The given wsRef is NULL.
+ *     - LE_UNSUPPORTED    The client session is invalid.
+ *     - LE_NOT_PERMITTED  The wakeup source is currently acquired and cannot be deleted.
+ *     - LE_NOT_FOUND      The wakeup source reference was not found.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteNodeWakeupSource

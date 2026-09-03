@@ -1,165 +1,11 @@
 /*
- *  Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
+#include "tafFSCrypt.hpp"
 
-#include "legato.h"
-#include "interfaces.h"
-
-#include "tafFSCrypt.h"
-
-#include "limit.h"
-
-#include <openssl/err.h>
-#include <openssl/evp.h>
-#include <openssl/md5.h>
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Key name of internal AES GCM key.
- */
-//--------------------------------------------------------------------------------------------------
-#define FSC_INT_KEY_NAME "fscIntAesGcmKey"
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Key parameters of internal AES GCM key.
- */
-//--------------------------------------------------------------------------------------------------
-#define INT_KEY_NONCE_LEN 12
-#define INT_KEY_AEAD_LEN  MD5_DIGEST_LENGTH
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Safe Reference Map for standard keys.
- */
-//--------------------------------------------------------------------------------------------------
-static le_ref_MapRef_t StorageRefMap;
-
-//--------------------------------------------------------------------------------------------------
-/**
- * The memory pool for standard keys.
- */
-//--------------------------------------------------------------------------------------------------
-static le_mem_PoolRef_t StoragePool;
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Message list created with 'CreateRxMsgList' function
- */
-//--------------------------------------------------------------------------------------------------
-typedef struct
-{
-    le_dls_List_t        list;
-}
-taf_fsc_StorageList_t;
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Key structure for standard keys.
- */
-//--------------------------------------------------------------------------------------------------
-typedef struct
-{
-    taf_fsc_StorageRef_t        storageRef;                             ///< Reference to the FS-Crypt storage
-    KeyMgt_KeyFileRef_t         keyFileRef;                             ///< Key file reference to the key file
-    le_msg_SessionRef_t         clientSessionRef;                       ///< Client session reference
-    char                        dirpath[TAF_FSC_MAX_STORAGE_NAME_SIZE]; ///< Directory path
-    char                        descriptor[FS_KEY_DESCRIPTOR_HEX_SIZE]; ///< Descriptor is used for IO control
-    bool                        keyIsAddedToKernel;                        ///< Ture if the key is added to kernel
-}
-taf_fsc_Storage_t;
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Mapping taf_pa_result_t to le_result_t
- */
-//--------------------------------------------------------------------------------------------------
-static le_result_t ConvertPaToLeRet(taf_pa_result_t paResult)
-{
-    switch(paResult)
-    {
-        case TAF_PA_OK:
-            return LE_OK;
-            break;
-        case TAF_PA_NOT_FOUND:
-            return LE_NOT_FOUND;
-            break;
-        case TAF_PA_NOT_POSSIBLE:
-            return LE_NOT_POSSIBLE;
-            break;
-        case TAF_PA_OUT_OF_RANGE:
-            return LE_OUT_OF_RANGE;
-            break;
-        case TAF_PA_NO_MEMORY:
-            return LE_NO_MEMORY;
-            break;
-        case TAF_PA_NOT_PERMITTED:
-            return LE_NOT_PERMITTED;
-            break;
-        case TAF_PA_FAULT:
-            return LE_FAULT;
-            break;
-        case TAF_PA_COMM_ERROR:
-            return LE_COMM_ERROR;
-            break;
-        case TAF_PA_TIMEOUT:
-            return LE_TIMEOUT;
-            break;
-        case TAF_PA_OVERFLOW:
-            return LE_OVERFLOW;
-            break;
-        case TAF_PA_UNDERFLOW:
-            return LE_UNDERFLOW;
-            break;
-        case TAF_PA_WOULD_BLOCK:
-            return LE_WOULD_BLOCK;
-            break;
-        case TAF_PA_DEADLOCK:
-            return LE_DEADLOCK;
-            break;
-        case TAF_PA_FORMAT_ERROR:
-            return LE_FORMAT_ERROR;
-            break;
-        case TAF_PA_DUPLICATE:
-            return LE_DUPLICATE;
-            break;
-        case TAF_PA_BAD_PARAMETER:
-            return LE_BAD_PARAMETER;
-            break;
-        case TAF_PA_CLOSED:
-            return LE_CLOSED;
-            break;
-        case TAF_PA_BUSY:
-            return LE_BUSY;
-            break;
-        case TAF_PA_UNSUPPORTED:
-            return LE_UNSUPPORTED;
-            break;
-        case TAF_PA_IO_ERROR:
-            return LE_IO_ERROR;
-            break;
-        case TAF_PA_NOT_IMPLEMENTED:
-            return LE_NOT_IMPLEMENTED;
-            break;
-        case TAF_PA_UNAVAILABLE:
-            return LE_UNAVAILABLE;
-            break;
-        case TAF_PA_TERMINATED:
-            return LE_TERMINATED;
-            break;
-        case TAF_PA_IN_PROGRESS:
-            return LE_IN_PROGRESS;
-            break;
-        case TAF_PA_SUSPENDED:
-            return LE_SUSPENDED;
-            break;
-        default:
-            LE_FATAL("Unknown PA return code: %d.", paResult);
-            break;
-    }
-}
+using namespace tafsvc;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -274,7 +120,8 @@ static le_result_t IoControl_add_key
 {
     LE_INFO("dirpath = %s", dirpath);
 
-    struct fscrypt_add_key_arg *arg = calloc(sizeof(*arg) + FSC_MAX_KEY_SIZE, 1);
+    struct fscrypt_add_key_arg *arg = static_cast<struct fscrypt_add_key_arg*>(
+                                            calloc(sizeof(*arg) + FSC_MAX_KEY_SIZE, 1));
     if (!arg)
     {
         LE_ERROR("error: failed to allocate memory");
@@ -491,16 +338,21 @@ static le_result_t IoControl_remove_key(const char* descriptor, const char *dirp
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Removes FS-Crypt key from kernel keyring to lock the directory.
- *
- * @return
- *     - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Bad parameters.
- *     - LE_NOT_FOUND -- The key does not exist or is not provisioned.
- *     - LE_FAULT -- Error in process.
+ * Get the singleton instance of the FS-Crypt service.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_fsc_LockStorage
+taf_FSCrypt& taf_FSCrypt::GetInstance()
+{
+    static taf_FSCrypt instance;
+    return instance;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes FS-Crypt key from kernel keyring to lock the directory.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FSCrypt::LockStorage
 (
     taf_fsc_StorageRef_t StorageRef
 )
@@ -511,7 +363,8 @@ le_result_t taf_fsc_LockStorage
         return LE_BAD_PARAMETER;
     }
 
-    taf_fsc_Storage_t* storagePtr = (taf_fsc_Storage_t*)le_ref_Lookup(StorageRefMap, StorageRef);
+    taf_fsc_Storage_t* storagePtr = static_cast<taf_fsc_Storage_t*>(
+                                          le_ref_Lookup(StorageRefMap_, StorageRef));
 
     if(storagePtr == NULL)
     {
@@ -537,15 +390,9 @@ le_result_t taf_fsc_LockStorage
 //--------------------------------------------------------------------------------------------------
 /**
  * Adds FS-Crypt key to kernel keyring to unlock the directory.
- *
- * @return
- *     - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Bad parameters.
- *     - LE_NOT_FOUND -- Key does not exist.
- *     - LE_FAULT -- Error in process.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_fsc_UnlockStorage
+le_result_t taf_FSCrypt::UnlockStorage
 (
     taf_fsc_StorageRef_t StorageRef
 )
@@ -560,7 +407,8 @@ le_result_t taf_fsc_UnlockStorage
 
     uint8_t key[FSC_MAX_KEY_SIZE] = {0};
 
-    taf_fsc_Storage_t* storagePtr = (taf_fsc_Storage_t*)le_ref_Lookup(StorageRefMap, StorageRef);
+    taf_fsc_Storage_t* storagePtr = static_cast<taf_fsc_Storage_t*>(
+                                          le_ref_Lookup(StorageRefMap_, StorageRef));
 
     if(storagePtr == NULL)
     {
@@ -603,15 +451,9 @@ le_result_t taf_fsc_UnlockStorage
 //--------------------------------------------------------------------------------------------------
 /**
  * Cleans up the whole FS-Crypt directory and ecryption key.
- *
- * @return
- *     - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Bad parameters.
- *     - LE_NOT_FOUND -- Key does not exist.
- *     - LE_FAULT -- Error in process.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_fsc_DeleteStorage
+le_result_t taf_FSCrypt::DeleteStorage
 (
     taf_fsc_StorageRef_t StorageRef
 )
@@ -622,7 +464,8 @@ le_result_t taf_fsc_DeleteStorage
         return LE_BAD_PARAMETER;
     }
 
-    taf_fsc_Storage_t* storagePtr = (taf_fsc_Storage_t*)le_ref_Lookup(StorageRefMap, StorageRef);
+    taf_fsc_Storage_t* storagePtr = static_cast<taf_fsc_Storage_t*>(
+                                          le_ref_Lookup(StorageRefMap_, StorageRef));
 
     if(storagePtr == NULL)
     {
@@ -660,7 +503,7 @@ le_result_t taf_fsc_DeleteStorage
     if(LE_OK == res)
     {
         // Free the storage object and reference
-        le_ref_DeleteRef(StorageRefMap, StorageRef);
+        le_ref_DeleteRef(StorageRefMap_, StorageRef);
         le_mem_Release(storagePtr);
     }
 
@@ -676,7 +519,7 @@ le_result_t taf_fsc_DeleteStorage
  * requesting for the existing FS-Crypt storage
  */
 //--------------------------------------------------------------------------------------------------
-static le_result_t FindAppStorageRef
+le_result_t taf_FSCrypt::FindAppStorageRef
 (
     KeyMgt_KeyFileRef_t     keyFileRef,
     const char              dirPath[TAF_FSC_MAX_STORAGE_NAME_SIZE],
@@ -686,26 +529,28 @@ static le_result_t FindAppStorageRef
 {
     LE_DEBUG("FindAppStorageRef");
 
-    le_ref_IterRef_t iterRef = le_ref_GetIterator(StorageRefMap);
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(StorageRefMap_);
 
     // Scan all the storage nodes
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
-        taf_fsc_Storage_t* storagePtr = le_ref_GetValue(iterRef);
+        taf_fsc_Storage_t* storagePtr = static_cast<taf_fsc_Storage_t*>(le_ref_GetValue(iterRef));
         if(storagePtr == NULL)
         {
             LE_ERROR("storagePtr == NULL");
             return LE_FAULT;
         }
 
-        // Find the node that context matches to the current client and storage but session has been closed
+        // Find the node that context matches to the current client and
+        // storage but session has been closed
         if ((storagePtr->keyFileRef == keyFileRef) &&
             (strcmp(storagePtr->dirpath, dirPath) == 0) &&
             (strcmp(storagePtr->descriptor, descriptor) == 0) &&
             (storagePtr->clientSessionRef == NULL))
         {
             storagePtr->clientSessionRef = taf_fsc_GetClientSessionRef();
-            (*storageRef) = (void*)le_ref_GetSafeRef(iterRef);
+            (*storageRef) = static_cast<taf_fsc_StorageRef_t>(
+                                 const_cast<void*>(le_ref_GetSafeRef(iterRef)));
 
             LE_DEBUG("Find storage '%s' for client session (%p)",
                     storagePtr->dirpath, storagePtr->clientSessionRef);
@@ -720,13 +565,9 @@ static le_result_t FindAppStorageRef
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the reference of FS-Crypt storage object.
- *
- * @return
- *     - Storage -- The reference of FS-Crypt storage object.
- *     - NULL -- Fail in process.
  */
 //--------------------------------------------------------------------------------------------------
-taf_fsc_StorageRef_t taf_fsc_GetStorageRef
+taf_fsc_StorageRef_t taf_FSCrypt::GetStorageRef
 (
     const char  *dirPath,                                ///< Storage name.
     le_result_t *result                                  ///< error status.
@@ -742,6 +583,9 @@ taf_fsc_StorageRef_t taf_fsc_GetStorageRef
 
     uint8_t key[FSC_MAX_KEY_SIZE] = {0};
     bool storageAlreadyExist = false;
+    char descriptor[FS_KEY_DESCRIPTOR_HEX_SIZE] = {0};
+    taf_fsc_StorageRef_t storageRef = NULL;
+    taf_fsc_Storage_t *storagePtr = NULL;
 
     // Check whether the specifid direcroty already exists
     if (le_dir_IsDir(dirPath))
@@ -840,7 +684,6 @@ taf_fsc_StorageRef_t taf_fsc_GetStorageRef
     }
 
     // Compute descriptor
-    char descriptor[FS_KEY_DESCRIPTOR_HEX_SIZE] = {0};
     compute_descriptor(key, descriptor);
 
     // Add key to kernel keyring
@@ -860,14 +703,11 @@ taf_fsc_StorageRef_t taf_fsc_GetStorageRef
         }
     }
 
-    taf_fsc_StorageRef_t storageRef = NULL;
-    taf_fsc_Storage_t *storagePtr = NULL;
-
     // Find if storage context already exist, if not, create new structure
     if(FindAppStorageRef(keyFileRef, dirPath, descriptor, &storageRef) != LE_OK)
     {
         // Create a new Storage for the key.
-        storagePtr = (taf_fsc_Storage_t*)le_mem_ForceAlloc(StoragePool);
+        storagePtr = static_cast<taf_fsc_Storage_t*>(le_mem_ForceAlloc(StoragePool_));
         memset(storagePtr, 0, sizeof(taf_fsc_Storage_t));
 
         storagePtr->clientSessionRef = taf_fsc_GetClientSessionRef();
@@ -875,13 +715,14 @@ taf_fsc_StorageRef_t taf_fsc_GetStorageRef
 
         memcpy(storagePtr->dirpath, dirPath, TAF_FSC_MAX_STORAGE_NAME_SIZE);
         memcpy(storagePtr->descriptor, descriptor, FS_KEY_DESCRIPTOR_HEX_SIZE);
-        storagePtr->storageRef = le_ref_CreateRef(StorageRefMap, storagePtr);
+        storagePtr->storageRef = static_cast<taf_fsc_StorageRef_t>(
+                                      le_ref_CreateRef(StorageRefMap_, storagePtr));
 
         storageRef = storagePtr->storageRef;
     }
     else
     {
-        storagePtr = (taf_fsc_Storage_t*)le_ref_Lookup(StorageRefMap, storageRef);
+        storagePtr = static_cast<taf_fsc_Storage_t*>(le_ref_Lookup(StorageRefMap_, storageRef));
     }
 
     if(storagePtr != NULL)
@@ -912,17 +753,18 @@ exception:
  * Removes storage which is created by the specified client
  */
 //--------------------------------------------------------------------------------------------------
-static void RemoveSessionFromStorage
+void taf_FSCrypt::RemoveSessionFromStorage
 (
     le_msg_SessionRef_t sessionRef,  ///< [IN] client session reference
     void*               contextPtr   ///< [IN]
 )
 {
-    le_ref_IterRef_t iterRef = le_ref_GetIterator(StorageRefMap);
+    taf_FSCrypt& myFSCrypt = taf_FSCrypt::GetInstance();
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(myFSCrypt.StorageRefMap_);
 
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
-        taf_fsc_Storage_t* storagePtr = le_ref_GetValue(iterRef);
+        taf_fsc_Storage_t* storagePtr = static_cast<taf_fsc_Storage_t*>(le_ref_GetValue(iterRef));
         if(storagePtr == NULL)
         {
             LE_ERROR("storagePtr == NULL");
@@ -945,7 +787,7 @@ static void RemoveSessionFromStorage
  * Encrypt data by KeyStore.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t InternalCryptoProcess
+le_result_t taf_FSCrypt::InternalCryptoProcess
 (
     taf_ks_CryptoPurpose_t  purpose,
     const uint8_t*          md5DataPtr,
@@ -1030,26 +872,28 @@ le_result_t InternalCryptoProcess
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The FS-Crypt component initialization function.
+ * The FS-Crypt service's initialization method. Replaces the original COMPONENT_INIT body.
  */
 //--------------------------------------------------------------------------------------------------
-COMPONENT_INIT
+void taf_FSCrypt::Init()
 {
     // Init PA crypto function
-    taf_pa_result_t paResult = taf_pa_fsc_Init(&InternalCryptoProcess);
+    taf_pa_result_t paResult = taf_pa_fsc_Init(
+        reinterpret_cast<void*>(&taf_FSCrypt::InternalCryptoProcess));
     if (paResult != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_fsc_Init reason=%d", paResult);
     }
 
     // Create memory pools
-    StoragePool = le_mem_CreatePool("StoragePool", sizeof(taf_fsc_Storage_t));
+    StoragePool_ = le_mem_CreatePool("StoragePool", sizeof(taf_fsc_Storage_t));
 
     // Create reference maps
-    StorageRefMap = le_ref_CreateMap("StorageRefMap", MAX_NUM_OF_STORAGE);
+    StorageRefMap_ = le_ref_CreateMap("StorageRefMap", MAX_NUM_OF_STORAGE);
 
     // Set session close handlers
-    le_msg_AddServiceCloseHandler(taf_fsc_GetServiceRef(), RemoveSessionFromStorage, NULL);
+    le_msg_AddServiceCloseHandler(taf_fsc_GetServiceRef(), taf_FSCrypt::RemoveSessionFromStorage,
+                                   NULL);
 
     LE_INFO("taf FSCrypt service Ready");
 }

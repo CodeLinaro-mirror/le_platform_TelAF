@@ -1,10 +1,13 @@
 sources:
 {
-    tafKeyStoreSvc.c
+    tafKeyStoreSvc.cpp
+    tafKeyStoreImpl.cpp
 }
 
-cflags:
+cxxflags:
 {
+    -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/components/tafKeyStore/common
     -I$TELAF_PA_DEFAULT/include/keyStore
     -I$LEGATO_ROOT/framework/liblegato/
     -I$TELAF_PA_DEFAULT/include

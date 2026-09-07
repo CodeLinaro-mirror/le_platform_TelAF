@@ -24,11 +24,18 @@ services_all:
   0x11:
     supported: true
     IDPS_supported: true
+    authentication: false
     sub_functions:
       0x01:
         supported: true
+        authentication: false
       0x02:
         supported: true
+        authentication: false
+      0x03:
+        supported: true
+        authentication: false
+        execution_authorization_pattern: test_soft_reset
   0x14:
     supported: true
     IDPS_supported: false

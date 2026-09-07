@@ -376,9 +376,10 @@ EXPORT_SYM std::vector<std::string> get_roles_for_pattern(const std::string& pat
 }
 
 static const EnableConditionData s_emptyEnableCondition;
-EXPORT_SYM const EnableConditionData& get_event_enable_conditions(uint16_t dataId)
+
+EXPORT_SYM const EnableConditionData& get_did_enable_conditions(uint16_t dataId)
 {
-    LE_DEBUG("get_event_enable_conditions: Looking up dataId 0x%x (decimal: %d)",
+    LE_DEBUG("get_did_enable_conditions: Looking up dataId 0x%x (decimal: %d)",
              dataId, dataId);
 
     // Search in did_all by identification.code
@@ -386,26 +387,79 @@ EXPORT_SYM const EnableConditionData& get_event_enable_conditions(uint16_t dataI
     if (didIt != diagConf.did_all.end())
     {
         const EnableConditionData& cond = didIt->second.data_enable_condition;
-        LE_DEBUG("get_event_enable_conditions: Found in did_all - AND: %zu, OR: %zu",
+        LE_DEBUG("get_did_enable_conditions: Found in did_all - AND: %zu, OR: %zu",
                  cond.and_conditions.size(), cond.or_conditions.size());
         return cond;
     }
 
-    //Search in events by event id
-    for (auto const& [eventId, eventEntry] : diagConf.events)
+    // Not found - return empty condition (no enable condition restriction)
+    LE_DEBUG("get_did_enable_conditions: dataId 0x%x not found - no enable condition defined",
+             dataId);
+    return s_emptyEnableCondition;
+}
+
+EXPORT_SYM const EnableConditionData& get_event_enable_conditions(uint16_t eventId)
+{
+    LE_DEBUG("get_event_enable_conditions: Looking up eventId 0x%x (decimal: %d)",
+             eventId, eventId);
+
+    // Search in events by event id
+    for (auto const& [key, eventEntry] : diagConf.events)
     {
-        if (eventEntry.id == (int)dataId)
+        if (eventEntry.id == (int)eventId)
         {
             const EnableConditionData& cond = eventEntry.enable_condition;
             LE_DEBUG("get_event_enable_conditions: Found in events[%d] - AND: %zu, OR: %zu",
-                     eventId, cond.and_conditions.size(), cond.or_conditions.size());
+                     key, cond.and_conditions.size(), cond.or_conditions.size());
             return cond;
         }
     }
 
     // Not found - return empty condition (no enable condition restriction)
-    LE_DEBUG("get_event_enable_conditions: dataId 0x%x not found - no enable condition defined",
-             dataId);
+    LE_DEBUG("get_event_enable_conditions: eventId 0x%x not found - no enable condition defined",
+             eventId);
+    return s_emptyEnableCondition;
+}
+
+EXPORT_SYM const EnableConditionData& get_reset_enable_conditions(uint8_t subFunc)
+{
+    LE_DEBUG("get_reset_enable_conditions: Looking up sub-function 0x%x (decimal: %d)",
+             subFunc, subFunc);
+
+    // Search in reset_all by sub-function identifier
+    auto resetIt = diagConf.reset_all.find((int)subFunc);
+    if (resetIt != diagConf.reset_all.end())
+    {
+        const EnableConditionData& cond = resetIt->second.data_enable_condition;
+        LE_DEBUG("get_reset_enable_conditions: Found in reset_all - AND: %zu, OR: %zu",
+                 cond.and_conditions.size(), cond.or_conditions.size());
+        return cond;
+    }
+
+    // Not found - return empty condition (no enable condition restriction)
+    LE_DEBUG("get_reset_enable_conditions: sub-function 0x%x not found - "
+             "no enable condition defined", subFunc);
+    return s_emptyEnableCondition;
+}
+
+EXPORT_SYM const EnableConditionData& get_ioctl_enable_conditions(uint16_t dataId)
+{
+    LE_DEBUG("get_ioctl_enable_conditions: Looking up dataId 0x%x (decimal: %d)",
+             dataId, dataId);
+
+    // Search in IO_all by identifier
+    auto ioIt = diagConf.io_all.find((int)dataId);
+    if (ioIt != diagConf.io_all.end())
+    {
+        const EnableConditionData& cond = ioIt->second.data_enable_condition;
+        LE_DEBUG("get_ioctl_enable_conditions: Found in io_all - AND: %zu, OR: %zu",
+                 cond.and_conditions.size(), cond.or_conditions.size());
+        return cond;
+    }
+
+    // Not found - return empty condition (no enable condition restriction)
+    LE_DEBUG("get_ioctl_enable_conditions: dataId 0x%x not found - "
+             "no enable condition defined", dataId);
     return s_emptyEnableCondition;
 }
 
@@ -637,6 +691,11 @@ EXPORT_SYM const SubFunction& get_subfunction(uint16_t sid, uint16_t subFunc)
         throw std::runtime_error("Sub‑function 0x" + std::to_string(subFunc) +
                                  " not found for service 0x" + std::to_string(sid));
     return it->second;
+}
+
+EXPORT_SYM const Access& get_subfunction_access(uint16_t sid, uint16_t subFunc)
+{
+    return get_subfunction(sid, subFunc).access;
 }
 
 EXPORT_SYM const std::vector<std::string>& get_subfunction_session_list(uint16_t sid, uint16_t subFunc)

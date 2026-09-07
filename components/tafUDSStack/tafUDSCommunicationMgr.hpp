@@ -571,9 +571,10 @@ namespace uds{
                         const char* ifName);
             void CheckAndRestartS3Timer(uint8_t serviceId, bool isRespFromSvc);
             bool IsSessTypeMatched(const ServiceEntry& serviceEntry);
-            bool IsSecurityAccessMatched(const RoutineEntry& routineEntry);
+            bool IsAuthRoleMatchedImpl(const std::vector<std::string>& roleNames);
             bool IsAuthRoleMatched(taf_UDSReqSvcID_t serviceType, const DidEntry& didEntry);
-            bool IsRequestSubFuncSupported(const RoutineEntry& routineEntry, uint8_t subFunc);
+            bool IsAuthRoleMatched(taf_UDSReqSvcID_t serviceType, const IOEntry& ioEntry);
+            bool IsAuthRoleMatched(taf_UDSReqSvcID_t serviceType, const RoutineEntry& routineEntry);
             bool IsControlOptionRecordValid(uint16_t rid, uint8_t subFunc, const uint8_t* dataRec,
                     size_t dataRecLen);
             bool IsTotalLengthCheckValid(uint16_t rid, uint8_t subFunc, size_t dataRecLen);

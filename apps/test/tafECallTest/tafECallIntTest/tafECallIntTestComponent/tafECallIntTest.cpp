@@ -139,6 +139,15 @@ const char* return_val(le_result_t result)
         case -24:
             ret_val = "LE_SUSPENDED";
             break;
+        case -25:
+            ret_val = "LE_CAP_NOT_IMPLEMENTED";
+            break;
+        case -26:
+            ret_val = "LE_CAP_UNSUPPORTED";
+            break;
+
+        default:
+            break;
     }
     return ret_val;
 }

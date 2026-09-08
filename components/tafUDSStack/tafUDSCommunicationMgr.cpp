@@ -4931,7 +4931,7 @@ le_result_t UdsCommunicationMgr::SetUDSData
                     ((uint64_t)dataPtr[4]<< 24) | ((uint64_t)dataPtr[5]<< 16) |
                     ((uint64_t)dataPtr[6]<< 8) | dataPtr[7];
 
-            LE_DEBUG("currentRoleVal: %" PRIuS, udsCmMgr->currentRoleVal);
+            LE_DEBUG("currentRoleVal: %" PRIu64, udsCmMgr->currentRoleVal);
             break;
         case TAF_UDS_DATA_TYPE_FILEXFER_STATE:
 

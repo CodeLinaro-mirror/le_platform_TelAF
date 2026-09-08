@@ -45,10 +45,11 @@ processes:
     faultAction: restart
 }
 
-bindings:
-{
-    tafDataCallSvc.tafDataCallSvc.taf_pm -> tafPMSvc.taf_pm
-}
+// PM code commented out
+// bindings:
+// {
+//     tafDataCallSvc.tafDataCallSvc.taf_pm -> tafPMSvc.taf_pm
+// }
 
 extern:
 {

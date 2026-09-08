@@ -1006,7 +1006,7 @@ taf_mngdStorSecFile_StorageRef_t tafMngdSecFileStorageSvc::GetStorageRefImpl
     }
 
     // Check if the calling app is the creator of the storage
-    if (dirPtr->masterAppName != nullptr &&
+    if (dirPtr->masterAppName[0] != '\0' &&
         strlen(dirPtr->masterAppName) > 0 &&
         strcmp(dirPtr->masterAppName, myAppName) == 0)
     {

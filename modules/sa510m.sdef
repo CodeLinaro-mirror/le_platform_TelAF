@@ -7,43 +7,43 @@
 apps:
 {
     // Platform services.
-//    $TELAF_ROOT/apps/tafServices/tafDevInfoSvc
-//    $TELAF_ROOT/apps/tafServices/tafVerInfoSvc
-//    $TELAF_ROOT/apps/tafServices/tafThermSvc
+    $TELAF_ROOT/apps/tafServices/tafDevInfoSvc
+    $TELAF_ROOT/apps/tafServices/tafVerInfoSvc
+    $TELAF_ROOT/apps/tafServices/tafThermSvc
     $TELAF_ROOT/apps/tafServices/tafVoiceCallSvc
     $TELAF_ROOT/apps/tafServices/tafSimCardSvc
-//    $TELAF_ROOT/apps/tafServices/tafRadioSvc
-#if ${TELUX_AUDIO_SUPPORTED} = y
-//    $TELAF_ROOT/apps/tafServices/tafAudioSvc
-#endif
+    $TELAF_ROOT/apps/tafServices/tafRadioSvc
+//#if ${TELUX_AUDIO_SUPPORTED} = y
+    $TELAF_ROOT/apps/tafServices/tafAudioSvc
+//#endif
 #if ${TELUX_LOCATION_SUPPORTED} = y
-//    $TELAF_ROOT/apps/tafServices/tafLocationSvc
+    $TELAF_ROOT/apps/tafServices/tafLocationSvc
 #endif
-//    $TELAF_ROOT/apps/tafServices/tafSMSSvc
-//    $TELAF_ROOT/apps/tafServices/tafDataCallSvc
-//    $TELAF_ROOT/apps/tafServices/tafRemoteSimSvc
-//    $TELAF_ROOT/apps/tafServices/tafPMSvc
-//    $TELAF_ROOT/apps/tafServices/tafUpdateSvc
+    $TELAF_ROOT/apps/tafServices/tafSMSSvc
+    $TELAF_ROOT/apps/tafServices/tafDataCallSvc
+    $TELAF_ROOT/apps/tafServices/tafRemoteSimSvc
+    $TELAF_ROOT/apps/tafServices/tafPMSvc
+    $TELAF_ROOT/apps/tafServices/tafUpdateSvc
     $TELAF_ROOT/apps/tafServices/tafECallSvc
-//    $TELAF_ROOT/apps/tafServices/tafMRCSvc
-//    $TELAF_ROOT/apps/tafServices/tafGpioSvc
-//    $TELAF_ROOT/apps/tafServices/tafNetSvc
-//    $TELAF_ROOT/apps/tafServices/tafKeyStoreSvc
-//    $TELAF_ROOT/apps/tafServices/tafVNW/tafCanSvc
-//    $TELAF_ROOT/apps/tafServices/tafSomeipGWSvc
-//    $TELAF_ROOT/apps/tafMngdServices/Connectivity/tafMngdConnSvc
-//    $TELAF_ROOT/apps/tafMngdServices/PM/tafMngdPMSvc
-//    $TELAF_ROOT/apps/tafMngdServices/Storage/tafMngdStorageSvc
-    // $TELAF_ROOT/apps/tafServices/tafDiagSvc
-//    $TELAF_ROOT/apps/tafServices/tafTimeSvc
-//    $TELAF_ROOT/apps/tafServices/tafHMSvc
-//    $TELAF_ROOT/apps/tafServices/tafImuSensorSvc
-    // $TELAF_ROOT/apps/tafServices/tafWlanSvc
+    $TELAF_ROOT/apps/tafServices/tafMRCSvc
+    $TELAF_ROOT/apps/tafServices/tafGpioSvc
+    $TELAF_ROOT/apps/tafServices/tafNetSvc
+    $TELAF_ROOT/apps/tafServices/tafKeyStoreSvc
+    $TELAF_ROOT/apps/tafServices/tafVNW/tafCanSvc
+    $TELAF_ROOT/apps/tafServices/tafSomeipGWSvc
+    $TELAF_ROOT/apps/tafMngdServices/Connectivity/tafMngdConnSvc
+    $TELAF_ROOT/apps/tafMngdServices/PM/tafMngdPMSvc
+    $TELAF_ROOT/apps/tafMngdServices/Storage/tafMngdStorageSvc
+    $TELAF_ROOT/apps/tafServices/tafDiagSvc
+    $TELAF_ROOT/apps/tafServices/tafTimeSvc
+    $TELAF_ROOT/apps/tafServices/tafHMSvc
+    $TELAF_ROOT/apps/tafServices/tafImuSensorSvc
+    $TELAF_ROOT/apps/tafServices/tafWlanSvc
 
 #if ${LE_CONFIG_DIAG_VSTACK} = y
-//    $TELAF_ROOT/apps/tafServices/tafDiagBackendSvc
+    $TELAF_ROOT/apps/tafServices/tafDiagBackendSvc
 #endif
-    // $TELAF_ROOT/apps/tafServices/tafDidStoreSvc
+    $TELAF_ROOT/apps/tafServices/tafDidStoreSvc
 
     // IVSS services.
 //    $TELAF_ROOT/apps/ivss/service/tafIvssTelephonySvc/tafIvssTelephonySvc
@@ -65,11 +65,11 @@ apps:
     // $TELAF_ROOT/apps/test/tafVerInfoTest/tafVerInfoIntTest
     // $TELAF_ROOT/apps/test/tafLxcInitApp/tafLxcInitApp
     // $TELAF_ROOT/apps/test/tafThermTest/tafThermUnitTest
-    // $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallUnitTest/tafDataCallUnitTest
+     $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallUnitTest/tafDataCallUnitTest
     // $TELAF_ROOT/apps/test/tafVoiceCallTest/tafVoiceCallUnitTest/tafVoiceCallUnitTest
     // $TELAF_ROOT/apps/test/tafRadioTest/tafRadioUnitTest
     // $TELAF_ROOT/apps/test/tafRadioTest/tafRadioIntTest
-     //$LEGATO_ROOT/apps/sample/voiceCallApp/voiceCallApp
+     $LEGATO_ROOT/apps/sample/voiceCallApp/voiceCallApp
     // $LEGATO_ROOT/apps/sample/helloWorld/helloWorld
     // $TELAF_ROOT/apps/test/tafSimTest/tafSimIntegrationTest/tafSimIntTest
     // $TELAF_ROOT/apps/test/tafSimTest/tafSimUnitTest/tafSimUnitTest
@@ -105,8 +105,8 @@ apps:
     // $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipClntUnitTest/tafSomeipClntUnitTest
     // $TELAF_ROOT/apps/test/tafSomeipGWTest/multiVersionsTest/tafSomeipVersionClntTest
     // $TELAF_ROOT/apps/test/tafSomeipGWTest/multiVersionsTest/tafSomeipVersionSvrTest
-    // $TELAF_ROOT/apps/test/tafAudioTest/tafAudioUnitTest/tafAudioUnitTest
-    // $TELAF_ROOT/apps/test/ConsoleApp/tafAudioApp/tafAudioConsoleApp
+     $TELAF_ROOT/apps/test/tafAudioTest/tafAudioUnitTest/tafAudioUnitTest
+     $TELAF_ROOT/apps/test/ConsoleApp/tafAudioApp/tafAudioConsoleApp
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdConnIntTest/tafMngdConnIntTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPMIntTest/tafMngdPMIntTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPMUnitTest/tafMngdPMUnitTest
@@ -160,9 +160,9 @@ interfaceSearch:
     //$TELAF_ROOT/interfaces/someipGW
     //$TELAF_ROOT/interfaces/tafVNW
     //$TELAF_ROOT/interfaces/staging
-    //$TELAF_ROOT/apps/tafMngdServices/interfaces
+    $TELAF_ROOT/apps/tafMngdServices/interfaces
     //$TELAF_ROOT/interfaces/tafDiagBackend
     //interfaces/positioning
-    //$LEGATO_ROOT/apps/sample/voiceCallApp
+    $LEGATO_ROOT/apps/sample/voiceCallApp
     // $TELAF_ROOT/apps/test/tafPMTest/tafPMIntgTest
 }

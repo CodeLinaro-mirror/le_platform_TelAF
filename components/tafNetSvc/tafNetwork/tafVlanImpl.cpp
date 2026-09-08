@@ -2470,7 +2470,7 @@ le_result_t taf_Vlan::GetIPPTDeviceMacAddress
     TAF_ERROR_IF_RET_VAL(interfacePtr == NULL, LE_NOT_FOUND, "can't get interface info");
 
     //if( interfacePtr->passThroughConfig.operation == TAF_NET_IPPT_ENABLE )
-    if(interfacePtr->passThroughConfig.macAddr != NULL)
+    if(interfacePtr->passThroughConfig.macAddr[0] != '\0')
     {
       *ifType = interfacePtr->passThroughConfig.ifType;
        le_utf8_Copy(macAddr,interfacePtr->passThroughConfig.macAddr,TAF_NET_MAC_ADDR_MAX_LEN + 1,

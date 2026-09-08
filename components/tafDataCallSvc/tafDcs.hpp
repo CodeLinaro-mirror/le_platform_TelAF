@@ -89,7 +89,8 @@ private:
     void createDCSEvents();
     void registerClientsConnectDisconnectHandlers();
     void unregisterClientsConnectDisconnectHandlers();
-    static void powerStateChangeHandler(taf_pm_State_t state, void *contextPtr);
+    // PM code commented out
+    // static void powerStateChangeHandler(taf_pm_State_t state, void *contextPtr);
 
     // The handler that is called when a client connects to DCS
     le_msg_SessionEventHandlerRef_t dcsClientConnectHandlerRef;
@@ -121,7 +122,8 @@ private:
     le_thread_Ref_t tafDcsEventsThreadRef_ = nullptr;
 
     // Powerstate change handler
-    taf_pm_StateChangeHandlerRef_t powerStateChangeHandlerRef_ = nullptr;
+    // PM code commented out
+    // taf_pm_StateChangeHandlerRef_t powerStateChangeHandlerRef_ = nullptr;
 
     // The ID of the callback registered for subsystem state change events events
     uint16_t subsystemStateChangeCallbackId_ = 0;

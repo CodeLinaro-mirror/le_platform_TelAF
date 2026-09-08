@@ -20,7 +20,7 @@
 #include <thread>
 #include <dirent.h>
 #include <future>
-
+#include <vector>
 #include <unordered_map>
 #include <algorithm>
 #include "tafHealthPa.hpp"

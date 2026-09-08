@@ -192,7 +192,7 @@ le_result_t TafDcsProfile::GetEmergencyCallSupport(bool &bEmerCallSupport) const
 le_result_t TafDcsProfile::GetMaxDataBitRates(uint64_t &rxRate, uint64_t &txRate) const
 {
     LE_DEBUG("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
-    LE_DEBUG("Max Rx Rate: %lu, Max Tx Rate: %lu", maxRxBitRate_, maxTxBitRate_);
+    LE_DEBUG("Max Rx Rate: %llu, Max Tx Rate: %llu", maxRxBitRate_, maxTxBitRate_);
     rxRate = maxRxBitRate_;
     txRate = maxTxBitRate_;
     return LE_OK;
@@ -203,7 +203,7 @@ le_result_t TafDcsProfile::SetMaxDataBitRates(const uint64_t &rxRate, const uint
     LE_INFO("Phone Id: %d, Profile Id: %d", phoneId_, profileId_);
     maxRxBitRate_ = rxRate;
     maxTxBitRate_ = txRate;
-    LE_INFO("Max Rx Rate: %lu, Max Tx Rate: %lu", maxRxBitRate_, maxTxBitRate_);
+    LE_INFO("Max Rx Rate: %llu, Max Tx Rate: %llu", maxRxBitRate_, maxTxBitRate_);
     return LE_OK;
 }
 

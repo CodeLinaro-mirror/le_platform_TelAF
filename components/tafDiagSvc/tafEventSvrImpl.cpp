@@ -3989,7 +3989,7 @@ void taf_EventSvr::EventConfiguration(DiagConf & cfgRoot)
 
     std::map<uint32_t, std::shared_ptr<DTCEntry>> dtc_map = cfg::get_dtc_nodes();
 
-    LE_INFO("Init %" PRIu64 " DTCs", dtc_map.size());
+    LE_INFO("Init %zu DTCs", dtc_map.size());
 
     for (const auto & dtc: dtc_map)
     {

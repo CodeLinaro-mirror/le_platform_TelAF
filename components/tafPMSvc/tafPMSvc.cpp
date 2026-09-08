@@ -1698,12 +1698,12 @@ le_result_t API(GetNackClientInfo)
     LE_INFO("Total record [nack] client is: %d",
             FinalConsolidatedInfo.info.nackResponseClntSize);
 
-    LE_INFO("API buffer size: %ld", *nackClientsSizePtr);
+    LE_INFO("API buffer size: %zu", *nackClientsSizePtr);
 
     if (FinalConsolidatedInfo.info.nackResponseClntSize
     >   *nackClientsSizePtr)
     {
-        LE_WARN("API client buffer is NOT enough, (%d > %ld)",
+        LE_WARN("API client buffer is NOT enough, (%d > %zu)",
                 FinalConsolidatedInfo.info.nackResponseClntSize,
                 *nackClientsSizePtr);
 
@@ -1770,13 +1770,13 @@ le_result_t API(GetUnrespClientInfo)
 
     uint32_t trimedSize = 0;
 
-    LE_INFO("API buffer size: %ld", *unrespClientsSizePtr);
+    LE_INFO("API buffer size: %zu", *unrespClientsSizePtr);
     LE_INFO("Stored info size: %d", FinalConsolidatedInfo.info.unresponsiveClntSize);
 
     if (FinalConsolidatedInfo.info.unresponsiveClntSize
     >   *unrespClientsSizePtr)
     {
-        LE_WARN("API client buffer is NOT enough, (%d > %ld)",
+        LE_WARN("API client buffer is NOT enough, (%d > %zu)",
                 FinalConsolidatedInfo.info.unresponsiveClntSize,
                 *unrespClientsSizePtr);
 

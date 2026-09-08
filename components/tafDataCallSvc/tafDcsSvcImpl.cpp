@@ -80,15 +80,16 @@ void TafDcsSvc::Init()
                                                 TO_INT(result), subsystemStateChangeCallbackId_);
 
     // Add power state change handler
-    powerStateChangeHandlerRef_= taf_pm_AddStateChangeHandler(powerStateChangeHandler, NULL);
-    if (nullptr == powerStateChangeHandlerRef_)
-    {
-        LE_ERROR("Unable to register power state change handler.");
-    }
-    else
-    {
-        LE_INFO("Power state change handler registered.");
-    }
+    // PM code commented out
+    // powerStateChangeHandlerRef_= taf_pm_AddStateChangeHandler(powerStateChangeHandler, NULL);
+    // if (nullptr == powerStateChangeHandlerRef_)
+    // {
+    //     LE_ERROR("Unable to register power state change handler.");
+    // }
+    // else
+    // {
+    //     LE_INFO("Power state change handler registered.");
+    // }
 }
 
 void TafDcsSvc::tafPaSubsystemStateChangeCallback
@@ -111,24 +112,25 @@ void TafDcsSvc::tafPaSubsystemStateChangeCallback
     }
 }
 
-void TafDcsSvc::powerStateChangeHandler(taf_pm_State_t state, void *contextPtr)
-{
-    LE_UNUSED(contextPtr);
-    if (state == TAF_PM_STATE_RESUME)
-    {
-        LE_INFO("Power state change to RESUME");
-        taf::pa::data::RegisterSDKCallbacks();
-    }
-    else if (state == TAF_PM_STATE_SUSPEND)
-    {
-        LE_INFO("Power state change to SUSPEND");
-        taf::pa::data::DeregisterSDKCallbacks();
-    }
-    else
-    {
-        LE_WARN("Unknown power state: %d", TO_INT(state));
-    }
-}
+// PM code commented out
+// void TafDcsSvc::powerStateChangeHandler(taf_pm_State_t state, void *contextPtr)
+// {
+//     LE_UNUSED(contextPtr);
+//     if (state == TAF_PM_STATE_RESUME)
+//     {
+//         LE_INFO("Power state change to RESUME");
+//         taf::pa::data::RegisterSDKCallbacks();
+//     }
+//     else if (state == TAF_PM_STATE_SUSPEND)
+//     {
+//         LE_INFO("Power state change to SUSPEND");
+//         taf::pa::data::DeregisterSDKCallbacks();
+//     }
+//     else
+//     {
+//         LE_WARN("Unknown power state: %d", TO_INT(state));
+//     }
+// }
 
 void TafDcsSvc::Deinit()
 {

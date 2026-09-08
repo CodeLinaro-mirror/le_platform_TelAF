@@ -7,7 +7,9 @@
 #include "interfaces.h"
 #include "le_singlyLinkedList.h"
 #include "tafSvcIF.hpp"
-#include "mutex"
+#include <mutex>
+#include <vector>
+#include <memory>
 #include "tafSensorPa.hpp"
 
 #define SENSOR_EVENT_HANDLER_HIGH 20

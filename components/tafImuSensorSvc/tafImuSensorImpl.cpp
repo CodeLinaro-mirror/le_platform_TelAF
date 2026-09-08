@@ -215,7 +215,7 @@ le_result_t InitializeSensorClientList(taf_SensorClient_t* clientRequestPtr)
             continue;
         }
 
-        LE_INFO("Add listener for %lu successfully", clientInfo->sensorClient);
+        LE_INFO("Add listener for %llu successfully", clientInfo->sensorClient);
 
         le_utf8_Copy(clientInfo->sensorName, sensorMngr.sList[i].basicInfo.
             sensorName.c_str(), sizeof(clientInfo->sensorName), NULL);
@@ -1586,15 +1586,15 @@ void taf_Sensor::CleanUp(taf_SensorClient_t* clientPtr){
         auto* ci = &clientPtr->clients[i];
         if(ci->isSensorActivated == true){
             if(tafpa::sensor::taf_pa_sensor_Deactivate(ci->sensorClient) != PA_OK){
-                LE_ERROR("Unable to deactivate sensor for client %lu", ci->sensorClient);
+                LE_ERROR("Unable to deactivate sensor for client %llu", ci->sensorClient);
             }
             ci->isSensorActivated = false;
         }
         if(tafpa::sensor::taf_pa_sensor_RemoveListener(ci->sensorClient) != PA_OK){
-            LE_ERROR("Unable to remove listener for client %lu", ci->sensorClient);
+            LE_ERROR("Unable to remove listener for client %llu", ci->sensorClient);
         }
         if(tafpa::sensor::taf_pa_sensor_ReleaseSensorClient(ci->sensorClient) != PA_OK){
-            LE_ERROR("Unable to delete reference for client %lu", ci->sensorClient);
+            LE_ERROR("Unable to delete reference for client %llu", ci->sensorClient);
         }
     }
     clientPtr->clientCount = 0;

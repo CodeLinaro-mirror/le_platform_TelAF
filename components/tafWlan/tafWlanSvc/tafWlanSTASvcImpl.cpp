@@ -938,7 +938,7 @@ void taf_WlanSTASvcImpl::PerformScan(StaCtx_t *CtxPtr)
 {
     TAF_ERROR_IF_RET_NIL(CtxPtr == nullptr, "Null context pointer provided to PerformScan");
 
-    if (CtxPtr->IntfName == nullptr || strlen(CtxPtr->IntfName) == 0)
+    if (strlen(CtxPtr->IntfName) == 0)
     {
         LE_ERROR("Invalid interface name in context");
         ReportStaState(CtxPtr, TAF_WLANSTA_STATE_SCAN_FAILED);

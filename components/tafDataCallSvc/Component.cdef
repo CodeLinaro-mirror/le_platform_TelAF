@@ -15,10 +15,11 @@ requires:
         libComponent_taf_pa_dataDef.so
     }
 
-    api:
-    {
-        taf_pm.api
-    }
+    // PM code commented out
+    // api:
+    // {
+    //     taf_pm.api
+    // }
 }
 
 cxxflags:

@@ -1282,7 +1282,7 @@ void AudioEventHandler(int fd, short events)
         {
             // Process the data read from the console
             printf("Input string read from FDMonitor(stdin): %.*s\n", (int)bytesRead, inputStr);
-            LE_INFO("Input string: %s num of bytes: %ld",inputStr,bytesRead);
+            LE_INFO("Input string: %s num of bytes: %zd",inputStr,bytesRead);
             if (strncmp(inputStr, "h", 1) == 0 || strncmp(inputStr, "?", 1) == 0 ||
                 strncmp(inputStr, "help", 4) == 0)
             {

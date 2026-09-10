@@ -8,7 +8,6 @@ capability:
 {
         CAP_CHOWN
         CAP_FOWNER
-        CAP_WAKE_ALARM
         CAP_SYS_RESOURCE
         CAP_DAC_OVERRIDE
         CAP_SYS_BOOT

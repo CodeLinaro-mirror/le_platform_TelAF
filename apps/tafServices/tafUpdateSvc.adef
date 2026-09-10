@@ -29,7 +29,7 @@ groups:
 
 sandboxed: false
 
-maxMemoryBytes: 60000K
+maxMemoryBytes: 280000K
 
 executables:
 {

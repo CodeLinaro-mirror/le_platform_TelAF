@@ -47,6 +47,7 @@ using namespace std;
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetRadioPower
@@ -85,6 +86,7 @@ le_result_t taf_radio_SetRadioPower
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetRadioPower
@@ -126,6 +128,7 @@ le_result_t taf_radio_GetRadioPower
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetAutomaticRegisterMode
@@ -155,6 +158,7 @@ le_result_t taf_radio_SetAutomaticRegisterMode
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetManualRegisterMode
@@ -207,6 +211,7 @@ void taf_radio_SetManualRegisterModeAsync
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetRegisterMode
@@ -318,6 +323,7 @@ int32_t taf_radio_GetPlatformSpecificRegistrationErrorCode
  *  - LE_FAULT -- Failed.
  *  - LE_TIMEOUT -- Timeout.
  *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_AddPreferredOperator
@@ -376,6 +382,7 @@ le_result_t taf_radio_AddPreferredOperator
  *  - LE_FAULT -- Failed.
  *  - LE_TIMEOUT -- Timeout.
  *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_RemovePreferredOperator
@@ -463,6 +470,8 @@ le_result_t taf_radio_RemovePreferredOperator
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeletePreferredOperatorsList
@@ -652,6 +661,8 @@ taf_radio_PreferredOperatorRef_t taf_radio_GetNextPreferredOperator
  *  - LE_OUT_OF_RANGE -- Out of range.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetPreferredOperatorDetails
@@ -816,6 +827,7 @@ void taf_radio_RemoveRatChangeHandler
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetRadioAccessTechInUse
@@ -855,6 +867,7 @@ le_result_t taf_radio_GetRadioAccessTechInUse
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetRatPreferences
@@ -880,6 +893,7 @@ le_result_t taf_radio_SetRatPreferences
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetRatPreferences
@@ -919,6 +933,7 @@ le_result_t taf_radio_GetRatPreferences
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetNetRegState
@@ -1009,6 +1024,7 @@ void taf_radio_RemoveNetRegStateEventHandler
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetPacketSwitchedState
@@ -1102,6 +1118,7 @@ void taf_radio_RemovePacketSwitchedChangeHandler
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServiceDomain
@@ -1150,6 +1167,7 @@ le_result_t taf_radio_GetServiceDomain
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServiceDomainPreferences
@@ -1189,6 +1207,7 @@ le_result_t taf_radio_GetServiceDomainPreferences
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetServiceDomainPreferences
@@ -1214,6 +1233,7 @@ le_result_t taf_radio_SetServiceDomainPreferences
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetSignalQual
@@ -1292,6 +1312,8 @@ taf_radio_MetricsRef_t taf_radio_MeasureSignalMetrics
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeleteSignalMetrics
@@ -1359,6 +1381,8 @@ taf_radio_RatBitMask_t taf_radio_GetRatOfSignalMetrics
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetGsmSignalMetrics
@@ -1417,6 +1441,8 @@ le_result_t taf_radio_GetGsmSignalMetrics
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetUmtsSignalMetrics
@@ -1484,6 +1510,8 @@ le_result_t taf_radio_GetUmtsSignalMetrics
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteSignalMetrics
@@ -1560,6 +1588,8 @@ le_result_t taf_radio_GetLteSignalMetrics
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCdmaSignalMetrics
@@ -1636,6 +1666,8 @@ le_result_t taf_radio_GetCdmaSignalMetrics
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetNr5gSignalMetrics
@@ -1703,6 +1735,8 @@ le_result_t taf_radio_GetNr5gSignalMetrics
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetGsmSignalMetricsSs
@@ -1752,6 +1786,8 @@ le_result_t taf_radio_GetGsmSignalMetricsSs
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetUmtsSignalMetricsEcio
@@ -1802,6 +1838,8 @@ le_result_t taf_radio_GetUmtsSignalMetricsEcio
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteSignalMetricsRssi
@@ -2168,6 +2206,7 @@ uint16_t taf_radio_GetPhysicalServingLteCellId
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellGsmBsic
@@ -2249,6 +2288,7 @@ uint16_t taf_radio_GetServingCellScramblingCode
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCurrentNetworkName
@@ -2293,6 +2333,7 @@ le_result_t taf_radio_GetCurrentNetworkName
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCurrentNetworkMccMnc
@@ -2553,6 +2594,8 @@ taf_radio_ScanInformationRef_t taf_radio_GetNextCellularNetworkScan
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCellularNetworkMccMnc
@@ -2637,6 +2680,8 @@ le_result_t taf_radio_GetCellularNetworkMccMnc
  *  - LE_OK -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameters (null pointer).
  *  - LE_NOT_FOUND -- Scan information reference not found.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCellularNetworkName
@@ -2817,6 +2862,8 @@ bool taf_radio_IsCellularNetworkForbidden
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeleteCellularNetworkScan
@@ -2871,6 +2918,7 @@ le_result_t taf_radio_DeleteCellularNetworkScan
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetSignalStrengthIndThresholds
@@ -2910,6 +2958,7 @@ le_result_t taf_radio_SetSignalStrengthIndThresholds
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetSignalStrengthIndDelta
@@ -3126,6 +3175,8 @@ taf_radio_NeighborCellsRef_t taf_radio_GetNeighborCellsInfo
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeleteNeighborCellsInfo
@@ -3432,6 +3483,8 @@ taf_radio_Rat_t taf_radio_GetNeighborCellRat
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetNeighborCellGsmBsic
@@ -3555,6 +3608,7 @@ uint32_t taf_radio_GetPhysicalNeighborNrCellId
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetBandCapabilities
@@ -3594,6 +3648,7 @@ le_result_t taf_radio_GetBandCapabilities
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteBandCapabilities
@@ -3643,6 +3698,7 @@ le_result_t taf_radio_GetLteBandCapabilities
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetBandPreferences
@@ -3668,6 +3724,7 @@ le_result_t taf_radio_SetBandPreferences
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetBandPreferences
@@ -3707,6 +3764,7 @@ le_result_t taf_radio_GetBandPreferences
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetLteBandPreferences
@@ -3748,6 +3806,7 @@ le_result_t taf_radio_SetLteBandPreferences
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteBandPreferences
@@ -4099,6 +4158,8 @@ uint32_t taf_radio_GetPciScanGlobalCellId
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetPciScanMccMnc
@@ -4172,6 +4233,8 @@ le_result_t taf_radio_GetPciScanMccMnc
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeletePciNetworkScan
@@ -4245,6 +4308,7 @@ le_result_t taf_radio_DeletePciNetworkScan
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetImsRegStatus
@@ -4388,6 +4452,7 @@ taf_radio_NetStatusRef_t taf_radio_GetNetStatus
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteCsCap
@@ -4435,6 +4500,7 @@ le_result_t taf_radio_GetLteCsCap
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetRatSvcStatus
@@ -4691,6 +4757,7 @@ taf_radio_ImsRef_t taf_radio_GetIms
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetImsSvcStatus
@@ -4747,6 +4814,7 @@ le_result_t taf_radio_GetImsSvcStatus
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetImsPdpError
@@ -4793,6 +4861,7 @@ le_result_t taf_radio_GetImsPdpError
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetImsSvcCfg
@@ -4826,6 +4895,7 @@ le_result_t taf_radio_SetImsSvcCfg
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetImsSvcCfg
@@ -4877,6 +4947,7 @@ le_result_t taf_radio_GetImsSvcCfg
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetImsUserAgent
@@ -4914,6 +4985,7 @@ le_result_t taf_radio_SetImsUserAgent
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetImsUserAgent
@@ -4989,6 +5061,7 @@ void taf_radio_RemoveImsStatusChangeHandler
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetNrDualConnectivityStatus
@@ -5045,6 +5118,7 @@ le_result_t taf_radio_GetNrDualConnectivityStatus
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCurrentNetworkLongName
@@ -5087,6 +5161,7 @@ le_result_t taf_radio_GetCurrentNetworkLongName
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetHardwareSimConfig
@@ -5132,6 +5207,7 @@ le_result_t taf_radio_GetHardwareSimConfig
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetHardwareSimRatCapabilities
@@ -5215,7 +5291,9 @@ void taf_radio_RemoveCellInfoChangeHandler
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
-  */
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetSignalStrengthIndHysteresis
 (
@@ -5244,7 +5322,9 @@ le_result_t taf_radio_SetSignalStrengthIndHysteresis
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
-  */
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetSignalStrengthIndHysteresisTimer
 (
@@ -5276,6 +5356,7 @@ le_result_t taf_radio_SetSignalStrengthIndHysteresisTimer
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellArfcn
@@ -5325,6 +5406,7 @@ le_result_t taf_radio_GetServingCellArfcn
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellUarfcn
@@ -5382,6 +5464,7 @@ le_result_t taf_radio_GetServingCellUarfcn
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetOperatingMode
@@ -5406,6 +5489,7 @@ le_result_t taf_radio_SetOperatingMode
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetOperatingMode
@@ -5449,6 +5533,7 @@ le_result_t taf_radio_GetOperatingMode
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellRoutingAreaCode
@@ -5488,6 +5573,7 @@ le_result_t taf_radio_GetServingCellRoutingAreaCode
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellBandInfo
@@ -5538,6 +5624,7 @@ le_result_t taf_radio_GetServingCellBandInfo
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellLteBandInfo
@@ -5590,6 +5677,7 @@ le_result_t taf_radio_GetServingCellLteBandInfo
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellNrBandInfo
@@ -5642,6 +5730,7 @@ le_result_t taf_radio_GetServingCellNrBandInfo
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetNrIconType
@@ -5772,6 +5861,7 @@ void taf_radio_RemoveCAInfoHandler
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCAInformation
@@ -5825,6 +5915,8 @@ le_result_t taf_radio_GetCAInformation
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeleteCAInformation
@@ -5862,6 +5954,8 @@ le_result_t taf_radio_DeleteCAInformation
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteCAStatus
@@ -5911,6 +6005,8 @@ le_result_t taf_radio_GetLteCAStatus
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteCAPCellPci
@@ -5951,6 +6047,8 @@ le_result_t taf_radio_GetLteCAPCellPci
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteCAPCellFreq
@@ -5991,6 +6089,8 @@ le_result_t taf_radio_GetLteCAPCellFreq
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteCAPCellDlBandwidth
@@ -6031,6 +6131,8 @@ le_result_t taf_radio_GetLteCAPCellDlBandwidth
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteCAPCellBand
@@ -6071,6 +6173,8 @@ le_result_t taf_radio_GetLteCAPCellBand
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteCASCellCount
@@ -6112,6 +6216,8 @@ le_result_t taf_radio_GetLteCASCellCount
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_OUT_OF_RANGE -- Index is out of range.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteCASCellPci
@@ -6160,6 +6266,8 @@ le_result_t taf_radio_GetLteCASCellPci
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_OUT_OF_RANGE -- Index is out of range.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteCASCellFreq
@@ -6208,6 +6316,8 @@ le_result_t taf_radio_GetLteCASCellFreq
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_OUT_OF_RANGE -- Index is out of range.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteCASCellDlBandwidth
@@ -6256,6 +6366,8 @@ le_result_t taf_radio_GetLteCASCellDlBandwidth
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_OUT_OF_RANGE -- Index is out of range.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteCASCellBand
@@ -6304,6 +6416,8 @@ le_result_t taf_radio_GetLteCASCellBand
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_OUT_OF_RANGE -- Index is out of range.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteCASCellState
@@ -6352,6 +6466,8 @@ le_result_t taf_radio_GetLteCASCellState
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_OUT_OF_RANGE -- Index is out of range.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteCASCellIndex
@@ -6400,6 +6516,8 @@ le_result_t taf_radio_GetLteCASCellIndex
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_OUT_OF_RANGE -- Index is out of range.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteCASCellUlConfigured
@@ -6486,6 +6604,7 @@ void taf_radio_RemoveConnectionStatusHandler
  *  - LE_BAD_PARAMETER -- Bad parameters (null pointer).
  *  - LE_FAULT -- Failed to get data available system status.
  *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetConnStatus
@@ -6530,6 +6649,8 @@ le_result_t taf_radio_GetConnStatus
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameters (null reference or reference not found in map).
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeleteConnStatus
@@ -6567,6 +6688,8 @@ le_result_t taf_radio_DeleteConnStatus
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameters (reference not found in map or null statusPtr).
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetEndcConnectionStatus

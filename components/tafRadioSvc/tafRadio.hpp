@@ -600,6 +600,7 @@ class Utility
                  *      - LE_BAD_PARAMETER if the PA layer returned -EINVAL.
                  *      - LE_UNSUPPORTED if the PA layer returned -ENOTSUP.
                  *      - LE_NOT_IMPLEMENTED if the PA layer returned -ENOSYS or PA_NOT_IMPLEMENTED.
+                 *      - LE_CAP_UNSUPPORTED if the PA layer returned PA_UNSUPPORTED.
                  */
                 static le_result_t Result
                 (

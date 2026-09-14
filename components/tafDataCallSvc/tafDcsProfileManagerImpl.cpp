@@ -20,6 +20,8 @@
 #include <net/if.h>
 #include <algorithm>
 #include <chrono>
+#include <pthread.h>
+#include <cstdlib>
 
 using namespace taf::svc::datacall;
 
@@ -5399,3 +5401,348 @@ void TafDcsProfileManager::signalEventThreadInitComplete(void *param1Ptr, void *
     auto &tafDcsProfileManager = TafDcsProfileManager::GetInstance();
     tafDcsProfileManager.eventThreadInitPromise_.set_value();
 }
+
+/***************************************************************************************************
+ * TCP keep-alive offload / power save packet filter
+ *
+ **************************************************************************************************/
+
+bool TafDcsProfileManager::isPowerSaveFilterPhoneIdSupported(uint8_t phoneId)
+{
+    return TAF_TYPES_PHONE_ID_1 == phoneId;
+}
+
+// Resolves the SIM slot ID that taf::pa::data's TCP keep-alive and power save filter APIs take as
+// their first argument, from the IPC-level phoneId. Same conversion pattern used elsewhere in this
+// file (e.g. profile creation), but returns the failure instead of falling back to a default slot,
+// since callers here have already gated phoneId via isPowerSaveFilterPhoneIdSupported().
+static le_result_t ResolvePowerSaveFilterSlotId(uint8_t phoneId, taf::pa::data::SlotId_e &slotId)
+{
+    le_result_t result = PA_TO_LE_RESULT(taf::pa::data::GetSimSlotIdFromPhoneId(
+        static_cast<taf::pa::data::PhoneId_e>(phoneId), slotId));
+    if (LE_OK != result)
+    {
+        LE_ERROR("PA GetSimSlotIdFromPhoneId failed for phone %d: %d", phoneId, result);
+    }
+    return result;
+}
+
+le_ref_MapRef_t TafDcsProfileManager::getTcpMonitorRefMap()
+{
+    if (nullptr == tcpMonitorRefMap_)
+    {
+        tcpMonitorRefMap_ = le_ref_CreateMap("TcpMonitorRefMap", 8);
+    }
+    return tcpMonitorRefMap_;
+}
+
+le_ref_MapRef_t TafDcsProfileManager::getTcpKeepAliveOffloadRefMap()
+{
+    if (nullptr == tcpKeepAliveOffloadRefMap_)
+    {
+        tcpKeepAliveOffloadRefMap_ = le_ref_CreateMap("TcpKeepAliveOffloadRefMap", 8);
+    }
+    return tcpKeepAliveOffloadRefMap_;
+}
+
+// Handle/slot contexts held behind the reference maps above. Plain malloc'd structs (freed on
+// disable/stop), rather than encoding the integer handle directly into the reference's pointer
+// value. slotId is cached here because taf_dcs_DisableTcpMonitor()/taf_dcs_StopTcpKeepAliveOffload()
+// take only the reference, not a phoneId, yet the PA calls need a SlotId_e.
+typedef struct
+{
+    taf::pa::data::TcpMonitorHandle_t handle;
+    taf::pa::data::SlotId_e slotId;
+} TcpMonitorCtx_t;
+
+typedef struct
+{
+    taf::pa::data::TcpKeepAliveOffloadHandle_t handle;
+    taf::pa::data::SlotId_e slotId;
+} TcpKeepAliveOffloadCtx_t;
+
+le_result_t TafDcsProfileManager::SvcEnableTcpMonitor
+(
+    uint8_t phoneId,
+    const taf_dcs_TcpKeepAliveParams_t *paramsPtr,
+    taf_dcs_TcpMonitorRef_t *monitorRefPtr
+)
+{
+    if (nullptr == paramsPtr)
+    {
+        LE_ERROR("paramsPtr is NULL");
+        return LE_BAD_PARAMETER;
+    }
+    if (nullptr == monitorRefPtr)
+    {
+        LE_ERROR("monitorRefPtr is NULL");
+        return LE_BAD_PARAMETER;
+    }
+    if (!isPowerSaveFilterPhoneIdSupported(phoneId))
+    {
+        LE_ERROR("Phone ID %d not yet supported for TCP keep-alive", phoneId);
+        return LE_UNSUPPORTED;
+    }
+
+    taf::pa::data::SlotId_e slotId;
+    le_result_t result = ResolvePowerSaveFilterSlotId(phoneId, slotId);
+    if (LE_OK != result)
+    {
+        return result;
+    }
+
+    taf::pa::data::TcpKeepAliveParams_t paParams;
+    paParams.sourceAddress = paramsPtr->sourceAddress;
+    paParams.destinationAddress = paramsPtr->destinationAddress;
+    paParams.sourcePort = paramsPtr->sourcePort;
+    paParams.destinationPort = paramsPtr->destinationPort;
+
+    taf::pa::data::TcpMonitorHandle_t monHandle = taf::pa::data::INVALID_TCP_MONITOR_HANDLE;
+    result = PA_TO_LE_RESULT(taf::pa::data::EnableTCPMonitor(slotId, paParams, monHandle));
+    if (LE_OK != result)
+    {
+        return result;
+    }
+    if (taf::pa::data::INVALID_TCP_MONITOR_HANDLE == monHandle)
+    {
+        LE_ERROR("PA returned LE_OK with an invalid TCP monitor handle");
+        return LE_FAULT;
+    }
+
+    TcpMonitorCtx_t *ctx = (TcpMonitorCtx_t *)malloc(sizeof(TcpMonitorCtx_t));
+    if (nullptr == ctx)
+    {
+        LE_ERROR("malloc failed for TcpMonitorCtx_t");
+        // Roll back the PA-side enable; there is no ctx/ref to retry through if this also fails,
+        // so just log it.
+        le_result_t rollbackResult =
+            PA_TO_LE_RESULT(taf::pa::data::DisableTCPMonitor(slotId, monHandle));
+        if (LE_OK != rollbackResult)
+        {
+            LE_ERROR("Rollback DisableTCPMonitor failed: %d", rollbackResult);
+        }
+        return LE_NO_MEMORY;
+    }
+    ctx->handle = monHandle;
+    ctx->slotId = slotId;
+
+    *monitorRefPtr = (taf_dcs_TcpMonitorRef_t)le_ref_CreateRef(getTcpMonitorRefMap(), ctx);
+    LE_INFO("TCP monitor enabled. Handle: %u, Ref: %p", monHandle, *monitorRefPtr);
+    return LE_OK;
+}
+
+le_result_t TafDcsProfileManager::SvcDisableTcpMonitor(taf_dcs_TcpMonitorRef_t monitorRef)
+{
+    TcpMonitorCtx_t *ctx = (TcpMonitorCtx_t *)le_ref_Lookup(getTcpMonitorRefMap(), monitorRef);
+    if (nullptr == ctx)
+    {
+        LE_ERROR("Invalid TCP monitor reference");
+        return LE_NOT_FOUND;
+    }
+
+    le_result_t result =
+        PA_TO_LE_RESULT(taf::pa::data::DisableTCPMonitor(ctx->slotId, ctx->handle));
+    if (LE_OK == result)
+    {
+        le_ref_DeleteRef(getTcpMonitorRefMap(), monitorRef);
+        free(ctx);
+    }
+    return result;
+}
+
+le_result_t TafDcsProfileManager::SvcStartTcpKeepAliveOffload
+(
+    taf_dcs_TcpMonitorRef_t monitorRef,
+    uint32_t interval,
+    taf_dcs_TcpKeepAliveOffloadRef_t *offloadRefPtr
+)
+{
+    if (nullptr == offloadRefPtr)
+    {
+        LE_ERROR("offloadRefPtr is NULL");
+        return LE_BAD_PARAMETER;
+    }
+
+    TcpMonitorCtx_t *monCtx = (TcpMonitorCtx_t *)le_ref_Lookup(getTcpMonitorRefMap(), monitorRef);
+    if (nullptr == monCtx)
+    {
+        LE_ERROR("Invalid TCP monitor reference");
+        return LE_NOT_FOUND;
+    }
+
+    taf::pa::data::TcpKeepAliveOffloadHandle_t offloadHandle =
+        taf::pa::data::INVALID_TCP_KEEP_ALIVE_OFFLOAD_HANDLE;
+    le_result_t result = PA_TO_LE_RESULT(taf::pa::data::StartTCPKeepAliveOffload(
+        monCtx->slotId, monCtx->handle, interval, offloadHandle));
+    if (LE_OK != result)
+    {
+        return result;
+    }
+    if (taf::pa::data::INVALID_TCP_KEEP_ALIVE_OFFLOAD_HANDLE == offloadHandle)
+    {
+        LE_ERROR("PA returned LE_OK with an invalid TCP keep-alive offload handle");
+        return LE_FAULT;
+    }
+
+    TcpKeepAliveOffloadCtx_t *ctx =
+        (TcpKeepAliveOffloadCtx_t *)malloc(sizeof(TcpKeepAliveOffloadCtx_t));
+    if (nullptr == ctx)
+    {
+        LE_ERROR("malloc failed for TcpKeepAliveOffloadCtx_t");
+        // Roll back the start; there is no ctx/ref to retry through if this also fails, so just
+        // log it.
+        le_result_t rollbackResult =
+            PA_TO_LE_RESULT(taf::pa::data::StopTCPKeepAliveOffload(monCtx->slotId, offloadHandle));
+        if (LE_OK != rollbackResult)
+        {
+            LE_ERROR("Rollback StopTCPKeepAliveOffload failed: %d", rollbackResult);
+        }
+        return LE_NO_MEMORY;
+    }
+    ctx->handle = offloadHandle;
+    ctx->slotId = monCtx->slotId;
+
+    *offloadRefPtr =
+        (taf_dcs_TcpKeepAliveOffloadRef_t)le_ref_CreateRef(getTcpKeepAliveOffloadRefMap(), ctx);
+    LE_INFO("TCP keep-alive offload started. Handle: %u, Ref: %p", offloadHandle, *offloadRefPtr);
+    return LE_OK;
+}
+
+le_result_t TafDcsProfileManager::SvcStopTcpKeepAliveOffload
+(
+    taf_dcs_TcpKeepAliveOffloadRef_t offloadRef
+)
+{
+    TcpKeepAliveOffloadCtx_t *ctx =
+        (TcpKeepAliveOffloadCtx_t *)le_ref_Lookup(getTcpKeepAliveOffloadRefMap(), offloadRef);
+    if (nullptr == ctx)
+    {
+        LE_ERROR("Invalid TCP keep-alive offload reference");
+        return LE_NOT_FOUND;
+    }
+
+    le_result_t result =
+        PA_TO_LE_RESULT(taf::pa::data::StopTCPKeepAliveOffload(ctx->slotId, ctx->handle));
+    if (LE_OK == result)
+    {
+        le_ref_DeleteRef(getTcpKeepAliveOffloadRefMap(), offloadRef);
+        free(ctx);
+    }
+    return result;
+}
+
+le_result_t TafDcsProfileManager::SvcSetPowerSaveFilterMode
+(
+    uint8_t phoneId,
+    taf_dcs_PowerSaveFilterMode_t mode
+)
+{
+    if (!isPowerSaveFilterPhoneIdSupported(phoneId))
+    {
+        LE_ERROR("Phone ID %d not yet supported for power save filtering", phoneId);
+        return LE_UNSUPPORTED;
+    }
+
+    taf::pa::data::SlotId_e slotId;
+    le_result_t result = ResolvePowerSaveFilterSlotId(phoneId, slotId);
+    if (LE_OK != result)
+    {
+        return result;
+    }
+
+    taf::pa::data::FilterModeInfo_t paMode;
+    paMode.filterMode = TafDcsUtils::ConvertFilterMode(mode);
+    // Auto-exit is always enabled: taf_dcs.api documents that a matching packet wakes the AP and
+    // forwards it; carried over from the previous data-restrict implementation's assumption that
+    // the modem then turns filtering back off on its own, so there is no "sticky" filtering option
+    // exposed at the IPC layer. Not independently re-verified against the current PA behavior.
+    paMode.filterAutoExit = taf::pa::data::FilterMode_e::ENABLE;
+
+    return PA_TO_LE_RESULT(taf::pa::data::SetDataRestrictMode(slotId, paMode));
+}
+
+le_result_t TafDcsProfileManager::SvcGetPowerSaveFilterMode
+(
+    uint8_t phoneId,
+    taf_dcs_PowerSaveFilterMode_t *modePtr
+)
+{
+    if (nullptr == modePtr)
+    {
+        LE_ERROR("modePtr is NULL");
+        return LE_BAD_PARAMETER;
+    }
+    if (!isPowerSaveFilterPhoneIdSupported(phoneId))
+    {
+        LE_ERROR("Phone ID %d not yet supported for power save filtering", phoneId);
+        return LE_UNSUPPORTED;
+    }
+
+    taf::pa::data::SlotId_e slotId;
+    le_result_t result = ResolvePowerSaveFilterSlotId(phoneId, slotId);
+    if (LE_OK != result)
+    {
+        return result;
+    }
+
+    taf::pa::data::FilterModeInfo_t paMode;
+    result = PA_TO_LE_RESULT(taf::pa::data::RequestDataRestrictMode(slotId, paMode));
+    if (LE_OK == result)
+    {
+        *modePtr = TafDcsUtils::ConvertFilterMode(paMode.filterMode);
+    }
+    return result;
+}
+
+le_result_t TafDcsProfileManager::SvcAddPowerSaveFilter
+(
+    uint8_t phoneId,
+    const taf_dcs_PacketFilterConfig_t *configPtr
+)
+{
+    if (nullptr == configPtr)
+    {
+        LE_ERROR("configPtr is NULL");
+        return LE_BAD_PARAMETER;
+    }
+    if (!isPowerSaveFilterPhoneIdSupported(phoneId))
+    {
+        LE_ERROR("Phone ID %d not yet supported for power save filtering", phoneId);
+        return LE_UNSUPPORTED;
+    }
+
+    taf::pa::data::SlotId_e slotId;
+    le_result_t result = ResolvePowerSaveFilterSlotId(phoneId, slotId);
+    if (LE_OK != result)
+    {
+        return result;
+    }
+
+    taf::pa::data::IpFilter_t paFilter;
+    result = TafDcsUtils::ConvertPacketFilterConfig(*configPtr, paFilter);
+    if (LE_OK != result)
+    {
+        return result;
+    }
+
+    return PA_TO_LE_RESULT(taf::pa::data::AddDataRestrictFilter(slotId, paFilter));
+}
+
+le_result_t TafDcsProfileManager::SvcRemoveAllPowerSaveFilters(uint8_t phoneId)
+{
+    if (!isPowerSaveFilterPhoneIdSupported(phoneId))
+    {
+        LE_ERROR("Phone ID %d not yet supported for power save filtering", phoneId);
+        return LE_UNSUPPORTED;
+    }
+
+    taf::pa::data::SlotId_e slotId;
+    le_result_t result = ResolvePowerSaveFilterSlotId(phoneId, slotId);
+    if (LE_OK != result)
+    {
+        return result;
+    }
+
+    return PA_TO_LE_RESULT(taf::pa::data::RemoveAllDataRestrictFilters(slotId));
+}
+

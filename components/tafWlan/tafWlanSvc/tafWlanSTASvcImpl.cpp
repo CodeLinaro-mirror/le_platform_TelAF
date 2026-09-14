@@ -1582,7 +1582,17 @@ le_result_t taf_WlanSTASvcImpl::SetMode(
                                             : taf::pa::wlan::StaId_e::TWO;
 
     pa_result_t res = taf::pa::wlan::SetStaBridgeMode(paStaId, paMode);
-    if(res != PA_OK)
+    if (res == PA_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("SetStaBridgeMode is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (res == PA_UNSUPPORTED)
+    {
+        LE_ERROR("SetStaBridgeMode is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+    else if (res != PA_OK)
     {
         LE_ERROR("SetStaBridgeMode failed");
         return LE_FAULT;
@@ -1618,7 +1628,17 @@ le_result_t taf_WlanSTASvcImpl::GetMode
                                             : taf::pa::wlan::StaId_e::TWO;
 
     pa_result_t res = taf::pa::wlan::GetStaBridgeMode(paStaId, modeOut);
-    if (res != PA_OK)
+    if (res == PA_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("GetStaBridgeMode is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (res == PA_UNSUPPORTED)
+    {
+        LE_ERROR("GetStaBridgeMode is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+    else if (res != PA_OK)
     {
         LE_ERROR("GetStaBridgeMode failed");
         return LE_FAULT;
@@ -1659,6 +1679,7 @@ le_result_t taf_WlanSTASvcImpl::SetIPConfig
         ? taf::pa::wlan::IPType_e::STATIC
         : taf::pa::wlan::IPType_e::DYNAMIC;
 
+    pa_result_t res = PA_OK;
     if (StaIPType == TAF_WLANSTA_IPTYPE_STATIC && StaStaticIPConfigPtr)
     {
         taf::pa::wlan::StaIpConfig_t paCfg;
@@ -1667,22 +1688,29 @@ le_result_t taf_WlanSTASvcImpl::SetIPConfig
         paCfg.netMask  = StaStaticIPConfigPtr->NetMask;
         paCfg.dnsAddr  = StaStaticIPConfigPtr->DNSAddr;
 
-        pa_result_t res = taf::pa::wlan::SetStaIpConfig(paStaId, paIpType, paCfg);
-        if (res != PA_OK)
-        {
-            LE_ERROR("SetStaIpConfig failed");
-            return LE_FAULT;
-        }
+        res = taf::pa::wlan::SetStaIpConfig(paStaId, paIpType, paCfg);
     }
     else
     {
-        pa_result_t res = taf::pa::wlan::SetStaIpConfig(paStaId, paIpType);
-        if (res != PA_OK)
-        {
-            LE_ERROR("SetStaIpConfig failed");
-            return LE_FAULT;
-        }
+        res = taf::pa::wlan::SetStaIpConfig(paStaId, paIpType);
     }
+
+    if (res == PA_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("SetStaIpConfig is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (res == PA_UNSUPPORTED)
+    {
+        LE_ERROR("SetStaIpConfig is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+    else if (res != PA_OK)
+    {
+        LE_ERROR("SetStaIpConfig failed");
+        return LE_FAULT;
+    }
+
     LE_INFO("SetStaIpConfig successful");
     return LE_OK;
 }
@@ -1719,7 +1747,17 @@ le_result_t taf_WlanSTASvcImpl::GetIPConfig
     taf::pa::wlan::StaIpConfig_t paCfg{};
 
     pa_result_t res = taf::pa::wlan::GetStaIpConfig(paStaId, ipTypeOut, paCfg);
-    if (res != PA_OK)
+    if (res == PA_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("GetStaIpConfig is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (res == PA_UNSUPPORTED)
+    {
+        LE_ERROR("GetStaIpConfig is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+    else if (res != PA_OK)
     {
         LE_ERROR("GetStaIpConfig failed");
         return LE_FAULT;

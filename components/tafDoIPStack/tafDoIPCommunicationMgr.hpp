@@ -276,7 +276,7 @@ namespace doip{
                     uint16_t udpDiscoveryPort, uint16_t tcpDataPort);
             taf_doip_Result_t GetLocalIPv4FromSource(struct sockaddr_in *srcAddrPtr, char *local);
             taf_doip_Result_t GetLocalIPv6FromSource(struct sockaddr_in6 *srcAddrPtr, char *local);
-            le_result_t SetTLSInfo();
+            le_result_t ConfigureTLSIfEnabled(le_socket_Ref_t socketRef);
 
             // Create Doip Connection Manager
             std::shared_ptr<ConnectionManager> connectionMgrPtr;

@@ -4,6 +4,7 @@
  */
 #include <iostream>
 #include <string>
+#include <boost/optional.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
@@ -197,13 +198,65 @@ void VehicleManager::ParseJsonConfig
 
         // TLS
         vehicleMgr.doipConfigPtr->isTLS
-                = root.get<bool>("network.TLS.enable");
-        std::string cert = root.get<std::string>("network.TLS.certificate");
+                = root.get<bool>("network.tls.enabled", false);
+        vehicleMgr.doipConfigPtr->mtlsEnabled
+                = root.get<bool>("network.tls.mtls_enabled", false);
+
+        std::string tlsMinVer = root.get<std::string>("network.tls.tls_min_version", "");
+        le_utf8_Copy(vehicleMgr.doipConfigPtr->tlsMinVersion, tlsMinVer.c_str(),
+                TAF_DOIP_TLS_VERSION_MAX_LEN, NULL);
+
+        std::string cipherSuites = root.get<std::string>("network.tls.tls_cipher_suites", "");
+        le_utf8_Copy(vehicleMgr.doipConfigPtr->tlsCipherSuites, cipherSuites.c_str(),
+                TAF_DOIP_TLS_CIPHER_SUITES_MAX_LEN, NULL);
+
+        std::string sigAlgs = root.get<std::string>("network.tls.signature_algorithms", "");
+        le_utf8_Copy(vehicleMgr.doipConfigPtr->signatureAlgorithms, sigAlgs.c_str(),
+                TAF_DOIP_TLS_SIG_ALGS_MAX_LEN, NULL);
+
+        std::string cert = root.get<std::string>("network.tls.server_certificate_path", "");
         le_utf8_Copy(vehicleMgr.doipConfigPtr->certFile, cert.c_str(),
                 TAF_DOIP_CERT_PATH_LEN, NULL);
-        std::string pk = root.get<std::string>("network.TLS.private_key");
-        le_utf8_Copy(vehicleMgr.doipConfigPtr->pkFile, pk.c_str(),
+
+        std::string clientCaCert
+                = root.get<std::string>("network.tls.client_ca_certificate_path", "");
+        le_utf8_Copy(vehicleMgr.doipConfigPtr->clientCaCertificatePath, clientCaCert.c_str(),
                 TAF_DOIP_CERT_PATH_LEN, NULL);
+
+        // server_key is only meaningful/populated when TLS is enabled.
+        vehicleMgr.doipConfigPtr->providerType[0] = '\0';
+        vehicleMgr.doipConfigPtr->providerName[0] = '\0';
+        vehicleMgr.doipConfigPtr->providerModulePath[0] = '\0';
+        vehicleMgr.doipConfigPtr->pkFile[0] = '\0';
+        if (vehicleMgr.doipConfigPtr->isTLS)
+        {
+            boost::optional<pt::ptree&> serverKeyNode
+                    = root.get_child_optional("network.tls.server_key");
+            if (serverKeyNode)
+            {
+                std::string keyType = serverKeyNode->get<std::string>("type", "");
+                le_utf8_Copy(vehicleMgr.doipConfigPtr->providerType, keyType.c_str(),
+                        TAF_DOIP_TLS_KEY_TYPE_MAX_LEN, NULL);
+
+                std::string providerName = serverKeyNode->get<std::string>("provider_name", "");
+                le_utf8_Copy(vehicleMgr.doipConfigPtr->providerName,
+                        providerName.c_str(), TAF_DOIP_TLS_PROVIDER_NAME_MAX_LEN, NULL);
+
+                std::string providerModulePath
+                        = serverKeyNode->get<std::string>("provider_module_path", "");
+                le_utf8_Copy(vehicleMgr.doipConfigPtr->providerModulePath,
+                        providerModulePath.c_str(), TAF_DOIP_CERT_PATH_LEN, NULL);
+
+                std::string keyRefPath
+                        = serverKeyNode->get<std::string>("key_reference_path", "");
+                le_utf8_Copy(vehicleMgr.doipConfigPtr->pkFile, keyRefPath.c_str(),
+                        TAF_DOIP_CERT_PATH_LEN, NULL);
+            }
+            else
+            {
+                LE_WARN("network.tls.server_key is missing while TLS is enabled");
+            }
+        }
 
         vehicleMgr.doipConfigPtr->parseStatus = true;
     }
@@ -786,6 +839,230 @@ taf_doip_Result_t VehicleManager::GetTLSPKFile
     {
         LE_ERROR("json configuration is not parsed!");
         return TAF_DOIP_RESULT_ERROR;
+    }
+}
+
+taf_doip_Result_t VehicleManager::GetMTLSFlag
+(
+    bool *isMTLSPtr
+)
+{
+    LE_DEBUG("GetMTLSFlag!");
+
+    if (isMTLSPtr == NULL)
+    {
+        LE_ERROR("isMTLSPtr is null!");
+        return TAF_DOIP_RESULT_PARAM_ERROR;
+    }
+
+    auto &vehicleMgr = VehicleManager::GetInstance();
+
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
+    {
+        *isMTLSPtr = vehicleMgr.doipConfigPtr->mtlsEnabled;
+        return TAF_DOIP_RESULT_OK;
+    }
+    else
+    {
+        LE_ERROR("json configuration is not parsed!");
+        *isMTLSPtr = false;
+        return TAF_DOIP_RESULT_UNSET;
+    }
+}
+
+taf_doip_Result_t VehicleManager::GetTLSMinVersion
+(
+    char *tlsMinVersionPtr
+)
+{
+    LE_DEBUG("GetTLSMinVersion!");
+
+    if (tlsMinVersionPtr == NULL)
+    {
+        LE_ERROR("tlsMinVersionPtr is null!");
+        return TAF_DOIP_RESULT_PARAM_ERROR;
+    }
+
+    auto &vehicleMgr = VehicleManager::GetInstance();
+
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
+    {
+        le_utf8_Copy(tlsMinVersionPtr, vehicleMgr.doipConfigPtr->tlsMinVersion,
+                TAF_DOIP_TLS_VERSION_MAX_LEN, NULL);
+        return TAF_DOIP_RESULT_OK;
+    }
+    else
+    {
+        LE_ERROR("json configuration is not parsed!");
+        return TAF_DOIP_RESULT_UNSET;
+    }
+}
+
+taf_doip_Result_t VehicleManager::GetTLSCipherSuites
+(
+    char *tlsCipherSuitesPtr
+)
+{
+    LE_DEBUG("GetTLSCipherSuites!");
+
+    if (tlsCipherSuitesPtr == NULL)
+    {
+        LE_ERROR("tlsCipherSuitesPtr is null!");
+        return TAF_DOIP_RESULT_PARAM_ERROR;
+    }
+
+    auto &vehicleMgr = VehicleManager::GetInstance();
+
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
+    {
+        le_utf8_Copy(tlsCipherSuitesPtr, vehicleMgr.doipConfigPtr->tlsCipherSuites,
+                TAF_DOIP_TLS_CIPHER_SUITES_MAX_LEN, NULL);
+        return TAF_DOIP_RESULT_OK;
+    }
+    else
+    {
+        LE_ERROR("json configuration is not parsed!");
+        return TAF_DOIP_RESULT_UNSET;
+    }
+}
+
+taf_doip_Result_t VehicleManager::GetTLSSignatureAlgorithms
+(
+    char *sigAlgorithmsPtr
+)
+{
+    LE_DEBUG("GetTLSSignatureAlgorithms!");
+
+    if (sigAlgorithmsPtr == NULL)
+    {
+        LE_ERROR("sigAlgorithmsPtr is null!");
+        return TAF_DOIP_RESULT_PARAM_ERROR;
+    }
+
+    auto &vehicleMgr = VehicleManager::GetInstance();
+
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
+    {
+        le_utf8_Copy(sigAlgorithmsPtr, vehicleMgr.doipConfigPtr->signatureAlgorithms,
+                TAF_DOIP_TLS_SIG_ALGS_MAX_LEN, NULL);
+        return TAF_DOIP_RESULT_OK;
+    }
+    else
+    {
+        LE_ERROR("json configuration is not parsed!");
+        return TAF_DOIP_RESULT_UNSET;
+    }
+}
+
+taf_doip_Result_t VehicleManager::GetTLSProviderType
+(
+    char *providerTypePtr
+)
+{
+    LE_DEBUG("GetTLSProviderType!");
+
+    if (providerTypePtr == NULL)
+    {
+        LE_ERROR("providerTypePtr is null!");
+        return TAF_DOIP_RESULT_PARAM_ERROR;
+    }
+
+    auto &vehicleMgr = VehicleManager::GetInstance();
+
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
+    {
+        le_utf8_Copy(providerTypePtr, vehicleMgr.doipConfigPtr->providerType,
+                TAF_DOIP_TLS_KEY_TYPE_MAX_LEN, NULL);
+        return TAF_DOIP_RESULT_OK;
+    }
+    else
+    {
+        LE_ERROR("json configuration is not parsed!");
+        return TAF_DOIP_RESULT_UNSET;
+    }
+}
+
+taf_doip_Result_t VehicleManager::GetTLSProviderName
+(
+    char *providerNamePtr
+)
+{
+    LE_DEBUG("GetTLSProviderName!");
+
+    if (providerNamePtr == NULL)
+    {
+        LE_ERROR("providerNamePtr is null!");
+        return TAF_DOIP_RESULT_PARAM_ERROR;
+    }
+
+    auto &vehicleMgr = VehicleManager::GetInstance();
+
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
+    {
+        le_utf8_Copy(providerNamePtr, vehicleMgr.doipConfigPtr->providerName,
+                TAF_DOIP_TLS_PROVIDER_NAME_MAX_LEN, NULL);
+        return TAF_DOIP_RESULT_OK;
+    }
+    else
+    {
+        LE_ERROR("json configuration is not parsed!");
+        return TAF_DOIP_RESULT_UNSET;
+    }
+}
+
+taf_doip_Result_t VehicleManager::GetTLSProviderModulePath
+(
+    char *providerModulePathPtr
+)
+{
+    LE_DEBUG("GetTLSProviderModulePath!");
+
+    if (providerModulePathPtr == NULL)
+    {
+        LE_ERROR("providerModulePathPtr is null!");
+        return TAF_DOIP_RESULT_PARAM_ERROR;
+    }
+
+    auto &vehicleMgr = VehicleManager::GetInstance();
+
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
+    {
+        le_utf8_Copy(providerModulePathPtr, vehicleMgr.doipConfigPtr->providerModulePath,
+                TAF_DOIP_CERT_PATH_LEN, NULL);
+        return TAF_DOIP_RESULT_OK;
+    }
+    else
+    {
+        LE_ERROR("json configuration is not parsed!");
+        return TAF_DOIP_RESULT_UNSET;
+    }
+}
+
+taf_doip_Result_t VehicleManager::GetTLSClientCACertFile
+(
+    char *clientCaCertPtr
+)
+{
+    LE_DEBUG("GetTLSClientCACertFile!");
+
+    if (clientCaCertPtr == NULL)
+    {
+        LE_ERROR("clientCaCertPtr is null!");
+        return TAF_DOIP_RESULT_PARAM_ERROR;
+    }
+
+    auto &vehicleMgr = VehicleManager::GetInstance();
+
+    if ( vehicleMgr.doipConfigPtr != NULL && vehicleMgr.doipConfigPtr->parseStatus == true )
+    {
+        le_utf8_Copy(clientCaCertPtr, vehicleMgr.doipConfigPtr->clientCaCertificatePath,
+                TAF_DOIP_CERT_PATH_LEN, NULL);
+        return TAF_DOIP_RESULT_OK;
+    }
+    else
+    {
+        LE_ERROR("json configuration is not parsed!");
+        return TAF_DOIP_RESULT_UNSET;
     }
 }
 

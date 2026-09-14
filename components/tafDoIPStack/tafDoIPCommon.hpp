@@ -214,6 +214,12 @@
 
 #define TAF_DOIP_CERT_PATH_LEN              255
 
+#define TAF_DOIP_TLS_VERSION_MAX_LEN        16      // e.g. "TLSv1.3"
+#define TAF_DOIP_TLS_CIPHER_SUITES_MAX_LEN  512     // colon-separated list
+#define TAF_DOIP_TLS_SIG_ALGS_MAX_LEN       256     // colon-separated list
+#define TAF_DOIP_TLS_KEY_TYPE_MAX_LEN       32      // e.g. "openssl_provider"
+#define TAF_DOIP_TLS_PROVIDER_NAME_MAX_LEN  64      // e.g. "aumovio_qsee"
+
 #define TAF_DOIP_UDP_DISCOVERY_DEFAULT      13400
 #define TAF_DOIP_TCP_DATA_DEFAULT           13400
 #define TAF_DOIP_TCP_DATA_SECURED           3496

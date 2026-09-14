@@ -796,6 +796,20 @@ public:
     void SvcRemoveThroughputInfoChangeHandler(
         taf_dcs_ThroughputInfoChangeHandlerRef_t handlerRef);
 
+    // TCP keep-alive offload API implementations
+    le_result_t SvcEnableTcpMonitor(uint8_t phoneId, const taf_dcs_TcpKeepAliveParams_t *paramsPtr,
+                                     taf_dcs_TcpMonitorRef_t *monitorRefPtr);
+    le_result_t SvcDisableTcpMonitor(taf_dcs_TcpMonitorRef_t monitorRef);
+    le_result_t SvcStartTcpKeepAliveOffload(taf_dcs_TcpMonitorRef_t monitorRef, uint32_t interval,
+                                             taf_dcs_TcpKeepAliveOffloadRef_t *offloadRefPtr);
+    le_result_t SvcStopTcpKeepAliveOffload(taf_dcs_TcpKeepAliveOffloadRef_t offloadRef);
+
+    // Power save packet filter API implementations
+    le_result_t SvcSetPowerSaveFilterMode(uint8_t phoneId, taf_dcs_PowerSaveFilterMode_t mode);
+    le_result_t SvcGetPowerSaveFilterMode(uint8_t phoneId, taf_dcs_PowerSaveFilterMode_t *modePtr);
+    le_result_t SvcAddPowerSaveFilter(uint8_t phoneId, const taf_dcs_PacketFilterConfig_t *configPtr);
+    le_result_t SvcRemoveAllPowerSaveFilters(uint8_t phoneId);
+
 private:
     /**
      * Private functions.
@@ -1028,6 +1042,24 @@ private:
     // Helper to get Ref Maps
     le_ref_MapRef_t getThroughputInfoListRefMap();
     le_ref_MapRef_t getThroughputInfoRefMap();
+
+    // TCP keep-alive/data restrict filter support.
+    //
+    // taf::pa::data's TCP keep-alive and power save filter APIs take a SlotId_e, resolved from
+    // phoneId via taf::pa::data::GetSimSlotIdFromPhoneId(). Only the primary phone ID is currently
+    // supported; other phone IDs return LE_UNSUPPORTED. This is a temporary restriction, not a
+    // Legato/IPC limitation.
+    static bool isPowerSaveFilterPhoneIdSupported(uint8_t phoneId);
+
+    // TCP monitor/offload handles from the PA are opaque uint32_t values (see
+    // taf::pa::data::TcpMonitorHandle_t/TcpKeepAliveOffloadHandle_t). They are stored directly as
+    // the safe-reference's value (via reinterpret_cast through uintptr_t) rather than behind a
+    // heap allocation, since the handle itself is already a complete, self-contained identifier.
+    le_ref_MapRef_t tcpMonitorRefMap_ = nullptr;
+    le_ref_MapRef_t tcpKeepAliveOffloadRefMap_ = nullptr;
+    le_ref_MapRef_t getTcpMonitorRefMap();
+    le_ref_MapRef_t getTcpKeepAliveOffloadRefMap();
+
 
     // Private constructor to prevent instantiation from outside the class.
     TafDcsProfileManager() {};

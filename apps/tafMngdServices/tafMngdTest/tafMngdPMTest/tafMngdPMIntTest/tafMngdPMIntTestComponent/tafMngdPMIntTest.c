@@ -186,7 +186,24 @@ static void PrintUsage ()
         "------------To register a client for power state notifications which does not acknowledges-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- RegisterClientForPowerStateNotificationWithoutAcknowledgement\n"
         "------------To Test node power state handler registration with state mask 0-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestAddNodePowerStateChangeHandlerStateMask\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestAddNodePowerStateChangeHandlerStateMask\n"
+        "------------Shutdown/restart VHAL prepare pending window tests-----------\n"
+        "-------- The VHAL prepare response is selected on the test driver, not by these tests:--------\n"
+        "--------   pmVHalDrv.so set prepare_reason timeout    (no callback -> 10s prepare timeout)--------\n"
+        "--------   pmVHalDrv.so set prepare_reason not_ready  (synchronous NACK)--------\n"
+        "--------   pmDriver v1 equivalent: echo 2 / 1 > /data/le_fs/ack --------\n"
+        "-------- StayAwake in window, closed by timeout (needs prepare_reason=timeout)--------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- PendingWinStayAwake <NODE_ID>\n"
+        "-------- Relax in window driving wsCount to 0 (needs prepare_reason=timeout)--------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- PendingWinRelax <NODE_ID>\n"
+        "-------- AuthorizeStayAwakeReason churn in window (needs prepare_reason=timeout)--------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- PendingWinAuthorize <NODE_ID>\n"
+        "-------- StayAwake in the RESTARTING window (needs prepare_reason=timeout)--------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- PendingWinRestart <NODE_ID>\n"
+        "-------- Shutdown window closed by a VHAL NACK (needs prepare_reason=not_ready)--------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- PendingWinNackShutdown <NODE_ID>\n"
+        "-------- Restart window closed by a VHAL NACK (needs prepare_reason=not_ready)--------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- PendingWinNackRestart <NODE_ID>\n");
 }
 
 static uint32_t StateToBit(taf_mngdPm_NodePowerState_t st)
@@ -3098,6 +3115,963 @@ void WsDumpClient02(void)
     exit(EXIT_SUCCESS);
 }
 
+//==================================================================================================
+// Shutdown/restart VHAL prepare pending window tests
+//
+// Window = interval from nodeStateChangePrepareAsync(SHUTDOWN/RESTART) dispatch until the VHAL
+// prepare response arrives or the 10s hal_state_prepare_timeout fires. Inside it MPMS currentState
+// is SHUTTING_DOWN or RESTARTING, StayAwake/Relax/AuthorizeStayAwakeReason only mutate wsCount
+// while the PMS wake-source reference is frozen, and RevertPendingWindow() reconciles the two when
+// the window closes on NOT_READY/INVALID_REQUEST/timeout.
+//
+// The VHAL prepare response is chosen by the test driver, not by this test process:
+//     pmVHalDrv.so set prepare_reason timeout     // no callback -> 10s vhalAckTimer fires
+//     pmVHalDrv.so set prepare_reason not_ready   // synchronous NACK
+//     pmVHalDrv.so set prepare_reason ready       // proceeds to power off (not used here)
+// pmDriver v1 equivalent: echo 2 / 1 / 0 > /data/le_fs/ack
+//
+// "timeout" is what gives the window real width: with a synchronous response the window is only one
+// event-loop iteration wide and no client call can be squeezed into it. So the in-window action
+// tests (PendingWinStayAwake/Relax/Authorize/Restart) all require
+// prepare_reason=timeout, and the NACK tests only verify the close path.
+//
+// Note there is no SHUTDOWN_PREPARE/RESTART_PREPARE notification to synchronise on when the window
+// opens: those are only emitted once PMS reports TAF_PM_STATE_SHUTDOWN/RESTART, which happens after
+// ShutdownNAD()/RestartNAD() on a READY response. Under timeout/not_ready injection they never
+// arrive. The window is instead known to be open as soon as the ReqAsync IPC returns LE_OK, because
+// the server enters SHUTTING_DOWN/RESTARTING and starts the ack timer before replying.
+//==================================================================================================
+
+#define PENDING_WIN_WS_TAG      "ws-pendwin"
+
+// hal_state_prepare_timeout is 10000 ms, so the watchdog guarding an async response must be wider
+// than that. A NACK arrives much sooner, but using the same bound for it means a mis-set injection is
+// reported as "expected NOT_READY, got TIMEOUT" instead of the far vaguer "no callback".
+#define PENDING_WIN_CB_WAIT_MS  15000
+
+// Bound for the post-revert SUSPEND_PREPARE notification in PendingWinRelax.
+static const le_clk_Time_t PENDING_WIN_NTF_WAIT = { .sec = 15, .usec = 0 };
+
+// How many notifications PendingWinWaitPrepare inspects before giving up. Intermediate prepare states
+// are expected on the way to the one under test, but the count must stay bounded so a node
+// oscillating between states fails the test instead of hanging it.
+#define PENDING_WIN_NTF_ATTEMPTS 5
+
+// All pending-window test state lives in one struct. Independent from the shared NodePwState*
+// globals (registered client, prepSem, snapSem, prepState, gotPrepare) so these tests neither
+// see nor collide with those and each test starts from a known-zero context.
+typedef void (*PendingWinStepFunc_t)(void);
+
+typedef struct
+{
+    // ---- Step machine ----
+    PendingWinStepFunc_t continuation;   // next step, invoked from event loop after IPC response
+    le_timer_Ref_t       watchdog;       // guards against a callback never arriving
+    const char*          waitWhat;       // log tag for the currently-awaited response
+    uint8_t              nodeId;         // node under test
+
+    // ---- Async response captured from the shutdown/restart callback ----
+    volatile taf_mngdPm_ResponseMode_t rspMode;
+
+    // ---- Independent client + notification observation ----
+    // Own thread + registration so these tests do not depend on the shared NodePwState* scaffolding.
+    // gotPrepare is the only reliable "prepare was observed" signal - prepState alone cannot be
+    // used because SHUTDOWN_PREPARE == 0 collides with the initial zero value.
+    le_thread_Ref_t                                    clientThread;
+    taf_mngdPm_NodePowerStateChangeHandlerRef_t        handlerRef;
+    le_sem_Ref_t                                       regSem;      // handler registered
+    le_sem_Ref_t                                       snapSem;     // immediate snapshot arrived
+    le_sem_Ref_t                                       prepSem;     // a prepare notification arrived
+    volatile bool                                      gotPrepare;
+    volatile taf_mngdPm_NodePowerState_t               prepState;
+} PendingWinCtx_t;
+
+static PendingWinCtx_t g_pw;
+
+static const char* RspModeToStr(taf_mngdPm_ResponseMode_t m)
+{
+    switch (m)
+    {
+        case TAF_MNGDPM_READY:           return "READY";
+        case TAF_MNGDPM_NOT_READY:       return "NOT_READY";
+        case TAF_MNGDPM_TIMEOUT:         return "TIMEOUT";
+        case TAF_MNGDPM_INVALID_REQUEST: return "INVALID_REQUEST";
+        default:                         return "UNKNOWN";
+    }
+}
+
+static const char* NodeStateToStr(taf_mngdPm_NodePowerState_t s)
+{
+    switch (s)
+    {
+        case TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE: return "SHUTDOWN_PREPARE";
+        case TAF_MNGDPM_NODE_STATE_RESTART_PREPARE:  return "RESTART_PREPARE";
+        case TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE:  return "SUSPEND_PREPARE";
+        case TAF_MNGDPM_NODE_STATE_RESUME:           return "RESUME";
+        default:                                     return "UNKNOWN";
+    }
+}
+
+static void PendingWinCleanup(void)
+{
+    if (g_pw.watchdog)
+    {
+        le_timer_Stop(g_pw.watchdog);
+        le_timer_Delete(g_pw.watchdog);
+        g_pw.watchdog = NULL;
+    }
+    if (g_pw.handlerRef)
+    {
+        taf_mngdPm_RemoveNodePowerStateChangeHandler(g_pw.handlerRef);
+        g_pw.handlerRef = NULL;
+    }
+    if (g_pw.regSem)  { le_sem_Delete(g_pw.regSem);  g_pw.regSem  = NULL; }
+    if (g_pw.prepSem) { le_sem_Delete(g_pw.prepSem); g_pw.prepSem = NULL; }
+    if (g_pw.snapSem) { le_sem_Delete(g_pw.snapSem); g_pw.snapSem = NULL; }
+}
+
+static void PendingWinFail(const char* why)
+{
+    LE_ERROR("[PMWIN] ---- test FAILED: %s ----", why);
+    PendingWinCleanup();
+    exit(EXIT_FAILURE);
+}
+
+static void PendingWinPass(const char* what)
+{
+    LE_INFO("[PMWIN] ---- test PASSED: %s ----", what);
+    PendingWinCleanup();
+    exit(EXIT_SUCCESS);
+}
+
+static void PendingWinExpect(taf_mngdPm_ResponseMode_t want)
+{
+    if (g_pw.rspMode != want)
+    {
+        LE_ERROR("Expected %s, got %s", RspModeToStr(want), RspModeToStr(g_pw.rspMode));
+        PendingWinFail("unexpected response mode");
+    }
+}
+
+static void PendingWinWatchdogHandler(le_timer_Ref_t timerRef)
+{
+    (void)timerRef;
+    LE_ERROR("Timeout after %d ms waiting for %s", PENDING_WIN_CB_WAIT_MS, g_pw.waitWhat);
+    PendingWinFail("async response never arrived");
+}
+
+static void PendingWinRunContinuation(void* param1Ptr, void* param2Ptr)
+{
+    (void)param1Ptr; (void)param2Ptr;
+
+    PendingWinStepFunc_t step = g_pw.continuation;
+    g_pw.continuation = NULL;
+    if (step) step();
+}
+
+// Register the continuation to run once the async response arrives, arm the watchdog, then RETURN so
+// the event loop can run. The caller must not block after calling this.
+//
+// This is the whole reason the tests are written as step machines: a ShutdownReqAsync/RestartReqAsync
+// callback is dispatched on the event loop of the thread that issued the request. Blocking that
+// thread on a semaphore to wait for it therefore deadlocks - the response message sits in the queue
+// with nobody to dispatch it, and the wait always ends in a spurious timeout even though the service
+// answered on time.
+static void PendingWinAwaitResponse(const char* what, PendingWinStepFunc_t next)
+{
+    LE_INFO("Awaiting %s, returning to the event loop", what);
+    g_pw.waitWhat     = what;
+    g_pw.continuation = next;
+    le_timer_Start(g_pw.watchdog);
+}
+
+static void PendingWinOnResponse(taf_mngdPm_ResponseMode_t rspMode)
+{
+    g_pw.rspMode = rspMode;
+
+    if (g_pw.watchdog) le_timer_Stop(g_pw.watchdog);
+
+    // Continue from the event loop rather than inline, so the rest of the test does not issue new IPC
+    // from inside a callback dispatch.
+    le_event_QueueFunction(PendingWinRunContinuation, NULL, NULL);
+}
+
+// Unlike ForcedSystemShutdownCallBack/RestartCallback these do not treat non-READY as a failure:
+// for the pending window tests NOT_READY/TIMEOUT is the expected outcome.
+static void PendingWinShutdownCB(taf_mngdPm_ShutdownMode_t mode,
+    taf_mngdPm_ResponseMode_t rspMode, le_result_t result, void* ctxPtr)
+{
+    (void)mode; (void)ctxPtr;
+    LE_INFO("PendingWinShutdownCB: rspMode=%s(%d) result=%d", RspModeToStr(rspMode), rspMode, result);
+    PendingWinOnResponse(rspMode);
+}
+
+static void PendingWinRestartCB(taf_mngdPm_RestartMode_t mode,
+    taf_mngdPm_ResponseMode_t rspMode, le_result_t result, void* ctxPtr)
+{
+    (void)mode; (void)ctxPtr;
+    LE_INFO("PendingWinRestartCB: rspMode=%s(%d) result=%d", RspModeToStr(rspMode), rspMode, result);
+    PendingWinOnResponse(rspMode);
+}
+
+// Discard tokens already sitting on a counting semaphore, so a subsequent wait can only be satisfied
+// by a notification that arrives after this point. g_pw.prepSem accumulates one token per prepare
+// notification and several may be expected before the one under test.
+static void PendingWinDrainSem(le_sem_Ref_t sem)
+{
+    static const le_clk_Time_t noWait = { .sec = 0, .usec = 0 };
+    if (!sem) return;
+    while (le_sem_WaitWithTimeOut(sem, noWait) == LE_OK)
+    {
+        LE_INFO("Drained a stale notification token");
+    }
+}
+
+// Bring up the watchdog timer and an independent client thread holding a SHUTDOWN_PREPARE|
+// RESTART_PREPARE|SUSPEND_PREPARE|RESUME handler. The handler posts g_pw.prepSem/snapSem and only
+// this test's continuations wait on them, so notifications from the wider system cannot satisfy
+// a wait meant for something else. stateChangeAck decides the client ACK, which is orthogonal to
+// the VHAL prepare response driving the window.
+static void PendingWinNotifyCb(uint8_t pmNodeId,
+                               taf_mngdPm_nodePowerStateRef_t ref,
+                               taf_mngdPm_NodePowerState_t state,
+                               void* ctx)
+{
+    (void)ctx;
+    LE_INFO("PendingWinNotifyCb: node=%u state=%s(%d)", pmNodeId, NodeStateToStr(state), state);
+
+    if (IsPrepareState(state))
+    {
+        g_pw.gotPrepare = true;
+        g_pw.prepState  = state;
+        if (g_pw.prepSem) le_sem_Post(g_pw.prepSem);
+
+        SendAckPolicy(pmNodeId, ref);
+        return;
+    }
+
+    if (state == TAF_MNGDPM_NODE_STATE_RESUME)
+    {
+        if (g_pw.snapSem) le_sem_Post(g_pw.snapSem);
+    }
+}
+
+static void* PendingWinClientThread(void* unused)
+{
+    (void)unused;
+    taf_mngdPm_ConnectService();
+
+    g_pw.handlerRef = taf_mngdPm_AddNodePowerStateChangeHandler(
+        PendingWinNotifyCb, NULL, g_pw.nodeId, MASK_ALL);
+    if (!g_pw.handlerRef)
+    {
+        LE_ERROR("PendingWin AddNodePowerStateChangeHandler failed");
+    }
+    if (g_pw.regSem) le_sem_Post(g_pw.regSem);
+
+    le_event_RunLoop();
+    return NULL;
+}
+
+static bool PendingWinStartClient(uint8_t pmNodeId)
+{
+    g_pw.nodeId     = pmNodeId;
+    g_pw.gotPrepare = false;
+    g_pw.prepState  = 0;
+    g_pw.rspMode    = TAF_MNGDPM_READY;
+    g_pw.continuation = NULL;
+
+    g_pw.watchdog = le_timer_Create("pendWinWatchdog");
+    le_timer_SetMsInterval(g_pw.watchdog, PENDING_WIN_CB_WAIT_MS);
+    le_timer_SetHandler(g_pw.watchdog, PendingWinWatchdogHandler);
+
+    g_pw.regSem  = le_sem_Create("pwRegSem",  0);
+    g_pw.prepSem = le_sem_Create("pwPrepSem", 0);
+    g_pw.snapSem = le_sem_Create("pwSnapSem", 0);
+
+    g_pw.clientThread = le_thread_Create("PendingWinClient", PendingWinClientThread, NULL);
+    le_thread_Start(g_pw.clientThread);
+
+    if (!WaitSemT(g_pw.regSem, REG_WAIT, "handler registration"))
+    {
+        return false;
+    }
+
+    // Registration triggers an immediate snapshot. If the node is already headed for suspend the
+    // snapshot is itself a prepare state, so both sems may hold a stale token; drain both before
+    // any test-specific wait so only fresh notifications can satisfy it.
+    (void)le_sem_WaitWithTimeOut(g_pw.snapSem, REG_WAIT);
+    PendingWinDrainSem(g_pw.prepSem);
+    PendingWinDrainSem(g_pw.snapSem);
+    return true;
+}
+
+// Wait until a prepare notification for `want` arrives, tolerating other prepare states on the way.
+// The post-revert path is RESUME -> Suspending -> SUSPEND_PREPARE, so a single wait can be consumed
+// by an intermediate transition; loop instead of treating the first token as the answer.
+//
+// Blocking here is safe, unlike blocking on the async response: these notifications are delivered on
+// PendingWinClientThread, which runs its own event loop, so they can be posted while this thread
+// waits.
+static bool PendingWinWaitPrepare(taf_mngdPm_NodePowerState_t want, const char* what)
+{
+    // Only tokens posted from here on may satisfy the wait.
+    PendingWinDrainSem(g_pw.prepSem);
+
+    for (int attempt = 0; attempt < PENDING_WIN_NTF_ATTEMPTS; ++attempt)
+    {
+        g_pw.gotPrepare = false;
+
+        if (!WaitSemT(g_pw.prepSem, PENDING_WIN_NTF_WAIT, what))
+        {
+            return false;
+        }
+        if (!g_pw.gotPrepare)
+        {
+            LE_WARN("Woken with no prepare recorded, keep waiting for %s", what);
+            continue;
+        }
+        if (g_pw.prepState == want)
+        {
+            LE_INFO("Observed %s as expected", NodeStateToStr(want));
+            return true;
+        }
+        LE_INFO("Ignoring intermediate %s while waiting for %s",
+                NodeStateToStr(g_pw.prepState), NodeStateToStr(want));
+    }
+
+    LE_ERROR("Gave up after %d notifications, none was %s", PENDING_WIN_NTF_ATTEMPTS,
+             NodeStateToStr(want));
+    return false;
+}
+
+// Log the MPMS view of the node power state. Note this reflects the PMS state (RESUME/SUSPEND/
+// SHUTDOWN/RESTART), not the MPMS internal state machine, so it cannot observe SHUTTING_DOWN.
+static taf_mngdPm_NodePowerState_t PendingWinDumpState(const char* when)
+{
+    taf_mngdPm_NodePowerState_t st = TAF_MNGDPM_NODE_STATE_RESUME;
+    le_result_t res = taf_mngdPm_GetNodePowerState(g_pw.nodeId, &st);
+    if (res != LE_OK)
+    {
+        LE_ERROR("[%s] GetNodePowerState failed: %d", when, res);
+    }
+    else
+    {
+        LE_INFO("[%s] node=%u power state = %s(%d)", when, g_pw.nodeId, NodeStateToStr(st), st);
+    }
+    return st;
+}
+
+static void PendingWinRequireResume(const char* why)
+{
+    if (PendingWinDumpState("after-revert") != TAF_MNGDPM_NODE_STATE_RESUME)
+    {
+        PendingWinFail(why);
+    }
+}
+
+// Open the window. The server completes RequestStateChange -> ProcessStateChange(SHUTTING_DOWN/
+// RESTARTING) -> le_timer_Start(vhalAckTimer) -> nodeStateChangePrepareAsync before replying, so once
+// the IPC returns LE_OK the window is already open and in-window calls can be issued right away.
+//
+// Do NOT wait for a SHUTDOWN_PREPARE/RESTART_PREPARE notification here: those are only emitted once
+// PMS reports TAF_PM_STATE_SHUTDOWN/RESTART, which happens after ShutdownNAD()/RestartNAD() on a
+// READY response. Under timeout or not_ready injection they never arrive at all.
+//
+// LE_BUSY handling: the MPMS internal FSM (Suspend/Waking up/RELEASING_WAKE_SOURCE) transiently
+// rejects Shutting-down/Restarting even when GetNodePowerState reports RESUME. Retry after a fresh
+// RESUME NTF, up to PENDING_WIN_OPEN_RETRIES, rather than trusting the snapshot state.
+#define PENDING_WIN_OPEN_RETRIES 3
+static const le_clk_Time_t PENDING_WIN_RESUME_WAIT = { .sec = 5, .usec = 0 };
+
+// Wait for a fresh RESUME notification. snapSem is posted by PendingWinNotifyCb only for RESUME, so
+// draining first guarantees the token we consume was posted after this call started.
+static bool PendingWinAwaitResumeNtf(const char* what)
+{
+    PendingWinDrainSem(g_pw.snapSem);
+    if (!WaitSemT(g_pw.snapSem, PENDING_WIN_RESUME_WAIT, what))
+    {
+        LE_WARN("No RESUME NTF within timeout while waiting for %s", what);
+        return false;
+    }
+    LE_INFO("Fresh RESUME NTF observed before %s", what);
+    return true;
+}
+
+// Every pending-window test starts from a clean SUSPEND baseline: MPMS in SUSPEND, no client
+// holds a wake source. Verifying this via a NodePowerState snapshot before anything else keeps
+// each test's setup in a known context and aborts loudly on violation instead of drifting into a
+// false pass or LE_BUSY. Hard fail — the operator must allow settle time between cases so SUSPEND
+// is always reached.
+static void PendingWinAssertSuspendPrepare(const char* what)
+{
+    taf_mngdPm_NodePowerState_t st = TAF_MNGDPM_NODE_STATE_RESUME;
+    le_result_t res = taf_mngdPm_GetNodePowerState(g_pw.nodeId, &st);
+    if (res != LE_OK)
+    {
+        LE_ERROR("[%s] GetNodePowerState failed: %d", what, res);
+        PendingWinFail("GetNodePowerState failed while asserting SUSPEND_PREPARE");
+    }
+    if (st != TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE)
+    {
+        LE_ERROR("[%s] precondition NOT met: expected SUSPEND_PREPARE, got %s",
+                 what, NodeStateToStr(st));
+        PendingWinFail("test precondition: node not in SUSPEND_PREPARE");
+    }
+    LE_INFO("[%s] precondition OK: node in SUSPEND_PREPARE", what);
+}
+
+// Wait for the node to fall back into SUSPEND after the window closes and all wake sources are
+// released. This is the post-condition every test asserts before exiting, so the next case in the
+// runner can rely on the SUSPEND_PREPARE precondition. Uses the existing prepSem wait, which
+// tolerates intermediate prepare transitions on the way down.
+static void PendingWinAwaitSuspendFinal(void)
+{
+    if (!PendingWinWaitPrepare(TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE,
+                               "final SUSPEND_PREPARE after cleanup"))
+    {
+        PendingWinFail("no SUSPEND_PREPARE after final cleanup: something still holds the node awake");
+    }
+    PendingWinAssertSuspendPrepare("final");
+}
+
+static bool PendingWinOpenShutdown(void)
+{
+    le_result_t res = LE_FAULT;
+    for (int attempt = 0; attempt < PENDING_WIN_OPEN_RETRIES; ++attempt)
+    {
+        res = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
+            PendingWinShutdownCB, NULL, TAF_MNGDPM_SHUTDOWN_REASON_NORMAL);
+        if (res == LE_OK)
+        {
+            LE_INFO("ShutdownReqAsync accepted, MPMS in SHUTTING_DOWN, pending window is open");
+            return true;
+        }
+        if (res != LE_BUSY)
+        {
+            LE_ERROR("ShutdownReqAsync failed: %d", res);
+            return false;
+        }
+        LE_WARN("ShutdownReqAsync attempt %d returned LE_BUSY: MPMS FSM not at RESUME, wait for NTF",
+                attempt + 1);
+        (void)PendingWinAwaitResumeNtf("MPMS RESUME before retrying ShutdownReqAsync");
+    }
+    LE_ERROR("ShutdownReqAsync stayed LE_BUSY across %d retries", PENDING_WIN_OPEN_RETRIES);
+    return false;
+}
+
+static bool PendingWinOpenRestart(void)
+{
+    le_result_t res = LE_FAULT;
+    for (int attempt = 0; attempt < PENDING_WIN_OPEN_RETRIES; ++attempt)
+    {
+        res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT,
+            PendingWinRestartCB, NULL, TAF_MNGDPM_RESTART_REASON_NORMAL);
+        if (res == LE_OK)
+        {
+            LE_INFO("RestartReqAsync accepted, MPMS in RESTARTING, pending window is open");
+            return true;
+        }
+        if (res != LE_BUSY)
+        {
+            LE_ERROR("RestartReqAsync failed: %d", res);
+            return false;
+        }
+        LE_WARN("RestartReqAsync attempt %d returned LE_BUSY: MPMS FSM not at RESUME, wait for NTF",
+                attempt + 1);
+        (void)PendingWinAwaitResumeNtf("MPMS RESUME before retrying RestartReqAsync");
+    }
+    LE_ERROR("RestartReqAsync stayed LE_BUSY across %d retries", PENDING_WIN_OPEN_RETRIES);
+    return false;
+}
+
+//==================================================================================================
+// T1: StayAwake inside the window, closed by the 10s VHAL prepare timeout.
+// Requires: pmVHalDrv.so set prepare_reason timeout   (pmDriver v1: echo 2 > /data/le_fs/ack)
+//
+// Expect in tafMngdPMSvc log:
+//   AcquireWakeLock wsCount = N in shutdown/restart pending window   <- PMS StayAwake suppressed
+//   VhalAckTimer Expired after 10000 msec for state 0
+//   RevertPendingWindow: Shutting down -> Resume
+// and the client callback receives TIMEOUT.
+//
+// "Post-revert: PMS StayAwake done" only appears when the PMS reference actually has to be taken,
+// i.e. when nothing else held the node awake at window-open time. Running this on an already-awake
+// system is still a valid pass, it just does not exercise that reconcile branch.
+//==================================================================================================
+// Pre-window ws1 (drives FSM WAKING_UP -> RESUME) and in-window ws2 (bumps wsCount) live in file
+// scope so PendingWinStayAwakeDone can release both after the async response.
+static taf_mngdPm_wsRef_t g_pwT1Ws1 = NULL;
+static taf_mngdPm_wsRef_t g_pwT1Ws2 = NULL;
+
+static void PendingWinStayAwakeDone(void);
+
+static void PendingWinStayAwake(uint8_t pmNodeId)
+{
+    LE_INFO("---- PendingWinStayAwake (needs prepare_reason=timeout) ----");
+
+    if (!PendingWinStartClient(pmNodeId)) PendingWinFail("client bring-up");
+
+    // Precondition: idle system, MPMS in SUSPEND.
+    PendingWinAssertSuspendPrepare("T1 start");
+
+    // Pre-window ws1: create + StayAwake, then wait for the VHAL RESUME NTF so FSM currentState is
+    // guaranteed to be RESUME before the shutdown request. ws1 stays held until Done to keep the
+    // system from sinking back into SUSPEND while the window is open.
+    g_pwT1Ws1 = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL,
+        TAF_MNGDPM_WS_OPT_DEFAULT, PENDING_WIN_WS_TAG);
+    if (g_pwT1Ws1 == NULL) PendingWinFail("T1 pre-window CreateWakeupSource(ws1)");
+
+    le_result_t res = taf_mngdPm_StayAwake(g_pwT1Ws1);
+    if (res != LE_OK) PendingWinFail("T1 pre-window StayAwake(ws1)");
+
+    if (!PendingWinAwaitResumeNtf("T1 RESUME NTF before opening window"))
+    {
+        PendingWinFail("T1: RESUME NTF never arrived after pre-window StayAwake");
+    }
+
+    PendingWinDumpState("before-window");
+
+    if (!PendingWinOpenShutdown()) PendingWinFail("ShutdownReqAsync rejected, window never opened");
+
+    // In-window ws2: Create + StayAwake must be accepted (window semantics: bump wsCount).
+    g_pwT1Ws2 = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL,
+        TAF_MNGDPM_WS_OPT_DEFAULT, PENDING_WIN_WS_TAG);
+    if (g_pwT1Ws2 == NULL) PendingWinFail("T1 in-window CreateWakeupSource(ws2)");
+
+    res = taf_mngdPm_StayAwake(g_pwT1Ws2);
+    if (res != LE_OK)
+    {
+        LE_ERROR("T1 in-window StayAwake(ws2) rejected: %d", res);
+        PendingWinFail("T1 in-window StayAwake(ws2) must return LE_OK");
+    }
+    LE_INFO("T1 in-window StayAwake(ws2) accepted (PMS StayAwake expected to be deferred)");
+
+    // Re-invoking StayAwake on the same already-locked ws must be rejected with LE_DUPLICATE per svc
+    // contract, regardless of the pending window. Anything else (LE_OK, LE_BUSY, ...) means the
+    // in-window wsCount bookkeeping does not enforce single-lock semantics.
+    res = taf_mngdPm_StayAwake(g_pwT1Ws2);
+    if (res != LE_DUPLICATE)
+    {
+        LE_ERROR("T1 duplicate StayAwake(ws2) returned %d, expected LE_DUPLICATE", res);
+        PendingWinFail("T1: repeated StayAwake on same ws must be LE_DUPLICATE in window");
+    }
+    LE_INFO("T1 duplicate StayAwake(ws2) correctly rejected with LE_DUPLICATE");
+
+    // Window closes on the 10s prepare timeout.
+    PendingWinAwaitResponse("shutdown timeout callback", PendingWinStayAwakeDone);
+}
+
+static void PendingWinStayAwakeDone(void)
+{
+    PendingWinExpect(TAF_MNGDPM_TIMEOUT);
+
+    // Two wake sources are still held (ws1 and ws2), so the node must be RESUME.
+    PendingWinRequireResume("node not RESUME after revert while ws1/ws2 are held");
+
+    // Release ws2 first (in-window), then ws1 (pre-window). Both must succeed.
+    le_result_t res = taf_mngdPm_Relax(g_pwT1Ws2);
+    if (res != LE_OK) { LE_ERROR("T1 post-revert Relax(ws2)=%d", res); PendingWinFail("T1 Relax(ws2)"); }
+    (void)taf_mngdPm_DeleteWakeupSource(g_pwT1Ws2);
+    g_pwT1Ws2 = NULL;
+
+    res = taf_mngdPm_Relax(g_pwT1Ws1);
+    if (res != LE_OK) { LE_ERROR("T1 post-revert Relax(ws1)=%d", res); PendingWinFail("T1 Relax(ws1)"); }
+    (void)taf_mngdPm_DeleteWakeupSource(g_pwT1Ws1);
+    g_pwT1Ws1 = NULL;
+
+    // Both wake sources gone -> node must go back to SUSPEND.
+    PendingWinAwaitSuspendFinal();
+
+    PendingWinPass("StayAwake in window + LE_DUPLICATE on repeat + timeout revert + suspend after");
+}
+
+//==================================================================================================
+// T2: Relax inside the window driving wsCount to 0, closed by the 10s VHAL prepare timeout.
+// Requires: pmVHalDrv.so set prepare_reason timeout
+//
+// Expect in tafMngdPMSvc log:
+//   ReleaseWakeLock wsCount:0
+//   ReleaseWakeLock wsCount=0 in pending window, defer PMS relax   <- PMS Relax suppressed
+//   (no "Wake source from pms released successfully" while in the window)
+//   RevertPendingWindow: Shutting down -> Resume
+//   Post-revert: PMS Relax done                                    <- deferred relax applied
+// then, because nothing holds a wake source any more, PMS drives the node to suspend.
+//
+// Note this needs the test process to own the only wake source on the node, so run it on an
+// otherwise idle system: anything else holding the node awake keeps wsCount above 0 and there will be
+// no suspend to observe.
+//==================================================================================================
+static void PendingWinRelaxDone(void);
+
+static void PendingWinRelax(uint8_t pmNodeId)
+{
+    LE_INFO("---- PendingWinRelax (needs prepare_reason=timeout) ----");
+
+    if (!PendingWinStartClient(pmNodeId)) PendingWinFail("client bring-up");
+
+    PendingWinAssertSuspendPrepare("T2 start");
+
+    // Pre-window: hold a wake source so wsCount can be driven to 0 from inside the window.
+    wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL,
+        TAF_MNGDPM_WS_OPT_DEFAULT, PENDING_WIN_WS_TAG);
+    if (wsRef == NULL) PendingWinFail("CreateWakeupSource before window");
+
+    le_result_t res = taf_mngdPm_StayAwake(wsRef);
+    if (res != LE_OK) PendingWinFail("pre-window StayAwake");
+    LE_INFO("Pre-window wake source acquired");
+
+    if (!PendingWinAwaitResumeNtf("T2 RESUME NTF before opening window"))
+    {
+        PendingWinFail("T2: RESUME NTF never arrived after pre-window StayAwake");
+    }
+
+    PendingWinDumpState("before-window");
+
+    if (!PendingWinOpenShutdown()) PendingWinFail("ShutdownReqAsync rejected, window never opened");
+
+    // In-window: Relax must be accepted and only decrement wsCount.
+    res = taf_mngdPm_Relax(wsRef);
+    if (res != LE_OK)
+    {
+        LE_ERROR("In-window Relax rejected: %d", res);
+        PendingWinFail("in-window Relax must return LE_OK");
+    }
+    LE_INFO("In-window Relax accepted (PMS Relax expected to be deferred)");
+
+    PendingWinAwaitResponse("shutdown timeout callback", PendingWinRelaxDone);
+}
+
+static void PendingWinRelaxDone(void)
+{
+    PendingWinExpect(TAF_MNGDPM_TIMEOUT);
+
+    PendingWinDumpState("after-revert");
+
+    // wsCount==0 across the revert -> system must fall into SUSPEND.
+    (void)taf_mngdPm_DeleteWakeupSource(wsRef);
+    wsRef = NULL;
+
+    PendingWinAwaitSuspendFinal();
+
+    PendingWinPass("Relax in window + timeout revert + suspend afterwards");
+}
+
+//==================================================================================================
+// T3: AuthorizeStayAwakeReason inside the window.
+// Requires: pmVHalDrv.so set prepare_reason timeout
+//
+// De-authorizing NORMAL makes RefreshWakeSources decrement wsCount for the held source, then
+// re-authorizing it increments wsCount again - both while PMS reference changes are deferred.
+//
+// Expect in tafMngdPMSvc log, twice:
+//   [Refresh] Defer PMS ref change in shutdown/restart pending window
+// and after the revert no "Post-revert: taf_pm_* failed", since wsCount is back where it started
+// and matches the frozen isWsAcquired.
+//==================================================================================================
+static void PendingWinAuthorizeDone(void);
+
+static void PendingWinAuthorize(uint8_t pmNodeId)
+{
+    LE_INFO("---- PendingWinAuthorize (needs prepare_reason=timeout) ----");
+
+    if (!PendingWinStartClient(pmNodeId)) PendingWinFail("client bring-up");
+
+    PendingWinAssertSuspendPrepare("T3 start");
+
+    // Pre-window: authorize NORMAL first, then hold a wake source with NORMAL reason. This is the
+    // ws that in-window de-authorize/re-authorize will churn.
+    le_result_t res = taf_mngdPm_AuthorizeStayAwakeReason(AUTHORIZE_ALL_STAY_AWAKE_REASON);
+    if (res != LE_OK) PendingWinFail("pre-window AuthorizeStayAwakeReason(ALL)");
+
+    wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL,
+        TAF_MNGDPM_WS_OPT_DEFAULT, PENDING_WIN_WS_TAG);
+    if (wsRef == NULL) PendingWinFail("CreateWakeupSource before window");
+
+    res = taf_mngdPm_StayAwake(wsRef);
+    if (res != LE_OK) PendingWinFail("pre-window StayAwake");
+    LE_INFO("Pre-window wake source acquired with an authorized reason");
+
+    if (!PendingWinAwaitResumeNtf("T3 RESUME NTF before opening window"))
+    {
+        PendingWinFail("T3: RESUME NTF never arrived after pre-window StayAwake");
+    }
+
+    PendingWinDumpState("before-window");
+
+    if (!PendingWinOpenShutdown()) PendingWinFail("ShutdownReqAsync rejected, window never opened");
+
+    // In-window: de-authorize NORMAL -> RefreshWakeSources drops wsCount but defers PMS relax.
+    res = taf_mngdPm_AuthorizeStayAwakeReason(TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_ECALL_ACTIVE);
+    if (res != LE_OK)
+    {
+        LE_ERROR("In-window de-authorize rejected: %d", res);
+        PendingWinFail("in-window AuthorizeStayAwakeReason must return LE_OK");
+    }
+    LE_INFO("In-window de-authorized NORMAL (wsCount--, PMS ref change deferred)");
+
+    // In-window: re-authorize NORMAL -> wsCount goes back up, still deferring PMS changes.
+    res = taf_mngdPm_AuthorizeStayAwakeReason(AUTHORIZE_ALL_STAY_AWAKE_REASON);
+    if (res != LE_OK)
+    {
+        LE_ERROR("In-window re-authorize rejected: %d", res);
+        PendingWinFail("in-window AuthorizeStayAwakeReason must return LE_OK");
+    }
+    LE_INFO("In-window re-authorized NORMAL (wsCount++, PMS ref change deferred)");
+
+    PendingWinAwaitResponse("shutdown timeout callback", PendingWinAuthorizeDone);
+}
+
+static void PendingWinAuthorizeDone(void)
+{
+    PendingWinExpect(TAF_MNGDPM_TIMEOUT);
+
+    // wsCount is back where it started, so the revert must leave the node resumed and the source
+    // usable.
+    PendingWinRequireResume("node not RESUME after revert while an authorized wake source is held");
+
+    le_result_t res = taf_mngdPm_Relax(wsRef);
+    if (res != LE_OK)
+    {
+        LE_ERROR("Post-revert Relax failed: %d", res);
+        PendingWinFail("wake source accounting broken across authorize churn");
+    }
+    (void)taf_mngdPm_DeleteWakeupSource(wsRef);
+    wsRef = NULL;
+
+    PendingWinAwaitSuspendFinal();
+
+    PendingWinPass("AuthorizeStayAwakeReason churn in window + timeout revert");
+}
+
+//==================================================================================================
+// T4: the RESTARTING window (NAD reboot), closed by the 10s VHAL prepare timeout.
+// Requires: pmVHalDrv.so set prepare_reason timeout
+//
+// Same in-window semantics as T1 but through RestartReqAsync, covering the RESTARTING branches of
+// AcquireWakeLock/RefreshWakeSources and the restart side of VhalAckTimerHandler.
+//
+// Expect in tafMngdPMSvc log:
+//   AcquireWakeLock wsCount = N in shutdown/restart pending window
+//   VhalAckTimer expire for TAF_MNGDPM_RESTART_MODE_NAD_REBOOT
+//   RevertPendingWindow: Restarting -> Resume
+//==================================================================================================
+static void PendingWinRestartDone(void);
+
+static void PendingWinRestart(uint8_t pmNodeId)
+{
+    LE_INFO("---- PendingWinRestart (needs prepare_reason=timeout) ----");
+
+    if (!PendingWinStartClient(pmNodeId)) PendingWinFail("client bring-up");
+
+    PendingWinAssertSuspendPrepare("T4 start");
+
+    // Pre-window ws + wait for RESUME NTF: same idea as T2. The ws stays held past window open so the
+    // FSM does not sink back to SUSPEND between "RESUME NTF" and RestartReqAsync.
+    wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL,
+        TAF_MNGDPM_WS_OPT_DEFAULT, PENDING_WIN_WS_TAG);
+    if (wsRef == NULL) PendingWinFail("CreateWakeupSource before window");
+
+    le_result_t res = taf_mngdPm_StayAwake(wsRef);
+    if (res != LE_OK) PendingWinFail("pre-window StayAwake");
+
+    if (!PendingWinAwaitResumeNtf("T4 RESUME NTF before opening window"))
+    {
+        PendingWinFail("T4: RESUME NTF never arrived after pre-window StayAwake");
+    }
+
+    PendingWinDumpState("before-window");
+
+    if (!PendingWinOpenRestart()) PendingWinFail("RestartReqAsync rejected, window never opened");
+
+    // In-window Relax + StayAwake on the same ws: drives wsCount 1 -> 0 -> 1 with PMS ref changes
+    // deferred. Both calls must return LE_OK.
+    res = taf_mngdPm_Relax(wsRef);
+    if (res != LE_OK)
+    {
+        LE_ERROR("T4 in-window Relax rejected: %d", res);
+        PendingWinFail("T4 in-window Relax must return LE_OK");
+    }
+    LE_INFO("T4 in-window Relax accepted (wsCount 1->0, PMS ref deferred)");
+
+    res = taf_mngdPm_StayAwake(wsRef);
+    if (res != LE_OK)
+    {
+        LE_ERROR("T4 in-window StayAwake rejected: %d", res);
+        PendingWinFail("T4 in-window StayAwake must return LE_OK");
+    }
+    LE_INFO("T4 in-window StayAwake accepted (wsCount 0->1, PMS ref deferred)");
+
+    PendingWinAwaitResponse("restart timeout callback", PendingWinRestartDone);
+}
+
+static void PendingWinRestartDone(void)
+{
+    PendingWinExpect(TAF_MNGDPM_TIMEOUT);
+
+    PendingWinRequireResume("node not RESUME after restart window revert");
+
+    le_result_t res = taf_mngdPm_Relax(wsRef);
+    if (res != LE_OK)
+    {
+        LE_ERROR("Post-revert Relax failed: %d", res);
+        PendingWinFail("wake source lost across the restart window");
+    }
+    (void)taf_mngdPm_DeleteWakeupSource(wsRef);
+    wsRef = NULL;
+
+    PendingWinAwaitSuspendFinal();
+
+    PendingWinPass("StayAwake in RESTARTING window + timeout revert");
+}
+
+//==================================================================================================
+// T5: shutdown window closed by a VHAL NACK.
+// Requires: pmVHalDrv.so set prepare_reason not_ready   (pmDriver v1: echo 1 > /data/le_fs/ack)
+//
+// The NACK is delivered synchronously, so the window is only one event-loop iteration wide and no
+// in-window client call is attempted here. What this covers is the close path: the revert plus the
+// powerMode.isForceful reset, verified by issuing a second shutdown request that must not be
+// rejected with LE_BUSY.
+//
+// Expect in tafMngdPMSvc log:
+//   RevertPendingWindow: Shutting down -> Resume
+//==================================================================================================
+static void PendingWinNackShutdownSecond(void);
+static void PendingWinNackShutdownDone(void);
+
+static void PendingWinNackShutdown(uint8_t pmNodeId)
+{
+    LE_INFO("---- PendingWinNackShutdown (needs prepare_reason=not_ready) ----");
+
+    if (!PendingWinStartClient(pmNodeId)) PendingWinFail("client bring-up");
+
+    PendingWinAssertSuspendPrepare("T5 start");
+
+    // Hold a wake source so a mistakenly applied PMS relax would show up as an unexpected suspend.
+    wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL,
+        TAF_MNGDPM_WS_OPT_DEFAULT, PENDING_WIN_WS_TAG);
+    if (wsRef == NULL) PendingWinFail("CreateWakeupSource before window");
+    if (taf_mngdPm_StayAwake(wsRef) != LE_OK) PendingWinFail("pre-window StayAwake");
+
+    if (!PendingWinAwaitResumeNtf("T5 RESUME NTF before opening window"))
+    {
+        PendingWinFail("T5: RESUME NTF never arrived after pre-window StayAwake");
+    }
+
+    PendingWinDumpState("before-window");
+
+    if (!PendingWinOpenShutdown()) PendingWinFail("first ShutdownReqAsync");
+
+    PendingWinAwaitResponse("shutdown NACK callback", PendingWinNackShutdownSecond);
+}
+
+static void PendingWinNackShutdownSecond(void)
+{
+    PendingWinExpect(TAF_MNGDPM_NOT_READY);
+
+    PendingWinRequireResume("node not RESUME after the NACK revert");
+
+    // The state machine left SHUTTING_DOWN, so a fresh request must be accepted rather than LE_BUSY.
+    le_result_t res = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
+        PendingWinShutdownCB, NULL, TAF_MNGDPM_SHUTDOWN_REASON_NORMAL);
+    if (res == LE_BUSY)
+    {
+        PendingWinFail("second ShutdownReqAsync returned LE_BUSY: state was not reverted");
+    }
+    if (res != LE_OK)
+    {
+        LE_ERROR("Second ShutdownReqAsync failed: %d", res);
+        PendingWinFail("second ShutdownReqAsync");
+    }
+
+    PendingWinAwaitResponse("second shutdown NACK callback", PendingWinNackShutdownDone);
+}
+
+static void PendingWinNackShutdownDone(void)
+{
+    LE_INFO("Second request answered with %s: the window is fully re-armable",
+            RspModeToStr(g_pw.rspMode));
+
+    (void)taf_mngdPm_Relax(wsRef);
+    (void)taf_mngdPm_DeleteWakeupSource(wsRef);
+    wsRef = NULL;
+
+    PendingWinAwaitSuspendFinal();
+
+    PendingWinPass("shutdown NACK revert + request re-armable");
+}
+
+//==================================================================================================
+// T6: restart (NAD reboot) window closed by a VHAL NACK.
+// Requires: pmVHalDrv.so set prepare_reason not_ready
+//
+// Expect in tafMngdPMSvc log:
+//   RevertPendingWindow: Restarting -> Resume
+//==================================================================================================
+static void PendingWinNackRestartSecond(void);
+static void PendingWinNackRestartDone(void);
+
+static void PendingWinNackRestart(uint8_t pmNodeId)
+{
+    LE_INFO("---- PendingWinNackRestart (needs prepare_reason=not_ready) ----");
+
+    if (!PendingWinStartClient(pmNodeId)) PendingWinFail("client bring-up");
+
+    PendingWinAssertSuspendPrepare("T6 start");
+
+    wsRef = taf_mngdPm_CreateWakeupSource(TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL,
+        TAF_MNGDPM_WS_OPT_DEFAULT, PENDING_WIN_WS_TAG);
+    if (wsRef == NULL) PendingWinFail("CreateWakeupSource before window");
+    if (taf_mngdPm_StayAwake(wsRef) != LE_OK) PendingWinFail("pre-window StayAwake");
+
+    if (!PendingWinAwaitResumeNtf("T6 RESUME NTF before opening window"))
+    {
+        PendingWinFail("T6: RESUME NTF never arrived after pre-window StayAwake");
+    }
+
+    PendingWinDumpState("before-window");
+
+    if (!PendingWinOpenRestart()) PendingWinFail("first RestartReqAsync");
+
+    PendingWinAwaitResponse("restart NACK callback", PendingWinNackRestartSecond);
+}
+
+static void PendingWinNackRestartSecond(void)
+{
+    PendingWinExpect(TAF_MNGDPM_NOT_READY);
+
+    PendingWinRequireResume("node not RESUME after the restart NACK revert");
+
+    le_result_t res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT,
+        PendingWinRestartCB, NULL, TAF_MNGDPM_RESTART_REASON_NORMAL);
+    if (res == LE_BUSY)
+    {
+        PendingWinFail("second RestartReqAsync returned LE_BUSY: state was not reverted");
+    }
+    if (res != LE_OK)
+    {
+        LE_ERROR("Second RestartReqAsync failed: %d", res);
+        PendingWinFail("second RestartReqAsync");
+    }
+
+    PendingWinAwaitResponse("second restart NACK callback", PendingWinNackRestartDone);
+}
+
+static void PendingWinNackRestartDone(void)
+{
+    LE_INFO("Second request answered with %s: the window is fully re-armable",
+            RspModeToStr(g_pw.rspMode));
+
+    (void)taf_mngdPm_Relax(wsRef);
+    (void)taf_mngdPm_DeleteWakeupSource(wsRef);
+    wsRef = NULL;
+
+    PendingWinAwaitSuspendFinal();
+
+    PendingWinPass("restart NACK revert + request re-armable");
+}
+
 COMPONENT_INIT
 {
     const char* testType = "";
@@ -3355,6 +4329,60 @@ COMPONENT_INIT
         {
             if(testPar)
                 TestGracefulSysShutdownForNodePwStateChange(atoi(testPar));
+            else {
+                printf("Enter NODE_ID");
+                exit(EXIT_FAILURE);
+            }
+        }
+        else if(strcmp(testType, "PendingWinStayAwake") == 0)
+        {
+            if(testPar)
+                PendingWinStayAwake(atoi(testPar));
+            else {
+                printf("Enter NODE_ID");
+                exit(EXIT_FAILURE);
+            }
+        }
+        else if(strcmp(testType, "PendingWinRelax") == 0)
+        {
+            if(testPar)
+                PendingWinRelax(atoi(testPar));
+            else {
+                printf("Enter NODE_ID");
+                exit(EXIT_FAILURE);
+            }
+        }
+        else if(strcmp(testType, "PendingWinAuthorize") == 0)
+        {
+            if(testPar)
+                PendingWinAuthorize(atoi(testPar));
+            else {
+                printf("Enter NODE_ID");
+                exit(EXIT_FAILURE);
+            }
+        }
+        else if(strcmp(testType, "PendingWinRestart") == 0)
+        {
+            if(testPar)
+                PendingWinRestart(atoi(testPar));
+            else {
+                printf("Enter NODE_ID");
+                exit(EXIT_FAILURE);
+            }
+        }
+        else if(strcmp(testType, "PendingWinNackShutdown") == 0)
+        {
+            if(testPar)
+                PendingWinNackShutdown(atoi(testPar));
+            else {
+                printf("Enter NODE_ID");
+                exit(EXIT_FAILURE);
+            }
+        }
+        else if(strcmp(testType, "PendingWinNackRestart") == 0)
+        {
+            if(testPar)
+                PendingWinNackRestart(atoi(testPar));
             else {
                 printf("Enter NODE_ID");
                 exit(EXIT_FAILURE);

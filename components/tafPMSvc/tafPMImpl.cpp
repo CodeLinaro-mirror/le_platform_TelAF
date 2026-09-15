@@ -962,10 +962,9 @@ le_result_t taf_PM::Relax( taf_pm_WakeupSourceRef_t wsRef)
  */
 taf_pm_State_t taf_PM::GetPowerState()
 {
-    TAF_ERROR_IF_RET_VAL(tcuActivityMgr == NULL, TAF_PM_STATE_UNKNOWN, "tcuActivityMgr is null");
-    telux::power::TcuActivityState state =  tcuActivityMgr->getActivityState();
-    LE_INFO( "TCU state : %s\n ", tcuStateToString(state));
-    return (tcuStateToTafPowerState(state));
+    std::lock_guard<std::mutex> lock(tcuStateMutex);
+    LE_INFO( "TCU state : %i\n ", curTcuState);
+    return curTcuState;
 }
 
 #if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
@@ -1648,6 +1647,11 @@ void tafTcuStateListener :: onTcuActivityStateUpdate(TcuActivityState state)
         evt.state = TAF_PM_STATE_SHUTDOWN;
     } else if(state == TcuActivityState::RESUME) {
         evt.state = TAF_PM_STATE_RESUME;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(tafPwrMgr.tcuStateMutex);
+        curTcuState = state;
     }
 
     // Send Resume request if WL is acquired, else send acknowledgement

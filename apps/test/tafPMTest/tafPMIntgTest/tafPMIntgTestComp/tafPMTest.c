@@ -37,6 +37,8 @@ void TestStateChangeHandler(taf_pm_State_t state, void* contextPtr)
 {
     LE_INFO("State change triggered for %s\n", tafStateToString(state));
     printf("\nState change triggered for %s\n", tafStateToString(state));
+    taf_pm_State_t queriedState = taf_pm_GetPowerState();
+    LE_INFO("Queried state after state change %s", tafStateToString(queriedState));
 }
 
 //Function called on state change

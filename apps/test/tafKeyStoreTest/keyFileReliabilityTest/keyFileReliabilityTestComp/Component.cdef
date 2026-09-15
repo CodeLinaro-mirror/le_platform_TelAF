@@ -1,0 +1,26 @@
+sources:
+{
+    keyFileReliabilityTest.c
+}
+
+requires:
+{
+    api:
+    {
+        $TELAF_ROOT/interfaces/taf_ks.api [manual-start]
+    }
+}
+
+cflags:
+{
+    -I${LEGATO_ROOT}/framework/liblegato
+}
+
+bundles:
+{
+    file:
+    {
+        [rx] keyFileReliabilityTest.sh  /bin/
+    }
+}
+

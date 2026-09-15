@@ -1,0 +1,20 @@
+start: manual
+sandboxed: false
+
+executables:
+{
+    keyFileReliabilityTest = ( keyFileReliabilityTestComp )
+}
+
+processes:
+{
+    run:
+    {
+        ( keyFileReliabilityTest )
+    }
+}
+
+bindings:
+{
+    keyFileReliabilityTest.keyFileReliabilityTestComp.taf_ks -> tafKeyStoreSvc.taf_ks
+}

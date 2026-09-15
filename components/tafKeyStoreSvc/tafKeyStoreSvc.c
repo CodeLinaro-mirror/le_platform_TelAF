@@ -3523,7 +3523,7 @@ static void InitTimerHandler
     }
     if (result == LE_OK)
     {
-        LE_INFO("Telaf keyStore Service initialized (count=%d).", Count);
+        LE_INFO("TelAF keyStore PA initialized. (count=%d)", Count);
 
         // Advertise the service.
         taf_ks_AdvertiseService();
@@ -3608,6 +3608,8 @@ COMPONENT_INIT
     }
     if (LE_OK == result)
     {
+        LE_INFO("TelAF keyStore PA initialized.");
+
         // Advertise the service.
         taf_ks_AdvertiseService();
 

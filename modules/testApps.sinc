@@ -41,6 +41,7 @@ apps:
     $TELAF_ROOT/apps/test/tafKeyStoreTest/tafKeyStoreUnitTest/tafKeyStoreUnitTest
     $TELAF_ROOT/apps/test/tafKeyStoreTest/keySharingTest/keySharingOwnerTest
     $TELAF_ROOT/apps/test/tafKeyStoreTest/keySharingTest/keySharingClientTest
+    $TELAF_ROOT/apps/test/tafKeyStoreTest/keyFileReliabilityTest/keyFileReliabilityTest
     $TELAF_ROOT/apps/test/tafPMTest/tafPMUnitTest/tafPMUnitTest
     $TELAF_ROOT/apps/test/tafPMTest/tafPMIntgTest/tafPMIntgTest
     $TELAF_ROOT/apps/test/tafGpioTest/tafGpioUnitTest.adef

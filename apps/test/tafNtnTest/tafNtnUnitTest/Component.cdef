@@ -1,0 +1,12 @@
+sources:
+{
+    tafNtnUnitTest.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_ntn.api
+    }
+}

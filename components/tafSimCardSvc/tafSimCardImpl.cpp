@@ -328,10 +328,18 @@ le_result_t Utility::Convert::ConvertPaFailure
     {
         case TAF_PA_FAULT:
             return LE_FAULT;
+        case TAF_PA_BAD_PARAMETER:
+            return LE_BAD_PARAMETER;
         case TAF_PA_UNSUPPORTED:
             return LE_CAP_UNSUPPORTED;
+        case TAF_PA_TIMEOUT:
+            return LE_TIMEOUT;
+        case TAF_PA_NOT_PERMITTED:
+            return LE_NOT_PERMITTED;
         case TAF_PA_NOT_IMPLEMENTED:
             return LE_CAP_NOT_IMPLEMENTED;
+        case TAF_PA_UNAVAILABLE:
+            return LE_UNAVAILABLE;
         default:
             LE_DEBUG("Unknown result %d.", result);
     }
@@ -2603,6 +2611,50 @@ le_result_t taf_sim::IsEmergencyCallSubscriptionSelected
         return LE_FAULT;
     }
     *isEcs = (emInfo.state == TAF_PA_SIM_PROFILE_STATE_ACTIVE);
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Checks whether the NTN profile is activated for the given SIM slot.
+ *
+ * @return
+ *      - LE_OK -- Succeeded.
+ *      - LE_BAD_PARAMETER -- Invalid SIM identifier or null active pointer.
+ *      - LE_NOT_FOUND -- Wrong SIM card to operate on.
+ *      - LE_UNSUPPORTED -- NTN profile query is not supported.
+ *      - LE_FAULT -- Unexpected error.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_sim::IsNtnProfileActive
+(
+    taf_sim_Id_t simId,
+    bool* isActive
+)
+{
+    if (!isActive)
+    {
+        LE_ERROR("IsNtnProfileActive: isActive is NULL");
+        return LE_BAD_PARAMETER;
+    }
+
+    *isActive = false;
+
+    if (selectSimSlot(simId) != LE_OK)
+    {
+        LE_ERROR("IsNtnProfileActive: invalid simId %d", (int)simId);
+        return LE_BAD_PARAMETER;
+    }
+
+    taf_pa_result_t paResult = taf_pa_sim_IsNtnProfileActive((taf_pa_sim_Id_t)simId, isActive);
+    le_result_t result = Utility::Convert::ConvertPaFailure(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_IsNtnProfileActive reason=%d", paResult);
+        return result;
+    }
+
+    LE_INFO("IsNtnProfileActive successful for simId: %d, active: %d", simId, *isActive);
     return LE_OK;
 }
 

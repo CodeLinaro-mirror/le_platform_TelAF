@@ -61,6 +61,7 @@ static void DisplayAppUsage(void) {
     printf("SIM SetPower test: app runProc tafSimIntTest --exe=tafSimIntTest -- setPower <slot1/slot2/unknown> <ON/OFF>\n");
     printf("SIM Reset test: app runProc tafSimIntTest --exe=tafSimIntTest -- Reset <slot1/slot2/unknown>\n");
     printf("SIM EMERGENCY test: app runProc tafSimIntTest --exe=tafSimIntTest -- isEmergency <slot1/slot2/unknown>\n");
+    printf("SIM NTN profile test: app runProc tafSimIntTest --exe=tafSimIntTest -- isNtnProfileActive <slot1/slot2/unknown>\n");
     printf("SIM Swap Profiles test: app runProc tafSimIntTest --exe=tafSimIntTest -- swapProfiles <slot1/slot2/unknown> <0/1/2/3/4/5>\n");
     printf("Get Forbidden PLMN list: app runProc tafSimIntTest --exe=tafSimIntTest -- fplmnList <slot1/slot2/unknown>\n");
     printf("Create Forbidden PLMN list: app runProc tafSimIntTest --exe=tafSimIntTest -- createFplmnList <slot1/slot2/unknown>\n");
@@ -587,6 +588,10 @@ COMPONENT_INIT
     else if (strncmp(testType, "isEmergency", 11) == 0)
     {
         tafSimTest_sim_isEmergency(simId);
+    }
+    else if (strncmp(testType, "isNtnProfileActive", 18) == 0)
+    {
+        tafSimTest_sim_isNtnProfileActive(simId);
     }
 
     else if (strncmp(testType, "fplmnList", 9) == 0)

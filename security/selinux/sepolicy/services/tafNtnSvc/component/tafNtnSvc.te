@@ -1,0 +1,29 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+policy_module(tafNtnSvc, 1.0)
+
+# Framework definition for telaf
+type telaf_tafNtnSvc_exec_t;
+files_type(telaf_tafNtnSvc_exec_t);
+
+type telaf_tafNtnSvc_t;
+
+type telaf_tafNtnSvc_data_t;
+files_type(telaf_tafNtnSvc_data_t);
+
+init_telaf_app_domain(telaf_tafNtnSvc_t, telaf_tafNtnSvc_exec_t)
+
+ifdef(`sa525m',`
+    # Allow access to telux NTN configuration and data
+    # These macros provide access to /etc/telux/permissions/telux_ntn_config
+    # and /etc/telux/permissions/telux_ntn_data files
+    telux_allow_ntn_config(telaf_tafNtnSvc_t)
+    telux_allow_ntn_data(telaf_tafNtnSvc_t)
+    telux_allow_tel_private_info_read(telaf_tafNtnSvc_t)
+')
+
+# Allow service to manage its own data directory; registers with admin domain.
+telaf_manage_app_data_files(telaf_tafNtnSvc_t, telaf_tafNtnSvc_data_t)
+telaf_admin_manage_all_files_perms(telaf_tafNtnSvc_exec_t)
+

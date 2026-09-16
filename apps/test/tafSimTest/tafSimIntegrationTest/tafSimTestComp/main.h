@@ -60,6 +60,7 @@ void tafSimTest_sim_sendApdu(taf_sim_Id_t simId, uint8_t* commandApduPtr, size_t
 void tafSimTest_sim_sendCommand(taf_sim_Id_t simId);
 void tafSimTest_SetPowerCheck(taf_sim_Id_t simId, le_onoff_t powerStatus);
 void tafSimTest_sim_isEmergency(taf_sim_Id_t simId);
+void tafSimTest_sim_isNtnProfileActive(taf_sim_Id_t simId);
 void tafSimTest_swapToEmergencyAndBack(taf_sim_Id_t simId, taf_sim_Manufacturer_t manufacturer);
 le_result_t tafSimIntTest_ReadFPLMNList(taf_sim_Id_t simId);
 le_result_t tafSimTest_createFplmnList_test(taf_sim_Id_t simId);

@@ -1,0 +1,24 @@
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+## <summary> devices interface </summary>
+
+########################################
+## <summary>
+##  tafNtnSvc domain
+## </summary>
+## <param name="domain">
+##  <summary>
+##  Domain allowed access.
+##  </summary>
+## </param>
+#
+interface(`telaf_tafNtnSvc_domtrans',`
+    gen_require(`
+        type telaf_tafNtnSvc_t, telaf_tafNtnSvc_exec_t;
+    ')
+
+    corecmd_search_bin($1)
+    domtrans_pattern($1, telaf_tafNtnSvc_exec_t, telaf_tafNtnSvc_t)
+')
+

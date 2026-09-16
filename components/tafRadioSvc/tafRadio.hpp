@@ -68,6 +68,7 @@
 #define SAFE_REF_MAX_COUNT (COMMON_RERERENCE_MAX_COUNT + PCI_CELL_MAX_COUNT + PLMN_ID_MAX_COUNT+ PLMN_INFO_MAX_COUNT + PREF_NET_MAX_COUNT + NGBR_CELL_MAX_COUNT)
 #define TAF_RADIO_SERVICE_STATUS_BIT_MASK_COUNT 5 ///< Number of bits in ServiceStatusBitMask.
 #define TAF_RADIO_MAX_SESSIONS 20
+#define SMS_CAPABILITY_MAX_COUNT (INSTANCE_MAX_COUNT * 4) ///< Max concurrent SMS capability refs.
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -318,6 +319,7 @@ typedef struct
     le_mem_PoolRef_t ngbrCell;                   ///< Pool for neighbor cell entries.
     le_mem_PoolRef_t safeRef;                    ///< Pool for generic safe reference holders.
     le_mem_PoolRef_t signalStrengthInfo;         ///< Pool for cached signal strength info.
+    le_mem_PoolRef_t smsCapability;              ///< Pool for cached SMS capability info.
     le_mem_PoolRef_t caInfo;                     ///< Pool for cached CA info.
     le_mem_PoolRef_t connStatus;                 ///< Pool for cached connection status info.
     le_mem_PoolRef_t svcStatusInd;               ///< Pool for service status indication.
@@ -334,6 +336,7 @@ typedef struct
     le_ref_MapRef_t commonList;          ///< Map for CommonList_t handles.
     le_ref_MapRef_t safeRef;             ///< Map for safe reference handles.
     le_ref_MapRef_t signalStrengthInfo;  ///< Map for signal strength info handles.
+    le_ref_MapRef_t smsCapability;       ///< Map for SMS capability handles.
     le_ref_MapRef_t caInfo;              ///< Map for CA info handles.
     le_ref_MapRef_t connStatus;          ///< Map for connection status handles.
     le_ref_MapRef_t svcStatusRefMap;     ///< Map for service status handles.
@@ -926,6 +929,22 @@ class Utility
                 static taf_radio_RatSvcStatus_t RatServiceStatus
                 (
                     taf_pa_radio_RatServiceStatus_t status ///< [IN] PA RAT service status.
+                );
+
+                /**
+                 * Converts PA SMS domain to public SMS domain.
+                 */
+                static taf_radio_SmsDomain_t SmsDomain
+                (
+                    taf_pa_radio_SmsDomain_t domain ///< [IN] PA SMS domain.
+                );
+
+                /**
+                 * Converts PA NTN SMS status to public NTN SMS status.
+                 */
+                static taf_radio_NtnSmsStatus_t NtnSmsStatus
+                (
+                    taf_pa_radio_NtnSmsStatus_t status ///< [IN] PA NTN SMS status.
                 );
 
                 /**

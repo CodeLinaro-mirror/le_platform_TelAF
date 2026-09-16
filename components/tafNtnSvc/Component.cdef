@@ -1,0 +1,41 @@
+provides:
+{
+    api:
+    {
+        taf_ntn.api
+    }
+}
+
+requires:
+{
+    component:
+    {
+        $LEGATO_ROOT/components/watchdogChain
+    }
+
+    lib:
+    {
+        libComponent_taf_pa_radio.so
+        libComponent_taf_pa_radioDef.so
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+    -I$TELAF_ROOT/include
+    -I$TELAF_PA_DEFAULT/include
+    -std=c++17
+    -DTAFPA_ENABLE_LEGACY_MACROS=1
+}
+
+ldflags:
+{
+    -L$TELAF_DEFAULT_PA_LIB_DIR/lib
+}
+
+sources:
+{
+    tafNtnImpl.cpp
+    tafNtnSvc.cpp
+}

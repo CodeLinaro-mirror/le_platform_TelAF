@@ -1,0 +1,31 @@
+username: telaf
+maxThreads: 600
+sandboxed: false
+
+executables:
+{
+    tafNtnUnitTest = ( tafNtnUnitTest )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafNtnUnitTest)
+    }
+
+    faultAction: stopApp
+
+    #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+        maxWatchdogTimeout: 100000
+    #else
+        watchdogTimeout: never
+    #endif
+}
+
+bindings:
+{
+    tafNtnUnitTest.tafNtnUnitTest.taf_ntn -> tafNtnSvc.taf_ntn
+}

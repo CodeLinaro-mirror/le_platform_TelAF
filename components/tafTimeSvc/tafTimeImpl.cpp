@@ -3720,13 +3720,13 @@ void taf_Time::LayerTimeSourceChangeHandler
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_Time::RegGnssTimeListener(void)
 {
-    if (taf_pa_RegGnssTimeListener() != PA_OK)
+    pa_result_t result = taf_pa_RegGnssTimeListener();
+    if (result != PA_OK)
     {
-        LE_ERROR("RegGnssTimeListener failed");
-        return LE_FAULT;
+        LE_ERROR("taf_pa_RegGnssTimeListener failed (%d)", result);
     }
 
-    return LE_OK;
+    return PA_TO_LE_RESULT_FAULT(result);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -3736,12 +3736,13 @@ le_result_t taf_Time::RegGnssTimeListener(void)
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_Time::DeregGnssTimeListener(void)
 {
-    if (taf_pa_DeregGnssTimeListener() != PA_OK)
+    pa_result_t result = taf_pa_DeregGnssTimeListener();
+    if (result != PA_OK)
     {
-        LE_ERROR("DeregGnssTimeListener failed");
-        return LE_FAULT;
+        LE_ERROR("taf_pa_DeregGnssTimeListener failed (%d)", result);
     }
-    return LE_OK;
+
+    return PA_TO_LE_RESULT_FAULT(result);
 }
 
 void taf_Time::SyncTimeTimerHandler(le_timer_Ref_t timerRef)
@@ -4097,16 +4098,16 @@ le_result_t taf_Time::InitGnssTime(void)
     pa_result_t pa_result = taf_pa_gnss_Init();
     if (pa_result != PA_OK)
     {
-        LE_WARN("GNSS init failed");
-        return LE_FAULT;
+        LE_WARN("GNSS init failed, err : %d", (int)pa_result);
+        return PA_TO_LE_RESULT_FAULT(pa_result);
     }
 
     // Register callback functions in PA layer.
     pa_result= taf_pa_time_RegGnssUtcTimeUpdateHandler(OnGnssUtcTimeUpdatePAHandler);
     if (pa_result != PA_OK)
     {
-        LE_ERROR("RegGnssUtcTimeUpdateHandler failed");
-        return LE_FAULT;
+        LE_ERROR("RegGnssUtcTimeUpdateHandler failed, err : %d", (int)pa_result);
+        return PA_TO_LE_RESULT_FAULT(pa_result);
     }
 
     return LE_OK;

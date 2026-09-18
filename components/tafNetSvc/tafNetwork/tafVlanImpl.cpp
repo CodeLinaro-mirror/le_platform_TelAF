@@ -474,7 +474,19 @@ taf_net_VlanRef_t taf_Vlan::GetVlanRefById
         //set vlan bind values to default values
         //because for backhaul type WWAN profile/slot are not needed
         le_result_t result = GetBackhaulInfoBoundWithVlan(vlanId, &vlanPtr->vlanBindConfig);
-        if( result != LE_OK)
+        if (result == LE_CAP_NOT_IMPLEMENTED)
+        {
+            LE_ERROR("Get backhaul information is not implemented by PA");
+            le_mem_Release(vlanPtr);
+            return NULL;
+        }
+        else if (result == LE_CAP_UNSUPPORTED)
+        {
+            LE_ERROR("Get backhaul information is unsupported by PA");
+            le_mem_Release(vlanPtr);
+            return NULL;
+        }
+        else if (result != LE_OK)
         {
             // Initialize to safe defaults when no binding exists
             vlanPtr->vlanBindConfig.profileId = -1;
@@ -539,6 +551,18 @@ le_result_t taf_Vlan::AddVlanInterface
 
     taf_pa_vlan_iface_type_t ifPAType = static_cast<taf_pa_vlan_iface_type_t>(ifType);
     result = PA_TO_LE_RESULT(taf_pa_net_AddVlanInterface(config,ifPAType));
+
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("AddVlanInterface is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("AddVlanInterface is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+
     return result;
 
 }
@@ -811,6 +835,18 @@ le_result_t taf_Vlan::RemoveVlanInterface
 
     taf_pa_vlan_iface_type_t ifPAType = static_cast<taf_pa_vlan_iface_type_t>(ifType);
     result = PA_TO_LE_RESULT(taf_pa_net_RemoveVlanInterface(config,ifPAType));
+
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("RemoveVlanInterface is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("RemoveVlanInterface is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+
     return result;
 
 }
@@ -866,7 +902,18 @@ bool taf_Vlan::IsVlanPresentInDb(uint16_t vlanId, bool *isAccelerated, uint8_t *
     }
     else
     {
-        LE_ERROR("Request vlan info failed, result: %d",int(result));
+        if (result == LE_CAP_NOT_IMPLEMENTED)
+        {
+            LE_ERROR("QueryVlanInfo is not implemented by PA");
+        }
+        else if (result == LE_CAP_UNSUPPORTED)
+        {
+            LE_ERROR("QueryVlanInfo is unsupported by PA");
+        }
+        else
+        {
+            LE_ERROR("Request vlan info failed, result: %d",int(result));
+        }
         return false;
     }
     return false;
@@ -921,7 +968,18 @@ bool taf_Vlan::IsVlanInterfacePresentInDb(uint16_t vlanId, taf_net_VlanIfType_t 
     }
     else
     {
-        LE_ERROR("Request vlan info failed, result: %d",int(result));
+        if (result == LE_CAP_NOT_IMPLEMENTED)
+        {
+            LE_ERROR("QueryVlanInfo is not implemented by PA");
+        }
+        else if (result == LE_CAP_UNSUPPORTED)
+        {
+            LE_ERROR("QueryVlanInfo is unsupported by PA");
+        }
+        else
+        {
+            LE_ERROR("Request vlan info failed, result: %d",int(result));
+        }
         return false;
     }
     return false;
@@ -1026,7 +1084,18 @@ taf_net_VlanEntryListRef_t taf_Vlan::GetVlanEntryList()
     }
     else
     {
-        LE_ERROR("Request vlan entry list failed, result: %d",int(result));
+        if (result == LE_CAP_NOT_IMPLEMENTED)
+        {
+            LE_ERROR("QueryVlanInfo is not implemented by PA");
+        }
+        else if (result == LE_CAP_UNSUPPORTED)
+        {
+            LE_ERROR("QueryVlanInfo is unsupported by PA");
+        }
+        else
+        {
+            LE_ERROR("Request vlan entry list failed, result: %d",int(result));
+        }
         return NULL;
     }
 
@@ -1314,6 +1383,8 @@ int32_t taf_Vlan::GetVlanProfileId
                      LE_NOT_FOUND:     Vlan is not found
                      LE_BAD_PARAMETER: Invalid parameter.
                      LE_FAULT:         Failed to get phone Id.
+                     LE_CAP_NOT_IMPLEMENTED: Slot-to-phone mapping is not implemented by PA.
+                     LE_CAP_UNSUPPORTED:     Slot-to-phone mapping is unsupported by PA.
 
  SIDE EFFECTS
 
@@ -1335,6 +1406,16 @@ le_result_t taf_Vlan::GetVlanPhoneId
     TAF_ERROR_IF_RET_VAL(vlanEntryPtr == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
 
     result = network.getPhoneIdFromSlotId(vlanEntryPtr->info.slotId, phoneIdPtr);
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("GetPhoneIdFromSlotId is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("GetPhoneIdFromSlotId is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "failed to get phone id from slot id");
 
     return LE_OK;
@@ -1493,7 +1574,18 @@ taf_net_VlanIfListRef_t taf_Vlan::GetVlanInterfaceList
     }
     else
     {
-        LE_ERROR("Request vlan interface list failed, result: %d",int(result));
+        if (result == LE_CAP_NOT_IMPLEMENTED)
+        {
+            LE_ERROR("QueryVlanInfo is not implemented by PA");
+        }
+        else if (result == LE_CAP_UNSUPPORTED)
+        {
+            LE_ERROR("QueryVlanInfo is unsupported by PA");
+        }
+        else
+        {
+            LE_ERROR("Request vlan interface list failed, result: %d",int(result));
+        }
         return NULL;
     }
 
@@ -1791,6 +1883,16 @@ le_result_t taf_Vlan::BindVlanWithProfile(taf_net_VlanRef_t vlanRef, uint8_t slo
         vlanPtr->vlanBindConfig.backhaulType = TAF_NET_BH_WWAN;
         vlanPtr->vlanBindConfig.vlanIdBackhaul = -1;
     }
+    else if(result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("BindWithBackhaul is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if(result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("BindWithBackhaul is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
     return result;
 
 }
@@ -1883,6 +1985,18 @@ le_result_t taf_Vlan::BindVlanWithBackhaul(taf_net_VlanRef_t vlanRef)
     }
 
     result = PA_TO_LE_RESULT(taf_pa_net_BindWithBackhaul(vlanConfig,vlanBindConfig));
+
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("BindWithBackhaul is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("BindWithBackhaul is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+
     return result;
 }
 
@@ -1934,6 +2048,16 @@ le_result_t taf_Vlan::UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef)
         vlanPtr->vlanBindConfig.slotId = DEFAULT_SLOT_ID_1;
         vlanPtr->vlanBindConfig.backhaulType = TAF_NET_BH_MAX;
         vlanPtr->vlanBindConfig.vlanIdBackhaul = -1;
+    }
+    else if(result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("UnbindWithBackhaul is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if(result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("UnbindWithBackhaul is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
     }
     return result;
 }
@@ -2016,6 +2140,18 @@ le_result_t taf_Vlan::UnbindVlanFromBackhaul(taf_net_VlanRef_t vlanRef)
     }
 
     result = PA_TO_LE_RESULT(taf_pa_net_UnbindWithBackhaul(vlanConfig,vlanBindConfig));
+
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("UnbindWithBackhaul is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("UnbindWithBackhaul is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+
     return result;
 }
 
@@ -2055,7 +2191,17 @@ le_result_t taf_Vlan::GetBackhaulInfoBoundWithVlan
     le_result_t result;
     std::vector<uint8_t> slotIds;
     result = PA_TO_LE_RESULT(taf_pa_net_GetSupportedSlotIds(slotIds));
-    if(result != LE_OK)
+    if(result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("GetSupportedSlotIds is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if(result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("GetSupportedSlotIds is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+    else if(result != LE_OK)
     {
         LE_ERROR("Failed to get supported slot IDs");
         return LE_FAULT;
@@ -2093,7 +2239,17 @@ le_result_t taf_Vlan::GetBackhaulInfoBoundWithVlan
             result = PA_TO_LE_RESULT(taf_pa_net_QueryVlanToBackhaulMappingList(slot, pabackhaulType,
                 vlanBindInfo));
 
-            if(result == LE_OK && !vlanBindInfo.empty())
+            if (result == LE_CAP_NOT_IMPLEMENTED)
+            {
+                LE_ERROR("QueryVlanToBackhaulMappingList is not implemented by PA");
+                return LE_CAP_NOT_IMPLEMENTED;
+            }
+            else if (result == LE_CAP_UNSUPPORTED)
+            {
+                LE_ERROR("QueryVlanToBackhaulMappingList is unsupported by PA");
+                return LE_CAP_UNSUPPORTED;
+            }
+            else if (result == LE_OK && !vlanBindInfo.empty())
             {
                 LE_DEBUG("VLAN ID =%d, size =%d", vlanId, (int) vlanBindInfo.size());
                 for (auto binding:vlanBindInfo)
@@ -2165,7 +2321,17 @@ le_result_t taf_Vlan::GetBoundSlotIdProfileIdFromVlan(uint16_t vlanId, uint8_t* 
     le_result_t result;
     std::vector<uint8_t> slotIds;
     result = PA_TO_LE_RESULT(taf_pa_net_GetSupportedSlotIds(slotIds));
-    if(result != LE_OK)
+    if(result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("GetSupportedSlotIds is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if(result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("GetSupportedSlotIds is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+    else if(result != LE_OK)
     {
         LE_ERROR("Failed to get supported slot IDs");
         return LE_FAULT;
@@ -2360,7 +2526,17 @@ le_result_t taf_Vlan::SetIPPassThroughConfig
 
     result = PA_TO_LE_RESULT(taf_pa_net_SetIPPassThroughConfig(&ipptConfigIn, &ipptConfigOut));
 
-    if (result != LE_OK)
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("SetIPPassThroughConfig is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("SetIPPassThroughConfig is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+    else if (result != LE_OK)
     {
         LE_ERROR("ERROR - Failed to set ip pass through, result:%d ", static_cast<int>(result));
         return LE_FAULT;
@@ -2398,7 +2574,17 @@ taf_net_InterfaceRef_t taf_Vlan::GetIPPassThroughConfig
 
     result = PA_TO_LE_RESULT(taf_pa_net_GetIPPassThroughConfig(&ipptConfigIn, &ipptConfigOut));
 
-    if (result != LE_OK)
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("GetIPPassThroughConfig is not implemented by PA");
+        return NULL;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("GetIPPassThroughConfig is unsupported by PA");
+        return NULL;
+    }
+    else if (result != LE_OK)
     {
         LE_ERROR("ERROR - Failed to get ip pass through, result:%d ", static_cast<int>(result));
         return NULL;
@@ -2589,7 +2775,17 @@ le_result_t taf_Vlan::SetIPConfig
 
     le_result_t result = PA_TO_LE_RESULT(taf_pa_net_SetIPConfig(&ipConfigParams, &ipConfig));
 
-    if (result != LE_OK)
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("SetIPConfig is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("SetIPConfig is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+    else if (result != LE_OK)
     {
         LE_ERROR("ERROR - Failed to set ip config, result:%d ", static_cast<int>(result));
         return LE_FAULT;
@@ -2762,7 +2958,17 @@ taf_net_InterfaceRef_t taf_Vlan::GetIPConfig
 
     le_result_t result = PA_TO_LE_RESULT(taf_pa_net_GetIPConfig(&ipConfigParams, &ipConfig));
 
-    if (result != LE_OK)
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("GetIPConfig is not implemented by PA");
+        return NULL;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("GetIPConfig is unsupported by PA");
+        return NULL;
+    }
+    else if (result != LE_OK)
     {
         LE_ERROR("ERROR - Failed to get ip config, result:%d ", static_cast<int>(result));
         return NULL;
@@ -2817,7 +3023,17 @@ le_result_t taf_Vlan::SetIPPassThroughNatConfig(bool isEnabled)
 
     LE_DEBUG("SetIPPassThroughNatConfig %d", static_cast<int>(isEnabled));
 
-    if (result != LE_OK)
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("SetIPPassThroughNatConfig is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("SetIPPassThroughNatConfig is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+    else if (result != LE_OK)
     {
         LE_ERROR("ERROR - Failed to get get ippt NAT config , error:%d ",static_cast<int>(result));
     }
@@ -2836,7 +3052,17 @@ le_result_t taf_Vlan::GetIPPassThroughNatConfig(bool *isEnabledPtr)
 
     result = PA_TO_LE_RESULT(taf_pa_net_GetIPPassThroughNatConfig(*isEnabledPtr));
 
-    if (result != LE_OK)
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("GetIPPassThroughNatConfig is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("GetIPPassThroughNatConfig is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+    else if (result != LE_OK)
     {
         LE_ERROR("ERROR - Failed to get ippt NAT config , error:%d ",static_cast<int>(result));
     }
@@ -2856,8 +3082,22 @@ le_result_t taf_Vlan::GetBackhaulPreference(taf_net_BackhaulType_t* bhPrefListPt
     std::vector<taf_pa_vlan_backhaul_type_t> backhaulPref;
     le_result_t result = PA_TO_LE_RESULT(taf_pa_net_GetBackhaulPreference(backhaulPref));
 
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
-        "Failed to get backhaul pref %d",static_cast<int>(result));
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("GetBackhaulPreference is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("GetBackhaulPreference is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+
+    else if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get backhaul pref %d",static_cast<int>(result));
+        return LE_FAULT;
+    }
 
     uint8_t index = 0;
     for (auto pref : backhaulPref)
@@ -2924,8 +3164,22 @@ le_result_t taf_Vlan::SetBackhaulPreference(const taf_net_BackhaulType_t* bhPref
 
     result = PA_TO_LE_RESULT(taf_pa_net_SetBackhaulPreference(backhaulPref));
 
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
-        "Failed to set backhaul pref %d",static_cast<int>(result));
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("SetBackhaulPreference is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("SetBackhaulPreference is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+
+    else if (result != LE_OK)
+    {
+        LE_ERROR("Failed to get backhaul pref %d",static_cast<int>(result));
+        return LE_FAULT;
+    }
 
     return LE_OK;
 }

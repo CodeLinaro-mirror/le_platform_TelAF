@@ -910,7 +910,7 @@ interface RadioSvc {
             
     /**
         @description :
-            Gets Radio signal metrics.
+            Gets Radio rat preferences.
                         
         @experimental: asil-level  : 
         @experimental: periodicity :
@@ -951,7 +951,7 @@ interface RadioSvc {
             
     /**
         @description :
-            Gets Radio signal metrics.
+            Gets Radio current network name.
                         
         @experimental: asil-level  : 
         @experimental: periodicity :
@@ -1006,7 +1006,8 @@ interface RadioSvc {
             
     /**
         @description :
-            Gets Radio signal metrics.
+            Gets the network registration state (netReg) along with rat/cellId/mcc/mnc.
+            rat/cellId/mcc/mnc are only valid when netReg is registered (HOME or ROAMING).
                         
         @experimental: asil-level  : 
         @experimental: periodicity :
@@ -1034,7 +1035,7 @@ interface RadioSvc {
             RadioSvcTypes.RadioRatT rat
 
             /**
-                @description : Cell ID. 
+                @description : Cell ID. 0xFFFFFFFF if unavailable. 
                 
             **/
             UInt32 cellId
@@ -1079,7 +1080,7 @@ interface RadioSvc {
             
     /**
         @description :
-            Gets Radio signal metrics.
+            Gets Radio Nr dual connectivity restriction status.
                         
         @experimental: asil-level  : 
         @experimental: periodicity :

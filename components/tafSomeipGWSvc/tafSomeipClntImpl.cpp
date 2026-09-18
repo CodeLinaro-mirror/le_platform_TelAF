@@ -2487,7 +2487,7 @@ le_result_t taf_SomeipClient::EnableEventGroup
     // Check if the group of the service is created by this client.
     if (groupPtr->clientRef != clientSessionRef)
     {
-        LE_ERROR("The group(0x%x) of service(%u:0x%x/0x%x) is not created by this client(%p).",
+        LE_WARN("The group(0x%x) of service(%u:0x%x/0x%x) is not created by this client(%p).",
                  groupId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId,
                  clientSessionRef);
         return LE_NOT_PERMITTED;
@@ -2624,7 +2624,7 @@ le_result_t taf_SomeipClient::DisableEventGroup
     // Check if the group of the service is created by this client.
     if (groupPtr->clientRef != clientSessionRef)
     {
-        LE_ERROR("The group(0x%x) of service(%u:0x%x/0x%x) is not created by this client(%p).",
+        LE_WARN("The group(0x%x) of service(%u:0x%x/0x%x) is not created by this client(%p).",
                  groupId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId,
                  clientSessionRef);
         return LE_NOT_PERMITTED;
@@ -2702,7 +2702,7 @@ le_result_t taf_SomeipClient::SubscribeEventGroup
     // Check if the group of the service is created by this client.
     if (groupPtr->clientRef != clientSessionRef)
     {
-        LE_ERROR("The group(0x%x) of service(%u:0x%x/0x%x) is not created by this client(%p).",
+        LE_WARN("The group(0x%x) of service(%u:0x%x/0x%x) is not created by this client(%p).",
                  groupId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId,
                  clientSessionRef);
         return LE_NOT_PERMITTED;

@@ -441,7 +441,8 @@ namespace tafsvc {
         int mAcqRate;
         LocReqEngine mEngineType;
         bool mFirstFix;
-        std::chrono::time_point<std::chrono::system_clock> mStartTime;
+        struct timespec mStartTime;
+        bool mStartTimeValid;
         bool mStarted;
         tafpa::location::taf_pa_location_LocationId locationClient;
         tafpa::location::taf_pa_location_EventListener eventListener;

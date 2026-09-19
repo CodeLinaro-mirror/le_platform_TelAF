@@ -470,7 +470,6 @@ int tafMngdStorageSvc::OpenTempFile
 {
     char temp_filename[LIMIT_MAX_PATH_BYTES + sizeof(SECURE_DATA_TEMP_EXTENSION)];
     snprintf(temp_filename, sizeof(temp_filename), "%s%s", filename, SECURE_DATA_TEMP_EXTENSION);
-    // secStorage data files are non-executable; create as 0600 (rw-) not 0700 (CR 4551772).
     return taf_rfs_Open(temp_filename, O_CREAT|O_WRONLY|O_TRUNC, S_IRUSR | S_IWUSR);
 }
 
@@ -572,7 +571,6 @@ le_result_t tafMngdStorageSvc::CreateDataItem
                             LE_BAD_PARAMETER,
                             "cannot get data item path");
 
-    // secStorage data files are non-executable; create as 0600 (rw-) not 0700 (CR 4551772).
     dataPtr->writeOp.outputFd = taf_rfs_Open(dataItemPath, O_CREAT|O_WRONLY|O_TRUNC, S_IRUSR | S_IWUSR);
     if (dataPtr->writeOp.outputFd >= 0)
     {

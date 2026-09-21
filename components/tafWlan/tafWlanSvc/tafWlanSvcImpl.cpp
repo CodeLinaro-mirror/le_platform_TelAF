@@ -51,7 +51,17 @@ le_result_t taf_WlanSvcImpl::SetON(void)
     }
 
     pa_result_t res = taf::pa::wlan::EnableDevice(true);
-    if (res != PA_OK)
+    if (res == PA_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("EnableDevice is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (res == PA_UNSUPPORTED)
+    {
+        LE_ERROR("EnableDevice is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+    else if (res != PA_OK)
     {
         LE_ERROR("EnableDevice(true) failed, rc=%d; returning LE_FAULT", (int)res);
         return LE_FAULT;
@@ -77,7 +87,17 @@ le_result_t taf_WlanSvcImpl::SetOFF(void)
     }
 
     pa_result_t res = taf::pa::wlan::EnableDevice(false);
-    if (res != PA_OK)
+    if (res == PA_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("EnableDevice is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (res == PA_UNSUPPORTED)
+    {
+        LE_ERROR("EnableDevice is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+    else if (res != PA_OK)
     {
         LE_ERROR("EnableDevice(false) failed, rc=%d; returning LE_FAULT", (int)res);
         return LE_FAULT;
@@ -105,7 +125,17 @@ le_result_t taf_WlanSvcImpl::GetState
     TAF_ERROR_IF_RET_VAL(statePtr == NULL,  LE_BAD_PARAMETER, "statePtr is NULL!");
     bool enabled = false;
     pa_result_t res = taf::pa::wlan::GetStatus(enabled);
-    if (res != PA_OK)
+    if (res == PA_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("GetStatus is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (res == PA_UNSUPPORTED)
+    {
+        LE_ERROR("GetStatus is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+    else if (res != PA_OK)
     {
         LE_ERROR("PA GetStatus failed rc=%d; returning LE_FAULT", (int)res);
         return LE_FAULT;
@@ -144,7 +174,17 @@ le_result_t taf_WlanSvcImpl::SetMode
             return LE_BAD_PARAMETER;
     }
     pa_result_t paRes = taf::pa::wlan::SetDeviceMode(numAP, numSTA);
-    if (paRes == PA_OK)
+    if (paRes == PA_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("SetDeviceMode is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (paRes == PA_UNSUPPORTED)
+    {
+        LE_ERROR("SetDeviceMode is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+    else if (paRes == PA_OK)
     {
         LE_INFO("wlanMode=%d -> (AP=%d, STA=%d) succeeded; returning LE_OK",
                 (int)wlanMode, numAP, numSTA);
@@ -172,8 +212,20 @@ le_result_t taf_WlanSvcImpl::GetMode
 {
     TAF_ERROR_IF_RET_VAL(!wlanModePtr, LE_BAD_PARAMETER, "wlanModePtr is NULL!");
     int numAPOut = 0, numSTAOut = 0;
-    if (taf::pa::wlan::GetDeviceMode(numAPOut, numSTAOut) != PA_OK)
+    pa_result_t res = taf::pa::wlan::GetDeviceMode(numAPOut, numSTAOut);
+    if (res == PA_NOT_IMPLEMENTED)
     {
+        LE_ERROR("GetDeviceMode is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (res == PA_UNSUPPORTED)
+    {
+        LE_ERROR("GetDeviceMode is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+    else if (res != PA_OK)
+    {
+        LE_ERROR("GetDeviceMode is error:%d", res);
         return LE_FAULT;
     }
     if (numAPOut == 1 && numSTAOut == 0)
@@ -409,7 +461,18 @@ le_result_t taf_WlanSvcImpl::GetBandIntState(taf_wlan_BandIntState_t *statePtr)
 
     bool enabledOut = false;
     taf::pa::wlan::BandInterferenceConfig_t paCfgOut = {};
-    if (taf::pa::wlan::GetBandInterferenceConfig(enabledOut, paCfgOut) != PA_OK)
+    pa_result_t res = taf::pa::wlan::GetBandInterferenceConfig(enabledOut, paCfgOut);
+    if (res == PA_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("GetBandInterferenceConfig is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (res == PA_UNSUPPORTED)
+    {
+        LE_ERROR("GetBandInterferenceConfig is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+    else if (res != PA_OK)
     {
         LE_ERROR("Failed to get band interference configuration");
         return LE_FAULT;
@@ -470,7 +533,17 @@ le_result_t taf_WlanSvcImpl::SetBandIntState(taf_wlan_BandIntState_t state)
     }
 
     pa_result_t paRes = taf::pa::wlan::SetBandInterferenceConfig(enable, cfg);
-    if (paRes != PA_OK)
+    if (paRes == PA_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("SetBandInterferenceConfig is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (paRes == PA_UNSUPPORTED)
+    {
+        LE_ERROR("SetBandInterferenceConfig is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+    else if (paRes != PA_OK)
     {
         LE_ERROR("SetBandInterferenceConfig failed, errorcode: %d", (int)paRes);
         return LE_FAULT;
@@ -591,7 +664,8 @@ void taf_WlanSvcImpl::HandleBandIntGet(WlanGetBandIntCmd_t bandIntGet)
     bool enabledOut = false;
     taf::pa::wlan::BandInterferenceConfig_t paCfgOut = {};
 
-    if (taf::pa::wlan::GetBandInterferenceConfig(enabledOut, paCfgOut) == PA_OK)
+    pa_result_t res = taf::pa::wlan::GetBandInterferenceConfig(enabledOut, paCfgOut);
+    if (res == PA_OK)
     {
         cmdRsp.result = LE_OK;
         cmdRsp.config.state = enabledOut ? TAF_WLAN_BAND_INT_ENABLED : TAF_WLAN_BAND_INT_DISABLED;
@@ -609,6 +683,14 @@ void taf_WlanSvcImpl::HandleBandIntGet(WlanGetBandIntCmd_t bandIntGet)
             bandIntCfgToSet = bandIntCfgCurrent;
         }
     }
+    else if (res == PA_NOT_IMPLEMENTED)
+    {
+        cmdRsp.result = LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (res == PA_UNSUPPORTED)
+    {
+        cmdRsp.result = LE_CAP_UNSUPPORTED;
+    }
 
     if (bWaitingForIntGetPromise.load())
     {
@@ -623,6 +705,7 @@ void taf_WlanSvcImpl::HandleBandIntGet(WlanGetBandIntCmd_t bandIntGet)
 //--------------------------------------------------------------------------------------------------
 void taf_WlanSvcImpl::HandleBandIntSet(WlanSetBandIntCmd_t bandIntSet)
 {
+    le_result_t result = LE_OK;
     bool enable = (bandIntSet.config.state == TAF_WLAN_BAND_INT_ENABLED);
     taf::pa::wlan::BandInterferenceConfig_t cfg = {};
     if (enable)
@@ -642,7 +725,25 @@ void taf_WlanSvcImpl::HandleBandIntSet(WlanSetBandIntCmd_t bandIntSet)
     }
 
     pa_result_t paRes = taf::pa::wlan::SetBandInterferenceConfig(enable, cfg);
-    le_result_t result = (paRes == PA_OK) ? LE_OK : LE_FAULT;
+    if (paRes == PA_OK)
+    {
+        result = LE_OK;
+    }
+    else if (paRes == PA_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("SetBandInterferenceConfig is not implemented by PA");
+        result = LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (paRes == PA_UNSUPPORTED)
+    {
+        LE_ERROR("SetBandInterferenceConfig is unsupported by PA");
+        result = LE_CAP_UNSUPPORTED;
+    }
+    else
+    {
+        LE_ERROR("SetBandInterferenceConfig with error code %d", paRes);
+        result = LE_FAULT;
+    }
 
     if (bWaitingForIntSetPromise.load()) {
         promSetBandIntConfig.set_value(result);

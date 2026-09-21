@@ -12,7 +12,6 @@ using namespace std;
 
 COMPONENT_INIT
 {
-    LE_INFO("tafECall service Init...\n");
     auto &ecall = taf_ecall::GetInstance();
     ecall.Init();
     LE_INFO(" tafECall service Ready...\n");
@@ -35,7 +34,6 @@ COMPONENT_INIT
     }
     else // successfully loaded
     {
-        LE_INFO("Driver loaded successfully....");
         ecall.isDrvPresent = true;
         // init VHAL module first
         (*(ecall.eCallInf->InitHAL))();
@@ -478,7 +476,7 @@ le_result_t taf_ecall_SetVIN
     {
         return LE_BAD_PARAMETER;
     }
-    LE_INFO(" vehicle idendification number =  %s", vin);
+    LE_DEBUG("vehicle idendification number =  %s", vin);
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
 
     le_cfg_SetString(iteratorRef, CFG_NODE_MSDVIN, vin);

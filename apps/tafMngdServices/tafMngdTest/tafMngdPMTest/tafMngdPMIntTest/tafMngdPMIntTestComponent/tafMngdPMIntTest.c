@@ -183,7 +183,21 @@ static void PrintUsage ()
         "------------To Test PMVHAL stayawake after while suspending through MPMS-----------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestPmvhalStayAwakeAfterMpmsSuspendTrigger\n"
         "------------To Test node power state handler registration with state mask 0-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestAddNodePowerStateChangeHandlerStateMask\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- TestAddNodePowerStateChangeHandlerStateMask\n"
+        "------------To register a client for power state notifications which does not acknowledges-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- RegisterClientForPowerStateNotificationWithoutAcknowledgement <NODE_POWER_STATE_CHANGE_NOTIFICATION_BITMASK>\n");
+}
+
+static char* StateToString(taf_mngdPm_NodePowerStateChangeBitMask_t state)
+{
+    switch(state)
+    {
+        case TAF_MNGDPM_NODE_STATE_RESUME:           return "TAF_MNGDPM_NODE_STATE_RESUME";
+        case TAF_MNGDPM_NODE_STATE_RESTART_PREPARE:  return "TAF_MNGDPM_NODE_STATE_RESTART_PREPARE";
+        case TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE: return "TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE";
+        case TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE:  return "TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE";
+        default:                                     return "Unknown";
+    }
 }
 
 static uint32_t StateToBit(taf_mngdPm_NodePowerState_t st)
@@ -3194,6 +3208,45 @@ void WsDumpClient02(void)
     exit(EXIT_SUCCESS);
 }
 
+void NodePowerStateChangeHandlerWithoutAckCB(
+     uint8_t pmNodeId,
+     taf_mngdPm_nodePowerStateRef_t nodePowerStateRef,
+     taf_mngdPm_NodePowerState_t state,
+	 void *contextPtr)
+{
+    LE_INFO("NodePowerStateChangeHandlerWithoutAckCB called, no acknowledment sent for state %s", StateToString(state));
+}
+
+void *RegisterClientForPowerStateNotificationsWithoutAcknowledgementFunction(void *contextPtr)
+{
+    taf_mngdPm_ConnectService();
+    taf_mngdPm_NodePowerStateChangeBitMask_t state = (taf_mngdPm_NodePowerStateChangeBitMask_t)(uintptr_t) contextPtr;
+    taf_mngdPm_NodePowerStateChangeHandlerRef_t ref = NULL;
+    ref = taf_mngdPm_AddNodePowerStateChangeHandler(NodePowerStateChangeHandlerWithoutAckCB, NULL, 0, state);
+
+    if(ref)
+    {
+        LE_INFO("AddNodePowerStateChangeHandler is success with bitmask %i", state);
+    }
+    le_sem_Post(semRef);
+    le_event_RunLoop();
+}
+
+void RegisterClientForPowerStateNotificationWithoutAcknowledgement(taf_mngdPm_NodePowerStateChangeBitMask_t customBitmask)
+{
+    taf_mngdPm_NodePowerStateChangeBitMask_t bitmask = customBitmask;
+
+    semRef = le_sem_Create("MngdIntTestApp", 0);
+    threadRef = le_thread_Create("inttestapp",
+                            RegisterClientForPowerStateNotificationsWithoutAcknowledgementFunction,
+                            (void*)(uintptr_t) bitmask);
+    if (threadRef) {
+        fprintf(stderr, "Thread created with success\n");
+    }
+    le_thread_Start(threadRef);
+    le_sem_Wait(semRef);
+}
+
 COMPONENT_INIT
 {
     const char* testType = "";
@@ -3451,7 +3504,7 @@ COMPONENT_INIT
             TestPmvhalStayAwakeAfterMpmsSuspendTrigger();
         }
         else if(strcmp(testType, "TestAddNodePowerStateChangeHandlerStateMask") == 0)
-        {   
+        {
             if (testPar)
             TestAddNodePowerStateChangeHandlerStateMask(atoi(testPar));
             else {
@@ -3466,6 +3519,10 @@ COMPONENT_INIT
         else if(strcmp(testType, "WsDumpClient02") == 0)
         {
             WsDumpClient02();
+        }
+        else if(strcmp(testType, "RegisterClientForPowerStateNotificationWithoutAcknowledgement") == 0)
+        {
+           RegisterClientForPowerStateNotificationWithoutAcknowledgement(atoi(testPar));
         }
         else
         {

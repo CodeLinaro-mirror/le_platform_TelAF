@@ -3881,7 +3881,8 @@ void tafMngdConnAdmin::EventL1ConnRecoverySchedule (uint8_t dataId)
     }
 
     if (MCS_DATA_NOT_CONNECTED_FAILED == dataCtxPtr->adminState ||
-        MCS_RECOVERY_CANCELED_L1 == dataCtxPtr->adminState )
+        MCS_RECOVERY_CANCELED_L1 == dataCtxPtr->adminState ||
+        MCS_DATA_CONNECTED_ACTIVE == dataCtxPtr->adminState)
     {
         // Check if L1 recovery has been tried already or not
         if (!dataCtxPtr->wasL1ConnectivityRecoveryDone)

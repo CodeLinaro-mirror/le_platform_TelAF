@@ -36,6 +36,98 @@ COMPONENT_INIT
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Post a request to firmware update thread.
+ */
+//--------------------------------------------------------------------------------------------------
+static void PostFwRequest
+(
+    taf_FwUpdateEvent_t event, ///< [IN] Firmware update event.
+    const char* filePath       ///< [IN] File path, can be NULL.
+)
+{
+    taf_FwUpdateReq_t fwReq;
+    memset(&fwReq, 0, sizeof(fwReq));
+    fwReq.event = event;
+    if (filePath != NULL)
+    {
+        le_utf8_Copy(fwReq.filePath, filePath, TAF_UPDATE_FILE_PATH_LEN, NULL);
+    }
+    le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Post a request to download plug-in handler.
+ */
+//--------------------------------------------------------------------------------------------------
+static void PostDownloadRequest
+(
+    taf_UpdateDlEvent_t event,           ///< [IN] Download event.
+    taf_UpdateDownloadSession_t* sessPtr ///< [IN] Download session.
+)
+{
+    auto &tafUpdate = taf_Update::GetInstance();
+    taf_UpdateDlReq_t dlReq;
+    memset(&dlReq, 0, sizeof(dlReq));
+    dlReq.event = event;
+    dlReq.sessPtr = sessPtr;
+    le_event_Report(tafUpdate.downloadEvId, &dlReq, sizeof(taf_UpdateDlReq_t));
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Post a request to update plug-in handler.
+ */
+//--------------------------------------------------------------------------------------------------
+static void PostUpdateRequest
+(
+    taf_UpdateEvent_t event,            ///< [IN] Update event.
+    taf_UpdatePlugInSession_t* sessPtr, ///< [IN] Update plug-in session.
+    const char* filePath                ///< [IN] File path, can be NULL.
+)
+{
+    auto &tafUpdate = taf_Update::GetInstance();
+    taf_UpdateReq_t updateReq;
+    memset(&updateReq, 0, sizeof(updateReq));
+    updateReq.event = event;
+    updateReq.sessPtr = sessPtr;
+    if (filePath != NULL)
+    {
+        le_utf8_Copy(updateReq.filePath, filePath, TAF_UPDATE_FILE_PATH_LEN, NULL);
+    }
+    le_event_Report(tafUpdate.updatePiEvId, &updateReq, sizeof(taf_UpdateReq_t));
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Look up a download session.
+ *
+ * @return
+ *  - LE_OK            On success.
+ *  - LE_BAD_PARAMETER Invalid session reference or not a download session.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_result_t LookupDownloadSession
+(
+    taf_update_SessionRef_t sessionRef, ///< [IN] Download session reference.
+    taf_UpdateSession_t** sessPtrPtr    ///< [OUT] Download session.
+)
+{
+    auto &tafUpdate = taf_Update::GetInstance();
+
+    taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
+        sessionRef);
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_BAD_PARAMETER, "Fail to look up download session.");
+
+    TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_PLUGIN_DOWNLOAD,
+        LE_BAD_PARAMETER, "Current session is not download session.");
+
+    *sessPtrPtr = sessPtr;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Downloads an OTA package from a cloud server.
  *
  * @note Update service will parse the download package and remove the QOTA header once the download
@@ -51,18 +143,15 @@ void taf_update_Download()
 
     TAF_ERROR_IF_RET_NIL(tafUpdate.daInfPtr->startDownload == NULL,
         "DA plug-in start download function is not supported.");
-            
-    taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
-        tafUpdate.dlSessRef);
-    TAF_ERROR_IF_RET_NIL(sessPtr == NULL, "Fail to look up download session.");
 
-    TAF_ERROR_IF_RET_NIL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_PLUGIN_DOWNLOAD,
-        "Current session is not download session.");
+    taf_UpdateSession_t* sessPtr = NULL;
+    TAF_ERROR_IF_RET_NIL(LookupDownloadSession(tafUpdate.dlSessRef, &sessPtr) != LE_OK,
+        "Fail to look up download session.");
 
-    taf_UpdateDlReq_t dlReq;
-    dlReq.event = TAF_UPDATE_DL_START;
-    dlReq.sessPtr = &sessPtr->dlSess;
-    le_event_Report(tafUpdate.downloadEvId, &dlReq, sizeof(taf_UpdateDlReq_t));
+    TAF_ERROR_IF_RET_NIL(tafUpdate.dlCtrl.RequestStart(taf_Update::DownloadPhase) != LE_OK,
+        "Download is ongoing.");
+
+    PostDownloadRequest(TAF_UPDATE_DL_START, &sessPtr->dlSess);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -90,7 +179,7 @@ le_result_t taf_update_GetDownloadSession
 
     TAF_ERROR_IF_RET_VAL(tafUpdate.daInfPtr->getSess == NULL, LE_UNSUPPORTED,
         "Get DA plug-in download session is not supported.");
-            
+
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         tafUpdate.dlSessRef);
     TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up download session.");
@@ -107,10 +196,13 @@ le_result_t taf_update_GetDownloadSession
 /**
  * Start download.
  *
+ * The result is reported by state handler.
+ *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK            Request is accepted.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_BUSY          Download is ongoing or paused.
+ *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_StartDownload
@@ -125,19 +217,21 @@ le_result_t taf_update_StartDownload
 
     TAF_ERROR_IF_RET_VAL(tafUpdate.daInfPtr->startDownload == NULL, LE_UNSUPPORTED,
         "DA plug-in start download function is not supported.");
-            
-    taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
-        sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up download session.");
 
-    TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_PLUGIN_DOWNLOAD, LE_FAULT,
-        "Current session is not download session.");
+    taf_UpdateSession_t* sessPtr = NULL;
+    le_result_t result = LookupDownloadSession(sessionRef, &sessPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
 
-    taf_UpdateDlReq_t dlReq;
-    dlReq.event = TAF_UPDATE_DL_START;
-    dlReq.sessPtr = &sessPtr->dlSess;
-    le_event_Report(tafUpdate.downloadEvId, &dlReq, sizeof(taf_UpdateDlReq_t));
+    result = tafUpdate.dlCtrl.RequestStart(taf_Update::DownloadPhase);
+    if (result != LE_OK)
+    {
+        return result;
+    }
 
+    PostDownloadRequest(TAF_UPDATE_DL_START, &sessPtr->dlSess);
     return LE_OK;
 }
 
@@ -145,10 +239,14 @@ le_result_t taf_update_StartDownload
 /**
  * Pause download.
  *
+ * The result is reported by state handler, a failure of the plug-in is reported with current state
+ * and TAF_UPDATE_INVALID_OPERATION.
+ *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK            Request is accepted, or download is already paused.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_NOT_PERMITTED Download is not ongoing or cancel is pending.
+ *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_PauseDownload
@@ -161,32 +259,38 @@ le_result_t taf_update_PauseDownload
     TAF_ERROR_IF_RET_VAL(tafUpdate.daInfPtr == NULL, LE_UNSUPPORTED,
         "Please install DA module to support download.");
 
-    TAF_ERROR_IF_RET_VAL(tafUpdate.daInfPtr->startDownload == NULL, LE_UNSUPPORTED,
+    TAF_ERROR_IF_RET_VAL(tafUpdate.daInfPtr->pauseDownload == NULL, LE_UNSUPPORTED,
         "DA plug-in pause download function is not supported.");
-            
-    taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
-        sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up download session.");
 
-    TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_PLUGIN_DOWNLOAD, LE_FAULT,
-        "Current session is not download session.");
+    taf_UpdateSession_t* sessPtr = NULL;
+    le_result_t result = LookupDownloadSession(sessionRef, &sessPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
 
-    taf_UpdateDlReq_t dlReq;
-    dlReq.event = TAF_UPDATE_DL_PAUSE;
-    dlReq.sessPtr = &sessPtr->dlSess;
-    le_event_Report(tafUpdate.downloadEvId, &dlReq, sizeof(taf_UpdateDlReq_t));
+    bool post = false;
+    result = tafUpdate.dlCtrl.RequestPause(TAF_UPDATE_DOWNLOADING, &post);
+    if (result == LE_OK && post)
+    {
+        PostDownloadRequest(TAF_UPDATE_DL_PAUSE, &sessPtr->dlSess);
+    }
 
-    return LE_OK;
+    return result;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Resume download.
  *
+ * The result is reported by state handler, a failure of the plug-in is reported with
+ * TAF_UPDATE_DOWNLOAD_PAUSED and TAF_UPDATE_INVALID_OPERATION.
+ *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK            Request is accepted, or download is already running.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_NOT_PERMITTED Download is not ongoing or cancel is pending.
+ *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_ResumeDownload
@@ -201,30 +305,36 @@ le_result_t taf_update_ResumeDownload
 
     TAF_ERROR_IF_RET_VAL(tafUpdate.daInfPtr->resumeDownload == NULL, LE_UNSUPPORTED,
         "DA plug-in resume download function is not supported.");
-            
-    taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
-        sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up download session.");
 
-    TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_PLUGIN_DOWNLOAD, LE_FAULT,
-        "Current session is not download session.");
+    taf_UpdateSession_t* sessPtr = NULL;
+    le_result_t result = LookupDownloadSession(sessionRef, &sessPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
 
-    taf_UpdateDlReq_t dlReq;
-    dlReq.event = TAF_UPDATE_DL_RESUME;
-    dlReq.sessPtr = &sessPtr->dlSess;
-    le_event_Report(tafUpdate.downloadEvId, &dlReq, sizeof(taf_UpdateDlReq_t));
+    bool post = false;
+    result = tafUpdate.dlCtrl.RequestResume(TAF_UPDATE_DOWNLOADING, &post);
+    if (result == LE_OK && post)
+    {
+        PostDownloadRequest(TAF_UPDATE_DL_RESUME, &sessPtr->dlSess);
+    }
 
-    return LE_OK;
+    return result;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Cancel download.
  *
+ * The result is reported by state handler, a failure of the plug-in is reported with current state
+ * and TAF_UPDATE_INVALID_OPERATION.
+ *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK            Request is accepted, or cancel is already pending.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_NOT_PERMITTED Download is not ongoing.
+ *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_CancelDownload
@@ -239,30 +349,35 @@ le_result_t taf_update_CancelDownload
 
     TAF_ERROR_IF_RET_VAL(tafUpdate.daInfPtr->cancelDownload == NULL, LE_UNSUPPORTED,
         "DA plug-in cancel download function is not supported.");
-            
-    taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
-        sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up download session.");
 
-    TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_PLUGIN_DOWNLOAD, LE_FAULT,
-        "Current session is not download session.");
+    taf_UpdateSession_t* sessPtr = NULL;
+    le_result_t result = LookupDownloadSession(sessionRef, &sessPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
 
-    taf_UpdateDlReq_t dlReq;
-    dlReq.event = TAF_UPDATE_DL_CANCEL;
-    dlReq.sessPtr = &sessPtr->dlSess;
-    le_event_Report(tafUpdate.downloadEvId, &dlReq, sizeof(taf_UpdateDlReq_t));
+    bool post = false;
+    result = tafUpdate.dlCtrl.RequestCancel(TAF_UPDATE_DOWNLOADING, &post);
+    if (result == LE_OK && post)
+    {
+        PostDownloadRequest(TAF_UPDATE_DL_CANCEL, &sessPtr->dlSess);
+    }
 
-    return LE_OK;
+    return result;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Start AB Sync.
  *
+ * The result is reported by state handler.
+ *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK            Request is accepted.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_BUSY          Another firmware operation is ongoing or paused.
+ *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_StartSync
@@ -271,18 +386,26 @@ le_result_t taf_update_StartSync
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
-    taf_FwUpdateReq_t fwReq;
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up synchronization session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_BAD_PARAMETER,
+        "Fail to look up synchronization session.");
 
     switch (sessPtr->sessType)
     {
         case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
-            fwReq.event = TAF_FWUPDATE_EV_START_SYNC;
-            le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
+        {
+            le_result_t result = tafFwUpdate.ctrl.RequestStart(taf_FwUpdate::SyncPhase);
+            if (result != LE_OK)
+            {
+                return result;
+            }
+
+            PostFwRequest(TAF_FWUPDATE_EV_START_SYNC, NULL);
             break;
+        }
         default:
             LE_ERROR("Unsupported session type (%d) for synchronization.", sessPtr->sessType);
             return LE_UNSUPPORTED;
@@ -295,10 +418,13 @@ le_result_t taf_update_StartSync
 /**
  * Pauses AB sync.
  *
+ * The sync is paused at the next partition, TAF_UPDATE_SYNC_PAUSED is reported by state handler.
+ *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK            Request is accepted, or sync is already paused.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_NOT_PERMITTED Sync is not ongoing or cancel is pending.
+ *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_PauseSync
@@ -308,26 +434,21 @@ le_result_t taf_update_PauseSync
 {
     auto &tafUpdate = taf_Update::GetInstance();
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-    taf_update_State_t state = tafFwUpdate.GetState();
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up synchronization session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_BAD_PARAMETER,
+        "Fail to look up synchronization session.");
 
     switch (sessPtr->sessType)
     {
         case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
-            if (state != TAF_UPDATE_SYNCHRONIZING)
-            {
-                LE_ERROR("Invalid pause operation.");
-                return LE_FAULT;
-            }
-            else
-            {
-                LE_INFO("Pause NAD sync.");
-                tafFwUpdate.SetPauseAction(TAF_UPDATE_SYNCHRONIZING, true);
-            }
-            break;
+        {
+            // Firmware update thread polls the request, nothing to post.
+            bool post = false;
+            LE_INFO("Pause NAD sync.");
+            return tafFwUpdate.ctrl.RequestPause(TAF_UPDATE_SYNCHRONIZING, &post);
+        }
         default:
             LE_ERROR("Unsupported session type (%d) for synchronization.", sessPtr->sessType);
             return LE_UNSUPPORTED;
@@ -341,9 +462,10 @@ le_result_t taf_update_PauseSync
  * Resumes AB Sync.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK            Request is accepted, or sync is already running.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_NOT_PERMITTED Sync is not ongoing or cancel is pending.
+ *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_ResumeSync
@@ -352,18 +474,25 @@ le_result_t taf_update_ResumeSync
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
-    taf_FwUpdateReq_t fwReq;
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up synchronization session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_BAD_PARAMETER,
+        "Fail to look up synchronization session.");
 
     switch (sessPtr->sessType)
     {
         case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
-            fwReq.event = TAF_FWUPDATE_EV_RESUME_SYNC;
-            le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
-            break;
+        {
+            bool post = false;
+            le_result_t result = tafFwUpdate.ctrl.RequestResume(TAF_UPDATE_SYNCHRONIZING, &post);
+            if (result == LE_OK && post)
+            {
+                PostFwRequest(TAF_FWUPDATE_EV_RESUME_SYNC, NULL);
+            }
+            return result;
+        }
         default:
             LE_ERROR("Unsupported session type (%d) for synchronization.", sessPtr->sessType);
             return LE_UNSUPPORTED;
@@ -376,10 +505,13 @@ le_result_t taf_update_ResumeSync
 /**
  * Cancels AB Sync.
  *
+ * TAF_UPDATE_CANCELLED is reported by state handler.
+ *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK            Request is accepted, or cancel is already pending.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_NOT_PERMITTED Sync is not ongoing.
+ *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_CancelSync
@@ -389,31 +521,25 @@ le_result_t taf_update_CancelSync
 {
     auto &tafUpdate = taf_Update::GetInstance();
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-    taf_update_State_t state = tafFwUpdate.GetState();
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up synchronization session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_BAD_PARAMETER,
+        "Fail to look up synchronization session.");
 
     switch (sessPtr->sessType)
     {
         case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
-            if (state != TAF_UPDATE_SYNCHRONIZING && state != TAF_UPDATE_SYNC_PAUSED)
+        {
+            bool post = false;
+            LE_INFO("Cancel NAD sync.");
+            le_result_t result = tafFwUpdate.ctrl.RequestCancel(TAF_UPDATE_SYNCHRONIZING, &post);
+            if (result == LE_OK && post)
             {
-                LE_ERROR("Invalid cancel operation.");
-                return LE_FAULT;
+                PostFwRequest(TAF_FWUPDATE_EV_CANCEL, NULL);
             }
-            else
-            {
-                LE_INFO("Cancel NAD sync.");
-                tafFwUpdate.SetCancelAction(TAF_UPDATE_SYNCHRONIZING, true);
-
-                if (state == TAF_UPDATE_SYNC_PAUSED)
-                {
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
-                }
-            }
-            break;
+            return result;
+        }
         default:
             LE_ERROR("Unsupported session type (%d) for cancelling synchronization.",
                 sessPtr->sessType);
@@ -484,9 +610,10 @@ le_result_t taf_update_GetInstallationSession
  * Checks prerequisites for installation.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_FAULT         On failure.
+ *  - LE_OK            On success.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_InstallPreCheck
@@ -502,7 +629,7 @@ le_result_t taf_update_InstallPreCheck
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_BAD_PARAMETER, "Fail to look up installtion session.");
 
     if (access(manifest, 0))
     {
@@ -532,6 +659,34 @@ le_result_t taf_update_InstallPreCheck
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Start firmware installation in firmware update thread.
+ *
+ * @return
+ *  - LE_OK   Request is accepted.
+ *  - LE_BUSY Another firmware operation is ongoing or paused.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_result_t StartFwInstall
+(
+    taf_UpdateSession_t* sessPtr, ///< [IN] Firmware update session.
+    const char* pkgPath           ///< [IN] Package path.
+)
+{
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+
+    le_result_t result = tafFwUpdate.ctrl.RequestStart(taf_FwUpdate::InstallPhase);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+
+    le_utf8_Copy(sessPtr->fwSess.filePath, pkgPath, TAF_UPDATE_FILE_PATH_LEN, NULL);
+    PostFwRequest(TAF_FWUPDATE_EV_START_INSTALL, pkgPath);
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Installs an OTA package on the target device.
  *
  * @note QOTA header should be removed before calling this API.
@@ -539,6 +694,8 @@ le_result_t taf_update_InstallPreCheck
  * @return
  * - LE_FAULT -- Failed.
  * - LE_OK -- Succeeded.
+ * - LE_BAD_PARAMETER -- Invalid OTA workflow or package path.
+ * - LE_BUSY -- Another firmware operation is ongoing or paused.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_Install
@@ -549,7 +706,6 @@ le_result_t taf_update_Install
 {
     auto &tafUpdate = taf_Update::GetInstance();
 
-    taf_FwUpdateReq_t fwReq;
     taf_AppMgmtUpdateReq_t appReq;
 
     taf_update_SessionRef_t sessionRef = NULL;
@@ -564,6 +720,7 @@ le_result_t taf_update_Install
     else
     {
         LE_ERROR("Invalid OTA workflow %d.", ota);
+        return LE_BAD_PARAMETER;
     }
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
@@ -573,11 +730,7 @@ le_result_t taf_update_Install
     switch (sessPtr->sessType)
     {
         case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
-            le_utf8_Copy(sessPtr->fwSess.filePath, pkgPath, TAF_UPDATE_FILE_PATH_LEN, NULL);
-            fwReq.event = TAF_FWUPDATE_EV_START_INSTALL;
-            le_utf8_Copy(fwReq.filePath, pkgPath, TAF_UPDATE_FILE_PATH_LEN, NULL);
-            le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
-            break;
+            return StartFwInstall(sessPtr, pkgPath);
         case TAF_UPDATE_SESSION_TYPE_APP_UPDATE:
             if (strncmp(pkgPath, TAF_APPMGMT_APP_INSTALL_PATH_PREFIX,
                 strlen(TAF_APPMGMT_APP_INSTALL_PATH_PREFIX)) != 0)
@@ -602,10 +755,12 @@ le_result_t taf_update_Install
 /**
  * Installs update package.
  *
+ * The result is reported by state handler.
+ *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_OK            Request is accepted.
+ *  - LE_BAD_PARAMETER Invalid session or parameters.
+ *  - LE_BUSY          Another operation of the session is ongoing or paused.
  *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
@@ -617,22 +772,17 @@ le_result_t taf_update_StartInstall
 {
     auto &tafUpdate = taf_Update::GetInstance();
 
-    taf_FwUpdateReq_t fwReq;
     taf_AppMgmtUpdateReq_t appReq;
-    taf_UpdateReq_t updateReq;
+    le_result_t result = LE_OK;
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_BAD_PARAMETER, "Fail to look up installtion session.");
 
     switch (sessPtr->sessType)
     {
         case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
-            le_utf8_Copy(sessPtr->fwSess.filePath, pkgPath, TAF_UPDATE_FILE_PATH_LEN, NULL);
-            fwReq.event = TAF_FWUPDATE_EV_START_INSTALL;
-            le_utf8_Copy(fwReq.filePath, pkgPath, TAF_UPDATE_FILE_PATH_LEN, NULL);
-            le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
-            break;
+            return StartFwInstall(sessPtr, pkgPath);
         case TAF_UPDATE_SESSION_TYPE_APP_UPDATE:
             if (strncmp(pkgPath, TAF_APPMGMT_APP_INSTALL_PATH_PREFIX,
                 strlen(TAF_APPMGMT_APP_INSTALL_PATH_PREFIX)) != 0)
@@ -652,10 +802,13 @@ le_result_t taf_update_StartInstall
             TAF_ERROR_IF_RET_VAL(tafUpdate.uaInfPtr->startInstall == NULL, LE_UNSUPPORTED,
                 "UA plug-in start install function is not supported.");
 
-            updateReq.event = TAF_UPDATE_INST_START;
-            updateReq.sessPtr = &sessPtr->upiSess;
-            le_utf8_Copy(updateReq.filePath, pkgPath, TAF_UPDATE_FILE_PATH_LEN, NULL);
-            le_event_Report(tafUpdate.updatePiEvId, &updateReq, sizeof(taf_UpdateReq_t));
+            result = tafUpdate.upiCtrl.RequestStart(taf_Update::PlugInInstallPhase);
+            if (result != LE_OK)
+            {
+                return result;
+            }
+
+            PostUpdateRequest(TAF_UPDATE_INST_START, &sessPtr->upiSess, pkgPath);
             break;
         default:
             LE_ERROR("Unsupported session type (%d) for installation.", sessPtr->sessType);
@@ -669,10 +822,14 @@ le_result_t taf_update_StartInstall
 /**
  * Pauses installation.
  *
+ * Firmware installation is paused at the next checkpoint, TAF_UPDATE_INSTALL_PAUSED is reported by
+ * state handler. A pause which can not be performed is reported with current state and
+ * TAF_UPDATE_INVALID_OPERATION.
+ *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_OK            Request is accepted, or installation is already paused.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_NOT_PERMITTED Installation is not ongoing or cancel is pending.
  *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
@@ -683,27 +840,19 @@ le_result_t taf_update_PauseInstall
 {
     auto &tafUpdate = taf_Update::GetInstance();
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-    taf_update_State_t state = tafFwUpdate.GetState();
-    taf_UpdateReq_t updateReq;
+    bool post = false;
+    le_result_t result = LE_OK;
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_BAD_PARAMETER, "Fail to look up installtion session.");
 
     switch (sessPtr->sessType)
     {
         case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
-            if (state != TAF_UPDATE_INSTALLING)
-            {
-                LE_ERROR("Invalid pause operation.");
-                return LE_FAULT;
-            }
-            else
-            {
-                LE_INFO("Pause NAD update.");
-                tafFwUpdate.SetPauseAction(TAF_UPDATE_INSTALLING, true);
-            }
-            break;
+            // Firmware update thread polls the request, nothing to post.
+            LE_INFO("Pause NAD update.");
+            return tafFwUpdate.ctrl.RequestPause(TAF_UPDATE_INSTALLING, &post);
         case TAF_UPDATE_SESSION_TYPE_PLUGIN_UPDATE:
             TAF_ERROR_IF_RET_VAL(tafUpdate.uaInfPtr == NULL, LE_UNSUPPORTED,
                 "Please install UA module.");
@@ -711,10 +860,12 @@ le_result_t taf_update_PauseInstall
             TAF_ERROR_IF_RET_VAL(tafUpdate.uaInfPtr->pauseInstall == NULL, LE_UNSUPPORTED,
                 "UA plug-in pause install function is not supported.");
 
-            updateReq.event = TAF_UPDATE_INST_PAUSE;
-            updateReq.sessPtr = &sessPtr->upiSess;
-            le_event_Report(tafUpdate.updatePiEvId, &updateReq, sizeof(taf_UpdateReq_t));
-            break;
+            result = tafUpdate.upiCtrl.RequestPause(TAF_UPDATE_INSTALLING, &post);
+            if (result == LE_OK && post)
+            {
+                PostUpdateRequest(TAF_UPDATE_INST_PAUSE, &sessPtr->upiSess, NULL);
+            }
+            return result;
         default:
             LE_ERROR("Unsupported session type (%d) for installation.", sessPtr->sessType);
             return LE_UNSUPPORTED;
@@ -728,9 +879,9 @@ le_result_t taf_update_PauseInstall
  * Resumes installation.
  *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_OK            Request is accepted, or installation is already running.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_NOT_PERMITTED Installation is not ongoing or cancel is pending.
  *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
@@ -740,19 +891,23 @@ le_result_t taf_update_ResumeInstall
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
-    taf_FwUpdateReq_t fwReq;
-    taf_UpdateReq_t updateReq;
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    bool post = false;
+    le_result_t result = LE_OK;
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_BAD_PARAMETER, "Fail to look up installtion session.");
 
     switch (sessPtr->sessType)
     {
         case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
-            fwReq.event = TAF_FWUPDATE_EV_RESUME_INSTALL;
-            le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
-            break;
+            result = tafFwUpdate.ctrl.RequestResume(TAF_UPDATE_INSTALLING, &post);
+            if (result == LE_OK && post)
+            {
+                PostFwRequest(TAF_FWUPDATE_EV_RESUME_INSTALL, NULL);
+            }
+            return result;
         case TAF_UPDATE_SESSION_TYPE_PLUGIN_UPDATE:
             TAF_ERROR_IF_RET_VAL(tafUpdate.uaInfPtr == NULL, LE_UNSUPPORTED,
                 "Please install UA module.");
@@ -760,10 +915,12 @@ le_result_t taf_update_ResumeInstall
             TAF_ERROR_IF_RET_VAL(tafUpdate.uaInfPtr->resumeInstall == NULL, LE_UNSUPPORTED,
                 "UA plug-in resume install function is not supported.");
 
-            updateReq.event = TAF_UPDATE_INST_RESUME;
-            updateReq.sessPtr = &sessPtr->upiSess;
-            le_event_Report(tafUpdate.updatePiEvId, &updateReq, sizeof(taf_UpdateReq_t));
-            break;
+            result = tafUpdate.upiCtrl.RequestResume(TAF_UPDATE_INSTALLING, &post);
+            if (result == LE_OK && post)
+            {
+                PostUpdateRequest(TAF_UPDATE_INST_RESUME, &sessPtr->upiSess, NULL);
+            }
+            return result;
         default:
             LE_ERROR("Unsupported session type (%d) for installation.", sessPtr->sessType);
             return LE_UNSUPPORTED;
@@ -776,10 +933,17 @@ le_result_t taf_update_ResumeInstall
 /**
  * Cancels installation.
  *
+ * An ongoing or paused firmware installation is cancelled at the next checkpoint. If no operation
+ * is ongoing, the update which is installed but not activated is cancelled synchronously and the
+ * next boot bank is switched back.
+ *
  * @return
- *  - LE_FAULT         On failure.
- *  - LE_OK            On success.
- *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_OK            Request is accepted, or cancel is already pending.
+ *  - LE_FAULT         Fail to cancel the installed update.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_NOT_PERMITTED Cancel is not permitted in current state, e.g. the device has booted into
+ *                     the new bank, rollback must be used instead.
+ *  - LE_BUSY          Another firmware operation is ongoing.
  *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
@@ -790,40 +954,44 @@ le_result_t taf_update_CancelInstall
 {
     auto &tafUpdate = taf_Update::GetInstance();
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-    taf_update_State_t state = tafFwUpdate.GetState();
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_BAD_PARAMETER, "Fail to look up installtion session.");
 
     switch (sessPtr->sessType)
     {
         case TAF_UPDATE_SESSION_TYPE_FW_UPDATE:
-            switch (state)
+        {
+            le_result_t result = LE_OK;
+            if (tafFwUpdate.ctrl.IsIdle())
             {
-                case TAF_UPDATE_IDLE:
-                    LE_INFO("Cancel post installation while in the idle state.");
-                    if (tafFwUpdate.CancelPostInstall() != LE_OK)
-                    {
-                        LE_ERROR("Failed to cancel post installation.");
-                        return LE_FAULT;
-                    }
-                    else
-                        tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
-                    break;
-                case TAF_UPDATE_INSTALL_PAUSED:
-                    LE_INFO("Cancel the installation while in the paused state.");
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
-                    break;
-                case TAF_UPDATE_INSTALLING:
-                    LE_INFO("Cancel the installation while in the installing state.");
-                    tafFwUpdate.SetCancelAction(TAF_UPDATE_INSTALLING, true);
-                    break;
-                default:
-                    LE_ERROR("Invalid state %d to cancel the installation.", state);
-                    return LE_FAULT;
+                LE_INFO("Cancel post installation while in the idle state.");
+
+                // Hold the controller, so no operation can be started while cancelling.
+                result = tafFwUpdate.ctrl.RequestStart(taf_FwUpdate::PostInstallCancelPhase);
+                if (result != LE_OK)
+                {
+                    return result;
+                }
+
+                result = tafFwUpdate.CancelInstalledUpdate();
+                if (result != LE_OK)
+                {
+                    tafFwUpdate.ctrl.OnFinished();
+                }
+                return result;
             }
-            break;
+
+            bool post = false;
+            LE_INFO("Cancel NAD update.");
+            result = tafFwUpdate.ctrl.RequestCancel(TAF_UPDATE_INSTALLING, &post);
+            if (result == LE_OK && post)
+            {
+                PostFwRequest(TAF_FWUPDATE_EV_CANCEL, NULL);
+            }
+            return result;
+        }
         default:
             LE_ERROR("Unsupported session type (%d) for cancelling installation.",
                 sessPtr->sessType);
@@ -838,9 +1006,10 @@ le_result_t taf_update_CancelInstall
  * Installation post check.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK            Request is accepted.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_BUSY          Another firmware operation is ongoing or paused.
+ *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_InstallPostCheck
@@ -849,19 +1018,22 @@ le_result_t taf_update_InstallPostCheck
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_BAD_PARAMETER, "Fail to look up installtion session.");
 
     TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
         "Unsupported session type (%d) for post-check.", sessPtr->sessType);
 
-    taf_FwUpdateReq_t fwReq;
-    fwReq.event = TAF_FWUPDATE_EV_INSTALL_POST_CHECK;
-    le_utf8_Copy(fwReq.filePath, sessPtr->fwSess.filePath, TAF_UPDATE_FILE_PATH_LEN, NULL);
-    le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
+    le_result_t result = tafFwUpdate.ctrl.RequestStart(taf_FwUpdate::PostCheckPhase);
+    if (result != LE_OK)
+    {
+        return result;
+    }
 
+    PostFwRequest(TAF_FWUPDATE_EV_INSTALL_POST_CHECK, sessPtr->fwSess.filePath);
     return LE_OK;
 }
 
@@ -870,9 +1042,10 @@ le_result_t taf_update_InstallPostCheck
  * Get avtive bank.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_FAULT         On failure.
+ *  - LE_OK            On success.
+ *  - LE_BAD_PARAMETER Invalid session or parameters.
+ *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_GetActiveBank
@@ -885,7 +1058,7 @@ le_result_t taf_update_GetActiveBank
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_BAD_PARAMETER, "Fail to look up installtion session.");
 
     TAF_ERROR_IF_RET_VAL(bankPtr == NULL, LE_BAD_PARAMETER, "bankPtr is NULL.");
 
@@ -908,9 +1081,10 @@ le_result_t taf_update_GetActiveBank
  * Verify activation.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK            Request is accepted.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_BUSY          Another firmware operation is ongoing or paused.
+ *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_VerifyActivation
@@ -920,19 +1094,22 @@ le_result_t taf_update_VerifyActivation
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_BAD_PARAMETER, "Fail to look up installtion session.");
 
     TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
         "Unsupported session type (%d) for activation verification.", sessPtr->sessType);
 
-    taf_FwUpdateReq_t fwReq;
-    fwReq.event = TAF_FWUPDATE_EV_START_ACTIVATION;
-    le_utf8_Copy(fwReq.filePath, manifest, TAF_UPDATE_FILE_PATH_LEN, NULL);
-    le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
+    le_result_t result = tafFwUpdate.ctrl.RequestStart(taf_FwUpdate::ActivationPhase);
+    if (result != LE_OK)
+    {
+        return result;
+    }
 
+    PostFwRequest(TAF_FWUPDATE_EV_START_ACTIVATION, manifest);
     return LE_OK;
 }
 
@@ -940,10 +1117,13 @@ le_result_t taf_update_VerifyActivation
 /**
  * Pause activation.
  *
+ * Activation is paused at the next item, TAF_UPDATE_PROBATION_PAUSED is reported by state handler.
+ *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK            Request is accepted, or activation is already paused.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_NOT_PERMITTED Activation is not ongoing.
+ *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_PauseActivation
@@ -955,24 +1135,15 @@ le_result_t taf_update_PauseActivation
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_BAD_PARAMETER, "Fail to look up installtion session.");
 
     TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
         "Unsupported session type (%d) for activation verification.", sessPtr->sessType);
 
+    // Firmware update thread polls the request, nothing to post.
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-    taf_update_State_t state = tafFwUpdate.GetState();
-    if (state != TAF_UPDATE_PROBATION)
-    {
-        LE_ERROR("Invalid pause operation.");
-        return LE_FAULT;
-    }
-    else
-    {
-        tafFwUpdate.SetActivationPaused(true);
-    }
-
-    return LE_OK;
+    bool post = false;
+    return tafFwUpdate.ctrl.RequestPause(TAF_UPDATE_PROBATION, &post);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -980,9 +1151,10 @@ le_result_t taf_update_PauseActivation
  * Resume activation.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK            Request is accepted, or activation is already running.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_NOT_PERMITTED Activation is not ongoing.
+ *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_ResumeActivation
@@ -994,16 +1166,20 @@ le_result_t taf_update_ResumeActivation
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_BAD_PARAMETER, "Fail to look up installtion session.");
 
     TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
         "Unsupported session type (%d) for activation verification.", sessPtr->sessType);
 
-    taf_FwUpdateReq_t fwReq;
-    fwReq.event = TAF_FWUPDATE_EV_RESUME_ACTIVATION;
-    le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    bool post = false;
+    le_result_t result = tafFwUpdate.ctrl.RequestResume(TAF_UPDATE_PROBATION, &post);
+    if (result == LE_OK && post)
+    {
+        PostFwRequest(TAF_FWUPDATE_EV_RESUME_ACTIVATION, NULL);
+    }
 
-    return LE_OK;
+    return result;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1011,9 +1187,10 @@ le_result_t taf_update_ResumeActivation
  * Rollback to previous configurations to keep pesistency.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK            Request is accepted.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_BUSY          Another firmware operation is ongoing or paused.
+ *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_Rollback
@@ -1022,19 +1199,22 @@ le_result_t taf_update_Rollback
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_BAD_PARAMETER, "Fail to look up installtion session.");
 
     TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
         "Unsupported session type (%d) for rollback.", sessPtr->sessType);
 
-    taf_FwUpdateReq_t fwReq;
-    fwReq.event = TAF_FWUPDATE_EV_ROLLBACK;
-    le_utf8_Copy(fwReq.filePath, sessPtr->fwSess.filePath, TAF_UPDATE_FILE_PATH_LEN, NULL);
-    le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
+    le_result_t result = tafFwUpdate.ctrl.RequestStart(taf_FwUpdate::RollbackPhase);
+    if (result != LE_OK)
+    {
+        return result;
+    }
 
+    PostFwRequest(TAF_FWUPDATE_EV_ROLLBACK, sessPtr->fwSess.filePath);
     return LE_OK;
 }
 
@@ -1043,9 +1223,10 @@ le_result_t taf_update_Rollback
  * Bank synchronization.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_OK            Request is accepted.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_BUSY          Another firmware operation is ongoing or paused.
+ *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_Sync
@@ -1054,18 +1235,22 @@ le_result_t taf_update_Sync
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_BAD_PARAMETER, "Fail to look up installtion session.");
 
     TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
         "Unsupported session type (%d) for bank synchronization.", sessPtr->sessType);
 
-    taf_FwUpdateReq_t fwReq;
-    fwReq.event = TAF_FWUPDATE_EV_SYNC;
-    le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
+    le_result_t result = tafFwUpdate.ctrl.RequestStart(taf_FwUpdate::BankSyncPhase);
+    if (result != LE_OK)
+    {
+        return result;
+    }
 
+    PostFwRequest(TAF_FWUPDATE_EV_SYNC, NULL);
     return LE_OK;
 }
 
@@ -1074,9 +1259,10 @@ le_result_t taf_update_Sync
  * Erases a bank.
  *
  * @return
- *  - LE_FAULT       On failure.
- *  - LE_OK          On success.
- *  - LE_UNSUPPORTED Unsupported.
+ *  - LE_FAULT         On failure.
+ *  - LE_OK            On success.
+ *  - LE_BAD_PARAMETER Invalid session.
+ *  - LE_UNSUPPORTED   Unsupported.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_update_EraseBank
@@ -1089,7 +1275,7 @@ le_result_t taf_update_EraseBank
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
-    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_BAD_PARAMETER, "Fail to look up installtion session.");
 
     TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
         "Unsupported session type (%d) for getting active bank.", sessPtr->sessType);

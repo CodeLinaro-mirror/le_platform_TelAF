@@ -13,6 +13,7 @@
 #ifndef TAFUPDATE_HPP
 #define TAFUPDATE_HPP
 
+#include <mutex>
 #include <string>
 
 #include "legato.h"
@@ -153,7 +154,92 @@ typedef struct
     };
 } taf_UpdateSession_t;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Checkpoint result returned to a worker by the operation controller.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_UPDATE_CP_CONTINUE,   ///< No pending request, keep running.
+    TAF_UPDATE_CP_PAUSE,      ///< A pause request is pending.
+    TAF_UPDATE_CP_CANCEL      ///< A cancel request is pending.
+} taf_UpdateCheckpoint_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Description of an interruptible operation phase.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_update_State_t running;   ///< State reported while the phase is running.
+    taf_update_State_t paused;    ///< State reported while the phase is paused.
+    bool canPause;                ///< Pause is supported in this phase.
+    bool canCancel;               ///< Cancel is supported in this phase.
+    bool workerPolls;             ///< True if the worker polls pause/cancel flags at checkpoints,
+                                  ///< false if every request must be posted as an event.
+} taf_UpdatePhase_t;
+
 namespace tafsvc {
+    //----------------------------------------------------------------------------------------------
+    /**
+     * Start/Pause/Resume/Cancel controller of one session.
+     *
+     * Request*() are called from the IPC thread. They only validate against the in-memory state
+     * and record the request, the worker owns every state transition and every report.
+     *
+     * Return code contract of Request*():
+     *  - LE_OK            Accepted, or the same request is already pending/effective.
+     *  - LE_BUSY          Start while another operation is running.
+     *  - LE_UNSUPPORTED   The current phase does not support the request.
+     *  - LE_NOT_PERMITTED The request is not allowed in the current state.
+     */
+    //----------------------------------------------------------------------------------------------
+    class taf_UpdateOpCtrl {
+    public:
+        taf_UpdateOpCtrl();
+
+        // IPC side.
+        le_result_t RequestStart(const taf_UpdatePhase_t& phase);
+        le_result_t RequestPause(taf_update_State_t running, bool* postPtr);
+        le_result_t RequestResume(taf_update_State_t running, bool* postPtr);
+        le_result_t RequestCancel(taf_update_State_t running, bool* postPtr);
+
+        // Worker side.
+        taf_UpdateCheckpoint_t Checkpoint();
+        taf_UpdateCheckpoint_t DisableInterrupt();
+        bool IsPauseRequested();
+        bool IsCancelRequested();
+        void ClearPause();
+        void ClearCancel();
+        void OnPaused();
+        bool OnResume();
+        void OnFinished();
+        void Restore(const taf_UpdatePhase_t& phase, bool paused);
+
+        // Both sides.
+        bool IsIdle();
+        bool IsPaused();
+        taf_update_State_t GetRunningState();
+        taf_update_State_t GetState();
+
+    private:
+        typedef enum
+        {
+            RUN_IDLE,
+            RUN_RUNNING,
+            RUN_PAUSED
+        } Run_t;
+
+        std::mutex mtx;
+        Run_t run;
+        taf_UpdatePhase_t phase;
+        bool pauseReq;
+        bool cancelReq;
+        bool resumeQueued;
+    };
+
     class taf_Update : public ITafSvc {
     public:
         taf_Update() {};
@@ -164,8 +250,10 @@ namespace tafsvc {
         le_result_t CheckQotaHeader(const char* file);
         le_result_t RemoveQotaHeader(const char* file);
 
-        void ReportDownloadStatus(taf_UpdateDownloadSession_t* sessPtr, taf_update_State_t state);
-        void ReportUpdateStatus(taf_UpdatePlugInSession_t* sessPtr, taf_update_State_t state);
+        void ReportDownloadStatus(taf_UpdateDownloadSession_t* sessPtr, taf_update_State_t state,
+            taf_update_Error_t error = TAF_UPDATE_NONE);
+        void ReportUpdateStatus(taf_UpdatePlugInSession_t* sessPtr, taf_update_State_t state,
+            taf_update_Error_t error = TAF_UPDATE_NONE);
         static void DownloadTimerHandler(le_timer_Ref_t timerRef);
         static void UpdateTimerHandler(le_timer_Ref_t timerRef);
 
@@ -191,6 +279,12 @@ namespace tafsvc {
         le_event_Id_t stateEvId;
         le_event_Id_t downloadEvId;
         le_event_Id_t updatePiEvId;
+
+        taf_UpdateOpCtrl dlCtrl;   ///< Controller of download plug-in session.
+        taf_UpdateOpCtrl upiCtrl;  ///< Controller of update plug-in session.
+
+        static const taf_UpdatePhase_t DownloadPhase;
+        static const taf_UpdatePhase_t PlugInInstallPhase;
     };
 }
 

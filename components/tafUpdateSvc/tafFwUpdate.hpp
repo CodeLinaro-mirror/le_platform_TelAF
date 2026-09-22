@@ -12,6 +12,7 @@
 #include "interfaces.h"
 
 #include "tafSvcIF.hpp"
+#include "tafUpdate.hpp"
 
 #include "taf_pa_flash.h"
 
@@ -69,6 +70,13 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Number of flash pages between two pause/cancel checkpoints while writing an image.
+ */
+//--------------------------------------------------------------------------------------------------
+#define TAF_FWUPDATE_CHECKPOINT_PAGES 64
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Firmware update event.
  */
 //--------------------------------------------------------------------------------------------------
@@ -84,7 +92,8 @@ typedef enum
     TAF_FWUPDATE_EV_START_SYNC,
     TAF_FWUPDATE_EV_PAUSE_SYNC,
     TAF_FWUPDATE_EV_RESUME_SYNC,
-    TAF_FWUPDATE_EV_ROLLBACK
+    TAF_FWUPDATE_EV_ROLLBACK,
+    TAF_FWUPDATE_EV_CANCEL
 } taf_FwUpdateEvent_t;
 
 // Firmware update request
@@ -142,10 +151,8 @@ namespace tafsvc {
         bool GetUnpackDir(char* unpackDir, size_t dirLen);
         le_result_t InstallPreCheck(const char* manifest);
         void CleanupContext(taf_update_State_t state);
-        void SetPauseAction(taf_update_State_t state, bool paused);
-        bool GetPauseAction(taf_update_State_t state);
-        void SetCancelAction(taf_update_State_t state, bool cancel);
-        bool GetCancelAction(taf_update_State_t state);
+        void HandleInterrupt(taf_update_State_t running, taf_UpdateCheckpoint_t cp);
+        void RemoveUnpackedImages(void);
         void SetPageNumber(taf_update_State_t state, bool isTotal, uint32_t number);
         uint32_t GetPageNumber(taf_update_State_t state, bool isTotal);
         bool HasSuffix(const char *str);
@@ -170,6 +177,7 @@ namespace tafsvc {
         le_result_t GetCancelPostScript(taf_update_State_t state, char* scriptPath, size_t pathLen);
         le_result_t PostProcess(taf_update_State_t state);
         le_result_t CancelPostInstall(void);
+        le_result_t CancelInstalledUpdate(void);
 
         le_result_t CalFileHash (const char* filePath, uint32_t* calSize, uint8_t* hash,
             unsigned int* hashLen);
@@ -186,8 +194,6 @@ namespace tafsvc {
         bool IsBankSwitched(void);
         le_result_t GetActiveBank(taf_update_Bank_t* bankPtr);
         le_result_t SetActiveBank(taf_update_Bank_t bank);
-        void SetActivationPaused(bool paused);
-        bool GetActivationPaused(void);
         bool GetActivateItemStatus(const char* item);
         void SetActivateItemStatus(const char* item, bool activated);
         void SetManifest(const char* manifest);
@@ -208,6 +214,18 @@ namespace tafsvc {
         static le_event_Id_t fwUpdateEvId;
 
         std::vector<taf_FlashPartition_t> partitions;
+
+        // Start/Pause/Resume/Cancel controller of firmware update session.
+        taf_UpdateOpCtrl ctrl;
+
+        static const taf_UpdatePhase_t InstallPhase;
+        static const taf_UpdatePhase_t SyncPhase;
+        static const taf_UpdatePhase_t BankSyncPhase;
+        static const taf_UpdatePhase_t ActivationPhase;
+        static const taf_UpdatePhase_t PostCheckPhase;
+        static const taf_UpdatePhase_t RollbackPhase;
+        static const taf_UpdatePhase_t PostInstallCancelPhase;
+
         uint32_t percent = 0;
         taf_update_Error_t error = TAF_UPDATE_NONE;
     };

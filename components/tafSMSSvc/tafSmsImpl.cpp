@@ -184,6 +184,32 @@ static le_result_t EncodeMsgToPdu
    return result;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Report SMS send status through the reference-counted callback event.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Sms::ReportSendStatus
+(
+    taf_sms_MsgRef_t msgRef,
+    taf_pa_result_t result
+)
+{
+    tafSmsSendStatus_t* statusPtr =
+        static_cast<tafSmsSendStatus_t*>(le_mem_ForceAlloc(SmsSendStatusPool));
+
+    if (statusPtr == nullptr)
+    {
+        LE_ERROR("Failed to allocate SMS send status for msgRef %p", msgRef);
+        return;
+    }
+
+    statusPtr->msgRef = msgRef;
+    statusPtr->result = result;
+
+    le_event_ReportWithRefCounting(MsgSendCallbackEvent, statusPtr);
+}
+
 //-----------------------------------------------------------------------------
 // Class Handler Implementations
 //
@@ -297,83 +323,57 @@ void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
    sms.NewSmsHandler(tafNewMsg);
 }
 
-void taf_Handler::ProcessSendMessage(void* context)
-{
-   auto &sms = taf_Sms::GetInstance();
-   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(sms.MsgRefMap, sms.sendingMsgRef);
-   TAF_ERROR_IF_RET_NIL(msgPtr == nullptr, "msgPtr is nullptr!");
-
-   uint32_t timeout = kSendMessageWaitTime;
-   uint8_t phoneId = msgPtr->phoneId;
-
-   // Encode to PDU
-   le_result_t result = EncodeMsgToPdu(msgPtr);
-   if (result != LE_OK)
-   {
-      LE_ERROR("Cannot encode Message Object %p", msgPtr);
-      msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
-      le_event_Report(sms.MsgSendCallbackEvent, &sms.sendingMsgRef, sizeof(taf_sms_MsgRef_t));
-      return;
-   }
-
-   taf_pa_result_t paRes = taf_pa_sms_SendRawSms(
-      msgPtr->pdu.data,
-      msgPtr->pdu.length,
-      timeout,
-      phoneId
-   );
-
-   if (paRes != TAF_PA_OK)
-   {
-      LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_SendRawSms reason=%d", (int)paRes);
-      msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
-   }
-   else
-   {
-      LE_DEBUG("taf_pa_sms_SendRawSms was successful");
-      msgPtr->sendStatus = TAF_SMS_TXSTS_SENT;
-   }
-
-   le_event_Report(sms.MsgSendCallbackEvent, &sms.sendingMsgRef, sizeof(taf_sms_MsgRef_t));
-}
-
 void taf_Handler::ProcessSendingStateEvent(void* reportPtr)
 {
-   auto &sms = taf_Sms::GetInstance();
+    auto& sms = taf_Sms::GetInstance();
 
-   tafSmsSendStatus_t* sendStatusMsgPtr = (tafSmsSendStatus_t*) reportPtr;
-   TAF_ERROR_IF_RET_NIL(sendStatusMsgPtr == nullptr, "sendMsgRef is nullptr!");
+    tafSmsSendStatus_t* sendStatusMsgPtr = static_cast<tafSmsSendStatus_t*>(reportPtr);
 
-   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(sms.MsgRefMap, sendStatusMsgPtr->msgRef);
-   if(msgPtr == nullptr)
-   {
-      LE_ERROR("msgPtr is nullptr!");
-      le_mem_Release(sendStatusMsgPtr);
-      return;
-   }
+    TAF_ERROR_IF_RET_NIL(sendStatusMsgPtr == nullptr, "sendStatusMsgPtr is nullptr!");
 
-   taf_sms_CallbackResultFunc_t functionPtr = (taf_sms_CallbackResultFunc_t)(msgPtr->callBackPtr);
+    const taf_sms_MsgRef_t msgRef = sendStatusMsgPtr->msgRef;
 
-   if(sendStatusMsgPtr->result == TAF_PA_OK) {
-      LE_INFO("SMS sent successfully");
-      msgPtr->sendStatus = TAF_SMS_TXSTS_SENT;
-   }
-   else {
-      LE_ERROR("SMS sent failed, err=%d", (int)sendStatusMsgPtr->result);
-      msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
-   }
+    const taf_pa_result_t result = sendStatusMsgPtr->result;
 
-   if (functionPtr)
-   {
-      LE_DEBUG("Sending CallBack (%p), Status %d", functionPtr, msgPtr->sendStatus);
+    taf_sms_Msg_t* msgPtr = static_cast<taf_sms_Msg_t*>(le_ref_Lookup(sms.MsgRefMap, msgRef));
 
-      functionPtr(sendStatusMsgPtr->msgRef, msgPtr->sendStatus, msgPtr->ctxPtr);
-   }
-   else
-   {
-      LE_WARN("No CallBackFunction Found for message, status %d!!", msgPtr->sendStatus);
-   }
-   le_mem_Release(sendStatusMsgPtr);
+    if (msgPtr == nullptr)
+    {
+        LE_ERROR("No message found for msgRef %p", msgRef);
+
+        le_mem_Release(sendStatusMsgPtr);
+        return;
+    }
+
+    if (result == TAF_PA_OK)
+    {
+        LE_INFO("SMS sent successfully, msgRef=%p", msgRef);
+
+        msgPtr->sendStatus = TAF_SMS_TXSTS_SENT;
+    }
+    else
+    {
+        LE_ERROR("SMS send failed, msgRef=%p, errorCode=%d", msgRef, static_cast<int>(result));
+
+        msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
+    }
+
+    taf_sms_CallbackResultFunc_t functionPtr =
+        reinterpret_cast<taf_sms_CallbackResultFunc_t>(msgPtr->callBackPtr);
+
+    if (functionPtr != nullptr)
+    {
+        LE_DEBUG("Sending callback %p, msgRef=%p, status=%d",
+                 functionPtr, msgRef, msgPtr->sendStatus);
+
+        functionPtr(msgRef, msgPtr->sendStatus, msgPtr->ctxPtr);
+    }
+    else
+    {
+        LE_WARN("No callback function found, msgRef=%p, status=%d", msgRef, msgPtr->sendStatus);
+    }
+
+    le_mem_Release(sendStatusMsgPtr);
 }
 
 void taf_Handler::CloseSessionEventHandler
@@ -1218,72 +1218,93 @@ le_result_t taf_Sms::SendPDUMessageSync
 
 le_result_t taf_Sms::SendPDUMessageAsync(taf_sms_MsgRef_t msgRef)
 {
-   auto &sms = taf_Sms::GetInstance();
-   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(sms.MsgRefMap, msgRef);
-   TAF_ERROR_IF_RET_VAL(msgPtr == nullptr, LE_FAULT, "msgPtr is nullptr!");
+    auto& sms = taf_Sms::GetInstance();
 
-   le_result_t result = EncodeMsgToPdu(msgPtr);
-   if (result != LE_OK)
-   {
-      LE_ERROR("Cannot encode Message Object %p", msgPtr);
-      msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
-      le_event_Report(sms.MsgSendCallbackEvent, &msgRef, sizeof(taf_sms_MsgRef_t));
-      return LE_FORMAT_ERROR;
-   }
+    taf_sms_Msg_t* msgPtr = static_cast<taf_sms_Msg_t*>(le_ref_Lookup(sms.MsgRefMap, msgRef));
 
-   uint8_t *pduData = msgPtr->pdu.data;
-   uint32_t pduLength = msgPtr->pdu.length;
-   uint8_t phoneId = msgPtr->phoneId;
+    TAF_ERROR_IF_RET_VAL(msgPtr == nullptr, LE_FAULT, "msgPtr is nullptr!");
 
-   if (phoneId < 1 || phoneId > 2)
-   {
-      msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
-      le_event_Report(sms.MsgSendCallbackEvent, &msgRef, sizeof(taf_sms_MsgRef_t));
-      return LE_BAD_PARAMETER;
-   }
+    le_result_t result = EncodeMsgToPdu(msgPtr);
 
-   if (pduLength == 0)
-   {
-      LE_INFO("pduLength is 0");
-      msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
-      le_event_Report(sms.MsgSendCallbackEvent, &msgRef, sizeof(taf_sms_MsgRef_t));
-      return LE_BAD_PARAMETER;
-   }
+    if (result != LE_OK)
+    {
+        LE_ERROR("Cannot encode Message Object %p, msgRef=%p", msgPtr, msgRef);
 
-   if (pduLength > TAF_SMS_PDU_BYTES)
-   {
-      LE_INFO("pduLength [%u] is greater than TAF_SMS_PDU_BYTES\n",
-        pduLength);
-      msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
-      le_event_Report(sms.MsgSendCallbackEvent, &msgRef, sizeof(taf_sms_MsgRef_t));
-      return LE_OUT_OF_RANGE;
-   }
+        msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
 
-   auto cb = [msgRef](taf_pa_result_t result)
-   {
-      auto &sms = taf_Sms::GetInstance();
+        sms.ReportSendStatus(msgRef, TAF_PA_FAULT);
 
-      tafSmsSendStatus_t* msgSendStatusPtr = (tafSmsSendStatus_t*)le_mem_ForceAlloc(sms.SmsSendStatusPool);
-      if (msgSendStatusPtr == nullptr) {
-          LE_ERROR("Failed to allocate memory for send status, cannot report callback");
-          return;
-      }
+        return LE_FORMAT_ERROR;
+    }
 
-      msgSendStatusPtr->msgRef = msgRef;
-      msgSendStatusPtr->result = result;
+    uint8_t* pduData = msgPtr->pdu.data;
+    uint32_t pduLength = msgPtr->pdu.length;
+    uint8_t phoneId = msgPtr->phoneId;
 
-      le_event_ReportWithRefCounting(sms.MsgSendCallbackEvent, msgSendStatusPtr);
-   };
+    if (phoneId < 1 || phoneId > 2)
+    {
+        LE_ERROR("Invalid phoneId=%u, msgRef=%p", phoneId, msgRef);
 
-   taf_pa_result_t paRes = taf_pa_sms_SendPDUMessageAsync(phoneId, pduData, pduLength, cb);
-   if (paRes != TAF_PA_OK)
-   {
-       LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_SendPDUMessageAsync reason=%d", (int)paRes);
-       return ConvertPaFailure(paRes);
-   }
-   return LE_OK;
+        msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
+
+        sms.ReportSendStatus(msgRef, TAF_PA_FAULT);
+
+        return LE_BAD_PARAMETER;
+    }
+
+    if (pduLength == 0)
+    {
+        LE_ERROR("PDU length is zero, msgRef=%p", msgRef);
+
+        msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
+
+        sms.ReportSendStatus(msgRef, TAF_PA_FAULT);
+
+        return LE_BAD_PARAMETER;
+    }
+
+    if (pduLength > TAF_SMS_PDU_BYTES)
+    {
+        LE_ERROR("PDU length %u exceeds maximum %u, msgRef=%p",
+            pduLength,
+            static_cast<unsigned int>(TAF_SMS_PDU_BYTES),
+            msgRef);
+
+        msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
+
+        sms.ReportSendStatus(msgRef, TAF_PA_FAULT);
+
+        return LE_OUT_OF_RANGE;
+    }
+
+    auto callback = [msgRef](taf_pa_result_t callbackResult)
+    {
+        taf_Sms::GetInstance().ReportSendStatus(msgRef, callbackResult);
+    };
+
+    taf_pa_result_t paRes =
+        taf_pa_sms_SendPDUMessageAsync(
+            phoneId,
+            pduData,
+            pduLength,
+            callback);
+
+    if (paRes != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_SendPDUMessageAsync reason=%d, msgRef=%p",
+                 static_cast<int>(paRes), msgRef);
+
+        msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
+
+        sms.ReportSendStatus(msgRef, paRes);
+
+        return LE_FAULT;
+    }
+
+    msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING;
+
+    return LE_OK;
 }
-
 
 le_result_t taf_Sms::SetTag(taf_sms_Msg_t* msgPtr, taf_pa_sms_Tag tagType)
 {
@@ -1443,12 +1464,10 @@ void taf_Sms::Init(void)
 
    // Handle telsdk call events
    NewMsgEvent = le_event_CreateId("tafSms Event", sizeof(newSms_t));
-   MsgSendEvent = le_event_CreateId("tafSms send Event", 0);
    MsgSendCallbackEvent = le_event_CreateIdWithRefCounting("tafSms send callback Event");
 
    // Add the state changed handler
    le_event_AddHandler("taf new message", NewMsgEvent, taf_Handler::ProcessNewMessage);
-   le_event_AddHandler("taf send message", MsgSendEvent, taf_Handler::ProcessSendMessage);
    le_event_AddHandler("taf callback", MsgSendCallbackEvent, taf_Handler::ProcessSendingStateEvent);
 
    // Init the handler class static member

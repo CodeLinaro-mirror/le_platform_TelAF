@@ -1354,31 +1354,10 @@ le_result_t taf_sms_Send
    TAF_KILL_CLIENT_IF_RET_VAL(msgPtr == nullptr, LE_NOT_FOUND, "msgPtr is nullptr!");
 
    msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING;
-   sms.sendingMsgRef = msgRef;
 
    result = sms.SendMessage(msgPtr);
 
-   tafSmsSendStatus_t* msgSendStatusPtr = (tafSmsSendStatus_t*)le_mem_ForceAlloc(sms.SmsSendStatusPool);
-   if (msgSendStatusPtr == nullptr) {
-      LE_ERROR("Failed to allocate memory for send status");
-      msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
-
-      taf_sms_CallbackResultFunc_t functionPtr = (taf_sms_CallbackResultFunc_t)(msgPtr->callBackPtr);
-      if (functionPtr) {
-         functionPtr(msgRef, TAF_SMS_TXSTS_SENDING_FAILED, msgPtr->ctxPtr);
-      }
-
-      return LE_NO_MEMORY;
-   }
-
-   msgSendStatusPtr->msgRef = msgRef;
-
-   msgSendStatusPtr->result =
-        (result == LE_OK)
-            ? TAF_PA_OK
-            : TAF_PA_FAULT;
-
-   le_event_ReportWithRefCounting(sms.MsgSendCallbackEvent, msgSendStatusPtr);
+   sms.ReportSendStatus(msgRef, (result == LE_OK) ? TAF_PA_OK : TAF_PA_FAULT);
 
    return result;
 }

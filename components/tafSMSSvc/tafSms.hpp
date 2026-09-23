@@ -250,6 +250,7 @@ namespace tafsvc
       le_result_t SendPDUMessageSync(uint8_t *pduData, uint32_t pduLength, uint32_t timeout,
          uint8_t phoneId);
       le_result_t SendPDUMessageAsync(taf_sms_MsgRef_t msgRef);
+      void ReportSendStatus(taf_sms_MsgRef_t msgRef, taf_pa_result_t result);
       le_result_t ReadFromStorage(taf_sms_Pdu_t* pduMsg,
          uint32_t idx, taf_sms_Storage_t storage, uint8_t phoneId);
       le_result_t SetTag(taf_sms_Msg_t* msgPtr, taf_pa_sms_Tag tagType);
@@ -271,13 +272,10 @@ namespace tafsvc
       le_dls_List_t  SessionList;
 
       le_event_Id_t NewMsgEvent;
-      le_event_Id_t MsgSendEvent;
       le_event_Id_t MsgSendCallbackEvent;
       le_event_Id_t StorageEvent;
 
       le_sem_Ref_t SmsSendSem = nullptr;
-
-      taf_sms_MsgRef_t sendingMsgRef = nullptr;
 
       taf_sms_Storage_t sysPrefStorage = TAF_SMS_STORAGE_NONE;
 
@@ -301,9 +299,6 @@ namespace tafsvc
 
          // handler for the call request
          static void ProcessNewMessage(void* incomingMsgPtr);
-
-         // handler for the call request
-         static void ProcessSendMessage(void* context);
 
          // handler for the sending status
          static void ProcessSendingStateEvent(void* reportPtr);

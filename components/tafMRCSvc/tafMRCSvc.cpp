@@ -33,7 +33,10 @@ le_result_t taf_mrc_SendOtaStartMsg
         TAF_PA_MRC_STATUS_INITIATED);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
+    {
         LE_ERROR("Failed to set OTA initiated status.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_mrc_SetProcessStatus reason=%d", paResult);
+    }
 
     return result;
 }
@@ -63,7 +66,10 @@ le_result_t taf_mrc_SendOtaResumeMsg
         TAF_PA_MRC_STATUS_RESUMED);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
+    {
         LE_ERROR("Failed to set OTA resumed status.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_mrc_SetProcessStatus reason=%d", paResult);
+    }
 
     return result;
 }
@@ -95,7 +101,10 @@ le_result_t taf_mrc_SendOtaEndMsg
     taf_pa_result_t paResult = taf_pa_mrc_SetProcessStatus(TAF_PA_MRC_PROCESS_OTA, paStatus);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
+    {
         LE_ERROR("Failed to set OTA ended status.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_mrc_SetProcessStatus reason=%d", paResult);
+    }
 
     return result;
 }
@@ -124,7 +133,10 @@ le_result_t taf_mrc_SendOtaAbsyncMsg
     taf_pa_result_t paResult = taf_pa_mrc_PerformABSync();
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
+    {
         LE_ERROR("Failed to perform AB sync.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_mrc_PerformABSync reason=%d", paResult);
+    }
 
     return result;
 }
@@ -161,6 +173,7 @@ le_result_t taf_mrc_SendSyncStatusMsg
     if (result != LE_OK)
     {
         LE_ERROR("Failed to set AB sync status.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_mrc_SetProcessStatus reason=%d", paResult);
         return result;
     }
 
@@ -235,6 +248,7 @@ le_result_t taf_mrc_MeasureEfsMetrics
     if (result != LE_OK)
     {
         LE_ERROR("Failed to get EFS block status.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_mrc_GetEfsBlockStatus reason=%d", paResult);
         return result;
     }
 
@@ -617,6 +631,10 @@ le_result_t taf_mrc_SetEfsBackupPeriod
 )
 {
     taf_pa_result_t result = taf_pa_mrc_SetTimerPeriod(TAF_PA_MRC_TIMER_EFS_BACKUP, period);
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_mrc_SetTimerPeriod reason=%d", result);
+    }
     return Utility::Convert::Result(result);
 }
 
@@ -657,6 +675,10 @@ le_result_t taf_mrc_SetGpioToggleStatus
     }		
 
     taf_pa_result_t paResult = taf_pa_mrc_AckSlotToggle(paStatus);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_mrc_AckSlotToggle reason=%d", paResult);
+    }
 
     return Utility::Convert::Result(paResult);
 }

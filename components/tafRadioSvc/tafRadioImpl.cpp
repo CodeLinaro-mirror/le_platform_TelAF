@@ -253,9 +253,9 @@ static void RegisterIndication
                 break;
             case TAF_PA_NOT_IMPLEMENTED:
             case TAF_PA_UNSUPPORTED:
-                break;
             default:
-                LE_ERROR("Failed to register indication for instance %d.", i);
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_RegisterIndication reason=%d", result);
+                break;
         }
     }
 }
@@ -605,7 +605,13 @@ static void RegStateIndEventHandler
                     taf_pa_result_t result =
                         taf_pa_radio_GetDataCurrRoamingStatus(instance, &roamingStatus);
 
-                    if (result == 0 && roamingStatus == TAF_PA_RADIO_DATA_ROAMING_STATUS_ON)
+                    if (result != TAF_PA_OK)
+                    {
+                        LE_ERROR("[PA_CALL_FAILED] "
+                                 "api=taf_pa_radio_GetDataCurrRoamingStatus reason=%d",
+                            result);
+                    }
+                    else if (roamingStatus == TAF_PA_RADIO_DATA_ROAMING_STATUS_ON)
                     {
                         psState = TAF_RADIO_NET_REG_STATE_ROAMING;
                     }
@@ -614,8 +620,8 @@ static void RegStateIndEventHandler
                         psState = TAF_RADIO_NET_REG_STATE_HOME;
                     }
                     LE_DEBUG("RegStateIndEventHandler: DATA_SERVICE instance=%d "
-                            "dataState=IN_SERVICE roamingResult=%d roamingStatus=%d ps=%d.",
-                            instance, result, roamingStatus, psState);
+                            "dataState=IN_SERVICE roamingStatus=%d ps=%d.",
+                            instance, roamingStatus, psState);
                     break;
                 }
 
@@ -639,14 +645,15 @@ static void RegStateIndEventHandler
 
             taf_pa_radio_VoiceServiceInfo_t voiceInfo;
             taf_radio_NetRegState_t voiceState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
-            if (taf_pa_radio_GetVoiceServiceInfo(instance, &voiceInfo) == 0)
+            taf_pa_result_t voiceInfoResult = taf_pa_radio_GetVoiceServiceInfo(instance, &voiceInfo);
+            if (voiceInfoResult != TAF_PA_OK)
             {
-                voiceState = Utility::Convert::NetRegState(&voiceInfo);
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetVoiceServiceInfo reason=%d",
+                    voiceInfoResult);
             }
             else
             {
-                LE_WARN("RegStateIndEventHandler: failed to get voice info for instance %d.",
-                        instance);
+                voiceState = Utility::Convert::NetRegState(&voiceInfo);
             }
 
             taf_radio_NetRegState_t combinedState =
@@ -691,14 +698,15 @@ static void RegStateIndEventHandler
 
             taf_pa_radio_VoiceServiceInfo_t voiceInfo;
             taf_radio_NetRegState_t voiceState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
-            if (taf_pa_radio_GetVoiceServiceInfo(instance, &voiceInfo) == 0)
+            taf_pa_result_t voiceInfoResult = taf_pa_radio_GetVoiceServiceInfo(instance, &voiceInfo);
+            if (voiceInfoResult != TAF_PA_OK)
             {
-                voiceState = Utility::Convert::NetRegState(&voiceInfo);
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetVoiceServiceInfo reason=%d",
+                    voiceInfoResult);
             }
             else
             {
-                LE_WARN("RegStateIndEventHandler: failed to get voice info for instance %d.",
-                        instance);
+                voiceState = Utility::Convert::NetRegState(&voiceInfo);
             }
 
             taf_radio_NetRegState_t combinedState =
@@ -1356,8 +1364,7 @@ static void LteCphyCaRefreshHandler
         taf_pa_result_t paResult = taf_pa_radio_GetLteCphyCaInfo(instance, &paInfo);
         if (paResult != 0)
         {
-            LE_ERROR("Failed to refresh LTE CPHY CA info for instance %u, result=%d.",
-                instance, paResult);
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetLteCphyCaInfo reason=%d", paResult);
             return;
         }
 
@@ -3223,7 +3230,7 @@ taf_radio_PciScanInformationListRef_t Utility::Common::PciNetworkScan
     taf_pa_result_t result = taf_pa_radio_PerformPciNetworkScan(instance, rat, &information);
     if (result != TAF_PA_OK)
     {
-        LE_ERROR("Failed to perform PCI network scan.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_PerformPciNetworkScan reason=%d", result);
         return nullptr;
     }
 
@@ -3288,7 +3295,7 @@ taf_radio_ScanInformationListRef_t Utility::Common::PlmnNetworkScan
     taf_pa_result_t result = taf_pa_radio_PerformPlmnNetworkScan(instance, &config, &information);
     if (result != 0)
     {
-        LE_ERROR("Failed to perform PLMN network scan.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_PerformPlmnNetworkScan reason=%d", result);
         return nullptr;
     }
 
@@ -3362,6 +3369,12 @@ le_result_t Utility::Common::ManualNetworkSelection
     }
 
     taf_pa_result_t paResult = taf_pa_radio_SetNetworkSelectionPreference(instance, &preference);
+
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_SetNetworkSelectionPreference reason=%d",
+                 paResult);
+    }
 
     return Utility::Convert::Result(paResult);
 }
@@ -3766,11 +3779,7 @@ static void SigTermEventHandler
     taf_pa_result_t result = taf_pa_radio_Deinit();
     if (result != TAF_PA_OK)
     {
-        LE_ERROR("Failed to deinitialize radio platform adaptor, result: %d", result);
-    }
-    else
-    {
-        LE_INFO("Radio platform adaptor shutdown complete.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_Deinit reason=%d", result);
     }
 
     if (factory.pmRetryTimer)
@@ -4045,7 +4054,7 @@ COMPONENT_INIT
     taf_pa_result_t result = taf_pa_radio_Init();
     if (result != TAF_PA_OK)
     {
-        LE_ERROR("Failed to initialize platform adaptor.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_Init reason=%d", result);
         return;
     }
 
@@ -4068,12 +4077,10 @@ COMPONENT_INIT
             }
             else
             {
-                LE_WARN("Init: phone=%d GetRatSvcStatus failed result=%d, ratSvcState stays UNKNOWN",
-                        instance, result);
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetRatSvcStatus reason=%d", result);
             }
         }else{
-            LE_WARN("Init: phone=%d GetServingRAT failed result=%d, rat stays UNKNOWN",
-                        instance, ratRes);
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetServingRat reason=%d", ratRes);
         }
     }
 

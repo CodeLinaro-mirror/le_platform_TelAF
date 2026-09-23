@@ -39,9 +39,15 @@ le_event_Id_t taf_Socks::socksEvId = nullptr;
 void taf_Socks::Init(void)
 {
 
+    taf_pa_result_t paResult;
     le_result_t isReady = LE_OK;
 
-    isReady =  PA_TO_LE_RESULT(taf_pa_socks_Init());
+    paResult = taf_pa_socks_Init();
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_socks_Init reason=%d", paResult);
+    }
+    isReady = PA_TO_LE_RESULT(paResult);
 
     if(isReady == LE_OK)
     {
@@ -378,17 +384,21 @@ void tafSocksCallback::disableSocksAsyncResponse(taf_pa_result_t error,void *con
 ======================================================================*/
 le_result_t taf_Socks::EnableSocksCmdSync()
 {
+    taf_pa_result_t paResult;
     le_result_t result;
-    result = PA_TO_LE_RESULT(taf_pa_net_EnableSocksCmdSync());
+    paResult = taf_pa_net_EnableSocksCmdSync();
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_EnableSocksCmdSync reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("EnableSocksCmdSync is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("EnableSocksCmdSync is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
     }
 
@@ -413,17 +423,21 @@ le_result_t taf_Socks::EnableSocksCmdSync()
 ======================================================================*/
 le_result_t taf_Socks::DisableSocksCmdSync()
 {
+    taf_pa_result_t paResult;
     le_result_t result;
-    result = PA_TO_LE_RESULT(taf_pa_net_DisableSocksCmdSync());
+    paResult = taf_pa_net_DisableSocksCmdSync();
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_DisableSocksCmdSync reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("DisableSocksCmdSync is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("DisableSocksCmdSync is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
     }
 
@@ -521,16 +535,31 @@ void taf_Socks::DisableSocksCmdAsync
 ======================================================================*/
 le_result_t taf_Socks::EnableSocks(taf_SocksCmdType_t type)
 {
+    taf_pa_result_t paResult;
     le_result_t result;
 
     switch(type)
     {
         case ASYNC_ENABLE_SOCKS:
-             result = PA_TO_LE_RESULT(taf_pa_net_EnableSocksCmdASync(tafSocksCallback::enableSocksAsyncResponse,nullptr));
+             paResult = taf_pa_net_EnableSocksCmdASync(
+                 tafSocksCallback::enableSocksAsyncResponse, nullptr);
+             if (paResult != TAF_PA_OK)
+             {
+                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_EnableSocksCmdASync reason=%d",
+                          paResult);
+             }
+             result = PA_TO_LE_RESULT(paResult);
         break;
 
         case ASYNC_DISABLE_SOCKS:
-            result = PA_TO_LE_RESULT(taf_pa_net_DisableSocksCmdASync(tafSocksCallback::disableSocksAsyncResponse,nullptr));
+            paResult = taf_pa_net_DisableSocksCmdASync(
+                tafSocksCallback::disableSocksAsyncResponse, nullptr);
+            if (paResult != TAF_PA_OK)
+            {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_DisableSocksCmdASync reason=%d",
+                         paResult);
+            }
+            result = PA_TO_LE_RESULT(paResult);
         break;
 
         default:
@@ -543,17 +572,14 @@ le_result_t taf_Socks::EnableSocks(taf_SocksCmdType_t type)
     }
     else if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("Enable/disable socks is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("Enable/disable socks is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
     }
     else
     {
-        LE_ERROR( "ERROR - Failed to enable/disable socks, Status:%d ", static_cast<int>(result));
         return LE_FAULT;
     }
 }

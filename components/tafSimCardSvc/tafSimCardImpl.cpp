@@ -266,7 +266,10 @@ static void RemoveSessionFromRefreshTransaction(taf_sim_Session_t* session)
             refreshState->pendingCompleteCount = 0;
             taf_pa_result_t res = taf_pa_sim_RefreshComplete(
                 taf_sim::ConvertTafSessionTypeToPaSessionType(session->sessionType));
-            LE_INFO("Disconnect/Delete: RefreshComplete sent for remaining clients result=%d", res);
+            if (res != TAF_PA_OK)
+            {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_RefreshComplete reason=%d", res);
+            }
         }
     }
     if (wasSnapshotParticipant && session->refreshParticipant && !session->refreshEndHandled)
@@ -506,9 +509,8 @@ void RegisterListeners()
     taf_pa_result_t result = taf_pa_sim_RegisterListeners();
     if (result != TAF_PA_OK)
     {
-        LE_ERROR("Fail to register listeners via PA OSS API.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_RegisterListeners reason=%d", result);
     }
-    LE_INFO("registered all listeners succesfully");
 }
 
 void taf_sim::Init(void)
@@ -560,7 +562,7 @@ void taf_sim::Init(void)
     taf_pa_result_t regEvtRes = taf_pa_sim_RegisterEventListener(&eventListener,nullptr);
     if (regEvtRes != TAF_PA_OK)
     {
-        LE_ERROR("Listener register failed for");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_RegisterEventListener reason=%d", regEvtRes);
         return;
     }
     le_msg_AddServiceCloseHandler(taf_sim_GetServiceRef(), OnClientDisconnect, NULL);
@@ -577,7 +579,7 @@ taf_sim_States_t taf_sim::getState(taf_sim_Id_t simId)
     taf_pa_sim_States_t state = TAF_PA_SIM_STATE_UNKNOWN;
     taf_pa_result_t result = taf_pa_sim_GetState((taf_pa_sim_Id_t) simId, &state);
     if (result != TAF_PA_OK) {
-        LE_ERROR("taf_pa_sim_GetState failed or returned error for simId: %d", simId);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetState reason=%d", result);
         state = TAF_PA_SIM_STATE_UNKNOWN;
     }
     taf_sim_States_t sim_state = Utility::Convert::taf_Common_State_Result(state);
@@ -910,7 +912,7 @@ taf_sim_RefreshChangeHandlerRef_t taf_sim::AddRefreshChangeHandler(taf_sim_Refre
                   sessionRef,&clientRequestPtr->paHandlerRef);
     if (addRes != TAF_PA_OK)
     {
-        LE_ERROR("taf_pa_sim_AddRefreshChangeHandler returned: %d", (int)addRes);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_AddRefreshChangeHandler reason=%d", addRes);
         le_event_RemoveHandler(handlerRef);
         return NULL;
     }
@@ -945,7 +947,7 @@ void taf_sim::RemoveRefreshChangeHandler(taf_sim_RefreshChangeHandlerRef_t handl
     taf_pa_result_t removeRes = taf_pa_sim_RemoveRefreshChangeHandler(clientRequestPtr->paHandlerRef);
     if (removeRes != TAF_PA_OK)
     {
-        LE_WARN("taf_pa_sim_RemoveRefreshChangeHandler returned: %d", (int)removeRes);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_RemoveRefreshChangeHandler reason=%d", removeRes);
         }
         clientRequestPtr->paHandlerRef = NULL;
     }
@@ -967,7 +969,8 @@ void taf_sim::DestroySessionLocked(taf_sim_Session_t* session)
         taf_pa_result_t removeRes = taf_pa_sim_RemoveRefreshChangeHandler(session->paHandlerRef);
         if (removeRes != TAF_PA_OK)
         {
-            LE_WARN("DestroySessionLocked: taf_pa_sim_RemoveRefreshChangeHandler returned: %d", (int)removeRes);
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_RemoveRefreshChangeHandler reason=%d",
+                     removeRes);
         }
         session->paHandlerRef = NULL;
     }
@@ -1281,6 +1284,10 @@ le_result_t taf_sim::RefreshRegisterFilesForSessionType(taf_sim_SessionType_t se
     taf_pa_result_t res = taf_pa_sim_RefreshRegister(ConvertTafSessionTypeToPaSessionType(sessionType),
             refreshPAFiles.size(),
             refreshPAFiles.empty() ? nullptr : refreshPAFiles.data());
+    if (res != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_RefreshRegister reason=%d", res);
+    }
     le_result_t result = Utility::Convert::Result(res);
     LE_INFO("Refresh re-register done for sessionType=%d with union file count=%zu result=%d",
             sessionType, uniqueFiles.size(), res);
@@ -1396,6 +1403,10 @@ le_result_t taf_sim::SetRefreshAllow(taf_sim_RefreshRef_t refreshSessionRef, boo
     taf_pa_result_t res = taf_pa_sim_RefreshRegister(ConvertTafSessionTypeToPaSessionType(clientRequestPtr->sessionType),
             refreshPAFiles.size(),
             refreshPAFiles.empty() ? nullptr : refreshPAFiles.data());
+    if (res != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_RefreshRegister reason=%d", res);
+    }
     le_result_t result =Utility::Convert::Result(res);
 
     LE_INFO("Refresh register done for sessionType=%d with union file count=%zu result=%d",
@@ -1501,6 +1512,10 @@ void taf_sim::InternalRefreshHandler(void* reportPtr, void* contextPtr)
         bool finalAllow = sim.CheckRefreshAllow(ind);
         refreshState->refreshOkSent = true;
         taf_pa_result_t res = taf_pa_sim_RefreshOk(ind->sessionType, &finalAllow);
+        if (res != TAF_PA_OK)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_RefreshOk reason=%d", res);
+        }
         LE_INFO("RefreshOk sent for sessionType=%d allow=%d result=%d", ind->sessionType, finalAllow, res);
         if (!finalAllow)
         {
@@ -1534,6 +1549,11 @@ void taf_sim::InternalRefreshHandler(void* reportPtr, void* contextPtr)
                         refreshState->refreshCompleteSent = true;
                         refreshState->pendingCompleteCount = 0;
                         taf_pa_result_t res = taf_pa_sim_RefreshComplete(ind->sessionType);
+                        if (res != TAF_PA_OK)
+                        {
+                            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_RefreshComplete reason=%d",
+                                     res);
+                        }
                         LE_INFO("RefreshComplete sent (all clients ready) for FCN-like mode=%d sessionType=%d result=%d",
                                 ind->refreshMode, ind->sessionType, res);
                     }
@@ -1740,6 +1760,10 @@ void taf_sim::HandleRefreshEvent_Queued(void* param1, void* param2)
     {
         bool finalAllow = true;
         taf_pa_result_t res = taf_pa_sim_RefreshOk(evt->ind.sessionType, &finalAllow);
+        if (res != TAF_PA_OK)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_RefreshOk reason=%d", res);
+        }
         ResetRefreshTransactionState(refreshState);
         LE_INFO("WAIT_FOR_OK: no interested clients, RefreshOk allow=%d result=%d for sessionType=%d",
                 finalAllow, res, evt->ind.sessionType);
@@ -1826,12 +1850,12 @@ le_result_t taf_sim::selectSimSlot(taf_sim_Id_t simId) {
     }
     else if (paResult == TAF_PA_TIMEOUT)
     {
-        LE_ERROR("Timeout waiting to select Sim Slot %d", simId);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_selectSimSlot reason=%d", paResult);
         return LE_TIMEOUT;
     }
     else
     {
-        LE_ERROR("Failed to select Sim Slot %d via PA (Error %d)", simId, paResult);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_selectSimSlot reason=%d", paResult);
         return LE_FAULT;
     }
 }
@@ -1846,7 +1870,7 @@ le_result_t taf_sim::getICCID(taf_sim_Id_t simId, char *iccid, int length)
     taf_pa_result_t paResult = taf_pa_sim_GetIccid((taf_pa_sim_Id_t)simId, iccIdStr);
     if (paResult != TAF_PA_OK)
     {
-        LE_ERROR("Fail to get ICCID via PA OSS API for simId %d", simId);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetIccid reason=%d", paResult);
         return LE_FAULT;
 
     }
@@ -1867,7 +1891,7 @@ le_result_t taf_sim::getICCIDWithoutSlotSwitch(taf_sim_Id_t simId,char* iccid, i
 
     if (paResult != TAF_PA_OK)
     {
-        LE_ERROR("Failed to get ICCID via PA OSS API for simId %d",simId);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetIccid reason=%d", paResult);
         iccid[0] = '\0';
         return LE_FAULT;
     }
@@ -1885,7 +1909,7 @@ le_result_t taf_sim::getSubscriberPhoneNumber(taf_sim_Id_t simId, char *phoneNum
                                  (taf_pa_sim_Id_t) simId,phoneNumberString);
     if (paResult != TAF_PA_OK)
     {
-        LE_ERROR("Fail to register subscription listener via PA OSS API.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetSubscriberPhoneNumber reason=%d", paResult);
         return LE_FAULT;
     }
     LE_DEBUG("phoneNumberString.c_str()-> %s",phoneNumberString.c_str());
@@ -1900,7 +1924,7 @@ le_result_t taf_sim::getIMSI(taf_sim_Id_t simId, char *imsi, int length) {
     taf_pa_result_t paResult = taf_pa_sim_GetImsi((taf_pa_sim_Id_t)simId,imsiString);
     if (paResult != TAF_PA_OK)
     {
-       LE_ERROR("Fail to get IMSI via PA OSS API.");
+       LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetImsi reason=%d", paResult);
        return LE_FAULT;
     }
     LE_DEBUG("imsiString.c_str()-> %s",imsiString.c_str());
@@ -1915,7 +1939,7 @@ le_result_t taf_sim::getHomeNetworkOperator(taf_sim_Id_t simId, char *name, int 
     taf_pa_result_t paResult = taf_pa_sim_GetCarrierName((taf_pa_sim_Id_t)simId,nameString);
     if (paResult != TAF_PA_OK)
     {
-        LE_ERROR("Fail to get carrier name via PA OSS API.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetCarrierName reason=%d", paResult);
         return LE_FAULT;
     }
     LE_INFO("nameString.c_str()-> %s",nameString.c_str());
@@ -1935,7 +1959,7 @@ le_result_t taf_sim::getHomeNetworkMccMnc(taf_sim_Id_t simId, char *mccPtr,
     taf_pa_result_t paResult = taf_pa_sim_GetHomeNetworkMccMncStr((taf_pa_sim_Id_t)simId, mcc, mnc);
     if (paResult != TAF_PA_OK)
     {
-        LE_ERROR("Failed to get HomeNetworkMccMnc via PA for simId %d", simId);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetHomeNetworkMccMncStr reason=%d", paResult);
         return LE_FAULT;
     }
     LE_INFO("Retrieved MCC: %s, MNC: %s", mcc.c_str(), mnc.c_str());
@@ -1969,7 +1993,7 @@ le_result_t taf_sim::UnlockCardByPin(taf_sim_Id_t simId,taf_sim_LockType_t lockT
 
     if (paResult != TAF_PA_OK)
     {
-        LE_ERROR("Fail to unlock card by PIN via PA OSS API.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_UnlockCardByPin reason=%d", paResult);
         return LE_FAULT;
     }
     return LE_OK;
@@ -1985,7 +2009,7 @@ le_result_t taf_sim::ChangeCardPin( taf_sim_Id_t simId, taf_sim_LockType_t lockT
                           nullptr,std::any());
     if (paResult != TAF_PA_OK)
     {
-        LE_ERROR("fail to change card Pin");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_ChangeCardPin reason=%d", paResult);
         return LE_FAULT;
     }
     return LE_OK;
@@ -2000,7 +2024,7 @@ le_result_t taf_sim::UnlockCardByPuk(taf_sim_Id_t  simId, taf_sim_LockType_t loc
                            nullptr,std::any());
     if (paResult != TAF_PA_OK)
     {
-        LE_ERROR("Fail to UnlockCardByPuk via PA OSS API.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_UnlockCardByPuk reason=%d", paResult);
         return LE_FAULT;
     }
     return LE_OK;
@@ -2049,7 +2073,7 @@ le_result_t taf_sim::SetCardLock(taf_sim_Id_t  simId, taf_sim_LockType_t lockTyp
                           nullptr,std::any());
         if (paResult != TAF_PA_OK)
         {
-            LE_ERROR("fail to SetCardLock");
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_SetCardLock reason=%d", paResult);
             return LE_FAULT;
         }
         return LE_OK;
@@ -2060,7 +2084,7 @@ le_result_t taf_sim::SetCardLock(taf_sim_Id_t  simId, taf_sim_LockType_t lockTyp
                           nullptr,std::any());
         if (paResult != TAF_PA_OK)
         {
-            LE_ERROR("fail to SetCardUnLock");
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_SetCardUnLock reason=%d", paResult);
             return LE_FAULT;
         }
         return LE_OK;
@@ -2075,7 +2099,7 @@ int32_t taf_sim::GetRemainingPINTries(taf_sim_Id_t simId) {
     taf_pa_result_t paResult =taf_pa_sim_GetRemainingPINTries((taf_pa_sim_Id_t) simId, &retryCount);
     if(paResult != TAF_PA_OK)
     {
-        LE_ERROR("Failed GetRemainingPINTries");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetRemainingPINTries reason=%d", paResult);
         return retryCount;
     }
     return retryCount;
@@ -2102,8 +2126,7 @@ le_result_t taf_sim::GetRemainingPukTries(taf_sim_Id_t simId,uint32_t* remaining
         *remainingPukTriesPtr = remainingPukTries;
         LE_DEBUG("Remaining PUK tries for simId %d: %u",simId, remainingPukTries);
     } else {
-        LE_WARN("Failed to get remaining PUK tries for simId %d (paResult=%d)",
-                simId, paResult);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetRemainingPukTries reason=%d", paResult);
     }
     return result;
 }
@@ -2157,7 +2180,7 @@ le_result_t taf_sim::GetEID(taf_sim_Id_t simId, char *eidPtr, size_t eidLen)
     taf_pa_result_t paResult =taf_pa_sim_GetEID((taf_pa_sim_Id_t) simId, eidStr);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK) {
-        LE_ERROR("taf_pa_sim_GetEID failed for simId: %d, result: %d", simId, result);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetEID reason=%d", paResult);
         return LE_FAULT;
     }
     if (eidStr.size() + 1 > eidLen) {
@@ -2188,7 +2211,7 @@ le_result_t taf_sim::GetAppTypes(taf_sim_Id_t slotId, taf_sim_AppType_t* appType
     taf_pa_result_t paResult = taf_pa_sim_GetAppTypes((taf_pa_sim_AppType_t*)appTypePtr,appTypeNumElementsPtr);
     if (paResult != TAF_PA_OK)
     {
-        LE_ERROR("Fail to GetAppTypes via PA OSS API.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetAppTypes reason=%d", paResult);
         return LE_FAULT;
     }
     return LE_OK;
@@ -2209,6 +2232,10 @@ le_result_t taf_sim::OpenLogicalChannel( taf_sim_Id_t simId, taf_sim_AppType_t a
     if(paAppType != TAF_PA_APPTYPE_UNKNOWN)
     {
         taf_pa_result_t paResult = taf_pa_sim_OpenLogicalChannel(paAppType,channelPtr,nullptr,{});
+        if (paResult != TAF_PA_OK)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_OpenLogicalChannel reason=%d", paResult);
+        }
         le_result_t result =Utility::Convert::Result(paResult);
         return result;
     }
@@ -2231,6 +2258,10 @@ le_result_t taf_sim::OpenLogicalChannelByAid( taf_sim_Id_t simId, const char* ai
         return LE_NOT_FOUND;
     }
     taf_pa_result_t paResult = taf_pa_sim_OpenLogicalChannelByAid(aid,channelPtr,nullptr,{});
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_OpenLogicalChannelByAid reason=%d", paResult);
+    }
     le_result_t result =Utility::Convert::Result(paResult);
     return result;
 }
@@ -2240,6 +2271,10 @@ le_result_t taf_sim::CloseLogicalChannel( taf_sim_Id_t simId, uint8_t channel) {
         return LE_NOT_FOUND;
     }
     taf_pa_result_t paResult = taf_pa_sim_CloseLogicalChannel(channel,nullptr,{});
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_CloseLogicalChannel reason=%d", paResult);
+    }
     le_result_t result =Utility::Convert::Result(paResult);
     return result;
 }
@@ -2281,6 +2316,10 @@ le_result_t taf_sim::SendApduOnChannel( taf_sim_Id_t simId, uint8_t channel,
 
     taf_pa_result_t paResult = taf_pa_sim_SendApduOnLogicalChannel(channel,responseApduPtr,responseApduNumElementsPtr,
                             p1,p2,p3,cla,instruction,data,nullptr,{});
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_SendApduOnLogicalChannel reason=%d", paResult);
+    }
     le_result_t result =Utility::Convert::Result(paResult);
     return result;
 }
@@ -2317,6 +2356,10 @@ le_result_t taf_sim::SendApdu( taf_sim_Id_t simId,const uint8_t* commandApduPtr,
     }
     taf_pa_result_t paResult = taf_pa_sim_SendApdu(responseApduPtr,responseApduNumElementsPtr, p1, p2, p3, cla, instruction,data,
          nullptr,{});
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_SendApdu reason=%d", paResult);
+    }
     le_result_t result =Utility::Convert::Result(paResult);
     return result;
 }
@@ -2364,6 +2407,10 @@ le_result_t taf_sim::SendCommand(
     taf_pa_result_t paResult = taf_pa_sim_ExchangeSimIO(static_cast<taf_pa_sim_Command_t>(command),p1,p2,p3,dataPtr,
         dataNumElements,(pathPtr != nullptr) ? pathPtr : "",sw1,sw2,responsePtr,responseNumElementsPtr,field,nullptr,{});
 
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_ExchangeSimIO reason=%d", paResult);
+    }
     return Utility::Convert::Result(paResult);
 }
 
@@ -2382,8 +2429,7 @@ le_result_t taf_sim::SetPower(taf_sim_Id_t simId, le_onoff_t powerState)
     taf_pa_result_t paResult = taf_pa_sim_SetPower((taf_pa_sim_Id_t)simId,(taf_pa_sim_power_state_t)powerState);
     if (paResult != TAF_PA_OK)
     {
-        LE_ERROR("Set Power operation failed,simId %d , powerState %d",
-                simId, powerState);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_SetPower reason=%d", paResult);
         return LE_FAULT;
     }
     return LE_OK;
@@ -2448,7 +2494,7 @@ bool taf_sim::FindProfileByType(taf_pa_sim_SlotId_t paSlot,
     taf_pa_result_t res = taf_pa_sim_GetProfileNum(paSlot, &n);
     if (res != TAF_PA_OK)
     {
-        LE_WARN("taf_pa_sim_GetProfileNum returned: %d", (int)res);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetProfileNum reason=%d", res);
         return false;
     }
     for (uint8_t i = 0; i < n; ++i) {
@@ -2456,7 +2502,7 @@ bool taf_sim::FindProfileByType(taf_pa_sim_SlotId_t paSlot,
         taf_pa_result_t getRes = taf_pa_sim_GetProfile(paSlot, i, &info);
         if (getRes != TAF_PA_OK)
         {
-            LE_WARN("taf_pa_sim_GetProfile[%u] returned: %d", i, (int)getRes);
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetProfile reason=%d", getRes);
             continue;
         }
         if (info.type == wantType) {
@@ -2497,7 +2543,7 @@ le_result_t taf_sim::IsEmergencyCallSubscriptionSelected
     taf_pa_result_t profileNumRes = taf_pa_sim_GetProfileNum(paSlot, &profileCount);
     if (profileNumRes != TAF_PA_OK)
     {
-        LE_WARN("IsEmergencyCallSubscriptionSelected: taf_pa_sim_GetProfileNum returned: %d", (int)profileNumRes);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetProfileNum reason=%d", profileNumRes);
         return LE_FAULT;
     }
     if (profileCount == 0) {
@@ -3022,6 +3068,10 @@ le_result_t taf_sim::getSlotCount(int *count) {
         return LE_FAULT;
     }
     taf_pa_result_t result = taf_pa_sim_IsSubsystemReady(&isReady);
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_IsSubsystemReady reason=%d", result);
+    }
     *count = 1; //Single SIM by default
     if(result == TAF_PA_OK)
     {
@@ -3031,7 +3081,7 @@ le_result_t taf_sim::getSlotCount(int *count) {
             taf_pa_result_t paResult = taf_pa_sim_getSlotCount(&slotCount);
             if (paResult != TAF_PA_OK)
             {
-                LE_ERROR("Fail to get slot count via PA OSS API.");
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_getSlotCount reason=%d", paResult);
                 return LE_FAULT;
             }
             else
@@ -3110,7 +3160,7 @@ le_result_t taf_sim::SwapSubscriptionInternal
     taf_pa_result_t profileNumRes2 = taf_pa_sim_GetProfileNum(paSlot, &profileCount);
     if (profileNumRes2 != TAF_PA_OK)
     {
-        LE_WARN("taf_pa_sim_GetProfileNum returned: %d", (int)profileNumRes2);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetProfileNum reason=%d", profileNumRes2);
         return LE_FAULT;
     }
     if (profileCount == 0) {
@@ -3146,7 +3196,7 @@ le_result_t taf_sim::SwapSubscriptionInternal
     }
     taf_pa_result_t paRes = taf_pa_sim_SetActiveProfile(paSlot, targetInfo->profileId);
     if (paRes != TAF_PA_OK) {
-        LE_ERROR("SetActiveProfile failed, paRes=%d",(int)paRes);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_SetActiveProfile reason=%d", paRes);
         return LE_FAULT;
     }
     LE_INFO("SetActiveProfile requested successfully (slot=%d, profileId=%d)",(int)paSlot, (int)targetInfo->profileId);
@@ -3190,17 +3240,22 @@ void taf_sim::UpdateLocalSimState(taf_sim_info_t* simPtr, const sim_iccid_event_
     else {
         taf_sim_Id_t simId = (taf_sim_Id_t)iccidDataInfo->simId;
         std::string imsiStr;
-        if (taf_pa_sim_GetImsi((taf_pa_sim_Id_t)simId, imsiStr) == TAF_PA_OK) {
+        taf_pa_result_t imsiRes = taf_pa_sim_GetImsi((taf_pa_sim_Id_t)simId, imsiStr);
+        if (imsiRes == TAF_PA_OK) {
             le_utf8_Copy(simPtr->IMSI, imsiStr.c_str(), TAF_SIM_IMSI_BYTES, NULL);
         } else {
-            LE_WARN("Failed to fetch IMSI from PA for simId %d", simId);
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetImsi reason=%d", imsiRes);
             simPtr->IMSI[0] = '\0';
         }
         std::string phoneStr;
-        if (taf_pa_sim_GetSubscriberPhoneNumber((taf_pa_sim_Id_t)simId, phoneStr) == TAF_PA_OK) {
+        taf_pa_result_t phoneNumRes = taf_pa_sim_GetSubscriberPhoneNumber(
+            (taf_pa_sim_Id_t)simId, phoneStr);
+        if (phoneNumRes == TAF_PA_OK) {
             le_utf8_Copy(simPtr->phoneNumber, phoneStr.c_str(), TAF_SIM_PHONE_NUM_MAX_BYTES, NULL);
         } else {
             LE_WARN("Failed to fetch Phone Number from PA for simId %d", simId);
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetSubscriberPhoneNumber reason=%d",
+                     phoneNumRes);
             simPtr->phoneNumber[0] = '\0';
         }
     }

@@ -38,7 +38,12 @@ void TafDcsSvc::Init()
     taf::pa::data::SubsystemState_e paState = taf::pa::data::SubsystemState_e::FAILED;
 
     LE_INFO("Initialize data PA...");
-    result = PA_TO_LE_RESULT(taf::pa::data::Init(paState));
+    taf_pa_result_t paInitResult = taf::pa::data::Init(paState);
+    if (paInitResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::Init reason=%d", paInitResult);
+    }
+    result = PA_TO_LE_RESULT(paInitResult);
     if (LE_OK == result)
     {
         // All good
@@ -74,8 +79,14 @@ void TafDcsSvc::Init()
     }
 
     // Add subsystem state change event handler.
-    result = PA_TO_LE_RESULT(taf::pa::data::AddSubsystemStateChangeCallback(
-                      tafPaSubsystemStateChangeCallback, nullptr, subsystemStateChangeCallbackId_));
+    taf_pa_result_t subsystemStateChangeResult = taf::pa::data::AddSubsystemStateChangeCallback(
+                      tafPaSubsystemStateChangeCallback, nullptr, subsystemStateChangeCallbackId_);
+    if (subsystemStateChangeResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::AddSubsystemStateChangeCallback reason=%d",
+                 subsystemStateChangeResult);
+    }
+    result = PA_TO_LE_RESULT(subsystemStateChangeResult);
     LE_INFO("AddSubsystemStateChangeCallback result: %d, Id: %d",
                                                 TO_INT(result), subsystemStateChangeCallbackId_);
 
@@ -117,12 +128,22 @@ void TafDcsSvc::powerStateChangeHandler(taf_pm_State_t state, void *contextPtr)
     if (state == TAF_PM_STATE_RESUME)
     {
         LE_INFO("Power state change to RESUME");
-        taf::pa::data::RegisterSDKCallbacks();
+        taf_pa_result_t paResult = taf::pa::data::RegisterSDKCallbacks();
+        if (paResult != TAF_PA_OK)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::RegisterSDKCallbacks reason=%d",
+                     paResult);
+        }
     }
     else if (state == TAF_PM_STATE_SUSPEND)
     {
         LE_INFO("Power state change to SUSPEND");
-        taf::pa::data::DeregisterSDKCallbacks();
+        taf_pa_result_t paResult = taf::pa::data::DeregisterSDKCallbacks();
+        if (paResult != TAF_PA_OK)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::DeregisterSDKCallbacks reason=%d",
+                     paResult);
+        }
     }
     else
     {
@@ -137,7 +158,11 @@ void TafDcsSvc::Deinit()
     // Unregister client handlers
     unregisterClientsConnectDisconnectHandlers();
     // Deinitialize the PA
-    taf::pa::data::Deinit();
+    taf_pa_result_t paResult = taf::pa::data::Deinit();
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::Deinit reason=%d", paResult);
+    }
 }
 
 // The event handler for the internal events thread.

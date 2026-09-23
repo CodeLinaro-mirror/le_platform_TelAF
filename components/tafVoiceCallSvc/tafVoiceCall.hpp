@@ -206,7 +206,8 @@ public:
         CallFunc callFunc,
         taf_pa_voicecall_dir_t direction,
         taf_voicecall_Event_t failEvent,
-        const char* actionName)
+        const char* actionName,
+        const char* apiName)
     {
         auto promisePtr = std::make_shared<std::promise<taf_pa_result_t>>();
         std::weak_ptr<std::promise<taf_pa_result_t>> weakPromise = promisePtr;
@@ -240,7 +241,7 @@ public:
         taf_pa_result_t result = callFunc(callInfo, commonCallback, context);
         if (result != TAF_PA_OK)
         {
-            LE_ERROR("%s failed immediately: %d", actionName, result);
+            LE_ERROR("[PA_CALL_FAILED] api=%s reason=%d", apiName, result);
             CallEvent_t msgCallEvent = {0, taf_voicecall_Direction_t::NONE,
                 "", callCtxPtr->callRef, failEvent, TAF_VOICECALL_END_UNDEFINED};
             le_event_Report(CallEvent, &msgCallEvent, sizeof(CallEvent_t));

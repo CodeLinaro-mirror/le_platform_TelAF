@@ -299,7 +299,7 @@ void taf_Therm::SigTermEventHandler(int sigNum)
     taf_pa_result_t result = taf_pa_therm_Deinit();
     if (result != TAF_PA_OK)
     {
-        LE_ERROR("taf_pa_therm_Deinit failed, err: %d", (int)result);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_therm_Deinit reason=%d", (int)result);
     }
     exit(EXIT_SUCCESS);
 }
@@ -327,7 +327,7 @@ void taf_Therm::Init(void)
     taf_pa_result_t result = taf_pa_therm_Init();
     if (result != TAF_PA_OK)
     {
-        LE_FATAL("ERROR - Failed to initialize Thermal PA layer.");
+        LE_FATAL("[PA_CALL_FAILED] api=taf_pa_therm_Init reason=%d", result);
     }
     LE_INFO("Thermal PA layer initialized successfully");
 
@@ -385,13 +385,14 @@ void taf_Therm::Init(void)
 
     if (result != TAF_PA_OK)
     {
-        LE_ERROR("Failed to register trip event handler");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_therm_RegisterTripEventHandler reason=%d", result);
     }
 
     result = taf_pa_therm_RegisterCoolingLevelChangeHandler(CoolingLevelChangePAHandler, NULL);
     if (result != TAF_PA_OK)
     {
-        LE_ERROR("Failed to register cooling level change handler");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_therm_RegisterCoolingLevelChangeHandler reason=%d",
+                 result);
     }
 
     LE_INFO("Thermal service initialization complete");
@@ -488,7 +489,7 @@ taf_therm_ThermalZoneListRef_t taf_Therm::GetThermalZonesList()
 
     if (result != TAF_PA_OK)
     {
-        LE_ERROR("Failed to get thermal zones from PA layer");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_therm_GetThermalZones reason=%d", result);
         le_mem_Release(tZoneListPtr);
         return NULL;
     }
@@ -515,6 +516,11 @@ taf_therm_ThermalZoneListRef_t taf_Therm::GetThermalZonesList()
             std::vector<taf_pa_therm_TripPointInfo> tripPoints;
             result = taf_pa_therm_GetTripPoints(zonesInfo[i].zoneId, tripPoints);
 
+            if (result != TAF_PA_OK)
+            {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_therm_GetTripPoints "
+                         "zoneId=%u reason=%d", zonesInfo[i].zoneId, result);
+            }
             if (result == TAF_PA_OK)
             {
                 tZonePtr->tripPointListSize = tripPoints.size();
@@ -541,6 +547,11 @@ taf_therm_ThermalZoneListRef_t taf_Therm::GetThermalZonesList()
             std::vector<taf_pa_therm_BoundCoolingDevice> boundDevices;
             result = taf_pa_therm_GetBoundCoolingDevices(zonesInfo[i].zoneId, boundDevices);
 
+            if (result != TAF_PA_OK)
+            {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_therm_GetBoundCoolingDevices "
+                         "zoneId=%u reason=%d", zonesInfo[i].zoneId, result);
+            }
             if (result == TAF_PA_OK)
             {
                 tZonePtr->boundCoolingDeviceListSize = boundDevices.size();
@@ -802,7 +813,7 @@ taf_therm_CoolingDeviceListRef_t taf_Therm::GetCoolingDeviceList()
 
     if (result != TAF_PA_OK)
     {
-        LE_ERROR("Failed to get cooling devices from PA layer");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_therm_GetCoolingDevices reason=%d", result);
         le_mem_Release(cDevListPtr);
         return NULL;
     }
@@ -905,7 +916,8 @@ taf_therm_ThermalZoneRef_t taf_Therm::GetThermalZoneByName(const char *thermalZo
 
     if (result != TAF_PA_OK)
     {
-        LE_ERROR("NO THERMAL ZONE ASSOCIATED WITH %s", thermalZoneName);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_therm_GetThermalZoneByName "
+                 "thermalZoneName=%s reason=%d", thermalZoneName, result);
         return NULL;
     }
 
@@ -925,6 +937,11 @@ taf_therm_ThermalZoneRef_t taf_Therm::GetThermalZoneByName(const char *thermalZo
     std::vector<taf_pa_therm_TripPointInfo> tripPoints;
     result = taf_pa_therm_GetTripPoints(zoneInfo.zoneId, tripPoints);
 
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_therm_GetTripPoints "
+                 "zoneId=%u reason=%d", zoneInfo.zoneId, result);
+    }
     if (result == TAF_PA_OK)
     {
         tZonePtr->tripPointListSize = tripPoints.size();
@@ -951,6 +968,11 @@ taf_therm_ThermalZoneRef_t taf_Therm::GetThermalZoneByName(const char *thermalZo
     std::vector<taf_pa_therm_BoundCoolingDevice> boundDevices;
     result = taf_pa_therm_GetBoundCoolingDevices(zoneInfo.zoneId, boundDevices);
 
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_therm_GetBoundCoolingDevices "
+                 "zoneId=%u reason=%d", zoneInfo.zoneId, result);
+    }
     if (result == TAF_PA_OK)
     {
         tZonePtr->boundCoolingDeviceListSize = boundDevices.size();
@@ -1003,7 +1025,8 @@ taf_therm_CoolingDeviceRef_t taf_Therm::GetCoolingDeviceByName(const char* cDevN
 
     if (result != TAF_PA_OK)
     {
-        LE_ERROR("NO COOLING DEVICE ASSOCIATED WITH %s", cDevName);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_therm_GetCoolingDeviceByName "
+                 "devName=%s reason=%d", cDevName, result);
         return NULL;
     }
 

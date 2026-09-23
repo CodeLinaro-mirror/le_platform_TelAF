@@ -2741,6 +2741,7 @@ le_result_t taf_net_SetSocksAuthMethod
     taf_net_AuthMethod_t authMethod
 )
 {
+    taf_pa_result_t paResult;
     taf_pa_net_AuthMethod_t auth = TAF_PA_NET_SOCKS_UNKNOWN;
 
     auth = static_cast<taf_pa_net_AuthMethod_t>(authMethod);
@@ -2748,16 +2749,19 @@ le_result_t taf_net_SetSocksAuthMethod
     if(auth != TAF_PA_NET_SOCKS_NONE && auth != TAF_PA_NET_SOCKS_USER_PASSWD)
         return LE_FAULT;
 
-    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_SetSocksAuthMethod(auth));
+    paResult = taf_pa_net_SetSocksAuthMethod(auth);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_SetSocksAuthMethod reason=%d", paResult);
+    }
+    le_result_t result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("SetSocksAuthMethod is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("SetSocksAuthMethod is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
     }
 
@@ -2783,7 +2787,7 @@ taf_net_AuthMethod_t taf_net_GetSocksAuthMethod
     taf_pa_result_t result = taf_pa_net_GetSocksAuthMethod(&auth);
     if(result != TAF_PA_OK)
     {
-        LE_ERROR("Result is %d", (int)result);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_GetSocksAuthMethod reason=%d", result);
         return TAF_NET_SOCKS_UNKNOWN;
     }
 
@@ -2807,16 +2811,20 @@ le_result_t taf_net_SetSocksLanInterface
     const char* ifName
 )
 {
-    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_SetSocksLanInterface(ifName));
+    taf_pa_result_t paResult;
+    paResult = taf_pa_net_SetSocksLanInterface(ifName);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_SetSocksLanInterface reason=%d", paResult);
+    }
+    le_result_t result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("SetSocksLanInterface is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("SetSocksLanInterface is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
     }
 
@@ -2839,16 +2847,20 @@ le_result_t taf_net_GetSocksLanInterface
     size_t ifNameSize
 )
 {
-    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_GetSocksLanInterface(ifName, ifNameSize));
+    taf_pa_result_t paResult;
+    paResult = taf_pa_net_GetSocksLanInterface(ifName, ifNameSize);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_GetSocksLanInterface reason=%d", paResult);
+    }
+    le_result_t result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("GetSocksLanInterface is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("GetSocksLanInterface is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
     }
 
@@ -2871,16 +2883,20 @@ le_result_t taf_net_AddSocksAssociation
     uint32_t profileId
 )
 {
-    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_AddSocksAssociation(userName, profileId));
+    taf_pa_result_t paResult;
+    paResult = taf_pa_net_AddSocksAssociation(userName, profileId);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_AddSocksAssociation reason=%d", paResult);
+    }
+    le_result_t result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("AddSocksAssociation is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("AddSocksAssociation is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
     }
 
@@ -2901,16 +2917,20 @@ le_result_t taf_net_RemoveSocksAssociation
     const char* userName
 )
 {
-    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_RemoveSocksAssociation(userName));
+    taf_pa_result_t paResult;
+    paResult = taf_pa_net_RemoveSocksAssociation(userName);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_RemoveSocksAssociation reason=%d", paResult);
+    }
+    le_result_t result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("RemoveSocksAssociation is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("RemoveSocksAssociation is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
     }
 

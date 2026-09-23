@@ -42,7 +42,7 @@ static void RegisterIndication
         case TAF_PA_UNSUPPORTED:
             break;
         default:
-            LE_ERROR("Failed to register indication.");
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_mrc_RegisterIndication reason=%d", result);
     }
 }
 
@@ -62,7 +62,11 @@ static void SigTermEventHandler
 
     RegisterIndication(DISABLE_INDICATION);
 
-    taf_pa_mrc_Deinit();
+    taf_pa_result_t result = taf_pa_mrc_Deinit();
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_mrc_Deinit reason=%d", result);
+    }
 
     LE_INFO("Ready to exit.");
 
@@ -313,14 +317,29 @@ COMPONENT_INIT
 
     taf_pa_result_t result = taf_pa_mrc_Init();
     if (result != TAF_PA_OK)
-        LE_ERROR("Fail to initialize MRC platform adaptor.");
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_mrc_Init reason=%d", result);
+    }
     else
     {
         // Subscribe to asynchronous PA indications before exposing the service as ready.
         RegisterIndication(ENABLE_INDICATION);
 
-        taf_pa_mrc_AddProcessStatusHandler(ProcessStatusHandler, nullptr, nullptr);
-        taf_pa_mrc_AddScrubStatusHandler(ScrubStatusHandler, nullptr, nullptr);
+        taf_pa_result_t procStatusRes = taf_pa_mrc_AddProcessStatusHandler(ProcessStatusHandler,
+            nullptr, nullptr);
+        if (procStatusRes != TAF_PA_OK)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_mrc_AddProcessStatusHandler reason=%d",
+                     procStatusRes);
+        }
+
+        taf_pa_result_t scrubStatusRes = taf_pa_mrc_AddScrubStatusHandler(ScrubStatusHandler,
+            nullptr, nullptr);
+        if (scrubStatusRes != TAF_PA_OK)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_mrc_AddScrubStatusHandler reason=%d",
+                     scrubStatusRes);
+        }
 
         le_sig_Block(SIGTERM);
         le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);

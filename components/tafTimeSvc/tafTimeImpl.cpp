@@ -674,11 +674,21 @@ static void DeregNetworkListenersOnSyncThread(void* param)
 {
     if (InitNetwork1Status == LE_OK)
     {
-        taf_pa_time_DeregNetworkTimeListener(NETWORK_SLOT_1);
+        taf_pa_result_t paResult = taf_pa_time_DeregNetworkTimeListener(NETWORK_SLOT_1);
+        if (paResult != TAF_PA_OK)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_time_DeregNetworkTimeListener reason=%d",
+                paResult);
+        }
     }
     if (InitNetwork2Status == LE_OK)
     {
-        taf_pa_time_DeregNetworkTimeListener(NETWORK_SLOT_2);
+        taf_pa_result_t paResult = taf_pa_time_DeregNetworkTimeListener(NETWORK_SLOT_2);
+        if (paResult != TAF_PA_OK)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_time_DeregNetworkTimeListener reason=%d",
+                paResult);
+        }
     }
 }
 
@@ -3534,14 +3544,28 @@ void StopSyncTimeTasksThread(void)
 
     if (InitNetwork1Status == LE_OK)
     {
+        taf_pa_result_t paResult;
+
         InitNetwork1Status = LE_UNAVAILABLE;
-        taf_pa_time_DeregNetworkTimeListener(NETWORK_SLOT_1);
+        paResult = taf_pa_time_DeregNetworkTimeListener(NETWORK_SLOT_1);
+        if (paResult != TAF_PA_OK)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_time_DeregNetworkTimeListener reason=%d",
+                paResult);
+        }
     }
 
     if (InitNetwork2Status == LE_OK)
     {
+        taf_pa_result_t paResult;
+
         InitNetwork2Status = LE_UNAVAILABLE;
-        taf_pa_time_DeregNetworkTimeListener(NETWORK_SLOT_2);
+        paResult = taf_pa_time_DeregNetworkTimeListener(NETWORK_SLOT_2);
+        if (paResult != TAF_PA_OK)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_time_DeregNetworkTimeListener reason=%d",
+                paResult);
+        }
     }
 
     le_thread_Exit(nullptr);
@@ -3584,7 +3608,7 @@ static void TafSigTermEventHandler(int sigNum)
     taf_pa_result_t result = taf_pa_time_Deinit();
     if (result != TAF_PA_OK)
     {
-        LE_ERROR("taf_pa_time_Deinit, err : %d", (int)result);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_time_Deinit reason=%d", (int)result);
     }
 
     tafTime.ReleasePtpDevice();
@@ -3723,7 +3747,7 @@ le_result_t taf_Time::RegGnssTimeListener(void)
     taf_pa_result_t result = taf_pa_RegGnssTimeListener();
     if (result != TAF_PA_OK)
     {
-        LE_ERROR("taf_pa_RegGnssTimeListener failed (%d)", result);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_RegGnssTimeListener reason=%d", result);
     }
 
     return PA_TO_LE_RESULT_FAULT(result);
@@ -3739,7 +3763,7 @@ le_result_t taf_Time::DeregGnssTimeListener(void)
     taf_pa_result_t result = taf_pa_DeregGnssTimeListener();
     if (result != TAF_PA_OK)
     {
-        LE_ERROR("taf_pa_DeregGnssTimeListener failed (%d)", result);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_DeregGnssTimeListener reason=%d", result);
     }
 
     return PA_TO_LE_RESULT_FAULT(result);
@@ -4040,12 +4064,21 @@ le_result_t taf_Time::InitNetworkTime(void)
                 InitNetwork1Status = LE_OK;
                 // If request network time failed, will be tried later.
                 pa_result = taf_pa_time_RequestNetworkTime(NETWORK_SLOT_1, Network1RespPAHandler);
+                if (pa_result != TAF_PA_OK)
+                {
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_time_RequestNetworkTime reason=%d",
+                        pa_result);
+                }
+            }
+            else
+            {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_time_RegNetworkTimeListener reason=%d",
+                    pa_result);
             }
         }
-        if (InitNetwork1Status != LE_OK || pa_result != TAF_PA_OK)
+        else
         {
-            LE_WARN("Network slot1 failed: InitNetwork1Status %d, result %d",
-                                                        (int)InitNetwork1Status, (int)pa_result);
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_network_Init reason=%d", pa_result);
         }
     }
 
@@ -4062,12 +4095,21 @@ le_result_t taf_Time::InitNetworkTime(void)
                 InitNetwork2Status = LE_OK;
                 // If request network time failed, will be tried later.
                 pa_result = taf_pa_time_RequestNetworkTime(NETWORK_SLOT_2, Network2RespPAHandler);
+                if (pa_result != TAF_PA_OK)
+                {
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_time_RequestNetworkTime reason=%d",
+                        pa_result);
+                }
+            }
+            else
+            {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_time_RegNetworkTimeListener reason=%d",
+                    pa_result);
             }
         }
-        if (InitNetwork2Status != LE_OK || pa_result != TAF_PA_OK)
+        else
         {
-            LE_WARN("Network slot2 failed: InitNetwork2Status %d, result %d",
-                                                        (int)InitNetwork2Status, (int)pa_result);
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_network_Init reason=%d", pa_result);
         }
     }
 
@@ -4077,8 +4119,8 @@ le_result_t taf_Time::InitNetworkTime(void)
         pa_result = taf_pa_time_RegNetworkTimeChangeHandler(OnNetworkTimeChangePAHandler);
         if (pa_result != TAF_PA_OK)
         {
-            // This failure will only impact the network change notification.
-            LE_WARN("Register network change handler failed");
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_time_RegNetworkTimeChangeHandler reason=%d",
+                pa_result);
         }
         LE_INFO("Network time init successful");
         return LE_OK;
@@ -4098,7 +4140,7 @@ le_result_t taf_Time::InitGnssTime(void)
     taf_pa_result_t pa_result = taf_pa_gnss_Init();
     if (pa_result != TAF_PA_OK)
     {
-        LE_WARN("GNSS init failed, err : %d", (int)pa_result);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_gnss_Init reason=%d", pa_result);
         return PA_TO_LE_RESULT_FAULT(pa_result);
     }
 
@@ -4106,7 +4148,8 @@ le_result_t taf_Time::InitGnssTime(void)
     pa_result= taf_pa_time_RegGnssUtcTimeUpdateHandler(OnGnssUtcTimeUpdatePAHandler);
     if (pa_result != TAF_PA_OK)
     {
-        LE_ERROR("RegGnssUtcTimeUpdateHandler failed, err : %d", (int)pa_result);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_time_RegGnssUtcTimeUpdateHandler reason=%d",
+            pa_result);
         return PA_TO_LE_RESULT_FAULT(pa_result);
     }
 
@@ -5178,4 +5221,3 @@ void taf_Time::Init(void)
     StartSetTimeForSystem();
 
 }
-

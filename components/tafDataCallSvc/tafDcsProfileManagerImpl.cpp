@@ -164,7 +164,12 @@ void TafDcsProfileManager::Init()
 void TafDcsProfileManager::InitProfiles()
 {
     // Get the phone IDs
-    le_result_t result = PA_TO_LE_RESULT(taf::pa::data::GetPhoneIds(phoneIds_));
+    taf_pa_result_t paResult = taf::pa::data::GetPhoneIds(phoneIds_);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::GetPhoneIds reason=%d", paResult);
+    }
+    le_result_t result = PA_TO_LE_RESULT(paResult);
     if (result != LE_OK)
     {
         LE_ERROR("Failed to get PhoneIds. result: %d. Setting to 1.", result);
@@ -294,7 +299,8 @@ taf_dcs_ProfileRef_t TafDcsProfileManager::SvcGetProfileRef
                                     static_cast<taf::pa::data::PhoneId_e>(phoneId), paSlotID));
     if (LE_OK != result)
     {
-        LE_WARN("PA GetSimSlotIdFromPhoneId failed: %d", TO_INT(result));
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::GetSimSlotIdFromPhoneId "
+                 "reason=%d", TO_INT(result));
         // Use default slot ID 1
         paSlotID = taf::pa::data::SlotId_e::SLOT_1;
     }
@@ -478,6 +484,10 @@ le_result_t TafDcsProfileManager::SvcCreateProfile(taf_dcs_ProfileRef_t profileR
     // Create the profile
     result = PA_TO_LE_RESULT(taf::pa::data::CreateProfile(
                         static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo, paProfileId));
+    if (LE_OK != result)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::CreateProfile reason=%d", TO_INT(result));
+    }
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "CreateProfile failed.");
 
     LE_INFO("Created profile ID: %d", TO_INT(paProfileId));
@@ -530,6 +540,10 @@ le_result_t TafDcsProfileManager::SvcDeleteProfile(taf_dcs_ProfileRef_t profileR
     profileInfo.profileId = static_cast<taf::pa::data::ProfileId_e>(profileId);
     result = PA_TO_LE_RESULT(taf::pa::data::DeleteProfile(
                                     static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo));
+    if (LE_OK != result)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::DeleteProfile reason=%d", TO_INT(result));
+    }
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "PA DeleteProfile failed.");
 
     // Remove the this profile object from the service map.
@@ -776,6 +790,10 @@ le_result_t TafDcsProfileManager::SvcSetAPN(taf_dcs_ProfileRef_t profileRef, con
 
         result = PA_TO_LE_RESULT(taf::pa::data::UpdateProfile(
                                     static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo));
+        if (LE_OK != result)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::UpdateProfile reason=%d", TO_INT(result));
+        }
         TAF_ERROR_IF_RET_VAL(LE_OK != result, result,"PA UpdateProfile failed: %d", TO_INT(result));
     }
 
@@ -823,6 +841,10 @@ le_result_t TafDcsProfileManager::SvcSetApnTypes
         profileInfo.apnTypeMask = TafDcsUtils::ConvertApnTypeMask(apnType);
         result = PA_TO_LE_RESULT(taf::pa::data::UpdateProfile(
                                     static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo));
+        if (LE_OK != result)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::UpdateProfile reason=%d", TO_INT(result));
+        }
         TAF_ERROR_IF_RET_VAL(LE_OK != result, result,"PA UpdateProfile failed: %d", TO_INT(result));
     }
 
@@ -867,6 +889,10 @@ le_result_t TafDcsProfileManager::SvcSetPDP(taf_dcs_ProfileRef_t profileRef, taf
 
         result = PA_TO_LE_RESULT(taf::pa::data::UpdateProfile(
             static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo));
+        if (LE_OK != result)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::UpdateProfile reason=%d", TO_INT(result));
+        }
         TAF_ERROR_IF_RET_VAL(LE_OK != result, result,"PA UpdateProfile failed: %d", TO_INT(result));
     }
 
@@ -916,6 +942,10 @@ le_result_t TafDcsProfileManager::SvcSetProfileName
 
         result = PA_TO_LE_RESULT(taf::pa::data::UpdateProfile(
             static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo));
+        if (LE_OK != result)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::UpdateProfile reason=%d", TO_INT(result));
+        }
         TAF_ERROR_IF_RET_VAL(LE_OK != result, result,"PA UpdateProfile failed: %d", TO_INT(result));
     }
 
@@ -964,6 +994,10 @@ le_result_t TafDcsProfileManager::SvcSetTechPreference
 
         result = PA_TO_LE_RESULT(taf::pa::data::UpdateProfile(
                             static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo));
+        if (LE_OK != result)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::UpdateProfile reason=%d", TO_INT(result));
+        }
         TAF_ERROR_IF_RET_VAL(LE_OK != result, result,"PA UpdateProfile failed: %d", TO_INT(result));
     }
     result = profile.SetTech(techPreference);
@@ -1025,6 +1059,11 @@ le_result_t TafDcsProfileManager::SvcSetAuthentication
 
             result = PA_TO_LE_RESULT(taf::pa::data::UpdateProfile(
                 static_cast<taf::pa::data::PhoneId_e>(phoneId), profileInfo));
+            if (LE_OK != result)
+            {
+                LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::UpdateProfile reason=%d",
+                         TO_INT(result));
+            }
             TAF_ERROR_IF_RET_VAL(LE_OK != result,result, "PA UpdateProfile failed: %d",
                                                                                 TO_INT(result));
         }
@@ -1120,6 +1159,10 @@ le_result_t TafDcsProfileManager::SvcGetRoamingStatus
     taf::pa::data::RoamingStatus_t roamingStatus;
     le_result_t result = PA_TO_LE_RESULT(taf::pa::data::GetRoamingStatus(
                                     static_cast<taf::pa::data::PhoneId_e>(phoneId),roamingStatus));
+    if (LE_OK != result)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::GetRoamingStatus reason=%d", TO_INT(result));
+    }
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "PA GetRoamingStatus failed.");
 
     *isRoamingPtr = roamingStatus.isRoaming;
@@ -1608,6 +1651,11 @@ le_result_t TafDcsProfileManager::SvcGetAPNThrottledStatus
 
     result = PA_TO_LE_RESULT(taf::pa::data::GetThrottledApnInfo(
         static_cast<taf::pa::data::PhoneId_e>(phoneId), throttledApnEventInfoList));
+    if (LE_OK != result)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::GetThrottledApnInfo reason=%d",
+                 TO_INT(result));
+    }
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result,
                                             "PA GetThrottledApnInfo failed: %d", TO_INT(result));
 
@@ -1704,6 +1752,11 @@ le_result_t TafDcsProfileManager::SvcGetAPNThrottledPLMN
 
     result = PA_TO_LE_RESULT(taf::pa::data::GetThrottledApnInfo(
                         static_cast<taf::pa::data::PhoneId_e>(phoneId), throttledApnEventInfoList));
+    if (LE_OK != result)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::GetThrottledApnInfo reason=%d",
+                 TO_INT(result));
+    }
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result,
                                         "PA GetThrottledApnInfo failed: %d", TO_INT(result));
 
@@ -1862,7 +1915,12 @@ le_result_t TafDcsProfileManager::SvcStartSessionSync
         TafDcsUtils::ConvertPDP(pdpIpType),
         customInterface
     };
-    result = PA_TO_LE_RESULT(taf::pa::data::StartDataSessionAsync(params));
+    taf_pa_result_t paResult = taf::pa::data::StartDataSessionAsync(params);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::StartDataSessionAsync reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
     if (LE_OK != result)
     {
         LE_WARN("StartDataSession failed: %d", TO_INT(result));
@@ -2098,7 +2156,12 @@ void TafDcsProfileManager::SvcStartSessionASync
         TafDcsUtils::ConvertPDP(pdpIpType),
         customInterface
     };
-    result = PA_TO_LE_RESULT(taf::pa::data::StartDataSessionAsync(params));
+    taf_pa_result_t paResult = taf::pa::data::StartDataSessionAsync(params);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::StartDataSessionAsync reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
     if (LE_OK != result)
     {
         LE_WARN("StartDataSession failed: %d", TO_INT(result));
@@ -2189,7 +2252,12 @@ le_result_t TafDcsProfileManager::SvcStopSessionSync
         ""
     };
 
-    result = PA_TO_LE_RESULT(taf::pa::data::StopDataSessionAsync(params));
+    taf_pa_result_t paResult = taf::pa::data::StopDataSessionAsync(params);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::StopDataSessionAsync reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
     if (LE_OK != result)
     {
         LE_WARN("StopDataSessionAsync failed: %d", TO_INT(result));
@@ -2398,7 +2466,12 @@ void TafDcsProfileManager::SvcStopSessionASync
         ""
     };
 
-    result = PA_TO_LE_RESULT(taf::pa::data::StopDataSessionAsync(params));
+    taf_pa_result_t paResult = taf::pa::data::StopDataSessionAsync(params);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::StopDataSessionAsync reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
     if (LE_OK != result)
     {
         LE_WARN("StopDataSessionAsync failed: %d", TO_INT(result));
@@ -2478,7 +2551,12 @@ le_result_t TafDcsProfileManager::SvcSetDefaultProfileIndexEx(uint8_t phoneId, u
     }
     taf::pa::data::PhoneId_e   paPhoneId   = static_cast<taf::pa::data::PhoneId_e>(phoneId);
     taf::pa::data::ProfileId_e paProfileId = static_cast<taf::pa::data::ProfileId_e>(profileId);
-    le_result_t result = PA_TO_LE_RESULT(taf::pa::data::SetDefaultProfile(paPhoneId, paProfileId));
+    taf_pa_result_t paResult = taf::pa::data::SetDefaultProfile(paPhoneId, paProfileId);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::SetDefaultProfile reason=%d", paResult);
+    }
+    le_result_t result = PA_TO_LE_RESULT(paResult);
     TAF_ERROR_IF_RET_VAL(LE_OK != result, result, "SetDefaultProfile failed: %d", TO_INT(result));
 
     // Update local default profile ID map after getting a write lock.
@@ -2839,7 +2917,12 @@ le_result_t TafDcsProfileManager::SvcSetThroughputReport(
         static_cast<taf::pa::data::PhoneId_e>(phoneId),
         effectiveInterval
     ));
-  
+    if (result != LE_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::SetThroughputReportInterval "
+                 "reason=%d", TO_INT(result));
+    }
+
     return result;
 }
 
@@ -2857,7 +2940,11 @@ le_result_t TafDcsProfileManager::SvcGetLastThroughputInfoList(
         paList
     ));
 
-    if (result != LE_OK) return result;
+    if (result != LE_OK) {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::GetLastThroughputInfo reason=%d",
+                 TO_INT(result));
+        return result;
+    }
 
     // Create new list object
     TafDcsThroughputList_t* newList = new TafDcsThroughputList_t();
@@ -3480,7 +3567,12 @@ le_result_t TafDcsProfileManager::updateProfile(const TafDcsUpdateProfileEvent_t
     // Create a new profile
     taf::pa::data::PhoneId_e phoneId = taf::pa::data::PhoneId_e::PHONE_1;
     taf::pa::data::SlotId_e  slotID = static_cast<taf::pa::data::SlotId_e>(eventPtr->slotId);
-    result = PA_TO_LE_RESULT(taf::pa::data::GetPhoneIdFromSimSlotId(slotID, phoneId));
+    taf_pa_result_t paResult = taf::pa::data::GetPhoneIdFromSimSlotId(slotID, phoneId);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::GetPhoneIdFromSimSlotId reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
     if (LE_OK != result)
     {
         LE_WARN("PA GetPhoneIdFromSimSlotId failed: %d", TO_INT(result));
@@ -3881,7 +3973,12 @@ void TafDcsProfileManager::getProfilesAsyncCb
     LE_DEBUG("Number of profiles             : %zu", profiles.size());
 
     taf::pa::data::SlotId_e slotId;
-    taf::pa::data::GetSimSlotIdFromPhoneId(phoneId, slotId);
+    taf_pa_result_t slotIdRes = taf::pa::data::GetSimSlotIdFromPhoneId(phoneId, slotId);
+    if (slotIdRes != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::GetSimSlotIdFromPhoneId "
+                 "reason=%d", slotIdRes);
+    }
     LE_DEBUG("Slot Id : %d", TO_INT(slotId));
 
     // Locking is not needed here as the PA holds a mutex
@@ -3945,8 +4042,13 @@ void TafDcsProfileManager::initProfiles()
     for (taf::pa::data::PhoneId_e phoneId : phoneIds_)
     {
         LE_DEBUG("Get profiles for phone ID: %d", TO_INT(phoneId));
-        result = PA_TO_LE_RESULT(taf::pa::data::GetProfilesAsync(phoneId, getProfilesAsyncCb,
-            nullptr));
+        taf_pa_result_t paResult = taf::pa::data::GetProfilesAsync(phoneId, getProfilesAsyncCb,
+            nullptr);
+        if (paResult != TAF_PA_OK)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::GetProfilesAsync reason=%d", paResult);
+        }
+        result = PA_TO_LE_RESULT(paResult);
         if (LE_OK != result)
         {
             LE_WARN("GetProfilesAsync failed: %d", result);
@@ -3966,7 +4068,12 @@ void TafDcsProfileManager::updateDefaultProfiles()
     for (taf::pa::data::PhoneId_e phoneId : phoneIds_)
     {
         taf::pa::data::ProfileId_e profileId;
-        le_result_t result = PA_TO_LE_RESULT(taf::pa::data::GetDefaultProfile(phoneId, profileId));
+        taf_pa_result_t paResult = taf::pa::data::GetDefaultProfile(phoneId, profileId);
+        if (paResult != TAF_PA_OK)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::GetDefaultProfile reason=%d", paResult);
+        }
+        le_result_t result = PA_TO_LE_RESULT(paResult);
         if (LE_OK == result)
         {
             LE_DEBUG("Def profile for phone ID: %d = %d", TO_INT(phoneId), TO_INT(profileId));
@@ -3993,33 +4100,66 @@ void TafDcsProfileManager::registerPACallbacks()
     // Register the data events callback
     le_result_t result = PA_TO_LE_RESULT(taf::pa::data::AddDataCallEventsCallback (
                                         tafPaDataCallEventsCb, nullptr, dataEventsCallbackId_));
+    if (LE_OK != result)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::AddDataCallEventsCallback "
+                 "reason=%d", TO_INT(result));
+    }
     LE_DEBUG("AddDataCallEventsCallback, res: %d, Id: %d", TO_INT(result), dataEventsCallbackId_);
 
     // Register the roaming events callback
     result = PA_TO_LE_RESULT(taf::pa::data::AddRoamingEventsCallback (
                                     tafPaRoamingEventsCb, nullptr,roamingEventsCallbackId_));
+    if (LE_OK != result)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::AddRoamingEventsCallback "
+                 "reason=%d", TO_INT(result));
+    }
     LE_DEBUG("AddRoamingEventsCallback, res: %d, Id: %d", TO_INT(result), roamingEventsCallbackId_);
 
     // Register the throttled APN events callback
-    result = PA_TO_LE_RESULT(taf::pa::data::AddThrottledApnEventsCallback(
-                                tafPaThrottledApnEventsCb, nullptr, throttledApnEventsCallbackId_));
+    taf_pa_result_t paResult = taf::pa::data::AddThrottledApnEventsCallback(
+                                tafPaThrottledApnEventsCb, nullptr, throttledApnEventsCallbackId_);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::AddThrottledApnEventsCallback "
+                 "reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
     LE_DEBUG("AddThrottledApnEventsCallback, res: %d, Id: %d", TO_INT(result),
                                                                     throttledApnEventsCallbackId_);
 
     // Register the QoS TFT events callback
     result = PA_TO_LE_RESULT(taf::pa::data::AddQosTftEventsCallback (
                                             tafPaQosTftEventsCb, nullptr,qosTftEventsCallbackId_));
+    if (LE_OK != result)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::AddQosTftEventsCallback "
+                 "reason=%d", TO_INT(result));
+    }
     LE_DEBUG("AddQosTftEventsCallback, res: %d, Id: %d", TO_INT(result), qosTftEventsCallbackId_);
 
     // Register the HW acceleration events callback
-    result = PA_TO_LE_RESULT(taf::pa::data::AddHwAccelerationChangeEventsCallback(
-                            tafPaHwAccelerationEventsCb,nullptr, hwAccelerationEventsCallbackId_));
+    paResult = taf::pa::data::AddHwAccelerationChangeEventsCallback(
+                            tafPaHwAccelerationEventsCb,nullptr, hwAccelerationEventsCallbackId_);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::AddHwAccelerationChangeEventsCallback "
+                 "reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
     LE_DEBUG("AddHwAccelerationChangeEventsCallback, res: %d, Id: %d", TO_INT(result),
                                                                    hwAccelerationEventsCallbackId_);
 
     // Register the throughput info events callback
-    result = PA_TO_LE_RESULT(taf::pa::data::AddThroughputEventsCallback(
-                            tafPaThroughputEventsCb, nullptr, throughputEventsCallbackId_));
+    paResult = taf::pa::data::AddThroughputEventsCallback(
+                            tafPaThroughputEventsCb, nullptr, throughputEventsCallbackId_);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::AddThroughputEventsCallback "
+                 "reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
     LE_DEBUG("AddThroughputEventsCallback, res: %d, Id: %d", TO_INT(result),
                                                             throughputEventsCallbackId_);
 
@@ -4028,20 +4168,51 @@ void TafDcsProfileManager::registerPACallbacks()
 
 void TafDcsProfileManager::deregisterPACallbacks()
 {
-    taf::pa::data::RemoveDataCallEventsCallback(dataEventsCallbackId_);
+    taf_pa_result_t paResult = taf::pa::data::RemoveDataCallEventsCallback(dataEventsCallbackId_);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::RemoveDataCallEventsCallback "
+                 "reason=%d", paResult);
+    }
     dataEventsCallbackId_ = 0;
-    taf::pa::data::RemoveRoamingEventsCallback(roamingEventsCallbackId_);
+    paResult = taf::pa::data::RemoveRoamingEventsCallback(roamingEventsCallbackId_);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::RemoveRoamingEventsCallback "
+                 "reason=%d", paResult);
+    }
     roamingEventsCallbackId_ = 0;
-    taf::pa::data::RemoveThrottledApnEventsCallback(throttledApnEventsCallbackId_);
+    paResult = taf::pa::data::RemoveThrottledApnEventsCallback(throttledApnEventsCallbackId_);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::RemoveThrottledApnEventsCallback "
+                 "reason=%d", paResult);
+    }
     throttledApnEventsCallbackId_ = 0;
-    taf::pa::data::RemoveQosTftEventsCallback(qosTftEventsCallbackId_);
+    paResult = taf::pa::data::RemoveQosTftEventsCallback(qosTftEventsCallbackId_);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::RemoveQosTftEventsCallback "
+                 "reason=%d", paResult);
+    }
     qosTftEventsCallbackId_ = 0;
-    taf::pa::data::RemoveHwAccelerationChangeEventsCallback(hwAccelerationEventsCallbackId_);
+    paResult = taf::pa::data::RemoveHwAccelerationChangeEventsCallback(
+        hwAccelerationEventsCallbackId_);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::RemoveHwAccelerationChangeEventsCallback "
+                 "reason=%d", paResult);
+    }
     hwAccelerationEventsCallbackId_ = 0;
 
     if (throughputEventsCallbackId_ != 0)
     {
-        taf::pa::data::RemoveThroughputEventsCallback(throughputEventsCallbackId_);
+        paResult = taf::pa::data::RemoveThroughputEventsCallback(throughputEventsCallbackId_);
+        if (paResult != TAF_PA_OK)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::RemoveThroughputEventsCallback "
+                     "reason=%d", paResult);
+        }
         throughputEventsCallbackId_ = 0;
     }
 }
@@ -4865,7 +5036,12 @@ void TafDcsProfileManager::sessionStopEvtHandler(void *reqPtr)
         TafDcsUtils::ConvertPDP(eventPtr->ipType_pdp),
         ""
     };
-    le_result_t result = PA_TO_LE_RESULT(taf::pa::data::StopDataSessionAsync(params));
+    taf_pa_result_t paResult = taf::pa::data::StopDataSessionAsync(params);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf::pa::data::StopDataSessionAsync reason=%d", paResult);
+    }
+    le_result_t result = PA_TO_LE_RESULT(paResult);
     LE_INFO ("StopDataSessionAsync result: %d", result);
 }
 

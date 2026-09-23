@@ -25,9 +25,15 @@ void taf_Net::Init(void)
 {
     LE_INFO("data net component init...");
 
+    taf_pa_result_t paResult;
     le_result_t isReady;
 
-    isReady =  PA_TO_LE_RESULT(taf_pa_net_Init());
+    paResult = taf_pa_net_Init();
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_Init reason=%d", paResult);
+    }
+    isReady = PA_TO_LE_RESULT(paResult);
 
     if(isReady == LE_OK)
     {
@@ -476,22 +482,26 @@ taf_net_DfltGwConfDb_t* taf_Net::GetDefaultGwConfDbBySessionRef(le_msg_SessionRe
 
 le_result_t taf_Net::getPhoneIdFromSlotId(uint8_t slotId, uint8_t *phoneIdPtr)
 {
+    taf_pa_result_t paResult;
     le_result_t result;
 
     TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(phoneIdPtr)");
 
-    result = PA_TO_LE_RESULT(taf_pa_net_GetPhoneIdFromSlotId(slotId, phoneIdPtr));
+    paResult = taf_pa_net_GetPhoneIdFromSlotId(slotId, phoneIdPtr);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_GetPhoneIdFromSlotId reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
 
     LE_DEBUG("result =%d, slotId = %d, phoneId = %d", result, slotId, *phoneIdPtr);
 
     if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("GetPhoneIdFromSlotId is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("GetPhoneIdFromSlotId is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
     }
 
@@ -500,22 +510,26 @@ le_result_t taf_Net::getPhoneIdFromSlotId(uint8_t slotId, uint8_t *phoneIdPtr)
 
 le_result_t taf_Net::getSlotIdFromPhoneId(uint8_t phoneId, uint8_t *slotIdPtr)
 {
+    taf_pa_result_t paResult;
     le_result_t result;
 
     TAF_ERROR_IF_RET_VAL(slotIdPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(slotIdPtr)");
 
-    result = PA_TO_LE_RESULT(taf_pa_net_GetSlotIdFromPhoneId(phoneId, slotIdPtr));
+    paResult = taf_pa_net_GetSlotIdFromPhoneId(phoneId, slotIdPtr);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_GetSlotIdFromPhoneId reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
 
     LE_DEBUG("result =%d, slotId = %d, phoneId = %d",result, *slotIdPtr, phoneId);
 
     if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("GetSlotIdFromPhoneId is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("GetSlotIdFromPhoneId is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
     }
 

@@ -788,7 +788,8 @@ le_result_t VoiceCallSvc::MakeCall(taf_VoiceCtrl_t *callCtxPtr, const char *dial
         taf_pa_voicecall_Make,
         DirToPADir(callCtxPtr->dir),
         TAF_VOICECALL_EVENT_RESOURCE_BUSY,
-        "MakeCall"
+        "MakeCall",
+        "taf_pa_voicecall_Make"
     );
 
     if (result != LE_OK)
@@ -818,7 +819,8 @@ le_result_t VoiceCallSvc::AnswerCall(taf_voicecall_CallRef_t callRef, le_msg_Ses
         taf_pa_voicecall_Answer,
         DirToPADir(callCtxPtr->dir),
         TAF_VOICECALL_EVENT_CALL_ANSWER_FAILED,
-        "AnswerCall"
+        "AnswerCall",
+        "taf_pa_voicecall_Answer"
     );
 
     if (result != LE_OK)
@@ -860,7 +862,8 @@ le_result_t VoiceCallSvc::StopCall(taf_voicecall_CallRef_t callRef, le_msg_Sessi
         taf_pa_voicecall_Stop,
         DirToPADir(callCtxPtr->dir),
         TAF_VOICECALL_EVENT_CALL_END_FAILED,
-        "StopCall"
+        "StopCall",
+        "taf_pa_voicecall_Stop"
     );
 
     if (result == LE_NOT_FOUND || result == LE_DUPLICATE)
@@ -882,7 +885,8 @@ le_result_t VoiceCallSvc::HoldCall(taf_voicecall_CallRef_t callRef, le_msg_Sessi
         taf_pa_voicecall_Hold,
         DirToPADir(callCtxPtr->dir),
         TAF_VOICECALL_EVENT_CALL_HOLD_FAILED,
-        "HoldCall"
+        "HoldCall",
+        "taf_pa_voicecall_Hold"
     );
 
     if (result == LE_DUPLICATE)
@@ -904,7 +908,8 @@ le_result_t VoiceCallSvc::ResumeCall(taf_voicecall_CallRef_t callRef, le_msg_Ses
         taf_pa_voicecall_Resume,
         DirToPADir(callCtxPtr->dir),
         TAF_VOICECALL_EVENT_CALL_RESUME_FAILED,
-        "ResumeCall"
+        "ResumeCall",
+        "taf_pa_voicecall_Resume"
     );
 }
 
@@ -949,7 +954,8 @@ le_result_t VoiceCallSvc::SwapCall(taf_voicecall_CallRef_t callRef, le_msg_Sessi
         taf_pa_voicecall_Swap,
         DirToPADir(callCtxPtr->dir),
         TAF_VOICECALL_EVENT_CALL_SWAP_FAILED,
-        "SwapCall"
+        "SwapCall",
+        "taf_pa_voicecall_Swap"
     );
 }
 
@@ -1057,22 +1063,27 @@ void VoiceCallSvc::Init(void)
     // Add the state changed handler
     le_event_AddHandler("tafCall state changed", CallEvent, Handler::ProcessStateChanged);
 
-    if (taf_pa_voicecall_Init() != TAF_PA_OK)
+    taf_pa_result_t initRes = taf_pa_voicecall_Init();
+    if (initRes != TAF_PA_OK)
     {
-        LE_FATAL("Cannot initialize voice call platform adaptor");
+        LE_FATAL("[PA_CALL_FAILED] api=taf_pa_voicecall_Init reason=%d", initRes);
     }
 
     // Register platform adapter listener
     taf_pa_result_t result = taf_pa_voicecall_RegisterEventListener(Handler::PaEventListener, nullptr);
     if (result != TAF_PA_OK)
     {
-        LE_ERROR("Failed to register platform adapter listener, ret: %d", result);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_voicecall_RegisterEventListener reason=%d", result);
     }
 
     taf_pa_voicecall_CallInfo_t callInfo;
     taf_pa_voicecall_termination_t termination;
 
-    taf_pa_voicecall_GetCallTermination(callInfo, &termination);
+    taf_pa_result_t getTermRes = taf_pa_voicecall_GetCallTermination(callInfo, &termination);
+    if (getTermRes != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_voicecall_GetCallTermination reason=%d", getTermRes);
+    }
 
     LE_INFO("System ready, start voice call service!\n");
 
@@ -1083,4 +1094,3 @@ VoiceCallSvc &VoiceCallSvc::GetInstance()
     static VoiceCallSvc instance;
     return instance;
 }
-

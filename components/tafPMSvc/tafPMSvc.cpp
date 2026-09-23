@@ -486,7 +486,7 @@ le_result_t taf_PM::SetPowerState
             svcRst = to_SvcResult(paRst);
             if (TAF_PA_OK != paRst)
             {
-                LE_ERROR("Failed to invoke PA:SetPowerStateAsMaster: %d (svc_result: %d)", paRst, svcRst);
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_pms_SetPowerStateAsMaster reason=%d", paRst);
             }
             else
             {
@@ -724,8 +724,7 @@ void taf_PM::SendAckToPaLayer
 
     if (TAF_PA_OK != paRst)
     {
-        le_result_t svcRst = to_SvcResult(paRst);
-        LE_ERROR("Failed to invoke PA:SendAckForStateUpdate: %d (svc_result: %d)", paRst, svcRst);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_pms_SendAckForStateUpdate reason=%d", paRst);
     }
 }
 
@@ -1161,7 +1160,6 @@ void taf_PM::Handle_sig_SIGTERM
     LE_INFO("Captured sig(SIGTERM) <--");
 
     taf_pa_result_t paRst = TAF_PA_OK;
-    le_result_t svcRst = LE_OK;
 
     // Resume in SA525M before service termination as master app is terminating
     if (pm.GetCurrentState() != TAF_PM_STATE_RESUME)
@@ -1174,8 +1172,7 @@ void taf_PM::Handle_sig_SIGTERM
 
         if (TAF_PA_OK != paRst)
         {
-            svcRst = to_SvcResult(paRst);
-            LE_ERROR("Failed to invoke PA:SetPowerStateAsMaster error: %d (le_result: %d)", paRst, svcRst);
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_pms_SetPowerStateAsMaster reason=%d", paRst);
         }
         else
         {
@@ -1189,8 +1186,7 @@ void taf_PM::Handle_sig_SIGTERM
     paRst = taf_pa_pms_Deinit(&pm.pa);
     if (TAF_PA_OK != paRst)
     {
-        svcRst = to_SvcResult(paRst);
-        LE_ERROR("Failed to invoke PA:Deinit: %d (le_result: %d)", paRst, svcRst);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_pms_Deinit reason=%d", paRst);
     }
 
     exit(EXIT_SUCCESS);
@@ -1369,11 +1365,11 @@ void taf_PM::TryToInitPaLayer()
     else if (TAF_PA_TIMEOUT == rst)
     {
         // Retry ? No, we don't know where is stoped, so..
-        LE_FATAL("Pa Init Timeout");
+        LE_FATAL("[PA_CALL_FAILED] api=taf_pa_pms_Init reason=%d", rst);
     }
     else // Others: e.g. PaResult(FAULT)
     {
-        LE_FATAL("Pa Init Failed");
+        LE_FATAL("[PA_CALL_FAILED] api=taf_pa_pms_Init reason=%d", rst);
     }
 }
 
@@ -2135,8 +2131,7 @@ taf_pm_VMListRef_t API(GetMachineList)
     taf_pa_result_t paRst = taf_pa_pms_GetAllMachineNames(pm.pa, machineNames);
     if (TAF_PA_OK != paRst)
     {
-        le_result_t svcRst = to_SvcResult(paRst);
-        LE_ERROR("Failed to GetAllMachineNames from PA Layer: %d (le_result: %d)", paRst, svcRst);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_pms_GetAllMachineNames reason=%d", paRst);
         return nullptr;
     }
 
@@ -2314,6 +2309,10 @@ le_result_t API(SetModemWakeupSel)
 )
 {
     taf_pa_result_t paRst = taf_pa_pms_SetModemWakeupFilter(pm.pa, wsBitmask);
+    if (TAF_PA_OK != paRst)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_pms_SetModemWakeupFilter reason=%d", paRst);
+    }
     return to_SvcResult(paRst);
 }
 
@@ -2334,6 +2333,7 @@ le_result_t API(GetModemWakeupSel)
     taf_pa_result_t paRst = taf_pa_pms_GetModemWakeupFilter(pm.pa, wsBitmaskPtr);
     if (TAF_PA_OK != paRst)
     {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_pms_GetModemWakeupFilter reason=%d", paRst);
         *wsBitmaskPtr = 0;
         return to_SvcResult(paRst);
     }

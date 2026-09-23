@@ -29,7 +29,7 @@ le_result_t taf_devInfo::GetIMEI(char* imeiPtr, size_t numElements) {
 
     taf_pa_result_t status = taf_pa_deviceinfo_GetIMEI(imeiValue, sizeof(imeiValue));
     TAF_ERROR_IF_RET_VAL(status != TAF_PA_OK, LE_FAULT,
-         "request for IMEI failed(status = %d)", static_cast<int>(status));
+         "[PA_CALL_FAILED] api=taf_pa_deviceinfo_GetIMEI reason=%d", static_cast<int>(status));
 
     LE_INFO("Retrieved IMEI successfully: %s", imeiValue);
 
@@ -70,6 +70,7 @@ void taf_devInfo::Init() {
     result = taf_pa_deviceinfo_Init();
     if (result != TAF_PA_OK)
     {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_deviceinfo_Init reason=%d", result);
         LE_FATAL("Cannot initialize device info platform adaptor");
     }
 #endif

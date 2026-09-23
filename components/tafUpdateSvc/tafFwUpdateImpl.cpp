@@ -1105,9 +1105,9 @@ le_result_t taf_FwUpdate::InitPartitionList
     if (!init)
     {
         taf_pa_result_t ret = taf_pa_flash_Init();
-        if (ret)
+        if (ret != TAF_PA_OK)
         {
-            LE_ERROR("Failed to init flash access.");
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_Init reason=%d", ret);
             return LE_FAULT;
         }
 
@@ -1931,10 +1931,9 @@ void taf_FwUpdate::UpdateImage
                 taf_pa_flash_MtdRef_t mtdRef = nullptr;
                 taf_pa_result_t ret = taf_pa_flash_OpenMtd(tafFwUpdate.partitions[i].name,
                     TAF_PA_FLASH_BITMASK_OPEN_MODE_READ_WRITE, &mtdRef);
-                if (ret)
+                if (ret != TAF_PA_OK)
                 {
-                    LE_ERROR("Fail to open partition %s, ret = %d, error: %s",
-                        tafFwUpdate.partitions[i].name, ret, strerror(errno));
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_OpenMtd reason=%d", ret);
                     tafFwUpdate.SetErrorCode(errno);
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
                     fclose(fp);
@@ -1943,13 +1942,21 @@ void taf_FwUpdate::UpdateImage
 
                 taf_pa_flash_MtdInfo_t info;
                 ret = taf_pa_flash_GetMtdInfo(mtdRef, &info);
-                if (ret || info.eraseSize == 0)
+                if (ret != TAF_PA_OK || info.eraseSize == 0)
                 {
-                    LE_ERROR("Fail to get partition %s information, ret = %d, error: %s",
-                        tafFwUpdate.partitions[i].name, ret, strerror(errno));
+                    if (ret != TAF_PA_OK)
+                    {
+                        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_GetMtdInfo reason=%d", ret);
+                    }
+                    else
+                    {
+                        LE_ERROR("Invalid MTD information: eraseSize is zero.");
+                    }
                     tafFwUpdate.SetErrorCode(errno);
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
-                    taf_pa_flash_CloseMtd(mtdRef);
+                    ret = taf_pa_flash_CloseMtd(mtdRef);
+                    if (ret != TAF_PA_OK)
+                        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CloseMtd reason=%d", ret);
                     fclose(fp);
                     return;
                 }
@@ -1961,23 +1968,27 @@ void taf_FwUpdate::UpdateImage
                 {
                     bool isGood = false;
                     ret = taf_pa_flash_CheckMtdGoodBlock(mtdRef, blockIdx, &isGood);
-                    if (ret == 0)
+                    if (ret != TAF_PA_OK)
                     {
-                        if (isGood)
+                        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CheckMtdGoodBlock reason=%d",
+                                 ret);
+                    }
+                    else if (isGood)
+                    {
+                        ret = taf_pa_flash_EraseMtdBlock(mtdRef, blockIdx);
+                        if (ret != TAF_PA_OK)
                         {
-                            ret = taf_pa_flash_EraseMtdBlock(mtdRef, blockIdx);
-                            if (ret)
-                            {
-                                ret = taf_pa_flash_MarkMtdBadBlock(mtdRef, blockIdx);
-                                if (ret)
-                                    LE_ERROR("Fail to mark %d block as bad.", blockIdx);
-                            }
+                            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_EraseMtdBlock reason=%d",
+                                     ret);
+                            ret = taf_pa_flash_MarkMtdBadBlock(mtdRef, blockIdx);
+                            if (ret != TAF_PA_OK)
+                                LE_ERROR("[PA_CALL_FAILED] "
+                                         "api=taf_pa_flash_MarkMtdBadBlock reason=%d",
+                                         ret);
                         }
-                        else
-                            LE_WARN("Skip erasing %d bad block", blockIdx);
                     }
                     else
-                        LE_ERROR("Failed to get %d block status.", blockIdx);
+                        LE_WARN("Skip erasing %d bad block", blockIdx);
                 }
                 LE_INFO("MTD partition %s is erased.", tafFwUpdate.partitions[i].name);
 
@@ -1992,6 +2003,9 @@ void taf_FwUpdate::UpdateImage
                     // Skip the bad blocks.
                     bool isGood = false;
                     ret = taf_pa_flash_CheckMtdGoodBlock(mtdRef, blockIdx, &isGood);
+                    if (ret != TAF_PA_OK)
+                        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CheckMtdGoodBlock reason=%d",
+                                 ret);
                     if (ret == 0 && !isGood)
                     {
                         LE_WARN("Skip bad blcok at %d.", blockIdx);
@@ -2011,14 +2025,16 @@ void taf_FwUpdate::UpdateImage
 
                         ret = taf_pa_flash_WriteMtdPage(mtdRef, pageIdx + blockIdx * pagesPerBlock,
                             buffer, TAF_FWUPDATE_FLASH_PAGE_SIZE);
-                        if (ret)
+                        if (ret != TAF_PA_OK)
                         {
-                            LE_ERROR("Can not to write %s at page %d, error: %s",
-                                tafFwUpdate.partitions[i].name,
-                                pageIdx + blockIdx * pagesPerBlock, strerror(errno));
+                            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_WriteMtdPage reason=%d",
+                                     ret);
                             tafFwUpdate.SetErrorCode(errno);
                             tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
-                            taf_pa_flash_CloseMtd(mtdRef);
+                            ret = taf_pa_flash_CloseMtd(mtdRef);
+                            if (ret != TAF_PA_OK)
+                                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CloseMtd reason=%d",
+                                         ret);
                             fclose(fp);
                             return;
                         }
@@ -2043,17 +2059,18 @@ void taf_FwUpdate::UpdateImage
                     }
                 }
 
-                taf_pa_flash_CloseMtd(mtdRef);
+                ret = taf_pa_flash_CloseMtd(mtdRef);
+                if (ret != TAF_PA_OK)
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CloseMtd reason=%d", ret);
             }
             else
             {
                 taf_pa_flash_UbiVolumeRef_t ubiRef = nullptr;
-                int ret = taf_pa_flash_OpenUbiVolume(tafFwUpdate.partitions[i].name,
+                taf_pa_result_t ret = taf_pa_flash_OpenUbiVolume(tafFwUpdate.partitions[i].name,
                     TAF_PA_FLASH_BITMASK_OPEN_MODE_READ_WRITE, &ubiRef);
-                if (ret)
+                if (ret != TAF_PA_OK)
                 {
-                    LE_ERROR("Fail to open partition %s, ret = %d, error: %s",
-                        tafFwUpdate.partitions[i].name, ret, strerror(errno));
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_OpenUbiVolume reason=%d", ret);
                     tafFwUpdate.SetErrorCode(errno);
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
                     fclose(fp);
@@ -2062,16 +2079,15 @@ void taf_FwUpdate::UpdateImage
 
                 ret = taf_pa_flash_SetUbiVolumeUpdateSize(ubiRef, pages *
                     TAF_FWUPDATE_FLASH_PAGE_SIZE);
-                if (ret)
+                if (ret != TAF_PA_OK)
                 {
-                    LE_ERROR("Fail to set upgrade size for ubi %s, ret = %d, error: %s",
-                        tafFwUpdate.partitions[i].name, ret, strerror(errno));
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_SetUbiVolumeUpdateSize reason=%d",
+                             ret);
                     tafFwUpdate.SetErrorCode(errno);
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
                     ret = taf_pa_flash_CloseUbiVolume(ubiRef);
-                    if (ret)
-                        LE_ERROR("Fail to close ubi %s, ret = %d, error: %s",
-                            tafFwUpdate.partitions[i].name, ret, strerror(errno));
+                    if (ret != TAF_PA_OK)
+                        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CloseUbiVolume reason=%d", ret);
                     fclose(fp);
                     return;
                 }
@@ -2082,20 +2098,20 @@ void taf_FwUpdate::UpdateImage
                 int error = 0;
                 for (uint32_t j = 0; j < pages; j++)
                 {
-                    ret = fread(buffer, 1, TAF_FWUPDATE_FLASH_PAGE_SIZE, fp);
-                    if (ret < TAF_FWUPDATE_FLASH_PAGE_SIZE)
+                    size_t bytesRead = fread(buffer, 1, TAF_FWUPDATE_FLASH_PAGE_SIZE, fp);
+                    if (bytesRead < TAF_FWUPDATE_FLASH_PAGE_SIZE)
                     {
-                        memset(buffer + ret, 0xFF, TAF_FWUPDATE_FLASH_PAGE_SIZE - ret);
-                        LE_INFO("Padding 0xFF in %s at page %d, start at %d.\n",
-                            tafFwUpdate.partitions[i].name, j, ret);
+                        memset(buffer + bytesRead, 0xFF, TAF_FWUPDATE_FLASH_PAGE_SIZE - bytesRead);
+                        LE_INFO("Padding 0xFF in %s at page %d, start at %zu.\n",
+                            tafFwUpdate.partitions[i].name, j, bytesRead);
                     }
 
                     ret = taf_pa_flash_UpdateUbiVolume(ubiRef, buffer, TAF_FWUPDATE_FLASH_PAGE_SIZE);
-                    if (ret)
+                    if (ret != TAF_PA_OK)
                     {
                         error = errno;
-                        LE_ERROR("Can not to write %s at page %d, ret = %d, error: %s",
-                            tafFwUpdate.partitions[i].name, j, ret, strerror(errno));
+                        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_UpdateUbiVolume reason=%d",
+                                 ret);
                     }
 
                     percent = (pageUpdated + j) * 100 / totalPages;
@@ -2115,9 +2131,9 @@ void taf_FwUpdate::UpdateImage
                     fclose(fp);
                     return;
                 }
-                if (ret)
+                if (ret != TAF_PA_OK)
                 {
-                    LE_ERROR("Fail to close partition %s.", tafFwUpdate.partitions[i].name);
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CloseUbiVolume reason=%d", ret);
                     tafFwUpdate.SetErrorCode(errno);
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
                     fclose(fp);
@@ -2280,9 +2296,12 @@ void taf_FwUpdate::SyncPartition
                 ret = taf_pa_flash_CopyMtd(srcPartition, partition,
                     pages * TAF_FWUPDATE_FLASH_PAGE_SIZE);
             }
-            if (ret && ret != TAF_PA_NOT_FOUND)
+            if (ret != TAF_PA_OK && ret != TAF_PA_NOT_FOUND)
             {
-                LE_ERROR("Fail to copy from %s to %s.", srcPartition, partition);
+                LE_ERROR("[PA_CALL_FAILED] api=%s reason=%d",
+                    tafFwUpdate.partitions[i].isUbi
+                        ? "taf_pa_flash_CopyUbiVolume" : "taf_pa_flash_CopyMtd",
+                    ret);
                 tafFwUpdate.SetErrorCode(errno);
                 tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
                 return;
@@ -2453,29 +2472,29 @@ void taf_FwUpdate::StartSync
                 taf_pa_flash_UbiVolumeRef_t ubiRef = nullptr;
                 ret = taf_pa_flash_OpenUbiVolume(tafFwUpdate.partitions[i].name,
                     TAF_PA_FLASH_BITMASK_OPEN_MODE_READ_ONLY, &ubiRef);
-                if (ret)
+                if (ret != TAF_PA_OK)
                 {
-                    LE_ERROR("Fail to open ubi %s.", tafFwUpdate.partitions[i].name);
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_OpenUbiVolume reason=%d", ret);
                     continue;
                 }
 
                 taf_pa_flash_UbiVolumeInfo_t info;
                 ret = taf_pa_flash_GetUbiVolumeInfo(ubiRef, &info);
-                if (ret)
+                if (ret != TAF_PA_OK)
                 {
-                    LE_ERROR("Fail to get info of ubi %s.", tafFwUpdate.partitions[i].name);
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_GetUbiVolumeInfo reason=%d", ret);
                     ret = taf_pa_flash_CloseUbiVolume(ubiRef);
-                    if (ret)
+                    if (ret != TAF_PA_OK)
                     {
-                        LE_ERROR("Fail to close ubi %s.", tafFwUpdate.partitions[i].name);
+                        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CloseUbiVolume reason=%d", ret);
                     }
                     continue;
                 }
                 partitionSize = info.size;
                 ret = taf_pa_flash_CloseUbiVolume(ubiRef);
-                if (ret)
+                if (ret != TAF_PA_OK)
                 {
-                    LE_ERROR("Fail to close ubi %s.", tafFwUpdate.partitions[i].name);
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CloseUbiVolume reason=%d", ret);
                     continue;
                 }
             }
@@ -2494,20 +2513,20 @@ void taf_FwUpdate::StartSync
                 taf_pa_flash_MtdRef_t mtdRef = nullptr;
                 ret = taf_pa_flash_OpenMtd(partition, TAF_PA_FLASH_BITMASK_OPEN_MODE_READ_ONLY,
                     &mtdRef);
-                if (ret)
+                if (ret != TAF_PA_OK)
                 {
-                    LE_ERROR("Fail to open mtd %s.", partition);
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_OpenMtd reason=%d", ret);
                     continue;
                 }
 
                 taf_pa_flash_MtdInfo_t info;
                 ret = taf_pa_flash_GetMtdInfo(mtdRef, &info);
-                if (ret)
+                if (ret != TAF_PA_OK)
                 {
-                    LE_ERROR("Fail to get info of mtd %s.", partition);
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_GetMtdInfo reason=%d", ret);
                     ret = taf_pa_flash_CloseMtd(mtdRef);
-                    if (ret)
-                        LE_ERROR("Fail to close mtd %s.", tafFwUpdate.partitions[i].name);
+                    if (ret != TAF_PA_OK)
+                        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CloseMtd reason=%d", ret);
                     continue;
                 }
 
@@ -2518,12 +2537,18 @@ void taf_FwUpdate::StartSync
                 {
                     bool isGood = false;
                     ret = taf_pa_flash_CheckMtdGoodBlock(mtdRef, j, &isGood);
-                    if (ret != 0 || !isGood)
+                    if (ret != TAF_PA_OK)
+                        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CheckMtdGoodBlock reason=%d",
+                                 ret);
+                    if (ret != TAF_PA_OK || !isGood)
                         continue;
                     else
                     {
                         size_t bytes = TAF_FWUPDATE_FLASH_PAGE_SIZE;
                         ret = taf_pa_flash_ReadMtdPage(mtdRef, j * pagesPerBlock, buffer, &bytes);
+                        if (ret != TAF_PA_OK && ret != TAF_PA_NOT_FOUND)
+                            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_ReadMtdPage reason=%d",
+                                     ret);
                         if (ret == TAF_PA_NOT_FOUND)
                             break;
 
@@ -2532,9 +2557,9 @@ void taf_FwUpdate::StartSync
                 }
 
                 ret = taf_pa_flash_CloseMtd(mtdRef);
-                if (ret)
+                if (ret != TAF_PA_OK)
                 {
-                    LE_ERROR("Fail to close mtd %s, ret = %d.", partition, ret);
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CloseMtd reason=%d", ret);
                     tafFwUpdate.SetErrorCode(errno);
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
                     return;
@@ -2767,9 +2792,11 @@ le_result_t taf_FwUpdate::CalPartitionHash
             &ubiRef);
     else
         ret = taf_pa_flash_OpenMtd(partition, TAF_PA_FLASH_BITMASK_OPEN_MODE_READ_ONLY, &mtdRef);
-    if (ret)
+    if (ret != TAF_PA_OK)
     {
-        LE_ERROR("Fail to open partition %s, ret: %d", partition, ret);
+        LE_ERROR("[PA_CALL_FAILED] api=%s reason=%d",
+            tafFwUpdate.partitions[i].isUbi ? "taf_pa_flash_OpenUbiVolume" : "taf_pa_flash_OpenMtd",
+            ret);
         return LE_FAULT;
     }
 
@@ -2799,13 +2826,13 @@ le_result_t taf_FwUpdate::CalPartitionHash
     if (!tafFwUpdate.partitions[i].isUbi)
     {
         ret = taf_pa_flash_GetMtdInfo(mtdRef, &info);
-        if (ret)
+        if (ret != TAF_PA_OK)
         {
-            LE_ERROR("Fail to get info of mtd %s, ret: %d", partition, ret);
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_GetMtdInfo reason=%d", ret);
             ret = taf_pa_flash_CloseMtd(mtdRef);
             EVP_MD_CTX_free(md_ctx);
-            if (ret)
-                LE_ERROR("Fail to close %s, ret = %d.", partition, ret);
+            if (ret != TAF_PA_OK)
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CloseMtd reason=%d", ret);
             return LE_FAULT;
         }
         totalBlock = info.size / info.eraseSize;
@@ -2822,7 +2849,9 @@ le_result_t taf_FwUpdate::CalPartitionHash
                 bool isGood = false;
                 // Get the next good block.
                 ret = taf_pa_flash_CheckMtdGoodBlock(mtdRef, block, &isGood);
-                while (ret == 0 && !isGood)
+                if (ret != TAF_PA_OK)
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CheckMtdGoodBlock reason=%d", ret);
+                while (ret == TAF_PA_OK && !isGood)
                 {
                     LE_WARN("Skip reading bad block at %d", block);
                     block++;
@@ -2832,12 +2861,15 @@ le_result_t taf_FwUpdate::CalPartitionHash
                         LE_ERROR("Invalid block index %d.", block);
                         EVP_MD_CTX_free(md_ctx);
                         ret = taf_pa_flash_CloseMtd(mtdRef);
-                        if (ret)
-                            LE_ERROR("Fail to close %s, ret = %d.", partition, ret);
+                        if (ret != TAF_PA_OK)
+                            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CloseMtd reason=%d", ret);
 
                         return LE_FAULT;
                     }
                     ret = taf_pa_flash_CheckMtdGoodBlock(mtdRef, block, &isGood);
+                    if (ret != TAF_PA_OK)
+                        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CheckMtdGoodBlock reason=%d",
+                                 ret);
                 }
             }
 
@@ -2854,15 +2886,21 @@ le_result_t taf_FwUpdate::CalPartitionHash
 
         if (ret < 0 && ret != TAF_PA_NOT_FOUND)
         {
-            LE_ERROR("Fail to read partition %s at iteration %d, ret: %d", partition, j, ret);
+            LE_ERROR("[PA_CALL_FAILED] api=%s reason=%d",
+                tafFwUpdate.partitions[i].isUbi
+                    ? "taf_pa_flash_ReadUbiVolume" : "taf_pa_flash_ReadMtdPage",
+                ret);
             EVP_MD_CTX_free(md_ctx);
             if (!tafFwUpdate.partitions[i].isUbi)
                 ret = taf_pa_flash_CloseMtd(mtdRef);
             else
                 ret = taf_pa_flash_CloseUbiVolume(ubiRef);
 
-            if (ret)
-                LE_ERROR("Fail to close ubi %s, ret = %d.", partition, ret);
+            if (ret != TAF_PA_OK)
+                LE_ERROR("[PA_CALL_FAILED] api=%s reason=%d",
+                    tafFwUpdate.partitions[i].isUbi
+                        ? "taf_pa_flash_CloseUbiVolume" : "taf_pa_flash_CloseMtd",
+                    ret);
             return LE_FAULT;
         }
 
@@ -2880,7 +2918,9 @@ le_result_t taf_FwUpdate::CalPartitionHash
                 bool isGood = false;
                 // Get the next good block.
                 ret = taf_pa_flash_CheckMtdGoodBlock(mtdRef, block, &isGood);
-                while (ret == 0 && !isGood)
+                if (ret != TAF_PA_OK)
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CheckMtdGoodBlock reason=%d", ret);
+                while (ret == TAF_PA_OK && !isGood)
                 {
                     LE_WARN("Skip reading bad block at %d", block);
                     block++;
@@ -2890,12 +2930,15 @@ le_result_t taf_FwUpdate::CalPartitionHash
                         LE_ERROR("Invalid block index %d.", block);
                         EVP_MD_CTX_free(md_ctx);
                         ret = taf_pa_flash_CloseMtd(mtdRef);
-                        if (ret)
-                            LE_ERROR("Fail to close %s, ret = %d.", partition, ret);
+                        if (ret != TAF_PA_OK)
+                            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CloseMtd reason=%d", ret);
 
                         return LE_FAULT;
                     }
                     ret = taf_pa_flash_CheckMtdGoodBlock(mtdRef, block, &isGood);
+                    if (ret != TAF_PA_OK)
+                        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CheckMtdGoodBlock reason=%d",
+                                 ret);
                 }
             }
 
@@ -2908,16 +2951,21 @@ le_result_t taf_FwUpdate::CalPartitionHash
 
         if (ret < 0 && ret != TAF_PA_NOT_FOUND)
         {
-            LE_ERROR("Fail to read partition %s at iteration %d, ret: %d",
-                partition, iteration, ret);
+            LE_ERROR("[PA_CALL_FAILED] api=%s reason=%d",
+                tafFwUpdate.partitions[i].isUbi
+                    ? "taf_pa_flash_ReadUbiVolume" : "taf_pa_flash_ReadMtdPage",
+                ret);
             EVP_MD_CTX_free(md_ctx);
             if (!tafFwUpdate.partitions[i].isUbi)
                 ret = taf_pa_flash_CloseMtd(mtdRef);
             else
                 ret = taf_pa_flash_CloseUbiVolume(ubiRef);
 
-            if (ret)
-                LE_ERROR("Fail to close %s, ret = %d.", partition, ret);
+            if (ret != TAF_PA_OK)
+                LE_ERROR("[PA_CALL_FAILED] api=%s reason=%d",
+                    tafFwUpdate.partitions[i].isUbi
+                        ? "taf_pa_flash_CloseUbiVolume" : "taf_pa_flash_CloseMtd",
+                    ret);
             return LE_FAULT;
         }
 
@@ -2940,9 +2988,12 @@ le_result_t taf_FwUpdate::CalPartitionHash
     else
         ret = taf_pa_flash_CloseMtd(mtdRef);
 
-    if (ret)
+    if (ret != TAF_PA_OK)
     {
-        LE_ERROR("Fail to close %s, ret = %d.", partition, ret);
+        LE_ERROR("[PA_CALL_FAILED] api=%s reason=%d",
+            tafFwUpdate.partitions[i].isUbi
+                ? "taf_pa_flash_CloseUbiVolume" : "taf_pa_flash_CloseMtd",
+            ret);
         return LE_FAULT;
     }
 
@@ -3203,40 +3254,69 @@ le_result_t taf_FwUpdate::EraseBank
                 taf_pa_flash_MtdRef_t mtdRef = nullptr;
                 ret = taf_pa_flash_OpenMtd(tafFwUpdate.partitions[i].name,
                     TAF_PA_FLASH_BITMASK_OPEN_MODE_READ_WRITE, &mtdRef);
-                TAF_ERROR_IF_RET_VAL(ret, LE_FAULT,
-                    "Fail to open MTD partition, ret: %d", ret);
+                if (ret != TAF_PA_OK)
+                {
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_OpenMtd reason=%d", ret);
+                    return LE_FAULT;
+                }
 
                 taf_pa_flash_MtdInfo_t info;
                 ret = taf_pa_flash_GetMtdInfo(mtdRef, &info);
-                TAF_ERROR_IF_RET_VAL(ret || info.eraseSize == 0, LE_FAULT,
-                    "Fail to get MTD information, ret: %d", ret);
+                if (ret != TAF_PA_OK || info.eraseSize == 0)
+                {
+                    if (ret != TAF_PA_OK)
+                    {
+                        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_GetMtdInfo reason=%d", ret);
+                    }
+                    else
+                    {
+                        LE_ERROR("Invalid MTD information: eraseSize is zero.");
+                    }
+                    return LE_FAULT;
+                }
 
                 uint32_t blockNum = info.size / info.eraseSize;
                 for (uint32_t j = 0; j < blockNum; j++)
                 {
                     bool isGood = false;
                     ret = taf_pa_flash_CheckMtdGoodBlock(mtdRef, j, &isGood);
-                    if (ret == 0 && isGood)
+                    if (ret != TAF_PA_OK)
+                    {
+                        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CheckMtdGoodBlock reason=%d",
+                                 ret);
+                    }
+                    if (ret == TAF_PA_OK && isGood)
                     {
                         ret = taf_pa_flash_EraseMtdBlock(mtdRef, j);
-                        if (ret)
+                        if (ret != TAF_PA_OK)
                         {
-                            LE_ERROR("Fail to erase block %d.", j);
+                            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_EraseMtdBlock reason=%d",
+                                     ret);
                             ret = taf_pa_flash_MarkMtdBadBlock(mtdRef, j);
-                            if (ret)
-                                LE_ERROR("Fail to mark bad block %d.", j);
+                            if (ret != TAF_PA_OK)
+                                LE_ERROR("[PA_CALL_FAILED] "
+                                         "api=taf_pa_flash_MarkMtdBadBlock reason=%d",
+                                         ret);
                         }
                     }
                 }
 
                 ret = taf_pa_flash_CloseMtd(mtdRef);
-                TAF_ERROR_IF_RET_VAL(ret, LE_FAULT, "Fail to close MTD, ret: %d", ret);
+                if (ret != TAF_PA_OK)
+                {
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CloseMtd reason=%d", ret);
+                    return LE_FAULT;
+                }
             }
             else
             {
                 LE_INFO("Erasing UBI %s...", tafFwUpdate.partitions[i].name);
                 ret = taf_pa_flash_EraseUbiVolume(tafFwUpdate.partitions[i].name);
-                TAF_ERROR_IF_RET_VAL(ret, LE_FAULT, "Fail to erase UBI, ret: %d", ret);
+                if (ret != TAF_PA_OK)
+                {
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_EraseUbiVolume reason=%d", ret);
+                    return LE_FAULT;
+                }
             }
         }
     }
@@ -3292,18 +3372,27 @@ le_result_t taf_FwUpdate::PerformBankSync
                 taf_pa_flash_UbiVolumeRef_t ubiRef = nullptr;
                 ret = taf_pa_flash_OpenUbiVolume(tafFwUpdate.partitions[i].name,
                     TAF_PA_FLASH_BITMASK_OPEN_MODE_READ_ONLY, &ubiRef);
-                TAF_ERROR_IF_RET_VAL(ret, LE_FAULT, "Can not open UBI %s, ret = %d.",
-                    tafFwUpdate.partitions[i].name, ret);
+                if (ret != TAF_PA_OK)
+                {
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_OpenUbiVolume reason=%d", ret);
+                    return LE_FAULT;
+                }
 
                 taf_pa_flash_UbiVolumeInfo_t info;
                 ret = taf_pa_flash_GetUbiVolumeInfo(ubiRef, &info);
-                TAF_ERROR_IF_RET_VAL(ret, LE_FAULT, "Can not get UBI %s info, ret = %d.",
-                    tafFwUpdate.partitions[i].name, ret);
+                if (ret != TAF_PA_OK)
+                {
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_GetUbiVolumeInfo reason=%d", ret);
+                    return LE_FAULT;
+                }
                 imageSize = info.size;
 
                 ret = taf_pa_flash_CloseUbiVolume(ubiRef);
-                TAF_ERROR_IF_RET_VAL(ret, LE_FAULT, "Can not close UBI %s, ret = %d.",
-                    tafFwUpdate.partitions[i].name, ret);
+                if (ret != TAF_PA_OK)
+                {
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CloseUbiVolume reason=%d", ret);
+                    return LE_FAULT;
+                }
 
                 if (tafFwUpdate.partitions[i].bank == TAF_UPDATE_BANK_A)
                     partition[strlen(partition) - 1] = 'b';
@@ -3319,12 +3408,20 @@ le_result_t taf_FwUpdate::PerformBankSync
                 taf_pa_flash_MtdRef_t mtdRef = nullptr;
                 ret = taf_pa_flash_OpenMtd(tafFwUpdate.partitions[i].name,
                     TAF_PA_FLASH_BITMASK_OPEN_MODE_READ_ONLY, &mtdRef);
-                TAF_ERROR_IF_RET_VAL(ret, LE_FAULT, "Can not open MTD %s, ret = %d.", tafFwUpdate.partitions[i].name, ret);
+                if (ret != TAF_PA_OK)
+                {
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_OpenMtd reason=%d", ret);
+                    return LE_FAULT;
+                }
 
                 taf_pa_flash_MtdInfo_t info;
                 uint8_t buffer[TAF_FWUPDATE_FLASH_PAGE_SIZE];
                 ret = taf_pa_flash_GetMtdInfo(mtdRef, &info);
-                TAF_ERROR_IF_RET_VAL(ret, LE_FAULT, "Can not get MTD %s info, ret = %d.", tafFwUpdate.partitions[i].name, ret);
+                if (ret != TAF_PA_OK)
+                {
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_GetMtdInfo reason=%d", ret);
+                    return LE_FAULT;
+                }
                 imageSize = 0;
                 uint32_t blocks = info.size / info.eraseSize;
                 uint32_t pagesPerBlock = info.eraseSize / info.writeSize;
@@ -3332,12 +3429,18 @@ le_result_t taf_FwUpdate::PerformBankSync
                 {
                     bool isGood = false;
                     ret = taf_pa_flash_CheckMtdGoodBlock(mtdRef, i, &isGood);
-                    if (ret != 0 || ! isGood)
+                    if (ret != TAF_PA_OK)
+                        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CheckMtdGoodBlock reason=%d",
+                                 ret);
+                    if (ret != TAF_PA_OK || ! isGood)
                         continue;
                     else
                     {
                         size_t bytes = TAF_FWUPDATE_FLASH_PAGE_SIZE;
                         ret = taf_pa_flash_ReadMtdPage(mtdRef, i * pagesPerBlock, buffer, &bytes);
+                        if (ret != TAF_PA_OK && ret != TAF_PA_NOT_FOUND)
+                            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_ReadMtdPage reason=%d",
+                                     ret);
                         if (ret == TAF_PA_NOT_FOUND)
                             break;
 
@@ -3346,8 +3449,11 @@ le_result_t taf_FwUpdate::PerformBankSync
                 }
 
                 ret = taf_pa_flash_CloseMtd(mtdRef);
-                TAF_ERROR_IF_RET_VAL(ret, LE_FAULT, "Can not close MTD %s, ret = %d.",
-                    tafFwUpdate.partitions[i].name, ret);
+                if (ret != TAF_PA_OK)
+                {
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_flash_CloseMtd reason=%d", ret);
+                    return LE_FAULT;
+                }
 
                 if (tafFwUpdate.partitions[i].bank == TAF_UPDATE_BANK_A)
                     le_utf8_Append(partition, "_b", TAF_FLASH_PARTITION_NAME_MAX_BYTES, NULL);
@@ -3357,8 +3463,14 @@ le_result_t taf_FwUpdate::PerformBankSync
                 LE_INFO("Sync MTD from %s to %s.", tafFwUpdate.partitions[i].name, partition);
                 ret = taf_pa_flash_CopyMtd(tafFwUpdate.partitions[i].name, partition, imageSize);
             }
-            TAF_ERROR_IF_RET_VAL(ret && ret != TAF_PA_NOT_FOUND, LE_FAULT,
-                "Fail to copy from %s to %s, ret = %d.", tafFwUpdate.partitions[i].name, partition, ret);
+            if (ret != TAF_PA_OK && ret != TAF_PA_NOT_FOUND)
+            {
+                LE_ERROR("[PA_CALL_FAILED] api=%s reason=%d",
+                    tafFwUpdate.partitions[i].isUbi
+                        ? "taf_pa_flash_CopyUbiVolume" : "taf_pa_flash_CopyMtd",
+                    ret);
+                return LE_FAULT;
+            }
         }
     }
 

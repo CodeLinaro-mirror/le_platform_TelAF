@@ -569,12 +569,18 @@ le_result_t taf_fsc_UnlockStorage
     }
 
     // Process PA layer validation and get raw key
-    le_result_t res = ConvertPaToLeRet(taf_pa_fsc_GetKey(
+    taf_pa_result_t paResult = taf_pa_fsc_GetKey(
                                         le_msg_GetClientFd(taf_fsc_GetClientSessionRef()),
                                         storagePtr->dirpath,
                                         &keyFileRef,
                                         key,
-                                        FSC_MAX_KEY_SIZE));
+                                        FSC_MAX_KEY_SIZE);
+    le_result_t res = ConvertPaToLeRet(paResult);
+
+    if(paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_fsc_GetKey reason=%d", paResult);
+    }
 
     if(keyFileRef != storagePtr->keyFileRef)
     {
@@ -641,9 +647,14 @@ le_result_t taf_fsc_DeleteStorage
 
     if(LE_OK == res)
     {
-        res = ConvertPaToLeRet(taf_pa_fsc_DeleteKey(
+        taf_pa_result_t delKeyRes = taf_pa_fsc_DeleteKey(
                                    le_msg_GetClientFd(taf_fsc_GetClientSessionRef()),
-                                   storagePtr->keyFileRef));
+                                   storagePtr->keyFileRef);
+        if (delKeyRes != TAF_PA_OK)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_fsc_DeleteKey reason=%d", delKeyRes);
+        }
+        res = ConvertPaToLeRet(delKeyRes);
     }
 
     if(LE_OK == res)
@@ -884,7 +895,12 @@ exception:
     // Deletes key if something wrong happend
     if(!storageAlreadyExist)
     {
-        taf_pa_fsc_DeleteKey(le_msg_GetClientFd(taf_fsc_GetClientSessionRef()), keyFileRef);
+        taf_pa_result_t paResult = taf_pa_fsc_DeleteKey(
+            le_msg_GetClientFd(taf_fsc_GetClientSessionRef()), keyFileRef);
+        if (paResult != TAF_PA_OK)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_fsc_DeleteKey reason=%d", paResult);
+        }
     }
 
     LE_ERROR("taf_fsc_GetStorageRef - %s", LE_RESULT_TXT(*result));
@@ -1020,7 +1036,11 @@ le_result_t InternalCryptoProcess
 COMPONENT_INIT
 {
     // Init PA crypto function
-    taf_pa_fsc_Init(&InternalCryptoProcess);
+    taf_pa_result_t paResult = taf_pa_fsc_Init(&InternalCryptoProcess);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_fsc_Init reason=%d", paResult);
+    }
 
     // Create memory pools
     StoragePool = le_mem_CreatePool("StoragePool", sizeof(taf_fsc_Storage_t));

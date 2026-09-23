@@ -109,6 +109,10 @@ void taf_L2tp::Init(void)
                                                sizeof(TunnelHandlerMapping_t));
 
     taf_pa_result_t result = taf_pa_l2tp_Init();
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_l2tp_Init reason=%d", result);
+    }
 
     if(result == TAF_PA_OK)
     {
@@ -668,7 +672,12 @@ taf_net_TunnelRef_t taf_L2tp::CreateTunnelIfExistsInDb
     taf_Tunnel_t* tunnelPtr = NULL;
     taf_L2tpSession_t* l2tpSessionInfo = NULL;
     taf_pa_net_L2tpConfig_t pal2tpConfig;
-    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_RequestL2tpConfig(pal2tpConfig));
+    taf_pa_result_t paResult = taf_pa_net_RequestL2tpConfig(pal2tpConfig);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_RequestL2tpConfig reason=%d", paResult);
+    }
+    le_result_t result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_OK)
     {
@@ -722,18 +731,6 @@ taf_net_TunnelRef_t taf_L2tp::CreateTunnelIfExistsInDb
     }
     else
     {
-        if (result == LE_CAP_NOT_IMPLEMENTED)
-        {
-            LE_ERROR("RequestL2tpConfig is not implemented by PA");
-        }
-        else if (result == LE_CAP_UNSUPPORTED)
-        {
-            LE_ERROR("RequestL2tpConfig is unsupported by PA");
-        }
-        else
-        {
-            LE_ERROR("Request tunnel info failed");
-        }
         return NULL;
     }
 
@@ -911,6 +908,7 @@ bool taf_L2tp::IsSessionIdValid
 le_result_t taf_L2tp::EnableL2tpCmdSync(bool enableMss, bool enableMtu, uint32_t mtuSize)
 {
     le_result_t result;
+    taf_pa_result_t paResult;
     taf_pa_net_L2tpConfig_t l2tpConfig;
 
     l2tpConfig.enableL2tp = true;
@@ -925,21 +923,23 @@ le_result_t taf_L2tp::EnableL2tpCmdSync(bool enableMss, bool enableMtu, uint32_t
              l2tpConfig.enableMtu,
              l2tpConfig.mtuSize);
 
-    result = PA_TO_LE_RESULT(taf_pa_net_SetL2tpConfigSync(l2tpConfig));
+    paResult = taf_pa_net_SetL2tpConfigSync(l2tpConfig);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_SetL2tpConfigSync reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("SetL2tpConfigSync is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("SetL2tpConfigSync is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
     }
     else if (result == LE_FAULT)
     {
-        LE_ERROR( "ERROR - Failed to enable l2tp");
         return LE_FAULT;
     }
 
@@ -966,6 +966,7 @@ le_result_t taf_L2tp::EnableL2tpCmdSync(bool enableMss, bool enableMtu, uint32_t
 le_result_t taf_L2tp::DisableL2tpCmdSync(le_msg_SessionRef_t sessionRef)
 {
     le_result_t result;
+    taf_pa_result_t paResult;
 
     TAF_ERROR_IF_RET_VAL(sessionRef == NULL, LE_BAD_PARAMETER, "sessionRef is null");
 
@@ -983,21 +984,23 @@ le_result_t taf_L2tp::DisableL2tpCmdSync(le_msg_SessionRef_t sessionRef)
     l2tpConfig.enableMtu = false;
     l2tpConfig.mtuSize = 0;
 
-    result = PA_TO_LE_RESULT(taf_pa_net_SetL2tpConfigSync(l2tpConfig));
+    paResult = taf_pa_net_SetL2tpConfigSync(l2tpConfig);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_SetL2tpConfigSync reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("SetL2tpConfigSync is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("SetL2tpConfigSync is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
     }
     else if (result == LE_FAULT)
     {
-        LE_ERROR( "ERROR - Failed to disable l2tp");
         return LE_FAULT;
     }
 
@@ -1123,6 +1126,7 @@ le_result_t taf_L2tp::EnableL2tp
 )
 {
     le_result_t result = LE_OK;
+    taf_pa_result_t paResult;
     taf_pa_net_L2tpConfig_t paConfig; // Create an instance of the PA config struct
 
     switch(type)
@@ -1132,14 +1136,26 @@ le_result_t taf_L2tp::EnableL2tp
             paConfig.enableTcpMss = enableMss;
             paConfig.enableMtu = enableMtu;
             paConfig.mtuSize = mtuSize;
-            result = PA_TO_LE_RESULT(taf_pa_net_SetL2tpConfigAsync(paConfig, tafEnableL2tpCallback::Response, contextPtr));
+            paResult = taf_pa_net_SetL2tpConfigAsync(
+                paConfig, tafEnableL2tpCallback::Response, contextPtr);
+            if (paResult != TAF_PA_OK)
+            {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_SetL2tpConfigAsync reason=%d", paResult);
+            }
+            result = PA_TO_LE_RESULT(paResult);
         break;
         case ASYNC_DISABLE_L2TP:
             paConfig.enableL2tp = false; // Disable L2TP
             paConfig.enableTcpMss = enableMss;
             paConfig.enableMtu = enableMtu;
             paConfig.mtuSize = mtuSize;
-            result = PA_TO_LE_RESULT(taf_pa_net_SetL2tpConfigAsync(paConfig, tafDisableL2tpCallback::Response, contextPtr));
+            paResult = taf_pa_net_SetL2tpConfigAsync(
+                paConfig, tafDisableL2tpCallback::Response, contextPtr);
+            if (paResult != TAF_PA_OK)
+            {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_SetL2tpConfigAsync reason=%d", paResult);
+            }
+            result = PA_TO_LE_RESULT(paResult);
         break;
         default:
             return LE_FAULT;
@@ -1151,17 +1167,14 @@ le_result_t taf_L2tp::EnableL2tp
     }
     else if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("Enable/disable L2TP is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("Enable/disable L2TP is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
     }
     else
     {
-        LE_ERROR( "ERROR - Failed to enable/disable L2TP, Status:%d ", static_cast<int>(result));
         return LE_FAULT;
     }
 }
@@ -1186,8 +1199,14 @@ bool taf_L2tp::IsL2tpEnabled
     void
 )
 {
+    taf_pa_result_t paResult;
     taf_pa_net_L2tpConfig_t pal2tpConfig;
-    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_RequestL2tpConfig(pal2tpConfig));
+    paResult = taf_pa_net_RequestL2tpConfig(pal2tpConfig);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_RequestL2tpConfig reason=%d", paResult);
+    }
+    le_result_t result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_OK)
     {
@@ -1195,18 +1214,6 @@ bool taf_L2tp::IsL2tpEnabled
     }
     else
     {
-        if (result == LE_CAP_NOT_IMPLEMENTED)
-        {
-            LE_ERROR("RequestL2tpConfig is not implemented by PA");
-        }
-        else if (result == LE_CAP_UNSUPPORTED)
-        {
-            LE_ERROR("RequestL2tpConfig is unsupported by PA");
-        }
-        else
-        {
-            LE_ERROR("Request l2tp info failed");
-        }
         return false;
     }
 }
@@ -1231,8 +1238,14 @@ bool taf_L2tp::IsL2tpMssEnabled
     void
 )
 {
+    taf_pa_result_t paResult;
     taf_pa_net_L2tpConfig_t pal2tpConfig;
-    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_RequestL2tpConfig(pal2tpConfig));
+    paResult = taf_pa_net_RequestL2tpConfig(pal2tpConfig);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_RequestL2tpConfig reason=%d", paResult);
+    }
+    le_result_t result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_OK)
     {
@@ -1240,18 +1253,6 @@ bool taf_L2tp::IsL2tpMssEnabled
     }
     else
     {
-        if (result == LE_CAP_NOT_IMPLEMENTED)
-        {
-            LE_ERROR("RequestL2tpConfig is not implemented by PA");
-        }
-        else if (result == LE_CAP_UNSUPPORTED)
-        {
-            LE_ERROR("RequestL2tpConfig is unsupported by PA");
-        }
-        else
-        {
-            LE_ERROR("Request l2tp info failed");
-        }
         return false;
     }
 }
@@ -1276,8 +1277,14 @@ bool taf_L2tp::IsL2tpMtuEnabled
     void
 )
 {
+    taf_pa_result_t paResult;
     taf_pa_net_L2tpConfig_t pal2tpConfig;
-    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_RequestL2tpConfig(pal2tpConfig));
+    paResult = taf_pa_net_RequestL2tpConfig(pal2tpConfig);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_RequestL2tpConfig reason=%d", paResult);
+    }
+    le_result_t result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_OK)
     {
@@ -1285,18 +1292,6 @@ bool taf_L2tp::IsL2tpMtuEnabled
     }
     else
     {
-        if (result == LE_CAP_NOT_IMPLEMENTED)
-        {
-            LE_ERROR("RequestL2tpConfig is not implemented by PA");
-        }
-        else if (result == LE_CAP_UNSUPPORTED)
-        {
-            LE_ERROR("RequestL2tpConfig is unsupported by PA");
-        }
-        else
-        {
-            LE_ERROR("Request l2tp info failed");
-        }
         return false;
     }
 }
@@ -1322,7 +1317,12 @@ uint32_t taf_L2tp::GetL2tpMtuSize
 )
 {
     taf_pa_net_L2tpConfig_t pal2tpConfig;
-    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_RequestL2tpConfig(pal2tpConfig));
+    taf_pa_result_t paResult = taf_pa_net_RequestL2tpConfig(pal2tpConfig);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_RequestL2tpConfig reason=%d", paResult);
+    }
+    le_result_t result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_OK)
     {
@@ -1330,18 +1330,6 @@ uint32_t taf_L2tp::GetL2tpMtuSize
     }
     else
     {
-        if (result == LE_CAP_NOT_IMPLEMENTED)
-        {
-            LE_ERROR("RequestL2tpConfig is not implemented by PA");
-        }
-        else if (result == LE_CAP_UNSUPPORTED)
-        {
-            LE_ERROR("RequestL2tpConfig is unsupported by PA");
-        }
-        else
-        {
-            LE_ERROR("Request l2tp info failed");
-        }
         return 0;
     }
 }
@@ -1729,21 +1717,23 @@ le_result_t taf_L2tp::StartTunnelCmdSync(taf_net_TunnelRef_t tunnelRef)
     le_utf8_Copy(l2tpTunnelConfig.locIface, tunnelPtr->interfaceName,
                  TAF_PA_NET_INTERFACE_NAME_MAX_LEN, NULL);
 
-    result = PA_TO_LE_RESULT(taf_pa_net_AddTunnelSync(l2tpTunnelConfig));
+    taf_pa_result_t paResult = taf_pa_net_AddTunnelSync(l2tpTunnelConfig);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_AddTunnelSync reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("AddTunnelSync is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("AddTunnelSync is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
     }
     else if (result == LE_FAULT)
     {
-        LE_ERROR( "ERROR - Failed to Start l2tp tunnel");
         return LE_FAULT;
     }
     else if (result == LE_OK)
@@ -1774,6 +1764,7 @@ le_result_t taf_L2tp::StartTunnelCmdSync(taf_net_TunnelRef_t tunnelRef)
 le_result_t taf_L2tp::StopTunnelCmdSync(taf_net_TunnelRef_t tunnelRef)
 {
     le_result_t result;
+    taf_pa_result_t paResult;
     taf_Tunnel_t *tunnelPtr = NULL;
 
     TAF_ERROR_IF_RET_VAL(tunnelRef == NULL, LE_BAD_PARAMETER, "tunnelRef is null");
@@ -1782,21 +1773,23 @@ le_result_t taf_L2tp::StopTunnelCmdSync(taf_net_TunnelRef_t tunnelRef)
 
     TAF_ERROR_IF_RET_VAL(tunnelPtr == NULL, LE_NOT_FOUND, "tunnel is not present");
 
-    result = PA_TO_LE_RESULT(taf_pa_net_RemoveTunnelSync(tunnelPtr->locTunnelId));
+    paResult = taf_pa_net_RemoveTunnelSync(tunnelPtr->locTunnelId);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_RemoveTunnelSync reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("RemoveTunnelSync is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("RemoveTunnelSync is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
     }
     else if (result == LE_FAULT)
     {
-        LE_ERROR( "ERROR - Failed to Stop l2tp tunnel");
         return LE_FAULT;
     }
     else if (result == LE_OK)
@@ -1987,8 +1980,13 @@ le_result_t taf_L2tp::AddTunnelAsync(taf_net_TunnelRef_t tunnelRef, void* contex
                  TAF_PA_NET_INTERFACE_NAME_MAX_LEN, NULL);
 
 
-    result = PA_TO_LE_RESULT(taf_pa_net_AddTunnelAsync(paL2tpTunnelConfig,
-                                       tafStartTunnelCallback::Response, contextPtr));
+    taf_pa_result_t paResult = taf_pa_net_AddTunnelAsync(paL2tpTunnelConfig,
+                                       tafStartTunnelCallback::Response, contextPtr);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_AddTunnelAsync reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
 
 
     if (result == LE_OK)
@@ -1997,17 +1995,14 @@ le_result_t taf_L2tp::AddTunnelAsync(taf_net_TunnelRef_t tunnelRef, void* contex
     }
     else if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("AddTunnelAsync is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("AddTunnelAsync is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
     }
     else
     {
-        LE_ERROR( "ERROR - Failed to start tunnel, Status:%d ", static_cast<int>(result));
         return LE_FAULT;
     }
 }
@@ -2033,6 +2028,7 @@ le_result_t taf_L2tp::AddTunnelAsync(taf_net_TunnelRef_t tunnelRef, void* contex
 le_result_t taf_L2tp::RemoveTunnelAsync(taf_net_TunnelRef_t tunnelRef, void* contextPtr)
 {
     le_result_t result;
+    taf_pa_result_t paResult;
     taf_Tunnel_t *tunnelPtr = NULL;
 
     TAF_ERROR_IF_RET_VAL(tunnelRef == NULL, LE_BAD_PARAMETER, "tunnelRef is null");
@@ -2041,8 +2037,13 @@ le_result_t taf_L2tp::RemoveTunnelAsync(taf_net_TunnelRef_t tunnelRef, void* con
 
     TAF_ERROR_IF_RET_VAL(tunnelPtr == NULL, LE_NOT_FOUND, "tunnel is not present");
 
-    result = PA_TO_LE_RESULT(taf_pa_net_RemoveTunnelAsync(tunnelPtr->locTunnelId,
-                                           tafStopTunnelCallback::Response, contextPtr));
+    paResult = taf_pa_net_RemoveTunnelAsync(tunnelPtr->locTunnelId,
+                                           tafStopTunnelCallback::Response, contextPtr);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_RemoveTunnelAsync reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_OK)
     {
@@ -2050,17 +2051,14 @@ le_result_t taf_L2tp::RemoveTunnelAsync(taf_net_TunnelRef_t tunnelRef, void* con
     }
     else if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("RemoveTunnelAsync is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("RemoveTunnelAsync is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
     }
     else
     {
-        LE_ERROR( "ERROR - Failed to stop tunnel, Status:%d ", static_cast<int>(result));
         return LE_FAULT;
     }
 }
@@ -2088,8 +2086,14 @@ taf_net_TunnelEntryListRef_t taf_L2tp::GetTunnelEntryList
     le_ref_IterRef_t iterRef;
     int sessionIndex = 0;
 
+    taf_pa_result_t paResult;
     taf_pa_net_L2tpConfig_t pal2tpConfig;
-    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_RequestL2tpConfig(pal2tpConfig));
+    paResult = taf_pa_net_RequestL2tpConfig(pal2tpConfig);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_net_RequestL2tpConfig reason=%d", paResult);
+    }
+    le_result_t result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_OK)
     {
@@ -2168,18 +2172,6 @@ taf_net_TunnelEntryListRef_t taf_L2tp::GetTunnelEntryList
     }
     else
     {
-        if (result == LE_CAP_NOT_IMPLEMENTED)
-        {
-            LE_ERROR("RequestL2tpConfig is not implemented by PA");
-        }
-        else if (result == LE_CAP_UNSUPPORTED)
-        {
-            LE_ERROR("RequestL2tpConfig is unsupported by PA");
-        }
-        else
-        {
-            LE_ERROR("Request tunnel entry list failed");
-        }
         return NULL;
     }
 

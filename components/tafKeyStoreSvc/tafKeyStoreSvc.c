@@ -692,7 +692,11 @@ static void RemoveCryptoSession
         // Abort the session if it's started.
         if (sessionPtr->started)
         {
-            taf_pa_ks_CryptoSessionAbort(sessionPtr->handle);
+            taf_pa_result_t paResult = taf_pa_ks_CryptoSessionAbort(sessionPtr->handle);
+            if (paResult != TAF_PA_OK)
+            {
+                LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_CryptoSessionAbort reason=%d", paResult);
+            }
             sessionPtr->started = false;
             sessionPtr->handle = 0;
         }
@@ -1291,8 +1295,13 @@ le_result_t taf_ks_CreateKey
 
     // Check if a provisoned key of the specified key ID for the client already exists.
     // We don't allow to create it again if so, thus we expect it return LE_NOT_FOUND.
-    result = ConvertPaToLeRet(taf_pa_ks_GetKey(le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
-                                                keyId, &keyFileRef));
+    taf_pa_result_t paResult = taf_pa_ks_GetKey(le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
+                                                keyId, &keyFileRef);
+    result = ConvertPaToLeRet(paResult);
+    if (paResult != TAF_PA_OK && paResult != TAF_PA_NOT_FOUND)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_GetKey reason=%d", paResult);
+    }
     if (result == LE_OK)
     {
         LE_WARN("Provisioned key for keyName '%s' already exists.", keyId);
@@ -1417,16 +1426,26 @@ le_result_t taf_ks_GetKey
     if (ownerAppPtr != NULL)
     {
         LE_DEBUG("Get keyId('%s') of app('%s').", keyIdPtr, ownerAppPtr);
-        result =ConvertPaToLeRet(taf_pa_ks_GetSharedKey(
+        taf_pa_result_t paResult = taf_pa_ks_GetSharedKey(
                                  le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
-                                 keyIdPtr, ownerAppPtr, &keyFileRef));
+                                 keyIdPtr, ownerAppPtr, &keyFileRef);
+        result = ConvertPaToLeRet(paResult);
+        if (paResult != TAF_PA_OK && paResult != TAF_PA_NOT_FOUND)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_GetSharedKey reason=%d", paResult);
+        }
     }
     else
     {
         // Get the key file of our own key.
         LE_DEBUG("Get keyId('%s').", keyIdPtr);
-        result = ConvertPaToLeRet(taf_pa_ks_GetKey(le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
-                                   keyIdPtr, &keyFileRef));
+        taf_pa_result_t paResult = taf_pa_ks_GetKey(le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
+                                   keyIdPtr, &keyFileRef);
+        result = ConvertPaToLeRet(paResult);
+        if (paResult != TAF_PA_OK && paResult != TAF_PA_NOT_FOUND)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_GetKey reason=%d", paResult);
+        }
     }
 
     if (result == LE_OK)
@@ -1504,9 +1523,13 @@ le_result_t taf_ks_DeleteKey
     if (keyPtr->keyType == KS_PROVISIONED_KEY)
     {
         // Delete a provisioned key.
-        le_result_t result = ConvertPaToLeRet(
-                        taf_pa_ks_DeleteKey(le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
-                        keyPtr->proKey.keyFileRef));
+        taf_pa_result_t paResult = taf_pa_ks_DeleteKey(le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
+                        keyPtr->proKey.keyFileRef);
+        le_result_t result = ConvertPaToLeRet(paResult);
+        if (paResult != TAF_PA_OK)
+        {
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_DeleteKey reason=%d", paResult);
+        }
         if (result != LE_OK)
         {
             LE_ERROR("Failed to delete provisioned key(%p) (%s).",
@@ -1579,9 +1602,13 @@ le_result_t taf_ks_GetKeyUsage
 
     // This is a provisioned key, return key usage from the PA.
     taf_pa_ks_KeyUsage_t paKeyUsage;
-    le_result_t result = ConvertPaToLeRet(
-                    taf_pa_ks_GetKeyUsage(le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
-                    keyPtr->proKey.keyFileRef, &paKeyUsage));
+    taf_pa_result_t paResult = taf_pa_ks_GetKeyUsage(le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
+                    keyPtr->proKey.keyFileRef, &paKeyUsage);
+    le_result_t result = ConvertPaToLeRet(paResult);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_GetKeyUsage reason=%d", paResult);
+    }
     if (result == LE_OK)
     {
         *keyUsagePtr = (taf_ks_KeyUsage_t)paKeyUsage;
@@ -1892,7 +1919,7 @@ le_result_t taf_ks_ProvisionRsaEncKeyValue
         ((keyPtr->newKey.keyUsage == TAF_KS_RSA_ENCRYPT_ONLY) ?
         TAF_PA_KS_ENCRYPT_ONLY : TAF_PA_KS_DECRYPT_ONLY);
 
-    result = ConvertPaToLeRet(taf_pa_ks_GenerateRsaEncKey(
+    taf_pa_result_t paResult = taf_pa_ks_GenerateRsaEncKey(
                                          le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
                                          keyPtr->newKey.keyId,
                                          keySize,
@@ -1902,7 +1929,12 @@ le_result_t taf_ks_ProvisionRsaEncKeyValue
                                          0,
                                          impDataPtr,
                                          impDataSize,
-                                         &keyFileRef));
+                                         &keyFileRef);
+    result = ConvertPaToLeRet(paResult);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_GenerateRsaEncKey reason=%d", paResult);
+    }
     if (result == LE_OK)
     {
         // Clear the tag list after successful provisioned.
@@ -1977,7 +2009,7 @@ le_result_t taf_ks_ProvisionRsaSigKeyValue
         ((keyPtr->newKey.keyUsage == TAF_KS_RSA_SIGN_ONLY) ?
         TAF_PA_KS_SIGN_ONLY : TAF_PA_KS_VERIFY_ONLY);
 
-    result = ConvertPaToLeRet(taf_pa_ks_GenerateRsaSigKey(
+    taf_pa_result_t paResult = taf_pa_ks_GenerateRsaSigKey(
                                          le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
                                          keyPtr->newKey.keyId,
                                          keySize,
@@ -1987,7 +2019,12 @@ le_result_t taf_ks_ProvisionRsaSigKeyValue
                                          0,
                                          impDataPtr,
                                          impDataSize,
-                                         &keyFileRef));
+                                         &keyFileRef);
+    result = ConvertPaToLeRet(paResult);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_GenerateRsaSigKey reason=%d", paResult);
+    }
     if (result == LE_OK)
     {
         // Clear the tag list after successful provisioned.
@@ -2062,7 +2099,7 @@ le_result_t taf_ks_ProvisionEcdsaKeyValue
         ((keyPtr->newKey.keyUsage == TAF_KS_ECDSA_SIGN_ONLY) ?
         TAF_PA_KS_SIGN_ONLY : TAF_PA_KS_VERIFY_ONLY);
 
-    result = ConvertPaToLeRet(taf_pa_ks_GenerateEcdsaKey(
+    taf_pa_result_t paResult = taf_pa_ks_GenerateEcdsaKey(
                                         le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
                                         keyPtr->newKey.keyId,
                                         keySize,
@@ -2072,7 +2109,12 @@ le_result_t taf_ks_ProvisionEcdsaKeyValue
                                         0,
                                         impDataPtr,
                                         impDataSize,
-                                        &keyFileRef));
+                                        &keyFileRef);
+    result = ConvertPaToLeRet(paResult);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_GenerateEcdsaKey reason=%d", paResult);
+    }
     if (result == LE_OK)
     {
         // Clear the tag list after successful provisioned.
@@ -2147,7 +2189,7 @@ le_result_t taf_ks_ProvisionAesKeyValue
         ((keyPtr->newKey.keyUsage == TAF_KS_AES_ENCRYPT_ONLY) ?
         TAF_PA_KS_ENCRYPT_ONLY : TAF_PA_KS_DECRYPT_ONLY);
 
-    result = ConvertPaToLeRet(taf_pa_ks_GenerateAesKey(
+    taf_pa_result_t paResult = taf_pa_ks_GenerateAesKey(
                                       le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
                                       keyPtr->newKey.keyId,
                                       keySize,
@@ -2157,7 +2199,12 @@ le_result_t taf_ks_ProvisionAesKeyValue
                                       0,
                                       impDataPtr,
                                       impDataSize,
-                                      &keyFileRef));
+                                      &keyFileRef);
+    result = ConvertPaToLeRet(paResult);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_GenerateAesKey reason=%d", paResult);
+    }
     if (result == LE_OK)
     {
         // Clear the tag list after successful provisioned.
@@ -2234,7 +2281,7 @@ le_result_t taf_ks_ProvisionHmacKeyValue
         ((keyPtr->newKey.keyUsage == TAF_KS_HMAC_SIGN_ONLY) ?
         TAF_PA_KS_SIGN_ONLY : TAF_PA_KS_VERIFY_ONLY);
 
-    result = ConvertPaToLeRet(taf_pa_ks_GenerateHmacKey(
+    taf_pa_result_t paResult = taf_pa_ks_GenerateHmacKey(
                                        le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
                                        keyPtr->newKey.keyId,
                                        keySize,
@@ -2244,7 +2291,12 @@ le_result_t taf_ks_ProvisionHmacKeyValue
                                        0,
                                        impDataPtr,
                                        impDataSize,
-                                       &keyFileRef));
+                                       &keyFileRef);
+    result = ConvertPaToLeRet(paResult);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_GenerateHmacKey reason=%d", paResult);
+    }
     if (result == LE_OK)
     {
         // Clear the tag list after successful provisioned.
@@ -2298,13 +2350,19 @@ le_result_t taf_ks_ExportKey
     }
 
     // Export the key data.
-    return ConvertPaToLeRet(taf_pa_ks_ExportKey(
+    taf_pa_result_t paResult = taf_pa_ks_ExportKey(
                                le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
                                keyPtr->proKey.keyFileRef,
                                appDataPtr,
                                appDataSize,
                                expDataPtr,
-                               expDataSizePtr));
+                               expDataSizePtr);
+    le_result_t result = ConvertPaToLeRet(paResult);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_ExportKey reason=%d", paResult);
+    }
+    return result;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2382,12 +2440,18 @@ le_result_t taf_ks_ShareKey
     }
 
     // Export the key data.
-    return ConvertPaToLeRet(taf_pa_ks_ShareKey(
+    taf_pa_result_t paResult = taf_pa_ks_ShareKey(
                               le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
                               keyPtr->proKey.keyFileRef,
                               keyCap,
                               appCap,
-                              appName));
+                              appName);
+    le_result_t result = ConvertPaToLeRet(paResult);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_ShareKey reason=%d", paResult);
+    }
+    return result;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2440,10 +2504,16 @@ le_result_t taf_ks_CancelKeySharing
     }
 
     // Cancel the key sharing.
-    return ConvertPaToLeRet(taf_pa_ks_CancelKeySharing(
+    taf_pa_result_t paResult = taf_pa_ks_CancelKeySharing(
                                       le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
                                       keyPtr->proKey.keyFileRef,
-                                      appName));
+                                      appName);
+    le_result_t result = ConvertPaToLeRet(paResult);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_CancelKeySharing reason=%d", paResult);
+    }
+    return result;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2515,9 +2585,14 @@ le_result_t taf_ks_GetFirstSharedApp
     memset(&appList, 0, sizeof(appList));
 
     // Get the sharing state of the key from PA layer.
-    le_result_t result = ConvertPaToLeRet(taf_pa_ks_GetSharedAppList(
+    taf_pa_result_t paResult = taf_pa_ks_GetSharedAppList(
                                                     le_msg_GetClientFd(clientSessionRef),
-                                                    keyPtr->proKey.keyFileRef, &appList));
+                                                    keyPtr->proKey.keyFileRef, &appList);
+    le_result_t result = ConvertPaToLeRet(paResult);
+    if (paResult != TAF_PA_OK && paResult != TAF_PA_NOT_FOUND)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_GetSharedAppList reason=%d", paResult);
+    }
 
     if (result != LE_OK)
     {
@@ -2706,11 +2781,16 @@ taf_ks_KeySharingHandlerRef_t taf_ks_AddKeySharingHandler
 
     // Get the sharing state of the desired key.
     KeyMgt_KeyFileRef_t keyFileRef = NULL;
-    le_result_t result = ConvertPaToLeRet(taf_pa_ks_GetSharedKey(
+    taf_pa_result_t paResult = taf_pa_ks_GetSharedKey(
                                                 le_msg_GetClientFd(myHandlerPtr->clientSessionRef),
                                                 myHandlerPtr->keyId,
                                                 myHandlerPtr->ownerAppName,
-                                                &keyFileRef));
+                                                &keyFileRef);
+    le_result_t result = ConvertPaToLeRet(paResult);
+    if (paResult != TAF_PA_OK && paResult != TAF_PA_NOT_FOUND)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_GetSharedKey reason=%d", paResult);
+    }
 
     // Trigger the handler immediately if the key is already shared to the client.
     if ((result == LE_OK) && (keyFileRef != NULL))
@@ -3068,13 +3148,18 @@ le_result_t taf_ks_CryptoSessionStart
         }
     }
 
-    result = ConvertPaToLeRet(taf_pa_ks_CryptoSessionStart(
+    taf_pa_result_t paResult = taf_pa_ks_CryptoSessionStart(
                                           le_msg_GetClientFd(taf_ks_GetClientSessionRef()),
                                           keyPtr->proKey.keyFileRef,
                                           cryptoPurpose,
                                           (const taf_pa_ks_Param_t**)ParamPtrList,
                                           pNum,
-                                          &handle));
+                                          &handle);
+    result = ConvertPaToLeRet(paResult);
+    if (result != LE_OK && result != LE_DUPLICATE)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_CryptoSessionStart reason=%d", paResult);
+    }
     if (result == LE_OK)
     {
         // Save the handle and set the session as started.
@@ -3150,11 +3235,13 @@ le_result_t taf_ks_CryptoSessionProcessAead
         return LE_NOT_PERMITTED;
     }
 
-    result = ConvertPaToLeRet(taf_pa_ks_CryptoSessionProcessAead(sessionPtr->handle,
+    taf_pa_result_t paResult = taf_pa_ks_CryptoSessionProcessAead(sessionPtr->handle,
                                                 inputDataPtr,
-                                                inputDataSize));
+                                                inputDataSize);
+    result = ConvertPaToLeRet(paResult);
     if (result != LE_OK)
     {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_CryptoSessionProcessAead reason=%d", paResult);
         // Process failed means the session is already aborted.
         sessionPtr->started = false;
         sessionPtr->handle = 0;
@@ -3236,13 +3323,15 @@ le_result_t taf_ks_CryptoSessionProcess
         return LE_NOT_PERMITTED;
     }
 
-    result = ConvertPaToLeRet(taf_pa_ks_CryptoSessionProcess(sessionPtr->handle,
+    taf_pa_result_t paResult = taf_pa_ks_CryptoSessionProcess(sessionPtr->handle,
                                             inputDataPtr,
                                             inputDataSize,
                                             outputDataPtr,
-                                            outputDataSizePtr));
+                                            outputDataSizePtr);
+    result = ConvertPaToLeRet(paResult);
     if (result != LE_OK)
     {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_CryptoSessionProcess reason=%d", paResult);
         // Process failed means the session is already aborted.
         sessionPtr->started = false;
         sessionPtr->handle = 0;
@@ -3314,11 +3403,16 @@ le_result_t taf_ks_CryptoSessionEnd
         return LE_NOT_PERMITTED;
     }
 
-    result = ConvertPaToLeRet(taf_pa_ks_CryptoSessionEnd(sessionPtr->handle,
+    taf_pa_result_t paResult = taf_pa_ks_CryptoSessionEnd(sessionPtr->handle,
                                         inputDataPtr,
                                         inputDataSize,
                                         outputDataPtr,
-                                        outputDataSizePtr));
+                                        outputDataSizePtr);
+    result = ConvertPaToLeRet(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_CryptoSessionEnd reason=%d", paResult);
+    }
     // Set the session is stopped.
     sessionPtr->started = false;
     sessionPtr->handle = 0;
@@ -3378,7 +3472,12 @@ le_result_t taf_ks_CryptoSessionAbort
     }
 
     // Abort the session.
-    result = ConvertPaToLeRet(taf_pa_ks_CryptoSessionAbort(sessionPtr->handle));
+    taf_pa_result_t paResult = taf_pa_ks_CryptoSessionAbort(sessionPtr->handle);
+    result = ConvertPaToLeRet(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_CryptoSessionAbort reason=%d", paResult);
+    }
     sessionPtr->started = false;
     sessionPtr->handle = 0;
 
@@ -3416,7 +3515,12 @@ static void InitTimerHandler
 {
     static uint8_t Count = 0;
 
-    le_result_t result = ConvertPaToLeRet(taf_pa_ks_Init());
+    taf_pa_result_t paResult = taf_pa_ks_Init();
+    le_result_t result = ConvertPaToLeRet(paResult);
+    if (paResult != TAF_PA_OK && paResult != TAF_PA_IO_ERROR)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_Init reason=%d", paResult);
+    }
     if (result == LE_OK)
     {
         LE_INFO("Telaf keyStore Service initialized (count=%d).", Count);
@@ -3482,10 +3586,26 @@ COMPONENT_INIT
     le_event_AddHandler("KeyEventhandler", KeyEventId, KeyEventHandler);
 
     // Register callback functions in PA layer.
-    taf_pa_ks_RegKeyCreationHandler(KeyCreationPAHandler);
-    taf_pa_ks_RegKeySharingHandler(KeySharingPAHandler);
+    taf_pa_result_t regCreationResult = taf_pa_ks_RegKeyCreationHandler(KeyCreationPAHandler);
+    if (regCreationResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_RegKeyCreationHandler reason=%d",
+            regCreationResult);
+    }
 
-    le_result_t result = taf_pa_ks_Init();
+    taf_pa_result_t regSharingResult = taf_pa_ks_RegKeySharingHandler(KeySharingPAHandler);
+    if (regSharingResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_RegKeySharingHandler reason=%d",
+            regSharingResult);
+    }
+
+    taf_pa_result_t paResult = taf_pa_ks_Init();
+    le_result_t result = ConvertPaToLeRet(paResult);
+    if (paResult != TAF_PA_OK && paResult != TAF_PA_IO_ERROR)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ks_Init reason=%d", paResult);
+    }
     if (LE_OK == result)
     {
         // Advertise the service.

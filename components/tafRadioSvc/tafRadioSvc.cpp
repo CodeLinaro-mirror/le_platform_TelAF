@@ -73,6 +73,11 @@ le_result_t taf_radio_SetRadioPower
 
     taf_pa_result_t result = taf_pa_radio_SetOperatingMode(0, mode);
 
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_SetOperatingMode reason=%d", result);
+    }
+
     return Utility::Convert::Result(result);
 }
 
@@ -106,7 +111,7 @@ le_result_t taf_radio_GetRadioPower
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get operating mode.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetOperatingMode reason=%d", paResult);
         return result;
     }
 
@@ -143,6 +148,12 @@ le_result_t taf_radio_SetAutomaticRegisterMode
     preference.mcc = 0;
     preference.mnc = 0;
     taf_pa_result_t result = taf_pa_radio_SetNetworkSelectionPreference(instance, &preference);
+
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_SetNetworkSelectionPreference reason=%d",
+                 result);
+    }
 
     return Utility::Convert::Result(result);
 }
@@ -260,7 +271,8 @@ le_result_t taf_radio_GetRegisterMode
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get network selection preference.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetNetworkSelectionPreference reason=%d",
+                 paResult);
         return result;
     }
 
@@ -367,6 +379,11 @@ le_result_t taf_radio_AddPreferredOperator
     config.networks[0].bitmask = Utility::Convert::Rat(bitmask);
     taf_pa_result_t paResult = taf_pa_radio_SetPreferredNetwork(instance, &config);
 
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_SetPreferredNetwork reason=%d", paResult);
+    }
+
     return Utility::Convert::Result(paResult);
 }
 
@@ -424,7 +441,7 @@ le_result_t taf_radio_RemovePreferredOperator
     result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get preferred network.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetPreferredNetwork reason=%d", paResult);
         return result;
     }
 
@@ -458,6 +475,11 @@ le_result_t taf_radio_RemovePreferredOperator
     config.clearPrevious = 1;
     config.networkCount = j;
     paResult = taf_pa_radio_SetPreferredNetwork(instance, &config);
+
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_SetPreferredNetwork reason=%d", paResult);
+    }
 
     return Utility::Convert::Result(paResult);
 }
@@ -535,7 +557,7 @@ taf_radio_PreferredOperatorListRef_t taf_radio_GetPreferredOperatorsList
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get preferred network.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetPreferredNetwork reason=%d", paResult);
         return nullptr;
     }
 
@@ -848,7 +870,7 @@ le_result_t taf_radio_GetRadioAccessTechInUse
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get serving RAT.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetServingRat reason=%d", paResult);
         return result;
     }
 
@@ -879,6 +901,11 @@ le_result_t taf_radio_SetRatPreferences
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_RatBitMask_t rat = Utility::Convert::Rat(bitmask);
     taf_pa_result_t result = taf_pa_radio_SetPreferredRat(instance, rat);
+
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_SetPreferredRat reason=%d", result);
+    }
 
     return Utility::Convert::Result(result);
 }
@@ -914,7 +941,7 @@ le_result_t taf_radio_GetRatPreferences
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get preferred RAT.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetPreferredRat reason=%d", paResult);
         return result;
     }
 
@@ -956,6 +983,10 @@ le_result_t taf_radio_GetNetRegState
     taf_radio_NetRegState_t dState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
 
     taf_pa_result_t paResult = taf_pa_radio_GetVoiceServiceInfo(instance, &voiceInfo);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetVoiceServiceInfo reason=%d", paResult);
+    }
     le_result_t result = Utility::Convert::Result(paResult);
     if ( result == LE_OK) {
         vState = Utility::Convert::NetRegState(&voiceInfo);
@@ -1045,7 +1076,7 @@ le_result_t taf_radio_GetPacketSwitchedState
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get data service state.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetDataServiceState reason=%d", paResult);
         return result;
     }
 
@@ -1060,7 +1091,7 @@ le_result_t taf_radio_GetPacketSwitchedState
     result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get data current roaming status.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetDataCurrRoamingStatus reason=%d", paResult);
         return result;
     }
 
@@ -1139,7 +1170,7 @@ le_result_t taf_radio_GetServiceDomain
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get serving RAT.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetServingRat reason=%d", paResult);
         return result;
     }
 
@@ -1148,7 +1179,7 @@ le_result_t taf_radio_GetServiceDomain
     result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get service domain.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetServiceDomain reason=%d", paResult);
         return result;
     }
 
@@ -1188,7 +1219,8 @@ le_result_t taf_radio_GetServiceDomainPreferences
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get service domain preferences.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetServiceDomainPreferences reason=%d",
+                 paResult);
         return result;
     }
 
@@ -1219,6 +1251,11 @@ le_result_t taf_radio_SetServiceDomainPreferences
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_ServiceDomainBitMask_t bitmask = Utility::Convert::ServiceDomain(domain);
     taf_pa_result_t result = taf_pa_radio_SetServiceDomainPreferences(instance, bitmask);
+
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_SetServiceDomainPreferences reason=%d", result);
+    }
 
     return Utility::Convert::Result(result);
 }
@@ -1254,7 +1291,7 @@ le_result_t taf_radio_GetSignalQual
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get serving RAT.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetServingRat reason=%d", paResult);
         return result;
     }
 
@@ -1263,7 +1300,7 @@ le_result_t taf_radio_GetSignalQual
     result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get signal strength level.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetSignalStrengthLevel reason=%d", paResult);
         return result;
     }
 
@@ -1291,7 +1328,7 @@ taf_radio_MetricsRef_t taf_radio_MeasureSignalMetrics
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get signal strength information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetSignalStrengthInfo reason=%d", paResult);
         return nullptr;
     }
 
@@ -1975,7 +2012,7 @@ uint32_t taf_radio_GetServingCellId
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get cell location list information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", paResult);
         return UINT32_MAX;
     }
 
@@ -2025,7 +2062,7 @@ uint32_t taf_radio_GetServingCellLocAreaCode
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get cell location list information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", paResult);
         return UINT32_MAX;
     }
 
@@ -2070,7 +2107,7 @@ uint16_t taf_radio_GetServingCellLteTracAreaCode
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get cell location list information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", paResult);
         return UINT16_MAX;
     }
 
@@ -2104,7 +2141,7 @@ uint32_t taf_radio_GetServingCellEarfcn
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get cell location list information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", paResult);
         return UINT32_MAX;
     }
 
@@ -2138,7 +2175,7 @@ uint32_t taf_radio_GetServingCellTimingAdvance
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get cell location list information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", paResult);
         return UINT32_MAX;
     }
 
@@ -2181,7 +2218,7 @@ uint16_t taf_radio_GetPhysicalServingLteCellId
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get cell location list information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", paResult);
         return UINT16_MAX;
     }
 
@@ -2227,7 +2264,7 @@ le_result_t taf_radio_GetServingCellGsmBsic
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get cell location list information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", paResult);
         return result;
     }
 
@@ -2264,7 +2301,7 @@ uint16_t taf_radio_GetServingCellScramblingCode
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get cell location list information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", paResult);
         return UINT16_MAX;
     }
 
@@ -2314,7 +2351,7 @@ le_result_t taf_radio_GetCurrentNetworkName
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get current network name.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCurrNetworkName reason=%d", paResult);
         return result;
     }
 
@@ -2375,7 +2412,7 @@ le_result_t taf_radio_GetCurrentNetworkMccMnc
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get cell location list information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", paResult);
         return result;
     }
 
@@ -2941,7 +2978,7 @@ le_result_t taf_radio_SetSignalStrengthIndThresholds
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to set signal strength indication configuration.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_SetSignalStrengthInd reason=%d", paResult);
         return result;
     }
 
@@ -2978,7 +3015,7 @@ le_result_t taf_radio_SetSignalStrengthIndDelta
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to set signal strength indication configuration.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_SetSignalStrengthInd reason=%d", paResult);
         return result;
     }
 
@@ -3005,7 +3042,7 @@ uint64_t taf_radio_GetServingNrCellId
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get cell location list information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", paResult);
         return UINT64_MAX;
     }
 
@@ -3039,7 +3076,7 @@ int32_t taf_radio_GetServingCellNrTracAreaCode
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get cell location list information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", paResult);
         return INT32_MAX;
     }
 
@@ -3073,7 +3110,7 @@ int32_t taf_radio_GetServingCellNrArfcn
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get cell location list information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", paResult);
         return INT32_MAX;
     }
 
@@ -3107,7 +3144,7 @@ uint32_t taf_radio_GetPhysicalServingNrCellId
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get cell location list information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", paResult);
         return UINT16_MAX;
     }
 
@@ -3140,7 +3177,7 @@ taf_radio_NeighborCellsRef_t taf_radio_GetNeighborCellsInfo
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get cell location list information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", paResult);
         return nullptr;
     }
 
@@ -3629,7 +3666,7 @@ le_result_t taf_radio_GetBandCapabilities
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get band capabilities.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetBandCapabilities reason=%d", paResult);
         return result;
     }
 
@@ -3676,7 +3713,7 @@ le_result_t taf_radio_GetLteBandCapabilities
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get band capabilities.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetLteBandCapabilities reason=%d", paResult);
         return result;
     }
 
@@ -3710,6 +3747,11 @@ le_result_t taf_radio_SetBandPreferences
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
     taf_pa_radio_BandBitMask_t band = Utility::Convert::ToPaBand(bitmask);
     taf_pa_result_t result = taf_pa_radio_SetBandPreferences(instance, band);
+
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_SetBandPreferences reason=%d", result);
+    }
 
     return Utility::Convert::Result(result);
 }
@@ -3745,7 +3787,7 @@ le_result_t taf_radio_GetBandPreferences
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get band preferences.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetBandPreferences reason=%d", paResult);
         return result;
     }
 
@@ -3793,6 +3835,11 @@ le_result_t taf_radio_SetLteBandPreferences
 
     taf_pa_result_t result = taf_pa_radio_SetLteBandPreferences(instance, &band);
 
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_SetLteBandPreferences reason=%d", result);
+    }
+
     return Utility::Convert::Result(result);
 }
 
@@ -3834,7 +3881,7 @@ le_result_t taf_radio_GetLteBandPreferences
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get band capabilities.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetLteBandPreferences reason=%d", paResult);
         return result;
     }
 
@@ -4329,7 +4376,7 @@ le_result_t taf_radio_GetImsRegStatus
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get IMS registration status.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetImsRegistrationStatus reason=%d", paResult);
         return result;
     }
 
@@ -4480,7 +4527,7 @@ le_result_t taf_radio_GetLteCsCap
     result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get LTE CS capability.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetLteCsCapability reason=%d", paResult);
         return result;
     }
 
@@ -4527,7 +4574,7 @@ le_result_t taf_radio_GetRatSvcStatus
     taf_pa_result_t paResult = taf_pa_radio_GetServingRat(instance, &rat);
     if (paResult != TAF_PA_OK)
     {
-        LE_ERROR("Failed to get serving RAT.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetServingRat reason=%d", paResult);
         return Utility::Convert::Result(paResult);
     }
 
@@ -4536,7 +4583,7 @@ le_result_t taf_radio_GetRatSvcStatus
     result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get RAT service status.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetRatSvcStatus reason=%d", paResult);
         return result;
     }
 
@@ -4794,7 +4841,7 @@ le_result_t taf_radio_GetImsSvcStatus
     result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get IMS service status.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetImsServiceStatus reason=%d", paResult);
         return result;
     }
 
@@ -4842,7 +4889,7 @@ le_result_t taf_radio_GetImsPdpError
     result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get IMS PDP failure error code.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetImsPdpFailureErrorCode reason=%d", paResult);
         return result;
     }
 
@@ -4881,6 +4928,10 @@ le_result_t taf_radio_SetImsSvcCfg
 
     taf_pa_radio_ImsServiceSettingBitMask_t bitmask = Utility::Convert::ImsService(service);
     taf_pa_result_t paResult = taf_pa_radio_ToggleImsService(instance, bitmask, enable);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_ToggleImsService reason=%d", paResult);
+    }
     return Utility::Convert::Result(paResult);
 }
 
@@ -4924,7 +4975,7 @@ le_result_t taf_radio_GetImsSvcCfg
     result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get enabled IMS service.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetEnabledImsService reason=%d", paResult);
         return result;
     }
 
@@ -4971,6 +5022,10 @@ le_result_t taf_radio_SetImsUserAgent
     }
 
     taf_pa_result_t paResult = taf_pa_radio_SetImsUserAgent(instance, namePtr);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_SetImsUserAgent reason=%d", paResult);
+    }
     return Utility::Convert::Result(paResult);
 }
 
@@ -5010,6 +5065,10 @@ le_result_t taf_radio_GetImsUserAgent
     }
 
     taf_pa_result_t paResult = taf_pa_radio_GetImsUserAgent(instance, namePtr, namePtrSize);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetImsUserAgent reason=%d", paResult);
+    }
     return Utility::Convert::Result(paResult);
 }
 
@@ -5089,7 +5148,7 @@ le_result_t taf_radio_GetNrDualConnectivityStatus
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get ENDC availability.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetEndcAvailability reason=%d", paResult);
         return result;
     }
 
@@ -5098,7 +5157,7 @@ le_result_t taf_radio_GetNrDualConnectivityStatus
     result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get DCNR restriction.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetDcnrRestriction reason=%d", paResult);
         return result;
     }
 
@@ -5144,7 +5203,7 @@ le_result_t taf_radio_GetCurrentNetworkLongName
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get current network name.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCurrNetworkName reason=%d", paResult);
         return result;
     }
 
@@ -5187,7 +5246,7 @@ le_result_t taf_radio_GetHardwareSimConfig
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get SIM capabilitiy information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetSimCapacityInfo reason=%d", paResult);
         return result;
     }
 
@@ -5235,7 +5294,8 @@ le_result_t taf_radio_GetHardwareSimRatCapabilities
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get device and SIM card RAT capability.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetDeviceAndSimCardRatCapability reason=%d",
+                 paResult);
         return result;
     }
 
@@ -5377,7 +5437,7 @@ le_result_t taf_radio_GetServingCellArfcn
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get cell location list information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", paResult);
         return result;
     }
 
@@ -5427,7 +5487,7 @@ le_result_t taf_radio_GetServingCellUarfcn
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get cell location list information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", paResult);
         return result;
     }
 
@@ -5476,6 +5536,11 @@ le_result_t taf_radio_SetOperatingMode
     taf_pa_radio_OperatingMode_t paMode = Utility::Convert::OperatingMode(mode);
     taf_pa_result_t result = taf_pa_radio_SetOperatingMode(0, paMode);
 
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_SetOperatingMode reason=%d", result);
+    }
+
     return Utility::Convert::Result(result);
 }
 
@@ -5509,7 +5574,7 @@ le_result_t taf_radio_GetOperatingMode
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get operating mode.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetOperatingMode reason=%d", paResult);
         return result;
     }
 
@@ -5554,11 +5619,16 @@ le_result_t taf_radio_GetServingCellRoutingAreaCode
     taf_pa_result_t result = taf_pa_radio_GetServingRat(instance, &rat);
     if (result != 0)
     {
-        LE_ERROR("Failed to get serving RAT.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetServingRat reason=%d", result);
         return LE_FAULT;
     }
 
     result = taf_pa_radio_GetServingCellRac(instance, rat, racPtr);
+
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetServingCellRac reason=%d", result);
+    }
 
     return Utility::Convert::Result(result);
 }
@@ -5604,7 +5674,7 @@ le_result_t taf_radio_GetServingCellBandInfo
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get serving cell band information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetServingCellBandInfo reason=%d", paResult);
         return result;
     }
 
@@ -5658,7 +5728,7 @@ le_result_t taf_radio_GetServingCellLteBandInfo
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get serving cell band information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetServingCellBandInfo reason=%d", paResult);
         return result;
     }
 
@@ -5711,7 +5781,7 @@ le_result_t taf_radio_GetServingCellNrBandInfo
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get serving cell band information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetServingCellBandInfo reason=%d", paResult);
         return result;
     }
 
@@ -5751,7 +5821,7 @@ le_result_t taf_radio_GetNrIconType
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get NR icon.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetNrIcon reason=%d", paResult);
         return result;
     }
 
@@ -5895,7 +5965,7 @@ le_result_t taf_radio_GetCAInformation
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to LTE Control PHY Carrier Aggregation information.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetLteCphyCaInfo reason=%d", paResult);
         return result;
     }
 
@@ -6626,7 +6696,7 @@ le_result_t taf_radio_GetConnStatus
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
     {
-        LE_ERROR("Failed to get data available system status.");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetDataAvailSysStatus reason=%d", paResult);
         return result;
     }
 

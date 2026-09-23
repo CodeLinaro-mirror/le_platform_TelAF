@@ -24,7 +24,7 @@ static void SigTermEventHandler
 #ifdef LE_CONFIG_GET_IMEI_SUPPORT
     taf_pa_result_t result = taf_pa_deviceinfo_Deinit();
     if (result != TAF_PA_OK)
-        LE_ERROR("taf_pa_deviceinfo_Deinit failed, result: %d", result);
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_deviceinfo_Deinit reason=%d", result);
     else
         LE_INFO("taf_pa_deviceinfo_Deinit succeeded.");
 #endif

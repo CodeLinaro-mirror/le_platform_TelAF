@@ -97,7 +97,7 @@ void taf_Hms::CleanupOnSigTerm()
         taf_pa_result_t result = taf_pa_health_Deinit();
         if (result != TAF_PA_OK)
         {
-            LE_ERROR("taf_pa_health_Deinit failed, err: %d", (int)result);
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_health_Deinit reason=%d", (int)result);
         }
         else
         {
@@ -1725,7 +1725,8 @@ void ReportOperatingModeResponse(taf_pa_result_t result)
 
 void ModemStatus::ReqsOperatingMode(void)
 {
-    if(taf_pa_health_ReqPhoneOperatingMode() == TAF_PA_OK)
+    taf_pa_result_t reqRes = taf_pa_health_ReqPhoneOperatingMode();
+    if(reqRes == TAF_PA_OK)
     {
         if (pendingCount_ < COUNTER_RESPONSE_TIME_OUT)
         {
@@ -1743,6 +1744,10 @@ void ModemStatus::ReqsOperatingMode(void)
             pendingCount_ = COUNTER_EVENT_REPORT_DONE;
         }
     }
+    else
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_health_ReqPhoneOperatingMode reason=%d", reqRes);
+    }
 }
 
 void ModemStatus::CheckOperModeStatus(void)
@@ -1757,7 +1762,7 @@ void ModemStatus::CheckOperModeStatus(void)
         }
         else
         {
-            LE_ERROR("Phone initilization failed, res %d", res);
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_health_PhoneInit reason=%d", res);
         }
     }
     if (isPaPhoneInitialized)
@@ -2078,7 +2083,7 @@ void InitModemStatusChangeSupport(void)
     taf_pa_result_t pa_result = taf_pa_health_ModemNotificationInit();
     if (pa_result != TAF_PA_OK)
     {
-        LE_WARN("Modem Notification Init failed");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_health_ModemNotificationInit reason=%d", pa_result);
         return;
     }
 
@@ -2086,7 +2091,8 @@ void InitModemStatusChangeSupport(void)
     pa_result = taf_pa_health_RegModemStatusUpdateHandler(ModemStatusChangePAHandler);
     if (pa_result != TAF_PA_OK)
     {
-        LE_ERROR("taf_pa_health_RegModemStatusUpdateHandler failed");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_health_RegModemStatusUpdateHandler reason=%d",
+            pa_result);
         return;
     }
 
@@ -2095,7 +2101,8 @@ void InitModemStatusChangeSupport(void)
         taf_pa_health_RegModemOperationModeUpdateHandler(ReportOperatingModeResponse);
     if (pa_result != TAF_PA_OK)
     {
-        LE_ERROR("taf_pa_health_RegModemOperationModeUpdateHandler failed");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_health_RegModemOperationModeUpdateHandler reason=%d",
+            pa_result);
         return;
     }
 
@@ -2103,7 +2110,7 @@ void InitModemStatusChangeSupport(void)
     pa_result = taf_pa_health_RegModemListener();
     if (pa_result != TAF_PA_OK)
     {
-        LE_ERROR("taf_pa_RegModemListener failed");
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_health_RegModemListener reason=%d", pa_result);
         return;
     }
 

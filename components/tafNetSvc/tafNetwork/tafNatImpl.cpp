@@ -47,9 +47,15 @@ LE_REF_DEFINE_STATIC_MAP(destNatEntrySafeRefMap, TAF_NET_MAX_NAT_ENTRY);
 ======================================================================*/
 void taf_Nat::Init(void)
 {
+    taf_pa_result_t paResult;
     le_result_t isReady = LE_OK;
 
-    isReady =  PA_TO_LE_RESULT(taf_pa_nat_Init());
+    paResult = taf_pa_nat_Init();
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_nat_Init reason=%d", paResult);
+    }
+    isReady = PA_TO_LE_RESULT(paResult);
 
     if(isReady == LE_OK)
     {
@@ -182,7 +188,12 @@ le_result_t taf_Nat::AddDestNatEntry(uint32_t profileId, const char *priIpAddrPt
     natConfig.proto = (uint8_t)ipProto;
 
     // Call PA layer function
-    result = PA_TO_LE_RESULT(taf_pa_nat_AddDestNatEntry(profileId, slotId, &natConfig));
+    taf_pa_result_t paResult = taf_pa_nat_AddDestNatEntry(profileId, slotId, &natConfig);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_nat_AddDestNatEntry reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_OK)
     {
@@ -194,17 +205,11 @@ le_result_t taf_Nat::AddDestNatEntry(uint32_t profileId, const char *priIpAddrPt
     }
     else if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("AddDestNatEntry is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("AddDestNatEntry is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
-    }
-    else
-    {
-        LE_ERROR("ERROR - Failed to add destination NAT entry, result: %d", static_cast<int>(result));
     }
 
     return LE_FAULT;
@@ -278,7 +283,12 @@ le_result_t taf_Nat::RemoveDestNatEntry(uint32_t profileId, const char *priIpAdd
     natConfig.proto = (uint8_t)ipProto;
 
     // Call PA layer function
-    result = PA_TO_LE_RESULT(taf_pa_nat_RemoveDestNatEntry(profileId, slotId, &natConfig));
+    taf_pa_result_t paResult = taf_pa_nat_RemoveDestNatEntry(profileId, slotId, &natConfig);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_nat_RemoveDestNatEntry reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_OK)
     {
@@ -290,17 +300,11 @@ le_result_t taf_Nat::RemoveDestNatEntry(uint32_t profileId, const char *priIpAdd
     }
     else if (result == LE_CAP_NOT_IMPLEMENTED)
     {
-        LE_ERROR("RemoveDestNatEntry is not implemented by PA");
         return LE_CAP_NOT_IMPLEMENTED;
     }
     else if (result == LE_CAP_UNSUPPORTED)
     {
-        LE_ERROR("RemoveDestNatEntry is unsupported by PA");
         return LE_CAP_UNSUPPORTED;
-    }
-    else
-    {
-        LE_ERROR("ERROR - Failed to remove destination NAT entry, result: %d", static_cast<int>(result));
     }
 
     return LE_FAULT;
@@ -327,14 +331,22 @@ le_result_t taf_Nat::RemoveDestNatEntry(uint32_t profileId, const char *priIpAdd
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_Nat::IsDestNatEntryPresent(uint32_t profileId, const char* priIpAddrPtr, uint16_t priPort, uint16_t globalPort, taf_net_IpProto_t ipProto)
+le_result_t taf_Nat::IsDestNatEntryPresent(uint32_t profileId, const char* priIpAddrPtr,
+                                           uint16_t priPort, uint16_t globalPort,
+                                           taf_net_IpProto_t ipProto)
 {
     uint8_t slotId = DEFAULT_SLOT_ID_1;
     le_result_t result;
+    taf_pa_result_t paResult;
 
     std::vector<taf_pa_net_NatConfig_t> natEntryInfo;
 
-    result = PA_TO_LE_RESULT(taf_pa_nat_QueryDestNatEntryList(profileId, slotId, natEntryInfo));
+    paResult = taf_pa_nat_QueryDestNatEntryList(profileId, slotId, natEntryInfo);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_nat_QueryDestNatEntryList reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_OK)
     {
@@ -356,18 +368,6 @@ le_result_t taf_Nat::IsDestNatEntryPresent(uint32_t profileId, const char* priIp
     }
     else
     {
-        if (result == LE_CAP_NOT_IMPLEMENTED)
-        {
-            LE_ERROR("Query destination NAT entry list is not implemented by PA");
-        }
-        else if (result == LE_CAP_UNSUPPORTED)
-        {
-            LE_ERROR("Query destination NAT entry list is unsupported by PA");
-        }
-        else
-        {
-            LE_ERROR("Request static nat entry list failed, result: %d", int(result));
-        }
         return result;
     }
     return LE_FAULT;
@@ -397,10 +397,16 @@ taf_net_DestNatEntryListRef_t taf_Nat::GetDestNatEntryList(uint32_t profileId)
     bool isAdded = false;
     taf_DestNatEntryList_t* existedDestNatEntryList;
     le_result_t result;
+    taf_pa_result_t paResult;
 
     std::vector<taf_pa_net_NatConfig_t> natEntryInfo;
 
-    result = PA_TO_LE_RESULT(taf_pa_nat_QueryDestNatEntryList(profileId, slotId, natEntryInfo));
+    paResult = taf_pa_nat_QueryDestNatEntryList(profileId, slotId, natEntryInfo);
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_nat_QueryDestNatEntryList reason=%d", paResult);
+    }
+    result = PA_TO_LE_RESULT(paResult);
 
     if (result == LE_OK)
     {
@@ -454,18 +460,6 @@ taf_net_DestNatEntryListRef_t taf_Nat::GetDestNatEntryList(uint32_t profileId)
     }
     else
     {
-        if (result == LE_CAP_NOT_IMPLEMENTED)
-        {
-            LE_ERROR("Query destination NAT entry list is not implemented by PA");
-        }
-        else if (result == LE_CAP_UNSUPPORTED)
-        {
-            LE_ERROR("Query destination NAT entry list is unsupported by PA");
-        }
-        else
-        {
-            LE_ERROR("Request static nat entry list failed, result: %d",int(result));
-        }
         return NULL;
     }
 
@@ -765,4 +759,3 @@ taf_net_IpProto_t taf_Nat::MapIPProtocol(uint8_t iptype)
         return TAF_NET_UDP;
     }
 }
-

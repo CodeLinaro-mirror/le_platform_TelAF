@@ -1545,7 +1545,7 @@ le_result_t taf_sms_GetSmsCenterAddress
       addr, len, TIMEOUT_GET_SMSC);
    if (paRes != TAF_PA_OK)
    {
-      LE_ERROR("taf_pa_sms_GetSmsCenterAddress failed, paRes: %d", (int)paRes);
+      LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_GetSmsCenterAddress reason=%d", (int)paRes);
       return LE_FAULT;
    }
    return LE_OK;
@@ -1587,7 +1587,7 @@ le_result_t taf_sms_SetSmsCenterAddress
       addr, TIMEOUT_SET_SMSC);
    if (paRes != TAF_PA_OK)
    {
-      LE_ERROR("taf_pa_sms_SetSmsCenterAddress failed, paRes: %d", (int)paRes);
+      LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_SetSmsCenterAddress reason=%d", (int)paRes);
       return LE_FAULT;
    }
    return LE_OK;

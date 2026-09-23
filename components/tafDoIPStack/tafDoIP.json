@@ -28,11 +28,22 @@
         "UDP_DISCOVERY": 13400,
         "TCP_DATA": 13400,
         "UDP_SOURCE": 13400,
-        "TLS": 
+        "tls":
         {
-            "enable": false,
-            "certificate": "/data/diag/server.pem",
-            "private_key": "/data/diag/server.key"
+            "enabled": false,
+            "mtls_enabled": false,
+            "tls_min_version": "TLSv1.3",
+            "tls_cipher_suites": "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384",
+            "signature_algorithms": "ecdsa_secp256r1_sha256",
+            "server_certificate_path": "/data/diag/cert/server_cert.pem",
+            "server_key":
+            {
+                "type": "default",
+                "provider_name": "",
+                "provider_module_path": "",
+                "key_reference_path": "/data/diag/cert/server_key.pem"
+            },
+            "client_ca_certificate_path": "/data/diag/cert/client_ca.pem"
         }
     }
 }

@@ -1883,6 +1883,13 @@ taf_doip_Result_t CommunicationMgr::CreateSpecIPv4Socket
     le_socket_SetTimeout(tcpDataSockRef[index], SOCKET_TIMEOUT_MS);
 
     // Set the socket event callback for tcp listener fd monitor.
+    if (ConfigureTLSIfEnabled(tcpDataSockRef[index]) != LE_OK)
+    {
+        LE_ERROR("ConfigureTLSIfEnabled error!\n");
+        result = TAF_DOIP_RESULT_ERROR;
+        goto errOut;
+    }
+
     le_socket_AddEventHandler(tcpDataSockRef[index], TcpDataSocketEventCallback, (void*)ifNamePtr);
     if (le_socket_Bind(tcpDataSockRef[index]) != LE_OK)
     {
@@ -2265,146 +2272,175 @@ le_result_t CommunicationMgr::SetAuthType
     return LE_OK;
 }
 
-le_result_t CommunicationMgr::SetTLSInfo
+le_result_t CommunicationMgr::ConfigureTLSIfEnabled
 (
+    le_socket_Ref_t socketRef
 )
 {
+    bool isTLS = false;
+    bool isMTLS = false;
+    char providerType[TAF_DOIP_TLS_KEY_TYPE_MAX_LEN];
+    char providerName[TAF_DOIP_TLS_PROVIDER_NAME_MAX_LEN];
+    char providerModulePath[TAF_DOIP_CERT_PATH_LEN];
     char certFile[TAF_DOIP_CERT_PATH_LEN];
     char pkFile[TAF_DOIP_CERT_PATH_LEN];
+    char clientCaCertFile[TAF_DOIP_CERT_PATH_LEN];
+    char tlsMinVersion[TAF_DOIP_TLS_VERSION_MAX_LEN];
+    char tlsCipherSuites[TAF_DOIP_TLS_CIPHER_SUITES_MAX_LEN];
+    char signatureAlgorithms[TAF_DOIP_TLS_SIG_ALGS_MAX_LEN];
+    le_result_t result;
     auto& vehicleMgr = VehicleManager::GetInstance();
 
+    vehicleMgr.GetTLSFlag(&isTLS);
+    if (!isTLS)
+    {
+        return LE_OK;
+    }
+
+    if (TAF_DOIP_RESULT_OK != vehicleMgr.GetMTLSFlag(&isMTLS))
+    {
+        LE_ERROR("Failed to get mTLS flag");
+        return LE_FAULT;
+    }
+
+    // 1. Configure the crypto provider before any key reference is decoded.
+    if (TAF_DOIP_RESULT_OK != vehicleMgr.GetTLSProviderType(providerType))
+    {
+        LE_ERROR("Failed to get TLS provider type");
+        return LE_FAULT;
+    }
+
+    if (TAF_DOIP_RESULT_OK != vehicleMgr.GetTLSProviderName(providerName))
+    {
+        LE_ERROR("Failed to get TLS provider name");
+        return LE_FAULT;
+    }
+
+    if (TAF_DOIP_RESULT_OK != vehicleMgr.GetTLSProviderModulePath(providerModulePath))
+    {
+        LE_ERROR("Failed to get TLS provider module path");
+        return LE_FAULT;
+    }
+
+    result = le_socket_SetProvider(socketRef,
+            (providerType[0] != '\0') ? providerType : SOCKET_PROVIDER_TYPE_DEFAULT,
+            (providerName[0] != '\0') ? providerName : NULL,
+            (providerModulePath[0] != '\0') ? providerModulePath : NULL);
+    if (result != LE_OK)
+    {
+        LE_ERROR("le_socket_SetProvider failed: %d", result);
+        return result;
+    }
+
+    // 2. mTLS needs the trust anchor used to verify the tester/client certificate.
+    if (isMTLS)
+    {
+        if (TAF_DOIP_RESULT_OK != vehicleMgr.GetTLSClientCACertFile(clientCaCertFile))
+        {
+            LE_ERROR("Failed to get client CA certificate file");
+            return LE_FAULT;
+        }
+
+        if (clientCaCertFile[0] == '\0')
+        {
+            LE_ERROR("mTLS is enabled but client CA certificate path is not configured");
+            return LE_FAULT;
+        }
+
+        LE_DEBUG("client CA cert file is %s", clientCaCertFile);
+        result = le_socket_AddCertificateFile(socketRef, clientCaCertFile);
+        if (result != LE_OK)
+        {
+            LE_ERROR("le_socket_AddCertificateFile failed: %d", result);
+            return result;
+        }
+    }
+
+    // 3. Own certificate chain MUST be loaded before the private key.
     if (TAF_DOIP_RESULT_OK != vehicleMgr.GetTLSCertFile(certFile))
     {
-        LE_ERROR("Failed to get certificate file");
+        LE_ERROR("Failed to get server certificate file");
         return LE_FAULT;
     }
 
     LE_DEBUG("cert file is %s", certFile);
-    FILE* fp = fopen(certFile, "rb");
-    if (fp == NULL)
-    {
-        LE_ERROR("Failed to open certificate file: %s", certFile);
-        return LE_FAULT;
-    }
-
-    // Get file size
-    if (fseek(fp, 0, SEEK_END) != 0)
-    {
-        LE_ERROR("Failed to reach the starting position of the certificate file");
-        fclose(fp);
-        return LE_FAULT;
-    }
-
-    long size = ftell(fp);
-    if (size <= 0)
-    {
-        LE_ERROR("Failed to get the size of the certificate file");
-        fclose(fp);
-        return LE_FAULT;
-    }
-    rewind(fp);
-
-    uint8_t* buf = (uint8_t*)malloc(size);
-    if (!buf)
-    {
-        LE_ERROR("Out of memory while reading certificate");
-        fclose(fp);
-        return LE_FAULT;
-    }
-
-    if (fread(buf, 1, size, fp) != (size_t)size)
-    {
-        LE_ERROR("Failed to read the certificate file");
-        fclose(fp);
-        free(buf);
-        return LE_FAULT;
-    }
-
-    // Pass raw buffer to socket library
-    le_result_t result = AddOwnCertificate(buf, size);
+    result = le_socket_AddOwnCertificateFile(socketRef, certFile);
     if (result != LE_OK)
     {
-        LE_ERROR("AddOwnCertificate failed: %d", result);
-        fclose(fp);
-        free(buf);
+        LE_ERROR("le_socket_AddOwnCertificateFile failed: %d", result);
         return result;
     }
 
-    fclose(fp);
-    free(buf);
-
+    // 4. The backend checks the key against the already-loaded certificate.
     if (TAF_DOIP_RESULT_OK != vehicleMgr.GetTLSPKFile(pkFile))
     {
-        LE_ERROR("Failed to get certificate file");
+        LE_ERROR("Failed to get server private key file");
         return LE_FAULT;
     }
 
     LE_DEBUG("pk file is %s", pkFile);
-    fp = fopen(pkFile, "rb");
-    if (fp == NULL)
-    {
-        LE_ERROR("Failed to open pkey file: %s", pkFile);
-        return LE_FAULT;
-    }
-
-    // Get file size
-    if (fseek(fp, 0, SEEK_END) != 0)
-    {
-        LE_ERROR("Failed to reach the starting position of the pk file");
-        fclose(fp);
-        return LE_FAULT;
-    }
-
-    size = ftell(fp);
-    if (size <= 0)
-    {
-        LE_ERROR("Failed to get the size of the pk file");
-        fclose(fp);
-        return LE_FAULT;
-    }
-    rewind(fp);
-
-    buf = (uint8_t*)malloc(size);
-    if (!buf)
-    {
-        LE_ERROR("Out of memory while reading certificate");
-        fclose(fp);
-        return LE_FAULT;
-    }
-
-    if (fread(buf, 1, size, fp) != (size_t)size)
-    {
-        LE_ERROR("Failed to read the certificate file");
-        fclose(fp);
-        free(buf);
-        return LE_FAULT;
-    }
-
-    // Pass raw buffer to socket library
-    result = AddOwnPrivateKey(buf, size);
+    result = le_socket_AddOwnPrivateKeyFile(socketRef, pkFile);
     if (result != LE_OK)
     {
-        LE_ERROR("AddOwnPrivateKey failed: %d", result);
-        fclose(fp);
-        free(buf);
-        return LE_FAULT;
-    }
-
-    fclose(fp);
-    free(buf);
-
-    result = SetAuthType(TAF_DOIP_AUTH_SERVER);
-    if (result != LE_OK)
-    {
-        LE_ERROR("SetAuthType failed: %d", result);
+        LE_ERROR("le_socket_AddOwnPrivateKeyFile failed: %d", result);
         return result;
     }
 
-    result = SetCipherSuites(0);
+    // 5. Arm the CertificateRequest when mutual authentication is required.
+    result = le_socket_SetAuthType(socketRef, isMTLS ? AUTH_MUTUAL : AUTH_SERVER);
     if (result != LE_OK)
     {
-        LE_ERROR("SetAuthType failed: %d", result);
+        LE_ERROR("le_socket_SetAuthType failed: %d", result);
         return result;
+    }
+
+    // 6. Apply the remaining TLS policy knobs.
+    if (TAF_DOIP_RESULT_OK != vehicleMgr.GetTLSMinVersion(tlsMinVersion))
+    {
+        LE_ERROR("Failed to get TLS min version");
+        return LE_FAULT;
+    }
+
+    if (tlsMinVersion[0] != '\0')
+    {
+        result = le_socket_SetTlsMinVersion(socketRef, tlsMinVersion);
+        if (result != LE_OK)
+        {
+            LE_ERROR("le_socket_SetTlsMinVersion failed: %d", result);
+            return result;
+        }
+    }
+
+    if (TAF_DOIP_RESULT_OK != vehicleMgr.GetTLSCipherSuites(tlsCipherSuites))
+    {
+        LE_ERROR("Failed to get TLS cipher suites");
+        return LE_FAULT;
+    }
+
+    if (tlsCipherSuites[0] != '\0')
+    {
+        result = le_socket_SetCipherSuiteList(socketRef, tlsCipherSuites);
+        if (result != LE_OK)
+        {
+            LE_ERROR("le_socket_SetCipherSuiteList failed: %d", result);
+            return result;
+        }
+    }
+
+    if (TAF_DOIP_RESULT_OK != vehicleMgr.GetTLSSignatureAlgorithms(signatureAlgorithms))
+    {
+        LE_ERROR("Failed to get TLS signature algorithms");
+        return LE_FAULT;
+    }
+
+    if (signatureAlgorithms[0] != '\0')
+    {
+        result = le_socket_SetSignatureAlgorithms(socketRef, signatureAlgorithms);
+        if (result != LE_OK)
+        {
+            LE_ERROR("le_socket_SetSignatureAlgorithms failed: %d", result);
+            return result;
+        }
     }
 
     return LE_OK;
@@ -2423,7 +2459,6 @@ taf_doip_Result_t CommunicationMgr::SessionInit
 {
     auto& vehicleMgr = VehicleManager::GetInstance();
     char netType[TAF_DOIP_IPTYPE_MAX_LEN];
-    bool isTLS = false;
     taf_doip_Result_t result = TAF_DOIP_RESULT_ERROR;
 
     if (TAF_DOIP_RESULT_OK != vehicleMgr.GetNetType(netType))
@@ -2451,12 +2486,6 @@ taf_doip_Result_t CommunicationMgr::SessionInit
             LE_ERROR("Failed to create IPv4 socket resource.");
             return result;
         }
-    }
-
-    vehicleMgr.GetTLSFlag(&isTLS);
-    if (isTLS)
-    {
-        SetTLSInfo();
     }
 
     // Initialize TCP connection manager.

@@ -43,8 +43,16 @@ typedef struct
     uint16_t tcpPort;
     uint16_t udpSrc;    // UDP source port.
     bool isTLS;
-    char certFile[TAF_DOIP_CERT_PATH_LEN];
-    char pkFile[TAF_DOIP_CERT_PATH_LEN];
+    bool mtlsEnabled;
+    char tlsMinVersion[TAF_DOIP_TLS_VERSION_MAX_LEN];
+    char tlsCipherSuites[TAF_DOIP_TLS_CIPHER_SUITES_MAX_LEN];
+    char signatureAlgorithms[TAF_DOIP_TLS_SIG_ALGS_MAX_LEN];
+    char certFile[TAF_DOIP_CERT_PATH_LEN];                    // server_certificate_path
+    char providerType[TAF_DOIP_TLS_KEY_TYPE_MAX_LEN];         // server_key.type
+    char providerName[TAF_DOIP_TLS_PROVIDER_NAME_MAX_LEN];    // server_key.provider_name
+    char providerModulePath[TAF_DOIP_CERT_PATH_LEN];          // server_key.provider_module_path
+    char pkFile[TAF_DOIP_CERT_PATH_LEN];                      // server_key.key_reference_path
+    char clientCaCertificatePath[TAF_DOIP_CERT_PATH_LEN];     // client_ca_certificate_path
     le_dls_List_t funcGroupList;
     bool parseStatus = false;     // This flag will indicate that whether json is parsed or not
 }taf_doip_Config_t;
@@ -105,6 +113,14 @@ namespace doip{
             taf_doip_Result_t GetTLSFlag(bool *isTLSPtr);
             taf_doip_Result_t GetTLSCertFile(char *certFilePtr);
             taf_doip_Result_t GetTLSPKFile(char *pkFilePtr);
+            taf_doip_Result_t GetMTLSFlag(bool *isMTLSPtr);
+            taf_doip_Result_t GetTLSMinVersion(char *tlsMinVersionPtr);
+            taf_doip_Result_t GetTLSCipherSuites(char *tlsCipherSuitesPtr);
+            taf_doip_Result_t GetTLSSignatureAlgorithms(char *sigAlgorithmsPtr);
+            taf_doip_Result_t GetTLSProviderType(char *providerTypePtr);
+            taf_doip_Result_t GetTLSProviderName(char *providerNamePtr);
+            taf_doip_Result_t GetTLSProviderModulePath(char *providerModulePathPtr);
+            taf_doip_Result_t GetTLSClientCACertFile(char *clientCaCertPtr);
 
             taf_doip_Result_t GetNetType(char* netTypePtr);
 

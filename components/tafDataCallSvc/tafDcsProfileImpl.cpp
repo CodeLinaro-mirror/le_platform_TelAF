@@ -42,6 +42,8 @@
 #include <iostream>
 #include <string>
 #include <memory>
+#include <cstdlib>
+#include <unistd.h>
 #include <telux/tel/PhoneFactory.hpp>
 #include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
@@ -1689,10 +1691,99 @@ void taf_DataProfile::onInitCompleted(telux::common::ServiceStatus status)
 }
 #endif
 
+void taf_DataProfileModemEvtListener::onStateChange(
+    telux::common::SubsystemInfo subsystemInfo,
+    telux::common::OperationalStatus newOperationalStatus)
+{
+    if (((subsystemInfo.subsystems & telux::common::Subsystem::MPSS) ==
+            telux::common::Subsystem::MPSS) &&
+        (newOperationalStatus == telux::common::OperationalStatus::UNAVAILABLE))
+    {
+        auto &dataProfile = taf_DataProfile::GetInstance();
+        if (dataProfile.modemUnavailable.exchange(true))
+        {
+            return;
+        }
+        le_event_Report(dataProfile.modemUnavailableEvId, &newOperationalStatus,
+                        sizeof(newOperationalStatus));
+    }
+}
+
+void taf_DataProfile::ModemUnavailableHandler(void* reportPtr)
+{
+    LE_UNUSED(reportPtr);
+
+    LE_CRIT("Modem SSR detected, exiting for restart");
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
+    dataConnection.Deinit();
+    dataProfile.Deinit();
+    _exit(EXIT_UNAVAILABLE);
+}
+
+void taf_DataProfile::WaitForModem(void)
+{
+    modemUnavailableEvId = le_event_CreateId("DcsModemUnavailable",
+        sizeof(telux::common::OperationalStatus));
+    le_event_AddHandler("DcsModemUnavailable", modemUnavailableEvId, ModemUnavailableHandler);
+
+    auto prom = std::make_shared<std::promise<void>>();
+    subsystemMgr = telux::platform::SubsystemFactory::getInstance().getSubsystemManager(
+        [prom](telux::common::ServiceStatus status)
+        {
+            try {
+                if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                {
+                    prom->set_value();
+                }
+            }
+            catch (const std::future_error& e) {
+                LE_ERROR("Future error in subsystem manager callback: %s", e.what());
+            }
+            catch (const std::exception& e) {
+                LE_ERROR("Exception in subsystem manager callback: %s", e.what());
+            }
+            catch (...) {
+                LE_ERROR("Unknown error in subsystem manager callback.");
+            }
+        });
+    LE_FATAL_IF(subsystemMgr == nullptr, "Failed to get subsystem manager.");
+
+    telux::common::SubsystemInfo info{};
+    info.location = telux::common::ProcType::LOCAL_PROC;
+    info.subsystems = telux::common::Subsystem::MPSS;
+    modemEvtListener = std::make_shared<taf_DataProfileModemEvtListener>();
+    LE_FATAL_IF(subsystemMgr->registerListener(modemEvtListener, {info}) !=
+        telux::common::ErrorCode::SUCCESS, "Failed to register modem state listener.");
+
+    auto f = prom->get_future();
+    int waited = 0;
+    while (f.wait_for(std::chrono::seconds(TAF_DCS_MODEM_WAIT_INTERVAL)) ==
+           std::future_status::timeout)
+    {
+        waited += TAF_DCS_MODEM_WAIT_INTERVAL;
+        if (subsystemMgr->getServiceStatus() == telux::common::ServiceStatus::SERVICE_FAILED)
+        {
+            LE_CRIT("Subsystem manager init failed, exiting for restart");
+            _exit(EXIT_UNAVAILABLE);
+        }
+        if (waited >= TAF_DCS_MODEM_WAIT_TIMEOUT)
+        {
+            LE_CRIT("Modem not operational after %d s, exiting for restart", waited);
+            _exit(EXIT_UNAVAILABLE);
+        }
+        LE_WARN("Waiting for modem to be operational (%d s)...", waited);
+    }
+    LE_INFO("Modem is operational");
+}
+
 void taf_DataProfile::Init(void)
 {
+    WaitForModem();
+
     auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
     PhoneMgr = phoneFactory.getPhoneManager();
+
     //  Check if telephony subsystem is ready
     bool PhSubSystemStatus = PhoneMgr->isSubsystemReady();
 
@@ -1840,9 +1931,17 @@ void taf_DataProfile::CleanupAllProfiles(void)
 
 void taf_DataProfile::Deinit(void)
 {
+    if (subsystemMgr && modemEvtListener)
+    {
+        subsystemMgr->deRegisterListener(modemEvtListener);
+    }
+
     // Clean up all profile related memory
     CleanupAllProfiles();
     // Stop the profile event thread
     le_thread_Cancel(ProfileEventThreadRef);
     le_thread_Join(ProfileEventThreadRef, NULL);
+
+    modemEvtListener.reset();
+    subsystemMgr.reset();
 }

@@ -250,7 +250,8 @@ namespace tafsvc {
             ~tafMngdConnAdmin() {};
 
             void Init(void);
-            void Deinit(void);
+            void Deinit(le_thread_Ref_t threadToSkip = nullptr);
+            static void DcsDisconnectHandler(void *contextPtr);
             static tafMngdConnAdmin &GetInstance();
             taf_mngdConn_DataRef_t GetRefByDataId(uint8_t dataId);
             taf_mngdConn_DataRef_t GetRefByName(const char *dataName);

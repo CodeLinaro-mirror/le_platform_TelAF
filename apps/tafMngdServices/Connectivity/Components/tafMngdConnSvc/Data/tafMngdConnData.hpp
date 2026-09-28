@@ -20,7 +20,7 @@ namespace tafsvc {
             ~tafMngdConnData() {};
 
             void Init(void);
-            void Deinit(void);
+            void Deinit(le_thread_Ref_t threadToSkip = nullptr);
             static tafMngdConnData &GetInstance();
             le_result_t SetInterface(uint8_t phoneId, uint32_t profileId, const char* namePtr);
             le_result_t Startdata(uint8_t phoneId, uint32_t profileId);

@@ -33,9 +33,9 @@ void tafMngdConnData::Init(void)
     LE_DEBUG("tafMngdConnData::Init Done");
 }
 
-void tafMngdConnData::Deinit(void)
+void tafMngdConnData::Deinit(le_thread_Ref_t threadToSkip)
 {
-    if (dataThreadRef)
+    if (dataThreadRef && dataThreadRef != threadToSkip)
     {
         LE_DEBUG("Stopping dataThreadRef");
         le_thread_Cancel(dataThreadRef);
@@ -179,6 +179,7 @@ void tafMngdConnData::RegisterEvents()
     taf_dcs_ProfileRef_t profileRef = NULL;
 
     taf_dcs_ConnectService();
+    taf_dcs_SetNonExitServerDisconnectHandler(tafMngdConnAdmin::DcsDisconnectHandler, nullptr);
 
     for(int phoneId = MIN_PHONE_ID; phoneId <= MAX_PHONE_ID; phoneId++)
     {
@@ -359,6 +360,7 @@ void *tafMngdConnData::DataThreadHandler(void *contextPtr)
     le_sem_Ref_t semRef = (le_sem_Ref_t)contextPtr;
 
     taf_dcs_ConnectService();
+    taf_dcs_SetNonExitServerDisconnectHandler(tafMngdConnAdmin::DcsDisconnectHandler, nullptr);
 
     le_sem_Post(semRef);
 

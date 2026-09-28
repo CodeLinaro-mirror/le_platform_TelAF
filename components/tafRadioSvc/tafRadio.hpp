@@ -51,6 +51,7 @@
 #define BITMASK_RAT_LTE 0x1
 #define BITMASK_RAT_5G_NSA 0x2
 #define PLMN_SCAN_TIMEOUT 210
+#define DRAIN_TIMEOUT_SEC 5
 #define TAF_RADIO_SVC_STATUS_HANDLER_MAX_NUM 10
 
 #define COMMON_LIST_TYPE_NUM 4
@@ -66,6 +67,7 @@
 #define NGBR_CELL_MAX_COUNT (INSTANCE_MAX_COUNT * TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT)
 #define SAFE_REF_MAX_COUNT (COMMON_RERERENCE_MAX_COUNT + PCI_CELL_MAX_COUNT + PLMN_ID_MAX_COUNT+ PLMN_INFO_MAX_COUNT + PREF_NET_MAX_COUNT + NGBR_CELL_MAX_COUNT)
 #define TAF_RADIO_SERVICE_STATUS_BIT_MASK_COUNT 5 ///< Number of bits in ServiceStatusBitMask.
+#define TAF_RADIO_MAX_SESSIONS 20
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -102,12 +104,31 @@ typedef struct
     uint32_t phone;         ///< Phone ID as exposed by the public API (1-based).
     void* handlerFuncPtr;   ///< Client callback pointer.
     void* contextPtr;       ///< Client context pointer.
+    le_msg_SessionRef_t      clientSessionRef;
     union
     {
         taf_radio_RatBitMask_t rat;             ///< RAT bitmask used by PCI scans.
         NetworkSelectionPreference_t preference;///< Network selection preference for manual select.
     };
 } Request_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Response payload posted from RequestThread back to the main thread once the blocking PA work is
+ * done. The main thread performs the open-session check and invokes the client callback, so that
+ * all s_openSessions access stays on a single thread (no mutex required).
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    Command_t command;      ///< Command that produced this response.
+    uint32_t phone;         ///< Phone ID (needed by the PCI scan callback).
+    void* handlerFuncPtr;   ///< Client callback pointer (copied from the request).
+    void* contextPtr;       ///< Client context pointer (copied from the request).
+    le_msg_SessionRef_t clientSessionRef; ///< Originating client session.
+    le_result_t result;     ///< Result for COMMAND_SET_NETWORK_SELECTION_PREFERENCE.
+    void* listRef;          ///< Scan list reference for PLMN/PCI scans (nullptr on failure).
+} Response_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -232,6 +253,7 @@ typedef struct
 typedef struct
 {
     le_event_Id_t request;          ///< Event used to dispatch internal asynchronous requests.
+    le_event_Id_t response;         ///< Routes async results from RequestThread to the main thread.
     le_event_Id_t lteCphyCaRefresh; ///< Event used to refresh LTE CPHY CA info cache.
     le_event_Id_t regStateInd;///< Forwards voice/data/roaming PA indications to main thread.
 } StaticEvent_t;
@@ -544,6 +566,17 @@ typedef struct
     le_dls_Link_t link;
     taf_radio_ServiceStatusChangeHandlerRef_t safeRef;
 } ServiceStatusHandlerCtx_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Node used to track an open client session in the DLS open-sessions list.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_msg_SessionRef_t sessionRef; ///< The open session reference.
+    le_dls_Link_t       link;       ///< Link for chaining into s_openSessions list.
+} SessionNode_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1142,6 +1175,8 @@ class Factory
         static void PMServerDisconnectHandler(void* contextPtr);
         le_dls_List_t svcStatusCtxList;
         void ApplyServiceStatusModemFiltering(void);
+        le_dls_List_t    s_openSessions = LE_DLS_LIST_INIT; ///< List of open client sessions.
+        le_mem_PoolRef_t s_sessionNodePool = nullptr;        ///< Pool for SessionNode_t entries.
 };
 
 #endif /* #ifndef TAFRADIO_HPP */

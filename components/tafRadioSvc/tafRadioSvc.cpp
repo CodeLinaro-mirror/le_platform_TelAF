@@ -189,6 +189,7 @@ void taf_radio_SetManualRegisterModeAsync
     request.handlerFuncPtr = (void*)handlerFuncPtr;
     request.contextPtr = contextPtr;
     request.phone = phone;
+    request.clientSessionRef  = taf_radio_GetClientSessionRef();
     le_utf8_Copy(request.preference.mcc, mccPtr, TAF_RADIO_MCC_BYTES, nullptr);
     le_utf8_Copy(request.preference.mnc, mncPtr, TAF_RADIO_MNC_BYTES, nullptr);
 
@@ -2450,6 +2451,7 @@ void taf_radio_PerformCellularNetworkScanAsync
     request.handlerFuncPtr = (void*)handlerFuncPtr;
     request.contextPtr = contextPtr;
     request.phone = phone;
+    request.clientSessionRef  = taf_radio_GetClientSessionRef();
 
     le_event_Report(Factory::staticEvents.request, &request, sizeof(Request_t));
 }
@@ -3854,6 +3856,7 @@ void taf_radio_PerformPciNetworkScanAsync
     request.contextPtr = contextPtr;
     request.phone = phone;
     request.rat = bitmask;
+    request.clientSessionRef  = taf_radio_GetClientSessionRef();
 
     le_event_Report(Factory::staticEvents.request, &request, sizeof(Request_t));
 }

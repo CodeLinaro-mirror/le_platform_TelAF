@@ -249,7 +249,7 @@ static void ProcessStatusHandler
     if (indication.processValid && indication.process == TAF_PA_MRC_PROCESS_ABSYNC)
     {
         LE_INFO("AB sync proceeded by MRC.");
-        le_sem_Post(mrcFactory.semaphores.abSync);
+        sem_post(&mrcFactory.semaphores.abSync);
     }
 }
 
@@ -306,7 +306,7 @@ COMPONENT_INIT
     auto& mrcFactory = MRCFactory::GetInstance();
 
     // Create the synchronization and dispatch primitives used while interacting with the PA layer.
-    mrcFactory.semaphores.abSync = le_sem_Create("ABSync", 0);
+    sem_init(&mrcFactory.semaphores.abSync, 0, 0);
     mrcFactory.events.toggleBank = le_event_CreateIdWithRefCounting("ToggleBank");
     mrcFactory.maps.metrics = le_ref_InitStaticMap(metrics, METRICS_MAX_NUM);
     mrcFactory.pools.metrics = le_mem_InitStaticPool(metrics, METRICS_MAX_NUM, sizeof(Metrics_t));

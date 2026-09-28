@@ -1004,7 +1004,7 @@ static int RpcTafGetIPPTConfig()
 
     taf_net_Operation_t operation = TAF_NET_IPPT_UNKNOWN;
     taf_net_VlanIfType_t ifType = TAF_NET_IFACE_UNKNOWN;
-    char macAddr[TAF_NET_MAC_ADDR_MAX_LEN] = "";
+    char macAddr[TAF_NET_MAC_ADDR_MAX_LEN + 1] = "";
 
     taf_net_InterfaceRef_t ipptInterfaceRef = rpc_taf_net_GetIPPassThroughConfig(vlanid);
 
@@ -1082,7 +1082,7 @@ static int TafGetIPPTConfig()
 
     taf_net_Operation_t operation = TAF_NET_IPPT_UNKNOWN;
     taf_net_VlanIfType_t ifType = TAF_NET_IFACE_UNKNOWN;
-    char macAddr[TAF_NET_MAC_ADDR_MAX_LEN] = "";
+    char macAddr[TAF_NET_MAC_ADDR_MAX_LEN + 1] = "";
 
     taf_net_InterfaceRef_t ipptInterfaceRef = taf_net_GetIPPassThroughConfig(vlanid);
 

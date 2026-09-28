@@ -2313,6 +2313,12 @@ COMPONENT_INIT
             status=TafGetGsbInfo();
         }
 #endif
+        else
+        {
+            LE_ERROR("The command is not supported.");
+            status = EXIT_FAILURE;
+        }
+
         exit(status);
     }
 }

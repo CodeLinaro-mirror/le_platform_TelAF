@@ -11,10 +11,6 @@ start: manual
 
 processes:
 {
-    run:
-    {
-        (tafDualNadTest)
-    }
 
     envVars:
     {

@@ -1183,19 +1183,127 @@ void taf_ecall::ProcessPendingCallEvents(int phoneId, int callIndex)
     }
 }
 
+void taf_ecall::InitMsdDefaults(taf_pa_ecall_msd_data_t& msd)
+{
+    msd.optionalData.optionalDataType = taf_pa_ecall_optional_data_type_t::DEFAULT;
+    msd.optionalData.isMsdOptionalDataPresent = false;
+    msd.optionalData.recentVehicleLocationN1Present = false;
+    msd.optionalData.recentVehicleLocationN2Present = false;
+    msd.optionalData.numberOfPassengersPresent = false;
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_V3)
+    msd.msdVersion = MSD_VERSION_TWO;
+#endif
+
+    msd.control.automaticActivation = false;
+    msd.control.testCall = false;
+    msd.control.positionCanBeTrusted = false;
+    msd.control.vehicleType = (taf_pa_ecall_vehicle_type_t)TAF_ECALL_PASSENGER_VEHICLE_CLASS_M1;
+
+    msd.vehicleIdentification.isowmi = '\0';
+    msd.vehicleIdentification.isovds = '\0';
+    msd.vehicleIdentification.isovisModelyear = '\0';
+    msd.vehicleIdentification.isovisSeqPlant = '\0';
+
+    msd.propulsionType.gasolineTankPresent = false;
+    msd.propulsionType.dieselTankPresent = false;
+    msd.propulsionType.compressedNaturalGas = false;
+    msd.propulsionType.liquidPropaneGas = false;
+    msd.propulsionType.electricEnergyStorage = false;
+    msd.propulsionType.hydrogenStorage = false;
+    msd.propulsionType.otherStorage = false;
+
+    msd.vehicleLocation.positionLatitude = 0;
+    msd.vehicleLocation.positionLongitude = 0;
+
+    msd.vehicleDirection = 0;
+
+    msd.recentVehicleLocationN1.positionLatitude = 0;
+    msd.recentVehicleLocationN1.positionLongitude = 0;
+    msd.recentVehicleLocationN2.positionLatitude = 0;
+    msd.recentVehicleLocationN2.positionLongitude = 0;
+
+    msd.numberOfPassengers = 0;
+
+    msd.optionalPdu.eCallDefaultOptions.optionalData = '\0';
+}
+
+void taf_ecall::InitEuroNCAPDefaults(taf_EuroNCAPData_t& euroNCAPData)
+{
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
+    euroNCAPData.locationOfImpact = TAF_ECALL_LOI_UNKNOWN;
+    euroNCAPData.rolloverDetectedPresent = false;
+    euroNCAPData.rangeLimit = MSD_EURONCAP_OAD_DELTAV_INVALD;
+    euroNCAPData.deltaVX = MSD_EURONCAP_OAD_DELTAV_INVALD;
+    euroNCAPData.deltaVY = MSD_EURONCAP_OAD_DELTAV_INVALD;
+#else
+    (void)euroNCAPData;
+#endif
+}
+
+le_result_t taf_ecall::FillVehicleIdFromVin(const char* vin, taf_pa_ecall_msd_data_t& msd)
+{
+    if (vin == NULL || strlen(vin) != TAF_ECALL_MAX_VIN_LENGTH)
+    {
+        LE_ERROR("VIN length is wrong");
+        return LE_BAD_PARAMETER;
+    }
+
+    std::string vinStr = vin;
+
+    msd.vehicleIdentification.isowmi = vinStr.substr(ISOWMI_START, ISOWMI_LENGTH);
+    msd.vehicleIdentification.isovds = vinStr.substr(ISOVDS_START, ISOVDS_LENGTH);
+    msd.vehicleIdentification.isovisModelyear =
+                         vinStr.substr(ISOVIS_MODEL_YEAR_START, ISOVIS_MODEL_YEAR_LENGTH);
+    msd.vehicleIdentification.isovisSeqPlant =
+                         vinStr.substr(ISOVIS_SEQ_PLANT_START, ISOVIS_SEQ_PLANT_LENGTH);
+    return LE_OK;
+}
+
+void taf_ecall::InitializeDebugECallPtr()
+{
+    DebugECallObject.isDebugMsd = true;
+    DebugECallObject.iCall = nullptr;
+    DebugECallObject.msdTxMode = TAF_ECALL_MSD_TX_MODE_PUSH;
+    DebugECallObject.eCallSession = ECALL_INIT;
+    DebugECallObject.state = TAF_ECALL_STATE_UNKNOWN;
+    DebugECallObject.isMsdUpdated = false;
+    DebugECallObject.isPrieCallOngoing = false;
+    DebugECallObject.type = TAF_ECALL_TYPE_UNKNOWN;
+    DebugECallObject.dialRedial.dialAttempts = 0;
+    memset(DebugECallObject.dialRedial.dialInterval, 0,
+           sizeof(DebugECallObject.dialRedial.dialInterval));
+    DebugECallObject.callIndex = -1;
+    DebugECallObject.phoneId = -1;
+    DebugECallObject.waitForALACKPos = false;
+    DebugECallObject.redialReason = TAF_ECALL_TERMINATION_REDIAL_REASON_NONE;
+
+    ResetDebugMsd();
+}
+
+void taf_ecall::ResetDebugMsd()
+{
+    InitMsdDefaults(DebugECallObject.msd);
+    InitEuroNCAPDefaults(DebugECallObject.euroNCAPData);
+
+    memset(DebugECallObject.oadData, 0, sizeof(DebugECallObject.oadData));
+    DebugECallObject.oadDataSize = 0;
+    memset(DebugECallObject.msdPdu, 0, sizeof(DebugECallObject.msdPdu));
+    DebugECallObject.pduMsdSize = 0;
+    DebugECallObject.isMsdUpdated = false;
+    DebugECallObject.msd.timestamp = (uint32_t)time(NULL);
+    DebugECallObject.msd.messageIdentifier = MIN_MSD_MESSAGE_IDENTIFIER;
+    DebugECallObject.msd.control.automaticActivation = false;
+    DebugECallObject.msd.control.testCall = true;
+}
+
 void taf_ecall::InitializeECallPtr()
 {
 
     ECallPtrRefMap = le_ref_InitStaticMap(ECallMap, MAX_ECALL);
 
-    ECallObject.msd.optionalData.optionalDataType = taf_pa_ecall_optional_data_type_t::DEFAULT;
-    ECallObject.msd.optionalData.isMsdOptionalDataPresent = false;
-    ECallObject.msd.optionalData.recentVehicleLocationN1Present = false;
-    ECallObject.msd.optionalData.recentVehicleLocationN2Present = false;
-    ECallObject.msd.optionalData.numberOfPassengersPresent = false;
-#if defined(LE_CONFIG_ENABLE_ECALL_MSD_V3)
-    ECallObject.msd.msdVersion = MSD_VERSION_TWO;
-#endif
+    ECallObject.isDebugMsd = false;
+    InitMsdDefaults(ECallObject.msd);
+
     ECallObject.msd.messageIdentifier = ReadMsdMsgIdFromConfigTree();
     if (ECallObject.msd.messageIdentifier < MIN_MSD_MESSAGE_IDENTIFIER || ECallObject.msd.messageIdentifier > MAX_MSD_MESSAGE_IDENTIFIER)
     {
@@ -1203,24 +1311,6 @@ void taf_ecall::InitializeECallPtr()
         LE_WARN("Out-of-range messageIdentifier recovered to default");
     }
     LE_DEBUG("MSD messageIdentifier is %d", ECallObject.msd.messageIdentifier);
-
-    ECallObject.msd.control.automaticActivation = false;
-    ECallObject.msd.control.testCall = false;
-    ECallObject.msd.control.positionCanBeTrusted = false;
-    ECallObject.msd.control.vehicleType = (taf_pa_ecall_vehicle_type_t)TAF_ECALL_PASSENGER_VEHICLE_CLASS_M1;
-
-    ECallObject.msd.vehicleIdentification.isowmi = '\0';
-    ECallObject.msd.vehicleIdentification.isovds = '\0';
-    ECallObject.msd.vehicleIdentification.isovisModelyear = '\0';
-    ECallObject.msd.vehicleIdentification.isovisSeqPlant = '\0';
-
-    ECallObject.msd.propulsionType.gasolineTankPresent = false;
-    ECallObject.msd.propulsionType.dieselTankPresent = false;
-    ECallObject.msd.propulsionType.compressedNaturalGas = false;
-    ECallObject.msd.propulsionType.liquidPropaneGas = false;
-    ECallObject.msd.propulsionType.electricEnergyStorage = false;
-    ECallObject.msd.propulsionType.hydrogenStorage = false;
-    ECallObject.msd.propulsionType.otherStorage = false;
 
     uint32_t timeStamp = 0;
     if (!ReadMsdTimeStampFromConfigTree(CFG_NODE_MSDTIMESTAMPSET, &timeStamp))
@@ -1234,26 +1324,7 @@ void taf_ecall::InitializeECallPtr()
     ECallObject.msd.timestamp = timeStamp;
     LE_DEBUG("InitializeECallPtr timestamp = %d", ECallObject.msd.timestamp);
 
-    ECallObject.msd.vehicleLocation.positionLatitude = 0;
-    ECallObject.msd.vehicleLocation.positionLongitude = 0;
-
-    ECallObject.msd.vehicleDirection = 0;
-
-    ECallObject.msd.recentVehicleLocationN1.positionLatitude = 0;
-    ECallObject.msd.recentVehicleLocationN1.positionLongitude = 0;
-    ECallObject.msd.recentVehicleLocationN2.positionLatitude = 0;
-    ECallObject.msd.recentVehicleLocationN2.positionLongitude = 0;
-
-    ECallObject.msd.numberOfPassengers = 0;
-#if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
-    ECallObject.euroNCAPData.locationOfImpact = TAF_ECALL_LOI_UNKNOWN;
-    ECallObject.euroNCAPData.rolloverDetectedPresent = false;
-    ECallObject.euroNCAPData.rangeLimit = MSD_EURONCAP_OAD_DELTAV_INVALD;
-    ECallObject.euroNCAPData.deltaVX = MSD_EURONCAP_OAD_DELTAV_INVALD;
-    ECallObject.euroNCAPData.deltaVY = MSD_EURONCAP_OAD_DELTAV_INVALD;
-#endif
-    //ECallObject.msd.optionalPdu.eCallDefaultOptions.objId. =;
-    ECallObject.msd.optionalPdu.eCallDefaultOptions.optionalData = '\0';
+    InitEuroNCAPDefaults(ECallObject.euroNCAPData);
 
     ECallObject.iCall = nullptr;
     ECallObject.reference = (taf_ecall_CallRef_t)le_ref_CreateRef(ECallPtrRefMap, &ECallObject);
@@ -1301,6 +1372,8 @@ void taf_ecall::InitializeECallPtr()
     ECallObject.waitForALACKPos = false;
     ECallObject.redialReason = TAF_ECALL_TERMINATION_REDIAL_REASON_NONE;
     UpdateMsd();
+
+    DebugECallObject.reference = NULL;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1566,8 +1639,44 @@ taf_ecall_CallRef_t taf_ecall::CreateECallReference()
     return ECallObject.reference;
 }
 
+le_result_t taf_ecall::CreateECallReferenceEx(taf_ecall_RefType_t refType, taf_ecall_CallRef_t* ecallRefPtr)
+{
+    if (refType == TAF_ECALL_REF_TYPE_NORMAL)
+    {
+        *ecallRefPtr = CreateECallReference();
+        return LE_OK;
+    }
+
+    if (refType == TAF_ECALL_REF_TYPE_PTI_TEST)
+    {
+        if (DebugECallObject.reference == NULL)
+        {
+            InitializeDebugECallPtr();
+            DebugECallObject.reference =
+                    (taf_ecall_CallRef_t)le_ref_CreateRef(ECallPtrRefMap, &DebugECallObject);
+            LE_INFO("Created PTI-test eCall reference");
+        }
+
+        *ecallRefPtr = DebugECallObject.reference;
+        return LE_OK;
+    }
+
+    LE_ERROR("Unknown RefType: %d", (int) refType);
+    return LE_BAD_PARAMETER;
+}
+
 void taf_ecall::Delete(taf_ecall_CallRef_t ecallRef)
 {
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    if (eCallPtr != NULL && eCallPtr->isDebugMsd)
+    {
+        le_ref_DeleteRef(ECallPtrRefMap, ecallRef);
+        DebugECallObject.reference = NULL;
+        ResetDebugMsd();
+        LE_INFO("Released diagnostic eCall reference, resetting the diagnostic MSD");
+    }
+
     return;
 }
 
@@ -1699,6 +1808,8 @@ le_result_t taf_ecall::StartECall(taf_pa_ecall_category_t emergencyCategory,
     taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
 
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+    TAF_ERROR_IF_RET_VAL(eCallPtr->isDebugMsd, LE_BAD_PARAMETER,
+        "A diagnostic eCall reference cannot be used to start an eCall");
 
     //Get Selected card
     int8_t phoneId = GetSelectedPhoneIdForECall();
@@ -1855,6 +1966,8 @@ le_result_t taf_ecall::StartPrivate(taf_ecall_CallRef_t ecallRef,
     taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
 
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+    TAF_ERROR_IF_RET_VAL(eCallPtr->isDebugMsd, LE_BAD_PARAMETER,
+        "A diagnostic eCall reference cannot be used to start a private eCall");
 
     //Get Selected card
     int8_t phoneId = GetSelectedPhoneIdForECall();
@@ -1931,6 +2044,8 @@ le_result_t taf_ecall::StopECall(taf_ecall_CallRef_t ecallRef) {
     taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
 
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+    TAF_ERROR_IF_RET_VAL(eCallPtr->isDebugMsd, LE_BAD_PARAMETER,
+        "A diagnostic eCall reference cannot be used to end an eCall");
 
     std::shared_ptr<taf_pa_ecall_CallInfo_t> iCall = eCallPtr->iCall;
     TAF_ERROR_IF_RET_VAL(iCall == nullptr, LE_NOT_FOUND, "iCall is null on eCallPtr(%p)", eCallPtr);
@@ -1966,6 +2081,8 @@ le_result_t taf_ecall::AnswerECall(taf_ecall_CallRef_t ecallRef)
 {
     taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+    TAF_ERROR_IF_RET_VAL(eCallPtr->isDebugMsd, LE_BAD_PARAMETER,
+        "A diagnostic eCall reference cannot be used to answer an eCall");
 
     std::shared_ptr<taf_pa_ecall_CallInfo_t> iCall = eCallPtr->iCall;
     TAF_ERROR_IF_RET_VAL(iCall == nullptr, LE_NOT_FOUND, "iCall is null on eCallPtr(%p)", eCallPtr);
@@ -2099,11 +2216,16 @@ void taf_ecall::ConfigChangeHandler(void* contextPtr) {
 
 void taf_ecall::UpdateMsd ()
 {
+    ApplyVehicleConfigToMsd(ECallObject.msd);
+}
+
+void taf_ecall::ApplyVehicleConfigToMsd (taf_pa_ecall_msd_data_t& msd)
+{
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_ECALL_PATH);
 #if defined(LE_CONFIG_ENABLE_ECALL_MSD_V3)
     if (le_cfg_NodeExists(iteratorRef, CFG_NODE_MSDVERSION))
     {
-        ECallObject.msd.msdVersion = le_cfg_GetInt(iteratorRef, CFG_NODE_MSDVERSION, 0);
+        msd.msdVersion = le_cfg_GetInt(iteratorRef, CFG_NODE_MSDVERSION, 0);
     }
 #endif
     if (le_cfg_NodeExists(iteratorRef, CFG_NODE_MSDVIN))
@@ -2113,17 +2235,17 @@ void taf_ecall::UpdateMsd ()
 
         std::string vinStr = vin;
 
-        ECallObject.msd.vehicleIdentification.isowmi = vinStr.substr(ISOWMI_START, ISOWMI_LENGTH );
-        ECallObject.msd.vehicleIdentification.isovds = vinStr.substr(ISOVDS_START, ISOVDS_LENGTH);
-        ECallObject.msd.vehicleIdentification.isovisModelyear =
+        msd.vehicleIdentification.isowmi = vinStr.substr(ISOWMI_START, ISOWMI_LENGTH );
+        msd.vehicleIdentification.isovds = vinStr.substr(ISOVDS_START, ISOVDS_LENGTH);
+        msd.vehicleIdentification.isovisModelyear =
                              vinStr.substr(ISOVIS_MODEL_YEAR_START, ISOVIS_MODEL_YEAR_LENGTH);
-        ECallObject.msd.vehicleIdentification.isovisSeqPlant =
+        msd.vehicleIdentification.isovisSeqPlant =
                              vinStr.substr(ISOVIS_SEQ_PLANT_START, ISOVIS_SEQ_PLANT_LENGTH);
     }
 
     if (le_cfg_NodeExists(iteratorRef, CFG_NODE_MSDVEHTYPE))
     {
-        ECallObject.msd.control.vehicleType =
+        msd.control.vehicleType =
             (taf_pa_ecall_vehicle_type_t) le_cfg_GetInt(iteratorRef, CFG_NODE_MSDVEHTYPE, 0);
     }
 
@@ -2133,46 +2255,154 @@ void taf_ecall::UpdateMsd ()
 
     if (le_cfg_NodeExists(iteratorRef, CFG_NODE_PROPULSION_GASOLINE))
     {
-        ECallObject.msd.propulsionType.gasolineTankPresent =
+        msd.propulsionType.gasolineTankPresent =
             le_cfg_GetBool(iteratorRef, CFG_NODE_PROPULSION_GASOLINE, false);
     }
 
     if (le_cfg_NodeExists(iteratorRef, CFG_NODE_PROPULSION_DIESEL))
     {
-        ECallObject.msd.propulsionType.dieselTankPresent =
+        msd.propulsionType.dieselTankPresent =
             le_cfg_GetBool(iteratorRef, CFG_NODE_PROPULSION_DIESEL, false);
     }
 
     if (le_cfg_NodeExists(iteratorRef, CFG_NODE_PROPULSION_NATURALGAS))
     {
-        ECallObject.msd.propulsionType.compressedNaturalGas =
+        msd.propulsionType.compressedNaturalGas =
             le_cfg_GetBool(iteratorRef, CFG_NODE_PROPULSION_NATURALGAS, false);
     }
 
     if (le_cfg_NodeExists(iteratorRef, CFG_NODE_PROPULSION_PROPANE))
     {
-        ECallObject.msd.propulsionType.liquidPropaneGas =
+        msd.propulsionType.liquidPropaneGas =
             le_cfg_GetBool(iteratorRef, CFG_NODE_PROPULSION_PROPANE, false);
     }
 
     if (le_cfg_NodeExists(iteratorRef, CFG_NODE_PROPULSION_ELECTRIC))
     {
-        ECallObject.msd.propulsionType.electricEnergyStorage =
+        msd.propulsionType.electricEnergyStorage =
             le_cfg_GetBool(iteratorRef, CFG_NODE_PROPULSION_ELECTRIC, false);
     }
 
     if (le_cfg_NodeExists(iteratorRef, CFG_NODE_PROPULSION_HYDROGEN))
     {
-        ECallObject.msd.propulsionType.hydrogenStorage =
+        msd.propulsionType.hydrogenStorage =
             le_cfg_GetBool(iteratorRef, CFG_NODE_PROPULSION_HYDROGEN, false);
     }
 
     if (le_cfg_NodeExists(iteratorRef, CFG_NODE_PROPULSION_OTHER))
     {
-        ECallObject.msd.propulsionType.otherStorage =
+        msd.propulsionType.otherStorage =
             le_cfg_GetBool(iteratorRef, CFG_NODE_PROPULSION_OTHER, false);
     }
     le_cfg_CancelTxn(iteratorRef);
+}
+
+le_result_t taf_ecall::SetMsdVersionEx(taf_ecall_CallRef_t ecallRef, uint32_t msdVersion)
+{
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+
+    if (!eCallPtr->isDebugMsd)
+    {
+        return taf_ecall_SetMsdVersion(msdVersion);
+    }
+
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_V3)
+    if ((msdVersion != MSD_VERSION_TWO) && (msdVersion != MSD_VERSION_THREE))
+    {
+        LE_ERROR("MsdVersion is set wrong value %d", msdVersion);
+        return LE_FAULT;
+    }
+
+    eCallPtr->msd.msdVersion = msdVersion;
+    LE_DEBUG("Set diagnostic MSD version to %d", msdVersion);
+    return LE_OK;
+#else
+    return LE_UNSUPPORTED;
+#endif
+}
+
+le_result_t taf_ecall::SetVehicleTypeEx(taf_ecall_CallRef_t ecallRef,
+    taf_ecall_MsdVehicleType_t vehType)
+{
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+
+    if (!eCallPtr->isDebugMsd)
+    {
+        return taf_ecall_SetVehicleType(vehType);
+    }
+
+    if ((vehType < TAF_ECALL_PASSENGER_VEHICLE_CLASS_M1) ||
+        (vehType > TAF_ECALL_OTHER_VEHICLE_CLASS))
+    {
+        LE_ERROR("VehicleType is wrong %d", vehType);
+        return LE_FAULT;
+    }
+
+    eCallPtr->msd.control.vehicleType = (taf_pa_ecall_vehicle_type_t)vehType;
+    LE_DEBUG("Set diagnostic vehicle type to %d", vehType);
+    return LE_OK;
+}
+
+le_result_t taf_ecall::SetVINEx(taf_ecall_CallRef_t ecallRef, const char* vin)
+{
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+    TAF_ERROR_IF_RET_VAL(vin == NULL, LE_BAD_PARAMETER, "vin pointer is NULL");
+
+    if (!eCallPtr->isDebugMsd)
+    {
+        return taf_ecall_SetVIN(vin);
+    }
+
+    TAF_ERROR_IF_RET_VAL(strlen(vin) != TAF_ECALL_MAX_VIN_LENGTH, LE_FAULT, "VIN length is wrong");
+
+    if (CheckVIN((char *)vin))
+    {
+        return LE_BAD_PARAMETER;
+    }
+
+    le_result_t res = FillVehicleIdFromVin(vin, eCallPtr->msd);
+    if (res == LE_OK)
+    {
+        LE_DEBUG("Set diagnostic VIN to %s", vin);
+    }
+    return res;
+}
+
+le_result_t taf_ecall::SetPropulsionTypeEx(taf_ecall_CallRef_t ecallRef,
+    taf_ecall_PropulsionStorageType_t propulsionType)
+{
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+
+    if (!eCallPtr->isDebugMsd)
+    {
+        return taf_ecall_SetPropulsionType(propulsionType);
+    }
+
+    eCallPtr->msd.propulsionType.gasolineTankPresent =
+        (TAF_ECALL_PROP_TYPE_GASOLINE_TANK & propulsionType) ? true : false;
+    eCallPtr->msd.propulsionType.dieselTankPresent =
+        (TAF_ECALL_PROP_TYPE_DIESEL_TANK & propulsionType) ? true : false;
+    eCallPtr->msd.propulsionType.compressedNaturalGas =
+        (TAF_ECALL_PROP_TYPE_COMPRESSED_NATURALGAS & propulsionType) ? true : false;
+    eCallPtr->msd.propulsionType.liquidPropaneGas =
+        (TAF_ECALL_PROP_TYPE_PROPANE_GAS & propulsionType) ? true : false;
+    eCallPtr->msd.propulsionType.electricEnergyStorage =
+        (TAF_ECALL_PROP_TYPE_ELECTRIC & propulsionType) ? true : false;
+    eCallPtr->msd.propulsionType.hydrogenStorage =
+        (TAF_ECALL_PROP_TYPE_HYDROGEN & propulsionType) ? true : false;
+    eCallPtr->msd.propulsionType.otherStorage =
+        (TAF_ECALL_PROP_TYPE_OTHER & propulsionType) ? true : false;
+
+    LE_DEBUG("Set diagnostic propulsion storage type to 0x%x", propulsionType);
+    return LE_OK;
 }
 
 le_result_t taf_ecall::SetMsdTxMode (taf_ecall_MsdTransmissionMode_t txMode)
@@ -2259,9 +2489,9 @@ le_result_t taf_ecall::SetMsdEuroNCAPLocationOfImpact(taf_ecall_CallRef_t ecallR
         iiLocations = TAF_ECALL_LOI_UNKNOWN;
     }
 #if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
-    ECallObject.euroNCAPData.locationOfImpact = iiLocations;
+    eCallPtr->euroNCAPData.locationOfImpact = iiLocations;
     memset(eCallPtr->oadData, 0, sizeof(eCallPtr->oadData));
-    eCallPtr->oadDataSize = (size_t)msd_EncodeOptionalDataForEuroNCAP(&ECallObject.euroNCAPData, eCallPtr->oadData);
+    eCallPtr->oadDataSize = (size_t)msd_EncodeOptionalDataForEuroNCAP(&eCallPtr->euroNCAPData, eCallPtr->oadData);
     SetMsdAdditionalData(ecallRef, "8.1", eCallPtr->oadData, eCallPtr->oadDataSize);
 #endif
     return LE_OK;
@@ -2280,10 +2510,10 @@ le_result_t taf_ecall::SetMsdEuroNCAPRolloverDetected(taf_ecall_CallRef_t ecallR
     }
 
 #if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
-    ECallObject.euroNCAPData.rolloverDetectedPresent = true;
-    ECallObject.euroNCAPData.rolloverDetected = rolloverDetected;
+    eCallPtr->euroNCAPData.rolloverDetectedPresent = true;
+    eCallPtr->euroNCAPData.rolloverDetected = rolloverDetected;
     memset(eCallPtr->oadData, 0, sizeof(eCallPtr->oadData));
-    eCallPtr->oadDataSize = (size_t)msd_EncodeOptionalDataForEuroNCAP(&ECallObject.euroNCAPData, eCallPtr->oadData);
+    eCallPtr->oadDataSize = (size_t)msd_EncodeOptionalDataForEuroNCAP(&eCallPtr->euroNCAPData, eCallPtr->oadData);
     SetMsdAdditionalData(ecallRef, "8.1", eCallPtr->oadData, eCallPtr->oadDataSize);
 #endif
     return LE_OK;
@@ -2301,9 +2531,9 @@ le_result_t taf_ecall::ResetMsdEuroNCAPRolloverDetected(taf_ecall_CallRef_t ecal
         return LE_DUPLICATE;
     }
 #if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
-    ECallObject.euroNCAPData.rolloverDetectedPresent = false;
+    eCallPtr->euroNCAPData.rolloverDetectedPresent = false;
     memset(eCallPtr->oadData, 0, sizeof(eCallPtr->oadData));
-    eCallPtr->oadDataSize = (size_t)msd_EncodeOptionalDataForEuroNCAP(&ECallObject.euroNCAPData, eCallPtr->oadData);
+    eCallPtr->oadDataSize = (size_t)msd_EncodeOptionalDataForEuroNCAP(&eCallPtr->euroNCAPData, eCallPtr->oadData);
     SetMsdAdditionalData(ecallRef, "8.1", eCallPtr->oadData, eCallPtr->oadDataSize);
 #endif
     return LE_OK;
@@ -2340,11 +2570,11 @@ le_result_t taf_ecall::SetMsdEuroNCAPIIDeltaV(taf_ecall_CallRef_t ecallRef, uint
     }
 
 #if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
-    ECallObject.euroNCAPData.rangeLimit = rangeLimit;
-    ECallObject.euroNCAPData.deltaVX = deltaVX;
-    ECallObject.euroNCAPData.deltaVY = deltaVY;
+    eCallPtr->euroNCAPData.rangeLimit = rangeLimit;
+    eCallPtr->euroNCAPData.deltaVX = deltaVX;
+    eCallPtr->euroNCAPData.deltaVY = deltaVY;
     memset(eCallPtr->oadData, 0, sizeof(eCallPtr->oadData));
-    eCallPtr->oadDataSize = (size_t)msd_EncodeOptionalDataForEuroNCAP(&ECallObject.euroNCAPData, eCallPtr->oadData);
+    eCallPtr->oadDataSize = (size_t)msd_EncodeOptionalDataForEuroNCAP(&eCallPtr->euroNCAPData, eCallPtr->oadData);
     SetMsdAdditionalData(ecallRef, "8.1", eCallPtr->oadData, eCallPtr->oadDataSize);
 #endif
     return LE_OK;
@@ -2527,9 +2757,12 @@ le_result_t taf_ecall::SetMsdTimeStamp( taf_ecall_CallRef_t ecallRef, uint32_t t
 
     eCallPtr->msd.timestamp = timeStamp;
 
-    char timeStampStr[16];
-    snprintf(timeStampStr, sizeof(timeStampStr), "%" PRIu32, timeStamp);
-    WriteMsdTimeStampToConfigTree(CFG_NODE_MSDTIMESTAMPSET, timeStampStr);
+    if (!eCallPtr->isDebugMsd)
+    {
+        char timeStampStr[16];
+        snprintf(timeStampStr, sizeof(timeStampStr), "%" PRIu32, timeStamp);
+        WriteMsdTimeStampToConfigTree(CFG_NODE_MSDTIMESTAMPSET, timeStampStr);
+    }
 
     return LE_OK;
 }
@@ -2564,7 +2797,10 @@ le_result_t taf_ecall::ResetMsdTimeStamp( taf_ecall_CallRef_t ecallRef)
     eCallPtr->msd.timestamp = timeStamp;
     LE_DEBUG("ResetMsdTimeStamp timestamp = %d", eCallPtr->msd.timestamp);
 
-    WriteMsdTimeStampToConfigTree(CFG_NODE_MSDTIMESTAMPSET, MSD_TIMESTAMP_STR_INVALID);
+    if (!eCallPtr->isDebugMsd)
+    {
+        WriteMsdTimeStampToConfigTree(CFG_NODE_MSDTIMESTAMPSET, MSD_TIMESTAMP_STR_INVALID);
+    }
     return LE_OK;
 }
 
@@ -2634,6 +2870,8 @@ le_result_t taf_ecall::ImportMsd( taf_ecall_CallRef_t ecallRef, const uint8_t* p
     taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
 
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+    TAF_ERROR_IF_RET_VAL(eCallPtr->isDebugMsd, LE_BAD_PARAMETER,
+        "Importing a PDU MSD is not supported for a diagnostic eCall reference");
 
     memcpy(eCallPtr->msdPdu, pduMsd, msdLength);
     eCallPtr->pduMsdSize = msdLength;
@@ -2646,6 +2884,60 @@ le_result_t taf_ecall::ExportMsd( taf_ecall_CallRef_t ecallRef, uint8_t* pdumsd,
     taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
 
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+
+    if (eCallPtr->isDebugMsd)
+    {
+        if (!isIdle())
+        {
+            LE_ERROR("ECall session is in progress, diagnostic MSD export is not allowed");
+            return LE_BUSY;
+        }
+
+        if (GetHlapTimerStatus(TAF_ECALL_TIMER_TYPE_T9) != TAF_ECALL_TIMER_STATUS_INACTIVE)
+        {
+            LE_ERROR("T9 callback window is active, diagnostic MSD export is not allowed");
+            return LE_BUSY;
+        }
+
+        taf_pa_ecall_msd_data_t debugMsdData = eCallPtr->msd;
+        debugMsdData.messageIdentifier = MIN_MSD_MESSAGE_IDENTIFIER;
+        debugMsdData.control.automaticActivation = false;
+        debugMsdData.control.testCall = true;
+
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_V3)
+        if (debugMsdData.msdVersion == MSD_VERSION_THREE)
+        {
+            if (!debugMsdData.optionalData.recentVehicleLocationN1Present)
+            {
+                LE_WARN("recentVehicleLocationN1 not set for diagnostic MSDv3, "
+                    "defaulting to present with (0,0)");
+                debugMsdData.optionalData.recentVehicleLocationN1Present = true;
+            }
+            if (!debugMsdData.optionalData.recentVehicleLocationN2Present)
+            {
+                LE_WARN("recentVehicleLocationN2 not set for diagnostic MSDv3, "
+                    "defaulting to present with (0,0)");
+                debugMsdData.optionalData.recentVehicleLocationN2Present = true;
+            }
+        }
+#endif
+
+        uint8_t debugMsdPdu[TAF_ECALL_MAX_MSD_LENGTH] = {0};
+        size_t debugPduSize = 0;
+        if (LE_OK != RetrieveEncodedMsdPdu(debugMsdData, debugMsdPdu, &debugPduSize))
+        {
+            LE_ERROR("Failed to encode the diagnostic MSD");
+            *msdLength = 0;
+            return LE_FAULT;
+        }
+
+        TAF_ERROR_IF_RET_VAL(debugPduSize > *msdLength, LE_OVERFLOW, "buffer is small");
+
+        memcpy(pdumsd, debugMsdPdu, debugPduSize);
+        *msdLength = debugPduSize;
+        return LE_OK;
+    }
+
     TAF_ERROR_IF_RET_VAL(eCallPtr->pduMsdSize > *msdLength, LE_OVERFLOW, "buffer is small");
 
     if (eCallPtr->pduMsdSize == 0)
@@ -2665,6 +2957,8 @@ le_result_t taf_ecall::SendMsd( taf_ecall_CallRef_t ecallRef)
     taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
 
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+    TAF_ERROR_IF_RET_VAL(eCallPtr->isDebugMsd, LE_BAD_PARAMETER,
+        "A diagnostic eCall reference cannot be used to send an MSD to the network");
 
     taf_pa_result_t result;
     int8_t phoneId = -1;

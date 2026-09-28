@@ -770,8 +770,6 @@ static void* CommandInput(void* contextPtr)
             }
         } else if (p != NULL && input_str[0]=='q') {
             exitApp = true;
-            le_thread_Cancel(ECallCmdThreadRef);
-            ECallCmdThreadRef = NULL;
         } else {
             isMsgPrinted = false;
         }
@@ -886,6 +884,10 @@ static void PrintUsage(void)
             "tafECallApp -- importMsd <MSD bytes in decimal e.g. 2 41 68 6 128 227 10 ...>\n"
             "\t\t[Note: If no MSD input, then default MSD shall be used]\n"
             "tafECallApp -- exportMsd\n"
+            "tafECallApp -- exportDebugMsd\n"
+            "\t\t[Generates and returns an MSD via a diagnostic reference, without\n"
+            "\t\t starting an eCall. Does not affect the real eCall MSD or its\n"
+            "\t\t persisted message identifier.]\n"
             "tafECallApp -- useUSimNumbers\n"
             "tafECallApp -- setNadDeregTime <time in minutes>\n"
             "tafECallApp -- getNadDeregTime\n"
@@ -973,6 +975,75 @@ static int exportMsd()
     }
 
     LE_TEST_INFO("ExportMsd done.");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int exportDebugMsd()
+{
+    uint8_t msdRawDataExport[TAF_ECALL_MAX_MSD_LENGTH];
+    size_t msdLengthExport = TAF_ECALL_MAX_MSD_LENGTH;
+
+    memset(msdRawDataExport, 0, TAF_ECALL_MAX_MSD_LENGTH);
+
+    taf_ecall_CallRef_t debugRef = NULL;
+    le_result_t createResult = taf_ecall_CreateEx(TAF_ECALL_REF_TYPE_PTI_TEST, &debugRef);
+    if (createResult != LE_OK || debugRef == NULL)
+    {
+        printf("Failed to create the diagnostic eCall reference!\n");
+        return EXIT_FAILURE;
+    }
+
+    if (taf_ecall_SetVehicleTypeEx(debugRef, TAF_ECALL_PASSENGER_VEHICLE_CLASS_M1) != LE_OK)
+    {
+        LE_ERROR("Unable to set the diagnostic vehicle type");
+    }
+
+    if (taf_ecall_SetVINEx(debugRef, "ECALLEXAMPLE02022") != LE_OK)
+    {
+        LE_ERROR("Unable to set the diagnostic VIN");
+    }
+
+    if (taf_ecall_SetPropulsionTypeEx(debugRef, TAF_ECALL_PROP_TYPE_GASOLINE_TANK) != LE_OK)
+    {
+        LE_ERROR("Unable to set the diagnostic propulsion type");
+    }
+
+    if (taf_ecall_SetMsdPosition(debugRef, true, 12985849, 77596432, 0) != LE_OK)
+    {
+        LE_ERROR("Unable to set the diagnostic position");
+    }
+
+    taf_ecall_SetMsdPassengersCount(debugRef, 2);
+
+    le_result_t result = taf_ecall_ExportMsd(debugRef, msdRawDataExport, &msdLengthExport);
+    LE_TEST_OK(result == LE_OK, "ExportDebugMsd - LE_OK");
+    switch (result)
+    {
+        case LE_OK:
+            printf("Result of exportDebugMsd is Success.\n");
+            break;
+        case LE_BUSY:
+            printf("Result of exportDebugMsd is Failed: an eCall session or the T9 callback "
+                   "window is active.\n");
+            break;
+        default:
+            printf("Result of exportDebugMsd is Failed! (%d)\n", (int) result);
+            break;
+    }
+
+    if (result == LE_OK)
+    {
+        printf("Retrieved diagnostic MSD[%d] is: ", (int)msdLengthExport);
+        for (int i = 0; i < msdLengthExport; i++) {
+            printf("%d ", msdRawDataExport[i]);
+        }
+        printf("\n");
+    }
+
+    taf_ecall_Delete(debugRef);
+
+    LE_TEST_INFO("ExportDebugMsd done.");
 
     return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }
@@ -1862,6 +1933,10 @@ COMPONENT_INIT
     else if (strcmp(command, "exportMsd") == 0)
     {
         status = exportMsd();
+    }
+    else if (strcmp(command, "exportDebugMsd") == 0)
+    {
+        status = exportDebugMsd();
     }
     else if (strcmp(command, "useUSimNumbers") == 0)
     {

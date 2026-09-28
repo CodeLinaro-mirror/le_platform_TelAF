@@ -255,6 +255,104 @@ static void Test_ECall_MSD_Information()
     LE_INFO("Set msd information test completed");
 }
 
+static void Test_ECall_DebugReference()
+{
+    le_result_t res = LE_FAULT;
+
+    taf_ecall_CallRef_t normalRef = taf_ecall_Create();
+    LE_TEST_OK(normalRef != NULL, "Test taf_ecall_Create done (baseline)");
+
+    taf_ecall_CallRef_t normalRefEx = NULL;
+    res = taf_ecall_CreateEx(TAF_ECALL_REF_TYPE_NORMAL, &normalRefEx);
+    LE_TEST_OK(res == LE_OK, "Test taf_ecall_CreateEx(REF_TYPE_NORMAL) done");
+    LE_TEST_OK(normalRefEx == normalRef,
+        "Test taf_ecall_CreateEx(REF_TYPE_NORMAL) equals taf_ecall_Create() done");
+
+    taf_ecall_CallRef_t debugRef = NULL;
+    res = taf_ecall_CreateEx(TAF_ECALL_REF_TYPE_PTI_TEST, &debugRef);
+    LE_TEST_OK(res == LE_OK, "Test taf_ecall_CreateEx(REF_TYPE_PTI_TEST) done");
+    LE_TEST_OK(debugRef != NULL, "Test the diagnostic reference is not NULL done");
+    LE_TEST_OK(debugRef != normalRef,
+        "Test the diagnostic reference differs from the real reference done");
+
+    taf_ecall_CallRef_t debugRefDup = NULL;
+    res = taf_ecall_CreateEx(TAF_ECALL_REF_TYPE_PTI_TEST, &debugRefDup);
+    LE_TEST_OK(res == LE_OK, "Test taf_ecall_CreateEx(REF_TYPE_PTI_TEST) done");
+    LE_TEST_OK(debugRefDup != NULL, "Test the diagnostic reference is not NULL done");
+    LE_TEST_OK(debugRefDup == debugRef,
+        "Test the duplicate diagnostic reference is the same as the existing one done");
+
+    taf_ecall_CallRef_t invalidTypeRef = NULL;
+    res = taf_ecall_CreateEx((taf_ecall_RefType_t) 99, &invalidTypeRef); //invalid RefType, result will be failed.
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "Test taf_ecall_CreateEx (invalid RefType) done");
+    LE_TEST_OK(invalidTypeRef == NULL, "Test taf_ecall_CreateEx (invalid RefType) leaves the out param NULL done");
+
+    uint32_t realMsdVersionBefore = 0;
+    LE_TEST_OK(taf_ecall_GetMsdVersion(&realMsdVersionBefore) == LE_OK,
+        "Test taf_ecall_GetMsdVersion (baseline) done");
+
+    res = taf_ecall_SetMsdVersionEx(debugRef, 3);
+    LE_TEST_OK(res == LE_OK, "Test taf_ecall_SetMsdVersionEx done");
+    res = taf_ecall_SetMsdVersionEx(debugRef, 4); //invalid value, result will be failed.
+    LE_TEST_OK(res == LE_FAULT, "Test taf_ecall_SetMsdVersionEx (invalid) done");
+
+    uint32_t realMsdVersionAfter = 0;
+    LE_TEST_OK(taf_ecall_GetMsdVersion(&realMsdVersionAfter) == LE_OK,
+        "Test taf_ecall_GetMsdVersion (after debug set) done");
+    LE_TEST_OK(realMsdVersionAfter == realMsdVersionBefore,
+        "Test taf_ecall_SetMsdVersionEx does not affect the real msd version done");
+
+    res = taf_ecall_SetVehicleTypeEx(debugRef, TAF_ECALL_PASSENGER_VEHICLE_CLASS_M1);
+    LE_TEST_OK(res == LE_OK, "Test taf_ecall_SetVehicleTypeEx done");
+    res = taf_ecall_SetVehicleTypeEx(debugRef, 30); //invalid value, result will be failed.
+    LE_TEST_OK(res == LE_FAULT, "Test taf_ecall_SetVehicleTypeEx (invalid) done");
+
+    res = taf_ecall_SetVINEx(debugRef, "ECALLEXAMPLE"); //invalid length, result will be failed.
+    LE_TEST_OK(res == LE_FAULT, "Test taf_ecall_SetVINEx (invalid length) done");
+    res = taf_ecall_SetVINEx(debugRef, "ECALLEXAMPLE02013");
+    LE_TEST_OK(res == LE_OK || res == LE_BAD_PARAMETER, "Test taf_ecall_SetVINEx done");
+
+    res = taf_ecall_SetPropulsionTypeEx(debugRef, TAF_ECALL_PROP_TYPE_GASOLINE_TANK);
+    LE_TEST_OK(res == LE_OK, "Test taf_ecall_SetPropulsionTypeEx done");
+    LE_INFO("Set diagnostic vehicle configuration completed");
+
+    res = taf_ecall_SetMsdPosition(debugRef, true, 12985849, 77596432, 0);
+    LE_TEST_OK(res == LE_OK, "Test taf_ecall_SetMsdPosition on the debug reference done");
+    res = taf_ecall_SetMsdPassengersCount(debugRef, 2);
+    LE_TEST_OK(res == LE_OK, "Test taf_ecall_SetMsdPassengersCount on the debug reference done");
+    LE_INFO("Set diagnostic MSD fields completed");
+
+    uint8_t debugMsdPdu[TAF_ECALL_MAX_MSD_LENGTH];
+    size_t debugMsdLength = TAF_ECALL_MAX_MSD_LENGTH;
+    res = taf_ecall_ExportMsd(debugRef, debugMsdPdu, &debugMsdLength);
+    LE_TEST_OK(res == LE_OK, "Test taf_ecall_ExportMsd on the debug reference done");
+    LE_TEST_OK(debugMsdLength > 0,
+        "Test taf_ecall_ExportMsd on the debug reference returns a non-empty PDU done");
+    LE_INFO("Export diagnostic MSD completed");
+
+    res = taf_ecall_StartTest(debugRef);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "Test taf_ecall_StartTest rejects the debug reference done");
+    res = taf_ecall_StartManual(debugRef);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "Test taf_ecall_StartManual rejects the debug reference done");
+    res = taf_ecall_StartAutomatic(debugRef);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "Test taf_ecall_StartAutomatic rejects the debug reference done");
+    res = taf_ecall_End(debugRef);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "Test taf_ecall_End rejects the debug reference done");
+    res = taf_ecall_Answer(debugRef);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "Test taf_ecall_Answer rejects the debug reference done");
+    res = taf_ecall_SendMsd(debugRef);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "Test taf_ecall_SendMsd rejects the debug reference done");
+    res = taf_ecall_ImportMsd(debugRef, msdRawData, msdLength);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "Test taf_ecall_ImportMsd rejects the debug reference done");
+    LE_INFO("Debug reference session-API rejection completed");
+
+    taf_ecall_Delete(debugRef);
+
+    LE_TEST_OK(taf_ecall_Create() == normalRef, "Test the real eCall reference is unaffected done");
+
+    LE_INFO("Debug reference test completed");
+}
+
 static void Test_ECall_PsapNumber() {
     le_result_t res = LE_FAULT;
     res = taf_ecall_UseUSimNumbers();
@@ -1200,6 +1298,8 @@ COMPONENT_INIT
 {
 
     Test_ECall_MSD_Information();
+
+    Test_ECall_DebugReference();
 
     Test_ECall_PsapNumber();
 

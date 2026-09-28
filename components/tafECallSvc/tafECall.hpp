@@ -18,7 +18,7 @@
 using namespace tafpa::ecall;
 using namespace std;
 
-#define MAX_ECALL  1
+#define MAX_ECALL  2
 #define CFG_NODE_ECALL "eCall"
 #define CFG_MODEMSERVICE_ECALL_PATH "tafeCallSvc:/eCall"
 #define CFG_NODE_MSDMODE "msdtxMode"
@@ -111,6 +111,7 @@ using namespace std;
         typedef struct
         {
             taf_ecall_CallRef_t                 reference;
+            bool                                isDebugMsd;
             taf_pa_ecall_msd_data_t             msd;
             bool                                isMsdUpdated;
             taf_ecall_MsdTransmissionMode_t     msdTxMode;
@@ -288,6 +289,7 @@ using namespace std;
                 static taf_ecall &GetInstance();
 
                 taf_ecall_CallRef_t CreateECallReference();
+                le_result_t CreateECallReferenceEx(taf_ecall_RefType_t refType, taf_ecall_CallRef_t* ecallRefPtr);
                 void Delete(taf_ecall_CallRef_t ecallRef);
                 le_result_t SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t ecallMode);
                 le_result_t GetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t *opMode);
@@ -379,6 +381,15 @@ using namespace std;
 
                 static void ConfigChangeHandler (void* contextPtr);
                 void UpdateMsd ();
+                void ApplyVehicleConfigToMsd (taf_pa_ecall_msd_data_t& msd);
+                static void InitMsdDefaults (taf_pa_ecall_msd_data_t& msd);
+                static void InitEuroNCAPDefaults (taf_EuroNCAPData_t& euroNCAPData);
+                static le_result_t FillVehicleIdFromVin (const char* vin, taf_pa_ecall_msd_data_t& msd);
+                le_result_t SetMsdVersionEx (taf_ecall_CallRef_t ecallRef, uint32_t msdVersion);
+                le_result_t SetVehicleTypeEx (taf_ecall_CallRef_t ecallRef, taf_ecall_MsdVehicleType_t vehType);
+                le_result_t SetVINEx (taf_ecall_CallRef_t ecallRef, const char* vin);
+                le_result_t SetPropulsionTypeEx (taf_ecall_CallRef_t ecallRef,
+                    taf_ecall_PropulsionStorageType_t propulsionType);
                 le_result_t ImportMsd( taf_ecall_CallRef_t ecallRef, const uint8_t* pdumsd, size_t msdLength);
                 le_result_t ExportMsd( taf_ecall_CallRef_t ecallRef, uint8_t* pdumsd, size_t* msdLength);
                 le_result_t SendMsd( taf_ecall_CallRef_t ecallRef);
@@ -420,6 +431,7 @@ using namespace std;
                 std::atomic<uint64_t> callNextToken_{1};
                 std::vector<PendingECallEvent> pendingECallEvents;
                 taf_ECall_t ECallObject;
+                taf_ECall_t DebugECallObject;
                 taf_pa_ecall_event_listener_t eventListener;
 
                 timespec t2StartTime{};

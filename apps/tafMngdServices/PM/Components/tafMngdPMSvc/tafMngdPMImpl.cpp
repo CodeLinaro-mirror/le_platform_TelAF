@@ -257,69 +257,18 @@ void tafMngdPMSvc::ShutdownPrepareRespCB
     hal_pm_RspReason_t reason
 )
 {
-    LE_INFO("** %s **, pmNodeId: %d, hal_pm_NodeState_t: %d, hal_pm_PowerMode_t: %d, hal_pm_RspReason_t: %d",
-        __FUNCTION__, pmNodeId, state, mode, reason);
+    LE_INFO("RESP recv shutdown CB pmNodeId=%d state=%d mode=%d rsp=%d",
+        pmNodeId, state, mode, reason);
 
-    auto &mpms = tafMngdPMSvc::GetInstance();
-    if(le_timer_IsRunning(mpms.vhalAckTimerRef))
-    {
-        LE_DEBUG("Stop the timer");
-        le_timer_Stop(mpms.vhalAckTimerRef);
-    }
-    if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_READY)
-    {
-        if(RequestStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN) != LE_OK)
-        {
-            if(shutdownCB.shutdownCallbackFunc)
-            {
-                shutdownCB.shutdownCallbackFunc(
-                    TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
-                    TAF_MNGDPM_NOT_READY,
-                    LE_OK,
-                    shutdownCB.shutdownCBCtxPtr);
-            }
-            shutdownCB.shutdownCallbackFunc = nullptr;
-            return;
-        }
-
-        if(shutdownCB.shutdownCallbackFunc)
-        {
-            shutdownCB.shutdownCallbackFunc(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL, TAF_MNGDPM_READY,
-                    LE_OK, shutdownCB.shutdownCBCtxPtr);
-        }
-        le_result_t res = ShutdownNAD();
-        if(res == LE_OK)
-        {
-            powerMode.isGraceful = false;
-        }
-    }
-    else if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_NOT_READY)
-    {
-        tafMngdPMSvc::ProcessStateChange(stateMachine.prevState);
-        powerMode.isForceful = false;
-        if(shutdownCB.shutdownCallbackFunc)
-        {
-            shutdownCB.shutdownCallbackFunc(
-                TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
-                TAF_MNGDPM_NOT_READY,
-                LE_OK,
-                shutdownCB.shutdownCBCtxPtr);
-        }
-    }
-    else if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_INVALID_REQUEST)
-    {
-        tafMngdPMSvc::ProcessStateChange(stateMachine.prevState);
-        powerMode.isForceful = false;
-        if(shutdownCB.shutdownCallbackFunc)
-        {
-            shutdownCB.shutdownCallbackFunc(
-                TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
-                TAF_MNGDPM_INVALID_REQUEST,
-                LE_OK,
-                shutdownCB.shutdownCBCtxPtr);
-        }
-    }
-    shutdownCB.shutdownCallbackFunc = nullptr;
+    vhalPrepareRespPayload_t payload = {
+        .type        = VHAL_PREPARE_RESP_SHUTDOWN,
+        .pmNodeId    = pmNodeId,
+        .state       = state,
+        .mode        = mode,
+        .reasonCode  = shutdownReason,
+        .rsp         = reason,
+    };
+    le_event_Report(vhalPrepareRespEvent, &payload, sizeof(payload));
 }
 
 /**
@@ -334,104 +283,18 @@ void tafMngdPMSvc::RestartPrepareRespCB
     hal_pm_RspReason_t reason
 )
 {
-    LE_INFO("** %s **, pmNodeId: %d, hal_pm_NodeState_t: %d, hal_pm_PowerMode_t: %d, hal_pm_RspReason_t: %d",
-        __FUNCTION__, pmNodeId, state, mode, reason);
+    LE_INFO("RESP recv restart CB pmNodeId=%d state=%d mode=%d rsp=%d",
+        pmNodeId, state, mode, reason);
 
-    auto &mpms = tafMngdPMSvc::GetInstance();
-    if(le_timer_IsRunning(mpms.vhalAckTimerRef))
-    {
-        LE_DEBUG("Stop the timer");
-        le_timer_Stop(mpms.vhalAckTimerRef);
-    }
-    if (mode == HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF && reason == HAL_PM_RSP_READY)
-    {
-        if(RequestStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN) != LE_OK)
-        {
-            if(restartCB.restartCallbackFunc)
-            {
-                restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_NOT_READY,
-                        LE_OK, restartCB.restartCBCtxPtr);
-            }
-            restartCB.restartCallbackFunc = nullptr;
-            return;
-        }
-
-        if(restartCB.restartCallbackFunc)
-        {
-            restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_READY,
-                    LE_OK, restartCB.restartCBCtxPtr);
-        }
-        le_result_t res = ShutdownNAD();
-        if(res == LE_OK)
-        {
-            powerMode.isGraceful = false;
-        }
-    }
-    else if (mode == HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF && reason == HAL_PM_RSP_NOT_READY)
-    {
-        tafMngdPMSvc::ProcessStateChange(stateMachine.prevState);
-        powerMode.isShutDown = false;
-        if(restartCB.restartCallbackFunc)
-        {
-            restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_NOT_READY,
-                    LE_OK, restartCB.restartCBCtxPtr);
-        }
-    }
-    else if (mode == HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF && reason == HAL_PM_RSP_INVALID_REQUEST)
-    {
-        tafMngdPMSvc::ProcessStateChange(stateMachine.prevState);
-        powerMode.isShutDown = false;
-        if(restartCB.restartCallbackFunc)
-        {
-            restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_INVALID_REQUEST,
-                    LE_OK, restartCB.restartCBCtxPtr);
-        }
-    }
-    if (mode == HAL_PM_RESTART_MODE_NAD_REBOOT && reason == HAL_PM_RSP_READY)
-    {
-        if(RequestStateChange(TAF_MNGDPM_STATE_RESTARTING) != LE_OK)
-        {
-            if(restartCB.restartCallbackFunc)
-            {
-                restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_NOT_READY,
-                        LE_OK, restartCB.restartCBCtxPtr);
-            }
-            restartCB.restartCallbackFunc = nullptr;
-            return;
-        }
-
-        if(restartCB.restartCallbackFunc)
-        {
-            restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_READY,
-                    LE_OK, restartCB.restartCBCtxPtr);
-        }
-        le_result_t res = RestartNAD();
-        if(res == LE_OK)
-        {
-            LE_INFO("RestartNAD is success");
-        }
-    }
-    else if (mode == HAL_PM_RESTART_MODE_NAD_REBOOT && reason == HAL_PM_RSP_NOT_READY)
-    {
-        tafMngdPMSvc::ProcessStateChange(stateMachine.prevState);
-        powerMode.isRestart = false;
-        if(restartCB.restartCallbackFunc)
-        {
-            restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_NOT_READY,
-                    LE_OK, restartCB.restartCBCtxPtr);
-        }
-    }
-    else if (mode == HAL_PM_RESTART_MODE_NAD_REBOOT && reason == HAL_PM_RSP_INVALID_REQUEST)
-    {
-        tafMngdPMSvc::ProcessStateChange(stateMachine.prevState);
-        powerMode.isRestart = false;
-        if(restartCB.restartCallbackFunc)
-        {
-            restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_INVALID_REQUEST,
-                    LE_OK, restartCB.restartCBCtxPtr);
-        }
-    }
-    restartCB.restartCallbackFunc = nullptr;
+    vhalPrepareRespPayload_t payload = {
+        .type        = VHAL_PREPARE_RESP_RESTART,
+        .pmNodeId    = pmNodeId,
+        .state       = state,
+        .mode        = mode,
+        .reasonCode  = restartReason,
+        .rsp         = reason,
+    };
+    le_event_Report(vhalPrepareRespEvent, &payload, sizeof(payload));
 }
 
 /**
@@ -446,15 +309,16 @@ void tafMngdPMSvc::WakeupVehicleCB
     LE_INFO("** %s **, hal_pm_WakeupVehicleReason: %d, hal_pm_RspReason_t: %d", __FUNCTION__, reason, response);
 
     auto &mpms = tafMngdPMSvc::GetInstance();
-    if(le_timer_IsRunning(mpms.wakeupVehicleTimerRef))
+    if (le_timer_IsRunning(mpms.wakeupVehicleTimerRef))
     {
-        LE_DEBUG("Stop the timer");
+        LE_DEBUG("Stop the wakeupVehicle timer");
         le_timer_Stop(mpms.wakeupVehicleTimerRef);
     }
+
     if (reason == VEHICHLE_WAKEUP_REASON_DEFAULT && response == HAL_PM_VEHICHLE_WAKEUP_STATUS_AWAKE)
     {
         LE_INFO("Response for the wakeupVehicleCall is HAL_PM_VEHICHLE_WAKEUP_STATUS_AWAKE");
-        if(wakeupVehicleCB.wakeupVehicleCallbackFunc)
+        if (wakeupVehicleCB.wakeupVehicleCallbackFunc)
         {
             wakeupVehicleCB.wakeupVehicleCallbackFunc(VEHICHLE_WAKEUP_REASON_DEFAULT, VEHICHLE_WAKEUP_STATUS_AWAKE,
                     LE_OK, wakeupVehicleCB.wakeupVehicleCBCtxPtr);
@@ -463,7 +327,7 @@ void tafMngdPMSvc::WakeupVehicleCB
     else if (reason == VEHICHLE_WAKEUP_REASON_DEFAULT && response == HAL_PM_VEHICHLE_WAKEUP_STATUS_INVALID_REQ)
     {
         LE_INFO("Response for the wakeupVehicleCall is HAL_PM_VEHICHLE_WAKEUP_STATUS_INVALID_REQ");
-        if(wakeupVehicleCB.wakeupVehicleCallbackFunc)
+        if (wakeupVehicleCB.wakeupVehicleCallbackFunc)
         {
             wakeupVehicleCB.wakeupVehicleCallbackFunc(VEHICHLE_WAKEUP_REASON_DEFAULT, VEHICHLE_WAKEUP_STATUS_INVALID_REQ,
                     LE_OK, wakeupVehicleCB.wakeupVehicleCBCtxPtr);
@@ -472,7 +336,7 @@ void tafMngdPMSvc::WakeupVehicleCB
     else if (reason == VEHICHLE_WAKEUP_REASON_DEFAULT && response == HAL_PM_VEHICHLE_WAKEUP_STATUS_UNKNOWN)
     {
         LE_INFO("Response for the wakeupVehicleCall is HAL_PM_VEHICHLE_WAKEUP_STATUS_UNKNOWN");
-        if(wakeupVehicleCB.wakeupVehicleCallbackFunc)
+        if (wakeupVehicleCB.wakeupVehicleCallbackFunc)
         {
             wakeupVehicleCB.wakeupVehicleCallbackFunc(VEHICHLE_WAKEUP_REASON_DEFAULT, VEHICHLE_WAKEUP_STATUS_UNKNOWN,
                     LE_OK, wakeupVehicleCB.wakeupVehicleCBCtxPtr);
@@ -684,7 +548,7 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
                 }
                 else
                 {
-                    le_result_t res = ReleaseWakeSource(wsRefCtxPtr);
+                    le_result_t res = ReleaseWakeSourceWithoutStateCheck(wsRefCtxPtr);
                     if(res == LE_OK)
                     {
                         wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
@@ -715,7 +579,7 @@ void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
         {
             LE_DEBUG("Wakesource identified for client with sessionRef %p", wsRefCtxPtr->sessionRef);
             if(wsRefCtxPtr->isAcquiredLock) {
-                le_result_t res = tafMngdPMSvc::ReleaseWakeLock();
+                le_result_t res = tafMngdPMSvc::ReleaseNodeWakeLock();
                 if(res == LE_OK)
                 {
                     wsRefCtxPtr->isAcquiredLock = false;
@@ -1068,12 +932,23 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
 void tafMngdPMSvc::VhalAckTimerHandler(le_timer_Ref_t timerRef)
 {
     auto &mpms = tafMngdPMSvc::GetInstance();
-    taf_mngdPm_RequestedState_t* state =
+    taf_mngdPm_RequestedState_t* statePtrCtx =
       (taf_mngdPm_RequestedState_t*)le_timer_GetContextPtr(timerRef);
-    LE_INFO("VhalAckTimer Expired after %ld msec for state %d", mpms.config.hal_state_prepare_timeout,
-            *(state));
-    tafMngdPMSvc::ProcessStateChange(stateMachine.prevState);
-    if(*(state) == SYSTEM_NORMAL_SHUTDOWN)
+    taf_mngdPm_RequestedState_t pendingWindow = *statePtrCtx;
+
+    LE_INFO("TIMEOUT VhalAckTimer expired after %ld msec for state %d",
+            mpms.config.hal_state_prepare_timeout, pendingWindow);
+
+    if (vhalRespHandled)
+    {
+        LE_WARN("timer fired after resp already handled, drop");
+        return;
+    }
+    vhalRespHandled = true;
+
+    RevertPendingWindow();
+
+    if(pendingWindow == SYSTEM_NORMAL_SHUTDOWN)
     {
         LE_DEBUG("VhalAckTimer expire for SYSTEM_FORCEFUL_SHUTDOWN");
         mpms.powerMode.isForceful = false;
@@ -1084,7 +959,7 @@ void tafMngdPMSvc::VhalAckTimerHandler(le_timer_Ref_t timerRef)
         }
         shutdownCB.shutdownCallbackFunc = nullptr;
     }
-    else if (*(state) == RESTART_WITH_NAD_POWER_OFF_ON)
+    else if (pendingWindow == RESTART_WITH_NAD_POWER_OFF_ON)
     {
         LE_DEBUG("VhalAckTimer expire for TAF_MNGDPM_RESTART_SYSTEM_OFF_ON");
         mpms.powerMode.isShutDown = false;
@@ -1095,7 +970,7 @@ void tafMngdPMSvc::VhalAckTimerHandler(le_timer_Ref_t timerRef)
         }
         restartCB.restartCallbackFunc = nullptr;
     }
-    else if (*(state) == RESTART_WITH_NAD_REBOOT)
+    else if (pendingWindow == RESTART_WITH_NAD_REBOOT)
     {
         LE_DEBUG("VhalAckTimer expire for TAF_MNGDPM_RESTART_MODE_NAD_REBOOT");
         mpms.powerMode.isRestart = false;
@@ -1106,9 +981,278 @@ void tafMngdPMSvc::VhalAckTimerHandler(le_timer_Ref_t timerRef)
         }
         restartCB.restartCallbackFunc = nullptr;
     }
+    else
+    {
+        LE_ERROR("VhalAckTimer expired with no pending window (%d)", pendingWindow);
+    }
 }
+
+void tafMngdPMSvc::RevertPendingWindow()
+{
+    uint8_t target = stateMachine.prevState;
+
+    // Clients re-acquired locks during the window: reverting to RELEASING would leave
+    // wsCount > 0 while expecting release, so promote target to RESUME.
+    if (target == TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE && wsCount > 0)
+    {
+        LE_INFO("REVERT prevState=RELEASING but wsCount=%d, target=RESUME", wsCount);
+        target = TAF_MNGDPM_STATE_RESUME;
+    }
+
+    // prevState should only be RELEASING_WAKE_SOURCE or RESUME. A stray transient would
+    // wedge the FSM, so remap to a stable state chosen by wsCount.
+    if (target != TAF_MNGDPM_STATE_RESUME
+     && target != TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE)
+    {
+        uint8_t safe = (wsCount > 0) ? TAF_MNGDPM_STATE_RESUME
+                                     : TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE;
+        LE_WARN("REVERT ERR unexpected prevState %s, remap to %s (wsCount=%d)",
+                TafStateToString(target), TafStateToString(safe), wsCount);
+        target = safe;
+    }
+
+    // Direct assignment, not ProcessStateChange: the fold logic blocks transitions FROM
+    // SHUTTING_DOWN/RESTARTING, but revert IS the window closing and must force it.
+    LE_INFO("REVERT %s -> %s",
+            TafStateToString(stateMachine.currentState), TafStateToString(target));
+    stateMachine.prevState = stateMachine.currentState;
+    stateMachine.currentState = target;
+
+    // Reconcile PMS ref: wsCount and isWsAcquired may have diverged during the window.
+    if (wsCount > 0 && !powerMode.isWsAcquired)
+    {
+        le_result_t res = taf_pm_StayAwake(ws);
+        if (res == LE_OK)
+        {
+            powerMode.isWsAcquired = true;
+            LE_INFO("REVERT PMS StayAwake done");
+        }
+        else
+        {
+            LE_ERROR("REVERT ERR taf_pm_StayAwake failed");
+        }
+    }
+    else if (wsCount == 0 && powerMode.isWsAcquired)
+    {
+        le_result_t res = taf_pm_Relax(ws);
+        if (res == LE_OK)
+        {
+            powerMode.isWsAcquired = false;
+            LE_INFO("REVERT PMS Relax done");
+        }
+        else
+        {
+            LE_ERROR("REVERT ERR taf_pm_Relax failed");
+        }
+    }
+}
+
+taf_mngdPm_RequestedState_t tafMngdPMSvc::ModeToRequestedState(const vhalPrepareRespPayload_t* payload)
+{
+    switch (payload->mode)
+    {
+        case HAL_PM_SHUTDOWN_MODE_NORMAL:               return SYSTEM_NORMAL_SHUTDOWN;
+        case HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF: return RESTART_WITH_NAD_POWER_OFF_ON;
+        case HAL_PM_RESTART_MODE_NAD_REBOOT:            return RESTART_WITH_NAD_REBOOT;
+        default:                                        return ASYNC_REQ_UNKNOWN_ST;
+    }
+}
+
+void tafMngdPMSvc::VhalPrepareRespHandler(void* reportPtr)
+{
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    auto* payload = static_cast<vhalPrepareRespPayload_t*>(reportPtr);
+
+    if (vhalRespHandled)
+    {
+        LE_WARN("RESP arrived after already handled (type=%d), drop", payload->type);
+        return;
+    }
+
+    if (ModeToRequestedState(payload) != statePtr)
+    {
+        LE_WARN("RESP stale/unexpected (type=%d mode=%d rsp=%d) for pending window %d, drop",
+                payload->type, payload->mode, payload->rsp, statePtr);
+        return;
+    }
+
+    vhalRespHandled = true;
+    if (le_timer_IsRunning(mpms.vhalAckTimerRef))
+    {
+        LE_DEBUG("stop vhal ack timer");
+        le_timer_Stop(mpms.vhalAckTimerRef);
+    }
+
+    LE_INFO("RESP type=%d mode=%d rsp=%d", payload->type, payload->mode, payload->rsp);
+    switch (payload->type)
+    {
+        case VHAL_PREPARE_RESP_SHUTDOWN:  HandleShutdownPrepareResp(payload); break;
+        case VHAL_PREPARE_RESP_RESTART:   HandleRestartPrepareResp(payload);  break;
+        default:
+            LE_ERROR("RESP ERR unknown type %d", payload->type);
+            break;
+    }
+}
+
+void tafMngdPMSvc::HandleShutdownPrepareResp(const vhalPrepareRespPayload_t* payload)
+{
+    hal_pm_PowerMode_t mode = payload->mode;
+    hal_pm_RspReason_t reason = payload->rsp;
+
+    if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_READY)
+    {
+        LE_DEBUG("READY shutdown, proceed to ShutdownNAD");
+        if (shutdownCB.shutdownCallbackFunc)
+        {
+            shutdownCB.shutdownCallbackFunc(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL, TAF_MNGDPM_READY,
+                    LE_OK, shutdownCB.shutdownCBCtxPtr);
+        }
+        le_result_t res = ShutdownNAD();
+        if (res == LE_OK)
+        {
+            powerMode.isGraceful = false;
+        }
+    }
+    else if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_NOT_READY)
+    {
+        LE_DEBUG("NACK shutdown, revert");
+        RevertPendingWindow();
+        powerMode.isForceful = false;
+        if (shutdownCB.shutdownCallbackFunc)
+        {
+            shutdownCB.shutdownCallbackFunc(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL, TAF_MNGDPM_NOT_READY,
+                    LE_OK, shutdownCB.shutdownCBCtxPtr);
+        }
+    }
+    else if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_INVALID_REQUEST)
+    {
+        LE_WARN("INVALID shutdown, revert");
+        RevertPendingWindow();
+        powerMode.isForceful = false;
+        if (shutdownCB.shutdownCallbackFunc)
+        {
+            shutdownCB.shutdownCallbackFunc(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL, TAF_MNGDPM_INVALID_REQUEST,
+                    LE_OK, shutdownCB.shutdownCBCtxPtr);
+        }
+    }
+    else
+    {
+        LE_ERROR("RESP ERR unhandled shutdown resp mode=%d rsp=%d, revert", mode, reason);
+        RevertPendingWindow();
+        powerMode.isForceful = false;
+    }
+    shutdownCB.shutdownCallbackFunc = nullptr;
+}
+
+void tafMngdPMSvc::HandleRestartPrepareResp(const vhalPrepareRespPayload_t* payload)
+{
+    hal_pm_PowerMode_t mode = payload->mode;
+    hal_pm_RspReason_t reason = payload->rsp;
+
+    // Branch on mode first: the two restart modes drive different operations (ShutdownNAD vs
+    // RestartNAD) and clear different powerMode flags, so each needs its own catch-all for
+    // reason codes with no explicit branch (notably HAL_PM_RSP_TIMEOUT).
+    if (mode == HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF)
+    {
+        if (reason == HAL_PM_RSP_READY)
+        {
+            LE_DEBUG("READY restart(SYSTEM_OFF_ON), proceed to ShutdownNAD");
+            if (restartCB.restartCallbackFunc)
+            {
+                restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_READY,
+                        LE_OK, restartCB.restartCBCtxPtr);
+            }
+            le_result_t res = ShutdownNAD();
+            if (res == LE_OK)
+            {
+                powerMode.isGraceful = false;
+            }
+        }
+        else if (reason == HAL_PM_RSP_NOT_READY)
+        {
+            LE_DEBUG("NACK restart(SYSTEM_OFF_ON), revert");
+            RevertPendingWindow();
+            powerMode.isShutDown = false;
+            if (restartCB.restartCallbackFunc)
+            {
+                restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_NOT_READY,
+                        LE_OK, restartCB.restartCBCtxPtr);
+            }
+        }
+        else if (reason == HAL_PM_RSP_INVALID_REQUEST)
+        {
+            LE_WARN("INVALID restart(SYSTEM_OFF_ON), revert");
+            RevertPendingWindow();
+            powerMode.isShutDown = false;
+            if (restartCB.restartCallbackFunc)
+            {
+                restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_INVALID_REQUEST,
+                        LE_OK, restartCB.restartCBCtxPtr);
+            }
+        }
+        else
+        {
+            LE_ERROR("RESP ERR unhandled restart(SYSTEM_OFF_ON) rsp=%d, revert", reason);
+            RevertPendingWindow();
+            powerMode.isShutDown = false;
+        }
+    }
+    else if (mode == HAL_PM_RESTART_MODE_NAD_REBOOT)
+    {
+        if (reason == HAL_PM_RSP_READY)
+        {
+            LE_INFO("READY restart(NAD_REBOOT), proceed to RestartNAD");
+            if (restartCB.restartCallbackFunc)
+            {
+                restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_READY,
+                        LE_OK, restartCB.restartCBCtxPtr);
+            }
+            le_result_t res = RestartNAD();
+            if (res == LE_OK)
+            {
+                LE_INFO("RestartNAD is success");
+            }
+        }
+        else if (reason == HAL_PM_RSP_NOT_READY)
+        {
+            LE_WARN("NACK restart(NAD_REBOOT), revert");
+            RevertPendingWindow();
+            powerMode.isRestart = false;
+            if (restartCB.restartCallbackFunc)
+            {
+                restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_NOT_READY,
+                        LE_OK, restartCB.restartCBCtxPtr);
+            }
+        }
+        else if (reason == HAL_PM_RSP_INVALID_REQUEST)
+        {
+            LE_WARN("INVALID restart(NAD_REBOOT), revert");
+            RevertPendingWindow();
+            powerMode.isRestart = false;
+            if (restartCB.restartCallbackFunc)
+            {
+                restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_MODE_NAD_REBOOT, TAF_MNGDPM_INVALID_REQUEST,
+                        LE_OK, restartCB.restartCBCtxPtr);
+            }
+        }
+        else
+        {
+            LE_ERROR("RESP ERR unhandled restart(NAD_REBOOT) rsp=%d, revert", reason);
+            RevertPendingWindow();
+            powerMode.isRestart = false;
+        }
+    }
+    else
+    {
+        // Unreachable: the ModeToRequestedState correlation already restricted mode to the two above.
+        LE_ERROR("RESP ERR unexpected restart mode=%d, revert", mode);
+        RevertPendingWindow();
+    }
+    restartCB.restartCallbackFunc = nullptr;
+}
+
 /**
- * VHAL ack timer handler
+ * Vehicle wakeup timer handler
  */
 void tafMngdPMSvc::VehichleWakeupTimerHandler(le_timer_Ref_t timerRef)
 {
@@ -1500,10 +1644,15 @@ le_result_t tafMngdPMSvc::AcquireWakeLock()
         ++ wsCount;
         LE_INFO("AcquireWakeLock wsCount = %d", wsCount);
     }
-    else if (stateMachine.currentState == TAF_MNGDPM_STATE_SUSPENDING)
+    // During SHUTTING_DOWN/RESTARTING/SUSPENDING window: track demand via wsCount but suppress PMS
+    // StayAwake (isWsAcquired frozen); delta reconciled in RevertPendingWindow on failure.
+    else if (stateMachine.currentState == TAF_MNGDPM_STATE_SUSPENDING
+    ||       stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN
+    ||       stateMachine.currentState == TAF_MNGDPM_STATE_RESTARTING)
     {
         ++ wsCount;
-        LE_INFO("AcquireWakeLock wsCount = %d in TAF_MNGDPM_STATE_SUSPENDING state", wsCount);
+        LE_INFO("AcquireWakeLock wsCount=%d, currState:%d, defer PMS StayAwake",
+                wsCount, stateMachine.currentState);
     }
 
     return res;
@@ -1567,6 +1716,15 @@ void tafMngdPMSvc::RefreshWakeSources()
         }
     }
 
+    // During SHUTTING_DOWN/RESTARTING window: wsCount/nodeInfoNotification already applied,
+    // but defer PMS StayAwake/Relax until the window closes (revert reconciles on failure).
+    if (stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN
+     || stateMachine.currentState == TAF_MNGDPM_STATE_RESTARTING)
+    {
+        LE_INFO("Refresh defer PMS ref change during window");
+        return;
+    }
+
     if(wsCount == 0)
     {
         LE_INFO("[Refresh] wsCount = 0");
@@ -1612,6 +1770,22 @@ void tafMngdPMSvc::RefreshWakeSources()
             // Nothing to do
         }
     }
+}
+
+le_result_t tafMngdPMSvc::ReleaseWakeSourceWithoutStateCheck(taf_wsRefCtx_t * wsRefCtxPtr)
+{
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    le_result_t res = tafMngdPMSvc::ReleaseWakeLock();
+    if(res == LE_OK)
+    {
+        if((mpms.pmInf) && (mpms.pmInf->nodeInfoNotification))
+        {
+            LE_DEBUG("notify node info for reason: %d", wsRefCtxPtr->reason);
+            (*(mpms.pmInf->nodeInfoNotification))(NODE_ID,
+                    HAL_PM_NODE_INFO_LOCK_RELEASED, (const uint8_t)wsRefCtxPtr->reason);
+        }
+    }
+    return res;
 }
 
 /**
@@ -1732,6 +1906,34 @@ le_result_t tafMngdPMSvc::ReleaseWakeLock()
         {
             LE_INFO("Defer until the RESUME/NTF received");
         }
+        // During SHUTTING_DOWN/RESTARTING window: wsCount hit 0 but defer PMS Relax until
+        // VHAL responds; RevertPendingWindow reconciles isWsAcquired after the window closes.
+        else if (stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN
+              || stateMachine.currentState == TAF_MNGDPM_STATE_RESTARTING)
+        {
+            LE_INFO("ReleaseWakeLock wsCount=0, defer PMS relax");
+        }
+        // Defense-in-depth: a client Relax dropping wsCount to 0 in a suspend transient while
+        // still holding a leaked PMS ref would leave isWsAcquired stuck true, wedging the node
+        // awake. Normal suspend defer returns early in StateChangeExHandler, so this fires only
+        // on an actual leaked reference.
+        else if ((stateMachine.currentState == TAF_MNGDPM_STATE_SUSPENDING
+               || stateMachine.currentState == TAF_MNGDPM_STATE_SUSPEND)
+              && powerMode.isWsAcquired)
+        {
+            LE_WARN("ReleaseWakeLock wsCount=0 in %s with leaked PMS ref, relaxing",
+                    TafStateToString(stateMachine.currentState));
+            res = taf_pm_Relax(ws);
+            if (res == LE_OK)
+            {
+                LE_INFO("Leaked PMS wake source released successfully");
+                powerMode.isWsAcquired = false;
+            }
+            else
+            {
+                LE_ERROR("Failed to relax the leaked pms ws");
+            }
+        }
     }
 
     return res;
@@ -1753,9 +1955,7 @@ le_result_t tafMngdPMSvc::RequestStateChange(uint8_t requestedState)
     switch(requestedState)
     {
         case TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE:
-            if(stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN
-            || stateMachine.currentState == TAF_MNGDPM_STATE_RESTARTING
-            || stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN
+            if(stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN
             || stateMachine.currentState == TAF_MNGDPM_STATE_RESTART)
             {
                 res = LE_NOT_PERMITTED;
@@ -1780,9 +1980,7 @@ le_result_t tafMngdPMSvc::RequestStateChange(uint8_t requestedState)
             break;
 
         case TAF_MNGDPM_STATE_WAKING_UP:
-            if(stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN
-            || stateMachine.currentState == TAF_MNGDPM_STATE_RESTARTING
-            || stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN
+            if(stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN
             || stateMachine.currentState == TAF_MNGDPM_STATE_RESTART)
             {
                 res = LE_NOT_PERMITTED;
@@ -1834,7 +2032,9 @@ void tafMngdPMSvc::ProcessStateChange(uint8_t toState)
         {
             if(stateMachine.currentState == TAF_MNGDPM_STATE_RESUME
             || stateMachine.currentState == TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE
-            || stateMachine.currentState == TAF_MNGDPM_STATE_SUSPENDING)
+            || stateMachine.currentState == TAF_MNGDPM_STATE_SUSPENDING
+            || stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN
+            || stateMachine.currentState == TAF_MNGDPM_STATE_RESTARTING)
             {
                 toState = stateMachine.currentState;
             }
@@ -1845,7 +2045,9 @@ void tafMngdPMSvc::ProcessStateChange(uint8_t toState)
         {
             if(stateMachine.currentState == TAF_MNGDPM_STATE_SUSPENDING
             || stateMachine.currentState == TAF_MNGDPM_STATE_SUSPEND
-            || stateMachine.currentState == TAF_MNGDPM_STATE_WAKING_UP)
+            || stateMachine.currentState == TAF_MNGDPM_STATE_WAKING_UP
+            || stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN
+            || stateMachine.currentState == TAF_MNGDPM_STATE_RESTARTING)
             {
                 toState = stateMachine.currentState;
             }
@@ -2283,7 +2485,7 @@ le_timer_Ref_t tafMngdPMSvc::vhalAckTimerRef = nullptr;
 le_timer_Ref_t tafMngdPMSvc::wakeSourceTimerRef = nullptr;
 le_timer_Ref_t tafMngdPMSvc::wakeupVehicleTimerRef = nullptr;
 taf_mngdPm_RequestedWakeupVehicle_t tafMngdPMSvc::wakeupModePtr;
-taf_mngdPm_RequestedState_t tafMngdPMSvc::statePtr;
+taf_mngdPm_RequestedState_t tafMngdPMSvc::statePtr = ASYNC_REQ_UNKNOWN_ST;
 taf_mngdPm_Client_t tafMngdPMSvc::mngdPmClientInfo;
 
 taf_mngdPm_WakeupVehicleCb_t tafMngdPMSvc::wakeupVehicleCB;
@@ -2323,6 +2525,9 @@ taf_pm_ModemAwakeHandlerRef_t tafMngdPMSvc::pmsRemoteWakeupHandler;
 
 le_event_Id_t tafMngdPMSvc::pmEvtReady;
 void tafMngdPMSvc::PMVhalReadyEvtHandler(void * reportPtr);
+
+le_event_Id_t tafMngdPMSvc::vhalPrepareRespEvent;
+bool tafMngdPMSvc::vhalRespHandled = false;
 
 // Service-wide snapshot default
 taf_mngdPm_NodePowerState_t tafMngdPMSvc::currentNodePowerState = TAF_MNGDPM_NODE_STATE_RESUME;

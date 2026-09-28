@@ -31,4 +31,7 @@ print("Exp      <7f 2f 13>")
 uds("2f 90 07 03 30 01 01 03 04 05")
 print("Exp      <7f 2f 13>")
 
+uds("2f 90 08 03 30")
+print("Exp      <Positive resp>")
+
 tcpdump_stop()

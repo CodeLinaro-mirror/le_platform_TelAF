@@ -8,8 +8,9 @@
 //Diag IOCtrl
 static taf_diagIOCtrl_ServiceRef_t svcRef = NULL;
 static taf_diagIOCtrl_ServiceRef_t svc9007Ref = NULL;
+static taf_diagIOCtrl_ServiceRef_t svc9008Ref = NULL;
 static taf_diagIOCtrl_RxMsgHandlerRef_t diagIOCtrlMsgRef = NULL;
-static taf_diagIOCtrl_RxMsgHandlerRef_t diagIOCtrl9007MsgRef = NULL;
+static taf_diagIOCtrl_RxMsgHandlerRef_t diagIOCtrlCommonMsgRef = NULL;
 
 static le_sem_Ref_t semRef;
 
@@ -98,8 +99,8 @@ void IOCtrlMsgHandler
     return;
 }
 
-// Callback function for IOCtrl request message with 0x9007
-void IOCtrl9007MsgHandler
+// Common callback function for IOCtrl request message
+void IOCtrlCommonMsgHandler
 (
     taf_diagIOCtrl_RxMsgRef_t rxMsgRef,
     uint16_t dataId,
@@ -180,8 +181,11 @@ static void* diagIOCtrlMsgThread(void* ctxPtr)
     diagIOCtrlMsgRef = taf_diagIOCtrl_AddRxMsgHandler(svcRef, IOCtrlMsgHandler, NULL);
     LE_TEST_OK(diagIOCtrlMsgRef != NULL, "Registered successfully for IOCtrlMsgHandler");
 
-    diagIOCtrl9007MsgRef = taf_diagIOCtrl_AddRxMsgHandler(svc9007Ref, IOCtrl9007MsgHandler, NULL);
-    LE_TEST_OK(diagIOCtrl9007MsgRef != NULL, "Registered successfully for IOCtrl9007MsgHandler");
+    diagIOCtrlCommonMsgRef = taf_diagIOCtrl_AddRxMsgHandler(svc9007Ref, IOCtrlCommonMsgHandler, NULL);
+    LE_TEST_OK(diagIOCtrlCommonMsgRef != NULL, "Registered successfully for 9007 MsgHandler");
+
+    diagIOCtrlCommonMsgRef = taf_diagIOCtrl_AddRxMsgHandler(svc9008Ref, IOCtrlCommonMsgHandler, NULL);
+    LE_TEST_OK(diagIOCtrlCommonMsgRef != NULL, "Registered successfully for 9008 MsgHandler");
 
     le_sem_Post(semRef);
     le_event_RunLoop();
@@ -206,6 +210,15 @@ le_result_t diagIOControl_Init(void)
     dataId = 0x9007;
     //get diag IOCtrl svc reference
     svc9007Ref = taf_diagIOCtrl_GetService(dataId);
+    if(svcRef == NULL)
+    {
+        LE_ERROR("Get IO control service error");
+        return LE_FAULT;
+    }
+
+    dataId = 0x9008;
+    //get diag IOCtrl svc reference
+    svc9008Ref = taf_diagIOCtrl_GetService(dataId);
     if(svcRef == NULL)
     {
         LE_ERROR("Get IO control service error");

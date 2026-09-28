@@ -23,9 +23,9 @@ using boost::property_tree::ptree;
 // Structures for freeze_frames
 struct FreezeFrameEntry {
     std::string short_name;
-    int record_number;
+    int record_number = 0;
     std::string trigger;
-    bool update;
+    bool update = false;
     std::string custom_trigger;
     std::string origin_short_name;
 
@@ -55,12 +55,14 @@ struct Access {
 
 struct SubFunction {
     bool supported = false;
+    bool authentication = false;
     std::string execution_authorization_pattern;
     Access access;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
         ar & supported;
+        ar & authentication;
         ar & execution_authorization_pattern;
         ar & access;
     }
@@ -217,7 +219,6 @@ struct DidEntry {
     Implementation implementation;
     SupportedFunctions supported_functions;
     DidAccessibility did_accessibility;
-    std::vector<std::string> io_role;
     std::vector<std::string> read_role;
     std::vector<std::string> write_role;
     EnableConditionData data_enable_condition;
@@ -229,7 +230,6 @@ struct DidEntry {
         ar & implementation;
         ar & supported_functions;
         ar & did_accessibility;
-        ar & io_role;
         ar & read_role;
         ar & write_role;
         ar & data_enable_condition;
@@ -250,8 +250,8 @@ struct FunctionalDefinition {
     std::string data_type;
     std::string data_type_encoding;
     std::string value_type;
-    int bit_size;
-    int default_value;
+    int bit_size = 0;
+    int default_value = 0;
     std::vector<std::string> forbidden_values;
 
     template<class Archive>
@@ -278,9 +278,9 @@ struct DatasEntry {
 };
 
 struct AuthAntiConfEntry {
-    int antiBruteForceCounterMaxValue;
-    int delayTimerInvokingValueInit;
-    int delayTimerInvokingValueMax;
+    int antiBruteForceCounterMaxValue = 0;
+    int delayTimerInvokingValueInit = 0;
+    int delayTimerInvokingValueMax = 0;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
@@ -292,14 +292,14 @@ struct AuthAntiConfEntry {
 
 struct SessionSecurLvlEntry {
     std::string short_name;
-    int request_seed_id;
-    int key_size;
-    int num_failed_security_access;
-    int security_delay_time;
-    int seed_size;
+    int request_seed_id = 0;
+    int key_size = 0;
+    int num_failed_security_access = 0;
+    int security_delay_time = 0;
+    int seed_size = 0;
     std::string execution_authorization_pattern;
-    bool static_seed;
-    int level_id;
+    bool static_seed = false;
+    int level_id = 0;
 
 
     template<class Archive>
@@ -317,9 +317,9 @@ struct SessionSecurLvlEntry {
 };
 
 struct EventEntry {
-    int id;
+    int id = 0;
     std::string mnemonic;
-    int confirmation_threshold;
+    int confirmation_threshold = 0;
     std::string operation_cycle;
     std::string debounce_algorithm;
     EnableConditionData enable_condition;
@@ -336,8 +336,8 @@ struct EventEntry {
 };
 
 struct DTCIdentification {
-    int code;
-    int fault_type;
+    int code = 0;
+    int fault_type = 0;
     std::vector<std::string> extended_data_records;
 
     template<class Archive>
@@ -376,11 +376,11 @@ struct DTCEntry {
 
 struct DiagSessionEntry {
     std::string short_name;
-    int id;
-    double p2_server_max;
-    double p2_start_server_max;
+    int id = 0;
+    double p2_server_max = 0.0;
+    double p2_start_server_max = 0.0;
     std::string execution_authorization_pattern;
-    double p2_star_server_max;
+    double p2_star_server_max = 0.0;
     std::string origin_short_name;
 
     template<class Archive>
@@ -399,15 +399,15 @@ struct DebounceCounterBasedAlgorithm {
     std::string short_name;
     std::string base;
     std::string debounce_behavior;
-    int counter_decrement_step_size;
-    int counter_passed_threshold;
-    int counter_increment_step_size;
-    int counter_failed_threshold;
-     int counter_jump_down_value;
-     int counter_jump_up_value;
-    bool counter_jump_up;
-    bool counter_jump_down;
-    int counter_fdc_threshold;
+    int counter_decrement_step_size = 0;
+    int counter_passed_threshold = 0;
+    int counter_increment_step_size = 0;
+    int counter_failed_threshold = 0;
+     int counter_jump_down_value = 0;
+     int counter_jump_up_value = 0;
+    bool counter_jump_up = false;
+    bool counter_jump_down = false;
+    int counter_fdc_threshold = 0;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
@@ -429,10 +429,10 @@ struct DebounceCounterBasedAlgorithm {
 
 struct DebounceTimeBasedAlgorithm {
     std::string short_name;
-    double time_failed_threshold;
-    double time_passed_threshold;
+    double time_failed_threshold = 0.0;
+    double time_passed_threshold = 0.0;
     std::string base;
-    double time_fdc_threshold;
+    double time_fdc_threshold = 0.0;
     std::string debounce_behavior;
 
     template<class Archive>
@@ -487,9 +487,10 @@ struct RoutineRequest {
 };
 
 struct RoutineEntry {
-    int identifier;
+    int identifier = 0;
     RoutineRequest request;
     Access access;
+    std::vector<std::string> routine_role;
     EnableConditionData data_enable_condition;
 
     template<class Archive>
@@ -497,6 +498,7 @@ struct RoutineEntry {
         ar & identifier;
         ar & request;
         ar & access;
+        ar & routine_role;
         ar & data_enable_condition;
     }
 };
@@ -513,7 +515,7 @@ struct BitOffsetElement {
 struct RoutineParameterEntry {
     std::string name;
     std::map<std::string, BitOffsetElement> bit_offset;
-    int size;
+    int size = 0;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
@@ -525,7 +527,7 @@ struct RoutineParameterEntry {
 
 struct AuthRoleEntry {
     std::string name;
-    int value;
+    int value = 0;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
@@ -535,13 +537,15 @@ struct AuthRoleEntry {
 };
 
 struct ResetEntry {
-    int sub_function_identifier;
+    int sub_function_identifier = 0;
     Access access;
+    EnableConditionData data_enable_condition;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
         ar & sub_function_identifier;
         ar & access;
+        ar & data_enable_condition;
     }
 };
 
@@ -556,7 +560,7 @@ struct IOSession {
 
 struct IOControlOptionRecord {
     std::vector<int> io_control_parameter;
-    int did_size;
+    int did_size = 0;
     std::string control_state;
 
     template<class Archive>
@@ -577,22 +581,26 @@ struct IORequest {
 };
 
 struct IOEntry {
-    int identifier;
+    int identifier = 0;
     IORequest request;
+    std::vector<std::string> io_role;
     std::map<std::string, SecurityLevel> diagnostic_session;
     Access access;
+    EnableConditionData data_enable_condition;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
         ar & identifier;
         ar & request;
+        ar & io_role;
         ar & diagnostic_session;
         ar & access;
+        ar & data_enable_condition;
     }
 };
 
 struct SecurBindingEntry {
-    int session_id;
+    int session_id = 0;
     std::map<std::string, SessionSecurLvlEntry> security_level;
 
     template<class Archive>
@@ -603,11 +611,11 @@ struct SecurBindingEntry {
 };
 
 struct CommonProps {
-    int max_number_of_rcrrp;
+    int max_number_of_rcrrp = 0;
     std::string occurrence_counter_processing;
-    double s3_server_max;
-    bool ignore_request_for_hardreset;
-    int dtc_status_availability_mask;
+    double s3_server_max = 0.0;
+    bool ignore_request_for_hardreset = false;
+    int dtc_status_availability_mask = 0;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {
@@ -621,12 +629,12 @@ struct CommonProps {
 
 struct ExtendedDataRecordEntry {
     std::string short_name;
-    int record_element_bit_off_set;
+    int record_element_bit_off_set = 0;
     std::string base_type;
-    int record_number;
+    int record_number = 0;
     std::string data_provider;
     std::string trigger;
-    bool update;
+    bool update = false;
 
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version) {

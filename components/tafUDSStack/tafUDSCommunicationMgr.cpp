@@ -1781,14 +1781,45 @@ bool UdsCommunicationMgr::IsSvcSecAccessMatched
 
     // Check "security access" for requested service.
     try{
-         uint8_t secAccessType = cfg::get_security_type(sid);
+        const Access& access = cfg::get_service_access(sid);
+        uint8_t secAccessType = access.security_type;
+        const std::vector<std::string>& secLvls = access.security_level;
 
-        LE_DEBUG("Security Type = 0x%x", secAccessType);
+        LE_DEBUG("Security Type = 0x%x ", secAccessType);
 
-        if (secAccessType == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked(this) == false)
+        // Check if system is unlocked.
+        if (secAccessType == SECURITY_ACCESS_REQUEST_ID)
         {
-            LE_DEBUG("Node is secured and the server is not unlocked.");
-            return false;
+            if (SecurityAccess_IsUnlocked(this) == false)
+            {
+                LE_DEBUG("Node is secured and the server is not unlocked.");
+                return false;
+            }
+
+            if(secLvls.empty())
+            {
+                LE_DEBUG("Did not find the 0x%02X's security level from YAML configuration", sid);
+                return true;
+            }
+
+            // Check if the unlocked security level is matched.
+            bool isUnlocked = false;
+            for (const std::string& levelName : secLvls)
+            {
+                uint8_t levelId = cfg::get_security_level_id(levelName);
+                LE_DEBUG("levelName = %s, levelId=%d", levelName.c_str(), levelId);
+                if (SecurityAccess_IsLevelUnlocked(this, levelId))
+                {
+                    isUnlocked = true;
+                    break;
+                }
+            }
+
+            if (!isUnlocked)
+            {
+                LE_WARN("The corresponding level is locked for sid:0x%x", sid);
+                return false;
+            }
         }
     }
     catch (const std::exception& e)
@@ -1915,14 +1946,12 @@ bool UdsCommunicationMgr::IsSubFuncAuthCheckOK
     try
         {
         const SubFunction& sub = cfg::get_subfunction(sid, subFunc);
-        (void)sub;
 
-        const ServiceEntry& svc = cfg::get_service_entry(sid);
-        bool subFuncAuth = svc.authentication;
+        bool subFuncAuth = sub.authentication;
 
         if (subFuncAuth)
         {
-            LE_DEBUG("Authentication is false for service 0x%02X "
+            LE_DEBUG("Authentication is true for service 0x%02X "
                         "subfunction 0x%02X in configuration",
                             sid,
                             subFunc);
@@ -2042,15 +2071,44 @@ bool UdsCommunicationMgr::IsSubFuncSecAccessMatched
     // Check "security access" for requested subFunction.
     try
     {
-        uint8_t secAccessType = cfg::get_security_type(sid);
+        const Access& access = cfg::get_subfunction_access(sid, subFunc);
+        uint8_t secAccessType = access.security_type;
+        const std::vector<std::string>& secLvls = access.security_level;
 
         LE_DEBUG("Security Type = 0x%x", secAccessType);
 
-        if (secAccessType == SECURITY_ACCESS_REQUEST_ID &&
-            SecurityAccess_IsUnlocked(this) == false)
+        if (secAccessType == SECURITY_ACCESS_REQUEST_ID)
         {
-            LE_DEBUG("Node is secured and the server is not unlocked.");
-            return false;
+            if (SecurityAccess_IsUnlocked(this) == false)
+            {
+                LE_DEBUG("Node is secured and the server is not unlocked.");
+                return false;
+            }
+
+            if(secLvls.empty())
+            {
+                LE_DEBUG("Did not find the 0x%02X's security level from YAML configuration", sid);
+                return true;
+            }
+
+            // Check if the unlocked security level is matched.
+            bool isUnlocked = false;
+            for (const std::string& levelName : secLvls)
+            {
+                uint8_t levelId = cfg::get_security_level_id(levelName);
+                LE_DEBUG("levelName = %s, levelId=%d", levelName.c_str(), levelId);
+                if (SecurityAccess_IsLevelUnlocked(this, levelId))
+                {
+                    isUnlocked = true;
+                    break;
+                }
+            }
+
+            if (!isUnlocked)
+            {
+                LE_WARN("The corresponding level is locked for sid: 0x%x, subfunc:%d", sid, subFunc);
+                return false;
+            }
         }
     }
     catch (const std::exception& e)
@@ -2356,6 +2414,7 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
                 for (const auto& level_name : writeSecurityInfo.security_level)
                 {
                     uint8_t level_id = cfg::get_security_level_id(level_name);
+                    LE_DEBUG("level_id=%d, level_name=%s", level_id, level_name.c_str());
                     if (SecurityAccess_IsLevelUnlocked(this, level_id))
                     {
                         LE_INFO("DID is secured, level id: %d is unlocked", level_id);
@@ -3027,11 +3086,8 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
     // Step 6: Authentication check. UDS_0x2F_NRC_34
     try
     {
-        // Get the authorization pattern for IO control from the corresponding DID
-        const DidEntry* pDid = &cfg::get_did_entry(dataId);
-
         // Authentication check
-        if (!IsAuthRoleMatched(INPUT_OUTPUT_CONTROL_REQUEST_ID, *pDid))
+        if (!IsAuthRoleMatched(INPUT_OUTPUT_CONTROL_REQUEST_ID, *pIoEntry))
         {
             LE_DEBUG("IO DID 0x%x requires authentication and role is not matched.", dataId);
             return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr);
@@ -3168,6 +3224,14 @@ le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
             *isInternalHandle = true;
             return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
         }
+    }
+
+    //Authentication check
+    if (!IsAuthRoleMatched(ROUTINE_CONTROL_REQUEST_ID, routineEntry))
+    {
+        LE_DEBUG("RID0x%x is authenticated and authentication state is incorrect.", rid);
+        *isInternalHandle = true;
+        return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr);
     }
 
     // --- SECURITY ACCESS VALIDATION ---
@@ -3719,21 +3783,21 @@ le_result_t UdsCommunicationMgr::TesterPresentResp
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
-    // Step 3: Subfunction Authentication check. UDS_0x19_NRC_34
+    // Step 3: Subfunction Authentication check. UDS_0x3E_NRC_34
     if(!IsSubFuncAuthCheckOK(sid, subFunc))
     {
         LE_WARN("Authentication check failed for subfunction: 0x%x", subFunc);
         return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr); // NRC 0x34
     }
 
-    // Step 4: Subfunction supported in active session check. UDS_0x19_NRC_7E
+    // Step 4: Subfunction supported in active session check. UDS_0x3E_NRC_7E
     if(!IsSubFuncSessTypeValid(sid, subFunc))
     {
         LE_WARN("Current session type does not support subfunction: 0x%x", subFunc);
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED_IN_ACTIVE_SESSION, addrInfoPtr); // NRC 0x7E
     }
 
-    //  Step 5: Subfunction security access check. UDS_0x19_NRC_33
+    //  Step 5: Subfunction security access check. UDS_0x3E_NRC_33
     if (!IsSubFuncSecAccessMatched(sid, subFunc))
     {
         LE_WARN("Subfunction is secured and the server is not unlocked for subfunction: 0x%x",
@@ -6246,57 +6310,16 @@ bool UdsCommunicationMgr::IsSessTypeMatched
     }
 }
 
-/**
- * Check if authenticated role is same.
- */
-bool UdsCommunicationMgr::IsAuthRoleMatched
-(
-    taf_UDSReqSvcID_t serviceType,
-    const DidEntry& didEntry
-)
+bool UdsCommunicationMgr::IsAuthRoleMatchedImpl(const std::vector<std::string>& roleNames)
 {
-    std::vector<std::string> roleNames;
-
-    try
+    if (roleNames.empty())
     {
-        LE_DEBUG("Service type = 0x%x", serviceType);
-
-        // Get the role names directly from the DID entry
-        switch(serviceType)
-        {
-            case READ_DID_REQUEST_ID:
-                roleNames = didEntry.read_role;
-                break;
-
-            case WRITE_DID_REQUEST_ID:
-                roleNames = didEntry.write_role;
-                break;
-
-            case INPUT_OUTPUT_CONTROL_REQUEST_ID:
-                roleNames = didEntry.io_role;
-                break;
-
-            default:
-                LE_ERROR("Role check is not supported for service 0x%x", serviceType);
-                return false;
-        }
-
-        // If no roles defined, allow access
-        if (roleNames.empty())
-        {
-            LE_DEBUG("No roles configured, allowing access");
-            return true;
-        }
-
-        LE_DEBUG("Checking %zu role(s)", roleNames.size());
-    }
-    catch (const std::exception& e)
-    {
-        LE_WARN("Exception: %s - role is not configured for DID", e.what());
-        return true;  // If not found in configuration, return true
+        LE_DEBUG("No roles configured, allowing access");
+        return true;
     }
 
-    // Get authentication_roles configuration
+    LE_DEBUG("Checking %zu role(s)", roleNames.size());
+
     std::map<std::string, uint64_t> authentication_roles;
     try
     {
@@ -6308,7 +6331,6 @@ bool UdsCommunicationMgr::IsAuthRoleMatched
         return false;
     }
 
-    // Check if any of the required roles match
     try
     {
         bool isRoleMatched = false;
@@ -6352,61 +6374,57 @@ bool UdsCommunicationMgr::IsAuthRoleMatched
     }
 }
 
-bool UdsCommunicationMgr::IsSecurityAccessMatched
+bool UdsCommunicationMgr::IsAuthRoleMatched
 (
+    taf_UDSReqSvcID_t serviceType,
+    const DidEntry& didEntry
+)
+{
+    LE_DEBUG("IsAuthRoleMatched for DID, service type = 0x%x", serviceType);
+
+    if (serviceType == READ_DID_REQUEST_ID)
+        return IsAuthRoleMatchedImpl(didEntry.read_role);
+    else if (serviceType == WRITE_DID_REQUEST_ID)
+        return IsAuthRoleMatchedImpl(didEntry.write_role);
+    else
+    {
+        LE_ERROR("Role check for DID called with unsupported service type 0x%x", serviceType);
+        return false;
+    }
+}
+
+bool UdsCommunicationMgr::IsAuthRoleMatched
+(
+    taf_UDSReqSvcID_t serviceType,
+    const IOEntry& ioEntry
+)
+{
+    LE_DEBUG("IsAuthRoleMatched for IO, service type = 0x%x", serviceType);
+
+    if (serviceType == INPUT_OUTPUT_CONTROL_REQUEST_ID)
+        return IsAuthRoleMatchedImpl(ioEntry.io_role);
+    else
+    {
+        LE_ERROR("Role check for IO called with unsupported service type 0x%x", serviceType);
+        return false;
+    }
+}
+
+bool UdsCommunicationMgr::IsAuthRoleMatched
+(
+    taf_UDSReqSvcID_t serviceType,
     const RoutineEntry& routineEntry
 )
 {
-    if (SessionType == DEFAULT_SESSION)
+    LE_DEBUG("IsAuthRoleMatched for Routine, service type = 0x%x", serviceType);
+
+    if (serviceType == ROUTINE_CONTROL_REQUEST_ID)
+        return IsAuthRoleMatchedImpl(routineEntry.routine_role);
+    else
     {
-        return true;
-    }
-
-    if (routineEntry.access.security_type == 0)
-    {
-        return true;
-    }
-
-    LE_DEBUG("Routine is secured. Security Type: 0x%x", routineEntry.access.security_type);
-
-    bool isUnlocked = false;
-    const auto& levels = routineEntry.access.security_level;
-
-    for (const std::string& levelName : levels)
-    {
-        uint8_t levelId = cfg::get_security_level_id(levelName);
-        if (SecurityAccess_IsLevelUnlocked(this, levelId))
-        {
-            isUnlocked = true;
-            break;
-        }
-    }
-
-    if (!isUnlocked)
-    {
-        LE_WARN("Routine is secured and the server is not unlocked.");
+        LE_ERROR("Role check for Routine called with unsupported service type 0x%x", serviceType);
         return false;
     }
-
-    return true;
-}
-
-bool UdsCommunicationMgr::IsRequestSubFuncSupported
-(
-    const RoutineEntry& routineEntry,
-    uint8_t subFunc
-)
-{
-    const std::vector<int>& supportedSubFuncs = routineEntry.request.sub_function;
-
-    if (std::find(supportedSubFuncs.begin(), supportedSubFuncs.end(), (int)subFunc) != supportedSubFuncs.end())
-    {
-        LE_DEBUG("subFunction(0x%x) is supported for this routine", subFunc);
-        return true;
-    }
-
-    LE_DEBUG("subFunction(0x%x) is unsupported for this routine", subFunc);
-    return false;
 }
 
 bool UdsCommunicationMgr::IsControlOptionRecordValid

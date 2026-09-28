@@ -16,3 +16,9 @@ reset_all:
       and:
         - vehicleSpeedBodyEqual0
         - vehiclePowerModeEqualLifeOnBoard
+  SOFT_RESET:
+    SubFunctionNumber: 0x03
+    data_enable_condition:
+      and:
+        - vehicleSpeedBodyEqual0
+        - vehiclePowerModeEqualLifeOnBoard

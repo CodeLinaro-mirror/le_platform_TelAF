@@ -276,6 +276,7 @@ EXPORT_SYM bool is_authentication_supported(uint16_t sid);
 EXPORT_SYM const Access& get_service_access(uint16_t sid);
 EXPORT_SYM uint8_t get_security_type(uint16_t sid);
 EXPORT_SYM const SubFunction& get_subfunction(uint16_t sid, uint16_t subFunc);
+EXPORT_SYM const Access& get_subfunction_access(uint16_t sid, uint16_t subFunc);
 EXPORT_SYM const std::vector<std::string>& get_subfunction_session_list(uint16_t sid, uint16_t subFunc);
 EXPORT_SYM const std::set<std::string>& get_did_session_attributes(uint32_t did, const std::string& session_name);
 EXPORT_SYM const std::vector<std::string> get_did_allowed_sessions(uint32_t did);

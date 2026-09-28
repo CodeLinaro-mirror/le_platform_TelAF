@@ -156,12 +156,6 @@ void serialize_didAll(std::map<int, DidEntry>& didAll, ptree& root)
             }
         }
 
-
-        if (auto io_role_node = did_data.get_child_optional("io_role")) {
-            for (const auto& role : *io_role_node) {
-                entry.io_role.push_back(role.second.get_value<std::string>());
-            }
-        }
         if (auto read_role_node = did_data.get_child_optional("read_role")) {
             for (const auto& role : *read_role_node) {
                 entry.read_role.push_back(role.second.get_value<std::string>());
@@ -191,6 +185,7 @@ void serialize_servicesAll(std::map<std::string, ServiceEntry>& servicesAll, ptr
         serviceEntry.supported = service_data.get<bool>("supported", false);
         serviceEntry.IDPS_supported = service_data.get<bool>("IDPS_supported", false);
         serviceEntry.functional_addressed = service_data.get<bool>("functional_addressed", false);
+        serviceEntry.authentication = service_data.get<bool>("authentication", false);
         serviceEntry.execution_authorization_pattern =
             service_data.get<std::string>("execution_authorization_pattern", "");
 
@@ -220,6 +215,7 @@ void serialize_servicesAll(std::map<std::string, ServiceEntry>& servicesAll, ptr
 
                 SubFunction sub_func;
                 sub_func.supported = sub_data.get<bool>("supported", false);
+                sub_func.authentication = sub_data.get<bool>("authentication", false);
                 sub_func.execution_authorization_pattern =
                     sub_data.get<std::string>("execution_authorization_pattern", "");
 
@@ -707,6 +703,13 @@ void serialize_routines_all(std::map<std::string, RoutineEntry>& routineAll, ptr
             }
         }
 
+        // Parse role
+        if (auto routine_role_node = entry.get_child_optional("routine_role")) {
+            for (const auto& role : *routine_role_node) {
+                routines_all_entry.routine_role.push_back(role.second.get_value<std::string>());
+            }
+        }
+
         // Parse data_enable_condition
         if (auto cond_node = entry.get_child_optional("data_enable_condition"))
         {
@@ -802,6 +805,21 @@ void serialize_reset_all(std::map<int, ResetEntry>& resetAll, ptree& root)
             }
         }
 
+        // Parse data_enable_condition
+        if (auto cond_node = entry.get_child_optional("data_enable_condition"))
+        {
+            if (auto and_node = cond_node->get_child_optional("and")) {
+                for (const auto& val : *and_node)
+                    reset_all_entry.data_enable_condition.and_conditions.push_back(
+                        val.second.get_value<uint8_t>());
+            }
+            if (auto or_node = cond_node->get_child_optional("or")) {
+                for (const auto& val : *or_node)
+                    reset_all_entry.data_enable_condition.or_conditions.push_back(
+                        val.second.get_value<uint8_t>());
+            }
+        }
+
         resetAll[subfunc] = reset_all_entry;
     }
 }
@@ -833,6 +851,12 @@ void serialize_io_all(std::map<int, IOEntry>& ioAll, ptree& root)
                 req_node->get<int>("did_size", 0);
         }
 
+        if (auto io_role_node = entry.get_child_optional("io_role")) {
+            for (const auto& role : *io_role_node) {
+                io_entry.io_role.push_back(role.second.get_value<std::string>());
+            }
+        }
+
         // Parse diagnostic_session and populate both diagnostic_session map AND access.session vector
         if (auto diag_sess_node = entry.get_child_optional("diagnostic_session")) {
             for (const auto& sess_pair : *diag_sess_node) {
@@ -860,6 +884,21 @@ void serialize_io_all(std::map<int, IOEntry>& ioAll, ptree& root)
 
         // Parse access.security_type if it exists at root level
         io_entry.access.security_type = entry.get<uint8_t>("access.security_type", 0);
+
+        // Parse data_enable_condition
+        if (auto cond_node = entry.get_child_optional("data_enable_condition"))
+        {
+            if (auto and_node = cond_node->get_child_optional("and")) {
+                for (const auto& val : *and_node)
+                    io_entry.data_enable_condition.and_conditions.push_back(
+                        val.second.get_value<uint8_t>());
+            }
+            if (auto or_node = cond_node->get_child_optional("or")) {
+                for (const auto& val : *or_node)
+                    io_entry.data_enable_condition.or_conditions.push_back(
+                        val.second.get_value<uint8_t>());
+            }
+        }
 
         ioAll[ioId] = io_entry;
     }

@@ -254,6 +254,7 @@ static void RegisterIndication
             case -ENOTSUP:
             case -ENOSYS:
             case PA_NOT_IMPLEMENTED:
+            case PA_UNSUPPORTED:
                 break;
             default:
                 LE_ERROR("Failed to register indication for instance %d.", i);
@@ -1420,6 +1421,7 @@ static void LteCphyCaHandler
  *      - LE_BAD_PARAMETER if the PA layer returned -EINVAL.
  *      - LE_UNSUPPORTED if the PA layer returned -ENOTSUP.
  *      - LE_NOT_IMPLEMENTED if the PA layer returned -ENOSYS or PA_NOT_IMPLEMENTED.
+ *      - LE_CAP_UNSUPPORTED if the PA layer returned PA_UNSUPPORTED.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t Utility::Convert::Result
@@ -1444,6 +1446,8 @@ le_result_t Utility::Convert::Result
         case -ENOSYS:
         case PA_NOT_IMPLEMENTED:
             return LE_NOT_IMPLEMENTED;
+        case PA_UNSUPPORTED:
+            return LE_CAP_UNSUPPORTED;
         default:
             LE_INFO("Unknown result %d.", result);
     }

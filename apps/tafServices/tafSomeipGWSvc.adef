@@ -10,7 +10,6 @@ startGroup: 11
 
 capability:
 {
-    CAP_WAKE_ALARM
     CAP_NET_RAW
     CAP_IPC_LOCK
     CAP_SYS_NICE

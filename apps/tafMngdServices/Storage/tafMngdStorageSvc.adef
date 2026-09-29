@@ -6,7 +6,6 @@ startGroup: 11
 
 capability:
 {
-        CAP_WAKE_ALARM
         CAP_NET_ADMIN
         CAP_DAC_OVERRIDE
         CAP_FOWNER

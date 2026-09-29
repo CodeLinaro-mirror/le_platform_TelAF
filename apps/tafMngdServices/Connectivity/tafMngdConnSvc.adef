@@ -5,7 +5,6 @@ startGroup: 20
 
 capability:
 {
-    CAP_WAKE_ALARM
     CAP_NET_ADMIN
 }
 

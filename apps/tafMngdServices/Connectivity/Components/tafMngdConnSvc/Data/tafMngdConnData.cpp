@@ -307,8 +307,8 @@ le_result_t tafMngdConnData::Startdata(uint8_t phoneId, uint32_t profileId, uint
                                    profileRef, NULL);
 
      // blocking here to get response
-    std::chrono::system_clock::time_point timeoutsec
-        = std::chrono::system_clock::now() + std::chrono::seconds(timeout);
+    std::chrono::steady_clock::time_point timeoutsec
+        = std::chrono::steady_clock::now() + std::chrono::seconds(timeout);
     std::future<le_result_t> futResult = AsyncAPIPromise.get_future();
     // Set waiting for promise
     bWaitingForPromise.store(true);
@@ -463,8 +463,8 @@ le_result_t tafMngdConnData::Stopdata(uint8_t phoneId, uint32_t profileId, uint8
                                    profileRef, NULL);
 
      // blocking here to get response
-    std::chrono::system_clock::time_point timeoutsec
-        = std::chrono::system_clock::now() + std::chrono::seconds(timeout);
+    std::chrono::steady_clock::time_point timeoutsec
+        = std::chrono::steady_clock::now() + std::chrono::seconds(timeout);
     std::future<le_result_t> futResult = AsyncAPIPromise.get_future();
     // Set waiting for promise
     bWaitingForPromise.store(true);

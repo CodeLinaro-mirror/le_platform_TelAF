@@ -3903,7 +3903,7 @@ void taf_ecall::T9TimerExpiryHandler(le_timer_Ref_t timerRef)
             le_cfg_SetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T9, minNwRegTime*60);
         }
     } else {
-        le_cfg_SetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T9, -1);
+        LE_WARN("GetNadMinNetworkRegistrationTime failed, keeping last persisted T9 elapsed time");
     }
     LE_INFO("T9 timer status: %d, elapsed timer: %d, configuration timer: %d", (int)timerStatus, elapsedTime, minNwRegTime);
     le_cfg_CommitTxn(iteratorRef);
@@ -3938,7 +3938,7 @@ void taf_ecall::T10TimerExpiryHandler(le_timer_Ref_t timerRef)
             le_cfg_SetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T10, deRegTime*60);
         }
     } else {
-        le_cfg_SetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T10, -1);
+        LE_WARN("GetNadDeregistrationTime failed, keeping last persisted T10 elapsed time");
     }
     LE_INFO("T10 timer status: %d, elapsed timer: %d, configuration timer: %d", (int)timerStatus, elapsedTime, deRegTime);
     le_cfg_CommitTxn(iteratorRef);

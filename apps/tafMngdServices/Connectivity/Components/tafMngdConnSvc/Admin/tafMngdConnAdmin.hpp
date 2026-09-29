@@ -388,7 +388,7 @@ namespace tafsvc {
             // the result back to the state machine thread.
             void ScheduleConnectivityTest(uint8_t dataId, mcs_EventType_t doneEvent);
             bool DataConnectivityTest_URL(std::string url, std::string interfaceName);
-            bool DataConnectivityTest_IPv4(std::string ipv4);
+            bool DataConnectivityTest_IPv4(std::string ipv4, std::string interfaceName);
             bool DataConnectivityTest_Ping(std::string addr, std::string interfaceName);
 
             // L1 Connectivity Recovery

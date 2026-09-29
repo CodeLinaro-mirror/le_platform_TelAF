@@ -3782,14 +3782,14 @@ void tafMngdConnAdmin::ConnTestEvtHandlerFunc(void *reqPtr)
             passed = true;
         }
         else if (!ipv4add.empty() &&
-                 mngdConnAdmin.DataConnectivityTest_URL(ipv4add, interfaceName))
+                 mngdConnAdmin.DataConnectivityTest_IPv4(ipv4add, interfaceName))
         {
             passed = true;
         }
     }
     else if (!ipv4add.empty())
     {
-        passed = mngdConnAdmin.DataConnectivityTest_URL(ipv4add, interfaceName);
+        passed = mngdConnAdmin.DataConnectivityTest_IPv4(ipv4add, interfaceName);
     }
 
     // Report the result back to the state-machine event loop.
@@ -3825,7 +3825,7 @@ bool tafMngdConnAdmin::DataConnectivityTest_URL(std::string url, std::string int
     return false;
 }
 
-bool tafMngdConnAdmin::DataConnectivityTest_IPv4(std::string ipv4)
+bool tafMngdConnAdmin::DataConnectivityTest_IPv4(std::string ipv4, std::string interfaceName)
 {
     // Validate IPv4 format before attempting ping
     std::regex ipv4Pattern(
@@ -3839,7 +3839,7 @@ bool tafMngdConnAdmin::DataConnectivityTest_IPv4(std::string ipv4)
         return false;
     }
 
-    return true;
+    return DataConnectivityTest_Ping(ipv4, interfaceName);
 }
 
 bool tafMngdConnAdmin::DataConnectivityTest_Ping(std::string addr, std::string interfaceName)

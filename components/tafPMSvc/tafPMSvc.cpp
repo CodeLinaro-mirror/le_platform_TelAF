@@ -36,7 +36,7 @@ using namespace std;
 #define PMS_CLNTS_ACK_TIMEOUT                350
 #define DEFAULT_SUPPORTED_REG_HANDLER_NUM    5
 #define DEFAULT_VM_LIST_SIZE                 3
-#define PA_LAYER_TIMEOUT_MAX_MS              1000
+#define PA_LAYER_TIMEOUT_MAX_MS              5000
 
 #define API(x)  taf_pm_ ## x
 
@@ -1362,14 +1362,11 @@ void taf_PM::TryToInitPaLayer()
     {
         LE_INFO("Pa Init Done");
     }
-    else if (TAF_PA_TIMEOUT == rst)
+    else
     {
         // Retry ? No, we don't know where is stoped, so..
-        LE_FATAL("[PA_CALL_FAILED] api=taf_pa_pms_Init reason=%d", rst);
-    }
-    else // Others: e.g. PaResult(FAULT)
-    {
-        LE_FATAL("[PA_CALL_FAILED] api=taf_pa_pms_Init reason=%d", rst);
+        LE_EMERG("Pa Init failed with error %d", rst);
+        _exit(EXIT_FAILURE);
     }
 }
 

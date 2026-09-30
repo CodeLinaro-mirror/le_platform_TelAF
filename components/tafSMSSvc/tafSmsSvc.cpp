@@ -1361,8 +1361,8 @@ le_result_t taf_sms_Send
 
    msgSendStatusPtr->result =
         (result == LE_OK)
-            ? PA_OK
-            : PA_FAULT;
+            ? TAF_PA_OK
+            : TAF_PA_FAULT;
 
    le_event_ReportWithRefCounting(sms.MsgSendCallbackEvent, msgSendStatusPtr);
 
@@ -1541,9 +1541,9 @@ le_result_t taf_sms_GetSmsCenterAddress
 {
    TAF_KILL_CLIENT_IF_RET_VAL(addr == NULL, LE_BAD_PARAMETER, "Invalid address pointer");
 
-   pa_result_t paRes = taf_pa_sms_GetSmsCenterAddress(phoneId,
+   taf_pa_result_t paRes = taf_pa_sms_GetSmsCenterAddress(phoneId,
       addr, len, TIMEOUT_GET_SMSC);
-   if (paRes != PA_OK)
+   if (paRes != TAF_PA_OK)
    {
       LE_ERROR("taf_pa_sms_GetSmsCenterAddress failed, paRes: %d", (int)paRes);
       return LE_FAULT;
@@ -1583,9 +1583,9 @@ le_result_t taf_sms_SetSmsCenterAddress
       return LE_BAD_PARAMETER;
    }
 
-   pa_result_t paRes = taf_pa_sms_SetSmsCenterAddress(phoneId,
+   taf_pa_result_t paRes = taf_pa_sms_SetSmsCenterAddress(phoneId,
       addr, TIMEOUT_SET_SMSC);
-   if (paRes != PA_OK)
+   if (paRes != TAF_PA_OK)
    {
       LE_ERROR("taf_pa_sms_SetSmsCenterAddress failed, paRes: %d", (int)paRes);
       return LE_FAULT;

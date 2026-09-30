@@ -9,15 +9,15 @@
 
 using namespace tafsvc;
 
-static le_result_t ConvertPaToLeResult(pa_result_t paResult)
+static le_result_t ConvertPaToLeResult(taf_pa_result_t paResult)
 {
-    return (paResult == PA_OK) ? LE_OK : LE_FAULT;
+    return (paResult == TAF_PA_OK) ? LE_OK : LE_FAULT;
 }
-static bool WaitResult(pa_result_t paResult,
+static bool WaitResult(taf_pa_result_t paResult,
                        std::future<le_result_t>& fut,
                          const char* caller)
 {
-    if (paResult != PA_OK)
+    if (paResult != TAF_PA_OK)
     {
         LE_ERROR("%s: PA did not accept request, paResult=%d", caller, (int)paResult);
         return false;
@@ -42,7 +42,7 @@ static bool WaitResult(pa_result_t paResult,
 LE_REF_DEFINE_STATIC_MAP(ECallMap, MAX_ECALL);
 
 void tafCallCommandCallback::makeECallResponse(std::shared_ptr<taf_pa_ecall_CallInfo_t> callInfo,
-        pa_result_t errorCode,std::any context) {
+        taf_pa_result_t errorCode,std::any context) {
     std::shared_ptr<std::promise<le_result_t>> promPtr;
     try
     {
@@ -51,7 +51,7 @@ void tafCallCommandCallback::makeECallResponse(std::shared_ptr<taf_pa_ecall_Call
             LE_ERROR("makeECallResponse: null promise pointer");
             return;
         }
-        if(errorCode == PA_OK) {
+        if(errorCode == TAF_PA_OK) {
             LE_DEBUG("Call is successful.");
             if (callInfo)
             {
@@ -75,7 +75,7 @@ void tafCallCommandCallback::makeECallResponse(std::shared_ptr<taf_pa_ecall_Call
             }
             else
             {
-                LE_ERROR("makeECallResponse: PA_OK but callInfo is null");
+                LE_ERROR("makeECallResponse: TAF_PA_OK but callInfo is null");
                 promPtr->set_value(LE_FAULT);
                 return;
             }
@@ -97,7 +97,7 @@ void tafCallCommandCallback::makeECallResponse(std::shared_ptr<taf_pa_ecall_Call
 }
 
 void tafPrieCallCommandCallback::makeECallResponse(std::shared_ptr<taf_pa_ecall_CallInfo_t> callInfo,
-        pa_result_t errorCode,std::any context) {
+        taf_pa_result_t errorCode,std::any context) {
     std::shared_ptr<std::promise<le_result_t>> promPtr;
     try
     {
@@ -106,7 +106,7 @@ void tafPrieCallCommandCallback::makeECallResponse(std::shared_ptr<taf_pa_ecall_
             LE_ERROR("makeECallResponse(Prie): null promise pointer");
             return;
         }
-        if(errorCode == PA_OK) {
+        if(errorCode == TAF_PA_OK) {
             LE_DEBUG("Call is successful.");
             if (callInfo)
             {
@@ -130,7 +130,7 @@ void tafPrieCallCommandCallback::makeECallResponse(std::shared_ptr<taf_pa_ecall_
             }
             else
             {
-                LE_ERROR("makeECallResponse: PA_OK but callInfo is null");
+                LE_ERROR("makeECallResponse: TAF_PA_OK but callInfo is null");
                 promPtr->set_value(LE_FAULT);
                 return;
             }
@@ -151,13 +151,13 @@ void tafPrieCallCommandCallback::makeECallResponse(std::shared_ptr<taf_pa_ecall_
     }
 }
 
-void tafUpdateMsdCommandCallback::commandResponse(pa_result_t errorCode,std::any context) {
+void tafUpdateMsdCommandCallback::commandResponse(taf_pa_result_t errorCode,std::any context) {
     std::shared_ptr<std::promise<le_result_t>> promPtr;
     try
     {
         promPtr = std::any_cast<std::shared_ptr<std::promise<le_result_t>>>(context);
         if (!promPtr) { LE_ERROR("commandResponse(UpdateMsd): null promise"); return; }
-        if(errorCode == PA_OK) {
+        if(errorCode == TAF_PA_OK) {
             LE_DEBUG("Update MSD is successful ");
         } else {
             LE_ERROR("Update MSD failed with error code: %d ", (static_cast<int>(errorCode)));
@@ -176,13 +176,13 @@ void tafUpdateMsdCommandCallback::commandResponse(pa_result_t errorCode,std::any
     }
 }
 
-void tafHangupCommandCallback::commandResponse(pa_result_t errorCode,std::any context) {
+void tafHangupCommandCallback::commandResponse(taf_pa_result_t errorCode,std::any context) {
     std::shared_ptr<std::promise<le_result_t>> promPtr;
     try
     {
         promPtr = std::any_cast<std::shared_ptr<std::promise<le_result_t>>>(context);
         if (!promPtr) { LE_ERROR("commandResponse(Hangup): null promise"); return; }
-        if(errorCode == PA_OK) {
+        if(errorCode == TAF_PA_OK) {
             LE_DEBUG("Call hangup is successful ");
         } else {
             LE_ERROR("Call hangup failed with error code: %d ", (static_cast<int>(errorCode)));
@@ -201,13 +201,13 @@ void tafHangupCommandCallback::commandResponse(pa_result_t errorCode,std::any co
     }
 }
 
-void tafRejectCommandCallback::commandResponse(pa_result_t errorCode,std::any context) {
+void tafRejectCommandCallback::commandResponse(taf_pa_result_t errorCode,std::any context) {
     std::shared_ptr<std::promise<le_result_t>> promPtr;
     try
     {
         promPtr = std::any_cast<std::shared_ptr<std::promise<le_result_t>>>(context);
         if (!promPtr) { LE_ERROR("commandResponse(Reject): null promise"); return; }
-        if(errorCode == PA_OK) {
+        if(errorCode == TAF_PA_OK) {
             LE_DEBUG("Call reject is successful ");
         } else {
             LE_ERROR("Call reject failed with error code: %d ", (static_cast<int>(errorCode)));
@@ -226,13 +226,13 @@ void tafRejectCommandCallback::commandResponse(pa_result_t errorCode,std::any co
     }
 }
 
-void tafAnswerCommandCallback::commandResponse(pa_result_t errorCode,std::any context) {
+void tafAnswerCommandCallback::commandResponse(taf_pa_result_t errorCode,std::any context) {
     std::shared_ptr<std::promise<le_result_t>> promPtr;
     try
     {
         promPtr = std::any_cast<std::shared_ptr<std::promise<le_result_t>>>(context);
         if (!promPtr) { LE_ERROR("commandResponse(Answer): null promise"); return; }
-        if(errorCode == PA_OK) {
+        if(errorCode == TAF_PA_OK) {
             LE_DEBUG("Call answer is successful ");
         } else {
             LE_ERROR("Call answer failed with error code: %d ", (static_cast<int>(errorCode)));
@@ -252,7 +252,7 @@ void tafAnswerCommandCallback::commandResponse(pa_result_t errorCode,std::any co
 }
 
 void Handler::onIncomingCall(std::shared_ptr<taf_pa_ecall_CallInfo_t> callInfo,
-    pa_result_t errorCode,std::any context)
+    taf_pa_result_t errorCode,std::any context)
 {
     LE_DEBUG("Received onIncomingCall");
     if (callInfo == nullptr) {
@@ -294,12 +294,12 @@ void taf_ecall::HandleIncomingCall(int phoneId, const RxECallIncomingCallParam_t
     int8_t phone_Id = phoneId;
     taf_pa_ecall_call_status_t callState = incomingCall.callState;
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
-    auto cb = [promisePtr, phone_Id](pa_result_t errorCode, int8_t phoneId,
+    auto cb = [promisePtr, phone_Id](taf_pa_result_t errorCode, int8_t phoneId,
         std::shared_ptr<const taf_pa_ecall_hlap_timer_status_t> hlapStatus,
         std::any context) {
         try
         {
-            if((errorCode == PA_OK) && (phone_Id == phoneId) &&
+            if((errorCode == TAF_PA_OK) && (phone_Id == phoneId) &&
                (hlapStatus->t9 == taf_pa_ecall_hlap_timer_state_t::ACTIVE))
             {
                 promisePtr->set_value(LE_OK);
@@ -327,7 +327,7 @@ void taf_ecall::HandleIncomingCall(int phoneId, const RxECallIncomingCallParam_t
     };
 
     std::future<le_result_t> futResult = promisePtr->get_future();
-    pa_result_t result = taf_pa_ecall_RequestHlapTimerStatus(phone_Id, cb,{});
+    taf_pa_result_t result = taf_pa_ecall_RequestHlapTimerStatus(phone_Id, cb,{});
     if (WaitResult(result, futResult, "HandleIncomingCall")) {
         if (taf_pa_ecall_call_status_t::INCOMING == callState)
         {
@@ -353,7 +353,7 @@ void taf_ecall::HandleIncomingCall(int phoneId, const RxECallIncomingCallParam_t
 }
 
 void Handler::onCallInfoChange(std::shared_ptr<taf_pa_ecall_CallInfo_t> callInfo,
-    pa_result_t errorCode,std::any context)
+    taf_pa_result_t errorCode,std::any context)
 {
     LE_DEBUG("Received onCallInfoChange");
     if (callInfo == nullptr) {
@@ -1207,8 +1207,8 @@ void taf_ecall::InitializeECallPtr()
     memset(ECallObject.dialRedial.dialInterval, 0, sizeof(ECallObject.dialRedial.dialInterval));
     std::vector<int> initFailPara = {};
     std::vector<int> callDropPara = {};
-    pa_result_t res = taf_pa_ecall_GetEcallRedial(initFailPara, callDropPara);
-    if(res == PA_OK) {
+    taf_pa_result_t res = taf_pa_ecall_GetEcallRedial(initFailPara, callDropPara);
+    if(res == TAF_PA_OK) {
         if (initFailPara.size() > TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH)
         {
             initFailPara.resize(TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH);
@@ -1241,8 +1241,8 @@ void taf_ecall::InitializeECallPtr()
 void taf_ecall::Init(void)
 {
     //Intialize Platform Adaptor
-    pa_result_t initRes = taf_pa_ecall_Init();
-    if (initRes != PA_OK) {
+    taf_pa_result_t initRes = taf_pa_ecall_Init();
+    if (initRes != TAF_PA_OK) {
         LE_FATAL("Unable to Initialize ecall platoform Adaptor");
     }
 
@@ -1256,8 +1256,8 @@ void taf_ecall::Init(void)
     eventListener.onEcallOperatingModeChange = &Handler::onEcallOperatingModeChange;
     eventListener.onStateChange = &Handler::onStateChange;
 
-    pa_result_t regRes = taf_pa_ecall_RegisterListener(&eventListener,{});
-    if (regRes != PA_OK) {
+    taf_pa_result_t regRes = taf_pa_ecall_RegisterListener(&eventListener,{});
+    if (regRes != TAF_PA_OK) {
         LE_FATAL("Unable to register listener to ecall platoform Adaptor");
     }
 
@@ -1353,8 +1353,8 @@ taf_ecall &taf_ecall::GetInstance()
 bool taf_ecall::isIdle()
 {
     std::vector<std::shared_ptr<taf_pa_ecall_CallInfo_t>> callList;
-    pa_result_t callListRes = taf_pa_ecall_GetInProgressCalls(&callList);
-    if (callListRes != PA_OK)
+    taf_pa_result_t callListRes = taf_pa_ecall_GetInProgressCalls(&callList);
+    if (callListRes != TAF_PA_OK)
     {
         LE_ERROR("taf_pa_ecall_GetInProgressCalls failed: %d", (int)callListRes);
         return false;
@@ -1397,7 +1397,7 @@ le_result_t taf_ecall::SetPsapNumber(const char* psapNumber)
     eCallConfig.overriddenNum = psapNumber;
     eCallConfig.validityMask.set(NUM_TYPE);
     eCallConfig.numtype = taf_pa_ecall_num_type_t::OVERRIDDEN;
-    return taf_pa_ecall_SetConfig(eCallConfig) == PA_OK ? LE_OK : LE_FAULT;
+    return taf_pa_ecall_SetConfig(eCallConfig) == TAF_PA_OK ? LE_OK : LE_FAULT;
 }
 
 le_result_t taf_ecall::GetPsapNumber(char* psapNumber, size_t psapNumLength)
@@ -1405,15 +1405,15 @@ le_result_t taf_ecall::GetPsapNumber(char* psapNumber, size_t psapNumLength)
     TAF_ERROR_IF_RET_VAL(psapNumber == NULL, LE_BAD_PARAMETER, "PsapNumber is NULL");
 
     taf_pa_ecall_config_t eCallConfig = {};
-    pa_result_t res = taf_pa_ecall_GetConfig(eCallConfig);
-    if (res == PA_OK && eCallConfig.validityMask.test(OVERRIDDEN_NUM)) {
+    taf_pa_result_t res = taf_pa_ecall_GetConfig(eCallConfig);
+    if (res == TAF_PA_OK && eCallConfig.validityMask.test(OVERRIDDEN_NUM)) {
         LE_DEBUG("PSAP number retrieved as: %s", eCallConfig.overriddenNum.c_str());
         le_utf8_Copy(psapNumber, eCallConfig.overriddenNum.c_str(), psapNumLength, NULL);
     } else {
         LE_ERROR("Unable to get PSAP number. Error: %d", (int) res);
     }
 
-    return res== PA_OK ? LE_OK : LE_FAULT;
+    return res== TAF_PA_OK ? LE_OK : LE_FAULT;
 }
 
 taf_ecall_CallRef_t taf_ecall::CreateECallReference()
@@ -1441,11 +1441,11 @@ le_result_t taf_ecall::SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t
     if(eCallMode == TAF_ECALL_MODE_NORMAL  || eCallMode == TAF_ECALL_MODE_ECALL) {
         auto promisePtr = std::make_shared<std::promise<le_result_t>>();
         std::future<le_result_t> futResult = promisePtr->get_future();
-        auto cb = [promisePtr](pa_result_t errorCode,std::any context)
+        auto cb = [promisePtr](taf_pa_result_t errorCode,std::any context)
         {
             try
             {
-                if (errorCode == PA_OK)
+                if (errorCode == TAF_PA_OK)
                 {
                     LE_INFO("Set eCall operating mode successfully done");
                     promisePtr->set_value(LE_OK);
@@ -1471,7 +1471,7 @@ le_result_t taf_ecall::SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t
                 try { promisePtr->set_value(LE_FAULT); } catch (...) {}
             }
         };
-        pa_result_t result = taf_pa_ecall_SetOpMode(phoneId,
+        taf_pa_result_t result = taf_pa_ecall_SetOpMode(phoneId,
                 static_cast<taf_pa_ecall_mode_t>(eCallMode), cb,{});
         if (WaitResult(result, futResult, "SetECallOperatingMode")) {
             LE_DEBUG("Set eCall operating mode %d successfully in phoneId: %d",
@@ -1498,12 +1498,12 @@ le_result_t taf_ecall::GetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
     auto resultMode  = std::make_shared<taf_pa_ecall_mode_t>(taf_pa_ecall_mode_t::NORMAL);
     std::future<le_result_t> futResult = promisePtr->get_future();
-    auto cb = [promisePtr, resultMode](taf_pa_ecall_mode_t mode, pa_result_t errorCode,
+    auto cb = [promisePtr, resultMode](taf_pa_ecall_mode_t mode, taf_pa_result_t errorCode,
     std::any context)
     {
         try
         {
-            if(errorCode == PA_OK)
+            if(errorCode == TAF_PA_OK)
             {
                 *resultMode = mode;
                 promisePtr->set_value(LE_OK);
@@ -1529,7 +1529,7 @@ le_result_t taf_ecall::GetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t
             try { promisePtr->set_value(LE_FAULT); } catch (...) {}
         }
     };
-    pa_result_t result = taf_pa_ecall_GetOpMode(phoneId,cb,{});
+    taf_pa_result_t result = taf_pa_ecall_GetOpMode(phoneId,cb,{});
     if (WaitResult(result, futResult, "GetECallOperatingMode")) {
         LE_DEBUG("Get eCall op mode successfully in phoneId: %d", phoneId);
             if (taf_pa_ecall_mode_t::NORMAL == *resultMode)
@@ -1558,9 +1558,9 @@ le_result_t taf_ecall::StartECall(taf_pa_ecall_category_t emergencyCategory,
 
     //Get Selected card
     int8_t phoneId = -1;
-    pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+    taf_pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
         static_cast<int8_t>(taf_sim_GetSelectedCard()), &phoneId);
-    if (phoneIdRes != PA_OK)
+    if (phoneIdRes != TAF_PA_OK)
     {
         LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
     }
@@ -1585,8 +1585,8 @@ le_result_t taf_ecall::StartECall(taf_pa_ecall_category_t emergencyCategory,
     LE_DEBUG("StartECall timestamp = %d", ECallObject.msd.timestamp);
 
     taf_pa_ecall_config_t eCallConfig = {};
-    pa_result_t ret = taf_pa_ecall_GetConfig(eCallConfig);
-    if (ret == PA_OK) {
+    taf_pa_result_t ret = taf_pa_ecall_GetConfig(eCallConfig);
+    if (ret == TAF_PA_OK) {
         LE_DEBUG("Get eCall configuration successfully.");
     }
 
@@ -1606,7 +1606,7 @@ le_result_t taf_ecall::StartECall(taf_pa_ecall_category_t emergencyCategory,
             eCallConfig.validityMask.set(NUM_TYPE);
             eCallConfig.numtype = taf_pa_ecall_num_type_t::DEFAULT;
             ret = taf_pa_ecall_SetConfig(eCallConfig);
-            if (ret == PA_OK)
+            if (ret == TAF_PA_OK)
             {
                 LE_DEBUG("Set eCall configuration with number 112 successfully");
             }
@@ -1620,7 +1620,7 @@ le_result_t taf_ecall::StartECall(taf_pa_ecall_category_t emergencyCategory,
                 eCallConfig.validityMask.set(NUM_TYPE);
                 eCallConfig.numtype = taf_pa_ecall_num_type_t::DEFAULT;
                 ret = taf_pa_ecall_SetConfig(eCallConfig);
-                if (ret == PA_OK)
+                if (ret == TAF_PA_OK)
                 {
                     LE_DEBUG("Set eCall configuration with default number type successfully");
                 }
@@ -1708,9 +1708,9 @@ le_result_t taf_ecall::StartPrivate(taf_ecall_CallRef_t ecallRef,
 
     //Get Selected card
     int8_t phoneId = -1;
-    pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+    taf_pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
         static_cast<int8_t>(taf_sim_GetSelectedCard()), &phoneId);
-    if (phoneIdRes != PA_OK)
+    if (phoneIdRes != TAF_PA_OK)
     {
         LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
     }
@@ -1734,10 +1734,10 @@ le_result_t taf_ecall::StartPrivate(taf_ecall_CallRef_t ecallRef,
         header.acceptInfo = "";
     }
 
-    pa_result_t ret;
+    taf_pa_result_t ret;
     taf_pa_ecall_config_t eCallConfig = {};
     ret = taf_pa_ecall_GetConfig(eCallConfig);
-    if (ret == PA_OK) {
+    if (ret == TAF_PA_OK) {
         LE_DEBUG("get eCall configuration successfully.");
     }
 
@@ -1787,7 +1787,7 @@ le_result_t taf_ecall::StopECall(taf_ecall_CallRef_t ecallRef) {
     {
         auto rejectPromPtr = std::make_shared<std::promise<le_result_t>>();
         std::future<le_result_t> rejectFut = rejectPromPtr->get_future();
-        pa_result_t result = taf_pa_ecall_Reject(*iCall, tafRejectCommandCallback::commandResponse,
+        taf_pa_result_t result = taf_pa_ecall_Reject(*iCall, tafRejectCommandCallback::commandResponse,
                                                  rejectPromPtr);
         if (WaitResult(result, rejectFut, "StopECall(Reject)")) {
                 return LE_OK;
@@ -1795,7 +1795,7 @@ le_result_t taf_ecall::StopECall(taf_ecall_CallRef_t ecallRef) {
     } else {
         auto hangupPromPtr = std::make_shared<std::promise<le_result_t>>();
         std::future<le_result_t> hangupFut = hangupPromPtr->get_future();
-        pa_result_t result = taf_pa_ecall_Hangup(*iCall, tafHangupCommandCallback::commandResponse,
+        taf_pa_result_t result = taf_pa_ecall_Hangup(*iCall, tafHangupCommandCallback::commandResponse,
                                                  hangupPromPtr);
         if (WaitResult(result, hangupFut, "StopECall(Hangup)")) {
                 return LE_OK;
@@ -1814,7 +1814,7 @@ le_result_t taf_ecall::AnswerECall(taf_ecall_CallRef_t ecallRef)
 
     auto answerPromPtr = std::make_shared<std::promise<le_result_t>>();
     std::future<le_result_t> answerFut = answerPromPtr->get_future();
-    pa_result_t result = taf_pa_ecall_Answer(*iCall, tafAnswerCommandCallback::commandResponse,
+    taf_pa_result_t result = taf_pa_ecall_Answer(*iCall, tafAnswerCommandCallback::commandResponse,
                                              answerPromPtr);
     if (WaitResult(result, answerFut, "AnswerECall")) {
             return LE_OK;
@@ -2497,11 +2497,11 @@ le_result_t taf_ecall::SendMsd( taf_ecall_CallRef_t ecallRef)
 
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
 
-    pa_result_t result;
+    taf_pa_result_t result;
     int8_t phoneId = -1;
-    pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+    taf_pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
         static_cast<int8_t>(taf_sim_GetSelectedCard()), &phoneId);
-    if (phoneIdRes != PA_OK)
+    if (phoneIdRes != TAF_PA_OK)
     {
         LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
     }
@@ -2527,11 +2527,11 @@ le_result_t taf_ecall::SendMsd( taf_ecall_CallRef_t ecallRef)
             eCallMsdData.push_back(eCallPtr->msdPdu[i]);
         }
         auto promisePtr = std::make_shared<std::promise<le_result_t>>();
-        auto cb = [promisePtr](pa_result_t error,std::any context)
+        auto cb = [promisePtr](taf_pa_result_t error,std::any context)
         {
             try
             {
-                if (error == PA_OK)
+                if (error == TAF_PA_OK)
                 {
                     LE_DEBUG("Send eCall MSD successfully done");
                     promisePtr->set_value(LE_OK);
@@ -2578,7 +2578,7 @@ le_result_t taf_ecall::SendMsd( taf_ecall_CallRef_t ecallRef)
 
         auto updateMsdPromPtr = std::make_shared<std::promise<le_result_t>>();
         std::future<le_result_t> updateMsdFut = updateMsdPromPtr->get_future();
-        pa_result_t status = taf_pa_ecall_UpdateMsd(phoneId, eCallPtr->msd,
+        taf_pa_result_t status = taf_pa_ecall_UpdateMsd(phoneId, eCallPtr->msd,
                                                     tafUpdateMsdCommandCallback::commandResponse,
                                                     updateMsdPromPtr);
         if (WaitResult(status, updateMsdFut, "SendMsd(UpdateMsd)")) {
@@ -2597,8 +2597,8 @@ le_result_t taf_ecall::SendMsd( taf_ecall_CallRef_t ecallRef)
 le_result_t taf_ecall::RetrieveEncodedMsdPdu(taf_pa_ecall_msd_data_t eCallMsdData, uint8_t* pduMsd, size_t *msdLength)
 {
     std::vector<uint8_t> eCallMsdPdu = {};
-    pa_result_t result = taf_pa_ecall_EncodeMsd(eCallMsdData, eCallMsdPdu);
-    if (result == PA_OK)
+    taf_pa_result_t result = taf_pa_ecall_EncodeMsd(eCallMsdData, eCallMsdPdu);
+    if (result == TAF_PA_OK)
     {
          if (eCallMsdPdu.size() < MAX_EU_MSD_LENGTH) {
              *msdLength = eCallMsdPdu.size();
@@ -2739,10 +2739,10 @@ le_result_t taf_ecall::UseUSimNumbers()
     taf_pa_ecall_config_t eCallConfig;
     eCallConfig.validityMask.set(NUM_TYPE);
     eCallConfig.numtype = taf_pa_ecall_num_type_t::DEFAULT;
-    pa_result_t result = taf_pa_ecall_SetConfig(eCallConfig);
+    taf_pa_result_t result = taf_pa_ecall_SetConfig(eCallConfig);
     LE_INFO("UseUSimNumbers: status %d", (int) result);
 
-    return result == PA_OK ? LE_OK : LE_FAULT;
+    return result == TAF_PA_OK ? LE_OK : LE_FAULT;
 }
 
 le_result_t taf_ecall::SetNadDeregistrationTime(uint16_t deregTime)
@@ -2775,19 +2775,19 @@ le_result_t taf_ecall::SetNadDeregistrationTime(uint16_t deregTime)
     LE_INFO("Set eCall NAD deregistration time (in minutes): %d", t10);
 
     int8_t phoneId = -1;
-    pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+    taf_pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
         static_cast<int8_t>(taf_sim_GetSelectedCard()), &phoneId);
-    if (phoneIdRes != PA_OK)
+    if (phoneIdRes != TAF_PA_OK)
     {
         LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
     }
 
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
-    auto cb = [promisePtr](pa_result_t error,std::any context)
+    auto cb = [promisePtr](taf_pa_result_t error,std::any context)
     {
         try
         {
-            if (error == PA_OK)
+            if (error == TAF_PA_OK)
             {
                 LE_DEBUG("Set eCall NAD deregistration time successfully done");
                 promisePtr->set_value(LE_OK);
@@ -2815,7 +2815,7 @@ le_result_t taf_ecall::SetNadDeregistrationTime(uint16_t deregTime)
     };
 
     std::future<le_result_t> futResult = promisePtr->get_future();
-    pa_result_t result = taf_pa_ecall_UpdateHlapTimer(phoneId, taf_pa_ecall_hlap_timer_type_t::T10, t10, cb,{});
+    taf_pa_result_t result = taf_pa_ecall_UpdateHlapTimer(phoneId, taf_pa_ecall_hlap_timer_type_t::T10, t10, cb,{});
     if (WaitResult(result, futResult, "SetNadDeregistrationTime")) {
         {
             LE_DEBUG("Set eCall NAD deregistration time successfully.");
@@ -2835,9 +2835,9 @@ le_result_t taf_ecall::GetNadDeregistrationTime(uint16_t* deregTime)
         return LE_FAULT;
     }
     int8_t phoneId = -1;
-    pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+    taf_pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
         static_cast<int8_t>(taf_sim_GetSelectedCard()), &phoneId);
-    if (phoneIdRes != PA_OK)
+    if (phoneIdRes != TAF_PA_OK)
     {
         LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
     }
@@ -2845,11 +2845,11 @@ le_result_t taf_ecall::GetNadDeregistrationTime(uint16_t* deregTime)
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
     auto resultTime = std::make_shared<uint32_t>(0);
     std::future<le_result_t> futResult = promisePtr->get_future();
-    auto cb = [promisePtr, resultTime](pa_result_t error, uint32_t timeDuration, std::any context)
+    auto cb = [promisePtr, resultTime](taf_pa_result_t error, uint32_t timeDuration, std::any context)
     {
         try
         {
-            if(error == PA_OK)
+            if(error == TAF_PA_OK)
             {
                 LE_DEBUG("Get NAD deregistration time (T10 in minutes) fetched as: %d", timeDuration);
                 *resultTime = timeDuration;
@@ -2877,7 +2877,7 @@ le_result_t taf_ecall::GetNadDeregistrationTime(uint16_t* deregTime)
         }
     };
 
-    pa_result_t result = taf_pa_ecall_RequestHlapTimer(phoneId, taf_pa_ecall_hlap_timer_type_t::T10, cb,{});
+    taf_pa_result_t result = taf_pa_ecall_RequestHlapTimer(phoneId, taf_pa_ecall_hlap_timer_type_t::T10, cb,{});
 
     if (WaitResult(result, futResult, "GetNadDeregistrationTime")) {
         {
@@ -2894,19 +2894,19 @@ le_result_t taf_ecall::GetNadDeregistrationTime(uint16_t* deregTime)
 le_result_t taf_ecall::TerminateRegistration()
 {
     int8_t phoneId = -1;
-    pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+    taf_pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
         static_cast<int8_t>(taf_sim_GetSelectedCard()), &phoneId);
-    if (phoneIdRes != PA_OK)
+    if (phoneIdRes != TAF_PA_OK)
     {
         LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
     }
 
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
-    auto cb = [promisePtr](pa_result_t error,std::any context)
+    auto cb = [promisePtr](taf_pa_result_t error,std::any context)
     {
         try
         {
-            if (error == PA_OK)
+            if (error == TAF_PA_OK)
             {
                 LE_DEBUG("Terminate registration successfully done");
                 promisePtr->set_value(LE_OK);
@@ -2934,7 +2934,7 @@ le_result_t taf_ecall::TerminateRegistration()
     };
 
     std::future<le_result_t> futResult = promisePtr->get_future();
-    pa_result_t result = taf_pa_ecall_RequestNetworkDeregistration(phoneId, cb,{});
+    taf_pa_result_t result = taf_pa_ecall_RequestNetworkDeregistration(phoneId, cb,{});
     if (WaitResult(result, futResult, "TerminateRegistration")) {
         {
             LE_DEBUG("Terminate registration successfully.");
@@ -2971,9 +2971,9 @@ le_result_t taf_ecall::SetNadClearDownFallbackTime(uint16_t ccftTime)
     taf_pa_ecall_config_t eCallConfig;
     eCallConfig.validityMask.set(T2_TIMER);
     eCallConfig.t2Timer = t2;
-    pa_result_t result = taf_pa_ecall_SetConfig(eCallConfig);
+    taf_pa_result_t result = taf_pa_ecall_SetConfig(eCallConfig);
 
-    return result == PA_OK ? LE_OK : LE_FAULT;
+    return result == TAF_PA_OK ? LE_OK : LE_FAULT;
 
 }
 
@@ -2985,15 +2985,15 @@ le_result_t taf_ecall::GetNadClearDownFallbackTime(uint16_t* ccftTime)
     }
 
     taf_pa_ecall_config_t eCallConfig = {};
-    pa_result_t result = taf_pa_ecall_GetConfig(eCallConfig);
-    if (result == PA_OK && eCallConfig.validityMask.test(T2_TIMER)) {
+    taf_pa_result_t result = taf_pa_ecall_GetConfig(eCallConfig);
+    if (result == TAF_PA_OK && eCallConfig.validityMask.test(T2_TIMER)) {
         LE_DEBUG("NAD clear down fallback time (in minutes): %d", eCallConfig.t2Timer/60000);
         *ccftTime = (uint16_t) (eCallConfig.t2Timer/60000);
     } else {
         LE_ERROR("Unable to get clear down fallback time. Error: %d", (int) result);
     }
 
-    return result == PA_OK ? LE_OK : LE_FAULT;
+    return result == TAF_PA_OK ? LE_OK : LE_FAULT;
 }
 
 le_result_t taf_ecall::SetNadMinNetworkRegistrationTime(uint16_t minNwRegTime)
@@ -3037,8 +3037,8 @@ le_result_t taf_ecall::SetNadMinNetworkRegistrationTime(uint16_t minNwRegTime)
     taf_pa_ecall_config_t eCallConfig;
     eCallConfig.validityMask.set(T9_TIMER);
     eCallConfig.t9Timer = t9;
-    pa_result_t res = taf_pa_ecall_SetConfig(eCallConfig);
-    if (res != PA_OK)
+    taf_pa_result_t res = taf_pa_ecall_SetConfig(eCallConfig);
+    if (res != TAF_PA_OK)
     {
         LE_ERROR("Unable to set min network registration time. Error: %d", (int) res);
         return LE_FAULT;
@@ -3054,7 +3054,7 @@ le_result_t taf_ecall::SetNadMinNetworkRegistrationTime(uint16_t minNwRegTime)
         eCallConfig.validityMask.set(T9_TIMER);
         eCallConfig.t9Timer = t9;
         res = taf_pa_ecall_SetConfig(eCallConfig);
-        if (res != PA_OK)
+        if (res != TAF_PA_OK)
         {
             LE_ERROR("Unable to set the previous min network registration time. Error: %d", (int) res);
         }
@@ -3071,15 +3071,15 @@ le_result_t taf_ecall::GetNadMinNetworkRegistrationTime(uint16_t* minNwRegTime)
     }
 
     taf_pa_ecall_config_t eCallConfig = {};
-    pa_result_t result = taf_pa_ecall_GetConfig(eCallConfig);
-    if (result == PA_OK && eCallConfig.validityMask.test(T9_TIMER)) {
+    taf_pa_result_t result = taf_pa_ecall_GetConfig(eCallConfig);
+    if (result == TAF_PA_OK && eCallConfig.validityMask.test(T9_TIMER)) {
         LE_DEBUG("NAD min network registration time (in minutes): %d", eCallConfig.t9Timer/60000);
         *minNwRegTime = (uint16_t) (eCallConfig.t9Timer/60000);
     } else {
         LE_ERROR("Unable to get min network registration time. Error: %d", (int) result);
     }
 
-    return result == PA_OK  ? LE_OK : LE_FAULT;
+    return result == TAF_PA_OK  ? LE_OK : LE_FAULT;
 }
 
 le_result_t taf_ecall::GetHlapTimerState(taf_ecall_HlapTimerType_t timerType, taf_ecall_HlapTimerStatus_t* timerStatus, uint16_t* elapsedTime)
@@ -3192,22 +3192,22 @@ le_result_t taf_ecall::GetHlapTimerState(taf_ecall_HlapTimerType_t timerType, ta
 taf_ecall_HlapTimerStatus_t taf_ecall::GetHlapTimerStatus(taf_ecall_HlapTimerType_t timerType) {
     taf_ecall_HlapTimerStatus_t timerStatus = TAF_ECALL_TIMER_STATUS_UNKNOWN;
     int8_t phone_id = -1;
-    pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
+    taf_pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(
         static_cast<int8_t>(taf_sim_GetSelectedCard()), &phone_id);
-    if (phoneIdRes != PA_OK)
+    if (phoneIdRes != TAF_PA_OK)
     {
         LE_ERROR("taf_pa_ecall_GetPhoneIdFromSlotId failed: %d", (int)phoneIdRes);
     }
 
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
     auto receivedTimerStatusPtr = std::make_shared<taf_pa_ecall_hlap_timer_status_t>();
-    auto cb = [promisePtr, phone_id, receivedTimerStatusPtr](pa_result_t errorCode,
+    auto cb = [promisePtr, phone_id, receivedTimerStatusPtr](taf_pa_result_t errorCode,
         int8_t phoneId,
         std::shared_ptr<const taf_pa_ecall_hlap_timer_status_t> hlapStatus,
         std::any context) {
         try
         {
-            if((errorCode == PA_OK) && (phone_id == phoneId))
+            if((errorCode == TAF_PA_OK) && (phone_id == phoneId))
             {
                 *receivedTimerStatusPtr = *hlapStatus;
                 promisePtr->set_value(LE_OK);
@@ -3235,7 +3235,7 @@ taf_ecall_HlapTimerStatus_t taf_ecall::GetHlapTimerStatus(taf_ecall_HlapTimerTyp
     };
 
     std::future<le_result_t> futResult = promisePtr->get_future();
-    pa_result_t result = taf_pa_ecall_RequestHlapTimerStatus(phone_id, cb,{});
+    taf_pa_result_t result = taf_pa_ecall_RequestHlapTimerStatus(phone_id, cb,{});
     if (WaitResult(result, futResult, "GetHlapTimerState")) {
         LE_DEBUG("Get eCall hlap timer successfully.");
 
@@ -3552,11 +3552,11 @@ le_result_t taf_ecall::ResumeHlapTimer(taf_ecall_HlapTimerType_t timerType) {
     LE_DEBUG("Resume the hlap timer with the value = %d", duration);
     if (duration > 0) {
         auto promisePtr = std::make_shared<std::promise<le_result_t>>();
-        auto cb = [promisePtr](pa_result_t error,std::any context)
+        auto cb = [promisePtr](taf_pa_result_t error,std::any context)
         {
             try
             {
-                if (error == PA_OK)
+                if (error == TAF_PA_OK)
                 {
                     LE_DEBUG("Resume the hlap timer successfully done");
                     promisePtr->set_value(LE_OK);
@@ -3583,7 +3583,7 @@ le_result_t taf_ecall::ResumeHlapTimer(taf_ecall_HlapTimerType_t timerType) {
             }
         };
         std::future<le_result_t> futResult = promisePtr->get_future();
-        pa_result_t result = taf_pa_ecall_RestartHlapTimer(phoneId, timerId, duration, cb,{});
+        taf_pa_result_t result = taf_pa_ecall_RestartHlapTimer(phoneId, timerId, duration, cb,{});
         if (WaitResult(result, futResult, "ResumeHlapTimer")) {
             {
                 LE_DEBUG("Resume the hlap timer successfully done");
@@ -4084,8 +4084,8 @@ le_result_t taf_ecall::IsInProgress(taf_ecall_CallRef_t ecallRef, bool* isInProg
 
     std::shared_ptr<taf_pa_ecall_CallInfo_t> spCall = nullptr;
     std::vector<std::shared_ptr<taf_pa_ecall_CallInfo_t>> callList;
-    pa_result_t callListRes = taf_pa_ecall_GetInProgressCalls(&callList);
-    if (callListRes != PA_OK)
+    taf_pa_result_t callListRes = taf_pa_ecall_GetInProgressCalls(&callList);
+    if (callListRes != TAF_PA_OK)
     {
         LE_ERROR("taf_pa_ecall_GetInProgressCalls failed: %d", (int)callListRes);
         return LE_FAULT;
@@ -4114,11 +4114,11 @@ le_result_t taf_ecall::ConfigureInitialDialRedial(std::vector<int> redialPara)
         LE_DEBUG("ConfigureInitialDialRedial redialPara = %d", redialPara[i]);
     }
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
-    auto cb = [promisePtr](pa_result_t error,std::any context)
+    auto cb = [promisePtr](taf_pa_result_t error,std::any context)
     {
         try
         {
-            if (error == PA_OK)
+            if (error == TAF_PA_OK)
             {
                 LE_DEBUG("Set eCall redial parameter successfully done");
                 promisePtr->set_value(LE_OK);
@@ -4146,7 +4146,7 @@ le_result_t taf_ecall::ConfigureInitialDialRedial(std::vector<int> redialPara)
     };
 
     std::future<le_result_t> futResult = promisePtr->get_future();
-    pa_result_t result = taf_pa_ecall_SetEcallRedial(redialPara, cb,{});
+    taf_pa_result_t result = taf_pa_ecall_SetEcallRedial(redialPara, cb,{});
     if (WaitResult(result, futResult, "ConfigureInitialDialRedial")) {
         {
             LE_DEBUG("Set eCall redial parameter successfully.");

@@ -2635,7 +2635,7 @@ void taf_locGnss::InitializeClient
     clientRequestPtr->eventListener.onCapabilitiesInfo = &Handler::onCapabilitiesInfo;
     clientRequestPtr->eventListener.onXtraStatusUpdate = &Handler::onXtraStatusUpdate;
 
-    if(taf_pa_location_RegisterListener(clientRequestPtr->locationClient, &clientRequestPtr->eventListener,std::any(clientRequestPtr->sessionRef)) !=  PA_OK){
+    if(taf_pa_location_RegisterListener(clientRequestPtr->locationClient, &clientRequestPtr->eventListener,std::any(clientRequestPtr->sessionRef)) !=  TAF_PA_OK){
         LE_ERROR("Listener register failed for %p", clientRequestPtr->sessionRef);
         return;
     }
@@ -2671,8 +2671,8 @@ taf_locGnss_Client_t* taf_locGnss::AcquireSessionRef
         if(clientRequestPtr->locationClient == 0)
         {
             taf_pa_location_LocationId newClientId = 0;
-            pa_result_t createRes = taf_pa_location_CreateClient(&newClientId);
-            if (createRes != PA_OK || newClientId == 0)
+            taf_pa_result_t createRes = taf_pa_location_CreateClient(&newClientId);
+            if (createRes != TAF_PA_OK || newClientId == 0)
             {
                 LE_ERROR("taf_pa_location_CreateClient failed: res=%d, id=%d",
                          (int)createRes, (int)newClientId);
@@ -2734,8 +2734,8 @@ taf_locGnss_Client_t* taf_locGnss::AcquireSessionRefInternal
     if (clientRequestPtr->locationClient == 0)
     {
         taf_pa_location_LocationId newClientId = 0;
-        pa_result_t createRes = taf_pa_location_CreateClient(&newClientId);
-        if (createRes != PA_OK || newClientId == 0)
+        taf_pa_result_t createRes = taf_pa_location_CreateClient(&newClientId);
+        if (createRes != TAF_PA_OK || newClientId == 0)
         {
             LE_ERROR("AcquireSessionRefInternal: taf_pa_location_CreateClient failed: "
                      "res=%d, id=%d", (int)createRes, (int)newClientId);
@@ -3017,21 +3017,21 @@ void taf_locGnss::SetConstellationWorker(void* cmdPtr, void*)
         {
             // Set GNSS constellation
             typedef struct{
-                    pa_result_t result;
+                    taf_pa_result_t result;
             }taf_SelfTestResult_t;
-            auto cb = [](pa_result_t result, std::any context) {
+            auto cb = [](taf_pa_result_t result, std::any context) {
                 taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                 resPtr->result = result;
             };
             taf_SelfTestResult_t resCallback = {};
-            pa_result_t res = taf_pa_location_configureConstellations(svBlackList, cb, deviceReset, (std::any)(std::any)&resCallback);
-            if(res != PA_OK)
+            taf_pa_result_t res = taf_pa_location_configureConstellations(svBlackList, cb, deviceReset, (std::any)(std::any)&resCallback);
+            if(res != TAF_PA_OK)
             {
                 cPtr->retCode = LE_FAULT;
             }
             else
             {
-                if(resCallback.result == PA_OK)
+                if(resCallback.result == TAF_PA_OK)
                 {
                     cPtr->retCode = LE_OK;
                     gnss.mConstellationMask = constellationMask;
@@ -4318,9 +4318,9 @@ void taf_locGnss::DeleteDRSensorCalDataWorker(void* cmdPtr, void*)
         case TAF_LOCGNSS_STATE_READY:
         {
                 typedef struct{
-                    pa_result_t result;
+                    taf_pa_result_t result;
                 }taf_SelfTestResult_t;
-                auto cb1 = [](pa_result_t result, std::any context) {
+                auto cb1 = [](taf_pa_result_t result, std::any context) {
                     taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                     resPtr->result = result;
                 };
@@ -4332,10 +4332,10 @@ void taf_locGnss::DeleteDRSensorCalDataWorker(void* cmdPtr, void*)
 
                 taf_SelfTestResult_t resCallback = {};
                 uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_DR_SENSOR_CALIBRATION;
-                pa_result_t res = taf_pa_location_deleteAidingData((taf_pa_location_AidingDataType_t)AidingData, cb1,(std::any)&resCallback);
-                if (res != PA_OK)
+                taf_pa_result_t res = taf_pa_location_deleteAidingData((taf_pa_location_AidingDataType_t)AidingData, cb1,(std::any)&resCallback);
+                if (res != TAF_PA_OK)
                 {
-                    if (res == PA_NOT_IMPLEMENTED)
+                    if (res == TAF_PA_NOT_IMPLEMENTED)
                     {
                         LE_ERROR("DeleteDRSensorCalData failed or Not Implemented");
                     }
@@ -4343,7 +4343,7 @@ void taf_locGnss::DeleteDRSensorCalDataWorker(void* cmdPtr, void*)
                 }
                 else
                 {
-                    if(resCallback.result != PA_OK)
+                    if(resCallback.result != TAF_PA_OK)
                     {
                         cPtr->retCode = LE_FAULT;
                     }
@@ -4939,7 +4939,7 @@ void taf_locGnss::ForceColdRestartWorker(void* cmdPtr, void*)
         return;
     }
 
-    typedef struct{ pa_result_t result; }taf_SelfTestResult_t;
+    typedef struct{ taf_pa_result_t result; }taf_SelfTestResult_t;
     le_result_t result = LE_OK;
 
     switch (clientRequestPtr->GnssState)
@@ -4954,22 +4954,22 @@ void taf_locGnss::ForceColdRestartWorker(void* cmdPtr, void*)
         {
             if (clientRequestPtr->mStarted)
             {
-                auto cb = [](pa_result_t r, std::any ctx) {
+                auto cb = [](taf_pa_result_t r, std::any ctx) {
                     ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
                 taf_SelfTestResult_t rc = {};
-                pa_result_t res = taf_pa_location_stopReports(clientRequestPtr->locationClient, cb, (std::any)&rc);
-                if (res != PA_OK) { result = LE_FAULT; }
-                else if (rc.result == PA_OK) { clientRequestPtr->mStarted = false; clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY; }
+                taf_pa_result_t res = taf_pa_location_stopReports(clientRequestPtr->locationClient, cb, (std::any)&rc);
+                if (res != TAF_PA_OK) { result = LE_FAULT; }
+                else if (rc.result == TAF_PA_OK) { clientRequestPtr->mStarted = false; clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY; }
                 else { result = LE_FAULT; }
             }
             if (result == LE_OK)
             {
-                auto cb1 = [](pa_result_t r, std::any ctx) {
+                auto cb1 = [](taf_pa_result_t r, std::any ctx) {
                     ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
                 taf_SelfTestResult_t rc1 = {};
-                pa_result_t res1 = taf_pa_location_deleteAllAidingData(cb1, (std::any)&rc1);
-                if (res1 != PA_OK) { result = LE_FAULT; }
-                else if (rc1.result != PA_OK) { result = LE_FAULT; }
+                taf_pa_result_t res1 = taf_pa_location_deleteAllAidingData(cb1, (std::any)&rc1);
+                if (res1 != TAF_PA_OK) { result = LE_FAULT; }
+                else if (rc1.result != TAF_PA_OK) { result = LE_FAULT; }
             }
             if (result == LE_OK && !clientRequestPtr->mStarted)
             {
@@ -4978,14 +4978,14 @@ void taf_locGnss::ForceColdRestartWorker(void* cmdPtr, void*)
                 LocReqEngine engineType = DEFAULT_UNKNOWN;
                 GnssReportTypeMask reportMask = 0x7f;
                 engineType |= (1UL << clientRequestPtr->mEngineType);
-                auto cb2 = [](pa_result_t r, std::any ctx) {
+                auto cb2 = [](taf_pa_result_t r, std::any ctx) {
                     ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
                 taf_SelfTestResult_t rc2 = {};
                 sleep(1);
-                pa_result_t res2 = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
+                taf_pa_result_t res2 = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
                     (uint32_t)optInterval, engineType, cb2, reportMask, (std::any)&rc2);
-                if (res2 != PA_OK) { result = LE_FAULT; }
-                else if (rc2.result == PA_OK) { ConfigureAcqStartInfo(clientRequestPtr); }
+                if (res2 != TAF_PA_OK) { result = LE_FAULT; }
+                else if (rc2.result == TAF_PA_OK) { ConfigureAcqStartInfo(clientRequestPtr); }
                 else { result = LE_FAULT; }
             }
             break;
@@ -5033,7 +5033,7 @@ void taf_locGnss::ForceWarmRestartWorker(void* cmdPtr, void*)
         return;
     }
 
-    typedef struct{ pa_result_t result; }taf_SelfTestResult_t;
+    typedef struct{ taf_pa_result_t result; }taf_SelfTestResult_t;
     le_result_t result = LE_OK;
 
     switch (clientRequestPtr->GnssState)
@@ -5048,25 +5048,25 @@ void taf_locGnss::ForceWarmRestartWorker(void* cmdPtr, void*)
         {
             if (clientRequestPtr->mStarted)
             {
-                auto cb = [](pa_result_t r, std::any ctx) {
+                auto cb = [](taf_pa_result_t r, std::any ctx) {
                     ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
                 taf_SelfTestResult_t rc = {};
-                pa_result_t res = taf_pa_location_stopReports(clientRequestPtr->locationClient, cb, (std::any)&rc);
-                if (res != PA_OK || rc.result != PA_OK) { result = LE_FAULT; }
+                taf_pa_result_t res = taf_pa_location_stopReports(clientRequestPtr->locationClient, cb, (std::any)&rc);
+                if (res != TAF_PA_OK || rc.result != TAF_PA_OK) { result = LE_FAULT; }
                 else { clientRequestPtr->mStarted = false; clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY; }
             }
             else { result = LE_FAULT; }
 
             if (result == LE_OK)
             {
-                auto cb1 = [](pa_result_t r, std::any ctx) {
+                auto cb1 = [](taf_pa_result_t r, std::any ctx) {
                     ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
                 taf_SelfTestResult_t rc1 = {};
                 uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_EPHEMERIS;
-                pa_result_t res1 = taf_pa_location_deleteAidingData(
+                taf_pa_result_t res1 = taf_pa_location_deleteAidingData(
                     (taf_pa_location_AidingDataType_t)AidingData, cb1, (std::any)&rc1);
-                if (res1 != PA_OK) { result = LE_FAULT; }
-                else if (rc1.result != PA_OK) { result = (le_result_t)rc1.result; }
+                if (res1 != TAF_PA_OK) { result = LE_FAULT; }
+                else if (rc1.result != TAF_PA_OK) { result = (le_result_t)rc1.result; }
             }
 
             if (result == LE_OK && !clientRequestPtr->mStarted)
@@ -5077,13 +5077,13 @@ void taf_locGnss::ForceWarmRestartWorker(void* cmdPtr, void*)
                 GnssReportTypeMask reportMask = 0x7f;
                 engineType |= (1UL << clientRequestPtr->mEngineType);
                 sleep(1);
-                auto cb2 = [](pa_result_t r, std::any ctx) {
+                auto cb2 = [](taf_pa_result_t r, std::any ctx) {
                     ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
                 taf_SelfTestResult_t rc2 = {};
-                pa_result_t res2 = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
+                taf_pa_result_t res2 = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
                     (uint32_t)optInterval, engineType, cb2, reportMask, (std::any)&rc2);
-                if (res2 != PA_OK) { result = LE_FAULT; }
-                else if (rc2.result == PA_OK) { ConfigureAcqStartInfo(clientRequestPtr); }
+                if (res2 != TAF_PA_OK) { result = LE_FAULT; }
+                else if (rc2.result == TAF_PA_OK) { ConfigureAcqStartInfo(clientRequestPtr); }
                 else { result = LE_FAULT; }
             }
             break;
@@ -5131,7 +5131,7 @@ void taf_locGnss::ForceHotRestartWorker(void* cmdPtr, void*)
         return;
     }
 
-    typedef struct{ pa_result_t result; }taf_SelfTestResult_t;
+    typedef struct{ taf_pa_result_t result; }taf_SelfTestResult_t;
     le_result_t result = LE_OK;
 
     switch (clientRequestPtr->GnssState)
@@ -5146,12 +5146,12 @@ void taf_locGnss::ForceHotRestartWorker(void* cmdPtr, void*)
         {
             if (clientRequestPtr->mStarted)
             {
-                auto cb = [](pa_result_t r, std::any ctx) {
+                auto cb = [](taf_pa_result_t r, std::any ctx) {
                     ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
                 taf_SelfTestResult_t rc = {};
-                pa_result_t res = taf_pa_location_stopReports(clientRequestPtr->locationClient, cb, (std::any)&rc);
-                if (res != PA_OK) { result = LE_FAULT; }
-                else if (rc.result == PA_OK) { clientRequestPtr->mStarted = false; clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY; }
+                taf_pa_result_t res = taf_pa_location_stopReports(clientRequestPtr->locationClient, cb, (std::any)&rc);
+                if (res != TAF_PA_OK) { result = LE_FAULT; }
+                else if (rc.result == TAF_PA_OK) { clientRequestPtr->mStarted = false; clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY; }
                 else { result = LE_FAULT; }
             }
             if (result == LE_OK && !clientRequestPtr->mStarted)
@@ -5162,13 +5162,13 @@ void taf_locGnss::ForceHotRestartWorker(void* cmdPtr, void*)
                 GnssReportTypeMask reportMask = 0x7f;
                 engineType |= (1UL << clientRequestPtr->mEngineType);
                 sleep(1);
-                auto cb2 = [](pa_result_t r, std::any ctx) {
+                auto cb2 = [](taf_pa_result_t r, std::any ctx) {
                     ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
                 taf_SelfTestResult_t rc2 = {};
-                pa_result_t res2 = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
+                taf_pa_result_t res2 = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
                     (uint32_t)optInterval, engineType, cb2, reportMask, (std::any)&rc2);
-                if (res2 != PA_OK) { result = LE_FAULT; }
-                else if (rc2.result == PA_OK) { ConfigureAcqStartInfo(clientRequestPtr); }
+                if (res2 != TAF_PA_OK) { result = LE_FAULT; }
+                else if (rc2.result == TAF_PA_OK) { ConfigureAcqStartInfo(clientRequestPtr); }
                 else { result = LE_FAULT; }
             }
             break;
@@ -5289,23 +5289,23 @@ void taf_locGnss::StartWorker(void* cmdPtr, void*)
                 engineType |= (1UL << clientRequestPtr->mEngineType);//FUSED mode is supported by default
 
                 typedef struct{
-                    pa_result_t result;
+                    taf_pa_result_t result;
                 }taf_SelfTestResult_t;
-                auto cb = [](pa_result_t result, std::any context) {
+                auto cb = [](taf_pa_result_t result, std::any context) {
                     taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                     resPtr->result = result;
                 };
                 taf_SelfTestResult_t resCallback = {};
-                pa_result_t res = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
+                taf_pa_result_t res = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
                     (uint32_t)optInterval, engineType, cb, reportMask, (std::any)(std::any)&resCallback);
-                if(res != PA_OK)
+                if(res != TAF_PA_OK)
                 {
                     cPtr->retCode = LE_FAULT;
                     LE_DEBUG("Start() commandResponse failed status: %d ", int(cPtr->retCode));
                 }
                 else
                 {
-                    if(resCallback.result == PA_OK)
+                    if(resCallback.result == TAF_PA_OK)
                     {
                         ConfigureAcqStartInfo(clientRequestPtr);
                         cPtr->retCode = LE_OK;
@@ -5424,19 +5424,19 @@ static void GnssStartInternalWorker(void* cmdPtr, void*)
                 GnssReportTypeMask reportMask = 0x7f;
                 engineType |= (1UL << clientRequestPtr->mEngineType);
 
-                typedef struct { pa_result_t result; } taf_SelfTestResult_t;
-                auto cb = [](pa_result_t result, std::any context) {
+                typedef struct { taf_pa_result_t result; } taf_SelfTestResult_t;
+                auto cb = [](taf_pa_result_t result, std::any context) {
                     taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                     resPtr->result = result;
                 };
                 taf_SelfTestResult_t resCallback = {};
 
-                pa_result_t res = taf_pa_location_startDetailedEngineReports(
+                taf_pa_result_t res = taf_pa_location_startDetailedEngineReports(
                     clientRequestPtr->locationClient,
                     (uint32_t)optInterval, engineType, cb, reportMask,
                     (std::any)&resCallback);
 
-                cPtr->retCode = (res == PA_OK && resCallback.result == PA_OK) ? LE_OK : LE_FAULT;
+                cPtr->retCode = (res == TAF_PA_OK && resCallback.result == TAF_PA_OK) ? LE_OK : LE_FAULT;
 
                 if (cPtr->retCode == LE_OK)
                 {
@@ -5550,13 +5550,13 @@ void taf_locGnss::SetMinElevationWorker(void* cmdPtr, void*)
                 break;
             case TAF_LOCGNSS_STATE_READY:
             {
-                typedef struct{ pa_result_t result; }taf_SelfTestResult_t;
-                auto cb = [](pa_result_t r, std::any ctx) {
+                typedef struct{ taf_pa_result_t result; }taf_SelfTestResult_t;
+                auto cb = [](taf_pa_result_t r, std::any ctx) {
                     ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
                 taf_SelfTestResult_t rc = {};
-                pa_result_t res = taf_pa_location_configureMinSVElevation(minElevation, cb, (std::any)&rc);
-                if (res != PA_OK) { result = LE_FAULT; }
-                else if (rc.result == PA_OK) { result = LE_OK; gnss.mMinSvEle = minElevation; }
+                taf_pa_result_t res = taf_pa_location_configureMinSVElevation(minElevation, cb, (std::any)&rc);
+                if (res != TAF_PA_OK) { result = LE_FAULT; }
+                else if (rc.result == TAF_PA_OK) { result = LE_OK; gnss.mMinSvEle = minElevation; }
                 else { result = LE_FAULT; }
                 break;
             }
@@ -5622,7 +5622,7 @@ void taf_locGnss::StartModeWorker(void* cmdPtr, void*)
     if (mode >= TAF_LOCGNSS_UNKNOWN_START) { result = LE_BAD_PARAMETER; }
     else
     {
-        typedef struct{ pa_result_t result; }taf_SelfTestResult_t;
+        typedef struct{ taf_pa_result_t result; }taf_SelfTestResult_t;
         switch (clientRequestPtr->GnssState)
         {
             case TAF_LOCGNSS_STATE_READY:
@@ -5633,22 +5633,22 @@ void taf_locGnss::StartModeWorker(void* cmdPtr, void*)
                 }
                 else if (mode == TAF_LOCGNSS_WARM_START)
                 {
-                    auto cb1 = [](pa_result_t r, std::any ctx) {
+                    auto cb1 = [](taf_pa_result_t r, std::any ctx) {
                         ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
                     taf_SelfTestResult_t rc1 = {};
                     uint32_t AidingData = TAF_LOCGNSS_AIDING_DATA_EPHEMERIS;
-                    pa_result_t res1 = taf_pa_location_deleteAidingData(
+                    taf_pa_result_t res1 = taf_pa_location_deleteAidingData(
                         (taf_pa_location_AidingDataType_t)AidingData, cb1, (std::any)&rc1);
-                    if (res1 != PA_OK) { result = LE_FAULT; }
+                    if (res1 != TAF_PA_OK) { result = LE_FAULT; }
                     else { result = (le_result_t)rc1.result; }
                 }
                 else if ((mode == TAF_LOCGNSS_COLD_START) || (mode == TAF_LOCGNSS_FACTORY_START))
                 {
-                    auto cb2 = [](pa_result_t r, std::any ctx) {
+                    auto cb2 = [](taf_pa_result_t r, std::any ctx) {
                         ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
                     taf_SelfTestResult_t rc2 = {};
-                    pa_result_t res2 = taf_pa_location_deleteAllAidingData(cb2, (std::any)&rc2);
-                    if (res2 != PA_OK) { result = LE_FAULT; }
+                    taf_pa_result_t res2 = taf_pa_location_deleteAllAidingData(cb2, (std::any)&rc2);
+                    if (res2 != TAF_PA_OK) { result = LE_FAULT; }
                     else { result = (le_result_t)rc2.result; }
                 }
                 else { result = LE_FAULT; }
@@ -5660,13 +5660,13 @@ void taf_locGnss::StartModeWorker(void* cmdPtr, void*)
                     LocReqEngine engineType = DEFAULT_UNKNOWN;
                     GnssReportTypeMask reportMask = 0x7f;
                     engineType |= (1UL << clientRequestPtr->mEngineType);
-                    auto cb3 = [](pa_result_t r, std::any ctx) {
+                    auto cb3 = [](taf_pa_result_t r, std::any ctx) {
                         ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
                     taf_SelfTestResult_t rc3 = {};
-                    pa_result_t res3 = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
+                    taf_pa_result_t res3 = taf_pa_location_startDetailedEngineReports(clientRequestPtr->locationClient,
                         (uint32_t)optInterval, engineType, cb3, reportMask, (std::any)&rc3);
-                    if (res3 != PA_OK) { result = LE_FAULT; }
-                    else if (rc3.result == PA_OK) { ConfigureAcqStartInfo(clientRequestPtr); }
+                    if (res3 != TAF_PA_OK) { result = LE_FAULT; }
+                    else if (rc3.result == TAF_PA_OK) { ConfigureAcqStartInfo(clientRequestPtr); }
                     else { result = LE_FAULT; }
                 }
                 break;
@@ -5725,23 +5725,23 @@ le_result_t taf_locGnss::GetMinElevation
         case TAF_LOCGNSS_STATE_READY:
         {
             typedef struct{
-                pa_result_t result;
+                taf_pa_result_t result;
                 uint8_t minSVElevation;
             }taf_SelfTestResult_t;
-            auto cb = [](pa_result_t result,
+            auto cb = [](taf_pa_result_t result,
                 uint8_t* minSVElevation_,std::any context) {
                     taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                     resPtr->result = result;
-                    if(result == PA_OK) {
+                    if(result == TAF_PA_OK) {
                         resPtr->minSVElevation = *minSVElevation_;
                     }
             };
 
             taf_SelfTestResult_t resCallback = {};
-            pa_result_t res = taf_pa_location_requestMinSVElevation(cb,(std::any)&resCallback);
+            taf_pa_result_t res = taf_pa_location_requestMinSVElevation(cb,(std::any)&resCallback);
 
-            if(res == PA_OK){
-                if(resCallback.result == PA_OK)
+            if(res == TAF_PA_OK){
+                if(resCallback.result == TAF_PA_OK)
                 {
                     LE_DEBUG("requestMinSVElevation is Success");
                     result = LE_OK;
@@ -5858,23 +5858,23 @@ static void GnssStopInternalWorker(void* cmdPtr, void*)
         {
             if (clientRequestPtr->mStarted)
             {
-                typedef struct { pa_result_t result; } taf_SelfTestResult_t;
-                auto cb = [](pa_result_t result, std::any context)
+                typedef struct { taf_pa_result_t result; } taf_SelfTestResult_t;
+                auto cb = [](taf_pa_result_t result, std::any context)
                 {
                     taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                     resPtr->result = result;
                 };
                 taf_SelfTestResult_t resCallback = {};
-                pa_result_t res = taf_pa_location_stopReports(
+                taf_pa_result_t res = taf_pa_location_stopReports(
                     clientRequestPtr->locationClient, cb, (std::any)&resCallback);
 
-                if (res != PA_OK)
+                if (res != TAF_PA_OK)
                 {
                     cPtr->retCode = LE_FAULT;
                 }
                 else
                 {
-                    if (resCallback.result == PA_OK)
+                    if (resCallback.result == TAF_PA_OK)
                     {
                         clientRequestPtr->mStarted = false;
                         clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY;
@@ -5968,21 +5968,21 @@ void taf_locGnss::StopWorker(void* cmdPtr, void*)
                 if (clientRequestPtr->mStarted)
                 {
                     typedef struct{
-                        pa_result_t result;
+                        taf_pa_result_t result;
                     }taf_SelfTestResult_t;
-                    auto cb = [](pa_result_t result, std::any context) {
+                    auto cb = [](taf_pa_result_t result, std::any context) {
                         taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                         resPtr->result = result;
                     };
                     taf_SelfTestResult_t resCallback = {};
-                    pa_result_t res = taf_pa_location_stopReports(clientRequestPtr->locationClient, cb,(std::any)&resCallback);
-                    if(res != PA_OK)
+                    taf_pa_result_t res = taf_pa_location_stopReports(clientRequestPtr->locationClient, cb,(std::any)&resCallback);
+                    if(res != TAF_PA_OK)
                     {
                         cPtr->retCode = LE_FAULT;
                     }
                     else
                     {
-                        if(resCallback.result == PA_OK)
+                        if(resCallback.result == TAF_PA_OK)
                         {
                             clientRequestPtr->mStarted = false;
                             clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY;
@@ -6096,18 +6096,18 @@ le_result_t taf_locGnss::SetNmeaSentencesInternal
     if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GIGSV)
         nmeaType |= TAF_PA_LOCATION_GIGSV;
 
-    typedef struct { pa_result_t result; } taf_SelfTestResult_t;
-    auto cb = [](pa_result_t result, std::any context)
+    typedef struct { taf_pa_result_t result; } taf_SelfTestResult_t;
+    auto cb = [](taf_pa_result_t result, std::any context)
     {
         taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
         resPtr->result = result;
     };
     taf_SelfTestResult_t resCallback = {};
 
-    pa_result_t res = taf_pa_location_configureNmeaTypes(
+    taf_pa_result_t res = taf_pa_location_configureNmeaTypes(
         (taf_pa_location_NmeaSentenceType_t)nmeaType, cb, (std::any)&resCallback);
 
-    if (res != PA_OK || resCallback.result != PA_OK)
+    if (res != TAF_PA_OK || resCallback.result != TAF_PA_OK)
     {
         LE_ERROR("SetNmeaSentencesInternal: PA call failed res=%d cbResult=%d",
                  (int)res, (int)resCallback.result);
@@ -6239,16 +6239,16 @@ void taf_locGnss::SetNmeaSentencesWorker(void* cmdPtr, void*)
                 }
 
                 typedef struct{
-                    pa_result_t result;
+                    taf_pa_result_t result;
                 }taf_SelfTestResult_t;
-                auto cb1 = [](pa_result_t result, std::any context) {
+                auto cb1 = [](taf_pa_result_t result, std::any context) {
                     taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                     resPtr->result = result;
                 };
                 taf_SelfTestResult_t resCallback = {};
-                pa_result_t res = taf_pa_location_configureNmeaTypes((taf_pa_location_NmeaSentenceType_t)nmeaType,cb1,(std::any)&resCallback);
-                if(res == PA_OK){
-                    if(resCallback.result == PA_OK)
+                taf_pa_result_t res = taf_pa_location_configureNmeaTypes((taf_pa_location_NmeaSentenceType_t)nmeaType,cb1,(std::any)&resCallback);
+                if(res == TAF_PA_OK){
+                    if(resCallback.result == TAF_PA_OK)
                     {
                         cPtr->retCode = LE_OK;
                     }
@@ -6527,18 +6527,18 @@ void taf_locGnss::SetDRConfigWorker(void* cmdPtr, void*)
                 return;
             }
             typedef struct{
-                pa_result_t result;
+                taf_pa_result_t result;
             }taf_SelfTestResult_t;
-            auto cb = [](pa_result_t result, std::any context) {
+            auto cb = [](taf_pa_result_t result, std::any context) {
                 taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                 resPtr->result = result;
             };
             taf_SelfTestResult_t resCallback = {};
-            pa_result_t res = taf_pa_location_configureDR(drConfig, cb,(std::any)&resCallback);
-            if (res == PA_FAULT) {
+            taf_pa_result_t res = taf_pa_location_configureDR(drConfig, cb,(std::any)&resCallback);
+            if (res == TAF_PA_FAULT) {
                 LE_DEBUG("SetDRConfig is failed");
                 cPtr->retCode = LE_FAULT;
-            } else if (res == PA_OK) {
+            } else if (res == TAF_PA_OK) {
                 result = (le_result_t)resCallback.result;
                 if(result == LE_OK)
                 {
@@ -6805,21 +6805,21 @@ void taf_locGnss::ConfigureEngineStateWorker(void* cmdPtr, void*)
         case TAF_LOCGNSS_STATE_ACTIVE:
             {
                 typedef struct{
-                    pa_result_t result;
+                    taf_pa_result_t result;
                 }taf_SelfTestResult_t;
-                auto cb = [](pa_result_t result, std::any context) {
+                auto cb = [](taf_pa_result_t result, std::any context) {
                     taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                     resPtr->result = result;
                 };
                 taf_SelfTestResult_t resCallback = {};
-                pa_result_t res = taf_pa_location_configureEngineState(
+                taf_pa_result_t res = taf_pa_location_configureEngineState(
                     paEngineType, paEngineState, cb,(std::any)&resCallback);
-                if(res != PA_OK){
+                if(res != TAF_PA_OK){
                     cPtr->retCode = LE_FAULT;
                 }
                 else
                 {
-                    if(resCallback.result == PA_OK)
+                    if(resCallback.result == TAF_PA_OK)
                     {
                         LE_DEBUG("ConfigureEngineState succeed.");
                     }
@@ -6931,16 +6931,16 @@ void taf_locGnss::ConfigureRobustLocationWorker(void* cmdPtr, void*)
         case TAF_LOCGNSS_STATE_ACTIVE:
             {
                 typedef struct{
-                    pa_result_t result;
+                    taf_pa_result_t result;
                 }taf_SelfTestResult_t;
-                auto cb = [](pa_result_t result, std::any context) {
+                auto cb = [](taf_pa_result_t result, std::any context) {
                     taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                     resPtr->result = result;
                 };
                 taf_SelfTestResult_t resCallback = {};
-                pa_result_t res = taf_pa_location_configureRobustLocation(
+                taf_pa_result_t res = taf_pa_location_configureRobustLocation(
                     enableRobustloc, enableE911loc, cb,(std::any)&resCallback);
-                if(res != PA_OK){
+                if(res != TAF_PA_OK){
                     cPtr->retCode = LE_FAULT;
                 }
                 else
@@ -7003,14 +7003,14 @@ le_result_t taf_locGnss::RobustLocationInformation
         case TAF_LOCGNSS_STATE_ACTIVE:
             {
                 typedef struct{
-                    pa_result_t result;
+                    taf_pa_result_t result;
                     taf_pa_location_RobustLocationConfiguration_t robustLocationData;
                 }taf_SelfTestResult_t;
-                auto cb = [](pa_result_t result,
+                auto cb = [](taf_pa_result_t result,
                     taf_pa_location_RobustLocationConfiguration_t robLocConfig_,std::any context) {
                         taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                         resPtr->result = result;
-                        if(result == PA_OK) {
+                        if(result == TAF_PA_OK) {
                             if(robLocConfig_.validMask & TAF_PA_LOCATION_VALID_ENABLED)
                             {
                                 resPtr->robustLocationData.enabled = robLocConfig_.enabled;
@@ -7032,14 +7032,14 @@ le_result_t taf_locGnss::RobustLocationInformation
                 };
 
                 taf_SelfTestResult_t resCallback = {};
-                pa_result_t res = taf_pa_location_requestRobustLocation(cb, (std::any)&resCallback);
-                if(res != PA_OK)
+                taf_pa_result_t res = taf_pa_location_requestRobustLocation(cb, (std::any)&resCallback);
+                if(res != TAF_PA_OK)
                 {
                     result = LE_FAULT;
                 }
                 else
                 {
-                    if(resCallback.result == PA_OK)
+                    if(resCallback.result == TAF_PA_OK)
                     {
                         *enable = resCallback.robustLocationData.enabled;
                         *enabled911 = resCallback.robustLocationData.enabledForE911;
@@ -7102,9 +7102,9 @@ void taf_locGnss::DefaultSecondaryBandConstellationsWorker(void* cmdPtr, void*)
         case TAF_LOCGNSS_STATE_READY:
         {
             typedef struct{
-                pa_result_t result;
+                taf_pa_result_t result;
             }taf_SelfTestResult_t;
-            auto cb = [](pa_result_t result, std::any context) {
+            auto cb = [](taf_pa_result_t result, std::any context) {
                 taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                 resPtr->result = result;
             };
@@ -7113,10 +7113,10 @@ void taf_locGnss::DefaultSecondaryBandConstellationsWorker(void* cmdPtr, void*)
             // Configure Secondary Band constellation
             gnss.mRequestSB = 0;//reset the value before configuring
             std::unordered_set<taf_pa_location_GnssConstellationType_t> constSet{};
-            pa_result_t res = taf_pa_location_configureSecondaryBand(constSet,cb,(std::any)&resCallback);
-            if (res == PA_NOT_IMPLEMENTED) {
+            taf_pa_result_t res = taf_pa_location_configureSecondaryBand(constSet,cb,(std::any)&resCallback);
+            if (res == TAF_PA_NOT_IMPLEMENTED) {
                 cPtr->retCode = LE_FAULT;
-            } else if (res == PA_OK) {
+            } else if (res == TAF_PA_OK) {
                 cPtr->retCode = (le_result_t)resCallback.result;
                 if(cPtr->retCode == LE_OK)
                 {
@@ -7183,14 +7183,14 @@ void taf_locGnss::RequestSecondaryBandConstellationsWorker(void* cmdPtr, void*)
         {
             // Set GNSS Request Secondary Band constellation
             typedef struct{
-                pa_result_t result;
+                taf_pa_result_t result;
                 int secConstellationValue;
             }taf_SelfTestResult_t;
-            auto cb = [](pa_result_t result,
+            auto cb = [](taf_pa_result_t result,
                 std::set<taf_pa_location_GnssConstellationType_t> constellationSet_,std::any context) {
                     taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                     resPtr->result = result;
-                    if(result == PA_OK) {
+                    if(result == TAF_PA_OK) {
                         for (auto item : constellationSet_)
                         {
                             if (item == TAF_PA_LOCATION_GPS)
@@ -7234,14 +7234,14 @@ void taf_locGnss::RequestSecondaryBandConstellationsWorker(void* cmdPtr, void*)
             };
 
             taf_SelfTestResult_t resCallback = {};
-            pa_result_t res = taf_pa_location_requestSecondaryBandConfig(cb,(std::any)&resCallback);
-            if(res != PA_OK)
+            taf_pa_result_t res = taf_pa_location_requestSecondaryBandConfig(cb,(std::any)&resCallback);
+            if(res != TAF_PA_OK)
             {
                 cPtr->retCode = LE_FAULT;
             }
             else
             {
-                if(resCallback.result == PA_OK)
+                if(resCallback.result == TAF_PA_OK)
                 {
                     cPtr->retCode = LE_OK;
                     cPtr->params.configureSecondaryBand.constellationSb = resCallback.secConstellationValue;
@@ -7347,9 +7347,9 @@ void taf_locGnss::ConfigureSecondaryBandConstellationsWorker(void* cmdPtr, void*
         case TAF_LOCGNSS_STATE_READY:
         {
             typedef struct{
-                pa_result_t result;
+                taf_pa_result_t result;
             }taf_SelfTestResult_t;
-            auto cb = [](pa_result_t result, std::any context) {
+            auto cb = [](taf_pa_result_t result, std::any context) {
                 taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                 resPtr->result = result;
             };
@@ -7357,10 +7357,10 @@ void taf_locGnss::ConfigureSecondaryBandConstellationsWorker(void* cmdPtr, void*
 
             // Configure Secondary Band constellation
             gnss.mRequestSB = 0;//reset the value before configuring
-            pa_result_t res = taf_pa_location_configureSecondaryBand(constSet,cb,(std::any)&resCallback);
-            if (res == PA_NOT_IMPLEMENTED) {
+            taf_pa_result_t res = taf_pa_location_configureSecondaryBand(constSet,cb,(std::any)&resCallback);
+            if (res == TAF_PA_NOT_IMPLEMENTED) {
                 cPtr->retCode = LE_FAULT;
-            } else if (res == PA_OK) {
+            } else if (res == TAF_PA_OK) {
                 cPtr->retCode = (le_result_t)resCallback.result;
                 if(cPtr->retCode == LE_OK)
                 {
@@ -7460,21 +7460,21 @@ void taf_locGnss::SetLeverArmConfigWorker(void* cmdPtr, void*)
 
             //Set the Lever Arm Configuration
             typedef struct{
-                pa_result_t result;
+                taf_pa_result_t result;
             }taf_SelfTestResult_t;
-            auto cb = [](pa_result_t result, std::any context) {
+            auto cb = [](taf_pa_result_t result, std::any context) {
                 taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                 resPtr->result = result;
             };
             taf_SelfTestResult_t resCallback = {};
-            pa_result_t res = taf_pa_location_configureLeverArm(LeverArmConfigInfoPtr,cb,(std::any)&resCallback);
-            if (res != PA_OK)
+            taf_pa_result_t res = taf_pa_location_configureLeverArm(LeverArmConfigInfoPtr,cb,(std::any)&resCallback);
+            if (res != TAF_PA_OK)
             {
                 cPtr->retCode = LE_FAULT;
             }
             else
             {
-                if(resCallback.result == PA_OK)
+                if(resCallback.result == TAF_PA_OK)
                 {
                     cPtr->retCode = LE_OK;
                 }
@@ -8600,16 +8600,16 @@ void taf_locGnss::SetMinGpsWeekWorker(void* cmdPtr, void*)
         case TAF_LOCGNSS_STATE_READY:
         {
             typedef struct{
-                pa_result_t result;
+                taf_pa_result_t result;
             }taf_SelfTestResult_t;
-            auto cb1 = [](pa_result_t result, std::any context) {
+            auto cb1 = [](taf_pa_result_t result, std::any context) {
                 taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                 resPtr->result = result;
             };
             taf_SelfTestResult_t resCallback = {};
-            pa_result_t res = taf_pa_location_configureMinGpsWeek(minGpsWeek,cb1,(std::any)&resCallback);
-            if(res == PA_OK){
-                if(resCallback.result == PA_OK)
+            taf_pa_result_t res = taf_pa_location_configureMinGpsWeek(minGpsWeek,cb1,(std::any)&resCallback);
+            if(res == TAF_PA_OK){
+                if(resCallback.result == TAF_PA_OK)
                 {
                     cPtr->retCode = LE_OK;
                 }
@@ -8667,23 +8667,23 @@ le_result_t taf_locGnss::GetMinGpsWeek
         case TAF_LOCGNSS_STATE_ACTIVE:
         {
             typedef struct{
-                pa_result_t result;
+                taf_pa_result_t result;
                 uint16_t minGpsWeek;
             }taf_SelfTestResult_t;
-            auto cb = [](pa_result_t result,
+            auto cb = [](taf_pa_result_t result,
                 uint16_t* minGpsWeek_,std::any context) {
                     taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                     resPtr->result = result;
-                    if(result == PA_OK) {
+                    if(result == TAF_PA_OK) {
                         resPtr->minGpsWeek = *minGpsWeek_;
                     }
             };
 
             taf_SelfTestResult_t resCallback = {};
-            pa_result_t res = taf_pa_location_requestMinGpsWeek(cb,(std::any)&resCallback);
+            taf_pa_result_t res = taf_pa_location_requestMinGpsWeek(cb,(std::any)&resCallback);
 
-            if(res == PA_OK){
-                if(resCallback.result == PA_OK)
+            if(res == TAF_PA_OK){
+                if(resCallback.result == TAF_PA_OK)
                 {
                     result = LE_OK;
                     *minGpsWeekPtr = resCallback.minGpsWeek;
@@ -8719,10 +8719,10 @@ le_result_t taf_locGnss::GetCapabilities
 
     *locCapabilityPtr = 0;
     uint32_t caps = 0;
-    pa_result_t capsRes = taf_pa_location_getCapabilities(
+    taf_pa_result_t capsRes = taf_pa_location_getCapabilities(
         clientRequestPtr->locationClient, &caps,
         std::any(clientRequestPtr->sessionRef));
-    if (capsRes != PA_OK)
+    if (capsRes != TAF_PA_OK)
     {
         LE_ERROR("taf_pa_location_getCapabilities failed: %d", (int)capsRes);
         return LE_FAULT;
@@ -8809,16 +8809,16 @@ void taf_locGnss::SetNmeaConfigurationWorker(void* cmdPtr, void*)
             case TAF_LOCGNSS_STATE_ACTIVE:
             {
                 typedef struct{
-                    pa_result_t result;
+                    taf_pa_result_t result;
                 }taf_SelfTestResult_t;
-                auto cb = [](pa_result_t result, std::any context) {
+                auto cb = [](taf_pa_result_t result, std::any context) {
                     taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                     resPtr->result = result;
                 };
                 taf_SelfTestResult_t resCallback = {};
-                pa_result_t res = taf_pa_location_configureNmea(nmeaConfig,cb,(std::any)&resCallback);
-                if(res == PA_OK){
-                    if(resCallback.result == PA_OK)
+                taf_pa_result_t res = taf_pa_location_configureNmea(nmeaConfig,cb,(std::any)&resCallback);
+                if(res == TAF_PA_OK){
+                    if(resCallback.result == TAF_PA_OK)
                     {
                         cPtr->retCode = LE_OK;
                     }
@@ -8894,27 +8894,27 @@ le_result_t taf_locGnss::GetXtraStatus
         case TAF_LOCGNSS_STATE_ACTIVE:
         {
             typedef struct{
-                pa_result_t result;
+                taf_pa_result_t result;
                 taf_pa_location_XtraStatus_t xtraStatus;
             }taf_SelfTestResult_t;
-            auto cb = [](pa_result_t result,
+            auto cb = [](taf_pa_result_t result,
                 taf_pa_location_XtraStatus_t xtraStatus_,std::any context) {
                     taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                     resPtr->result = result;
-                    if(result == PA_OK) {
+                    if(result == TAF_PA_OK) {
                         resPtr->xtraStatus.featureEnabled = xtraStatus_.featureEnabled;
                         resPtr->xtraStatus.xtraValidForHours = xtraStatus_.xtraValidForHours;
                         resPtr->xtraStatus.xtraDataStatus = xtraStatus_.xtraDataStatus;
                     }
             };
             taf_SelfTestResult_t resCallback = {};
-            pa_result_t res = taf_pa_location_requestXtraStatus(cb,(std::any)&resCallback);
-            if(res != PA_OK){
+            taf_pa_result_t res = taf_pa_location_requestXtraStatus(cb,(std::any)&resCallback);
+            if(res != TAF_PA_OK){
                 return LE_FAULT;
             }
             else
             {
-                if(resCallback.result == PA_OK)
+                if(resCallback.result == TAF_PA_OK)
                 {
                     result = LE_OK;
                     xtraParams->featureEnabled = resCallback.xtraStatus.featureEnabled;
@@ -9234,19 +9234,19 @@ void taf_locGnss::InjectMerkleWorker
     LE_DEBUG("InjectMerkleWorker: merkleTreeStr size: %zu bytes",
              merkleTreeStr.size());
 
-    typedef struct { pa_result_t result; } MerkleResult_t;
+    typedef struct { taf_pa_result_t result; } MerkleResult_t;
     MerkleResult_t resCallback = {};
 
-    auto cb = [](pa_result_t result, std::any context)
+    auto cb = [](taf_pa_result_t result, std::any context)
     {
         MerkleResult_t* resPtr = std::any_cast<MerkleResult_t*>(context);
         resPtr->result = result;
     };
 
-    pa_result_t res = taf_pa_location_injectMerkleTreeInformation(
+    taf_pa_result_t res = taf_pa_location_injectMerkleTreeInformation(
                           merkleTreeStr, cb, (std::any)&resCallback);
 
-    if (res == PA_OK && resCallback.result == PA_OK)
+    if (res == TAF_PA_OK && resCallback.result == TAF_PA_OK)
     {
         LE_INFO("InjectMerkleWorker: InjectMerkleTreeInformation success!!");
         cPtr->retCode = LE_OK;
@@ -9353,16 +9353,16 @@ void taf_locGnss::ConfigureOsnmaWorker(void* cmdPtr, void*)
         case TAF_LOCGNSS_STATE_READY:
         {
             typedef struct{
-                pa_result_t result;
+                taf_pa_result_t result;
             }taf_SelfTestResult_t;
-            auto cb = [](pa_result_t result, std::any context) {
+            auto cb = [](taf_pa_result_t result, std::any context) {
                 taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                 resPtr->result = result;
             };
             taf_SelfTestResult_t resCallback = {};
-            pa_result_t res = taf_pa_location_configureOsnma(galOsnma,cb,(std::any)&resCallback);
-            if(res == PA_OK){
-                if(resCallback.result == PA_OK)
+            taf_pa_result_t res = taf_pa_location_configureOsnma(galOsnma,cb,(std::any)&resCallback);
+            if(res == TAF_PA_OK){
+                if(resCallback.result == TAF_PA_OK)
                 {
                     LE_INFO("ConfigureOsnma status PASS for: %d",galOsnma);
                     cPtr->retCode = LE_OK;
@@ -9548,9 +9548,9 @@ void taf_locGnss::InjectDgnssCorrectionWorker(void* cmdPtr, void*)
         case TAF_LOCGNSS_STATE_ACTIVE:
         {
             typedef struct{
-                pa_result_t result;
+                taf_pa_result_t result;
             }taf_SelfTestResult_t;
-            auto cb = [](pa_result_t result, std::any context) {
+            auto cb = [](taf_pa_result_t result, std::any context) {
                 taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                 resPtr->result = result;
             };
@@ -9558,9 +9558,9 @@ void taf_locGnss::InjectDgnssCorrectionWorker(void* cmdPtr, void*)
 
             LE_INFO("Buffer size: %zu bytes", cPtr->params.injectDgnssCorrection.correctionDataSize);
 
-            pa_result_t res = taf_pa_location_injectCorrectionData(cPtr->params.injectDgnssCorrection.correctionData, static_cast<uint32_t>(cPtr->params.injectDgnssCorrection.correctionDataSize),cb,(std::any)&resCallback);
-            if(res == PA_OK){
-                if(resCallback.result == PA_OK)
+            taf_pa_result_t res = taf_pa_location_injectCorrectionData(cPtr->params.injectDgnssCorrection.correctionData, static_cast<uint32_t>(cPtr->params.injectDgnssCorrection.correctionDataSize),cb,(std::any)&resCallback);
+            if(res == TAF_PA_OK){
+                if(resCallback.result == TAF_PA_OK)
                 {
                     LE_INFO("InjectCorrectionData success!!");
                     cPtr->retCode = LE_OK;
@@ -9686,9 +9686,9 @@ void taf_locGnss::CreateDgnssSourceWorker(void* cmdPtr, void*)
         case TAF_LOCGNSS_STATE_READY:
         {
             typedef struct{
-                    pa_result_t result;
+                    taf_pa_result_t result;
             }taf_SelfTestResult_t;
-            auto cb = [](pa_result_t result, std::any context) {
+            auto cb = [](taf_pa_result_t result, std::any context) {
                 taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                 resPtr->result = result;
             };
@@ -9702,14 +9702,14 @@ void taf_locGnss::CreateDgnssSourceWorker(void* cmdPtr, void*)
                 }
                 LE_INFO("DgnssManagercount: %zu",count);
                 if(count == 0){
-                    pa_result_t res = taf_pa_location_initializeDgnss((taf_pa_location_DgnssDataFormat_t)cPtr->params.createDgnssSource.dgnssDataFormat,cb,(std::any)&resCallback);
-                    if(res != PA_OK)
+                    taf_pa_result_t res = taf_pa_location_initializeDgnss((taf_pa_location_DgnssDataFormat_t)cPtr->params.createDgnssSource.dgnssDataFormat,cb,(std::any)&resCallback);
+                    if(res != TAF_PA_OK)
                     {
                         LE_ERROR("DgnssManager failed in PA layer!!");
                     }
                     else
                     {
-                        if(resCallback.result == PA_OK)
+                        if(resCallback.result == TAF_PA_OK)
                         {
                             LE_INFO("DgnssManager init success");
                             taf_locGnss_DgnssSource_t* gnssSource = (taf_locGnss_DgnssSource_t*)
@@ -9727,7 +9727,7 @@ void taf_locGnss::CreateDgnssSourceWorker(void* cmdPtr, void*)
                         }
                     }
                     gnss.dgnssListener.onDgnssStatusUpdate = &Handler::onDgnssStatusUpdate;
-                    if(taf_pa_location_registerDgnssEventListener(&gnss.dgnssListener, std::any(clientRequestPtr->sessionRef)) !=  PA_OK){
+                    if(taf_pa_location_registerDgnssEventListener(&gnss.dgnssListener, std::any(clientRequestPtr->sessionRef)) !=  TAF_PA_OK){
                         LE_ERROR("Dgnss Listener register failed");
                     }else{
                         LE_INFO("Dgnss Listener registered!!");
@@ -9753,14 +9753,14 @@ void taf_locGnss::CreateDgnssSourceWorker(void* cmdPtr, void*)
                     LE_ERROR("Release source failed!!");
                 }
 
-                pa_result_t res = taf_pa_location_initializeDgnss((taf_pa_location_DgnssDataFormat_t)cPtr->params.createDgnssSource.dgnssDataFormat,cb,(std::any)&resCallback);
-                if(res != PA_OK)
+                taf_pa_result_t res = taf_pa_location_initializeDgnss((taf_pa_location_DgnssDataFormat_t)cPtr->params.createDgnssSource.dgnssDataFormat,cb,(std::any)&resCallback);
+                if(res != TAF_PA_OK)
                 {
                     LE_ERROR("DgnssManager failed in PA layer!!");
                 }
                 else
                 {
-                    if(resCallback.result == PA_OK)
+                    if(resCallback.result == TAF_PA_OK)
                     {
                         LE_INFO("DgnssManager init success");
                     }
@@ -9770,14 +9770,14 @@ void taf_locGnss::CreateDgnssSourceWorker(void* cmdPtr, void*)
                     }
                 }
 
-                pa_result_t res1 = taf_pa_location_createDgnssSource((taf_pa_location_DgnssDataFormat_t)cPtr->params.createDgnssSource.dgnssDataFormat,cb,(std::any)&resCallback);
-                if(res1 != PA_OK)
+                taf_pa_result_t res1 = taf_pa_location_createDgnssSource((taf_pa_location_DgnssDataFormat_t)cPtr->params.createDgnssSource.dgnssDataFormat,cb,(std::any)&resCallback);
+                if(res1 != TAF_PA_OK)
                 {
                     LE_ERROR("CreateDgnssSource failed in PA layer!!");
                 }
                 else
                 {
-                    if(resCallback.result == PA_OK)
+                    if(resCallback.result == TAF_PA_OK)
                     {
                         LE_INFO("CreateSource is success");
                         taf_locGnss_DgnssSource_t* gnssSource = (taf_locGnss_DgnssSource_t*)
@@ -9795,7 +9795,7 @@ void taf_locGnss::CreateDgnssSourceWorker(void* cmdPtr, void*)
                     }
                 }
                 gnss.dgnssListener.onDgnssStatusUpdate = &Handler::onDgnssStatusUpdate;
-                if(taf_pa_location_registerDgnssEventListener(&gnss.dgnssListener, std::any(clientRequestPtr->sessionRef)) !=  PA_OK){
+                if(taf_pa_location_registerDgnssEventListener(&gnss.dgnssListener, std::any(clientRequestPtr->sessionRef)) !=  TAF_PA_OK){
                     LE_ERROR("Dgnss Listener register failed");
                 }else{
                     LE_INFO("Dgnss Listener registered!!");
@@ -9848,22 +9848,22 @@ le_result_t taf_locGnss::InternalReleaseDgnssSourceOnWorker
 {
     auto &gnss = taf_locGnss::GetInstance();
 
-    typedef struct { pa_result_t result; } taf_SelfTestResult_t;
+    typedef struct { taf_pa_result_t result; } taf_SelfTestResult_t;
 
     taf_SelfTestResult_t resCallback = {};
-    auto cb = [](pa_result_t result, std::any context)
+    auto cb = [](taf_pa_result_t result, std::any context)
     {
         taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
         resPtr->result = result;
     };
 
-    pa_result_t res = taf_pa_location_releaseDgnssSource(cb, (std::any)&resCallback);
-    if (res != PA_OK)
+    taf_pa_result_t res = taf_pa_location_releaseDgnssSource(cb, (std::any)&resCallback);
+    if (res != TAF_PA_OK)
     {
         LE_ERROR("InternalRelease: taf_pa_location_releaseDgnssSource returned error");
         return LE_FAULT;
     }
-    if (resCallback.result != PA_OK)
+    if (resCallback.result != TAF_PA_OK)
     {
         LE_ERROR("InternalRelease: releaseDgnssSource PA callback failed");
         return LE_FAULT;
@@ -9898,7 +9898,7 @@ le_result_t taf_locGnss::InternalReleaseDgnssSourceOnWorker
     LE_INFO("InternalRelease: source ref cleaned up and client state reset");
 
     if (taf_pa_location_deregisterDgnssEventListener(
-            std::any(clientRequestPtr->sessionRef)) != PA_OK)
+            std::any(clientRequestPtr->sessionRef)) != TAF_PA_OK)
     {
         LE_ERROR("InternalRelease: deregisterDgnssEventListener failed");
     }
@@ -9908,14 +9908,14 @@ le_result_t taf_locGnss::InternalReleaseDgnssSourceOnWorker
     }
 
     taf_SelfTestResult_t resCallback1 = {};
-    auto cb1 = [](pa_result_t result, std::any context)
+    auto cb1 = [](taf_pa_result_t result, std::any context)
     {
         taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
         resPtr->result = result;
     };
 
-    pa_result_t deInitRes = taf_pa_location_deInitializeDgnss(cb1, (std::any)&resCallback1);
-    if (deInitRes != PA_OK || resCallback1.result != PA_OK)
+    taf_pa_result_t deInitRes = taf_pa_location_deInitializeDgnss(cb1, (std::any)&resCallback1);
+    if (deInitRes != TAF_PA_OK || resCallback1.result != TAF_PA_OK)
     {
         LE_ERROR("InternalRelease: deInitializeDgnss failed (res=%d cbResult=%d)",
                  deInitRes, resCallback1.result);
@@ -9971,16 +9971,16 @@ void taf_locGnss::ReleaseDgnssSourceWorker(void* cmdPtr, void*)
         {
             if(clientRequestPtr->activeSourceRef != NULL && clientRequestPtr->activeDgnssFormat != TAF_LOCGNSS_DGNSS_FORMAT_UNKNOWN){
                 typedef struct{
-                    pa_result_t result;
+                    taf_pa_result_t result;
                 }taf_SelfTestResult_t;
-                auto cb = [](pa_result_t result, std::any context) {
+                auto cb = [](taf_pa_result_t result, std::any context) {
                     taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                     resPtr->result = result;
                 };
 
                 taf_SelfTestResult_t resCallback = {};
-                pa_result_t res = taf_pa_location_releaseDgnssSource(cb,(std::any)&resCallback);
-                if(res != PA_OK)
+                taf_pa_result_t res = taf_pa_location_releaseDgnssSource(cb,(std::any)&resCallback);
+                if(res != TAF_PA_OK)
                 {
                     cPtr->retCode = LE_FAULT;
                     le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ReleaseDgnssSourceSvcRespond, cPtr, NULL);
@@ -9988,7 +9988,7 @@ void taf_locGnss::ReleaseDgnssSourceWorker(void* cmdPtr, void*)
                 }
                 else
                 {
-                    if(resCallback.result == PA_OK)
+                    if(resCallback.result == TAF_PA_OK)
                     {
                         LE_INFO("ReleaseSource is success");
                         if(cPtr->params.releaseDgnssSource.sourceRef != NULL)
@@ -10026,25 +10026,25 @@ void taf_locGnss::ReleaseDgnssSourceWorker(void* cmdPtr, void*)
                     }
                 }
 
-                if(taf_pa_location_deregisterDgnssEventListener(std::any(clientRequestPtr->sessionRef)) !=  PA_OK){
+                if(taf_pa_location_deregisterDgnssEventListener(std::any(clientRequestPtr->sessionRef)) !=  TAF_PA_OK){
                     LE_ERROR("Dgnss Listener DeRegister failed");
                 }else{
                     LE_INFO("Dgnss Listener DeRegistered!!");
                 }
 
-                auto cb1 = [](pa_result_t result, std::any context) {
+                auto cb1 = [](taf_pa_result_t result, std::any context) {
                     taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                     resPtr->result = result;
                 };
                 taf_SelfTestResult_t resCallback1 = {};
-                pa_result_t deInit_res = taf_pa_location_deInitializeDgnss(cb1,(std::any)&resCallback1);
-                if(deInit_res != PA_OK)
+                taf_pa_result_t deInit_res = taf_pa_location_deInitializeDgnss(cb1,(std::any)&resCallback1);
+                if(deInit_res != TAF_PA_OK)
                 {
                     cPtr->retCode = LE_FAULT;
                 }
                 else
                 {
-                    if(resCallback1.result == PA_OK)
+                    if(resCallback1.result == TAF_PA_OK)
                     {
                         LE_INFO("Dgnss Manager removed created for this source!!");
                         cPtr->retCode = LE_OK;
@@ -10121,16 +10121,16 @@ le_result_t taf_locGnss::SetEngineIntegrityRisk
         case TAF_LOCGNSS_STATE_READY:
         {
             typedef struct{
-                pa_result_t result;
+                taf_pa_result_t result;
             }taf_SelfTestResult_t;
-            auto cb = [](pa_result_t result, std::any context) {
+            auto cb = [](taf_pa_result_t result, std::any context) {
                 taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                 resPtr->result = result;
             };
             taf_SelfTestResult_t resCallback = {};
-            pa_result_t res = taf_pa_location_configureEngineIntegrityRisk((taf_pa_location_EngineType_t)engineType,integrityRisk,cb,(std::any)&resCallback);
-            if(res == PA_OK){
-                if(resCallback.result == PA_OK)
+            taf_pa_result_t res = taf_pa_location_configureEngineIntegrityRisk((taf_pa_location_EngineType_t)engineType,integrityRisk,cb,(std::any)&resCallback);
+            if(res == TAF_PA_OK){
+                if(resCallback.result == TAF_PA_OK)
                 {
                     LE_INFO("SetEngineIntegrityRisk is success");
                     return LE_OK;
@@ -10621,28 +10621,28 @@ void taf_locGnss::CloseEventHandler
             }
 
             if(gnssPtr->activeSourceRef != NULL && gnssPtr->activeDgnssFormat != 0){
-                if(taf_pa_location_deregisterDgnssEventListener(std::any(gnssPtr->sessionRef)) !=  PA_OK){
+                if(taf_pa_location_deregisterDgnssEventListener(std::any(gnssPtr->sessionRef)) !=  TAF_PA_OK){
                     LE_ERROR("Dgnss Listener DeRegister failed");
                 }else{
                     LE_INFO("Dgnss Listener DeRegistered!!");
                 }
 
                 typedef struct{
-                    pa_result_t result;
+                    taf_pa_result_t result;
                 }taf_SelfTestResult_t;
-                auto cb = [](pa_result_t result, std::any context) {
+                auto cb = [](taf_pa_result_t result, std::any context) {
                     taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                     resPtr->result = result;
                 };
                 taf_SelfTestResult_t resCallback = {};
-                pa_result_t deInit_res = taf_pa_location_deInitializeDgnss(cb,(std::any)&resCallback);
-                if(deInit_res != PA_OK)
+                taf_pa_result_t deInit_res = taf_pa_location_deInitializeDgnss(cb,(std::any)&resCallback);
+                if(deInit_res != TAF_PA_OK)
                 {
                     result = LE_FAULT;
                 }
                 else
                 {
-                    if(resCallback.result == PA_OK)
+                    if(resCallback.result == TAF_PA_OK)
                     {
                         LE_INFO("Dgnss Manager removed created for this source!!");
                     }
@@ -10726,7 +10726,7 @@ void taf_locGnss::CleanUp(taf_locGnss_Client_t* clientPtr)
         return;
     }
 
-    if(tafpa::location::taf_pa_location_DeleteClient(clientPtr->locationClient) != PA_OK)
+    if(tafpa::location::taf_pa_location_DeleteClient(clientPtr->locationClient) != TAF_PA_OK)
     {
         LE_ERROR("Unable to delete reference: %d", (int)clientPtr->locationClient);
     }else{
@@ -10808,7 +10808,7 @@ void taf_locGnss::Init()
 
     LE_INFO("taf_locGnss-->Init!!");
 
-    if (taf_pa_location_Init() != PA_OK)
+    if (taf_pa_location_Init() != TAF_PA_OK)
     {
         LE_ERROR("Cannot initialize location platform adaptor");
     }else{

@@ -78,6 +78,40 @@ void taf_pa_sim_RemoveRefreshChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Initializes the SIM platform adaptor.
+ *
+ * @return
+ *  - LE_OK      - SIM platform adaptor initialized successfully.
+ *  - LE_FAULT   - Failed to initialize the SIM platform adaptor.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_sim_Init
+(
+    void
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deinitializes the SIM platform adaptor.
+ *
+ * @return
+ *  - LE_OK      - SIM platform adaptor deinitialized successfully.
+ *  - LE_FAULT   - Failed to deinitialize the SIM platform adaptor.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_sim_DeInit
+(
+    void
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Init this component
  */
 //--------------------------------------------------------------------------------------------------

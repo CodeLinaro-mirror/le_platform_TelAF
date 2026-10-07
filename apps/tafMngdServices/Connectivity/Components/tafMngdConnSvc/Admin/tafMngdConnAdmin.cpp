@@ -1290,7 +1290,7 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
             LE_ERROR("Sim is not ready or network is not registered");
             return LE_FAULT;
             break;
-
+        case MCS_DATA_NOT_CONNECTED_SIM_READY:
         case MCS_DATA_NOT_CONNECTED_RETRYING:
         case MCS_DATA_NOT_CONNECTED_NW_REGISTERED:
         case MCS_DATA_NOT_CONNECTED:

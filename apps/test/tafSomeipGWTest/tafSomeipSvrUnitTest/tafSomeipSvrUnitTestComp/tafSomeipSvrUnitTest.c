@@ -274,6 +274,10 @@ __attribute__((unused)) void RxMessageHandler
         LE_TEST_ASSERT(LE_OK == taf_someipSvr_Notify(ServiceRef, TEST_EVENT_ID2, termCmd, 2),
                        "RxMessageHandler sending termination event.");
 
+        // Give more time to make sure client is able to receive the termination event
+        // before server stops offering the service.
+        le_thread_Sleep(3);
+
         LE_TEST_ASSERT(LE_OK == taf_someipSvr_StopOfferService(ServiceRef),
                        "RxMessageHandler taf_someipSvr_StopOfferService() API.");
 

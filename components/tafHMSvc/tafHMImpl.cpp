@@ -58,7 +58,8 @@ LE_REF_DEFINE_STATIC_MAP(ModemEventInfoRefMap, TAF_HMS_MAX_EVENT_POOL_SIZE);
 LE_REF_DEFINE_STATIC_MAP(ModemInfoRefMap, TAF_HMS_MAX_REF_POOL_SIZE);
 
 static bool ModemAvailability = false;
-bool isPaPhoneInitialized = false;
+static bool isPaPhoneInitialized = false;
+static bool isPaModemNotificationInitialized = false;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -92,7 +93,7 @@ void taf_Hms::CleanupOnSigTerm()
     auto &mppsListener = tafHmsListener::GetInstance();
     mppsListener.DeleteResetTime();
 
-    if (isPaPhoneInitialized)
+    if (isPaModemNotificationInitialized || isPaPhoneInitialized)
     {
         taf_pa_result_t result = taf_pa_health_Deinit();
         if (result != TAF_PA_OK)
@@ -101,6 +102,7 @@ void taf_Hms::CleanupOnSigTerm()
         }
         else
         {
+            isPaModemNotificationInitialized = false;
             isPaPhoneInitialized = false;
         }
     }
@@ -2086,6 +2088,7 @@ void InitModemStatusChangeSupport(void)
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_health_ModemNotificationInit reason=%d", pa_result);
         return;
     }
+    isPaModemNotificationInitialized = true;
 
     //Register CB for modem status change
     pa_result = taf_pa_health_RegModemStatusUpdateHandler(ModemStatusChangePAHandler);

@@ -172,8 +172,20 @@ void Handler::onGnssSVInfo(taf_pa_location_LocationId clientId, const std::vecto
             clientRequestPtr->mSatInfo[i].satTracked = false;
         }
         clientRequestPtr->mSatInfo[i].satSnr = svInfo->Snr;
-        clientRequestPtr->mSatInfo[i].satAzim = svInfo->azimuth;
-        clientRequestPtr->mSatInfo[i].satElev = svInfo->elevation;
+        {
+            const float satAzimuth = svInfo->azimuth;
+            clientRequestPtr->mSatInfo[i].satAzim =
+                    (!std::isnan(satAzimuth) && (satAzimuth >= 0.0F) && (satAzimuth <= 360.0F))
+                    ? satAzimuth
+                    : UINT16_MAX;
+        }
+        {
+            const float satElevation = svInfo->elevation;
+            clientRequestPtr->mSatInfo[i].satElev =
+                    (!std::isnan(satElevation) && (satElevation >= 0.0F) && (satElevation <= 90.0F))
+                    ? satElevation
+                    : UINT8_MAX;
+        }
         clientRequestPtr->mSatInfo[i].signalType = svInfo->signalType;
         clientRequestPtr->mSatInfo[i].glonassFcn = svInfo->GlonassFcn;
         clientRequestPtr->mSatInfo[i].baseBandCnr = svInfo->BasebandCnr;
@@ -411,6 +423,7 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
             LocationData->baselineLengthValid = true;
             LocationData->ageCorrectionsValid = true;
             LocationData->integrityRiskUsedValid = true;
+            LocationData->altMeanSeaLevelValid = true;
             if(locationInfo->mAltType == TAF_PA_LOCATION_CALCULATED)
             {
                 clientRequestPtr->mAltType = TAF_LOCGNSS_ALT_TYPE_CALCULATED;
@@ -479,21 +492,88 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
                     locationInfo->techMask);
 
             LocationData->reportStatus = (taf_locGnss_ReportStatus_t) locationInfo->reportStatus;
-            LocationData->altMeanSeaLevel = locationInfo->altMeanSeaLevel;
-            LocationData->latitude  = locationInfo->latitude;
-            LocationData->longitude = locationInfo->longitude;
+            locData = 0.0;
+            locData = locationInfo->altMeanSeaLevel;
+            if (!std::isnan(locData))
+            {
+                LocationData->altMeanSeaLevel = locData;
+            }
+            else
+            {
+                LocationData->altMeanSeaLevel = 0;
+                LocationData->altMeanSeaLevelValid = false;
+            }
+            locData = 0.0;
+            locData = locationInfo->latitude;
+            if (!std::isnan(locData))
+            {
+                LocationData->latitude = locData;
+            }
+            else
+            {
+                LocationData->latitude = 0;
+                LocationData->latitudeValid = false;
+            }
+            locData = 0.0;
+            locData = locationInfo->longitude;
+            if (!std::isnan(locData))
+            {
+                LocationData->longitude = locData;
+            }
+            else
+            {
+                LocationData->longitude = 0;
+                LocationData->longitudeValid = false;
+            }
             locData = 0.0;
             locData = locationInfo->hUncertainity;
-            roundOffLocationData(&locData,2);//round off to 2 decimal places
-            LocationData->hAccuracy = (int32_t)locData;
+            if (!std::isnan(locData))
+            {
+                roundOffLocationData(&locData,2);//round off to 2 decimal places
+                LocationData->hAccuracy = (int32_t)locData;
+            }
+            else
+            {
+                LocationData->hAccuracy = 0;
+                LocationData->hAccuracyValid = false;
+            }
             locData = 0.0;
             locData = locationInfo->altitude;
-            roundOffLocationData(&locData,3);//round off to 3 decimal places
-            LocationData->altitude = (int32_t)locData;
-            LocationData->vAccuracy = locationInfo->vUncertainity;
+            if (!std::isnan(locData))
+            {
+                roundOffLocationData(&locData,3);//round off to 3 decimal places
+                LocationData->altitude = (int32_t)locData;
+            }
+            else
+            {
+                LocationData->altitude = 0;
+                LocationData->altitudeValid = false;
+            }
+            locData = 0.0;
+            locData = locationInfo->vUncertainity;
+            if (!std::isnan(locData))
+            {
+                LocationData->vAccuracy = locData;
+            }
+            else
+            {
+                LocationData->vAccuracy = 0;
+                LocationData->vAccuracyValid = false;
+            }
             LocationData->altitudeOnWgs84 = 0;
             LocationData->hSpeed = locationInfo->hSpeed*100;
-            LocationData->hSpeedAccuracy = locationInfo->hSpeedUncertainity*1e+3;
+            {
+                const float speedUnc = locationInfo->hSpeedUncertainity;
+                if (!std::isnan(speedUnc))
+                {
+                    LocationData->hSpeedAccuracy = speedUnc * 1e+3F;
+                }
+                else
+                {
+                    LocationData->hSpeedAccuracy = 0.0F;
+                    LocationData->hSpeedAccuracyValid = false;
+                }
+            }
             if(locationInfo->verticalSpeed.size() == VERTICAL_SPEED_SIZE)
             {
                 LocationData->vSpeed = (int32_t)
@@ -515,14 +595,67 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
             {
                 LocationData->vSpeedAccuracy = 0;
             }
-            LocationData->magneticDeviation = locationInfo->magneticDeviation*10;
+            {
+                const float magDev = locationInfo->magneticDeviation;
+                if (!std::isnan(magDev))
+                {
+                    LocationData->magneticDeviation = (int32_t)(magDev * 10.0F);
+                }
+                else
+                {
+                    LocationData->magneticDeviation = 0;
+                    LocationData->magneticDeviationValid = false;
+                }
+            }
             LocationData->epochTime = locationInfo->epochTime;
-            LocationData->horUncEllipseSemiMajor =
-                    locationInfo->horUncEllipseSemiMajor;
-            LocationData->horUncEllipseSemiMinor =
-                    locationInfo->horUncEllipseSemiMinor;
-            LocationData->direction = locationInfo->direction;
-            LocationData->directionAccuracy = locationInfo->directionAccuracy;
+            {
+                const float semiMajor = locationInfo->horUncEllipseSemiMajor;
+                if (!std::isnan(semiMajor))
+                {
+                    LocationData->horUncEllipseSemiMajor = semiMajor;
+                }
+                else
+                {
+                    LocationData->horUncEllipseSemiMajor = 0.0F;
+                    LocationData->horUncEllipseSemiMajorValid = false;
+                }
+            }
+            {
+                const float semiMinor = locationInfo->horUncEllipseSemiMinor;
+                if (!std::isnan(semiMinor))
+                {
+                    LocationData->horUncEllipseSemiMinor = semiMinor;
+                }
+                else
+                {
+                    LocationData->horUncEllipseSemiMinor = 0.0F;
+                    LocationData->horUncEllipseSemiMinorValid = false;
+                }
+            }
+            {
+                const float heading = locationInfo->direction;
+                if (!std::isnan(heading))
+                {
+                    LocationData->direction = heading;
+                }
+                else
+                {
+                    LocationData->direction = 0;
+                    LocationData->directionValid = false;
+                }
+            }
+            {
+                const float headingUnc = locationInfo->directionAccuracy;
+                if (!std::isnan(headingUnc))
+                {
+                    LocationData->directionAccuracy = headingUnc;
+                }
+                else
+                {
+                    LocationData->directionAccuracy = 0;
+                    LocationData->directionAccuracyValid = false;
+                }
+            }
             LocationData->gpsWeek = locationInfo->gpsWeek;
             LocationData->gpsTimeOfWeek = locationInfo->gpsTimeOfWeek;
 
@@ -537,11 +670,66 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
                 LocationData->timeAccuracy = (uint32_t)((uint64_t)((value*1e+7)+5))/10;
             }
             LocationData->positionLatency = 0;
-            LocationData->hdop = locationInfo->hdop *1e+3;
-            LocationData->vdop = locationInfo->vdop * 1e+3;
-            LocationData->pdop = locationInfo->pdop * 1e+3;
-            LocationData->gdop = locationInfo->gdop * 1e+3;
-            LocationData->tdop = locationInfo->tdop * 1e+3;
+            {
+                const float hDop = locationInfo->hdop;
+                if (!std::isnan(hDop))
+                {
+                    LocationData->hdop = (int32_t)(hDop * 1e+3F);
+                }
+                else
+                {
+                    LocationData->hdop = 0;
+                    LocationData->hdopValid = false;
+                }
+            }
+            {
+                const float vdop = locationInfo->vdop;
+                if (!std::isnan(vdop))
+                {
+                    LocationData->vdop = (int32_t)(vdop * 1e+3F);
+                }
+                else
+                {
+                    LocationData->vdop = 0;
+                    LocationData->vdopValid = false;
+                }
+            }
+            {
+                const float pDop = locationInfo->pdop;
+                if (!std::isnan(pDop))
+                {
+                    LocationData->pdop = (int32_t)(pDop * 1e+3F);
+                }
+                else
+                {
+                    LocationData->pdop = 0;
+                    LocationData->pdopValid = false;
+                }
+            }
+            {
+                const float gDop = locationInfo->gdop;
+                if (gDop >= 0.0F && gDop <= 50.0F)
+                {
+                    LocationData->gdop = (int32_t)(gDop * 1e+3F);
+                }
+                else
+                {
+                    LocationData->gdop = 0;
+                    LocationData->gdopValid = false;
+                }
+            }
+            {
+                const float tDop = locationInfo->tdop;
+                if (tDop >= 0.0F && tDop <= 50.0F)
+                {
+                    LocationData->tdop = (int32_t)(tDop * 1e+3F);
+                }
+                else
+                {
+                    LocationData->tdop = 0;
+                    LocationData->tdopValid = false;
+                }
+            }
             if(locationInfo->timeStamp != 0) {
                 time_t realtime;
                 realtime = (time_t)((locationInfo->timeStamp / 1000));
@@ -1161,7 +1349,18 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
             {
                 LocationData->vertReliablity = TAF_LOCGNSS_RELIABILITY_UNKNOWN;
             }
-            LocationData->azimuth = locationInfo->azimuth;
+            {
+                const float hUncAzimuth = locationInfo->azimuth;
+                if (!std::isnan(hUncAzimuth))
+                {
+                    LocationData->azimuth = hUncAzimuth;
+                }
+                else
+                {
+                    LocationData->azimuth = 0.0F;
+                    LocationData->azimuthValid = false;
+                }
+            }
             LocationData->eastDev = locationInfo->eastDev;
             LocationData->northDev = locationInfo->northDev;
             LocationData->realTime = locationInfo->realTime;
@@ -1284,35 +1483,94 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
             BasicLocationData->clientSessionRefPtr = &clientRequestPtr->sessionRef;
 
             double locData;
-            BasicLocationData->latitude  = locationInfo->latitude;
-            BasicLocationData->longitude = locationInfo->longitude;
+            locData = 0.0;
+            locData = locationInfo->latitude;
+            if (!std::isnan(locData))
+            {
+                BasicLocationData->latitude = locData;
+            }
+            else
+            {
+                BasicLocationData->latitude = 0;
+            }
+            locData = 0.0;
+            locData = locationInfo->longitude;
+            if (!std::isnan(locData))
+            {
+                BasicLocationData->longitude = locData;
+            }
+            else
+            {
+                BasicLocationData->longitude = 0;
+            }
             locData = 0.0;
             locData = locationInfo->hUncertainity;
-            roundOffLocationData(&locData,2);//round off to 2 decimal places
-            BasicLocationData->hAccuracy = (int32_t)locData;
+            if (!std::isnan(locData))
+            {
+                roundOffLocationData(&locData,2);//round off to 2 decimal places
+                BasicLocationData->hAccuracy = (int32_t)locData;
+            }
+            else
+            {
+                BasicLocationData->hAccuracy = 0;
+            }
             locData = 0.0;
             locData = locationInfo->altitude;
-            roundOffLocationData(&locData,3);//round off to 3 decimal places
-            BasicLocationData->altitude = (int32_t)locData;
-            BasicLocationData->vAccuracy = locationInfo->vUncertainity;
+            if (!std::isnan(locData))
+            {
+                roundOffLocationData(&locData,3);//round off to 3 decimal places
+                BasicLocationData->altitude = (int32_t)locData;
+            }
+            else
+            {
+                BasicLocationData->altitude = 0;
+            }
+            {
+                const float vUnc = locationInfo->vUncertainity;
+                BasicLocationData->vAccuracy = !std::isnan(vUnc) ? vUnc : 0.0F;
+            }
             BasicLocationData->hSpeed = locationInfo->hSpeed*100;
-            BasicLocationData->direction = locationInfo->direction;
-            BasicLocationData->directionAccuracy = locationInfo->directionAccuracy;
+            {
+                const float heading = locationInfo->direction;
+                BasicLocationData->direction = !std::isnan(heading) ? heading : 0.0F;
+            }
+            {
+                const float headingUnc = locationInfo->directionAccuracy;
+                BasicLocationData->directionAccuracy = !std::isnan(headingUnc) ? headingUnc : 0.0F;
+            }
             BasicLocationData->epochTime = locationInfo->epochTime;
             BasicLocationData->realTime = locationInfo->realTime;
             BasicLocationData->realTimeUnc = locationInfo->realTimeUnc;
-            BasicLocationData->hSpeedAccuracy = locationInfo->hSpeedUncertainity*1e+3;
+            {
+                const float hSpeedUnc = locationInfo->hSpeedUncertainity;
+                BasicLocationData->hSpeedAccuracy = !std::isnan(hSpeedUnc) ? (hSpeedUnc*1e+3) : 0;
+            }
 
             BasicLocationData->satsInViewCount = clientRequestPtr->mSatParams.satsInViewCount;
             BasicLocationData->satsTrackingCount = clientRequestPtr->mTotalSVTracked;
             BasicLocationData->satsUsedCount = locationInfo->satsUsedCount;
 
-            BasicLocationData->hdop = locationInfo->hdop *1e+3;
-            BasicLocationData->vdop = locationInfo->vdop * 1e+3;
-            BasicLocationData->pdop = locationInfo->pdop * 1e+3;
+            {
+                const float hDop = locationInfo->hdop;
+                BasicLocationData->hdop = !std::isnan(hDop) ? (hDop*1e+3) : 0;
+            }
+            {
+                const float vDop = locationInfo->vdop;
+                BasicLocationData->vdop = !std::isnan(vDop) ? (vDop*1e+3) : 0;
+            }
+            {
+                const float pDop = locationInfo->pdop;
+                BasicLocationData->pdop = !std::isnan(pDop) ? (pDop*1e+3) : 0;
+            }
 
-            BasicLocationData->altMeanSeaLevel = locationInfo->altMeanSeaLevel;
-            BasicLocationData->magneticDeviation = locationInfo->magneticDeviation*10;
+            {
+                const double altMsl = locationInfo->altMeanSeaLevel;
+                BasicLocationData->altMeanSeaLevel = !std::isnan(altMsl) ? altMsl : 0;
+            }
+            {
+                const float magDev = locationInfo->magneticDeviation;
+                BasicLocationData->magneticDeviation = !std::isnan(magDev) ? (int32_t)(magDev*10) : 0;
+            }
 
             taf_pa_location_LocationTechnologyType_t techMask = locationInfo->techMask;
             if((techMask & TAF_PA_LOCATION_LOC_GNSS))
@@ -2047,6 +2305,7 @@ void taf_locGnss::CopyPositionData
     LastDataPtr->realTimeUncValid = CurrentDataPtr->realTimeUncValid;
     LastDataPtr->techMask = CurrentDataPtr->techMask;
     LastDataPtr->techMaskValid = CurrentDataPtr->techMaskValid;
+    LastDataPtr->altMeanSeaLevelValid = CurrentDataPtr->altMeanSeaLevelValid;
     for(auto i=0; i<TAF_LOCGNSS_MEASUREMENT_INFO_MAX; i++)
     {
         LastDataPtr->measInfo[i].gnssSignalType = CurrentDataPtr->measInfo[i].gnssSignalType;
@@ -8730,9 +8989,25 @@ le_result_t taf_locGnss::GetAltitudeMeanSeaLevel
         return result;
     }
 
-    *altMeanSeaLevelPtr = posSampleReqPtr->positionSampleNodePtr->altMeanSeaLevel;
+    if (altMeanSeaLevelPtr)
+    {
+        if (posSampleReqPtr->positionSampleNodePtr->altMeanSeaLevelValid)
+        {
+            *altMeanSeaLevelPtr = posSampleReqPtr->positionSampleNodePtr->altMeanSeaLevel;
+        }
+        else
+        {
+            LE_DEBUG("GetAltitudeMeanSeaLevel: altMeanSeaLevel is invalid");
+            *altMeanSeaLevelPtr = DBL_MAX;
+            result = LE_OUT_OF_RANGE;
+        }
+    }
+    else
+    {
+        result = LE_FAULT;
+    }
 
-    return LE_OK;
+    return result;
 }
 
 le_result_t taf_locGnss::GetSVIds

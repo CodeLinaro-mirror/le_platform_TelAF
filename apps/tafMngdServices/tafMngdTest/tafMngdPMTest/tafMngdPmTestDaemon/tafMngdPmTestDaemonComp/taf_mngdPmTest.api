@@ -2,46 +2,133 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
 API_VERSION = 1;
 SERVING_VERSION = 1;
 
+DEFINE TEST_ID_LEN = 32;
+DEFINE HELP_TEXT_LEN = 4096;
+DEFINE TEST_DOC_LEN = 2048;
+DEFINE REASON_LEN = 256;
+DEFINE STATE_LEN = 64;
+DEFINE REPORT_LEN = 64;
+DEFINE MONITOR_STATUS_LEN = 128;
 
-REFERENCE MpmsTest;
+ENUM ShutdownMode
+{
+    SHUTDOWN_GRACEFUL,
+    SHUTDOWN_FORCEFUL
+};
 
-FUNCTION le_result_t GetMpmsTestObject
+ENUM WakeupMonitorMode
+{
+    WAKEUP_MONITOR_OBSERVE,
+    WAKEUP_MONITOR_KEEP_RESUME
+};
+
+FUNCTION le_result_t connect
 (
-    MpmsTest refPtr OUT
+    string reason[REASON_LEN] OUT
 ) = 0;
 
-FUNCTION le_result_t GetWakeupFilterFromMpss
+FUNCTION le_result_t disconnect
 (
-    MpmsTest ref IN,
-    uint32 bitmask OUT
+    string reason[REASON_LEN] OUT
 ) = 1;
 
-FUNCTION le_result_t SetWakeupFitlerToMpss
+FUNCTION le_result_t state
 (
-    MpmsTest ref IN,
-    uint32 bitmask IN
+    string powerState[STATE_LEN] OUT,
+    string reason[REASON_LEN] OUT
 ) = 2;
 
-FUNCTION le_result_t UpMonitorForWakeup
+FUNCTION le_result_t resume
 (
-    MpmsTest ref IN
+    string reason[REASON_LEN] OUT
 ) = 3;
 
-FUNCTION DownMonitorForWakeup
+FUNCTION le_result_t suspend
 (
-    MpmsTest ref IN
+    string reason[REASON_LEN] OUT
 ) = 4;
 
-FUNCTION le_result_t QueryLastWakeupReason
+FUNCTION le_result_t shutdown
 (
-    MpmsTest ref IN,
-    uint32 bitmask OUT
+    ShutdownMode mode IN,
+    string reason[REASON_LEN] OUT
 ) = 5;
 
-FUNCTION le_result_t RelaxWakeSource
+FUNCTION le_result_t restart
 (
-    MpmsTest ref IN
+    string reason[REASON_LEN] OUT
 ) = 6;
+
+FUNCTION le_result_t getInfoReport
+(
+    string report[REPORT_LEN] OUT,
+    string reason[REASON_LEN] OUT
+) = 7;
+
+FUNCTION le_result_t setWakeupFilter
+(
+    uint32 filter IN,
+    string reason[REASON_LEN] OUT
+) = 8;
+
+FUNCTION le_result_t getWakeupFilter
+(
+    uint32 filter OUT,
+    string reason[REASON_LEN] OUT
+) = 9;
+
+FUNCTION le_result_t getWakeupReason
+(
+    uint32 reasonMask OUT,
+    string reason[REASON_LEN] OUT
+) = 10;
+
+FUNCTION le_result_t monitorWakeup
+(
+    WakeupMonitorMode mode IN,
+    string reason[REASON_LEN] OUT
+) = 11;
+
+FUNCTION le_result_t releaseWakeupLock
+(
+    string reason[REASON_LEN] OUT
+) = 12;
+
+FUNCTION le_result_t stopWakeupMonitor
+(
+    string reason[REASON_LEN] OUT
+) = 13;
+
+FUNCTION le_result_t getWakeupMonitorStatus
+(
+    string status[MONITOR_STATUS_LEN] OUT,
+    string reason[REASON_LEN] OUT
+) = 14;
+
+FUNCTION le_result_t RunTest
+(
+    string testId[TEST_ID_LEN] IN,
+    string reason[REASON_LEN] OUT
+) = 15;
+
+FUNCTION le_result_t GetHelp
+(
+    string helpText[HELP_TEXT_LEN] OUT
+) = 16;
+
+FUNCTION le_result_t GetTestCaseDoc
+(
+    string testId[TEST_ID_LEN] IN,
+    string helpDoc[TEST_DOC_LEN] OUT
+) = 17;
+
+FUNCTION le_result_t GetTestCaseDocByIndex
+(
+    uint32 index IN,
+    string testId[TEST_ID_LEN] OUT,
+    string helpDoc[TEST_DOC_LEN] OUT
+) = 18;

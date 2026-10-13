@@ -6,209 +6,470 @@
 #include "legato.h"
 #include "interfaces.h"
 
-static taf_mngdPmTest_MpmsTestRef_t MpmsTestDaemonRef;
-static void (*ActionFn)(void);
-static const char* bitmaskFromCmd = NULL;
+#define HELP_TEXT_LEN 4096
+#define TEST_DOC_LEN 2048
+#define REASON_LEN 256
+#define TEST_ID_LEN 32
+#define STATE_LEN 64
+#define REPORT_LEN 64
+#define MONITOR_STATUS_LEN 128
 
-static void StopCommandLine(bool result)
+static void StopCommand
+(
+    le_result_t result,
+    const char* reason
+)
 {
-    if (result == true)
+    if (result != LE_OK)
     {
-        exit(EXIT_SUCCESS);
-    }
-    else
-    {
+        fprintf(stderr, "%s: %s\n", LE_RESULT_TXT(result),
+                reason != NULL && reason[0] != '\0' ? reason : "operation failed");
         exit(EXIT_FAILURE);
     }
-}
 
-static void PrintHelp(void)
-{
-    printf("Usage: %s help|get.mpss.filter|set.mpss.filter|"
-           "up.wakeup.monitor|down.wakeup.monitor [bitmask]\n",
-            le_arg_GetProgramName());
-}
-
-static le_result_t HexToUint(const char *hexStr, uint32_t *value)
-{
-    uint32_t val = 0;
-
-    if (sscanf(hexStr, "%x", &val) != 1)
+    if (reason != NULL && reason[0] != '\0')
     {
-        printf("Err: bad parameter\n");
-        return LE_FAULT;
+        puts(reason);
     }
 
-    *value = val;
+    exit(EXIT_SUCCESS);
+}
 
+static void FinishControl
+(
+    const char* command,
+    le_result_t result,
+    const char* reason
+)
+{
+    if (result != LE_OK)
+    {
+        fprintf(stderr, "%s failed (%s): %s\n", command, LE_RESULT_TXT(result),
+                reason != NULL && reason[0] != '\0' ? reason : "operation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    exit(EXIT_SUCCESS);
+}
+
+static void PrintFormattedTestDoc
+(
+    const char* testId,
+    const char* helpDoc
+)
+{
+    const char* line = helpDoc;
+
+    printf("[%s]:\n", testId);
+    while (line != NULL && *line != '\0')
+    {
+        const char* end = strchr(line, '\n');
+
+        fputs("  ", stdout);
+        if (end == NULL)
+        {
+            puts(line);
+            return;
+        }
+
+        fwrite(line, 1, (size_t)(end - line), stdout);
+        putchar('\n');
+        line = end + 1;
+    }
+}
+
+static le_result_t ParseHex
+(
+    const char* text,
+    uint32_t* value
+)
+{
+    char* endPtr = NULL;
+    unsigned long parsed;
+
+    if (text == NULL || value == NULL || text[0] == '\0')
+    {
+        return LE_BAD_PARAMETER;
+    }
+
+    parsed = strtoul(text, &endPtr, 0);
+    if (endPtr == text || endPtr == NULL || *endPtr != '\0' || parsed > 0xFFFFFFFFUL)
+    {
+        return LE_BAD_PARAMETER;
+    }
+
+    *value = (uint32_t)parsed;
     return LE_OK;
 }
 
-static void GetMpssFilter(void)
-{
-    uint32_t bitset = 0;
-
-    le_result_t rst =
-        taf_mngdPmTest_GetWakeupFilterFromMpss(MpmsTestDaemonRef,
-                                              &bitset);
-    if (rst != LE_OK)
-    {
-        printf("Failed to taf_mngdPmTest_GetWakeupFilterFromMpss\n");
-        StopCommandLine(false);
-    }
-
-    printf("Get filter: 0x%08x\n", bitset);
-    StopCommandLine(true);
-}
-
-static void SetMpssFitler(void)
-{
-    uint32_t bitsetInput = 0;
-    uint32_t bitsetOutput = 0;
-
-    le_result_t rst = HexToUint(bitmaskFromCmd, &bitsetInput);
-    if (rst != LE_OK)
-    {
-        printf("Bad hex value for bitset\n");
-        StopCommandLine(false);
-    }
-
-    rst = taf_mngdPmTest_SetWakeupFitlerToMpss(MpmsTestDaemonRef, bitsetInput);
-    if (rst != LE_OK)
-    {
-        printf("Failed to taf_mngdPmTest_SetWakeupFitlerToMpss\n");
-        StopCommandLine(false);
-    }
-
-    rst = taf_mngdPmTest_GetWakeupFilterFromMpss(MpmsTestDaemonRef, &bitsetOutput);
-    if (rst != LE_OK)
-    {
-        printf("Failed to taf_mngdPmTest_GetWakeupFilterFromMpss\n");
-        StopCommandLine(false);
-    }
-
-    printf("Set: 0x%08x, Get: 0x%08x\n", bitsetInput, bitsetOutput);
-
-    StopCommandLine(true);
-}
-
-static void UpMonitorForWakeup(void)
-{
-    le_result_t rst =
-        taf_mngdPmTest_UpMonitorForWakeup(MpmsTestDaemonRef);
-
-    if (rst != LE_OK)
-    {
-        printf("Failed to taf_mngdPmTest_UpMonitorForWakeup\n");
-        StopCommandLine(false);
-    }
-    else
-    {
-        StopCommandLine(true);
-    }
-}
-
-static void QueryWakeupReason(void)
-{
-    uint32_t outputBitset = 0;
-    le_result_t rst =
-        taf_mngdPmTest_QueryLastWakeupReason(MpmsTestDaemonRef, &outputBitset);
-
-    if (rst != LE_OK)
-    {
-        printf("Failed to taf_mngdPmTest_QueryLastWakeupReason\n");
-        StopCommandLine(false);
-    }
-    else
-    {
-        printf("Query result: 0x%04x\n", outputBitset);
-        StopCommandLine(true);
-    }
-}
-
-static void DownMonitorForWakeup(void)
-{
-    taf_mngdPmTest_DownMonitorForWakeup(MpmsTestDaemonRef);
-    StopCommandLine(true);
-}
-
-static void BitmaskValueHandler
+static void PrintHelp
 (
-    const char* bitmaskStr
+    void
 )
 {
-    bitmaskFromCmd = bitmaskStr;
+    char helpText[HELP_TEXT_LEN] = {0};
+
+    taf_mngdPmTest_ConnectService();
+    le_result_t result = taf_mngdPmTest_GetHelp(helpText, sizeof(helpText));
+    StopCommand(result, helpText);
 }
 
-static void RelaxWakeSource
+static void PrintTestDoc
 (
+    const char* testId
 )
 {
-    taf_mngdPmTest_RelaxWakeSource(MpmsTestDaemonRef);
+    char helpDoc[TEST_DOC_LEN] = {0};
+
+    taf_mngdPmTest_ConnectService();
+    le_result_t result = taf_mngdPmTest_GetTestCaseDoc(testId, helpDoc, sizeof(helpDoc));
+    if (result != LE_OK)
+    {
+        StopCommand(result, "failed to retrieve test case help document");
+    }
+
+    PrintFormattedTestDoc(testId, helpDoc);
+    exit(EXIT_SUCCESS);
 }
 
-static void ActionHandler
+static void PrintAllTestDocs
+(
+    void
+)
+{
+    char testId[TEST_ID_LEN] = {0};
+    char helpDoc[TEST_DOC_LEN] = {0};
+
+    taf_mngdPmTest_ConnectService();
+
+    for (uint32_t index = 0; ; index++)
+    {
+        memset(testId, 0, sizeof(testId));
+        memset(helpDoc, 0, sizeof(helpDoc));
+
+        le_result_t result = taf_mngdPmTest_GetTestCaseDocByIndex(index,
+                                                                testId,
+                                                                sizeof(testId),
+                                                                helpDoc,
+                                                                sizeof(helpDoc));
+        if (result == LE_NOT_FOUND)
+        {
+            break;
+        }
+
+        if (result != LE_OK)
+        {
+            StopCommand(result, "failed to list integration test cases");
+        }
+
+        PrintFormattedTestDoc(testId, helpDoc);
+    }
+
+    exit(EXIT_SUCCESS);
+}
+
+static void RunTest
+(
+    const char* testId
+)
+{
+    char helpDoc[TEST_DOC_LEN] = {0};
+    char reason[REASON_LEN] = {0};
+
+    taf_mngdPmTest_ConnectService();
+
+    le_result_t result = taf_mngdPmTest_GetTestCaseDoc(testId, helpDoc, sizeof(helpDoc));
+    if (result != LE_OK)
+    {
+        StopCommand(result, "failed to retrieve integration test help document");
+    }
+
+    PrintFormattedTestDoc(testId, helpDoc);
+    putchar('\n');
+
+    result = taf_mngdPmTest_RunTest(testId, reason, sizeof(reason));
+    StopCommand(result, reason);
+}
+
+static void RunMonitorCommand
+(
+    void
+)
+{
+    const char* action = le_arg_GetArg(1);
+    char reason[REASON_LEN] = {0};
+    le_result_t result;
+
+    if (action == NULL)
+    {
+        StopCommand(LE_BAD_PARAMETER,
+                    "usage: mpmsIntgTest monitorWakeup start [keepResume] | stop | release | status");
+    }
+
+    taf_mngdPmTest_ConnectService();
+
+    if (strcmp(action, "start") == 0)
+    {
+        taf_mngdPmTest_WakeupMonitorMode_t mode =
+            TAF_MNGDPMTEST_WAKEUP_MONITOR_OBSERVE;
+
+        if (le_arg_NumArgs() == 3)
+        {
+            if (strcmp(le_arg_GetArg(2), "keepResume") != 0)
+            {
+                StopCommand(LE_BAD_PARAMETER,
+                            "monitorWakeup start accepts only keepResume as an optional mode");
+            }
+            mode = TAF_MNGDPMTEST_WAKEUP_MONITOR_KEEP_RESUME;
+        }
+        else if (le_arg_NumArgs() != 2)
+        {
+            StopCommand(LE_BAD_PARAMETER,
+                        "usage: mpmsIntgTest monitorWakeup start [keepResume]");
+        }
+
+        result = taf_mngdPmTest_monitorWakeup(mode, reason, sizeof(reason));
+        FinishControl("monitorWakeup start", result, reason);
+    }
+    else if (strcmp(action, "stop") == 0 && le_arg_NumArgs() == 2)
+    {
+        result = taf_mngdPmTest_stopWakeupMonitor(reason, sizeof(reason));
+        FinishControl("monitorWakeup stop", result, reason);
+    }
+    else if (strcmp(action, "release") == 0 && le_arg_NumArgs() == 2)
+    {
+        result = taf_mngdPmTest_releaseWakeupLock(reason, sizeof(reason));
+        FinishControl("monitorWakeup release", result, reason);
+    }
+    else if (strcmp(action, "status") == 0 && le_arg_NumArgs() == 2)
+    {
+        char status[MONITOR_STATUS_LEN] = {0};
+
+        result = taf_mngdPmTest_getWakeupMonitorStatus(status,
+                                                    sizeof(status),
+                                                    reason,
+                                                    sizeof(reason));
+        if (result != LE_OK)
+        {
+            FinishControl("monitorWakeup status", result, reason);
+        }
+
+        puts(status);
+        exit(EXIT_SUCCESS);
+    }
+
+    StopCommand(LE_BAD_PARAMETER,
+                "usage: mpmsIntgTest monitorWakeup start [keepResume] | stop | release | status");
+}
+
+static void RunControl
 (
     const char* command
 )
 {
-    if (strcmp(command, "help") == 0)
-    {
-        PrintHelp();
-        StopCommandLine(true);
-    }
+    char reason[REASON_LEN] = {0};
+    le_result_t result;
 
-    if (strcmp(command, "get.mpss.filter") == 0)
-    {
-        ActionFn = GetMpssFilter;
-    }
-    else if (strcmp(command, "set.mpss.filter") == 0)
-    {
-        ActionFn = SetMpssFitler;
+    taf_mngdPmTest_ConnectService();
 
-        le_arg_AddPositionalCallback(BitmaskValueHandler);
-    }
-    else if (strcmp(command, "up.wakeup.monitor") == 0)
+    if (strcmp(command, "connect") == 0 && le_arg_NumArgs() == 1)
     {
-        ActionFn = UpMonitorForWakeup;
+        result = taf_mngdPmTest_connect(reason, sizeof(reason));
+        FinishControl(command, result, reason);
     }
-    else if (strcmp(command, "down.wakeup.monitor") == 0)
+    else if (strcmp(command, "disconnect") == 0 && le_arg_NumArgs() == 1)
     {
-        ActionFn = DownMonitorForWakeup;
+        result = taf_mngdPmTest_disconnect(reason, sizeof(reason));
+        FinishControl(command, result, reason);
     }
-    else if (strcmp(command, "query.wakeup.reason") == 0)
+    else if (strcmp(command, "state") == 0 && le_arg_NumArgs() == 1)
     {
-        ActionFn = QueryWakeupReason;
+        char powerState[STATE_LEN] = {0};
+
+        result = taf_mngdPmTest_state(powerState,
+                                   sizeof(powerState),
+                                   reason,
+                                   sizeof(reason));
+        if (result != LE_OK)
+        {
+            FinishControl(command, result, reason);
+        }
+
+        puts(powerState);
+        exit(EXIT_SUCCESS);
     }
-    else if (strcmp(command, "relax.wake.source") == 0)
+    else if (strcmp(command, "resume") == 0 && le_arg_NumArgs() == 1)
     {
-        ActionFn = RelaxWakeSource;
+        result = taf_mngdPmTest_resume(reason, sizeof(reason));
+        FinishControl(command, result, reason);
+    }
+    else if (strcmp(command, "suspend") == 0 && le_arg_NumArgs() == 1)
+    {
+        result = taf_mngdPmTest_suspend(reason, sizeof(reason));
+        FinishControl(command, result, reason);
+    }
+    else if (strcmp(command, "shutdown") == 0 &&
+             (le_arg_NumArgs() == 1 || le_arg_NumArgs() == 2))
+    {
+        taf_mngdPmTest_ShutdownMode_t mode = TAF_MNGDPMTEST_SHUTDOWN_GRACEFUL;
+
+        if (le_arg_NumArgs() == 2)
+        {
+            if (strcmp(le_arg_GetArg(1), "graceful") == 0)
+            {
+                mode = TAF_MNGDPMTEST_SHUTDOWN_GRACEFUL;
+            }
+            else if (strcmp(le_arg_GetArg(1), "forceful") == 0)
+            {
+                mode = TAF_MNGDPMTEST_SHUTDOWN_FORCEFUL;
+            }
+            else
+            {
+                StopCommand(LE_BAD_PARAMETER, "shutdown mode must be graceful or forceful");
+            }
+        }
+
+        result = taf_mngdPmTest_shutdown(mode, reason, sizeof(reason));
+        FinishControl(command, result, reason);
+    }
+    else if (strcmp(command, "restart") == 0 && le_arg_NumArgs() == 1)
+    {
+        result = taf_mngdPmTest_restart(reason, sizeof(reason));
+        FinishControl(command, result, reason);
+    }
+    else if (strcmp(command, "getInfoReport") == 0 && le_arg_NumArgs() == 1)
+    {
+        char report[REPORT_LEN] = {0};
+
+        result = taf_mngdPmTest_getInfoReport(report,
+                                           sizeof(report),
+                                           reason,
+                                           sizeof(reason));
+        if (result != LE_OK)
+        {
+            FinishControl(command, result, reason);
+        }
+
+        puts(report);
+        exit(EXIT_SUCCESS);
+    }
+    else if (strcmp(command, "setWakeupFilter") == 0 && le_arg_NumArgs() == 2)
+    {
+        uint32_t filter;
+
+        result = ParseHex(le_arg_GetArg(1), &filter);
+        if (result != LE_OK)
+        {
+            StopCommand(result, "wakeup filter must be a valid hexadecimal uint32");
+        }
+
+        result = taf_mngdPmTest_setWakeupFilter(filter, reason, sizeof(reason));
+        FinishControl(command, result, reason);
+    }
+    else if (strcmp(command, "getWakeupFilter") == 0 && le_arg_NumArgs() == 1)
+    {
+        uint32_t filter = 0;
+
+        result = taf_mngdPmTest_getWakeupFilter(&filter, reason, sizeof(reason));
+        if (result != LE_OK)
+        {
+            FinishControl(command, result, reason);
+        }
+
+        printf("0x%08x\n", (unsigned int)filter);
+        exit(EXIT_SUCCESS);
+    }
+    else if (strcmp(command, "getWakeupReason") == 0 && le_arg_NumArgs() == 1)
+    {
+        uint32_t reasonMask = 0;
+
+        result = taf_mngdPmTest_getWakeupReason(&reasonMask, reason, sizeof(reason));
+        if (result != LE_OK)
+        {
+            FinishControl(command, result, reason);
+        }
+
+        printf("0x%08x\n", (unsigned int)reasonMask);
+        exit(EXIT_SUCCESS);
     }
     else
     {
-        fprintf(stderr, "Unknown command '%s'. Try --help.\n", command);
-        StopCommandLine(false);
+        StopCommand(LE_BAD_PARAMETER, "invalid control command arguments");
     }
+}
+
+static void CommandHandler
+(
+    const char* command
+)
+{
+    if (command == NULL)
+    {
+        StopCommand(LE_BAD_PARAMETER, "missing command");
+    }
+
+    if (strcmp(command, "help") == 0 && le_arg_NumArgs() == 1)
+    {
+        PrintHelp();
+    }
+
+    if (strcmp(command, "list") == 0 && le_arg_NumArgs() == 1)
+    {
+        PrintAllTestDocs();
+    }
+
+    if (strcmp(command, "list") == 0 && le_arg_NumArgs() == 2)
+    {
+        PrintTestDoc(le_arg_GetArg(1));
+    }
+
+    if (strcmp(command, "help") == 0)
+    {
+        StopCommand(LE_BAD_PARAMETER, "usage: mpmsIntgTest help");
+    }
+
+    if (strcmp(command, "list") == 0)
+    {
+        StopCommand(LE_BAD_PARAMETER, "usage: mpmsIntgTest list [caseId]");
+    }
+
+    if (strcmp(command, "monitorWakeup") == 0)
+    {
+        RunMonitorCommand();
+    }
+
+    if (strcmp(command, "connect") == 0 ||
+        strcmp(command, "disconnect") == 0 ||
+        strcmp(command, "state") == 0 ||
+        strcmp(command, "resume") == 0 ||
+        strcmp(command, "suspend") == 0 ||
+        strcmp(command, "shutdown") == 0 ||
+        strcmp(command, "restart") == 0 ||
+        strcmp(command, "getInfoReport") == 0 ||
+        strcmp(command, "setWakeupFilter") == 0 ||
+        strcmp(command, "getWakeupFilter") == 0 ||
+        strcmp(command, "getWakeupReason") == 0)
+    {
+        RunControl(command);
+    }
+
+    if (le_arg_NumArgs() == 1)
+    {
+        RunTest(command);
+    }
+
+    StopCommand(LE_BAD_PARAMETER, "unknown command");
 }
 
 COMPONENT_INIT
 {
-    le_result_t rst = LE_OK;
-
-    le_arg_SetFlagCallback(PrintHelp, "h", "help");
-
-    le_arg_AddPositionalCallback(ActionHandler);
-
+    LE_INFO("mpmsIntgTest CLI started");
+    le_arg_AddPositionalCallback(CommandHandler);
     le_arg_Scan();
 
-    taf_mngdPmTest_ConnectService();
-
-    rst = taf_mngdPmTest_GetMpmsTestObject(&MpmsTestDaemonRef);
-    if (rst != LE_OK)
+    if (le_arg_NumArgs() == 0)
     {
-        printf("Failed to taf_mngdPmTest_GetMpmsTestObject");
-        StopCommandLine(false);
+        StopCommand(LE_BAD_PARAMETER,
+                    "usage: mpmsIntgTest help | list [caseId] | <caseId>");
     }
-
-    ActionFn(); // NOTE: StopCommandline for each ActionFn !
 }

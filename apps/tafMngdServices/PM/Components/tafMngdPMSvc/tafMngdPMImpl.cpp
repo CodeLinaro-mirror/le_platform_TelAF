@@ -717,8 +717,8 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
         if(targetedPowerMode == TAF_MNGDPM_SHUTDOWN)
         {
             res = ShutdownNAD();
-            if(res == LE_OK) {
-                powerMode.isGraceful = true;
+            if(res == LE_OK)
+            {
                 ProcessStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN);
             }
         }
@@ -726,7 +726,6 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
         {
             res = SuspendNAD();
             if(res == LE_OK) {
-                powerMode.isSuspend = true;
                 ProcessStateChange(TAF_MNGDPM_STATE_SUSPENDING);
                 LE_INFO("Suspend triggered for NAD on wakelocks released");
             }
@@ -734,30 +733,7 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
     }
     else if ((state == TAF_PM_STATE_ALL_ACKED) && (pmInf) && (pmInf->nodeStateChangeReqAsync))
     {
-        if(powerMode.isGraceful)
-        {
-            powerMode.isGraceful = false;
-            // When in graceful power mode, handle state transitions differently based on current state
-            if(stateMachine.currentState == TAF_MNGDPM_STATE_SUSPEND){
-                // For suspend state, send a suspend request to VHAL to maintain state consistency
-                LE_DEBUG("Send nodeStateChangeReqAsync %d", HAL_PM_SUSPEND_MODE_FULL);
-                le_result_t result = (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SUSPEND, HAL_PM_SUSPEND_MODE_FULL, tafMngdPMSvc::NodeStateChangeReqRespCB);
-                if (result != LE_OK){
-                    LE_ERROR("Failed to send nodeStateChangeReqAsync for suspend to VHAL: %s", LE_RESULT_TXT(result));
-                }
-            }else if(stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN){
-                // For shhutdown state, proceed with normal shutdown request
-                LE_DEBUG("Send nodeStateChangeReqAsync %d", HAL_PM_SHUTDOWN_MODE_GRACEFUL);
-                le_result_t result = (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN, HAL_PM_SHUTDOWN_MODE_GRACEFUL, tafMngdPMSvc::NodeStateChangeReqRespCB);
-                if (result != LE_OK) {
-                    LE_ERROR("Failed to send nodeStateChangeReqAsync for shutdown to VHAL: %s", LE_RESULT_TXT(result));
-                }
-            }else {
-                //No further action to be taken for the states apart from graceful suspend & shutdown
-                LE_ERROR("Invalid state: %s for graceful power mode", TafStateToString(stateMachine.currentState));
-            }
-        }
-        else if(powerMode.isShutDown)
+        if(powerMode.isShutDown)
         {
             powerMode.isShutDown = false;
             if(stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN){
@@ -779,17 +755,6 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
                     TafStateToString(stateMachine.currentState));
             }
         }
-        else if(powerMode.isSuspend)
-        {
-            powerMode.isSuspend = false;
-            if(stateMachine.currentState == TAF_MNGDPM_STATE_SUSPEND){
-                LE_DEBUG("Send SuspendReqAsync %d", HAL_PM_SUSPEND_MODE_FULL);
-                (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SUSPEND, HAL_PM_SUSPEND_MODE_FULL, tafMngdPMSvc::NodeStateChangeReqRespCB);
-            } else{
-                LE_DEBUG("Invalid state: %s for system suspend, skipping vhal notification",
-                    TafStateToString(stateMachine.currentState));
-            }
-        }
         else if(powerMode.isForceful)
         {
             powerMode.isForceful = false;
@@ -799,6 +764,31 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
             } else{
             LE_DEBUG("Invalid state: %s for forceful shutdown, skipping vhal notification",
                 TafStateToString(stateMachine.currentState));
+            }
+        }
+        else if (stateMachine.currentState == TAF_MNGDPM_STATE_SUSPEND)
+        {
+            LE_DEBUG("Send SuspendReqAsync %d", HAL_PM_SUSPEND_MODE_FULL);
+            le_result_t result = (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD,
+                    HAL_PM_NODE_STATE_SUSPEND, HAL_PM_SUSPEND_MODE_FULL,
+                    tafMngdPMSvc::NodeStateChangeReqRespCB);
+            if (result != LE_OK)
+            {
+                LE_ERROR("Failed to send nodeStateChangeReqAsync for suspend to VHAL: %s",
+                        LE_RESULT_TXT(result));
+            }
+        }
+        else if (targetedPowerMode == TAF_MNGDPM_SHUTDOWN &&
+                 stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN)
+        {
+            LE_DEBUG("Send nodeStateChangeReqAsync %d", HAL_PM_SHUTDOWN_MODE_GRACEFUL);
+            le_result_t result = (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD,
+                    HAL_PM_NODE_STATE_SHUTDOWN, HAL_PM_SHUTDOWN_MODE_GRACEFUL,
+                    tafMngdPMSvc::NodeStateChangeReqRespCB);
+            if (result != LE_OK)
+            {
+                LE_ERROR("Failed to send nodeStateChangeReqAsync for shutdown to VHAL: %s",
+                        LE_RESULT_TXT(result));
             }
         }
     }
@@ -854,7 +844,8 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
     else if(state == TAF_PM_STATE_SHUTDOWN)
     {
         ProcessStateChange(TAF_MNGDPM_STATE_SHUTDOWN);
-        if(powerMode.isShutDown ||  powerMode.isForceful || powerMode.isGraceful)
+        if(powerMode.isShutDown || powerMode.isForceful ||
+                targetedPowerMode == TAF_MNGDPM_SHUTDOWN)
         {
             powerStateChange.state = TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE;
             le_event_Report(nodePowerStateChange, &powerStateChange, sizeof(taf_mngdPm_NodePowerStateChange_t));
@@ -1109,11 +1100,7 @@ void tafMngdPMSvc::HandleShutdownPrepareResp(const vhalPrepareRespPayload_t* pay
             shutdownCB.shutdownCallbackFunc(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL, TAF_MNGDPM_READY,
                     LE_OK, shutdownCB.shutdownCBCtxPtr);
         }
-        le_result_t res = ShutdownNAD();
-        if (res == LE_OK)
-        {
-            powerMode.isGraceful = false;
-        }
+        ShutdownNAD();
     }
     else if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_NOT_READY)
     {
@@ -1164,11 +1151,7 @@ void tafMngdPMSvc::HandleRestartPrepareResp(const vhalPrepareRespPayload_t* payl
                 restartCB.restartCallbackFunc(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON, TAF_MNGDPM_READY,
                         LE_OK, restartCB.restartCBCtxPtr);
             }
-            le_result_t res = ShutdownNAD();
-            if (res == LE_OK)
-            {
-                powerMode.isGraceful = false;
-            }
+            ShutdownNAD();
         }
         else if (reason == HAL_PM_RSP_NOT_READY)
         {
@@ -2080,7 +2063,7 @@ bool tafMngdPMSvc::IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, u
     {
         return true;
     }
-    else if((nodeState == TAF_MNGDPM_NODE_STATE_RESTART_PREPARE) && (tafState == TAF_MNGDPM_STATE_SHUTDOWN))
+    else if((nodeState == TAF_MNGDPM_NODE_STATE_RESTART_PREPARE) && (tafState == TAF_MNGDPM_STATE_RESTART))
     {
         return true;
     }

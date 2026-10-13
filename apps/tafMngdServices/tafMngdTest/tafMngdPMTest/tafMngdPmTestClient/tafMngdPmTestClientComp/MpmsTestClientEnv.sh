@@ -3,20 +3,35 @@
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
-function try_to_run_mpms_test_daemon()
+function run_mpms_test_daemon()
 {
-    if ! [ -e /tmp/legato/devManager/drivers/pmVHalDrvTest.so ]; then
-        echo "Plugin was not found"
-        return
+    local plugin_path=/tmp/legato/devManager/drivers/pmVHalDrvTest.so
+
+    if [ ! -f "$plugin_path" ]; then
+        printf 'PM VHAL plugin was not found: %s\n' "$plugin_path"
+        return 1
     fi
 
-    # Anyway, try to install again
-    tafmodule install pmVHalDrvTest.so
+    if ! tafmodule install "$plugin_path"; then
+        printf 'Failed to install PM VHAL plugin: %s\n' "$plugin_path"
+        return 1
+    fi
 
-    app restart tafMngdPMSvc
+    if ! app restart tafMngdPMSvc; then
+        printf 'Failed to restart tafMngdPMSvc\n'
+        return 1
+    fi
 
-    app start tafMngdPmTestDaemon
+    if ! app start tafMngdPmTestDaemon; then
+        printf 'Failed to start tafMngdPmTestDaemon\n'
+        return 1
+    fi
 }
 
-alias mpms.test.d="try_to_run_mpms_test_daemon"
-alias mpms.test="app runProc tafMngdPmTestClient tafMngdPmTestClient --"
+function run_mpms_test()
+{
+    app runProc tafMngdPmTestClient mpmsIntgTest -- "$@"
+}
+
+alias mpms.test.d='run_mpms_test_daemon'
+alias mpms.test='run_mpms_test'

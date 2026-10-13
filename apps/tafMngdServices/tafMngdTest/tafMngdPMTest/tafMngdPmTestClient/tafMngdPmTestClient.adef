@@ -5,18 +5,10 @@ sandboxed: false
 
 executables:
 {
-    tafMngdPmTestClient = ( tafMngdPmTestClientComp )
-}
-
-processes:
-{
-    run:
-    {
-        (tafMngdPmTestClient)
-    }
+    mpmsIntgTest = ( tafMngdPmTestClientComp )
 }
 
 bindings:
 {
-    tafMngdPmTestClient.tafMngdPmTestClientComp.taf_mngdPmTest -> tafMngdPmTestDaemon.taf_mngdPmTest
+    mpmsIntgTest.tafMngdPmTestClientComp.taf_mngdPmTest -> tafMngdPmTestDaemon.taf_mngdPmTest
 }

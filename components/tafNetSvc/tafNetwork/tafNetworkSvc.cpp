@@ -3030,6 +3030,28 @@ int32_t taf_net_GetGsbBandWidth
     return tafGsb.GetGsbBandWidth(gsbRef);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * SIGTERM signal event handler.
+ *
+ * Invoked by the Legato signal event framework when the process receives SIGTERM.
+ */
+//--------------------------------------------------------------------------------------------------
+static void SigTermEventHandler
+(
+    int sigNum ///< [IN] Signal number received (expected: SIGTERM).
+)
+{
+    LE_INFO("SigTermEventHandler signal : %d", sigNum);
+
+    le_result_t result = taf_pa_net_Deinit();
+    if (result != LE_OK)
+        LE_ERROR("taf_pa_net_Deinit failed, result: %d", result);
+    else
+        LE_INFO("taf_pa_net_Deinit succeeded.");
+
+    exit(EXIT_SUCCESS);
+}
 
 COMPONENT_INIT
 {
@@ -3046,5 +3068,8 @@ COMPONENT_INIT
 
     taf_gsb_init();
 
+    le_sig_Block(SIGTERM);
+
+    le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);
 }
 

@@ -117,4 +117,14 @@ LE_SHARED le_result_t taf_pa_net_RemoveSocksAssociation
     const char* userName
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deinitialize the network platform adaptor stub.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_net_Deinit
+(
+    void
+);
+
 #endif /* TAF_PA_NET_HPP_ */

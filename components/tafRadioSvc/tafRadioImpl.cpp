@@ -597,6 +597,11 @@ void taf_RadioNetworkSelectionListener::onNetworkScanResults
 {
     LE_DEBUG("<SDK Listener> taf_RadioNetworkSelectionListener --> onNetworkScanResults");
 
+    if (taf_Radio::GetInstance().modemUnavailable.load())
+    {
+        return;
+    }
+
     if (scanStatus == telux::tel::NetworkScanStatus::FAILED)
     {
         LE_ERROR("Network scan failed.");
@@ -642,6 +647,11 @@ void taf_RadioServSysListener::onSystemInfoChanged
 {
     LE_DEBUG("<SDK Listener> taf_RadioServSysListener --> onSystemInfoChanged");
 
+    if (taf_Radio::GetInstance().modemUnavailable.load())
+    {
+        return;
+    }
+
     if (sysInfo.domain != serviceDomain)
     {
         serviceDomain = sysInfo.domain;
@@ -677,6 +687,11 @@ void taf_RadioServSysListener::onNetworkRejection
 )
 {
     LE_DEBUG("<SDK Listener> taf_RadioServSysListener --> onNetworkRejection");
+
+    if (taf_Radio::GetInstance().modemUnavailable.load())
+    {
+        return;
+    }
 
     auto &tafRadio = taf_Radio::GetInstance();
     taf_radio_NetRegRejInd_t* netRegRejIndPtr =
@@ -724,6 +739,11 @@ void taf_RadioServSysListener::onLteCsCapabilityChanged
 {
     LE_DEBUG("<SDK Listener> taf_RadioServSysListener --> onLteCsCapabilityChanged");
 
+    if (taf_Radio::GetInstance().modemUnavailable.load())
+    {
+        return;
+    }
+
     auto &tafRadio = taf_Radio::GetInstance();
     taf_RadioNetStatusInd_t* statusPtr =
         (taf_RadioNetStatusInd_t*)le_mem_ForceAlloc(tafRadio.netStatusPool);
@@ -762,6 +782,11 @@ void taf_RadioImsServSysListener::onImsRegStatusChange
 {
     LE_DEBUG("<SDK Listener> taf_RadioImsServSysListener --> onImsRegStatusChange");
 
+    if (taf_Radio::GetInstance().modemUnavailable.load())
+    {
+        return;
+    }
+
     auto &tafRadio = taf_Radio::GetInstance();
     taf_RadioImsStatus_t* statusPtr =
         (taf_RadioImsStatus_t*)le_mem_ForceAlloc(tafRadio.imsStatusChangePool);
@@ -784,6 +809,11 @@ void taf_RadioImsServSysListener::onImsServiceInfoChange
 {
     LE_DEBUG("<SDK Listener> taf_RadioImsServSysListener --> onImsServiceInfoChange");
 
+    if (taf_Radio::GetInstance().modemUnavailable.load())
+    {
+        return;
+    }
+
     auto &tafRadio = taf_Radio::GetInstance();
     taf_RadioImsStatus_t* statusPtr =
         (taf_RadioImsStatus_t*)le_mem_ForceAlloc(tafRadio.imsStatusChangePool);
@@ -804,6 +834,11 @@ void taf_RadioImsServSysListener::onImsPdpStatusInfoChange
 )
 {
     LE_DEBUG("<SDK Listener> taf_RadioImsServSysListener --> onImsPdpStatusInfoChange");
+
+    if (taf_Radio::GetInstance().modemUnavailable.load())
+    {
+        return;
+    }
 
     auto &tafRadio = taf_Radio::GetInstance();
     taf_RadioImsStatus_t* statusPtr =
@@ -827,6 +862,11 @@ void taf_RadioPhoneListener::onOperatingModeChanged
 {
     LE_DEBUG("<SDK Listener> taf_RadioPhoneListener --> onOperatingModeChanged");
 
+    if (taf_Radio::GetInstance().modemUnavailable.load())
+    {
+        return;
+    }
+
     auto &tafRadio = taf_Radio::GetInstance();
 
     taf_radio_OpMode_t* modePtr =
@@ -849,6 +889,11 @@ void taf_RadioPhoneListener::onVoiceServiceStateChanged
 )
 {
     LE_DEBUG("<SDK Listener> taf_RadioPhoneListener --> onVoiceServiceStateChanged");
+
+    if (taf_Radio::GetInstance().modemUnavailable.load())
+    {
+        return;
+    }
 
     auto &tafRadio = taf_Radio::GetInstance();
 
@@ -909,6 +954,11 @@ void taf_RadioPhoneListener::onSignalStrengthChanged
 )
 {
     LE_DEBUG("<SDK Listener> taf_RadioPhoneListener --> onSignalStrengthChanged");
+
+    if (taf_Radio::GetInstance().modemUnavailable.load())
+    {
+        return;
+    }
 
     auto &tafRadio = taf_Radio::GetInstance();
 
@@ -973,6 +1023,11 @@ void taf_RadioPhoneListener::onCellInfoListChanged
 )
 {
     LE_DEBUG("<SDK Listener> taf_RadioPhoneListener --> onCellInfoListChanged");
+
+    if (taf_Radio::GetInstance().modemUnavailable.load())
+    {
+        return;
+    }
 
     auto &tafRadio = taf_Radio::GetInstance();
 
@@ -1044,6 +1099,11 @@ void taf_RadioDataServSysListener::onServiceStateChanged
 {
     LE_DEBUG("<SDK Listener> taf_RadioDataServSysListener --> onServiceStateChanged");
 
+    if (taf_Radio::GetInstance().modemUnavailable.load())
+    {
+        return;
+    }
+
     auto &tafRadio = taf_Radio::GetInstance();
 
     taf_radio_NetRegStateInd_t* indPtr;
@@ -1093,6 +1153,11 @@ void taf_RadioDataServSysListener::onRoamingStatusChanged
 {
     LE_DEBUG("<SDK Listener> taf_RadioDataServSysListener --> onRoamingStatusChanged");
 
+    if (taf_Radio::GetInstance().modemUnavailable.load())
+    {
+        return;
+    }
+
     auto &tafRadio = taf_Radio::GetInstance();
 
     taf_radio_NetRegStateInd_t* indPtr;
@@ -1136,6 +1201,11 @@ void taf_RadioDataServSysListener::onNrIconTypeChanged
 )
 {
     LE_DEBUG("<SDK Listener> taf_RadioDataServSysListener --> onNrIconTypeChanged");
+
+    if (taf_Radio::GetInstance().modemUnavailable.load())
+    {
+        return;
+    }
 
     auto &tafRadio = taf_Radio::GetInstance();
 
@@ -3325,6 +3395,13 @@ void taf_Radio::RadioProcCmdHandler(void* cmdReqPtr)
     taf_radio_ScanInformationListRef_t scanListRef = NULL;
     taf_radio_PciScanInformationListRef_t pciScanListRef = NULL;
 
+    if (tafRadio.modemUnavailable.load())
+    {
+        taf_RadioCmdComplete_t complete = {cmdReq, LE_UNAVAILABLE, nullptr, nullptr};
+        le_event_Report(taf_Radio::radioCmdCompleteEvId, &complete, sizeof(complete));
+        return;
+    }
+
     switch (cmdReq->cmdType)
     {
         case TAF_RADIO_CMD_TYPE_ASYNC_REG_MANUAL:
@@ -3914,6 +3991,142 @@ static void ServiceStatusSessionCloseHandler
     }
 }
 
+void taf_RadioModemEvtListener::onStateChange(telux::common::SubsystemInfo subsystemInfo,
+    telux::common::OperationalStatus newOperationalStatus)
+{
+    if (((subsystemInfo.subsystems & telux::common::Subsystem::MPSS) ==
+            telux::common::Subsystem::MPSS) &&
+        (newOperationalStatus == telux::common::OperationalStatus::UNAVAILABLE))
+    {
+        auto &tafRadio = taf_Radio::GetInstance();
+        if (tafRadio.modemUnavailable.exchange(true))
+        {
+            return;
+        }
+        le_event_Report(tafRadio.modemUnavailableEvId, &newOperationalStatus,
+            sizeof(newOperationalStatus));
+    }
+}
+
+void taf_Radio::ModemUnavailableHandler(void* reportPtr)
+{
+    LE_UNUSED(reportPtr);
+
+    LE_CRIT("Modem SSR detected, exiting for restart");
+    taf_Radio::GetInstance().Deinit();
+    _exit(EXIT_UNAVAILABLE);
+}
+
+void taf_Radio::Deinit(void)
+{
+    LE_INFO("Deinitializing Radio service");
+    if (radioCmdThreadRef != nullptr)
+    {
+        le_thread_Cancel(radioCmdThreadRef);
+        le_thread_Join(radioCmdThreadRef, nullptr);
+        radioCmdThreadRef = nullptr;
+    }
+
+    const auto available = telux::common::ServiceStatus::SERVICE_AVAILABLE;
+
+    for (size_t i = 0; i < servingSystemManagers.size() && i < servSysListeners.size(); i++)
+    {
+        if (servingSystemManagers[i] != nullptr && servSysListeners[i] != nullptr &&
+            servingSystemManagers[i]->getServiceStatus() == available)
+        {
+            servingSystemManagers[i]->deregisterListener(servSysListeners[i]);
+        }
+    }
+    for (auto &mgr : imsServingSystemMgrs)
+    {
+        auto listener = imsServSysListeners[mgr.first];
+        if (mgr.second != nullptr && listener != nullptr &&
+            mgr.second->getServiceStatus() == available)
+        {
+            mgr.second->deregisterListener(listener);
+        }
+    }
+    for (auto &mgr : dataServSysManagers)
+    {
+        auto listener = dataServSysListeners[mgr.first];
+        if (mgr.second != nullptr && listener != nullptr &&
+            mgr.second->getServiceStatus() == available)
+        {
+            mgr.second->deregisterListener(listener);
+        }
+    }
+    if (phoneManager != nullptr && phoneListener != nullptr &&
+        phoneManager->getServiceStatus() == available)
+    {
+        phoneManager->removeListener(phoneListener);
+    }
+    if (subsystemMgr != nullptr && modemEvtListener != nullptr)
+    {
+        subsystemMgr->deRegisterListener(modemEvtListener);
+    }
+
+    if (taf_pa_radio_Deinit() != LE_OK)
+    {
+        LE_ERROR("Failed to deinit Radio PA");
+    }
+}
+
+void taf_Radio::WaitForModem(void)
+{
+    modemUnavailableEvId = le_event_CreateId("RadioModemUnavailable",
+        sizeof(telux::common::OperationalStatus));
+    le_event_AddHandler("RadioModemUnavailable", modemUnavailableEvId, ModemUnavailableHandler);
+
+    auto prom = std::make_shared<std::promise<void>>();
+    subsystemMgr = telux::platform::SubsystemFactory::getInstance().getSubsystemManager(
+        [prom](telux::common::ServiceStatus status)
+        {
+            try {
+                if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                {
+                    prom->set_value();
+                }
+            }
+            catch (const std::future_error& e) {
+                LE_ERROR("Future error in subsystem manager callback: %s", e.what());
+            }
+            catch (const std::exception& e) {
+                LE_ERROR("Exception in subsystem manager callback: %s", e.what());
+            }
+            catch (...) {
+                LE_ERROR("Unknown error in subsystem manager callback.");
+            }
+        });
+    LE_FATAL_IF(subsystemMgr == nullptr, "Failed to get subsystem manager.");
+
+    telux::common::SubsystemInfo info{};
+    info.location   = telux::common::ProcType::LOCAL_PROC;
+    info.subsystems = telux::common::Subsystem::MPSS;
+    modemEvtListener = std::make_shared<taf_RadioModemEvtListener>();
+    LE_FATAL_IF(subsystemMgr->registerListener(modemEvtListener, {info}) !=
+        telux::common::ErrorCode::SUCCESS, "Failed to register modem state listener.");
+
+    auto f = prom->get_future();
+    int waited = 0;
+    while (f.wait_for(std::chrono::seconds(TAF_RADIO_MODEM_WAIT_INTERVAL)) ==
+           std::future_status::timeout)
+    {
+        waited += TAF_RADIO_MODEM_WAIT_INTERVAL;
+        if (subsystemMgr->getServiceStatus() == telux::common::ServiceStatus::SERVICE_FAILED)
+        {
+            LE_CRIT("Subsystem manager init failed, exiting for restart");
+            _exit(EXIT_UNAVAILABLE);
+        }
+        if (waited >= TAF_RADIO_MODEM_WAIT_TIMEOUT)
+        {
+            LE_CRIT("Modem not operational after %d s, exiting for restart", waited);
+            _exit(EXIT_UNAVAILABLE);
+        }
+        LE_WARN("Waiting for modem to be operational (%d s)...", waited);
+    }
+    LE_INFO("Modem is operational");
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Initialization.
@@ -3921,6 +4134,9 @@ static void ServiceStatusSessionCloseHandler
 //--------------------------------------------------------------------------------------------------
 void taf_Radio::Init(void)
 {
+    WaitForModem();
+    taf_radio_AdvertiseService();
+
     // 1. Initiate the semaphore
     taf_RadioNetworkResponseCallback::selModeSem = le_sem_Create("taf_RadioSelModeSem", 0);
     taf_RadioNetworkResponseCallback::prefNetSem = le_sem_Create("taf_RadioPrefNetSem", 0);
@@ -4450,8 +4666,9 @@ void taf_Radio::Init(void)
         pendingCmdList = LE_DLS_LIST_INIT;
         cmdReqPool = le_mem_CreatePool("cmdReqPool", sizeof(taf_RadioCmdReq_t));
         le_msg_AddServiceCloseHandler(taf_radio_GetServiceRef(), ClientSessionCloseHandler, NULL);
-        le_thread_Ref_t radioCmdThreadRef = le_thread_Create("radioCmdThread", RadioCmdThread, (void*)radioCmdThreadSem);
+        radioCmdThreadRef = le_thread_Create("radioCmdThread", RadioCmdThread, (void*)radioCmdThreadSem);
         le_thread_SetStackSize(radioCmdThreadRef, TAF_RADIO_THREAD_STACK_SIZE);
+        le_thread_SetJoinable(radioCmdThreadRef);
         le_thread_Start(radioCmdThreadRef);
         le_sem_Wait(radioCmdThreadSem);
 

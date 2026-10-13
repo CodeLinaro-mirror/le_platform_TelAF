@@ -47,6 +47,15 @@ using namespace telux::tel;
 using namespace telux::common;
 using namespace tafsvc;
 
+static void SigTermEventHandler(int sigNum)
+{
+    LE_INFO("SigTermEventHandler signal : %d", sigNum);
+
+    taf_simRsp::GetInstance().Deinit();
+    taf_sim::GetInstance().Deinit();
+
+    _exit(EXIT_SUCCESS);
+}
 
 COMPONENT_INIT
 {
@@ -57,6 +66,8 @@ COMPONENT_INIT
     rsp.Init();
     LE_INFO(" RSP service Ready...\n");
 
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);
 }
 
 taf_sim_NewStateHandlerRef_t taf_sim_AddNewStateHandler(taf_sim_NewStateHandlerFunc_t handlerPtr,

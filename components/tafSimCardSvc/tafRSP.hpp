@@ -130,6 +130,7 @@ typedef struct
         class taf_simRsp :public ITafSvc {
             public:
                 void Init(void);
+                void Deinit(void);
                 static taf_simRsp &GetInstance();
                 taf_simRsp() {};
                 ~taf_simRsp() {};

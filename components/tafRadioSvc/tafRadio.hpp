@@ -51,6 +51,7 @@
 
 #include <vector>
 #include <string>
+#include <atomic>
 
 #include <telux/common/CommonDefines.hpp>
 #include <telux/tel/Phone.hpp>
@@ -58,6 +59,8 @@
 #include <telux/tel/PhoneFactory.hpp>
 #include <telux/tel/PhoneListener.hpp>
 #include <telux/tel/ImsServingSystemManager.hpp>
+#include <telux/platform/SubsystemFactory.hpp>
+#include <telux/platform/SubsystemManager.hpp>
 
 #include <telux/data/DataFactory.hpp>
 #include <telux/data/ServingSystemManager.hpp>
@@ -82,6 +85,8 @@
 #define TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM 6
 
 #define TAF_RADIO_SUBSYSTEM_TIMEOUT 8
+#define TAF_RADIO_MODEM_WAIT_TIMEOUT 180
+#define TAF_RADIO_MODEM_WAIT_INTERVAL 10
 
 #define TAF_RADIO_BAND_NUM_PER_GROUP 64
 
@@ -606,6 +611,13 @@ namespace tafsvc {
                 std::vector<std::shared_ptr<telux::tel::CellInfo>> cellInfoList) override;
     };
 
+    class taf_RadioModemEvtListener : public telux::platform::ISubsystemListener
+    {
+        public:
+            void onStateChange(telux::common::SubsystemInfo subsystemInfo,
+                telux::common::OperationalStatus newOperationalStatus) override;
+    };
+
     class taf_RadioDataServSysListener : public telux::data::IServingSystemListener
     {
         public:
@@ -964,11 +976,14 @@ namespace tafsvc {
         static void RadioProcCmdHandler(void* cmdReqPtr);
         static void RadioCmdCompleteHandler(void* reportPtr);
         static void ClientSessionCloseHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
+        static void ModemUnavailableHandler(void* reportPtr);
 
         /*
          * The initialization function of the Radio Service.
          */
         void Init(void);
+        void Deinit(void);
+        void WaitForModem(void);
 
         le_mem_PoolRef_t prefOpsListPool;
         le_mem_PoolRef_t prefOpPool;
@@ -1035,6 +1050,8 @@ namespace tafsvc {
         le_event_Id_t svcStatusServiceEvId;
         le_event_Id_t svcStatusLimitedRegionalEvId;
         le_event_Id_t svcStatusPowerSaveEvId;
+        le_event_Id_t modemUnavailableEvId = nullptr;
+        le_thread_Ref_t radioCmdThreadRef = nullptr;
         static le_event_Id_t radioCmdEvId;
         static le_event_Id_t radioCmdCompleteEvId;
         le_dls_List_t pendingCmdList;
@@ -1066,6 +1083,9 @@ namespace tafsvc {
         taf_radio_CAInfoRef_t lteCAInfoRefs[TAF_RADIO_PHONE_NUM];
         taf_radio_ConnStatusRef_t endcStatusRefs[TAF_RADIO_PHONE_NUM];
         std::shared_ptr<taf_RadioPhoneListener> phoneListener;
+        std::shared_ptr<telux::platform::ISubsystemManager> subsystemMgr;
+        std::shared_ptr<taf_RadioModemEvtListener> modemEvtListener;
+        std::atomic<bool> modemUnavailable{false};
         uint16_t hysteresisTimer[TAF_RADIO_PHONE_NUM] = {0,0};
         std::vector<taf_RadioHysteresisConfig_t> hysteresisConfigs;
         le_dls_List_t svcStatusCtxList;

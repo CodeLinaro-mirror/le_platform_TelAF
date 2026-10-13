@@ -2,8 +2,8 @@ provides:
 {
     api:
     {
-        taf_sim.api
-        taf_simRsp.api
+        taf_sim.api [manual-start]
+        taf_simRsp.api [manual-start]
     }
 }
 
@@ -19,6 +19,7 @@ requires:
     {
         lib/libtelux_tel.so
         lib/libtelux_common.so
+        lib/libtelux_platform.so
     }
 
     api:
@@ -34,6 +35,7 @@ cxxflags:
     -I$TELAF_ROOT/components/stub/taf_pa_sim
     -ltelux_tel
     -ltelux_common
+    -ltelux_platform
 }
 
 cflags:

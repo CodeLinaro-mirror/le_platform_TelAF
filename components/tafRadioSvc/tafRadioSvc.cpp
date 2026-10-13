@@ -60,6 +60,31 @@ using namespace tafsvc;
 
 /*======================================================================
 
+ FUNCTION        SigTermEventHandler
+
+ DESCRIPTION     SIGTERM signal event handler, deinit radio platform adaptor.
+
+ DEPENDENCIES    None
+
+ PARAMETERS      [IN] int sigNum: The signal number.
+
+ RETURN VALUE    None
+
+ SIDE EFFECTS
+
+======================================================================*/
+static void SigTermEventHandler(int sigNum)
+{
+    LE_INFO("SigTermEventHandler signal : %d", sigNum);
+
+    taf_Radio::GetInstance().Deinit();
+
+    _exit(EXIT_SUCCESS);
+}
+
+
+/*======================================================================
+
  FUNCTION        COMPONENT_INIT
 
  DESCRIPTION     The initialization of Radio Sevice Component.
@@ -79,6 +104,9 @@ COMPONENT_INIT
     auto &tafRadio = taf_Radio::GetInstance();
     tafRadio.Init();
     LE_INFO("tafRadio Service Ready...");
+
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);
 }
 
 /*======================================================================

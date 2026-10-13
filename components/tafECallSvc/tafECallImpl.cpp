@@ -16,6 +16,58 @@ char fdn[TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES];
 char sdn[TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES];
 
 le_sem_Ref_t eCallModeChangeSemaphore;
+
+static bool simServiceAvailable = false;
+static le_timer_Ref_t simRetryTimer = nullptr;
+static void StartSimRetryTimer(void);
+
+static void SimServerDisconnectHandler(void* contextPtr)
+{
+    LE_WARN("Disconnected from SIM service, attempting to reconnect...");
+    simServiceAvailable = false;
+    StartSimRetryTimer();
+}
+
+static bool SimServerConnect(void)
+{
+    if (!simServiceAvailable && (taf_sim_TryConnectService() == LE_OK))
+    {
+        LE_INFO("Connected to SIM service");
+        taf_sim_SetNonExitServerDisconnectHandler(SimServerDisconnectHandler, NULL);
+        simServiceAvailable = true;
+    }
+    return simServiceAvailable;
+}
+
+static void SimRetryHandler(le_timer_Ref_t timerRef)
+{
+    uint32_t expiryCount = le_timer_GetExpiryCount(timerRef);
+    if (SimServerConnect())
+    {
+        le_timer_Stop(timerRef);
+    }
+    else if (expiryCount >= MAX_NUM_OF_SIM_CONN_ATTEMPTS)
+    {
+        LE_ERROR("Failed to connect to SIM service after %d attempts", expiryCount);
+    }
+}
+
+static void StartSimRetryTimer(void)
+{
+    if (simRetryTimer == nullptr)
+    {
+        simRetryTimer = le_timer_Create("simRetryTimer");
+        le_timer_SetHandler(simRetryTimer, SimRetryHandler);
+        le_timer_SetWakeup(simRetryTimer, false);
+        le_timer_SetMsInterval(simRetryTimer, SIM_CONN_RETRY_TIMER_INTERVAL);
+        le_timer_SetRepeat(simRetryTimer, MAX_NUM_OF_SIM_CONN_ATTEMPTS);
+    }
+    if (!le_timer_IsRunning(simRetryTimer))
+    {
+        le_timer_Start(simRetryTimer);
+    }
+}
+
 void tafCallCommandCallback::makeCallResponse(telux::common::ErrorCode errorCode,
         std::shared_ptr<telux::tel::ICall> call) {
     auto &eCall = taf_ecall::GetInstance();
@@ -1204,6 +1256,12 @@ void taf_ecall::InitializeECallPtr()
 
 void taf_ecall::Init(void)
 {
+    if (!SimServerConnect())
+    {
+        LE_ERROR("Failed to connect to SIM service, retrying...");
+        StartSimRetryTimer();
+    }
+
     //  Get the PhoneFactory and PhoneManager instances.
     auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
 
@@ -1299,6 +1357,7 @@ void taf_ecall::Init(void)
     telux::common::Status status = PhoneManager->getPhoneIds(phoneIds);
     if (status == telux::common::Status::SUCCESS)
     {
+        Phones.clear();
         for (auto index = 1; index <= (int)phoneIds.size(); index++)
         {
             auto phone = PhoneManager->getPhone(index);
@@ -3648,6 +3707,7 @@ bool taf_ecall::WaitInitReadyAfterModemReboot()
     telux::common::Status status = PhoneManager->getPhoneIds(phoneIds);
     if (status == telux::common::Status::SUCCESS)
     {
+        Phones.clear();
         for (auto index = 1; index <= (int)phoneIds.size(); index++)
         {
             auto phone = PhoneManager->getPhone(index);
@@ -4480,9 +4540,18 @@ int taf_ecall::GetSelectedPhoneIdForECall()
         LE_ERROR("%s: failed to resolve phoneId", __func__);
         return -1;
     }
-    int slotId = (int)taf_sim_GetSelectedCard();
+    int slotId = ECALL_DEFAULT_LOGICAL_SLOT;
     int slotCount = 0;
-    if ((LE_OK == taf_sim_GetSlotCount(&slotCount)) && (slotCount == 1))
+    if (!SimServerConnect())
+    {
+        LE_WARN("%s: SIM service not available, use slotId %d", __func__, slotId);
+    }
+    else
+    {
+        slotId = (int)taf_sim_GetSelectedCard();
+    }
+    if (simServiceAvailable && (LE_OK == taf_sim_GetSlotCount(&slotCount)) &&
+        (slotCount == 1))
     {
         LE_DEBUG("DSSS single-active: translating slotId %d -> logical slotId %d",
              slotId, ECALL_DEFAULT_LOGICAL_SLOT);

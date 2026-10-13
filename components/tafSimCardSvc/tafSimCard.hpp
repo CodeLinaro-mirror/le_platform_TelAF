@@ -37,13 +37,18 @@
 
 #include "legato.h"
 #include "interfaces.h"
+#include <atomic>
 #include <telux/tel/PhoneFactory.hpp>
+#include <telux/platform/SubsystemFactory.hpp>
+#include <telux/platform/SubsystemManager.hpp>
 #include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
 #include "taf_pa_sim.hpp"
 
 #define DEFAULT_TIMEOUT_IN_SECONDS 5
 #define TAF_SIM_SUBSYSTEM_TIMEOUT 30
+#define TAF_SIM_MODEM_WAIT_TIMEOUT 180
+#define TAF_SIM_MODEM_WAIT_INTERVAL 10
 
 using namespace telux::tel;
 using namespace telux::common;
@@ -143,6 +148,12 @@ using namespace std;
                 std::map<SlotId, telux::tel::SlotStatus> slotStatus) override;
         };
 
+        class tafSimModemEvtListener : public telux::platform::ISubsystemListener {
+            public:
+                void onStateChange(telux::common::SubsystemInfo subsystemInfo,
+                telux::common::OperationalStatus newOperationalStatus) override;
+        };
+
         class tafOpenLogicalChannelCallback : public ICardChannelCallback {
             public:
                 void onChannelResponse(int channel, IccResult result, ErrorCode error) override;
@@ -195,6 +206,9 @@ using namespace std;
 
             public:
                 void Init(void);
+                void Deinit(void);
+                void WaitForModem(void);
+                static void ModemUnavailableHandler(void* reportPtr);
                 static taf_sim &GetInstance();
                 taf_sim() {};
                 ~taf_sim() {};
@@ -207,6 +221,10 @@ using namespace std;
                 std::shared_ptr<telux::tel::ISimProfileManager> simProfileManager = nullptr;
                 std::shared_ptr<telux::tel::IMultiSimManager> multiSimMgr = nullptr;
                 std::shared_ptr<telux::tel::IMultiSimListener> multiSimListener;
+                std::shared_ptr<telux::platform::ISubsystemManager> subsystemMgr;
+                std::shared_ptr<tafSimModemEvtListener> modemEvtListener;
+                le_event_Id_t modemUnavailableEvId = nullptr;
+                std::atomic<bool> modemUnavailable{false};
 
                 int slot = DEFAULT_SLOT_ID;
                 int slotCount = 0;

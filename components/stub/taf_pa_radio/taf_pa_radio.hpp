@@ -583,4 +583,14 @@ LE_SHARED void taf_pa_radio_SetEndcStatusHandler
     void* contextPtr
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Deinit radio platform adaptor.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_Deinit
+(
+    void
+);
+
 #endif /* TAF_PA_RADIO_HPP */

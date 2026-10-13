@@ -10,8 +10,29 @@
 
 using namespace tafsvc;
 
+// The MRC service's signal handler.
+static void MrcSigTermHandler
+(
+    int sigNum
+)
+{
+    LE_INFO("Signal :%d", sigNum);
+
+    le_result_t result = taf_pa_mrc_Deinit();
+    if (result != LE_OK)
+    {
+        LE_ERROR("Failed to deinitialize MRC platform adaptor, result: %d", result);
+    }
+
+    // Replace _exit() with exit() when taf_pa_mrc_Deinit cleanup resources properly.
+    _exit(EXIT_SUCCESS);
+}
+
 COMPONENT_INIT
 {
+    // Setup signal event handler.
+    le_sig_SetEventHandler(SIGTERM, MrcSigTermHandler);
+
     LE_INFO("tafMrc Service Init...\n");
     auto &tafMrc = taf_Mrc::GetInstance();
     tafMrc.Init();

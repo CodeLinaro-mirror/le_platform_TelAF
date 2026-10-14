@@ -67,6 +67,8 @@ LE_REF_DEFINE_STATIC_MAP(PositionSampleMap, GNSS_POSITION_SAMPLE_MAX);
 LE_REF_DEFINE_STATIC_MAP(PositionExSampleMap, GNSS_POSITION_SAMPLE_MAX);
 LE_REF_DEFINE_STATIC_MAP(MeasurementSampleMap, GNSS_POSITION_SAMPLE_MAX);
 
+typedef struct { taf_pa_result_t result; } taf_SelfTestResult_t;
+
 static le_result_t ConvertPaResult(taf_pa_result_t result)
 {
     switch (result)
@@ -80,6 +82,7 @@ static le_result_t ConvertPaResult(taf_pa_result_t result)
             return LE_FAULT;
     }
 }
+
 void bodyToSensorUtility(taf_pa_location_DREngineConfiguration_t& drConfig,
         const taf_locGnss_DrParams_t* drParamsPtr,taf_locGnss_Client_t* clientRequestPtr,
         le_result_t* sensor_Result);
@@ -2099,69 +2102,82 @@ void taf_locGnss::CopyPositionData
 
 void taf_locGnss::GnssPositionHandler
 (
- void* reportPtr
+    void* reportPtr
 )
 {
-    auto &gnss = taf_locGnss::GetInstance();
-    taf_locGnss_PositionHandler_t*  posHandlerPtr;
-    taf_locGnss_PositionSampleRequest_t*    posSampleReqPtr=NULL;
+    auto& gnss = taf_locGnss::GetInstance();
+
     taf_locGnss_PositionSample_t* currentPosPtr = (taf_locGnss_PositionSample_t*)reportPtr;
 
     TAF_ERROR_IF_RET_NIL( currentPosPtr == NULL, "currentPosPtr is Null");
 
-    LE_DEBUG("Handler Function called with position %p", currentPosPtr);
-
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-
-    clientRequestPtr = gnss.DiscoverSessionRef(*currentPosPtr->clientSessionRefPtr);
-
-    TAF_ERROR_IF_RET_NIL(NULL == clientRequestPtr, "GnssPositionHandler did not find sessionRef");
-
-    CopyPositionData(&clientRequestPtr->LastPositionSample, currentPosPtr);
-
-    if(!gnss.NumOfPositionHandlers)
+    if (currentPosPtr->clientSessionRefPtr == NULL)
     {
-        LE_DEBUG("No positioning handlers, exit Handler Function");
+        LE_ERROR("GnssPositionHandler: clientSessionRefPtr is NULL");
+        le_mem_Release(currentPosPtr);
+        return;
+    }
+
+    le_msg_SessionRef_t sourceSessionRef = *currentPosPtr->clientSessionRefPtr;
+    taf_locGnss_Client_t* sourceClientPtr = gnss.DiscoverSessionRef(sourceSessionRef);
+
+    if (sourceClientPtr == NULL)
+    {
+        LE_ERROR("GnssPositionHandler: source client not found");
+        le_mem_Release(currentPosPtr);
+        return;
+    }
+
+
+    CopyPositionData(&sourceClientPtr->LastPositionSample, currentPosPtr);
+
+    if (gnss.NumOfPositionHandlers == 0)
+    {
         le_mem_Release(currentPosPtr);
         return;
     }
 
     le_ref_IterRef_t iterRef = le_ref_GetIterator(gnss.PositionHandlerRefMap);
+
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
-        posHandlerPtr = (taf_locGnss_PositionHandler_t*)le_ref_GetValue(iterRef);
-        if(posHandlerPtr == NULL) {
+        taf_locGnss_PositionHandler_t* handlerPtr =
+            (taf_locGnss_PositionHandler_t*)le_ref_GetValue(iterRef);
+
+        if (handlerPtr == NULL)
+        {
             continue;
         }
 
-        posSampleReqPtr = (taf_locGnss_PositionSampleRequest_t*)le_mem_ForceAlloc(gnss.PositionSampleRequestPoolRef);
-        memset(posSampleReqPtr, 0, sizeof(taf_locGnss_PositionSampleRequest_t));
+        if (handlerPtr->sessionRef != sourceSessionRef)
+        {
+            continue;
+        }
 
-        posSampleReqPtr->positionSampleNodePtr =
+        taf_locGnss_PositionSampleRequest_t* sampleReqPtr =
+            (taf_locGnss_PositionSampleRequest_t*)
+                le_mem_ForceAlloc(gnss.PositionSampleRequestPoolRef);
+
+        memset(sampleReqPtr,0,sizeof(taf_locGnss_PositionSampleRequest_t));
+
+        sampleReqPtr->positionSampleNodePtr =
             (taf_locGnss_PositionSample_t*)le_mem_ForceAlloc(gnss.PositionSamplePoolRef);
-        memset(posSampleReqPtr->positionSampleNodePtr, 0, sizeof(taf_locGnss_PositionSample_t));
 
-        memcpy(posSampleReqPtr->positionSampleNodePtr, &clientRequestPtr->LastPositionSample,
-                sizeof(taf_locGnss_PositionSample_t));
+        memset(sampleReqPtr->positionSampleNodePtr, 0, sizeof(taf_locGnss_PositionSample_t));
 
-        posSampleReqPtr->sessionRef = posHandlerPtr->sessionRef;
+        memcpy(sampleReqPtr->positionSampleNodePtr,&sourceClientPtr->LastPositionSample,
+            sizeof(taf_locGnss_PositionSample_t));
 
-        if (posSampleReqPtr->sessionRef != *currentPosPtr->clientSessionRefPtr) {
-            LE_DEBUG("GnssPositionHandler session ref does not match! ReqPtr.sessionRef: %p, Sample.sessionRef: %p", posSampleReqPtr->sessionRef, *currentPosPtr->clientSessionRefPtr);
-            if (posSampleReqPtr->positionSampleNodePtr) {
-                le_mem_Release(posSampleReqPtr->positionSampleNodePtr);
-            }
-            le_mem_Release(posSampleReqPtr);
-            continue;
-        }
-        posSampleReqPtr->positionSampleRef =
-           (taf_locGnss_SampleRef_t)le_ref_CreateRef(gnss.PositionSampleMap, posSampleReqPtr);
+        sampleReqPtr->sessionRef = handlerPtr->sessionRef;
 
-        LE_INFO("Report sampleRef %p to the corresponding handler (handlerPtr %p)",
-            posSampleReqPtr->positionSampleRef, posHandlerPtr->handlerFuncPtr);
+        sampleReqPtr->positionSampleRef = (taf_locGnss_SampleRef_t)le_ref_CreateRef(
+                gnss.PositionSampleMap, sampleReqPtr);
 
-        posHandlerPtr->handlerFuncPtr(posSampleReqPtr->positionSampleRef,
-                                      posHandlerPtr->handlerContextPtr);
+        LE_DEBUG("Deliver sampleRef=%p to handler=%p ""session=%p sourceSession=%p",
+            sampleReqPtr->positionSampleRef, handlerPtr->handlerRef, handlerPtr->sessionRef,
+            sourceSessionRef);
+
+        handlerPtr->handlerFuncPtr(sampleReqPtr->positionSampleRef, handlerPtr->handlerContextPtr);
     }
 
     le_mem_Release(currentPosPtr);
@@ -3396,35 +3412,46 @@ le_result_t taf_locGnss::GetTtff
     return result;
 }
 
+
 taf_locGnss_PositionHandlerRef_t taf_locGnss::AddPositionHandler
 (
- taf_locGnss_PositionHandlerFunc_t handlerPtr,
- void* contextPtr
+    taf_locGnss_PositionHandlerFunc_t handlerPtr,
+    void* contextPtr
 )
 {
-    auto &gnss = taf_locGnss::GetInstance();
+    auto& gnss = taf_locGnss::GetInstance();
 
-    taf_locGnss_Client_t* clientRequestPtr = NULL;
-    clientRequestPtr = AcquireSessionRef();
-    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "clientRequestPtr is NULL");
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
 
-    taf_locGnss_PositionHandler_t*  positionHandlerPtr =
-        (taf_locGnss_PositionHandler_t*)le_mem_ForceAlloc(PositionHandlerPoolRef);
-    memset(positionHandlerPtr, 0, sizeof(taf_locGnss_PositionHandler_t));
+    TAF_ERROR_IF_RET_VAL(clientRequestPtr == NULL, NULL, "clientRequestPtr is NULL");
+
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "handlerPtr is NULL");
+
+    taf_locGnss_PositionHandler_t* positionHandlerPtr =
+        (taf_locGnss_PositionHandler_t*)le_mem_ForceAlloc(
+            gnss.PositionHandlerPoolRef);
+
+    memset(positionHandlerPtr, 0, sizeof(*positionHandlerPtr));
+
     positionHandlerPtr->next = LE_DLS_LINK_INIT;
     positionHandlerPtr->handlerFuncPtr = handlerPtr;
     positionHandlerPtr->handlerContextPtr = contextPtr;
-    positionHandlerPtr->sessionRef = taf_locGnss_GetClientSessionRef();
-
-    LE_DEBUG("AddPositionHandler() sessionRef: %p", positionHandlerPtr->sessionRef);
+    positionHandlerPtr->sessionRef = clientRequestPtr->sessionRef;
 
     positionHandlerPtr->handlerRef =
-        (taf_locGnss_PositionHandlerRef_t)le_ref_CreateRef(gnss.PositionHandlerRefMap, positionHandlerPtr);
+        (taf_locGnss_PositionHandlerRef_t)le_ref_CreateRef(
+            gnss.PositionHandlerRefMap,
+            positionHandlerPtr);
 
     NumOfPositionHandlers++;
 
-    LE_DEBUG("Created positionHandlerRef(%p) for positionHandlerPtr(%p) (totalCnt=0x%x).",
-        positionHandlerPtr->handlerRef, positionHandlerPtr, NumOfPositionHandlers);
+    LE_DEBUG(
+        "AddPositionHandler: handlerRef=%p handlerPtr=%p "
+        "ownerSession=%p total=%d",
+        positionHandlerPtr->handlerRef,
+        positionHandlerPtr,
+        positionHandlerPtr->sessionRef,
+        NumOfPositionHandlers);
 
     return positionHandlerPtr->handlerRef;
 }
@@ -4959,7 +4986,6 @@ void taf_locGnss::ForceColdRestartWorker(void* cmdPtr, void*)
         return;
     }
 
-    typedef struct{ taf_pa_result_t result; }taf_SelfTestResult_t;
     le_result_t result = LE_OK;
 
     switch (clientRequestPtr->GnssState)
@@ -5067,7 +5093,6 @@ void taf_locGnss::ForceWarmRestartWorker(void* cmdPtr, void*)
         return;
     }
 
-    typedef struct{ taf_pa_result_t result; }taf_SelfTestResult_t;
     le_result_t result = LE_OK;
 
     switch (clientRequestPtr->GnssState)
@@ -5179,7 +5204,6 @@ void taf_locGnss::ForceHotRestartWorker(void* cmdPtr, void*)
         return;
     }
 
-    typedef struct{ taf_pa_result_t result; }taf_SelfTestResult_t;
     le_result_t result = LE_OK;
 
     switch (clientRequestPtr->GnssState)
@@ -5484,7 +5508,6 @@ static void GnssStartInternalWorker(void* cmdPtr, void*)
                 GnssReportTypeMask reportMask = 0x7f;
                 engineType |= (1UL << clientRequestPtr->mEngineType);
 
-                typedef struct { taf_pa_result_t result; } taf_SelfTestResult_t;
                 auto cb = [](taf_pa_result_t result, std::any context) {
                     taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
                     resPtr->result = result;
@@ -5619,7 +5642,6 @@ void taf_locGnss::SetMinElevationWorker(void* cmdPtr, void*)
                 break;
             case TAF_LOCGNSS_STATE_READY:
             {
-                typedef struct{ taf_pa_result_t result; }taf_SelfTestResult_t;
                 auto cb = [](taf_pa_result_t r, std::any ctx) {
                     ((taf_SelfTestResult_t*)std::any_cast<taf_SelfTestResult_t*>(ctx))->result = r; };
                 taf_SelfTestResult_t rc = {};
@@ -5696,7 +5718,6 @@ void taf_locGnss::StartModeWorker(void* cmdPtr, void*)
     if (mode >= TAF_LOCGNSS_UNKNOWN_START) { result = LE_BAD_PARAMETER; }
     else
     {
-        typedef struct{ taf_pa_result_t result; }taf_SelfTestResult_t;
         switch (clientRequestPtr->GnssState)
         {
             case TAF_LOCGNSS_STATE_READY:
@@ -5956,7 +5977,6 @@ static void GnssStopInternalWorker(void* cmdPtr, void*)
         {
             if (clientRequestPtr->mStarted)
             {
-                typedef struct { taf_pa_result_t result; } taf_SelfTestResult_t;
                 auto cb = [](taf_pa_result_t result, std::any context)
                 {
                     taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
@@ -6198,7 +6218,6 @@ le_result_t taf_locGnss::SetNmeaSentencesInternal
     if (nmeaMask & TAF_LOCGNSS_NMEA_MASK_GIGSV)
         nmeaType |= TAF_PA_LOCATION_GIGSV;
 
-    typedef struct { taf_pa_result_t result; } taf_SelfTestResult_t;
     auto cb = [](taf_pa_result_t result, std::any context)
     {
         taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
@@ -9427,19 +9446,16 @@ void taf_locGnss::InjectMerkleData
     cPtr->cmdRef     = cmdRef;
     cPtr->sessionRef = taf_locGnss_GetClientSessionRef();
 
-    size_t pathLen = strnlen(merkleTreeFilePath,
-                             sizeof(cPtr->params.injectMerkle.merkleTreeFilePath));
-    if (pathLen >= sizeof(cPtr->params.injectMerkle.merkleTreeFilePath))
+    if (le_utf8_Copy(cPtr->params.injectMerkle.merkleTreeFilePath,
+                      merkleTreeFilePath,
+                      sizeof(cPtr->params.injectMerkle.merkleTreeFilePath),
+                      nullptr) != LE_OK)
     {
-        LE_ERROR("InjectMerkleTreeInformationByPath: path too long (%zu)", pathLen);
+        LE_ERROR("InjectMerkleTreeInformationByPath: path too long or invalid");
         taf_locGnss_InjectMerkleTreeInformationByPathRespond(cmdRef, LE_OVERFLOW);
         le_mem_Release(cPtr);
         return;
     }
-
-    memcpy(cPtr->params.injectMerkle.merkleTreeFilePath,
-            merkleTreeFilePath,
-            sizeof(cPtr->params.injectMerkle.merkleTreeFilePath));
 
     LE_INFO("InjectMerkleTreeInformationByPath: queuing to worker, path=%s",
             cPtr->params.injectMerkle.merkleTreeFilePath);
@@ -9994,8 +10010,6 @@ le_result_t taf_locGnss::InternalReleaseDgnssSourceOnWorker
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
-
-    typedef struct { taf_pa_result_t result; } taf_SelfTestResult_t;
 
     taf_SelfTestResult_t resCallback = {};
     auto cb = [](taf_pa_result_t result, std::any context)
@@ -10591,7 +10605,11 @@ void taf_locGnss::RemovePositionHandler
         if(positionHandlerPtr->handlerRef != handlerRef) {
             return;
         }
-        NumOfPositionHandlers--;
+
+        if (gnss.NumOfPositionHandlers > 0)
+        {
+            gnss.NumOfPositionHandlers--;
+        }
 
         LE_DEBUG("Removed positionHandlerRef(%p) for positionHandlerPtr(%p) (totalCnt=0x%x).",
                  positionHandlerPtr->handlerRef, positionHandlerPtr, NumOfPositionHandlers);
@@ -10745,10 +10763,6 @@ void taf_locGnss::CloseEventHandler
 
     TAF_ERROR_IF_RET_NIL( sessionRef == NULL, "sessionRef is NULL");
 
-    if (gnss.GetState() == TAF_LOCGNSS_STATE_ACTIVE) {
-        gnss.Stop(NULL);
-    }
-
     le_ref_IterRef_t iterRef = le_ref_GetIterator(gnss.PositionSampleMap);
     le_result_t result = le_ref_NextNode(iterRef);
     while (LE_OK == result)
@@ -10784,6 +10798,34 @@ void taf_locGnss::CloseEventHandler
                 //External Client release, decrement client ref count
                 gnss.mClientRefCount--;
                 LE_INFO("CloseEventHandler client count: %d",gnss.mClientRefCount);
+            }
+
+            if (gnssPtr->GnssState == TAF_LOCGNSS_STATE_ACTIVE)
+            {
+                auto cb = [](taf_pa_result_t result, std::any context)
+                {
+                    taf_SelfTestResult_t* resPtr = std::any_cast<taf_SelfTestResult_t*>(context);
+                    resPtr->result = result;
+                };
+                taf_SelfTestResult_t resCallback = {};
+                taf_pa_result_t res = taf_pa_location_stopReports(
+                    gnssPtr->locationClient, cb, (std::any)&resCallback);
+
+                if (res != TAF_PA_OK)
+                {
+                    LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_stopReports for "
+                    "session=%p locationClient=%d result=%d",
+                    gnssPtr->sessionRef, (int)gnssPtr->locationClient, res);
+                }
+                else
+                {
+                    if (resCallback.result == TAF_PA_OK)
+                    {
+                        gnssPtr->mStarted = false;
+                        gnssPtr->GnssState = TAF_LOCGNSS_STATE_READY;
+                        LE_INFO("Stopped reports for disconnected session=%p", gnssPtr->sessionRef);
+                    }
+                }
             }
 
             if(gnssPtr->activeSourceRef != NULL && gnssPtr->activeDgnssFormat != 0){

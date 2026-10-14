@@ -37,5 +37,20 @@ routines_all:
     routine_role: [ b1 ]
     request:
       sub_function: [ 0x01, 0x02, 0x03]
-
+  0x024a:
+    identifier: 0x024a
+    mnemonic: Sample_rid4
+    type: 1
+    access:
+      session: [ default_session, programming_session, extended_diagnostic_session ]
+      security_type: 0x29
+    routine_role: [ b1 ]
+    request:
+      sub_function: [ 0x01, 0x02, 0x03 ]
+  0x024b:
+    identifier: 0x024b
+    mnemonic: Sample_rid5
+    type: 1
+    request:
+      sub_function: [ 0x01, 0x02, 0x03 ]
 

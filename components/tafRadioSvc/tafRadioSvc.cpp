@@ -47,6 +47,7 @@ using namespace std;
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetRadioPower
@@ -85,6 +86,7 @@ le_result_t taf_radio_SetRadioPower
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetRadioPower
@@ -126,6 +128,7 @@ le_result_t taf_radio_GetRadioPower
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetAutomaticRegisterMode
@@ -155,6 +158,7 @@ le_result_t taf_radio_SetAutomaticRegisterMode
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetManualRegisterMode
@@ -189,6 +193,7 @@ void taf_radio_SetManualRegisterModeAsync
     request.handlerFuncPtr = (void*)handlerFuncPtr;
     request.contextPtr = contextPtr;
     request.phone = phone;
+    request.clientSessionRef  = taf_radio_GetClientSessionRef();
     le_utf8_Copy(request.preference.mcc, mccPtr, TAF_RADIO_MCC_BYTES, nullptr);
     le_utf8_Copy(request.preference.mnc, mncPtr, TAF_RADIO_MNC_BYTES, nullptr);
 
@@ -206,6 +211,7 @@ void taf_radio_SetManualRegisterModeAsync
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetRegisterMode
@@ -317,6 +323,7 @@ int32_t taf_radio_GetPlatformSpecificRegistrationErrorCode
  *  - LE_FAULT -- Failed.
  *  - LE_TIMEOUT -- Timeout.
  *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_AddPreferredOperator
@@ -375,6 +382,7 @@ le_result_t taf_radio_AddPreferredOperator
  *  - LE_FAULT -- Failed.
  *  - LE_TIMEOUT -- Timeout.
  *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_RemovePreferredOperator
@@ -462,6 +470,8 @@ le_result_t taf_radio_RemovePreferredOperator
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeletePreferredOperatorsList
@@ -651,6 +661,8 @@ taf_radio_PreferredOperatorRef_t taf_radio_GetNextPreferredOperator
  *  - LE_OUT_OF_RANGE -- Out of range.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetPreferredOperatorDetails
@@ -815,6 +827,7 @@ void taf_radio_RemoveRatChangeHandler
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetRadioAccessTechInUse
@@ -854,6 +867,7 @@ le_result_t taf_radio_GetRadioAccessTechInUse
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetRatPreferences
@@ -879,6 +893,7 @@ le_result_t taf_radio_SetRatPreferences
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetRatPreferences
@@ -918,6 +933,7 @@ le_result_t taf_radio_GetRatPreferences
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetNetRegState
@@ -1008,6 +1024,7 @@ void taf_radio_RemoveNetRegStateEventHandler
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetPacketSwitchedState
@@ -1032,6 +1049,12 @@ le_result_t taf_radio_GetPacketSwitchedState
         return result;
     }
 
+    if (state != TAF_PA_RADIO_DATA_SERVICE_STATE_IN_SERVICE)
+    {
+        *statePtr = Utility::Convert::NetRegState(
+            state, TAF_PA_RADIO_DATA_ROAMING_STATUS_UNKNOWN);
+        return LE_OK;
+    }
     taf_pa_radio_DataRoamingStatus_t status = TAF_PA_RADIO_DATA_ROAMING_STATUS_UNKNOWN;
     paResult = taf_pa_radio_GetDataCurrRoamingStatus(instance, &status);
     result = Utility::Convert::Result(paResult);
@@ -1095,6 +1118,7 @@ void taf_radio_RemovePacketSwitchedChangeHandler
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServiceDomain
@@ -1143,6 +1167,7 @@ le_result_t taf_radio_GetServiceDomain
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServiceDomainPreferences
@@ -1182,6 +1207,7 @@ le_result_t taf_radio_GetServiceDomainPreferences
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetServiceDomainPreferences
@@ -1207,6 +1233,7 @@ le_result_t taf_radio_SetServiceDomainPreferences
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetSignalQual
@@ -1285,6 +1312,8 @@ taf_radio_MetricsRef_t taf_radio_MeasureSignalMetrics
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeleteSignalMetrics
@@ -1352,6 +1381,8 @@ taf_radio_RatBitMask_t taf_radio_GetRatOfSignalMetrics
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetGsmSignalMetrics
@@ -1410,6 +1441,8 @@ le_result_t taf_radio_GetGsmSignalMetrics
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetUmtsSignalMetrics
@@ -1477,12 +1510,14 @@ le_result_t taf_radio_GetUmtsSignalMetrics
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteSignalMetrics
 (
     taf_radio_MetricsRef_t metricsRef, ///< [IN] The signal metrics reference.
-    int32_t* rssiPtr,                  ///< [OUT] Received Signal Strength Indicator in dBm.
+    int32_t* ssPtr,                    ///< [OUT] Signal Strength in dBm based on RSRP.
     int32_t* rsrqPtr,                  ///< [OUT] Reference Signal Received Quality in dB.
     int32_t* rsrpPtr,                  ///< [OUT] Reference Signal Received Power in dBm.
     int32_t* snrPtr                    ///< [OUT] Signal-to-Noise Ratio in units of 0.1 dB.
@@ -1494,9 +1529,9 @@ le_result_t taf_radio_GetLteSignalMetrics
         return LE_BAD_PARAMETER;
     }
 
-    if (rssiPtr == nullptr)
+    if (ssPtr == nullptr)
     {
-        LE_ERROR("rssiPtr is nullptr.");
+        LE_ERROR("ssPtr is nullptr.");
         return LE_BAD_PARAMETER;
     }
 
@@ -1529,14 +1564,14 @@ le_result_t taf_radio_GetLteSignalMetrics
 
     if (infoPtr->bitmask & TAF_PA_RADIO_BITMASK_RAT_LTE)
     {
-        *rssiPtr = infoPtr->lteInfo.rssi;
+        *ssPtr = infoPtr->lteInfo.rsrp;
         *rsrqPtr = infoPtr->lteInfo.rsrq;
         *rsrpPtr = infoPtr->lteInfo.rsrp;
         *snrPtr = infoPtr->lteInfo.snr;
     }
     else
     {
-        *rssiPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        *ssPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
         *rsrqPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
         *rsrpPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
         *snrPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
@@ -1553,6 +1588,8 @@ le_result_t taf_radio_GetLteSignalMetrics
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCdmaSignalMetrics
@@ -1629,6 +1666,8 @@ le_result_t taf_radio_GetCdmaSignalMetrics
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetNr5gSignalMetrics
@@ -1683,6 +1722,160 @@ le_result_t taf_radio_GetNr5gSignalMetrics
         *rsrqPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
         *rsrpPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
         *snrPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets GSM signal strength value in dBm from signal metrics.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetGsmSignalMetricsSs
+(
+    taf_radio_MetricsRef_t metricsRef, ///< [IN] The signal metrics reference.
+    int32_t* ssPtr                     ///< [OUT] GSM signal strength in dBm.
+)
+{
+    if (metricsRef == nullptr)
+    {
+        LE_ERROR("metricsRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (ssPtr == nullptr)
+    {
+        LE_ERROR("ssPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SignalStrengthInfo_t* infoPtr = (taf_pa_radio_SignalStrengthInfo_t*)le_ref_Lookup(
+        factory.maps.signalStrengthInfo, metricsRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (infoPtr->bitmask & TAF_PA_RADIO_BITMASK_RAT_GSM)
+    {
+        *ssPtr = infoPtr->gsmInfo.ss;
+    }
+    else
+    {
+        *ssPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets UMTS Ec/Io from signal metrics.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetUmtsSignalMetricsEcio
+(
+    taf_radio_MetricsRef_t metricsRef, ///< [IN] The signal metrics reference.
+    int32_t* ecioPtr                   ///< [OUT] UMTS Ec/Io in dB.
+)
+{
+    if (metricsRef == nullptr)
+    {
+        LE_ERROR("metricsRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (ecioPtr == nullptr)
+    {
+        LE_ERROR("ecioPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SignalStrengthInfo_t* infoPtr = (taf_pa_radio_SignalStrengthInfo_t*)le_ref_Lookup(
+        factory.maps.signalStrengthInfo, metricsRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (infoPtr->bitmask & TAF_PA_RADIO_BITMASK_RAT_UMTS)
+    {
+        *ecioPtr = infoPtr->umtsInfo.ecio;
+    }
+    else
+    {
+        *ecioPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        return LE_UNAVAILABLE;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets LTE RSSI from signal metrics.
+ *
+ * @return
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteSignalMetricsRssi
+(
+    taf_radio_MetricsRef_t metricsRef, ///< [IN] The signal metrics reference.
+    int32_t* rssiPtr                   ///< [OUT] LTE RSSI in dBm.
+)
+{
+    if (metricsRef == nullptr)
+    {
+        LE_ERROR("metricsRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (rssiPtr == nullptr)
+    {
+        LE_ERROR("rssiPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SignalStrengthInfo_t* infoPtr = (taf_pa_radio_SignalStrengthInfo_t*)le_ref_Lookup(
+        factory.maps.signalStrengthInfo, metricsRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (infoPtr->bitmask & TAF_PA_RADIO_BITMASK_RAT_LTE)
+    {
+        *rssiPtr = infoPtr->lteInfo.rssi;
+    }
+    else
+    {
+        *rssiPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
     }
 
     return LE_OK;
@@ -2013,6 +2206,7 @@ uint16_t taf_radio_GetPhysicalServingLteCellId
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellGsmBsic
@@ -2094,6 +2288,7 @@ uint16_t taf_radio_GetServingCellScramblingCode
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCurrentNetworkName
@@ -2138,6 +2333,7 @@ le_result_t taf_radio_GetCurrentNetworkName
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCurrentNetworkMccMnc
@@ -2296,6 +2492,7 @@ void taf_radio_PerformCellularNetworkScanAsync
     request.handlerFuncPtr = (void*)handlerFuncPtr;
     request.contextPtr = contextPtr;
     request.phone = phone;
+    request.clientSessionRef  = taf_radio_GetClientSessionRef();
 
     le_event_Report(Factory::staticEvents.request, &request, sizeof(Request_t));
 }
@@ -2397,6 +2594,8 @@ taf_radio_ScanInformationRef_t taf_radio_GetNextCellularNetworkScan
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCellularNetworkMccMnc
@@ -2481,6 +2680,8 @@ le_result_t taf_radio_GetCellularNetworkMccMnc
  *  - LE_OK -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameters (null pointer).
  *  - LE_NOT_FOUND -- Scan information reference not found.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCellularNetworkName
@@ -2661,6 +2862,8 @@ bool taf_radio_IsCellularNetworkForbidden
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeleteCellularNetworkScan
@@ -2715,6 +2918,7 @@ le_result_t taf_radio_DeleteCellularNetworkScan
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetSignalStrengthIndThresholds
@@ -2754,6 +2958,7 @@ le_result_t taf_radio_SetSignalStrengthIndThresholds
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetSignalStrengthIndDelta
@@ -2970,6 +3175,8 @@ taf_radio_NeighborCellsRef_t taf_radio_GetNeighborCellsInfo
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeleteNeighborCellsInfo
@@ -3276,6 +3483,8 @@ taf_radio_Rat_t taf_radio_GetNeighborCellRat
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetNeighborCellGsmBsic
@@ -3399,6 +3608,7 @@ uint32_t taf_radio_GetPhysicalNeighborNrCellId
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetBandCapabilities
@@ -3438,6 +3648,7 @@ le_result_t taf_radio_GetBandCapabilities
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteBandCapabilities
@@ -3487,6 +3698,7 @@ le_result_t taf_radio_GetLteBandCapabilities
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetBandPreferences
@@ -3512,6 +3724,7 @@ le_result_t taf_radio_SetBandPreferences
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetBandPreferences
@@ -3551,6 +3764,7 @@ le_result_t taf_radio_GetBandPreferences
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetLteBandPreferences
@@ -3592,6 +3806,7 @@ le_result_t taf_radio_SetLteBandPreferences
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteBandPreferences
@@ -3700,6 +3915,7 @@ void taf_radio_PerformPciNetworkScanAsync
     request.contextPtr = contextPtr;
     request.phone = phone;
     request.rat = bitmask;
+    request.clientSessionRef  = taf_radio_GetClientSessionRef();
 
     le_event_Report(Factory::staticEvents.request, &request, sizeof(Request_t));
 }
@@ -3942,6 +4158,8 @@ uint32_t taf_radio_GetPciScanGlobalCellId
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetPciScanMccMnc
@@ -4015,6 +4233,8 @@ le_result_t taf_radio_GetPciScanMccMnc
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeletePciNetworkScan
@@ -4088,6 +4308,7 @@ le_result_t taf_radio_DeletePciNetworkScan
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetImsRegStatus
@@ -4231,6 +4452,7 @@ taf_radio_NetStatusRef_t taf_radio_GetNetStatus
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteCsCap
@@ -4278,6 +4500,7 @@ le_result_t taf_radio_GetLteCsCap
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetRatSvcStatus
@@ -4363,6 +4586,142 @@ void taf_radio_RemoveNetStatusChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Add handler function for EVENT 'taf_radio_ServiceStatusChange'
+ *
+ * Event to report service status changes.
+ *
+ * @note statusMask filters which service status values trigger the handler.
+ *       Pass all bits set to receive all status changes.
+ *
+ * @note phoneId filters which phone's service status changes trigger the handler.
+ *       Pass 0 to receive status changes from all phones.
+ *
+ * @return
+ *  - taf_radio_ServiceStatusChangeHandlerRef_t Handler reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_ServiceStatusChangeHandlerRef_t taf_radio_AddServiceStatusChangeHandler
+(
+    taf_radio_ServiceStatusBitMask_t statusMask,
+        ///< [IN] Service status bitmask filter.
+    uint8_t phoneId,
+        ///< [IN] Phone ID filter. 0 means all phones.
+    taf_radio_ServiceStatusChangeHandlerFunc_t handlerPtr,
+        ///< [IN] Handler for service status change.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    if (statusMask == 0 || handlerPtr == NULL)
+    {
+        LE_ERROR("AddServiceStatusChangeHandler: invalid statusMask=0x%x or NULL handlerPtr",
+                 statusMask);
+        return NULL;
+    }
+
+    if (phoneId > INSTANCE_MAX_COUNT)
+    {
+        LE_ERROR("AddServiceStatusChangeHandler: invalid phoneId=%d (max=%d)",
+                 phoneId, INSTANCE_MAX_COUNT);
+        return NULL;
+    }
+
+    auto& factory = Factory::GetInstance();
+
+    ServiceStatusHandlerCtx_t* ctxPtr =
+        (ServiceStatusHandlerCtx_t*)le_mem_ForceAlloc(
+            factory.pools.svcStatusHandlerCtx);
+    memset(ctxPtr, 0, sizeof(ServiceStatusHandlerCtx_t));
+    ctxPtr->phoneId = phoneId;
+    ctxPtr->userCtx = contextPtr;
+    ctxPtr->link = LE_DLS_LINK_INIT;
+    ctxPtr->sessionRef = taf_radio_GetClientSessionRef();
+
+    bool wasEmpty = le_dls_IsEmpty(&factory.svcStatusCtxList);
+    le_dls_Queue(&factory.svcStatusCtxList, &ctxPtr->link);
+
+    struct { taf_radio_ServiceStatusBitMask_t bit; le_event_Id_t eventId; const char* name; } entries[] =
+    {
+        { TAF_RADIO_SERVICE_STATUS_BIT_MASK_NO_SERVICE,       factory.events.svcStatusNoServiceChange,        "ServiceStatusNoServiceChange"       },
+        { TAF_RADIO_SERVICE_STATUS_BIT_MASK_LIMITED,          factory.events.svcStatusLimitedChange,          "ServiceStatusLimitedChange"          },
+        { TAF_RADIO_SERVICE_STATUS_BIT_MASK_SERVICE,          factory.events.svcStatusServiceChange,          "ServiceStatusServiceChange"          },
+        { TAF_RADIO_SERVICE_STATUS_BIT_MASK_LIMITED_REGIONAL, factory.events.svcStatusLimitedRegionalChange,  "ServiceStatusLimitedRegionalChange"  },
+        { TAF_RADIO_SERVICE_STATUS_BIT_MASK_POWER_SAVE,       factory.events.svcStatusPowerSaveChange,        "ServiceStatusPowerSaveChange"        },
+    };
+    for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++)
+    {
+        if (!(statusMask & entries[i].bit))
+        {
+            continue;
+        }
+
+        ctxPtr->handlerRefs[i] = le_event_AddLayeredHandler(entries[i].name,
+            entries[i].eventId, Utility::LayeredFunction::ServiceStatusChange,
+            (void*)handlerPtr);
+        le_event_SetContextPtr(ctxPtr->handlerRefs[i], ctxPtr);
+
+    }
+
+    if (wasEmpty)
+    {
+        factory.ApplyServiceStatusModemFiltering();
+    }
+
+    taf_radio_ServiceStatusChangeHandlerRef_t safeRef =
+    (taf_radio_ServiceStatusChangeHandlerRef_t)le_ref_CreateRef(factory.maps.svcStatusRefMap, ctxPtr);
+
+    ctxPtr->safeRef = safeRef;
+
+    return safeRef;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_radio_ServiceStatusChange'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_radio_RemoveServiceStatusChangeHandler
+(
+    taf_radio_ServiceStatusChangeHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    auto& factory = Factory::GetInstance();
+
+    ServiceStatusHandlerCtx_t* ctxPtr =
+        (ServiceStatusHandlerCtx_t*)le_ref_Lookup(
+            factory.maps.svcStatusRefMap, handlerRef);
+
+    if (ctxPtr == nullptr)
+    {
+        LE_WARN("RemoveServiceStatusChangeHandler: ref %p already deleted or invalid",
+                handlerRef);
+        return;
+    }
+
+    le_ref_DeleteRef(factory.maps.svcStatusRefMap, handlerRef);
+
+    le_dls_Remove(&factory.svcStatusCtxList, &ctxPtr->link);
+
+    for (size_t i = 0; i < TAF_RADIO_SERVICE_STATUS_BIT_MASK_COUNT; i++)
+    {
+        if (ctxPtr->handlerRefs[i] != nullptr)
+        {
+            le_event_RemoveHandler(ctxPtr->handlerRefs[i]);
+            ctxPtr->handlerRefs[i] = nullptr;
+        }
+    }
+
+    le_mem_Release(ctxPtr);
+
+    if (le_dls_IsEmpty(&factory.svcStatusCtxList))
+    {
+        factory.ApplyServiceStatusModemFiltering();
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Gets the IMS reference.
  *
  * @return
@@ -4398,6 +4757,7 @@ taf_radio_ImsRef_t taf_radio_GetIms
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetImsSvcStatus
@@ -4454,6 +4814,7 @@ le_result_t taf_radio_GetImsSvcStatus
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetImsPdpError
@@ -4500,6 +4861,7 @@ le_result_t taf_radio_GetImsPdpError
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetImsSvcCfg
@@ -4533,6 +4895,7 @@ le_result_t taf_radio_SetImsSvcCfg
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetImsSvcCfg
@@ -4584,6 +4947,7 @@ le_result_t taf_radio_GetImsSvcCfg
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetImsUserAgent
@@ -4621,6 +4985,7 @@ le_result_t taf_radio_SetImsUserAgent
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetImsUserAgent
@@ -4696,6 +5061,7 @@ void taf_radio_RemoveImsStatusChangeHandler
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetNrDualConnectivityStatus
@@ -4752,6 +5118,7 @@ le_result_t taf_radio_GetNrDualConnectivityStatus
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCurrentNetworkLongName
@@ -4794,6 +5161,7 @@ le_result_t taf_radio_GetCurrentNetworkLongName
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetHardwareSimConfig
@@ -4839,6 +5207,7 @@ le_result_t taf_radio_GetHardwareSimConfig
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetHardwareSimRatCapabilities
@@ -4922,7 +5291,9 @@ void taf_radio_RemoveCellInfoChangeHandler
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
-  */
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetSignalStrengthIndHysteresis
 (
@@ -4951,7 +5322,9 @@ le_result_t taf_radio_SetSignalStrengthIndHysteresis
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
-  */
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetSignalStrengthIndHysteresisTimer
 (
@@ -4983,6 +5356,7 @@ le_result_t taf_radio_SetSignalStrengthIndHysteresisTimer
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellArfcn
@@ -5032,6 +5406,7 @@ le_result_t taf_radio_GetServingCellArfcn
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellUarfcn
@@ -5089,6 +5464,7 @@ le_result_t taf_radio_GetServingCellUarfcn
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_SetOperatingMode
@@ -5113,6 +5489,7 @@ le_result_t taf_radio_SetOperatingMode
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetOperatingMode
@@ -5156,6 +5533,7 @@ le_result_t taf_radio_GetOperatingMode
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellRoutingAreaCode
@@ -5195,6 +5573,7 @@ le_result_t taf_radio_GetServingCellRoutingAreaCode
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellBandInfo
@@ -5245,6 +5624,7 @@ le_result_t taf_radio_GetServingCellBandInfo
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellLteBandInfo
@@ -5297,6 +5677,7 @@ le_result_t taf_radio_GetServingCellLteBandInfo
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetServingCellNrBandInfo
@@ -5349,6 +5730,7 @@ le_result_t taf_radio_GetServingCellNrBandInfo
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetNrIconType
@@ -5479,6 +5861,7 @@ void taf_radio_RemoveCAInfoHandler
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCAInformation
@@ -5501,7 +5884,13 @@ le_result_t taf_radio_GetCAInformation
     }
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
-    taf_pa_radio_LteCphyCaInfo_t info;
+    if (instance >= INSTANCE_MAX_COUNT)
+    {
+        LE_ERROR("Invalid phone ID %d.", phone);
+        return LE_BAD_PARAMETER;
+    }
+
+    taf_pa_radio_LteCphyCaInfo_t info = {};
     taf_pa_result_t paResult = taf_pa_radio_GetLteCphyCaInfo(instance, &info);
     le_result_t result = Utility::Convert::Result(paResult);
     if (result != LE_OK)
@@ -5526,6 +5915,8 @@ le_result_t taf_radio_GetCAInformation
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeleteCAInformation
@@ -5563,6 +5954,8 @@ le_result_t taf_radio_DeleteCAInformation
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_NOT_FOUND -- Not found.
  *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetLteCAStatus
@@ -5604,6 +5997,565 @@ le_result_t taf_radio_GetLteCAStatus
     return LE_OK;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA primary cell (PCell) physical cell ID.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCAPCellPci
+(
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    uint16_t* pciPtr                 ///< [OUT] The PCell physical cell ID.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (pciPtr == nullptr)
+    {
+        LE_ERROR("pciPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    *pciPtr = infoPtr->pcellInfo.pci;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA primary cell (PCell) frequency/EARFCN.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCAPCellFreq
+(
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    uint32_t* freqPtr                ///< [OUT] The PCell frequency/EARFCN.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (freqPtr == nullptr)
+    {
+        LE_ERROR("freqPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    *freqPtr = infoPtr->pcellInfo.freq;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA primary cell (PCell) downlink bandwidth.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCAPCellDlBandwidth
+(
+    taf_radio_CAInfoRef_t reference,  ///< [IN] The carrier aggregation information reference.
+    taf_radio_RFBandWidth_t* dlBwPtr  ///< [OUT] The PCell downlink bandwidth.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (dlBwPtr == nullptr)
+    {
+        LE_ERROR("dlBwPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    *dlBwPtr = infoPtr->pcellInfo.dlBw;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA primary cell (PCell) band.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCAPCellBand
+(
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    uint16_t* bandPtr                ///< [OUT] The PCell band.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (bandPtr == nullptr)
+    {
+        LE_ERROR("bandPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    *bandPtr = infoPtr->pcellInfo.band;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA secondary cell (SCell) count.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCASCellCount
+(
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    uint32_t* countPtr               ///< [OUT] The number of SCells.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (countPtr == nullptr)
+    {
+        LE_ERROR("countPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    *countPtr = infoPtr->scellInfoCount;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA secondary cell (SCell) physical cell ID by array index.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OUT_OF_RANGE -- Index is out of range.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCASCellPci
+(
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    uint32_t index,                  ///< [IN] SCell array index.
+    uint16_t* pciPtr                 ///< [OUT] The SCell physical cell ID.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (pciPtr == nullptr)
+    {
+        LE_ERROR("pciPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (index >= infoPtr->scellInfoCount)
+    {
+        LE_ERROR("SCell index %u out of range (count=%u).", index, infoPtr->scellInfoCount);
+        return LE_OUT_OF_RANGE;
+    }
+
+    *pciPtr = infoPtr->scellInfo[index].pci;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA secondary cell (SCell) frequency/EARFCN by array index.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OUT_OF_RANGE -- Index is out of range.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCASCellFreq
+(
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    uint32_t index,                  ///< [IN] SCell array index.
+    uint32_t* freqPtr                ///< [OUT] The SCell frequency/EARFCN.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (freqPtr == nullptr)
+    {
+        LE_ERROR("freqPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (index >= infoPtr->scellInfoCount)
+    {
+        LE_ERROR("SCell index %u out of range (count=%u).", index, infoPtr->scellInfoCount);
+        return LE_OUT_OF_RANGE;
+    }
+
+    *freqPtr = infoPtr->scellInfo[index].freq;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA secondary cell (SCell) downlink bandwidth by array index.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OUT_OF_RANGE -- Index is out of range.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCASCellDlBandwidth
+(
+    taf_radio_CAInfoRef_t reference,  ///< [IN] The carrier aggregation information reference.
+    uint32_t index,                   ///< [IN] SCell array index.
+    taf_radio_RFBandWidth_t* dlBwPtr  ///< [OUT] The SCell downlink bandwidth.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (dlBwPtr == nullptr)
+    {
+        LE_ERROR("dlBwPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (index >= infoPtr->scellInfoCount)
+    {
+        LE_ERROR("SCell index %u out of range (count=%u).", index, infoPtr->scellInfoCount);
+        return LE_OUT_OF_RANGE;
+    }
+
+    *dlBwPtr = infoPtr->scellInfo[index].dlBw;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA secondary cell (SCell) band by array index.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OUT_OF_RANGE -- Index is out of range.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCASCellBand
+(
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    uint32_t index,                  ///< [IN] SCell array index.
+    uint16_t* bandPtr                ///< [OUT] The SCell band.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (bandPtr == nullptr)
+    {
+        LE_ERROR("bandPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (index >= infoPtr->scellInfoCount)
+    {
+        LE_ERROR("SCell index %u out of range (count=%u).", index, infoPtr->scellInfoCount);
+        return LE_OUT_OF_RANGE;
+    }
+
+    *bandPtr = infoPtr->scellInfo[index].band;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA secondary cell (SCell) activation state by array index.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OUT_OF_RANGE -- Index is out of range.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCASCellState
+(
+    taf_radio_CAInfoRef_t reference,    ///< [IN] The carrier aggregation information reference.
+    uint32_t index,                     ///< [IN] SCell array index.
+    taf_radio_CAScellState_t* statePtr  ///< [OUT] The SCell state.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (statePtr == nullptr)
+    {
+        LE_ERROR("statePtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (index >= infoPtr->scellInfoCount)
+    {
+        LE_ERROR("SCell index %u out of range (count=%u).", index, infoPtr->scellInfoCount);
+        return LE_OUT_OF_RANGE;
+    }
+
+    *statePtr = infoPtr->scellInfo[index].scellState;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA secondary cell (SCell) modem index by array index.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OUT_OF_RANGE -- Index is out of range.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCASCellIndex
+(
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    uint32_t index,                  ///< [IN] SCell array index.
+    uint8_t* scellIndexPtr           ///< [OUT] The SCell modem index.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (scellIndexPtr == nullptr)
+    {
+        LE_ERROR("scellIndexPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (index >= infoPtr->scellInfoCount)
+    {
+        LE_ERROR("SCell index %u out of range (count=%u).", index, infoPtr->scellInfoCount);
+        return LE_OUT_OF_RANGE;
+    }
+
+    *scellIndexPtr = infoPtr->scellInfo[index].scellIndex;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the LTE CA secondary cell (SCell) uplink configured flag by array index.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Not found.
+ *  - LE_OUT_OF_RANGE -- Index is out of range.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteCASCellUlConfigured
+(
+    taf_radio_CAInfoRef_t reference, ///< [IN] The carrier aggregation information reference.
+    uint32_t index,                  ///< [IN] SCell array index.
+    bool* ulConfiguredPtr            ///< [OUT] True if SCell uplink is configured.
+)
+{
+    if (reference == nullptr)
+    {
+        LE_ERROR("reference is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (ulConfiguredPtr == nullptr)
+    {
+        LE_ERROR("ulConfiguredPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    CAInfo_t* infoPtr = (CAInfo_t*)le_ref_Lookup(factory.maps.caInfo, reference);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (index >= infoPtr->scellInfoCount)
+    {
+        LE_ERROR("SCell index %u out of range (count=%u).", index, infoPtr->scellInfoCount);
+        return LE_OUT_OF_RANGE;
+    }
+
+    *ulConfiguredPtr = infoPtr->scellInfo[index].ulConfigured;
+    return LE_OK;
+}
 //--------------------------------------------------------------------------------------------------
 /**
  * Adds handler for the connection status changes.
@@ -5652,6 +6604,7 @@ void taf_radio_RemoveConnectionStatusHandler
  *  - LE_BAD_PARAMETER -- Bad parameters (null pointer).
  *  - LE_FAULT -- Failed to get data available system status.
  *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetConnStatus
@@ -5696,6 +6649,8 @@ le_result_t taf_radio_GetConnStatus
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameters (null reference or reference not found in map).
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_DeleteConnStatus
@@ -5733,6 +6688,8 @@ le_result_t taf_radio_DeleteConnStatus
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameters (reference not found in map or null statusPtr).
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ *  - LE_CAP_UNSUPPORTED -- Unsupported due to chipset capabilities or chipset SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetEndcConnectionStatus

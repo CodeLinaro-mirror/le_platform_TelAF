@@ -27,6 +27,7 @@ __attribute__((unused)) static void Simulate_Corrupt();
 #define TEST_APP_DEFAULT_STORAGE "/data/rfs/backup/"
 #define TEST_DATA_SIZE (1024 * 10)
 #define TIMEOUT_ITEM_TEST 5
+#define TIMEOUT_POWER_LOSS_TEST 120
 #define TEST_MAX_FILE_SIZE  10240
 #define TEST_MAX_FILE_COUNT 10
 #define TEST_XATTR_NAME "security.md5"
@@ -44,6 +45,12 @@ __attribute__((unused)) static void Simulate_Corrupt();
 #define OP_BACKUP_MD5_MISSING_RECOVER "backup_md5_missing_recover"
 #define OP_BACKUP_MD5_MISMATCH_RECOVER "backup_md5_mismatch_recover"
 #define OP_CLOSE_UPDATES_BACKUP "close_updates_backup"
+#define OP_POWER_LOSS_STRESS    "power_loss_stress"
+
+// Number of write/power-loss iterations for the stress test.
+#ifndef POWER_LOSS_ITER
+#define POWER_LOSS_ITER 20
+#endif
 
 static le_mem_PoolRef_t TestRequestPool;
 static le_thread_Ref_t TestThreadRef;
@@ -63,7 +70,8 @@ typedef enum
     RO_OPEN_HEALS_BACKUP,
     BACKUP_MD5_MISSING_RECOVER,
     BACKUP_MD5_MISMATCH_RECOVER,
-    CLOSE_UPDATES_BACKUP
+    CLOSE_UPDATES_BACKUP,
+    POWER_LOSS_STRESS
 }
 TestOperation_t;
 
@@ -361,6 +369,131 @@ __attribute__((unused)) static void Test_CloseUpdatesBackup()
     LE_TEST_ASSERT(len > 0, "Backup MD5 xattr updated during %s", OP_CLOSE_UPDATES_BACKUP);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Drops the kernel page/inode/dentry caches to emulate the effect of a power loss WITHOUT a real
+ * reboot: anything that was written but not actually flushed to the storage medium is lost,
+ * while data that was correctly persisted (e.g. via fsync) survives because it can be re-read
+ * from the medium. Requires root.
+ */
+//--------------------------------------------------------------------------------------------------
+// Returns true only if the page cache was actually dropped (i.e. the durability check is
+// meaningful). Returns false if drop_caches could not be written (denied by SELinux / not root),
+// in which case the test cannot prove persistence and must report that explicitly.
+__attribute__((unused)) static bool DropCaches()
+{
+    // Note: only CLEAN pages can be dropped. If RFS correctly fsync'ed the file+xattr, the pages
+    // become clean and survive (re-read from disk). If RFS did NOT persist them, they are lost.
+    int fd = open("/proc/sys/vm/drop_caches", O_WRONLY);
+    if (fd < 0)
+    {
+        LE_WARN("DropCaches: cannot open drop_caches (need root / SELinux): %s", strerror(errno));
+        return false;
+    }
+    if (write(fd, "3\n", 2) < 0)
+    {
+        LE_WARN("DropCaches: write failed: %s", strerror(errno));
+        close(fd);
+        return false;
+    }
+    close(fd);
+    return true;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Power-loss durability stress test using the real RFS API.
+ *
+ * For each iteration:
+ *   1) Write the primary file via taf_rfs_Open/Write/Close (this also builds the backup and
+ *      sets the MD5 xattr on both primary and backup).
+ *   2) DropCaches() to emulate a power loss (discard anything not actually persisted).
+ *   3) Re-open via taf_rfs_Open (read path: validates primary, restores from backup if needed)
+ *      and verify the content can still be read back correctly.
+ *   4) Verify the MD5 xattr is still present on BOTH primary and backup files.
+ *
+ * If the fix (fsync after setxattr) works, every iteration passes. If the old behaviour is in
+ * effect (xattr never fsync'ed), DropCaches() will expose missing xattr -> failures, exactly
+ * reproducing TELAF-5057 without a reboot.
+ */
+//--------------------------------------------------------------------------------------------------
+__attribute__((unused)) static void Test_PowerLossStress()
+{
+    char fullBackupPath[512] = {0};
+    GetBackupPath(fullBackupPath, sizeof(fullBackupPath));
+
+    char* testData = GenerateTestData();
+    LE_TEST_ASSERT(testData != NULL, "Allocate test data for power-loss stress");
+
+    int xattrLostPrimary = 0;
+    int xattrLostBackup = 0;
+    int contentLost = 0;
+    int restoreFailed = 0;
+    int cacheDropped = 0;
+
+    for (int it = 0; it < POWER_LOSS_ITER; it++)
+    {
+        // 1) Write primary through RFS (builds/refreshes backup + xattr on both).
+        int fd = taf_rfs_Open(TEST_FILE_PATH, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+        LE_TEST_ASSERT(fd >= 0, "power_loss: open for write (iter %d)", it);
+        ssize_t w = taf_rfs_Write(fd, (uint8_t*)testData, TEST_DATA_SIZE);
+        LE_TEST_ASSERT(w == TEST_DATA_SIZE, "power_loss: write (iter %d)", it);
+        LE_TEST_ASSERT(taf_rfs_Close(fd) == 0, "power_loss: close (iter %d)", it);
+
+        // 2) Emulate power loss: drop everything not actually persisted.
+        if (DropCaches()) { cacheDropped++; }
+
+        // 3) Check primary MD5 xattr survived.
+        char md5Primary[64] = {0};
+        ssize_t lp = getxattr(TEST_FILE_PATH, TEST_XATTR_NAME, md5Primary, sizeof(md5Primary));
+        if (lp <= 0) { xattrLostPrimary++; }
+
+        // 4) Check backup MD5 xattr survived (this is the exact thing missing in TELAF-5057).
+        char md5Backup[64] = {0};
+        ssize_t lb = getxattr(fullBackupPath, TEST_XATTR_NAME, md5Backup, sizeof(md5Backup));
+        if (lb <= 0) { xattrLostBackup++; }
+
+        // 5) Read back through RFS (will attempt backup-restore if primary is bad/missing).
+        char* buffer = malloc(TEST_DATA_SIZE + 1);
+        LE_TEST_ASSERT(buffer != NULL, "power_loss: alloc read buf (iter %d)", it);
+        int rfd = taf_rfs_Open(TEST_FILE_PATH, O_RDONLY, 0);
+        if (rfd < 0)
+        {
+            restoreFailed++;
+            free(buffer);
+            continue;
+        }
+        size_t expected = TEST_DATA_SIZE;
+        ssize_t r = taf_rfs_Read(rfd, (uint8_t*)buffer, &expected);
+        taf_rfs_Close(rfd);
+        if (r != TEST_DATA_SIZE || memcmp(buffer, testData, TEST_DATA_SIZE) != 0)
+        {
+            contentLost++;
+        }
+        free(buffer);
+    }
+
+    free(testData);
+
+    LE_TEST_INFO("power_loss summary over %d iters: cacheDropped=%d primaryXattrLost=%d "
+                 "backupXattrLost=%d contentLost=%d restoreFailed=%d",
+                 POWER_LOSS_ITER, cacheDropped, xattrLostPrimary, xattrLostBackup,
+                 contentLost, restoreFailed);
+
+    // The durability check is only meaningful if the page cache was actually dropped. If it was
+    // never dropped (denied by SELinux / not root), the run does NOT prove persistence.
+    LE_TEST_ASSERT(cacheDropped == POWER_LOSS_ITER,
+                   "power_loss: page cache actually dropped every iter (durability check is valid)");
+
+    // With the fix in place, none of these should happen.
+    LE_TEST_ASSERT(xattrLostPrimary == 0, "power_loss: primary MD5 xattr never lost");
+    LE_TEST_ASSERT(xattrLostBackup == 0, "power_loss: backup MD5 xattr never lost");
+    LE_TEST_ASSERT(contentLost == 0, "power_loss: content always readable/restorable");
+    LE_TEST_ASSERT(restoreFailed == 0, "power_loss: RFS open/restore never fails");
+
+    taf_rfs_Delete(TEST_FILE_PATH);
+}
+
 __attribute__((unused)) static void Test_Delete()
 {
     taf_rfs_Delete(TEST_FILE_PATH);
@@ -465,6 +598,9 @@ static void ProcessTest
         case CLOSE_UPDATES_BACKUP:
             Test_CloseUpdatesBackup();
             break;
+        case POWER_LOSS_STRESS:
+            Test_PowerLossStress();
+            break;
         default:
             LE_ERROR("Unknown operation");
             break;
@@ -567,6 +703,10 @@ COMPONENT_INIT
         {
             requestPtr->op = CLOSE_UPDATES_BACKUP;
         }
+        else if (strcmp(operation, OP_POWER_LOSS_STRESS) == 0)
+        {
+            requestPtr->op = POWER_LOSS_STRESS;
+        }
         else
         {
             LE_ERROR("Invalid operation");
@@ -584,7 +724,9 @@ COMPONENT_INIT
         }
 
         le_event_QueueFunctionToThread(TestThreadRef, ProcessTest, requestPtr, NULL);
-        LE_ASSERT_OK(WaitForSem_Timeout(sem_TestItem, TIMEOUT_ITEM_TEST));
+        uint32_t waitSec = (requestPtr->op == POWER_LOSS_STRESS) ?
+                           TIMEOUT_POWER_LOSS_TEST : TIMEOUT_ITEM_TEST;
+        LE_ASSERT_OK(WaitForSem_Timeout(sem_TestItem, waitSec));
     }
     else
     {

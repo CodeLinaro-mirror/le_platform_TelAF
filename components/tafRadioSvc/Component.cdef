@@ -21,7 +21,7 @@ requires:
 
     api:
     {
-        taf_pm.api
+        taf_pm.api [optional]
     }
 }
 

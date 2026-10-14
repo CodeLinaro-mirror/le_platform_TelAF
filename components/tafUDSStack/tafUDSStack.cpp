@@ -27,7 +27,7 @@ le_result_t taf_uds_SendDiagResp
         return LE_BAD_PARAMETER;
     }
 
-    LE_DEBUG("SendDiagResp: ifName=%s, serviceId=%d, err=%d", addrInfoPtr->ifName, serviceId, err);
+    LE_DEBUG("SendDiagResp: ifName=%s, serviceId=0x%x, err=%d", addrInfoPtr->ifName, serviceId, err);
     auto udsCmMgr = UdsCommunicationMgr::GetInstance(addrInfoPtr->ifName);
     if(udsCmMgr == NULL)
     {

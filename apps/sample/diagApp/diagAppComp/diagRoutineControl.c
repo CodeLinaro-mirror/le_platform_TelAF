@@ -10,6 +10,8 @@
 #define UPDATE_PRE_DOWNLOAD_CHECK_IDENTIFIER 0x0246
 #define UPDATE_POST_DOWNLOAD_CHECK_IDENTIFIER 0x0247
 #define EMPTY_DATA_RECORD_IDENTIFIER 0x0249
+#define AUTHENTICATION_TEST_IDENTIFIER 0x024a
+#define ENABLE_COND_TEST_IDENTIFIER 0x024b
 #define UPDATE_SESSION_CONF_FILE "/data/nad_update.conf"
 #define PRE_DOWNLOAD_CHECK_OK 1
 
@@ -23,6 +25,8 @@ taf_update_SessionRef_t updateSessRef = NULL;
 static taf_diagRoutineCtrl_ServiceRef_t diagRCPreDlSvcRef = NULL;
 static taf_diagRoutineCtrl_ServiceRef_t diagRCPostDlSvcRef = NULL;
 static taf_diagRoutineCtrl_ServiceRef_t diagEmptyRecordSvcRef = NULL;
+static taf_diagRoutineCtrl_ServiceRef_t diagAuthTestSvcRef = NULL;
+static taf_diagRoutineCtrl_ServiceRef_t diagEnaCondTestSvcRef = NULL;
 static taf_diagRoutineCtrl_RxMsgHandlerRef_t diagRoutineCtrlMsgRef = NULL;
 
 static le_sem_Ref_t semRef;
@@ -159,7 +163,7 @@ void routineCtrl_0246_MsgHandler
 }
 
 // Callback function for routine control request message
-void routineCtrl_0249_MsgHandler
+void routineCtrl_common_MsgHandler
 (
     taf_diagRoutineCtrl_RxMsgRef_t rxMsgRef,
     taf_diagRoutineCtrl_Type_t routineCtrlType,
@@ -328,9 +332,19 @@ static void* diagRoutingCtrlMsgThread(void* ctxPtr)
             "Registered successfully for routineCtrl_0247_MsgHandler");
 
     diagRoutineCtrlMsgRef = taf_diagRoutineCtrl_AddRxMsgHandler( diagEmptyRecordSvcRef,
-            routineCtrl_0249_MsgHandler, NULL);
+            routineCtrl_common_MsgHandler, NULL);
     LE_TEST_OK(diagRoutineCtrlMsgRef != NULL,
-            "Registered successfully for routineCtrl_0249_MsgHandler");
+            "Registered successfully for routine ID 0249 MsgHandler");
+
+    diagRoutineCtrlMsgRef = taf_diagRoutineCtrl_AddRxMsgHandler( diagAuthTestSvcRef,
+            routineCtrl_common_MsgHandler, NULL);
+    LE_TEST_OK(diagRoutineCtrlMsgRef != NULL,
+            "Registered successfully for  routine ID 024a MsgHandler");
+
+    diagRoutineCtrlMsgRef = taf_diagRoutineCtrl_AddRxMsgHandler( diagEnaCondTestSvcRef,
+            routineCtrl_common_MsgHandler, NULL);
+    LE_TEST_OK(diagRoutineCtrlMsgRef != NULL,
+            "Registered successfully for  routine ID 024b MsgHandler");
 
     le_sem_Post(semRef);
     le_event_RunLoop();
@@ -375,6 +389,22 @@ le_result_t diagRoutineControl_Init(void)
     //get diag routinectrl svc reference for empty record rid
     diagEmptyRecordSvcRef = taf_diagRoutineCtrl_GetService(EMPTY_DATA_RECORD_IDENTIFIER);
     if(diagEmptyRecordSvcRef == NULL)
+    {
+        LE_ERROR("Get diagRoutineCtrl service for empty record rid");
+        return LE_FAULT;
+    }
+
+    //get diag routinectrl svc reference for authentication test rid
+    diagAuthTestSvcRef = taf_diagRoutineCtrl_GetService(AUTHENTICATION_TEST_IDENTIFIER);
+    if(diagAuthTestSvcRef == NULL)
+    {
+        LE_ERROR("Get diagRoutineCtrl service for empty record rid");
+        return LE_FAULT;
+    }
+
+    //get diag routinectrl svc reference for enable condition rid
+    diagEnaCondTestSvcRef = taf_diagRoutineCtrl_GetService(ENABLE_COND_TEST_IDENTIFIER);
+    if(diagEnaCondTestSvcRef == NULL)
     {
         LE_ERROR("Get diagRoutineCtrl service for empty record rid");
         return LE_FAULT;

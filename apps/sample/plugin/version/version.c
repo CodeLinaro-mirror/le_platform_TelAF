@@ -285,15 +285,8 @@ int taf_piVersion_GetFirmwareVersion
     majorPtr += strlen(FIRMWARE_VERSION_PREFIX);
     char* minorPtr = strstr(majorPtr, ".");
     char* patchPtr = NULL;
-    char* endPtr = NULL;
     if (minorPtr != NULL)
-    {
         patchPtr = strstr(minorPtr + 1, "-");
-        if (patchPtr != NULL)
-        {
-            endPtr = strstr(patchPtr + 1, ".");
-        }
-    }
 
     if (tier == TAF_PI_VERSION_MAJOR)
     {
@@ -315,11 +308,7 @@ int taf_piVersion_GetFirmwareVersion
     else if (tier == TAF_PI_VERSION_PATCH && patchPtr != NULL)
     {
         patchPtr++;
-        if (endPtr != NULL)
-        {
-            versionSize = endPtr - patchPtr + 1;
-        }
-        le_utf8_Copy(version, patchPtr, versionSize, NULL);
+        le_utf8_Copy(version, patchPtr, FIRMWARE_VERSION_PATCH_LEN + 1, NULL);
     }
     else
     {
@@ -372,15 +361,8 @@ int taf_piVersion_GetTzVersion
     majorPtr += strlen(TZ_VERSION_PREFIX);
     char* minorPtr = strstr(majorPtr, ".");
     char* patchPtr = NULL;
-    char* endPtr = NULL;
     if (minorPtr != NULL)
-    {
         patchPtr = strstr(minorPtr + 1, "-");
-        if (patchPtr != NULL)
-        {
-            endPtr = strstr(patchPtr + 1, ".");
-        }
-    }
 
     if (tier == TAF_PI_VERSION_MAJOR)
     {
@@ -402,11 +384,7 @@ int taf_piVersion_GetTzVersion
     else if (tier == TAF_PI_VERSION_PATCH && patchPtr != NULL)
     {
         patchPtr++;
-        if (endPtr != NULL)
-        {
-            versionSize = endPtr - patchPtr + 1;
-        }
-        le_utf8_Copy(version, patchPtr, versionSize, NULL);
+        le_utf8_Copy(version, patchPtr, TZ_VERSION_PATCH_LEN + 1, NULL);
     }
     else
     {
@@ -426,68 +404,57 @@ int taf_piVersion_GetTzVersion
 //--------------------------------------------------------------------------------------------------
 int taf_piVersion_GetTelafVersion
 (
-    taf_pi_version_Tier_t tier, ///< [IN] Version tier.
-    char* version,              ///< [OUT] Version string.
-    size_t versionSize          ///< [IN] Size of the version string.
+    taf_pi_version_Tier_t tier,  ///< [IN] Version tier.
+    char* version,               ///< [OUT] Version string.
+    size_t versionSize           ///< [IN] Size of the version string.
 )
 {
     FILE *fp = fopen(TELAF_VERSION_FILE, "r");
-    if (fp == NULL)
+    if (!fp)
     {
-        LE_ERROR("Can not open file %s.", TELAF_VERSION_FILE);
+        LE_ERROR("Cannot open file %s.", TELAF_VERSION_FILE);
         return -1;
     }
 
-    char line[MAX_LINE_LEN];
-    if (fgets(line, sizeof(line), fp) == NULL)
+    char line[MAX_LINE_LEN] = {0};
+    if (!fgets(line, sizeof(line), fp))
     {
-        LE_ERROR("Can not read file %s.", TELAF_VERSION_FILE);
-        fclose(fp);
-        return -1;
-    }
-
-    char* majorPtr = strstr(line, TELAF_VERSION_PREFIX);
-    if (majorPtr == NULL)
-    {
-        LE_ERROR("Invalid telaf version : %s", line);
-        fclose(fp);
-        return -1;
-    }
-
-    majorPtr += strlen(TELAF_VERSION_PREFIX);
-    char* minorPtr = majorPtr + TELAF_VERSION_MAJOR_LEN;
-    char* patchPtr = minorPtr + TELAF_VERSION_MINOR_LEN;
-
-    if (tier == TAF_PI_VERSION_MAJOR)
-    {
-        le_utf8_Copy(version, majorPtr, TELAF_VERSION_MAJOR_LEN + 1, NULL);
-    }
-    else if (tier == TAF_PI_VERSION_MINOR)
-    {
-        le_utf8_Copy(version, minorPtr, TELAF_VERSION_MINOR_LEN + 1, NULL);
-    }
-    else if (tier == TAF_PI_VERSION_PATCH)
-    {
-        // If 1st character of patch verison is a digit, i.e., the 2nd '0' in
-        // "telaf.lnx.1.1-250600", "00" is the patch version.
-
-        // If 1st character of patch verison is not a digit, i.e., the 'c' in
-        // "telaf.lnx.1.1-2507c301", "c3" is the branch, and "01" is the patch version.
-
-        if (isdigit((unsigned char)*patchPtr))
-            le_utf8_Copy(version, patchPtr, TELAF_VERSION_PATCH_LEN + 1, NULL);
-        else
-            le_utf8_Copy(version, patchPtr + TELAF_VERSION_BRANCH_LEN,
-                TELAF_VERSION_PATCH_LEN + 1, NULL);
-    }
-    else
-    {
-        LE_ERROR("Invalid tier %d.", tier);
+        LE_ERROR("Cannot read file %s.", TELAF_VERSION_FILE);
         fclose(fp);
         return -1;
     }
 
     fclose(fp);
+
+    size_t prefixLen = strlen(TELAF_VERSION_PREFIX);
+    char* majorPtr = strstr(line, TELAF_VERSION_PREFIX);
+    if (!majorPtr)
+    {
+        LE_ERROR("Invalid telaf version: %s", line);
+        return -1;
+    }
+
+    majorPtr += prefixLen;
+    char* lastPtr = strchr(majorPtr, '_');
+    size_t checkLen = lastPtr ? (size_t)(lastPtr - majorPtr) : strlen(majorPtr);
+
+    char* minorPtr = majorPtr + checkLen - TELAF_VERSION_MINOR_LEN;
+    switch (tier)
+    {
+        case TAF_PI_VERSION_MAJOR:
+            le_utf8_Copy(version, majorPtr, (minorPtr - majorPtr) + 1, NULL);
+            break;
+        case TAF_PI_VERSION_MINOR:
+            le_utf8_Copy(version, minorPtr, TELAF_VERSION_MINOR_LEN + 1, NULL);
+            break;
+        case TAF_PI_VERSION_PATCH:
+            le_utf8_Copy(version, "00", TELAF_VERSION_PATCH_LEN + 1, NULL);
+            break;
+        default:
+            LE_ERROR("Invalid tier %d.", tier);
+            return -1;
+    }
+
     return 0;
 }
 

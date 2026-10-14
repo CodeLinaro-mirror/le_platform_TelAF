@@ -267,6 +267,11 @@ EXPORT_SYM const DidEntry& get_did_entry(uint16_t did_code)
     return it->second;          // const DidEntry&
 }
 
+EXPORT_SYM bool IsDidFunctionalAddressed(uint16_t did_code)
+{
+    return false;
+}
+
 EXPORT_SYM const EventEntry& get_event_entry(uint16_t event_id)
 {
     NEED_INITED();
@@ -470,6 +475,11 @@ EXPORT_SYM bool IsIDPSSupported(uint16_t sid)
     return false;
 }
 
+EXPORT_SYM bool IsServiceFunctionalAddressed(uint16_t sid)
+{
+    return false;
+}
+
 EXPORT_SYM bool is_authentication_supported(uint16_t sid)
 {
     return get_service_entry(sid).authentication;
@@ -494,6 +504,11 @@ EXPORT_SYM const SubFunction& get_subfunction(uint16_t sid, uint16_t subFunc)
         throw std::runtime_error("Sub‑function 0x" + std::to_string(subFunc) +
                                  " not found for service 0x" + std::to_string(sid));
     return it->second;
+}
+
+EXPORT_SYM const Access& get_subfunction_access(uint16_t sid, uint16_t subFunc)
+{
+    return get_subfunction(sid, subFunc).access;
 }
 
 EXPORT_SYM const std::vector<std::string>& get_subfunction_session_list(uint16_t sid, uint16_t subFunc)

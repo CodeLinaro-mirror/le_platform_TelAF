@@ -1394,6 +1394,10 @@ void taf_FwUpdate::UpdateProgress
             LE_INFO("Rollback failed.");
             tafFwUpdate.SetState(TAF_UPDATE_IDLE);
             break;
+        case TAF_UPDATE_CANCELLED:
+            LE_INFO("Cancelled.");
+            tafFwUpdate.SetState(TAF_UPDATE_IDLE);
+            break;
         default:
             break;
     }
@@ -1552,7 +1556,7 @@ le_result_t taf_FwUpdate::InstallPreCheck
     if (strncmp(manifest, TAF_FWUPDATE_BYPASS_CHECK_TAG,
         strlen(TAF_FWUPDATE_BYPASS_CHECK_TAG)) == 0)
     {
-        LE_INFO("Bypass activation verification.");
+        LE_DEBUG("Bypass activation verification.");
         return LE_OK;
     }
 
@@ -2137,7 +2141,7 @@ void taf_FwUpdate::UpdateImage
             if (tafFwUpdate.GetCancelAction(TAF_UPDATE_INSTALLING))
             {
                 LE_INFO("Cancelled during update.");
-                tafFwUpdate.UpdateProgress(TAF_UPDATE_IDLE);
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
             }
             else
             {
@@ -2168,7 +2172,7 @@ void taf_FwUpdate::UpdateImage
             return;
         }
 
-        tafFwUpdate.UpdateProgress(TAF_UPDATE_IDLE);
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
         return;
     }
 
@@ -2276,7 +2280,7 @@ void taf_FwUpdate::SyncPartition
                 ret = taf_pa_flash_CopyMtd(srcPartition, partition,
                     pages * TAF_FWUPDATE_FLASH_PAGE_SIZE);
             }
-            if (ret && ret != TAF_FWUPDATE_FLASH_PAGE_ERASED)
+            if (ret && ret != TAF_PA_NOT_FOUND)
             {
                 LE_ERROR("Fail to copy from %s to %s.", srcPartition, partition);
                 tafFwUpdate.SetErrorCode(errno);
@@ -2303,7 +2307,7 @@ void taf_FwUpdate::SyncPartition
             if (tafFwUpdate.GetCancelAction(TAF_UPDATE_SYNCHRONIZING))
             {
                 LE_INFO("Cancelled during sync.");
-                tafFwUpdate.UpdateProgress(TAF_UPDATE_IDLE);
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
             }
             else
             {
@@ -2412,6 +2416,8 @@ void taf_FwUpdate::StartSync
 {
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
     tafFwUpdate.CleanupContext(TAF_UPDATE_SYNCHRONIZING);
+    tafFwUpdate.percent = 0;
+    tafFwUpdate.SetState(TAF_UPDATE_SYNCHRONIZING);
 
     taf_update_Bank_t bank = TAF_UPDATE_BANK_UNKNOWN;
     if (tafFwUpdate.GetActiveBank(&bank) != LE_OK)
@@ -2518,7 +2524,7 @@ void taf_FwUpdate::StartSync
                     {
                         size_t bytes = TAF_FWUPDATE_FLASH_PAGE_SIZE;
                         ret = taf_pa_flash_ReadMtdPage(mtdRef, j * pagesPerBlock, buffer, &bytes);
-                        if (ret == TAF_FWUPDATE_FLASH_PAGE_ERASED)
+                        if (ret == TAF_PA_NOT_FOUND)
                             break;
 
                         partitionSize += info.eraseSize;
@@ -2697,7 +2703,7 @@ le_result_t taf_FwUpdate::CalFileHash
     EVP_DigestFinal_ex(md_ctx, hash, hashLen);
     EVP_MD_CTX_free(md_ctx);
 
-    LE_INFO("%s sha1 hash calculated.", filePath);
+    LE_DEBUG("%s sha1 hash calculated.", filePath);
     for (unsigned int i = 0; i < *hashLen; ++i)
     {
         printf("%02x", hash[i]);
@@ -2846,7 +2852,7 @@ le_result_t taf_FwUpdate::CalPartitionHash
             ret = taf_pa_flash_ReadUbiVolume(ubiRef, j * TAF_FWUPDATE_FLASH_PAGE_SIZE, content,
                 &bytes);
 
-        if (ret < 0 && ret != TAF_FWUPDATE_FLASH_PAGE_ERASED)
+        if (ret < 0 && ret != TAF_PA_NOT_FOUND)
         {
             LE_ERROR("Fail to read partition %s at iteration %d, ret: %d", partition, j, ret);
             EVP_MD_CTX_free(md_ctx);
@@ -2900,7 +2906,7 @@ le_result_t taf_FwUpdate::CalPartitionHash
             ret = taf_pa_flash_ReadUbiVolume(ubiRef, iteration * TAF_FWUPDATE_FLASH_PAGE_SIZE,
                 content, &bytes);
 
-        if (ret < 0 && ret != TAF_FWUPDATE_FLASH_PAGE_ERASED)
+        if (ret < 0 && ret != TAF_PA_NOT_FOUND)
         {
             LE_ERROR("Fail to read partition %s at iteration %d, ret: %d",
                 partition, iteration, ret);
@@ -2921,7 +2927,7 @@ le_result_t taf_FwUpdate::CalPartitionHash
     EVP_DigestFinal_ex(md_ctx, hash, hashLen);
     EVP_MD_CTX_free(md_ctx);
 
-    LE_INFO("%s sha1 hash calculated.", partition);
+    LE_DEBUG("%s sha1 hash calculated.", partition);
     for (unsigned int i = 0; i < *hashLen; ++i)
     {
         printf("%02x", hash[i]);
@@ -3032,7 +3038,7 @@ void taf_FwUpdate::InstallPostCheck
     {
         if (tafFwUpdate.UnpackImage(filePath, partitonTableInfo[i].dataPath, &imagePage))
         {
-            LE_INFO("Install post-check on %s.", partitonTableInfo[i].partition);
+            LE_DEBUG("Install post-check on %s.", partitonTableInfo[i].partition);
             snprintf(dataPath, sizeof(dataPath), "%s/%s", dir, partitonTableInfo[i].dataPath);
 
             if (bank == TAF_UPDATE_BANK_A)
@@ -3061,7 +3067,7 @@ void taf_FwUpdate::InstallPostCheck
                 return;
             }
 
-            LE_INFO("Install post-check on %s success.", partitonTableInfo[i].partition);
+            LE_DEBUG("Install post-check on %s success.", partitonTableInfo[i].partition);
         }
 
         i++;
@@ -3332,7 +3338,7 @@ le_result_t taf_FwUpdate::PerformBankSync
                     {
                         size_t bytes = TAF_FWUPDATE_FLASH_PAGE_SIZE;
                         ret = taf_pa_flash_ReadMtdPage(mtdRef, i * pagesPerBlock, buffer, &bytes);
-                        if (ret == TAF_FWUPDATE_FLASH_PAGE_ERASED)
+                        if (ret == TAF_PA_NOT_FOUND)
                             break;
 
                         imageSize += info.eraseSize;
@@ -3351,7 +3357,7 @@ le_result_t taf_FwUpdate::PerformBankSync
                 LE_INFO("Sync MTD from %s to %s.", tafFwUpdate.partitions[i].name, partition);
                 ret = taf_pa_flash_CopyMtd(tafFwUpdate.partitions[i].name, partition, imageSize);
             }
-            TAF_ERROR_IF_RET_VAL(ret && ret != TAF_FWUPDATE_FLASH_PAGE_ERASED, LE_FAULT,
+            TAF_ERROR_IF_RET_VAL(ret && ret != TAF_PA_NOT_FOUND, LE_FAULT,
                 "Fail to copy from %s to %s, ret = %d.", tafFwUpdate.partitions[i].name, partition, ret);
         }
     }
@@ -3556,13 +3562,13 @@ void taf_FwUpdate::ActivateComponent
 
             if (strncmp(item, "telaf", strlen(item)) == 0)
             {
-                LE_INFO("Checking telaf version...");
+                LE_DEBUG("Checking telaf version...");
                 char telafVer[TAF_TELAF_VERSION_LEN] = {0};
                 tafFwUpdate.GetTelafVersion(telafVer);
-                LE_INFO("Current telaf version : %s", telafVer);
+                LE_DEBUG("Current telaf version : %s", telafVer);
                 if (strncmp(telafCmpVer, telafVer, strlen(telafVer)) == 0)
                 {
-                    LE_INFO("Check telaf activation -- PASS.");
+                    LE_DEBUG("Check telaf activation -- PASS.");
                     tafFwUpdate.SetActivateItemStatus("telaf", true);
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION);
                 }
@@ -3579,13 +3585,13 @@ void taf_FwUpdate::ActivateComponent
 
             if (strncmp(item, "rootfs", strlen(item)) == 0)
             {
-                LE_INFO("Checking rootfs version...");
+                LE_DEBUG("Checking rootfs version...");
                 char rootfsVer[TAF_FWUPDATE_MAX_VERS_LEN] = {0};
                 tafFwUpdate.GetRootfsVersion(rootfsVer);
-                LE_INFO("Current rootfs version : %s", rootfsVer);
+                LE_DEBUG("Current rootfs version : %s", rootfsVer);
                 if (strncmp(rootfsCmpVer, rootfsVer, strlen(rootfsVer)) == 0)
                 {
-                    LE_INFO("Check rootfs activation -- PASS.");
+                    LE_DEBUG("Check rootfs activation -- PASS.");
                     tafFwUpdate.SetActivateItemStatus("rootfs", true);
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION);
                 }
@@ -3602,14 +3608,14 @@ void taf_FwUpdate::ActivateComponent
 
             if (strncmp(item, "firmware", strlen(item)) == 0)
             {
-                LE_INFO("Checking firmware version...");
+                LE_DEBUG("Checking firmware version...");
                 char firmwareVer[TAF_FWUPDATE_MAX_VERS_LEN] = {0};
                 le_result_t result = tafFwUpdate.GetFirmwareVersion(firmwareVer);
-                LE_INFO("Current firmware version : %s", firmwareVer);
+                LE_DEBUG("Current firmware version : %s", firmwareVer);
                 if (result == LE_OK &&
                     strncmp(firmwareCmpVer, firmwareVer, strlen(firmwareVer)) == 0)
                 {
-                    LE_INFO("Check firmware activation -- PASS.");
+                    LE_DEBUG("Check firmware activation -- PASS.");
                     tafFwUpdate.SetActivateItemStatus("firmware", true);
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION);
                 }
@@ -3673,7 +3679,7 @@ void taf_FwUpdate::FwUpdateHandler
                 }
                 else
                 {
-                    LE_INFO("Perform bank sync successfully.");
+                    LE_DEBUG("Perform bank sync successfully.");
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_SUCCESS);
                 }
             }

@@ -14,7 +14,7 @@
     "rpc_services" :
     [
         {
-            "name" : "rpcLatancy",
+            "name" : "rpcLatency",
             "user" : "telaf",
             "offer_systems" : [ "PVM" ]
         },

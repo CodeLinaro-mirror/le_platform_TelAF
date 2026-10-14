@@ -159,6 +159,11 @@ def run_idps_tests(conn, label):
     section(f"[{label}] 0x11 ECUReset -- Positive")
 
     uds("10 03")
+    resp = uds("27 01")
+    key = algo_for_0x27(0x01, resp.payload[2:])
+    uds("27 02" + key.hex())
+    expect("<67 02>  IDPS")
+
     uds("11 02")
     expect("<51 02>  IDPS")
 
@@ -209,6 +214,14 @@ def run_idps_tests(conn, label):
     uds("22 FF FF")
     expect("<7f 22 31>")
 
+    # ---------------------------------------------------------------------------
+    # 0x23  ReadMemoryByAddress
+    # ---------------------------------------------------------------------------
+    section("0x23 ReadMemoryByAddress -- NRC")
+
+    uds("23 12 00 00 10 00 01")
+    expect("<7f 23 11>  IDPS")
+
     # -----------------------------------------------------------------------
     # 0x27  SecurityAccess
     # -----------------------------------------------------------------------
@@ -242,6 +255,14 @@ def run_idps_tests(conn, label):
     uds("29 07 00 00 00")
     expect("<7f 29 12>  IDPS")
 
+    # ---------------------------------------------------------------------------
+    # 0x2C  DynamicallyDefineDataIdentifier
+    # ---------------------------------------------------------------------------
+    section("0x2C DynamicallyDefineDataIdentifier -- NRC")
+
+    uds("2c 01 f3 00 a5 a5 01 01")
+    expect("<7f 2c 11>  IDPS")
+
     # -----------------------------------------------------------------------
     # 0x2E  WriteDataByIdentifier
     # -----------------------------------------------------------------------
@@ -260,7 +281,7 @@ def run_idps_tests(conn, label):
 
     uds("10 01")
     uds("2E A0 A0 31")
-    expect("<7f 2e 31>  IDPS")
+    expect("<7f 2e 7f>  IDPS")
 
     # -----------------------------------------------------------------------
     # 0x2F  InputOutputControlByIdentifier
@@ -300,6 +321,23 @@ def run_idps_tests(conn, label):
     uds("31 04 02 49")
     expect("<7f 31 12>  IDPS")
 
+    # ---------------------------------------------------------------------------
+    # 0x34  RequestDownload
+    # ---------------------------------------------------------------------------
+    section("0x34 RequestDownload -- NRC")
+
+    uds("34 00")
+    #expect NRC 0x13 since 0x34 is supported by default
+    expect("<7f 34 13>  IDPS")
+
+    # ---------------------------------------------------------------------------
+    # 0x35  RequestUpload
+    # ---------------------------------------------------------------------------
+    section("0x35 RequestUpload -- NRC")
+
+    uds("35 00 44 00 00 10 00 00 00 01 00")
+    expect("<7f 35 11>  IDPS")
+
     # -----------------------------------------------------------------------
     # 0x38 / 0x36 / 0x37  FileTransfer sequence
     # -----------------------------------------------------------------------
@@ -338,6 +376,14 @@ def run_idps_tests(conn, label):
     section(f"[{label}] 0x37 RequestTransferExit -- NRC")
     uds("37")
     expect("<7f 37 24>  IDPS")
+
+    # ---------------------------------------------------------------------------
+    # 0x3D  WriteMemoryByAddress
+    # ---------------------------------------------------------------------------
+    section("0x3D WriteMemoryByAddress -- NRC")
+
+    uds("3d 12 00 00 10 00 01 00")
+    expect("<7f 3d 11>  IDPS")
 
     # -----------------------------------------------------------------------
     # 0x3E  TesterPresent

@@ -137,6 +137,40 @@ std::string CellInfoStatusToString
     return statesString;
 }
 
+std::string NetRegStateToString
+(
+    RadioSvcTypes::RadioNetRegStateT netRegState ///< [IN] Network registration state.
+)
+{
+    std::string stateString;
+    switch (netRegState)
+    {
+        case RadioSvcTypes::RadioNetRegStateT::RADIO_NET_REG_STATE_T_NONE:
+            stateString = "NONE";
+            break;
+        case RadioSvcTypes::RadioNetRegStateT::RADIO_NET_REG_STATE_T_HOME:
+            stateString = "HOME";
+            break;
+        case RadioSvcTypes::RadioNetRegStateT::RADIO_NET_REG_STATE_T_SEARCHING:
+            stateString = "SEARCHING";
+            break;
+        case RadioSvcTypes::RadioNetRegStateT::RADIO_NET_REG_STATE_T_DENIED:
+            stateString = "DENIED";
+            break;
+        case RadioSvcTypes::RadioNetRegStateT::RADIO_NET_REG_STATE_T_ROAMING:
+            stateString = "ROAMING";
+            break;
+        case RadioSvcTypes::RadioNetRegStateT::RADIO_NET_REG_STATE_T_EMERGENCY_AVAILABLE:
+            stateString = "EMERGENCY_AVAILABLE";
+            break;
+        default:
+            stateString = "Unsupported";
+            break;
+    }
+
+    return stateString;
+}
+
 std::string StateToString
 (
     SimSvcTypes::SimStateT simState ///< [IN] SIM card State.
@@ -487,11 +521,27 @@ int main(int argc, char* argv[])
                 const RadioSvcTypes::RadioRatT& radioRat
             )
             {
-                std::cout << "======== RadioRatTEvent Test ========" << std::endl;
+                std::cout << "======== RadioRatEvent Test ========" << std::endl;
                 std::cout << "ValueState: " << static_cast<unsigned int>(valueState) << std::endl;
                 std::cout << "phoneId = " << static_cast<unsigned int>(phoneId)
                     << std::endl << std::endl;
                 std::cout << "Radio Rat change to :" << RatToString(radioRat)
+                    << std::endl << std::endl;
+            }
+        );
+
+        radioProxyKeep->getNetRegStateEvent().subscribe
+        ([&]
+            (
+                const RadioSvcTypes::ValueState& valueState, const RadioSvcTypes::PhoneIdT& phoneId,
+                const RadioSvcTypes::RadioNetRegStateT& netRegState
+            )
+            {
+                std::cout << "======== NetRegStateEvent Test ========" << std::endl;
+                std::cout << "ValueState: " << static_cast<unsigned int>(valueState) << std::endl;
+                std::cout << "phoneId = " << static_cast<unsigned int>(phoneId)
+                    << std::endl << std::endl;
+                std::cout << "Net Reg State change to :" << NetRegStateToString(netRegState)
                     << std::endl << std::endl;
             }
         );
@@ -624,7 +674,7 @@ int main(int argc, char* argv[])
             "radioResult!", radioResult)
         std::cout << "GetNetRegState: getRat= " << RatToString(getRat) << " , cellId=" << cellId
             << " , getMcc=" << getMcc << " , getMnc=" << getMnc << " , netReg="
-            << static_cast<unsigned int>(netReg) << std::endl << std::endl;
+            << NetRegStateToString(netReg) << std::endl << std::endl;
 
         std::cout << "======== Get NrDualConnectivityStatus Test ========" << "\n";
         RadioSvcTypes::RadioNrDcnrRestrictionT statusDcnr =
@@ -661,7 +711,7 @@ int main(int argc, char* argv[])
             callStatus)
         CHECK_RETURN_VALUE(radioResult == RadioSvcTypes::TelephonyResultT::TELEPHONY_RESULT_T_OK,
             "radioResult!", radioResult)
-        std::cout << "GetPacketSwitchedState: netState=" << static_cast<unsigned int>(netState)
+        std::cout << "GetPacketSwitchedState: netState=" << NetRegStateToString(netReg)
             << std::endl << std::endl;
 
         std::cout << "======== Get RadioState Test ========" << "\n";

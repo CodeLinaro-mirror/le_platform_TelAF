@@ -140,6 +140,7 @@ taf_doip_Result_t Connection::Start()
 
     LE_DEBUG("Set connection state machine into initialized");
     ConnectionStateMachine(TAF_DOIP_CONNECT_STATE_INITIALIZED, 0);
+    isConsuming = false;
 
     LE_DEBUG("Connection start successfully");
     return TAF_DOIP_RESULT_OK;
@@ -200,24 +201,38 @@ taf_doip_Result_t Connection::Shutdown()
 // When the connection is deleting, it shall be called to release resources.
 taf_doip_Result_t Connection::Stop()
 {
-    if (le_timer_IsRunning(aliveCheckTimerRef))
+    if (aliveCheckTimerRef != NULL && le_timer_IsRunning(aliveCheckTimerRef))
     {
         le_timer_Stop(aliveCheckTimerRef);
     }
 
-    if (le_timer_IsRunning(generalTimerRef))
+    if (generalTimerRef != NULL && le_timer_IsRunning(generalTimerRef))
     {
         le_timer_Stop(generalTimerRef);
     }
 
-    if (le_timer_IsRunning(initialTimerRef))
+    if (initialTimerRef != NULL && le_timer_IsRunning(initialTimerRef))
     {
         le_timer_Stop(initialTimerRef);
     }
 
-    le_timer_Delete(aliveCheckTimerRef);
-    le_timer_Delete(generalTimerRef);
-    le_timer_Delete(initialTimerRef);
+    if (aliveCheckTimerRef != NULL)
+    {
+        le_timer_Delete(aliveCheckTimerRef);
+        aliveCheckTimerRef = NULL;
+    }
+
+    if (generalTimerRef != NULL)
+    {
+        le_timer_Delete(generalTimerRef);
+        generalTimerRef = NULL;
+    }
+
+    if (initialTimerRef != NULL)
+    {
+        le_timer_Delete(initialTimerRef);
+        initialTimerRef = NULL;
+    }
 
     if (inBuf != NULL)
     {
@@ -386,6 +401,160 @@ taf_doip_Result_t Connection::SendDiagMessage
     return SendTCPData(buffer, length);
 }
 
+void Connection::ConsumeTCPData
+(
+    void* param1Ptr,
+    void* param2Ptr
+)
+{
+    int count = 0;
+    taf_doip_Result_t doipResult;
+    std::shared_ptr<Connection> connection;
+
+    le_socket_Ref_t sockRef = (le_socket_Ref_t)param1Ptr;
+    auto& commMgr = CommunicationMgr::GetInstance();
+    connection = commMgr.GetConnectionMgr()->FindConnectionBySocket(sockRef);
+    if (connection == nullptr)
+    {
+        LE_ERROR("Unknow connection.");
+        return;
+    }
+
+    if (connection->inBuf == NULL)
+    {
+        return;
+    }
+
+    auto& parser = ProtocolParser::GetInstance();
+    taf_doipHeader_t hdr;
+
+    // Loop to process messages if each message is enough.
+    while ((connection->inBuf->dataSize >= TAF_DOIP_HEADER_GENERIC_LENGTH)
+        && (count < TAF_DOIP_BATCH_SIZE))
+    {
+        // Discard all messages if the connection is invaliable.
+        if (connection->connState == TAF_DOIP_CONNECT_STATE_FINALIZE)
+        {
+            return;
+        }
+
+        parser.UnpackHeaderStruct(connection->inBuf->data + connection->inBuf->dataPos,
+                connection->inBuf->dataSize, &hdr);
+        if (hdr.payloadType != TAF_DOIP_PAYLOAD_TYPE_DIAGNOSTIC_MESSAGE
+            && hdr.payloadType != TAF_DOIP_PAYLOAD_TYPE_DIAGNOSTIC_POSITIVE_ACK
+                && hdr.payloadType != TAF_DOIP_PAYLOAD_TYPE_DIAGNOSTIC_NEGATIVE_ACK)
+        {
+            // Check DoIP protocol header.
+            doipResult = connection->CheckDoipHeader(hdr, connection->inBuf);
+            if (doipResult != TAF_DOIP_RESULT_OK)
+            {
+                LE_ERROR("DoIP header error!, ret=0x%x\n", doipResult);
+                if (connection->connState == TAF_DOIP_CONNECT_STATE_FINALIZE)
+                {
+                    // If the NACK is TAF_DOIP_HEADER_NACK_INCORRECT_PATTERN_FORMAT
+                    // or TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH, the connection
+                    // will be deleted.
+                    return;
+                }
+
+                // Reset the buffer.
+                connection->inBuf->dataSize    = 0;
+                connection->inBuf->dataPos     = 0;
+                connection->isConsuming = false;
+                return;
+            }
+
+            doipResult = connection->ProcessDoipMessage(hdr.payloadType,
+                connection->inBuf, hdr.payloadLen);
+            if (doipResult == TAF_DOIP_RESULT_NO_SOCKET ||
+                doipResult == TAF_DOIP_RESULT_MESSAGE_TOO_SHORT)
+            {
+                // Connection state fall into TAF_DOIP_CONNECT_STATE_FINALIZE
+                // or playload isn't enough.
+                connection->isConsuming = false;
+                return;
+            }
+            else if (doipResult != TAF_DOIP_RESULT_OK)
+            {
+                LE_ERROR("Process DoIP message error, ret=0x%x\n", doipResult);
+                // Reset the buffer.
+                connection->inBuf->dataSize    = 0;
+                connection->inBuf->dataPos     = 0;
+                connection->isConsuming = false;
+                return;
+            }
+        }
+        else
+        {
+            // Only Diagnostic messages can run here.
+            doipResult = connection->CheckDoipHeader(hdr, connection->inBuf);
+            if (doipResult != TAF_DOIP_RESULT_OK)
+            {
+                LE_ERROR("DoIP header error!, ret=0x%x\n", doipResult);
+                if (connection->connState == TAF_DOIP_CONNECT_STATE_FINALIZE)
+                {
+                    // If the NACK is TAF_DOIP_HEADER_NACK_INCORRECT_PATTERN_FORMAT
+                    // or TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH, the connection
+                    // will be deleted.
+                    return;
+                }
+
+                // Reset the buffer.
+                connection->inBuf->dataSize    = 0;
+                connection->inBuf->dataPos     = 0;
+                connection->isConsuming = false;
+                return;
+            }
+
+            doipResult = connection->ProcessDoipMessage(hdr.payloadType,
+                connection->inBuf, hdr.payloadLen);
+            if (doipResult == TAF_DOIP_RESULT_NO_SOCKET ||
+                doipResult == TAF_DOIP_RESULT_MESSAGE_TOO_SHORT)
+            {
+                // Connection state fall into TAF_DOIP_CONNECT_STATE_FINALIZE
+                // or playload isn't enough.
+                connection->isConsuming = false;
+                return;
+            }
+            else if (doipResult == TAF_DOIP_RESULT_OUT_OF_MEMORY)
+            {
+                LE_DEBUG("Try to allocate UDS memory  was unsuccessful.");
+                break;
+            }
+            else if (doipResult != TAF_DOIP_RESULT_OK)
+            {
+                LE_ERROR("Process DoIP message error, ret=0x%x\n", doipResult);
+                // Reset the buffer.
+                connection->inBuf->dataSize    = 0;
+                connection->inBuf->dataPos     = 0;
+                connection->isConsuming = false;
+                return;
+            }
+
+            if (connection->inBuf->dataSize == 0)
+            {
+                connection->inBuf->dataPos = 0;
+                connection->isConsuming = false;
+                return;  // For next reception.
+            }
+        }
+        count++;
+    }
+
+    if (connection->inBuf->dataSize >= TAF_DOIP_HEADER_GENERIC_LENGTH)
+    {
+        // Still has data, consume next time.
+        le_event_QueueFunction(ConsumeTCPData, sockRef, NULL);
+    }
+    else
+    {
+        // No enough data.
+        connection->isConsuming = false;
+    }
+
+    return;
+}
+
 taf_doip_Result_t Connection::ReceiveTCPData
 (
     taf_doip_Buffer_t*  buffer
@@ -393,7 +562,6 @@ taf_doip_Result_t Connection::ReceiveTCPData
 {
     le_result_t ret;
     size_t    received;
-    taf_doip_Result_t doipResult;
 
     if (buffer == NULL)
     {
@@ -431,50 +599,10 @@ taf_doip_Result_t Connection::ReceiveTCPData
 
     buffer->dataSize    += received;
 
-    auto& parser = ProtocolParser::GetInstance();
-    taf_doipHeader_t hdr;
-
-    // Loop to process messages if each message is enough.
-    while (buffer->dataSize >= TAF_DOIP_HEADER_GENERIC_LENGTH)
+    if (!isConsuming)
     {
-        parser.UnpackHeaderStruct(buffer->data + buffer->dataPos, buffer->dataSize, &hdr);
-        if (hdr.payloadType != TAF_DOIP_PAYLOAD_TYPE_DIAGNOSTIC_MESSAGE
-            && hdr.payloadType != TAF_DOIP_PAYLOAD_TYPE_DIAGNOSTIC_POSITIVE_ACK
-                && hdr.payloadType != TAF_DOIP_PAYLOAD_TYPE_DIAGNOSTIC_NEGATIVE_ACK)
-        {
-            // Check DoIP protocol header.
-            doipResult = CheckDoipHeader(hdr, buffer);
-            if (doipResult != TAF_DOIP_RESULT_OK)
-            {
-                LE_ERROR("DoIP header error!, ret=0x%x\n", doipResult);
-                // Reset the buffer.
-                buffer->dataSize    = 0;
-                buffer->dataPos     = 0;
-                return doipResult;
-            }
-
-            ProcessDoipMessage(hdr.payloadType, buffer, hdr.payloadLen);
-        }
-        else
-        {
-            // Only Diagnostic messages can run here.
-            doipResult = CheckDoipHeader(hdr, buffer);
-            if (doipResult != TAF_DOIP_RESULT_OK)
-            {
-                LE_ERROR("DoIP header error!, ret=0x%x\n", doipResult);
-                // Reset the buffer.
-                buffer->dataSize    = 0;
-                buffer->dataPos     = 0;
-                return doipResult;
-            }
-
-            ProcessDoipMessage(hdr.payloadType, buffer, hdr.payloadLen);
-
-            if (buffer->dataSize == 0)
-            {
-                break;  // For next reception.
-            }
-        }
+        isConsuming = true;
+        le_event_QueueFunction(ConsumeTCPData, cliSockRef, NULL);
     }
 
     return TAF_DOIP_RESULT_OK;
@@ -621,10 +749,10 @@ errOut:
 
     // [DoIP-038],[DoIP-087]
     LE_DEBUG("payload len is %u, buffer data size is %u", header.payloadLen, buffer->dataSize);
-    if ((header.payloadLen + TAF_DOIP_HEADER_GENERIC_LENGTH) > buffer->dataSize)
+    uint32_t totalMsgLen = header.payloadLen + TAF_DOIP_HEADER_GENERIC_LENGTH;
+    if (totalMsgLen > buffer->dataSize)
     {
-        RespondHeaderNegativeACK(nackCode,
-            header.payloadLen + TAF_DOIP_HEADER_GENERIC_LENGTH - buffer->dataSize);
+        RespondHeaderNegativeACK(nackCode, totalMsgLen - buffer->dataSize);
     }
     else
     {
@@ -634,7 +762,7 @@ errOut:
     return TAF_DOIP_RESULT_HDR_ERROR;
 }
 
-void Connection::ProcessDoipMessage
+taf_doip_Result_t Connection::ProcessDoipMessage
 (
     uint16_t            payloadType,
     taf_doip_Buffer_t*  buffer,
@@ -643,6 +771,7 @@ void Connection::ProcessDoipMessage
 {
     taf_doipLink_t link;
     uint32_t payloadPos;
+    taf_doip_Result_t ret;
     auto& parser = ProtocolParser::GetInstance();
 
     // Skip DoIP header length.
@@ -658,6 +787,20 @@ void Connection::ProcessDoipMessage
         LE_DEBUG("Routing activation request is receiving.\n");
         RoutingActiveReqHandler(buffer->data + payloadPos,
                                 payloadLen);
+        if (connState == TAF_DOIP_CONNECT_STATE_FINALIZE)
+        {
+            // Routing activation invalid, return directly.
+            return TAF_DOIP_RESULT_NO_SOCKET;
+        }
+
+        // Routing activation message cannot be combined with other messages.
+        if (buffer->dataSize != (payloadLen + TAF_DOIP_HEADER_GENERIC_LENGTH))
+        {
+            // Discard the combined message.
+            buffer->dataSize    = 0;
+            buffer->dataPos     = 0;
+            return TAF_DOIP_RESULT_OK;
+        }
         break;
     case TAF_DOIP_PAYLOAD_TYPE_ROUTING_ACTIVE_RESPONSE:
         LE_DEBUG("Routing activation response is receiving.\n");
@@ -680,11 +823,22 @@ void Connection::ProcessDoipMessage
             + 2 * TAF_DOIP_LOGICAL_ADDRESS_LENGTH))
         {
             // The diagnostic shall be received more than 12bytes before handling.
-            return;
+            return TAF_DOIP_RESULT_MESSAGE_TOO_SHORT;
         }
         LE_DEBUG("Diagnostic message is receiving.\n");
-        DiagnosticMsgFirstHandler(buffer->data + payloadPos, payloadLen,
-                buffer->dataSize - TAF_DOIP_HEADER_GENERIC_LENGTH);
+        ret = DiagnosticMsgFirstHandler(buffer->data + payloadPos, payloadLen,
+                    buffer->dataSize - TAF_DOIP_HEADER_GENERIC_LENGTH);
+        if (ret == TAF_DOIP_RESULT_OUT_OF_MEMORY)
+        {
+            return TAF_DOIP_RESULT_OUT_OF_MEMORY;
+        }
+        else if (ret != TAF_DOIP_RESULT_OK)
+        {
+            if (connState == TAF_DOIP_CONNECT_STATE_FINALIZE)
+            {
+                return TAF_DOIP_RESULT_NO_SOCKET;
+            }
+        }
         break;
     case TAF_DOIP_PAYLOAD_TYPE_DIAGNOSTIC_POSITIVE_ACK:
         LE_DEBUG("Diagnostic positive ack is receiving.\n");
@@ -719,6 +873,8 @@ void Connection::ProcessDoipMessage
             buffer->dataPos = 0;
         }
     }
+
+    return TAF_DOIP_RESULT_OK;
 }
 
 void Connection::RoutingActiveReqHandler
@@ -1123,7 +1279,7 @@ void Connection::AliveCheckResHandler
     }
 }
 
-void Connection::DiagnosticMsgFirstHandler
+taf_doip_Result_t Connection::DiagnosticMsgFirstHandler
 (
     char*       payload,
     uint32_t    payloadLen,
@@ -1132,12 +1288,24 @@ void Connection::DiagnosticMsgFirstHandler
 {
     if (udsBuf == NULL)
     {
-        udsBuf = (char*)le_mem_ForceAlloc(connectionMgr->udsMsgPool);
+        udsBuf = (char*)le_mem_TryAlloc(connectionMgr->udsMsgPool);
+        if (udsBuf == NULL)
+        {
+            LE_WARN("Not enough uds buffer, Cannot handle in this time.");
+            return TAF_DOIP_RESULT_OUT_OF_MEMORY;
+        }
         udsTotalLen = 0;
         udsReceived = 0;
     }
 
-    memcpy(udsBuf, payload, receivedLen);
+    if (payloadLen > receivedLen)
+    {
+        memcpy(udsBuf, payload, receivedLen);
+    }
+    else
+    {
+        memcpy(udsBuf, payload, payloadLen);
+    }
 
     // If during diagnostic reception, set the uds variable value
     udsTotalLen = payloadLen;
@@ -1146,12 +1314,14 @@ void Connection::DiagnosticMsgFirstHandler
     if (udsTotalLen <= udsReceived
             || udsReceived == le_mem_GetObjectSize(connectionMgr->udsMsgPool))
     {
-        DiagnosticMsgSecondHandler();
-        return;
+        
+        return DiagnosticMsgSecondHandler();
     }
+
+    return TAF_DOIP_RESULT_OK;
 }
 
-void Connection::DiagnosticMsgSecondHandler
+taf_doip_Result_t Connection::DiagnosticMsgSecondHandler
 (
 )
 {
@@ -1166,7 +1336,7 @@ void Connection::DiagnosticMsgSecondHandler
     }
 }
 
-void Connection::DiagnosticMsgSvrSecondHandler
+taf_doip_Result_t Connection::DiagnosticMsgSvrSecondHandler
 (
 )
 {
@@ -1175,6 +1345,7 @@ void Connection::DiagnosticMsgSvrSecondHandler
     taf_doipDiagNACKCode_t  nackCode;
     taf_doipLink_t          link;
     uint32_t                pos = 0UL;
+    taf_doip_Result_t       retCode = TAF_DOIP_RESULT_OK;
 
     auto& parser = ProtocolParser::GetInstance();
     auto&       vehicleMgr = VehicleManager::GetInstance();
@@ -1187,6 +1358,7 @@ void Connection::DiagnosticMsgSvrSecondHandler
     {
         // Diagnostic payload length is at least 5 bytes.
         RespondHeaderNegativeACK(TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH, 0);
+        retCode = TAF_DOIP_RESULT_MESSAGE_TOO_SHORT;
         goto errOut2;
     }
 
@@ -1203,6 +1375,7 @@ void Connection::DiagnosticMsgSvrSecondHandler
     {
         LE_ERROR("Connection don't active.Discard message\n");
         nackCode = TAF_DOIP_DIAGNOSTIC_NACK_INVALID_SA;
+        retCode = TAF_DOIP_RESULT_ROUTING_INACTIVE;
         goto errOut1;
     }
 
@@ -1210,6 +1383,7 @@ void Connection::DiagnosticMsgSvrSecondHandler
     {
         LE_ERROR("Invalid SA(0x%x). Expect 0x%x\n", logicalSourceAddr, testerSA);
         nackCode =  TAF_DOIP_DIAGNOSTIC_NACK_INVALID_SA;
+        retCode = TAF_DOIP_RESULT_UNKNOWN_SA;
         goto errOut1;
     }
 
@@ -1225,6 +1399,7 @@ void Connection::DiagnosticMsgSvrSecondHandler
         LE_ERROR("Diagnostic length(0x%x) is longer than MDS(0x%x)\n",
                  udsTotalLen, mds);
         nackCode =  TAF_DOIP_DIAGNOSTIC_NACK_DIAG_MSG_TOO_LARGE;
+        retCode = TAF_DOIP_RESULT_MESSAGE_TOO_LARGE;
         goto errOut1;
     }
     else if (udsTotalLen > le_mem_GetObjectSize(connectionMgr->udsMsgPool))
@@ -1232,6 +1407,7 @@ void Connection::DiagnosticMsgSvrSecondHandler
         LE_ERROR("Diagnostic length(0x%x) is longer than buffer size(0x%x)\n",
             udsTotalLen, (uint32_t)le_mem_GetObjectSize(connectionMgr->udsMsgPool));
         nackCode =  TAF_DOIP_DIAGNOSTIC_NACK_OUT_OF_MEMORY;
+        retCode  = TAF_DOIP_RESULT_MESSAGE_TOO_LARGE;
         goto errOut1;
     }
     else
@@ -1242,12 +1418,14 @@ void Connection::DiagnosticMsgSvrSecondHandler
         {
             LE_ERROR("Invalid TA(0x%x).", logicalTargetAddr);
             nackCode =  TAF_DOIP_DIAGNOSTIC_NACK_UNKNOWN_TA;
+            retCode = TAF_DOIP_RESULT_UNKNOWN_TA;
             goto errOut1;
         }
         else if (ret != TAF_DOIP_RESULT_OK)
         {
             LE_ERROR("Transfer error\n");
             nackCode =  TAF_DOIP_DIAGNOSTIC_NACK_TRANS_PROTO_ERROR;
+            retCode = TAF_DOIP_RESULT_TARGET_UNREACHABLE;
             goto errOut1;
         }
     }
@@ -1259,7 +1437,7 @@ void Connection::DiagnosticMsgSvrSecondHandler
     // The uds buffer is sending to uds thread. Shall alloc another buffer for uds.
     udsBuf = NULL;
     parser.DiagPositiveACK(&link, logicalTargetAddr, logicalSourceAddr);
-    return;
+    return TAF_DOIP_RESULT_OK;
 
 errOut1:
     parser.DiagNegativeACK(&link, logicalTargetAddr, logicalSourceAddr, nackCode);
@@ -1276,14 +1454,14 @@ errOut2:
         le_mem_Release(udsBuf);
         udsBuf = NULL;
     }
-    return;
+    return retCode;
 }
 
-void Connection::DiagnosticMsgCliSecondHandler
+taf_doip_Result_t Connection::DiagnosticMsgCliSecondHandler
 (
 )
 {
-    return;
+    return TAF_DOIP_RESULT_OK;
 }
 
 void Connection::SocketEventCallback
@@ -1479,6 +1657,15 @@ void Connection::ReadAndDiscardMsg
     if (len == 0)
     {
         return;
+    }
+
+    // Guard: discard length must not exceed the maximum DoIP message size.
+    // An abnormally large value (e.g. caused by uint32_t underflow in the caller)
+    // would cause an extremely long loop that exhausts the thread stack.
+    if (len > TAF_DOIP_MAX_BUFFER_SIZE)
+    {
+        LE_ERROR("ReadAndDiscardMsg: discard len(%zu) exceeds max buffer size, clamping.", len);
+        len = TAF_DOIP_MAX_BUFFER_SIZE;
     }
 
     char buf[TAF_DOIP_MAX_BUFFER_SIZE] ={0};

@@ -39,3 +39,26 @@ routines_all:
         start:
         stop:
         result:
+  0x024a:
+    identifier: 0x024a
+    execution_authorization_pattern: pattern_s29
+    execution_authentication_pattern: [ b1 ]
+    request:
+      sub_function: [ 0x01, 0x02, 0x03 ]
+      control_option_record:
+        start: Base1
+        stop: Base2
+        result: Base3
+  0x024b:
+    identifier: 0x024b
+    execution_authorization_pattern: secured_configuration
+    request:
+      sub_function: [ 0x01, 0x02, 0x03 ]
+      control_option_record:
+        start:
+        stop:
+        result:
+    data_enable_condition:
+      or:
+        - vehiclePowerModeEqualLifeOnBoard
+        - vehicleSpeedBodyEqual0

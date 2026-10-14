@@ -265,6 +265,7 @@ typedef struct
     uint32_t qosFlowId;                 ///< The QoS flow id.
     taf_dcs_QosFlowState_t state;       ///< The QoS flow state.
     taf_dcs_QosFlowBitMask_t paramMask; ///< The mask to check for valid parameters in the flow.
+    uint32_t seq;                       ///< Creation sequence (oldest-DELETED eviction).
 } QOSFlowCtxStatus_t;
 
 /**
@@ -748,7 +749,8 @@ public:
     (
         taf_dcs_ProfileRef_t profileRef,
         taf_dcs_QosStatusHandlerFunc_t handlerPtr,
-        void *contextPtr
+        void *contextPtr,
+        le_msg_SessionRef_t clientRef
     );
     void SvcRemoveQosStatusHandler(taf_dcs_QosStatusHandlerRef_t handlerRef);
 
@@ -898,8 +900,17 @@ private:
 
     // Helper to find an existing QoS flow reference in the Legato map
     taf_dcs_QosFlowRef_t findQosRef(uint8_t phoneId, uint32_t profileId, uint32_t qosId);
-    // To automatically release QoS resources when transitioning to TAF_DCS_DISCONNECTED
+    // Release all QoS flow memory for a profile (only when no client is listening).
     void releaseAllQosFlowsForProfile(uint8_t phoneId, uint32_t profileId);
+    // Mark all QoS flows of a profile DELETED without releasing (used on call teardown).
+    void markAllQosFlowsDeletedForProfile(uint8_t phoneId, uint32_t profileId);
+    // Number of QoS flows currently tracked for a profile.
+    int getProfileQosFlowCount(uint8_t phoneId, uint32_t profileId);
+    // Evict the oldest DELETED QoS flow of a profile; true if one was evicted.
+    bool evictOldestDeletedQosFlow(uint8_t phoneId, uint32_t profileId);
+    // Decrement a profile's QoS listener count; release its QoS memory at zero.
+    // Caller holds qosHandlerMapMutex_.
+    void decrementQosListenerAndMaybeReleaseLocked(taf_dcs_ProfileRef_t profileRef);
 
     // Forward declarations for internal event handlers
     static void getProfilesAsyncCb
@@ -964,6 +975,15 @@ private:
     std::map<le_event_HandlerRef_t, taf_dcs_ProfileRef_t> hwAccProfileRefMap_;
     // Mutex to make operations thread safe. Needs C++17.
     std::shared_mutex hwAccProfileRefMapMutex_;
+
+    // QoS handler bookkeeping. QoS flow memory is reclaimed only when a profile has no QoS
+    // listeners, so a client can still resolve a qosFlowRef inside its DELETED callback.
+    std::map<le_event_HandlerRef_t, std::pair<taf_dcs_ProfileRef_t, le_msg_SessionRef_t>>
+                                                                                qosHandlerMap_;
+    std::map<taf_dcs_ProfileRef_t, int> qosListenerCountMap_;
+    std::shared_mutex qosHandlerMapMutex_;
+    // Creation sequence per QoS flow; used to evict the oldest DELETED flow at the cap.
+    std::atomic<uint32_t> qosFlowSeq_{0};
 
     /**
      * Mutex to make profile read and write operations thread safe. Needs C++17.

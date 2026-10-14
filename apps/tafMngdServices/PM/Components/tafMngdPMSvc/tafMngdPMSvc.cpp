@@ -116,16 +116,21 @@ le_result_t taf_mngdPm_ShutdownReqAsync(taf_mngdPm_ShutdownMode_t mode,
     if (mpms.RequestStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN) != LE_OK)
     {
         handlerPtr(mode, TAF_MNGDPM_NOT_READY, LE_OK, contextPtr);
+        LE_WARN("MPMS not in a shutdownable state (currentState=%d)",
+                mpms.stateMachine.currentState);
         return LE_OK;
     }
     mpms.powerMode.isForceful = true;
     tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN);
     if(mpms.pmInf && mpms.pmInf->nodeStateChangePrepareAsync)
     {
-        LE_DEBUG("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_NORMAL);
         const uint8_t shutdownReason = (uint8_t)reason;
+        LE_DEBUG("Open shutdown window, send prepare mode=%d reason=%d, start ack timer",
+                HAL_PM_SHUTDOWN_MODE_NORMAL, shutdownReason);
         mpms.statePtr = SYSTEM_NORMAL_SHUTDOWN;
         le_timer_SetContextPtr(mpms.vhalAckTimerRef, &(mpms.statePtr));
+        // Reset race guard before starting timer so the first of {CB, timer} wins.
+        tafMngdPMSvc::vhalRespHandled = false;
         le_timer_Start(mpms.vhalAckTimerRef);
         mpms.shutdownCB.shutdownCallbackFunc = handlerPtr;
         mpms.shutdownCB.shutdownCBCtxPtr = contextPtr;
@@ -196,6 +201,8 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
             else
             {
                 handlerPtr(mode, TAF_MNGDPM_NOT_READY, LE_OK, contextPtr);
+                LE_WARN("RestartReqAsync(SYSTEM_OFF_ON): MPMS not shutdownable (currentState=%d)",
+                        mpms.stateMachine.currentState);
                 return LE_OK;
             }
         }
@@ -218,6 +225,8 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
             else
             {
                 handlerPtr(mode, TAF_MNGDPM_NOT_READY, LE_OK, contextPtr);
+                LE_WARN("RestartReqAsync(NAD_REBOOT): MPMS not restartable (currentState=%d)",
+                        mpms.stateMachine.currentState);
                 return LE_OK;
             }
         }
@@ -228,10 +237,12 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
         const uint8_t restartReason = (uint8_t)reason;
         if(mode == TAF_MNGDPM_RESTART_SYSTEM_OFF_ON)
         {
-            LE_DEBUG("Send restartReqAsync %d", HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF);
+            LE_INFO("Open restart(SYSTEM_OFF_ON) window, send prepare, start ack timer");
             mpms.powerMode.isShutDown = true;
             mpms.statePtr = RESTART_WITH_NAD_POWER_OFF_ON;
             le_timer_SetContextPtr(mpms.vhalAckTimerRef, &(mpms.statePtr));
+            // Reset race guard before starting timer so the first of {CB, timer} wins.
+            tafMngdPMSvc::vhalRespHandled = false;
             le_timer_Start(mpms.vhalAckTimerRef);
             mpms.restartCB.restartCallbackFunc = handlerPtr;
             mpms.restartCB.restartCBCtxPtr = contextPtr;
@@ -241,10 +252,12 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
         }
         else if(mode == TAF_MNGDPM_RESTART_MODE_NAD_REBOOT)
         {
-            LE_DEBUG("Send restartReqAsync %d", HAL_PM_RESTART_MODE_NAD_REBOOT);
+            LE_DEBUG("Open restart(NAD_REBOOT) window, send prepare, start ack timer");
             mpms.powerMode.isRestart = true;
             mpms.statePtr = RESTART_WITH_NAD_REBOOT;
             le_timer_SetContextPtr(mpms.vhalAckTimerRef, &(mpms.statePtr));
+            // Reset race guard before starting timer so the first of {CB, timer} wins.
+            tafMngdPMSvc::vhalRespHandled = false;
             le_timer_Start(mpms.vhalAckTimerRef);
             mpms.restartCB.restartCallbackFunc = handlerPtr;
             mpms.restartCB.restartCBCtxPtr = contextPtr;
@@ -864,8 +877,7 @@ le_result_t taf_mngdPm_StayAwake(taf_mngdPm_wsRef_t wsRef)
             }
             else
             {
-                LE_INFO("Non authorized StayAwakeReason for stayawake");
-                if (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SUSPEND || mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SUSPENDING)
+                if (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SUSPEND)
                 {
                     wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
                     LE_ERROR("StayAwake LE_NOT_PERMITTED: unauthorized Wake Source State: %d, current system state: %d",wsRefCtxPtr->wakeSourceState, mpms.stateMachine.currentState);
@@ -1083,6 +1095,18 @@ taf_mngdPm_NodePowerStateChangeHandlerRef_t taf_mngdPm_AddNodePowerStateChangeHa
         return NULL;
     }
 
+    const taf_mngdPm_NodePowerStateChangeBitMask_t validStateMask =
+          TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE
+        | TAF_MNGDPM_NODE_STATE_BIT_MASK_RESTART_PREPARE
+        | TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE
+        | TAF_MNGDPM_NODE_STATE_BIT_MASK_RESUME;
+
+    if ((stateMask == 0U) || ((stateMask & (~validStateMask)) != 0U))
+    {
+        LE_ERROR("Invalid stateMask:%u. Supported mask range:0x%X", stateMask, validStateMask);
+        return NULL;
+    }
+
     pid_t procId;
     le_msg_SessionRef_t sessionRef = taf_mngdPm_GetClientSessionRef();
     le_msg_GetClientProcessId(sessionRef, &procId);
@@ -1108,7 +1132,34 @@ taf_mngdPm_NodePowerStateChangeHandlerRef_t taf_mngdPm_AddNodePowerStateChangeHa
             mpms.nodePowerStateHandlerMap, handlerCtxPtr);
     handlerCtxPtr->link = LE_DLS_LINK_INIT;
     handlerCtxPtr->nodePowerStateHandlerCtxPtr = contextPtr;
+
     le_dls_Queue((&(mpms.nodePowerStateHandlerList)), &handlerCtxPtr->link);
+
+    // Immediately notify this client with the current node state (if interested).
+    if (mpms.IsConfiguredBitMask(tafMngdPMSvc::currentNodePowerState, stateMask))
+    {
+        LE_INFO("Immediate notify client with current node power state: %d",
+                tafMngdPMSvc::currentNodePowerState);
+
+        // Create a short-lived nodeStateRef; no PMS ack timer involved for immediate notify
+        taf_NodePowerStateRef_t* immediateNodePwStatePtr =
+            (taf_NodePowerStateRef_t*)le_mem_ForceAlloc(mpms.nodePowerStateRefPool);
+        immediateNodePwStatePtr->nodeStateRef =
+            (taf_mngdPm_nodePowerStateRef_t)le_ref_CreateRef(mpms.nodePowerStateRefMap, immediateNodePwStatePtr);
+
+        handlerCtxPtr->initialNodePowerState.nodeStateRef = immediateNodePwStatePtr->nodeStateRef;
+        handlerCtxPtr->initialNodePowerState.sessionRef   = handlerCtxPtr->sessionRef;
+        handlerCtxPtr->initialNodePowerState.state        = tafMngdPMSvc::currentNodePowerState;
+        handlerCtxPtr->initialNodePowerState.isAcked      = false;
+
+
+        // Call the client handler directly
+        handlerCtxPtr->handlerPtr(
+            handlerCtxPtr->pmNodeId,
+            immediateNodePwStatePtr->nodeStateRef,
+            handlerCtxPtr->initialNodePowerState.state,
+            handlerCtxPtr->nodePowerStateHandlerCtxPtr);
+    }
 
     return (taf_mngdPm_NodePowerStateChangeHandlerRef_t)handlerCtxPtr->handlerRef;
 }
@@ -1133,6 +1184,29 @@ void taf_mngdPm_RemoveNodePowerStateChangeHandler(taf_mngdPm_NodePowerStateChang
         linkHandlerPtr = le_dls_PeekPrev(&(mpms.nodePowerStateHandlerList), linkHandlerPtr);
         if (handlerCtxPtr && handlerCtxPtr->handlerRef == handlerRef)
         {
+            // Release the per-handler immediate-notify node state ref, if any
+            if (handlerCtxPtr->initialNodePowerState.nodeStateRef)
+            {
+                taf_NodePowerStateRef_t* nodeRefPtr =
+                    (taf_NodePowerStateRef_t*) le_ref_Lookup(
+                        mpms.nodePowerStateRefMap,
+                        handlerCtxPtr->initialNodePowerState.nodeStateRef);
+
+                if (nodeRefPtr)
+                {
+                    LE_INFO("Releasing initialNodePowerState ref %p for sessionRef %p",
+                        handlerCtxPtr->initialNodePowerState.nodeStateRef,
+                        handlerCtxPtr->initialNodePowerState.sessionRef);
+                    le_ref_DeleteRef(
+                        mpms.nodePowerStateRefMap,
+                        handlerCtxPtr->initialNodePowerState.nodeStateRef);
+                    le_mem_Release(nodeRefPtr);
+                }
+
+                handlerCtxPtr->initialNodePowerState.nodeStateRef = NULL;
+                handlerCtxPtr->initialNodePowerState.isAcked = false;
+            }
+
             le_ref_DeleteRef(mpms.nodePowerStateHandlerMap, handlerRef);
             le_dls_Remove(&(mpms.nodePowerStateHandlerList), &handlerCtxPtr->link);
             le_mem_Release((void*)handlerCtxPtr);
@@ -1194,13 +1268,38 @@ le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
     sessionNodePtr = mpms.To_taf_mngdPm_SessionNode_t(le_hashmap_Get(mpms.mngdPmClientInfo.clients,
             taf_mngdPm_GetClientSessionRef()));
 
-    taf_mngdPm_NodePowerState_t state = TAF_MNGDPM_NODE_STATE_RESUME;
     if(pmNodeId == 1)
     {
         auto &rpcPm = tafMngdRpcPm::GetInstance();
         le_result_t res = rpcPm.SendRpcNodePowerStateChangeAck(pmNodeId, Ref, ack);
         return res;
     }
+
+    taf_mngdPm_NodePowerState_t state = TAF_MNGDPM_NODE_STATE_RESUME;
+
+    // Iterate handler list and match input Ref
+    // against handlerCtxPtr->initialNodePowerState.nodeStateRef.
+    // If it matches, set the per-handler flag to true; else continue.
+    le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.nodePowerStateHandlerList));
+    while (linkHandlerPtr)
+    {
+        taf_mngdPm_NodePowerStateCtxt_t * handlerCtxPtr =
+            CONTAINER_OF(linkHandlerPtr, taf_mngdPm_NodePowerStateCtxt_t, link);
+        linkHandlerPtr = le_dls_PeekPrev(&(mpms.nodePowerStateHandlerList), linkHandlerPtr);
+
+        if (!handlerCtxPtr)
+            continue;
+
+        if (handlerCtxPtr->initialNodePowerState.nodeStateRef == Ref)
+        {
+            LE_INFO("Immediate-notify ACK matched: node=%u ref=%p ack=%d, no PMS ack needed",
+                    pmNodeId, Ref, ack);
+
+            handlerCtxPtr->initialNodePowerState.isAcked = true;
+            return LE_OK;
+        }
+    }
+
     // validate client record existed in state change registered clients
     bool isClientPresent = false;
     for (const auto &client : mpms.regClientrecrd) {
@@ -1216,6 +1315,7 @@ le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
         LE_ERROR("Client with sessionRef:%p not found in the regClientrecrd", taf_mngdPm_GetClientSessionRef());
         return LE_FAULT;
     }
+
     if(mpms.IsSameAsCurrentState(state, mpms.stateMachine.currentState) && sessionNodePtr)
     {
         if(!(le_timer_IsRunning(mpms.stateChangeAckTimerRef)))
@@ -1641,6 +1741,11 @@ COMPONENT_INIT
     mpms.nodeInternalEvent = le_event_CreateId("NodeInternalEvent", sizeof(taf_mngdPm_NodeEventData_t));
     le_event_AddHandler("NodeInternalEventHandler", mpms.nodeInternalEvent, mpms.NodeInternalEventHandler);
 
+    // Thread-hop VHAL prepare responses to the main loop: the driver-thread CBs only
+    // le_event_Report; all logic runs in VhalPrepareRespHandler.
+    mpms.vhalPrepareRespEvent = le_event_CreateId("vhalPrepareResp", sizeof(vhalPrepareRespPayload_t));
+    le_event_AddHandler("vhalPrepareRespHandler", mpms.vhalPrepareRespEvent, tafMngdPMSvc::VhalPrepareRespHandler);
+
     //Init RPC
     auto &rpcPm = tafMngdRpcPm::GetInstance();
 
@@ -1785,5 +1890,16 @@ COMPONENT_INIT
     le_timer_SetWakeup(mpms.stateChangeAckTimerRef, false);
     le_timer_SetMsInterval(mpms.stateChangeAckTimerRef, mpms.config.state_change_ack_timeout);
     le_timer_SetHandler(mpms.stateChangeAckTimerRef, mpms.StateChangeAckTimerHandler);
+
+    mpms.wsDumpTimerRef = le_timer_Create("WS DUMP timer");
+    le_timer_SetWakeup(mpms.wsDumpTimerRef, false);
+    le_timer_SetMsInterval(mpms.wsDumpTimerRef, WS_DUMP_TIMER_INTERVAL);
+    le_timer_SetHandler(mpms.wsDumpTimerRef, tafMngdPMSvc::WsDumpTimerHandler);
+    le_timer_SetRepeat(mpms.wsDumpTimerRef, 0);
+    le_timer_Start(mpms.wsDumpTimerRef);
+
+    // Initialize service-wide current node power state
+    tafMngdPMSvc::InitializeCurrentNodePowerState();
+
     LE_INFO("COMPONENT end init");
 }

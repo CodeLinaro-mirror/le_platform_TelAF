@@ -5,9 +5,9 @@ domain_name: Generic
 
 services_all:
   0x11:
-    execution_authorization_pattern: base
+    execution_authorization_pattern: secured_configuration
   0x14:
-    execution_authorization_pattern: base
+    execution_authorization_pattern: secured_configuration
   0x19:
     sub_functions:
       0x01:
@@ -36,12 +36,16 @@ services_all:
         execution_authorization_pattern: base
   0x29:
     execution_authorization_pattern: base
+  0x2e:
+    execution_authorization_pattern: secured_configuration
   0x34:
-    execution_authorization_pattern: base
+    execution_authorization_pattern: secured_configuration
   0x36:
-    execution_authorization_pattern: base
+    execution_authorization_pattern: secured_configuration
   0x37:
-    execution_authorization_pattern: base
+    execution_authorization_pattern: secured_configuration
+  0x38:
+    execution_authorization_pattern: secured_configuration
   0x3E:
     execution_authorization_pattern: base
   0x86:

@@ -4,7 +4,7 @@
  */
 
 /**
- * @file rpcLatancy.api
+ * @file rpcLatency.api
  *
  * RPC latency test API for measuring PVM-LXC inter-process communication
  * performance with different message payload sizes.

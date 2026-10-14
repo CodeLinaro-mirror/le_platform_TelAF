@@ -18,19 +18,15 @@ using namespace tafsvc;
 COMPONENT_INIT
 {
     LE_INFO("tafUpdate Service Init...\n");
-    LE_INFO("tafUpdate Component Init...\n");
     auto &tafUpdate = taf_Update::GetInstance();
     tafUpdate.Init();
     LE_INFO("tafUpdate Component Ready...\n");
-    LE_INFO("tafFlashAccess Component Init...\n");
     auto &tafFlashAccess = taf_FlashAccess::GetInstance();
     tafFlashAccess.Init();
     LE_INFO("tafFlashAccess Component Ready...\n");
-    LE_INFO("tafAppMgmt Component Init...\n");
     auto &tafAppMgmt = taf_AppMgmt::GetInstance();
     tafAppMgmt.Init();
     LE_INFO("tafAppMgmt Component Ready...\n");
-    LE_INFO("tafFwUpdate Component Init...\n");
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
     tafFwUpdate.Init();
     LE_INFO("tafFwUpdate Component Ready...\n");
@@ -424,7 +420,7 @@ le_result_t taf_update_CancelSync
 
                 if (state == TAF_UPDATE_SYNC_PAUSED)
                 {
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_IDLE);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
                 }
             }
             break;
@@ -826,10 +822,17 @@ le_result_t taf_update_CancelInstall
             {
                 case TAF_UPDATE_IDLE:
                     LE_INFO("Cancel post installation while in the idle state.");
-                    return tafFwUpdate.CancelPostInstall();
+                    if (tafFwUpdate.CancelPostInstall() != LE_OK)
+                    {
+                        LE_ERROR("Failed to cancel post installation.");
+                        return LE_FAULT;
+                    }
+                    else
+                        tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
+                    break;
                 case TAF_UPDATE_INSTALL_PAUSED:
                     LE_INFO("Cancel the installation while in the paused state.");
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_IDLE);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
                     break;
                 case TAF_UPDATE_INSTALLING:
                     LE_INFO("Cancel the installation while in the installing state.");

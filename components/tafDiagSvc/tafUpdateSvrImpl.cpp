@@ -156,9 +156,6 @@ taf_diagUpdate_ServiceRef_t taf_UpdateSvr::CreateUpdateSvc
         // Create a Safe Reference for this service object
         svcPtr->svcRef = (taf_diagUpdate_ServiceRef_t)le_ref_CreateRef(SvcRefMap, svcPtr);
 
-        // Init update service state.
-        svcPtr->state = TAF_DIAG_UPDATE_INIT;
-
         svcPtr->supportedVlanList = LE_DLS_LIST_INIT;
     }
     else
@@ -971,25 +968,6 @@ void taf_UpdateSvr::RemoveRxXferExitReqHandler
     le_mem_Release(handlerCtxPtr);
 }
 
-
-/*
- * Get the programming session interruption indication
-**/
-void taf_UpdateSvr::programmingInterrupt(uint16_t vlanId)
-{
-    taf_UpdateSvr& update = taf_UpdateSvr::GetInstance();
-
-#ifndef LE_CONFIG_DIAG_VSTACK
-    taf_UpdateSvc_t* svcPtr = update.FindSvcInList(vlanId);
-#else
-    taf_UpdateSvc_t* svcPtr = update.FindSvcInList((uint16_t)0);
-#endif
-    if (svcPtr != NULL)
-    {
-        svcPtr->state = TAF_DIAG_UPDATE_INIT; // reset the state-machine
-    }
-}
-
 void taf_UpdateSvr::RxFileXferEventHandler
 (
     void* reportPtr
@@ -1038,26 +1016,6 @@ void taf_UpdateSvr::RxFileXferEventHandler
         // UDS_0x38_NRC_21: Bad callback fn
         nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
         goto errOut;
-    }
-
-    // Update update service state if download or upload request is received.
-    if (msgPtr->operationType == TAF_DIAG_UPDATE_ADD_FILE
-        || msgPtr->operationType == TAF_DIAG_UPDATE_REPLACE_FILE
-        || msgPtr->operationType == TAF_DIAG_UPDATE_READ_FILE
-        || msgPtr->operationType == TAF_DIAG_UPDATE_READ_DIR
-        || msgPtr->operationType == TAF_DIAG_UPDATE_RESUME_FILE)
-    {
-        if (svcPtr->state != TAF_DIAG_UPDATE_TRANS)
-        {
-            svcPtr->state = TAF_DIAG_UPDATE_REQ;
-        }
-        else
-        {
-            LE_WARN("Trsnsfer is in progress, state : %d", svcPtr->state);
-            // UDS_0x38_NRC_22: Transfer is in progress
-            nrc = TAF_DIAG_CONDITION_NOT_CORRECT;
-            goto errOut;
-        }
     }
 
     // Add the message in service message list and notify to application.
@@ -1113,15 +1071,6 @@ void taf_UpdateSvr::RxXferDataEventHandler
         goto errOut;
     }
 
-    if (svcPtr->state == TAF_DIAG_UPDATE_INIT
-        || svcPtr->state == TAF_DIAG_UPDATE_EXIT)
-    {
-        LE_WARN("The update state(0x%x) is incorrect", svcPtr->state);
-        // UDS_0x36_NRC_24: Transfer is NOT in progress (again)
-        nrc = TAF_DIAG_REQUEST_SEQUENCE_ERROR;  // requestSequenceError
-        goto errOut;
-    }
-
     if (svcPtr->xferDataRef == NULL)
     {
         LE_WARN("Did not register TransferData handler for update service");
@@ -1146,11 +1095,6 @@ void taf_UpdateSvr::RxXferDataEventHandler
     le_dls_Queue(&svcPtr->xferDataMsgList, &msgPtr->link);
 
     handlerCtxPtr->func(msgPtr->rxMsgRef, handlerCtxPtr->context);
-
-    if (svcPtr->state == TAF_DIAG_UPDATE_REQ)
-    {
-        svcPtr->state = TAF_DIAG_UPDATE_TRANS;
-    }
 
     return;
 errOut:
@@ -1199,15 +1143,6 @@ void taf_UpdateSvr::RxXferExitEventHandler
         goto errOut;
     }
 
-    if (svcPtr->state == TAF_DIAG_UPDATE_INIT
-        || svcPtr->state == TAF_DIAG_UPDATE_EXIT)
-    {
-        LE_WARN("The update state(0x%x) is incorrect", svcPtr->state);
-        // UDS_0x37_NRC_24: Transfer is not active (again)
-        nrc = TAF_DIAG_REQUEST_SEQUENCE_ERROR;  // requestSequenceError
-        goto errOut;
-    }
-
     if (svcPtr->xferExitRef == NULL)
     {
         LE_WARN("Did not register RequestTransferExit handler for update service");
@@ -1232,8 +1167,6 @@ void taf_UpdateSvr::RxXferExitEventHandler
     le_dls_Queue(&svcPtr->reqXferExitMsgList, &msgPtr->link);
 
     handlerCtxPtr->func(msgPtr->rxMsgRef, handlerCtxPtr->context);
-
-    svcPtr->state = TAF_DIAG_UPDATE_EXIT;
 
     return;
 errOut:
@@ -1754,7 +1687,7 @@ le_result_t taf_UpdateSvr::SendXferDataResp
         ret = RspPositiveMsg(&addrInfo, msgPtr->serviceId, dataPtr, dataSize);
         if (ret != LE_OK)
         {
-            LE_ERROR("Failed to respond positive message for RequestFileTransfer(%d)", ret);
+            LE_ERROR("Failed to respond positive message for TransferData(%d)", ret);
             return ret;
         }
     }
@@ -1763,7 +1696,7 @@ le_result_t taf_UpdateSvr::SendXferDataResp
         ret = RspNegativeMsg(&addrInfo, msgPtr->serviceId, (uint8_t)errCode, false);
         if (ret != LE_OK)
         {
-            LE_ERROR("Failed to respond negative message for RequestFileTransfer(%d)", ret);
+            LE_ERROR("Failed to respond negative message for TransferData(%d)", ret);
             return ret;
         }
     }
@@ -2291,19 +2224,6 @@ void taf_UpdateSvr::RxReqDwnldEventHandler
         LE_WARN("Can not find RequestFileTransfer handler object!");
         // UDS_0x34_NRC_21: Bad callback function
         nrc = TAF_DIAG_BUSY_REPEAT_REQUEST;  // busyrepeatreq
-        goto errOut;
-    }
-
-    // Update the update service state if download request is received.
-    if (svcPtr->state != TAF_DIAG_UPDATE_TRANS)
-    {
-        svcPtr->state = TAF_DIAG_UPDATE_REQ;
-    }
-    else
-    {
-        LE_WARN("Trsnsfer is in progress, state :%d", svcPtr->state);
-        // UDS_0x38_NRC_22: Transfer is in progress
-        nrc = TAF_DIAG_CONDITION_NOT_CORRECT;
         goto errOut;
     }
 

@@ -11,6 +11,7 @@ requires:
     component:
     {
         $TELAF_ROOT/components/tafHalComp
+        $TELAF_ROOT/components/tafDataAccessComp/tafDIDDataAccessComp
     }
     api:
     {
@@ -26,12 +27,15 @@ cxxflags:
     -I$TELAF_ROOT/components/tafHalComp
     -I$TELAF_ROOT/include/plugin
     -I${LEGATO_ROOT}/framework/liblegato
+    -I $TELAF_ROOT/components/tafDataAccessComp/tafDIDDataAccessComp
+
 }
 
 cflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
+    -I $TELAF_ROOT/components/tafDataAccessComp/tafDIDDataAccessComp
 }
 
 sources:

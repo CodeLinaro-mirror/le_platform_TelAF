@@ -2,26 +2,28 @@ sources:
 {
     tafDataAccessComp.cpp
     tafDataAccessCompImpl.cpp
-    tafDataStatement.cpp
     tafDTCEntity.cpp
     tafDTCEntityDAO.cpp
     tafEventEntity.cpp
     tafEventEntityDAO.cpp
-    tafIOFactory.cpp
-    tafSQLite3Handler.cpp
     tafSnapshotEntity.cpp
     tafSnapshotEntityDAO.cpp
+    ../base/tafDataStatement.cpp
+    ../base/tafIOFactory.cpp
+    ../base/tafSQLite3Handler.cpp
 }
 
 cxxflags:
 {
     -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/components/tafDataAccessComp/base
     -I$TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
 }
 
 cflags:
 {
     -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/components/tafDataAccessComp/base
     -I$TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
 }
 

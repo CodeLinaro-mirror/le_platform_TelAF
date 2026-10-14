@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -189,7 +189,7 @@ void taf_IOCtrlSvr::UDSMsgHandler
 
         try
         {
-            const EnableConditionData& cond = cfg::get_event_enable_conditions(dataId);
+            const EnableConditionData& cond = cfg::get_ioctl_enable_conditions(dataId);
 
             if (!cond.and_conditions.empty())
             {

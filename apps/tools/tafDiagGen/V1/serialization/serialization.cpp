@@ -129,11 +129,6 @@ void serialize_didAll(std::map<int, DidEntry>& didAll, ptree& root)
             }
         }
 
-        if (auto io_role_node = did_data.get_child_optional("io_role")) {
-            for (const auto& role : *io_role_node) {
-                entry.io_role.push_back(role.second.get_value<std::string>());
-            }
-        }
         if (auto read_role_node = did_data.get_child_optional("read_role")) {
             for (const auto& role : *read_role_node) {
                 entry.read_role.push_back(role.second.get_value<std::string>());
@@ -159,12 +154,26 @@ void serialize_servicesAll(std::map<std::string, ServiceEntry>& servicesAll, ptr
 
         ServiceEntry serviceEntry;
         serviceEntry.supported = service_data.get<bool>("supported", false);
+        serviceEntry.authentication = service_data.get<bool>("authentication", false);
         serviceEntry.execution_authorization_pattern =
             service_data.get<std::string>("execution_authorization_pattern", "");
 
-        if (auto access_node = service_data.get_child_optional("access.session")) {
-            for (const auto& s : *access_node) {
-                serviceEntry.access.session.push_back(s.second.get_value<std::string>());
+        if (auto access_node = service_data.get_child_optional("access")) {
+            const ptree& acc = *access_node;
+
+            serviceEntry.access.security_type = acc.get<uint8_t>("security_type", 0);
+
+            if (auto sess_node = acc.get_child_optional("session")) {
+                for (const auto& s : *sess_node) {
+                    serviceEntry.access.session.push_back(s.second.get_value<std::string>());
+                }
+            }
+
+            if (auto secl_node = acc.get_child_optional("security_level")) {
+                for (const auto& s : *secl_node) {
+                    serviceEntry.access.security_level.push_back(
+                        s.second.get_value<std::string>());
+                }
             }
         }
 
@@ -175,12 +184,26 @@ void serialize_servicesAll(std::map<std::string, ServiceEntry>& servicesAll, ptr
 
                 SubFunction sub_func;
                 sub_func.supported = sub_data.get<bool>("supported", false);
+                sub_func.authentication = sub_data.get<bool>("authentication", false);
                 sub_func.execution_authorization_pattern =
                     sub_data.get<std::string>("execution_authorization_pattern", "");
 
-                if (auto sub_access = sub_data.get_child_optional("access.session")) {
-                    for (const auto& s : *sub_access) {
-                        sub_func.access.session.push_back(s.second.get_value<std::string>());
+                if (auto sub_access = sub_data.get_child_optional("access")) {
+                    const ptree& subAcc = *sub_access;
+
+                    sub_func.access.security_type = subAcc.get<uint8_t>("security_type", 0);
+
+                    if (auto sess_node = subAcc.get_child_optional("session")) {
+                        for (const auto& s : *sess_node) {
+                            sub_func.access.session.push_back(s.second.get_value<std::string>());
+                        }
+                    }
+
+                    if (auto secl_node = subAcc.get_child_optional("security_level")) {
+                        for (const auto& s : *secl_node) {
+                            sub_func.access.security_level.push_back(
+                                s.second.get_value<std::string>());
+                        }
                     }
                 }
 
@@ -505,6 +528,13 @@ void serialize_routines_all(std::map<std::string, RoutineEntry>& routineAll, ptr
             }
         }
 
+        // Parse role
+        if (auto routine_role_node = entry.get_child_optional("routine_role")) {
+            for (const auto& role : *routine_role_node) {
+                routines_all_entry.routine_role.push_back(role.second.get_value<std::string>());
+            }
+        }
+
         routineAll[key] = routines_all_entry;
     }
 }
@@ -675,6 +705,12 @@ void serialize_io_all(std::map<int, IOEntry>& ioAll, ptree& root)
             }
             io_entry.request.control_option_record.did_size =
                 req_node->get<int>("did_size", 0);
+        }
+
+        if (auto io_role_node = entry.get_child_optional("io_role")) {
+            for (const auto& role : *io_role_node) {
+                io_entry.io_role.push_back(role.second.get_value<std::string>());
+            }
         }
 
         // Parse diagnostic_session and populate both diagnostic_session map AND access.session vector

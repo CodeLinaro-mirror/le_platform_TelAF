@@ -49,9 +49,7 @@ telux_allow_loc_config(telaf_tafTimeSvc_t)
 telux_allow_tel_srv_system_read(telaf_tafTimeSvc_t)
 
 # For accessing gptp device
-gptp_rw_qgptp_device(telaf_tafTimeSvc_t)
-gptp_rw_tmpfs_files(telaf_tafTimeSvc_t)
-gptp_rw_gptp_sock_file(telaf_tafTimeSvc_t)
+telaf_use_gptp(telaf_tafTimeSvc_t)
 
 allow telaf_tafTimeSvc_t event_device_t:chr_file { read open };
 

@@ -12,14 +12,6 @@
 #include "tafSvcIF.hpp"
 #include <future>
 
-#if 0
-#include <telux/data/DataFactory.hpp>
-#include <telux/data/net/BridgeManager.hpp>
-
-using namespace telux::data;
-using namespace telux::common;
-#endif
-
 namespace tafsvc {
 
     /*
@@ -67,19 +59,8 @@ namespace tafsvc {
     class tafGsbCallback
     {
         public:
-            #if 0
-            static void onBridgeListResponse(
-                      const std::vector<telux::data::net::BridgeInfo> &infos,
-                      telux::common::ErrorCode error);
-
-            void onResponseCallback(telux::common::ErrorCode error);
-            #endif
-
             tafGsbCallback(){};
             ~tafGsbCallback(){};
-            #if 0
-            static std::vector<telux::data::net::BridgeInfo> gsbInfo;
-            #endif
             static le_sem_Ref_t semaphore;
     };
     /*
@@ -108,29 +89,6 @@ namespace tafsvc {
                                                        size_t ifNamePtrSize);
             taf_net_GsbIfType_t GetGsbInterfaceType( taf_net_GsbRef_t gsbRef);
             int32_t GetGsbBandWidth( taf_net_GsbRef_t gsbRef );
-#if 0
-            void onInitComplete(telux::common::ServiceStatus status);
-#endif // remove telux
-             std::promise<le_result_t> GsbSyncPromise;
-
-             le_mem_PoolRef_t gsbListPool;
-             le_mem_PoolRef_t gsbPool;
-             le_mem_PoolRef_t gsbSafeRefPool;
-
-             le_ref_MapRef_t gsbListRefMap;
-             le_ref_MapRef_t gsbSafeRefMap;
-#if 0
-        private:
-            std::shared_ptr<telux::data::net::IBridgeManager> gsbManager = nullptr;
-
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-            bool IsSubSystemStatusUpdated=false;
-            std::mutex mMutex;
-            std::condition_variable conVar;
-#endif
-
-#endif
     };
 
 }
-

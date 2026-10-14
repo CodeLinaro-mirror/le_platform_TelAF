@@ -17,7 +17,6 @@ capability:
 {
         CAP_CHOWN
         CAP_FOWNER
-        CAP_WAKE_ALARM
         CAP_SYS_RESOURCE
         CAP_SYS_BOOT
         CAP_SYS_ADMIN

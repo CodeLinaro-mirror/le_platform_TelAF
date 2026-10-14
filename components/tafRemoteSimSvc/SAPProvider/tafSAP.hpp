@@ -36,10 +36,25 @@
 
 #include "legato.h"
 #include "interfaces.h"
-#include <telux/tel/PhoneFactory.hpp>
-#include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
 #include <unordered_map>
+#include <vector>
+
+// ErrorCode enum for SAP operations
+enum class ErrorCode {
+    SUCCESS = 0,
+    GENERIC_FAILURE = 1
+};
+
+// Card reader status structure
+struct CardReaderStatus {
+    int id;
+    bool isRemovable;
+    bool isPresent;
+    bool isID1size;
+    bool isCardPresent;
+    bool isCardPoweredOn;
+};
 
 /**
  * Message id to establish SAP connection
@@ -184,8 +199,6 @@
 #define CARD_READER_REMOVABLE_SHIFT 4
 #define CARD_READER_ID              5
 
-using namespace telux::tel;
-using namespace telux::common;
 using namespace std;
 
     namespace tafsvc {
@@ -195,56 +208,43 @@ using namespace std;
             size_t  msgSize;
         } taf_SapMsg_t;
 
-        class tafOpenConnectionCallback : public telux::common::ICommandResponseCallback {
-            public:
-                void commandResponse(telux::common::ErrorCode errorCode) override;
-        };
+        typedef enum
+        {
+            COMMAND_OPEN_CONNECTION = 1,
+            COMMAND_CLOSE_CONNECTION,
+            COMMAND_POWER_ON,
+            COMMAND_POWER_OFF,
+            COMMAND_RESET,
+            COMMAND_TRANSMIT_APDU,
+            COMMAND_REQUEST_ATR,
+            COMMAND_REQUEST_CARD_READER_STATUS
+        } taf_simSap_Command_t;
 
-        class tafCloseConnectionCallback : public telux::common::ICommandResponseCallback {
-            public:
-                void commandResponse(telux::common::ErrorCode errorCode) override;
-        };
-        class tafPowerOnCallback : public telux::common::ICommandResponseCallback {
-            public:
-                void commandResponse(telux::common::ErrorCode errorCode) override;
-        };
+        typedef struct
+        {
+            uint8_t apduId;
+            uint8_t cla;
+            uint8_t instruction;
+            uint8_t p1;
+            uint8_t p2;
+            uint8_t lc;
+            uint8_t data[TAF_SIMSAP_MAX_MSG_SIZE];
+            uint8_t le;
+        } taf_simSap_ApduRequest_t;
 
-        class tafPowerOffCallback : public telux::common::ICommandResponseCallback {
-            public:
-                void commandResponse(telux::common::ErrorCode errorCode) override;
-        };
+        typedef struct
+        {
+            taf_simSap_Command_t command;
+            union
+            {
+                taf_simSap_ApduRequest_t apdu;
+            };
+        } taf_simSap_Request_t;
 
-        class tafResetCallback : public telux::common::ICommandResponseCallback {
-            public:
-                void commandResponse(telux::common::ErrorCode errorCode) override;
-        };
-
-        class tafApduResponseCallback : public telux::tel::ISapCardCommandCallback {
-            public:
-                tafApduResponseCallback(uint8_t apduId);
-
-                void onResponse(telux::tel::IccResult result, telux::common::ErrorCode error) override;
-                void setApduId(uint8_t apdu) {
-                    apduId = apdu;
-                }
-                uint8_t getApduId(){
-                     return apduId;
-                }
-
-            private:
-                uint8_t apduId;
-        };
-
-        class tafAtrResponseCallback : public telux::tel::IAtrResponseCallback {
-            public:
-                void atrResponse(std::vector<int> responseAtr, telux::common::ErrorCode error) override;
-
-        };
-
-        class tafCardReaderCallback : public telux::tel::ICardReaderCallback {
-            public:
-                void cardReaderResponse(CardReaderStatus cardReaderStatus, telux::common::ErrorCode error) override;
-        };
+        typedef struct
+        {
+            le_event_Id_t request;
+        } taf_simSap_StaticEvent_t;
 
         class taf_simSap :public ITafSvc {
             public:
@@ -270,27 +270,20 @@ using namespace std;
                 void SendCardResetResponse(ErrorCode errorCode);
                 void SendCardReaderResponse(ErrorCode errorCode, CardReaderStatus readerStatus);
                 void SendDisconnectInd();
-                void EraseFromApduRespCbMap(uint8_t apduId);
 
             private:
-                std::shared_ptr<telux::tel::ISapCardManager> sapCardMgr;
                 le_thread_Ref_t MainThread;
                 le_event_Id_t MessageEventId;
 
                 taf_sim_Id_t slotId;
 
+                static taf_simSap_StaticEvent_t staticEvents;
+
                 static void FirstLayerMessageHandler( void* reportPtr, void* secondLayerHandlerFunc);
                 static void eventCallback(ErrorCode errorCode);
                 static void HandleClientMsg(void* param1Ptr, void* param2Ptr);
-
-                std::shared_ptr<tafOpenConnectionCallback> openConnCb;
-                std::shared_ptr<tafCloseConnectionCallback> closeConnCb;
-                std::shared_ptr<tafPowerOnCallback> powerOnCb;
-                std::shared_ptr<tafPowerOffCallback> powerOffCb;
-                std::shared_ptr<tafResetCallback> resetCb;
-                std::shared_ptr<tafAtrResponseCallback> atrResetRespCb;
-                std::shared_ptr<tafCardReaderCallback> cardReaderCb;
-                std::unordered_map<uint8_t, std::shared_ptr<tafApduResponseCallback>> apduRespCbMap;
+                static void RequestHandler(void* contextPtr);
+                static void* RequestThread(void* contextPtr);
 
                 le_result_t OpenSAPConnection(const uint8_t* buf, uint8_t msgLength);
                 le_result_t DisconnectFromCard();

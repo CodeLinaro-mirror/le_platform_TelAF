@@ -6,7 +6,6 @@ startGroup: 14
 
 capability:
 {
-        CAP_WAKE_ALARM
         CAP_NET_RAW
         CAP_NET_ADMIN
 #if ${LE_CONFIG_TEST_COVERAGE} = y

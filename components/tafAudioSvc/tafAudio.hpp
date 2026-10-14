@@ -446,7 +446,7 @@ class taf_Audio : public ITafSvc
         bool mSpeaker = false;
         bool mModemTx = false;
         bool mMic = false;
-        bool mIsCaptureStreamCreated = false, mIsRxCaptureStreamCreated = false;
+        bool mIsTxCaptureStreamCreated = false, mIsRxCaptureStreamCreated = false;
         bool mIsRecording = false, mIsRxRecording = false;
         uint32_t mBufferRecordedTillNow, mRxBufferRecordedTillNow;
         uint32_t maxFileBytes;

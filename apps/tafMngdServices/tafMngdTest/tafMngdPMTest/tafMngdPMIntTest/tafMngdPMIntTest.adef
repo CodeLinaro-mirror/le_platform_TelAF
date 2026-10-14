@@ -5,6 +5,8 @@ executables:
 {
     tafMngdPMIntTest = (
       $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPMIntTest/tafMngdPMIntTestComponent )
+    tafMngdPMIntTestHelper = (
+      $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMTest/tafMngdPMIntTest/tafMngdPMIntTestComponent )
 }
 
 start: manual
@@ -28,4 +30,5 @@ processes:
 bindings:
 {
     tafMngdPMIntTest.tafMngdPMIntTestComponent.taf_mngdPm -> tafMngdPMSvc.taf_mngdPm
+    tafMngdPMIntTestHelper.tafMngdPMIntTestComponent.taf_mngdPm -> tafMngdPMSvc.taf_mngdPm
 }

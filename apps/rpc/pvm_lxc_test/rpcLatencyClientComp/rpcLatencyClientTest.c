@@ -4,7 +4,7 @@
  */
 
 /**
- * @file rpcLatancyClientTest.c
+ * @file rpcLatencyClientTest.c
  *
  * RPC latency test client component (runs in LXC container).
  *
@@ -53,7 +53,7 @@ static void FillRandom
  * Run one round of all three latency tests and log the results.
  */
 //--------------------------------------------------------------------------------------------------
-static void RunLatancyTests
+static void RunLatencyTests
 (
     uint32_t* seedPtr
 )
@@ -79,7 +79,7 @@ static void RunLatancyTests
 
         struct timespec t0, t1;
         clock_gettime(CLOCK_MONOTONIC, &t0);
-        uint32_t serverCrc = rpcLatancy_ShortMessageTest(data, sizeof(data));
+        uint32_t serverCrc = rpcLatency_ShortMessageTest(data, sizeof(data));
         clock_gettime(CLOCK_MONOTONIC, &t1);
 
         long latencyMs = (t1.tv_sec - t0.tv_sec) * 1000L +
@@ -108,7 +108,7 @@ static void RunLatancyTests
 
         struct timespec t0, t1;
         clock_gettime(CLOCK_MONOTONIC, &t0);
-        uint32_t serverCrc = rpcLatancy_MidMessageTest(data, sizeof(data));
+        uint32_t serverCrc = rpcLatency_MidMessageTest(data, sizeof(data));
         clock_gettime(CLOCK_MONOTONIC, &t1);
 
         long latencyMs = (t1.tv_sec - t0.tv_sec) * 1000L +
@@ -137,7 +137,7 @@ static void RunLatancyTests
 
         struct timespec t0, t1;
         clock_gettime(CLOCK_MONOTONIC, &t0);
-        uint32_t serverCrc = rpcLatancy_LongMessageTest(data, sizeof(data));
+        uint32_t serverCrc = rpcLatency_LongMessageTest(data, sizeof(data));
         clock_gettime(CLOCK_MONOTONIC, &t1);
 
         long latencyMs = (t1.tv_sec - t0.tv_sec) * 1000L +
@@ -211,20 +211,20 @@ static void TimerHandler
     LE_UNUSED(timerRef);
 
     static uint32_t seed = 0x12345678U;
-    RunLatancyTests(&seed);
+    RunLatencyTests(&seed);
 }
 
 //--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
-    le_timer_Ref_t timerRef = le_timer_Create("LatancyTestTimer");
+    le_timer_Ref_t timerRef = le_timer_Create("LatencyTestTimer");
     le_timer_SetMsInterval(timerRef, 1000);
     le_timer_SetHandler(timerRef, TimerHandler);
     le_timer_SetRepeat(timerRef, 0);       // 0 = repeat forever
     le_timer_SetWakeup(timerRef, false);
     le_timer_Start(timerRef);
 
-    rpcLatancy_AddTestEventHandler(TestEventHandler, NULL);
+    rpcLatency_AddTestEventHandler(TestEventHandler, NULL);
 
     LE_INFO("RPC latency test client started.");
 }

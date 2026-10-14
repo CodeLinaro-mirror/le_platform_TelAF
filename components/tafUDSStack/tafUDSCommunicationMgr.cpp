@@ -288,8 +288,34 @@ void UdsCommunicationMgr::UdsTimerHandler
             }
             else
             {
-                LE_DEBUG("Start S3 timer");
+                LE_DEBUG("Start S3 timer, interval=%d", eventReq->interval);
                 le_timer_Start(udsCmMgr->s3TimerRef);
+            }
+            break;
+
+        case TAF_UDS_S3_TIMER_RESTART:
+            if(le_timer_IsRunning(udsCmMgr->s3TimerRef))
+            {
+                LE_DEBUG("Restart S3 timer, interval=%d", eventReq->interval);
+                le_timer_SetMsInterval(udsCmMgr->s3TimerRef, eventReq->interval);
+                le_timer_Restart(udsCmMgr->s3TimerRef);
+            }
+            break;
+
+        case TAF_UDS_S3_TIMER_CHECK_TO_RESTART:
+            if(le_timer_IsRunning(udsCmMgr->s3TimerRef))
+            {
+                uint32_t remainingTime = le_timer_GetMsTimeRemaining(udsCmMgr->s3TimerRef);
+                LE_DEBUG("check if need to restart remainingTime = %d, s3 timer = %d",
+                    remainingTime, eventReq->interval);
+                if(remainingTime >= eventReq->interval)
+                {
+                    LE_DEBUG("No need to restart S3 timer");
+                    return;
+                }
+
+                le_timer_SetMsInterval(udsCmMgr->s3TimerRef, eventReq->interval);
+                le_timer_Restart(udsCmMgr->s3TimerRef);
             }
             break;
 
@@ -334,15 +360,6 @@ void UdsCommunicationMgr::UdsTimerHandler
             le_timer_SetMsInterval(udsCmMgr->authDelayTimerRef, eventReq->interval);
             LE_DEBUG("Start auth delay timer");
             le_timer_Start(udsCmMgr->authDelayTimerRef);
-            break;
-
-        case TAF_UDS_S3_TIMER_RESTART:
-            if(le_timer_IsRunning(udsCmMgr->s3TimerRef))
-            {
-                LE_DEBUG("Restart S3 timer");
-                le_timer_SetMsInterval(udsCmMgr->s3TimerRef, eventReq->interval);
-                le_timer_Restart(udsCmMgr->s3TimerRef);
-            }
             break;
 
         case TAF_UDS_P2STAR_TIMER_STOP:
@@ -415,12 +432,12 @@ void UdsCommunicationMgr::UdsTimerHandler
             le_timer_SetMsInterval(udsCmMgr->testerStateTimerRef, eventReq->interval);
             if(le_timer_IsRunning(udsCmMgr->testerStateTimerRef))
             {
-                LE_DEBUG("Restart tester state timer");
+                LE_DEBUG("Restart tester state timer, interval=%d", eventReq->interval);
                 le_timer_Restart(udsCmMgr->testerStateTimerRef);
             }
             else
             {
-                LE_DEBUG("Start tester state timer");
+                LE_DEBUG("Start tester state timer, interval=%d", eventReq->interval);
                 le_timer_Start(udsCmMgr->testerStateTimerRef);
 
                 LE_INFO("Timer start: Tester state ON");
@@ -431,7 +448,23 @@ void UdsCommunicationMgr::UdsTimerHandler
         case TAF_UDS_TESTER_STATE_TIMER_RESTART:
             if(le_timer_IsRunning(udsCmMgr->testerStateTimerRef))
             {
-                LE_DEBUG("Restart Tester state timer");
+                LE_DEBUG("Restart Tester state timer, interval=%d", eventReq->interval);
+                le_timer_SetMsInterval(udsCmMgr->testerStateTimerRef, eventReq->interval);
+                le_timer_Restart(udsCmMgr->testerStateTimerRef);
+            }
+            break;
+        case TAF_UDS_TESTER_STATE_TIMER_CHECK_TO_RESTART:
+            if(le_timer_IsRunning(udsCmMgr->testerStateTimerRef))
+            {
+                uint32_t remainingTime = le_timer_GetMsTimeRemaining(udsCmMgr->testerStateTimerRef);
+                LE_DEBUG("remainingTime = %d, tester state time = %d", remainingTime,
+                    eventReq->interval);
+                if(remainingTime >= eventReq->interval)
+                {
+                    LE_DEBUG("No need to restart tester state timer");
+                    return;
+                }
+
                 le_timer_SetMsInterval(udsCmMgr->testerStateTimerRef, eventReq->interval);
                 le_timer_Restart(udsCmMgr->testerStateTimerRef);
             }
@@ -769,9 +802,9 @@ void UdsCommunicationMgr::TesterStateTimeoutHandler
 
 void UdsCommunicationMgr::CheckAndRestartTesterStateTimer
 (
+    bool isRespFromSvc
 )
 {
-    LE_DEBUG("CheckAndRestartTesterStateTimer");
 
     float p2StarServerInterval;
     uint32_t maxNumberOfRcrrp, testerStateTimer;
@@ -812,26 +845,44 @@ void UdsCommunicationMgr::CheckAndRestartTesterStateTimer
     //If Tester state timer is running, restart it with smaller interval.
     if(testerStateTimer < p2StarServerInterval*maxNumberOfRcrrp)
     {
-        UdsTimerEventReport(TAF_UDS_TESTER_STATE_TIMER_RESTART, testerStateTimer,
+        //When a req is handled and NRC is sent or tester present resp is sent
+        if(!isRespFromSvc)
+        {
+            UdsTimerEventReport(TAF_UDS_TESTER_STATE_TIMER_CHECK_TO_RESTART, testerStateTimer,
                 (char*)interface);
+        }
+        //When resp is sent by app, restart the timer with a smaller value
+        else
+        {
+            UdsTimerEventReport(TAF_UDS_TESTER_STATE_TIMER_RESTART, testerStateTimer,
+                (char*)interface);
+        }
     }
 }
 #endif
 
 void UdsCommunicationMgr::CheckAndRestartS3Timer
 (
-    uint8_t serviceId
+    uint8_t serviceId,
+    bool isRespFromSvc
 )
 {
+    LE_DEBUG("serviceId = 0x%x, isRespFromSvc=%d", serviceId, isRespFromSvc);
+
     float p2StarServerInterval;
     uint32_t maxNumberOfRcrrp, s3ServerInterval;
 
-    UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_STOP, 0, (char*)interface);
-    //If previous value of readyToRecvData is false, check if app set FileXfer state and set it
-    if (!readyToRecvData.load())
+    //Resp is sent from svc, stop p2*
+    if(isRespFromSvc)
     {
-        readyToRecvData.store(true);
-        CheckAndSendCancelFileXferEvent();
+        UdsTimerEventReport(TAF_UDS_P2STAR_TIMER_STOP, 0, (char*)interface);
+        //If previous value of readyToRecvData is false, check if app set FileXfer state and set it
+        //don't reset
+        if (!readyToRecvData.load())
+        {
+            readyToRecvData.store(true);
+            CheckAndSendCancelFileXferEvent();
+        }
     }
 
     //Get P2* server interval;
@@ -878,12 +929,22 @@ void UdsCommunicationMgr::CheckAndRestartS3Timer
         LE_ERROR("Exception: %s. Use default value:%dms", e.what(), s3ServerInterval);
     }
 
-    //If S3 timer is running, restart it with smaller interval.
-    if((serviceId != SESSION_CONTROL_REQUEST_ID) && (s3ServerInterval <
-            p2StarServerInterval*maxNumberOfRcrrp))
+    //Only restart s3 timer when s3 time value is less than the p2star* maxNumberOfRcrrp
+    if(s3ServerInterval < p2StarServerInterval*maxNumberOfRcrrp)
     {
-        UdsTimerEventReport(TAF_UDS_S3_TIMER_RESTART, s3ServerInterval, (char*)interface);
+        //When a req is handled and NRC is sent or tester present resp is sent
+        if(!isRespFromSvc)
+        {
+            UdsTimerEventReport(TAF_UDS_S3_TIMER_CHECK_TO_RESTART, s3ServerInterval,
+                (char*)interface);
+        }
+        //When resp is sent by app, restart the timer with a smaller value ignore 0x10
+        else if(serviceId != SESSION_CONTROL_REQUEST_ID)
+        {
+            UdsTimerEventReport(TAF_UDS_S3_TIMER_RESTART, s3ServerInterval, (char*)interface);
+        }
     }
+
 }
 
 static taf_doip_PowerMode_t PowerModeQueryHandler
@@ -1116,13 +1177,25 @@ le_result_t UdsCommunicationMgr::SendNRC
 {
     LE_DEBUG("SendNRC, sid= 0x%x, error code=0x%x",sid, errorCode);
 
+    //Send tester present with tpBuf
+    if(sid == TESTER_PRESENT_REQUEST_ID)
+    {
+        // pack the NRC data for tester present
+        tpBuf[0] = UDS_NEGATIVE_RESP_SID;
+        tpBuf[1] = TESTER_PRESENT_REQUEST_ID;
+        tpBuf[2] = errorCode;
+        tpDataLen = UDS_NEG_RESP_LEN;
+        SendData(sid, errorCode, addrInfoPtr);
+        return LE_OK;
+    }
+
     // pack the NRC data
     sendBuf[0] = UDS_NEGATIVE_RESP_SID;
     sendBuf[1] = sid;
     sendBuf[2] = errorCode;
     sendDataLen = UDS_NEG_RESP_LEN;
 
-    SendData(addrInfoPtr);
+    SendData(sid, errorCode, addrInfoPtr);
 
     if(errorCode == REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING)
     {
@@ -1148,6 +1221,8 @@ le_result_t UdsCommunicationMgr::SendNRC
 
 void UdsCommunicationMgr::SendData
 (
+    uint8_t sid,
+    uint8_t errorCode,
     taf_doip_AddrInfo_t*  addrInfoPtr
 )
 {
@@ -1160,13 +1235,29 @@ void UdsCommunicationMgr::SendData
     respAddrInfo.taType = addrInfoPtr->taType;
     respAddrInfo.vlanId = addrInfoPtr->vlanId;
     le_utf8_Copy(respAddrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
-    respDiagMsg.dataPtr = sendBuf;
-    respDiagMsg.dataLen = sendDataLen;
+
+    if(sid == TESTER_PRESENT_REQUEST_ID)
+    {
+        respDiagMsg.dataPtr = tpBuf;
+        respDiagMsg.dataLen = tpDataLen;
+    }
+    else
+    {
+        respDiagMsg.dataPtr = sendBuf;
+        respDiagMsg.dataLen = sendDataLen;
+    }
 
     ret = taf_doip_DiagRequest(&respAddrInfo, &respDiagMsg);
     if(ret == LE_OK)
     {
-        LE_DEBUG("Send Diagnostic response successfully");
+        //Don't restart timer for 0x78.
+        if(errorCode != REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING)
+        {
+            CheckAndRestartS3Timer(sid, false);
+        #ifdef LE_CONFIG_DIAG_FEATURE_A
+            CheckAndRestartTesterStateTimer(false);
+        #endif
+        }
     }
     else
     {
@@ -1690,14 +1781,45 @@ bool UdsCommunicationMgr::IsSvcSecAccessMatched
 
     // Check "security access" for requested service.
     try{
-         uint8_t secAccessType = cfg::get_security_type(sid);
+        const Access& access = cfg::get_service_access(sid);
+        uint8_t secAccessType = access.security_type;
+        const std::vector<std::string>& secLvls = access.security_level;
 
-        LE_DEBUG("Security Type = 0x%x", secAccessType);
+        LE_DEBUG("Security Type = 0x%x ", secAccessType);
 
-        if (secAccessType == SECURITY_ACCESS_REQUEST_ID && SecurityAccess_IsUnlocked(this) == false)
+        // Check if system is unlocked.
+        if (secAccessType == SECURITY_ACCESS_REQUEST_ID)
         {
-            LE_DEBUG("Node is secured and the server is not unlocked.");
-            return false;
+            if (SecurityAccess_IsUnlocked(this) == false)
+            {
+                LE_DEBUG("Node is secured and the server is not unlocked.");
+                return false;
+            }
+
+            if(secLvls.empty())
+            {
+                LE_DEBUG("Did not find the 0x%02X's security level from YAML configuration", sid);
+                return true;
+            }
+
+            // Check if the unlocked security level is matched.
+            bool isUnlocked = false;
+            for (const std::string& levelName : secLvls)
+            {
+                uint8_t levelId = cfg::get_security_level_id(levelName);
+                LE_DEBUG("levelName = %s, levelId=%d", levelName.c_str(), levelId);
+                if (SecurityAccess_IsLevelUnlocked(this, levelId))
+                {
+                    isUnlocked = true;
+                    break;
+                }
+            }
+
+            if (!isUnlocked)
+            {
+                LE_WARN("The corresponding level is locked for sid:0x%x", sid);
+                return false;
+            }
         }
     }
     catch (const std::exception& e)
@@ -1824,14 +1946,12 @@ bool UdsCommunicationMgr::IsSubFuncAuthCheckOK
     try
         {
         const SubFunction& sub = cfg::get_subfunction(sid, subFunc);
-        (void)sub;
 
-        const ServiceEntry& svc = cfg::get_service_entry(sid);
-        bool subFuncAuth = svc.authentication;
+        bool subFuncAuth = sub.authentication;
 
         if (subFuncAuth)
         {
-            LE_DEBUG("Authentication is false for service 0x%02X "
+            LE_DEBUG("Authentication is true for service 0x%02X "
                         "subfunction 0x%02X in configuration",
                             sid,
                             subFunc);
@@ -1951,15 +2071,44 @@ bool UdsCommunicationMgr::IsSubFuncSecAccessMatched
     // Check "security access" for requested subFunction.
     try
     {
-        uint8_t secAccessType = cfg::get_security_type(sid);
+        const Access& access = cfg::get_subfunction_access(sid, subFunc);
+        uint8_t secAccessType = access.security_type;
+        const std::vector<std::string>& secLvls = access.security_level;
 
         LE_DEBUG("Security Type = 0x%x", secAccessType);
 
-        if (secAccessType == SECURITY_ACCESS_REQUEST_ID &&
-            SecurityAccess_IsUnlocked(this) == false)
+        if (secAccessType == SECURITY_ACCESS_REQUEST_ID)
         {
-            LE_DEBUG("Node is secured and the server is not unlocked.");
-            return false;
+            if (SecurityAccess_IsUnlocked(this) == false)
+            {
+                LE_DEBUG("Node is secured and the server is not unlocked.");
+                return false;
+            }
+
+            if(secLvls.empty())
+            {
+                LE_DEBUG("Did not find the 0x%02X's security level from YAML configuration", sid);
+                return true;
+            }
+
+            // Check if the unlocked security level is matched.
+            bool isUnlocked = false;
+            for (const std::string& levelName : secLvls)
+            {
+                uint8_t levelId = cfg::get_security_level_id(levelName);
+                LE_DEBUG("levelName = %s, levelId=%d", levelName.c_str(), levelId);
+                if (SecurityAccess_IsLevelUnlocked(this, levelId))
+                {
+                    isUnlocked = true;
+                    break;
+                }
+            }
+
+            if (!isUnlocked)
+            {
+                LE_WARN("The corresponding level is locked for sid: 0x%x, subfunc:%d", sid, subFunc);
+                return false;
+            }
         }
     }
     catch (const std::exception& e)
@@ -1986,6 +2135,8 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
     uint8_t sid = recvBuf[0];
     uint8_t updatedRecvBuf[UDS_DATA_SIZE];
     uint16_t updatedRecvDataLen = 0;
+    // For functional requests, count the DIDs that are configured as functionally addressed.
+    uint16_t funcAddrDidNum = 0;
 
     if(addrInfoPtr == NULL || isInternalHandle == NULL)
     {
@@ -2032,6 +2183,19 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
     {
         dataId = ((recvBuf[i*UDS_DID_LEN + 1]) << 8) + recvBuf[i*UDS_DID_LEN + 2];
         LE_INFO("DID: 0x%X(%d)", dataId, dataId);
+
+        if( (addrInfoPtr->taType == TAF_DOIP_TA_TYPE_FUNCTIONAL) &&
+            !cfg::IsDidFunctionalAddressed(dataId) )
+        {
+            LE_DEBUG("dataId:0x%x is not functionally addressed", dataId);
+            continue;
+        }
+
+        // Count functionally addressed DIDs for functional requests.
+        if(addrInfoPtr->taType == TAF_DOIP_TA_TYPE_FUNCTIONAL)
+        {
+            funcAddrDidNum++;
+        }
 
         const DidEntry* pDid = nullptr;
         try
@@ -2120,19 +2284,42 @@ le_result_t UdsCommunicationMgr::IndicateReadDIDReq
         updatedRecvDataLen = updatedRecvDataLen + 2;
     }
 
-    if(updatedRecvDataLen == sizeof(sid))
+    // At least one DID was accepted when updatedRecvDataLen grew beyond the SID.
+    bool anySupported = (updatedRecvDataLen != sizeof(sid));
+
+    if(addrInfoPtr->taType == TAF_DOIP_TA_TYPE_PHYSICAL)
     {
-        LE_WARN("None of DIDs is supported in the active session.");
-        return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
+        // Physical address, none of the DIDs supported -> NRC.
+        if(!anySupported)
+        {
+            LE_WARN("None of DIDs is supported in the active session.");
+            return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
+        }
+    }
+    else // TAF_DOIP_TA_TYPE_FUNCTIONAL
+    {
+        // No DID in the request is functionally addressed, no response.
+        if(funcAddrDidNum == 0)
+        {
+            LE_WARN("None of the DIDs is functionally addressed. No response.");
+            return LE_OK;
+        }
+
+        // Functionally addressed DID(s) present but none is supported in the active session -> NRC.
+        if(!anySupported)
+        {
+            LE_WARN("None of the functionally addressed DIDs is supported in the active session.");
+            return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
+        }
     }
 
+    // Positive response.
     memcpy(recvBuf, updatedRecvBuf, updatedRecvDataLen);
     recvDataLen = updatedRecvDataLen;
 
     *isInternalHandle = false;
     return LE_OK;
 }
-
 
 /**
  * Indicate received WriteDataByIdentifier message to Diag service.
@@ -2227,6 +2414,7 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDReq
                 for (const auto& level_name : writeSecurityInfo.security_level)
                 {
                     uint8_t level_id = cfg::get_security_level_id(level_name);
+                    LE_DEBUG("level_id=%d, level_name=%s", level_id, level_name.c_str());
                     if (SecurityAccess_IsLevelUnlocked(this, level_id))
                     {
                         LE_INFO("DID is secured, level id: %d is unlocked", level_id);
@@ -2568,6 +2756,13 @@ le_result_t UdsCommunicationMgr::IndicateSecAccessReq
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
     }
 
+    if(recvDataLen > UDS_MAX_DATA_SIZE)
+    {
+        LE_WARN("recvDataLen is more than UDS_DATA_SIZE.");
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr); // NRC 0x13
+    }
+
     // Step 4: Subfunction Authentication check. UDS_0x27_NRC_34
     if(!IsSubFuncAuthCheckOK(sid, subFunction))
     {
@@ -2876,15 +3071,23 @@ le_result_t UdsCommunicationMgr::IndicateIOCBIDReq
             return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
         }
     }
+    else
+    {
+        // Check the total length for other inputOutputControlParameter. UDS_0x2F_NRC_13
+        uint16_t ctrlEnableMaskRecordSize = cfg::get_ioctrl_en_mask_record_size(dataId);
+        //ControlState byte length is 0, only compare with mask size + UDS_IOCBID_REQ_MIN_LEN
+        if(recvDataLen != ctrlEnableMaskRecordSize + UDS_IOCBID_REQ_MIN_LEN)
+        {
+            LE_WARN("The received length mismatches the length configured.");
+            return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+        }
+    }
 
     // Step 6: Authentication check. UDS_0x2F_NRC_34
     try
     {
-        // Get the authorization pattern for IO control from the corresponding DID
-        const DidEntry* pDid = &cfg::get_did_entry(dataId);
-
         // Authentication check
-        if (!IsAuthRoleMatched(INPUT_OUTPUT_CONTROL_REQUEST_ID, *pDid))
+        if (!IsAuthRoleMatched(INPUT_OUTPUT_CONTROL_REQUEST_ID, *pIoEntry))
         {
             LE_DEBUG("IO DID 0x%x requires authentication and role is not matched.", dataId);
             return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr);
@@ -3021,6 +3224,14 @@ le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
             *isInternalHandle = true;
             return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
         }
+    }
+
+    //Authentication check
+    if (!IsAuthRoleMatched(ROUTINE_CONTROL_REQUEST_ID, routineEntry))
+    {
+        LE_DEBUG("RID0x%x is authenticated and authentication state is incorrect.", rid);
+        *isInternalHandle = true;
+        return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr);
     }
 
     // --- SECURITY ACCESS VALIDATION ---
@@ -3533,13 +3744,13 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
  */
 le_result_t UdsCommunicationMgr::TesterPresentResp
 (
+    uint8_t originSubFunc,
+    uint16_t recvTpDataLen,
     taf_doip_AddrInfo_t*  addrInfoPtr
 )
 {
-    LE_DEBUG("TesterPresentResp");
-
     // received service ID
-    uint8_t sid = recvBuf[0];
+    uint8_t sid = TESTER_PRESENT_REQUEST_ID;
 
     // Check the pointer.
     if(addrInfoPtr == NULL)
@@ -3549,14 +3760,14 @@ le_result_t UdsCommunicationMgr::TesterPresentResp
     }
 
     // Step 1: Subfunction minimum length check. UDS_0x3E_NRC_13
-    if(recvDataLen != UDS_TESTER_PRESENT_REQ_LEN)
+    if(recvTpDataLen < UDS_TESTER_PRESENT_REQ_LEN)
     {
-        LE_WARN("recvDataLen is incorrect.");
+        LE_WARN("recvTpDataLen is less than minimum length.");
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // subFunction
-    uint8_t subFunc = recvBuf[1] & 0x7F;
+    uint8_t subFunc = originSubFunc & 0x7F;
 
     // Step 2: Subfunction supported check. UDS_0x3E_NRC_12
     if(!IsSubFuncSupported(sid, subFunc))
@@ -3565,21 +3776,28 @@ le_result_t UdsCommunicationMgr::TesterPresentResp
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr); // NRC 0x12
     }
 
-    // Step 3: Subfunction Authentication check. UDS_0x19_NRC_34
+    //Exact length check. UDS_0x3E_NRC_13
+    if(recvTpDataLen != UDS_TESTER_PRESENT_REQ_LEN)
+    {
+        LE_WARN("recvTpDataLen : %d of service 0x3e is incorrect.", recvTpDataLen);
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    // Step 3: Subfunction Authentication check. UDS_0x3E_NRC_34
     if(!IsSubFuncAuthCheckOK(sid, subFunc))
     {
         LE_WARN("Authentication check failed for subfunction: 0x%x", subFunc);
         return SendNRC(sid, AUTHENTICATION_REQUIRED, addrInfoPtr); // NRC 0x34
     }
 
-    // Step 4: Subfunction supported in active session check. UDS_0x19_NRC_7E
+    // Step 4: Subfunction supported in active session check. UDS_0x3E_NRC_7E
     if(!IsSubFuncSessTypeValid(sid, subFunc))
     {
         LE_WARN("Current session type does not support subfunction: 0x%x", subFunc);
         return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED_IN_ACTIVE_SESSION, addrInfoPtr); // NRC 0x7E
     }
 
-    //  Step 5: Subfunction security access check. UDS_0x19_NRC_33
+    //  Step 5: Subfunction security access check. UDS_0x3E_NRC_33
     if (!IsSubFuncSecAccessMatched(sid, subFunc))
     {
         LE_WARN("Subfunction is secured and the server is not unlocked for subfunction: 0x%x",
@@ -3587,20 +3805,27 @@ le_result_t UdsCommunicationMgr::TesterPresentResp
         return SendNRC(sid, SECURITY_ACCESS_DENY, addrInfoPtr); // NRC 0x33
     }
 
-    uint8_t suppressPosRspFlag = (recvBuf[1] >> 7) & 0x1;
+    uint8_t suppressPosRspFlag = (originSubFunc >> 7) & 0x1;
     if (suppressPosRspFlag == 1)
     {
         LE_DEBUG("Don't send response");
+
+        CheckAndRestartS3Timer(sid, false);
+    #ifdef LE_CONFIG_DIAG_FEATURE_A
+        LE_DEBUG("Restart Tester state timer");
+        CheckAndRestartTesterStateTimer(false);
+    #endif
+
         return LE_OK;
     }
 
     // Fill the response data
-    sendBuf[0] = TESTER_PRESENT_RESPONSE_ID;
-    sendBuf[1] = 0;
-    sendDataLen = UDS_TESTER_PRESENT_RESP_LEN;
+    tpBuf[0] = TESTER_PRESENT_RESPONSE_ID;
+    tpBuf[1] = 0;
+    tpDataLen = UDS_TESTER_PRESENT_RESP_LEN;
 
-    //Send positive response
-    SendData(addrInfoPtr);
+    //Send positive response for tester present with tpBuf
+    SendData(TESTER_PRESENT_REQUEST_ID, 0, addrInfoPtr);
 
     return LE_OK;
 }
@@ -4248,18 +4473,15 @@ void UdsCommunicationMgr::DiagIndicationHandler
     void* userPtr
 )
 {
-    LE_DEBUG("DiagIndicationHandler");
-
     if(addrInfoPtr == NULL)
     {
         LE_ERROR("addrInfoPtr invalid.");
         return;
     }
 
-    LE_DEBUG("ifName=%s, vlanId=%d", addrInfoPtr->ifName, addrInfoPtr->vlanId);
+    LE_DEBUG("DiagIndication: ifName=%s, vlanId=%d", addrInfoPtr->ifName, addrInfoPtr->vlanId);
 
-    UdsCommunicationMgr * udsCmMgr =
-            UdsCommunicationMgr::GetInstance(addrInfoPtr->ifName);
+    UdsCommunicationMgr * udsCmMgr = UdsCommunicationMgr::GetInstance(addrInfoPtr->ifName);
     if(udsCmMgr == NULL)
     {
         LE_ERROR("Can't get instance by ifName %s", addrInfoPtr->ifName);
@@ -4275,17 +4497,11 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
-    // copy addressInfo locally to use while sending internal indication.
-    udsCmMgr->addrInfo.sa = addrInfoPtr->sa;
-    udsCmMgr->addrInfo.ta = addrInfoPtr->ta;
-    udsCmMgr->addrInfo.taType = addrInfoPtr->taType;
-    udsCmMgr->addrInfo.vlanId = addrInfoPtr->vlanId;
-    le_utf8_Copy(udsCmMgr->addrInfo.ifName, addrInfoPtr->ifName, MAX_INTERFACE_NAME_LEN, NULL);
-
     if (result == TAF_DOIP_RESULT_SA_DEREGISTERED)
     {
         LE_INFO("Disconnected, stopped the running timer");
 
+        udsCmMgr->addrInfo = *addrInfoPtr;
         udsCmMgr->UdsTimerEventReport(TAF_UDS_S3_TIMER_STOP, 0, addrInfoPtr->ifName);
     #ifdef LE_CONFIG_DIAG_FEATURE_A
         // Indicate the Tester state is OFF.
@@ -4351,8 +4567,8 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
-    LE_DEBUG("UDS requst is from 0x%x to 0x%x", addrInfoPtr->sa, addrInfoPtr->ta);
-    LE_DEBUG("Data pack length: %" PRIuS, diagMsgPtr->dataLen);
+    LE_DEBUG("UDS requst SA: 0x%x, TA: 0x%x, TA type: %d, lenth: %" PRIuS "", addrInfoPtr->sa,
+        addrInfoPtr->ta, addrInfoPtr->taType, diagMsgPtr->dataLen);
 
     if (result != TAF_DOIP_RESULT_OK)
     {
@@ -4367,6 +4583,19 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
+    // received service ID
+    uint8_t sid = diagMsgPtr->dataPtr[0];
+
+    LE_DEBUG("Request service id = 0x%x", sid);
+
+    //Support ePTI, don't handle the functional addressed service which is not supported in yaml.
+    if( (addrInfoPtr->taType == TAF_DOIP_TA_TYPE_FUNCTIONAL) &&
+        !cfg::IsServiceFunctionalAddressed(sid) )
+    {
+        LE_WARN("Functional addressed service 0x%x unsupported", sid);
+        return;
+    }
+
     //Ignore other requests if hardware reset is in progress until system is restarted
     if(udsCmMgr->isResetInProgress)
     {
@@ -4374,8 +4603,20 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
-    // received service ID
-    uint8_t sid = diagMsgPtr->dataPtr[0];
+    //Handle tester prensent, don't copy data to recvBuf
+    if(sid == TESTER_PRESENT_REQUEST_ID)
+    {
+        // General server response behaviour check, NRC check for 0x11, 0x34, 0x7f, 0x33.
+        if(udsCmMgr->GeneralServerResp(addrInfoPtr, TESTER_PRESENT_REQUEST_ID) != LE_OK)
+        {
+            // Original sub function data
+            uint8_t originSubFunc = diagMsgPtr->dataPtr[1];
+            uint16_t recvTpDataLen = diagMsgPtr->dataLen;
+            udsCmMgr->TesterPresentResp(originSubFunc, recvTpDataLen, addrInfoPtr);
+        }
+
+        return;
+    }
 
     // Send NRC 0x22 if diag service is paused
     if (udsCmMgr->isPaused.load())
@@ -4393,23 +4634,24 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
-    memcpy((char*)(udsCmMgr->recvBuf), (char*)(diagMsgPtr->dataPtr), UDS_MAX_DATA_SIZE);
+    udsCmMgr->addrInfo = *addrInfoPtr;
+    size_t copyLen = (diagMsgPtr->dataLen < UDS_MAX_DATA_SIZE) ? diagMsgPtr->dataLen :
+        UDS_MAX_DATA_SIZE;
+    if (copyLen > 0)
+    {
+        memcpy((char*)(udsCmMgr->recvBuf), (char*)(diagMsgPtr->dataPtr), copyLen);
+    }
+    // Set recvDataLen to dataLen which will be compared with max data len for NRC 0x13 check later
     udsCmMgr->recvDataLen = diagMsgPtr->dataLen;
     udsCmMgr->sendDataLen = 0;
 
     // General server response behaviour check, NRC check for 0x11, 0x34, 0x7f, 0x33
     if(udsCmMgr->GeneralServerResp(addrInfoPtr, sid) == LE_OK)
     {
-        LE_DEBUG("General server negative response, Restart S3 timer");
-        udsCmMgr->CheckAndRestartS3Timer(sid);
-    #ifdef LE_CONFIG_DIAG_FEATURE_A
-        LE_DEBUG("Restart Tester state timer");
-        udsCmMgr->CheckAndRestartTesterStateTimer();
-    #endif
+        LE_DEBUG("General server negative response");
         return;
     }
 
-    LE_DEBUG("-------Request service id = 0x%x",sid);
     //Handle the request message according to the service id
     switch (sid)
     {
@@ -4505,13 +4747,6 @@ void UdsCommunicationMgr::DiagIndicationHandler
             // Check NRC and then send indication to TelAf diag service if necessary
             // for RequestFileTransfer request msg.
             ret = udsCmMgr->IndicateRxFileXferReq(addrInfoPtr, &isInternalHandle);
-        }
-        break;
-        case TESTER_PRESENT_REQUEST_ID:  // 0x3E
-        {
-            // Check NRC and Handle it internally and then response to client.
-            ret = udsCmMgr->TesterPresentResp(addrInfoPtr);
-            isInternalHandle = true;
         }
         break;
         case RESPONSE_ON_EVENT_REQUEST_ID:  // 0x86
@@ -4816,10 +5051,10 @@ le_result_t UdsCommunicationMgr::SendUDSResp
             SendIdpsIndMsg();
 
         LE_DEBUG("Requested Diagnostic message response sent. Restart S3 timer");
-        udsCmMgr->CheckAndRestartS3Timer(serviceId);
+        udsCmMgr->CheckAndRestartS3Timer(serviceId, true);
     #ifdef LE_CONFIG_DIAG_FEATURE_A
         LE_DEBUG("Restart Tester state timer");
-        udsCmMgr->CheckAndRestartTesterStateTimer();
+        udsCmMgr->CheckAndRestartTesterStateTimer(true);
     #endif
     }
 
@@ -5106,7 +5341,8 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
         // Switched to non-default session.
         else
         {
-            LE_INFO("other session:need to start s3 timer");
+            LE_INFO("other session:start s3 timer, interval:%d, interface:%s", s3ServerInterval,
+                interface);
 
             UdsTimerEventReport(TAF_UDS_S3_TIMER_START, s3ServerInterval, interface);
         }
@@ -6074,57 +6310,16 @@ bool UdsCommunicationMgr::IsSessTypeMatched
     }
 }
 
-/**
- * Check if authenticated role is same.
- */
-bool UdsCommunicationMgr::IsAuthRoleMatched
-(
-    taf_UDSReqSvcID_t serviceType,
-    const DidEntry& didEntry
-)
+bool UdsCommunicationMgr::IsAuthRoleMatchedImpl(const std::vector<std::string>& roleNames)
 {
-    std::vector<std::string> roleNames;
-
-    try
+    if (roleNames.empty())
     {
-        LE_DEBUG("Service type = 0x%x", serviceType);
-
-        // Get the role names directly from the DID entry
-        switch(serviceType)
-        {
-            case READ_DID_REQUEST_ID:
-                roleNames = didEntry.read_role;
-                break;
-
-            case WRITE_DID_REQUEST_ID:
-                roleNames = didEntry.write_role;
-                break;
-
-            case INPUT_OUTPUT_CONTROL_REQUEST_ID:
-                roleNames = didEntry.io_role;
-                break;
-
-            default:
-                LE_ERROR("Role check is not supported for service 0x%x", serviceType);
-                return false;
-        }
-
-        // If no roles defined, allow access
-        if (roleNames.empty())
-        {
-            LE_DEBUG("No roles configured, allowing access");
-            return true;
-        }
-
-        LE_DEBUG("Checking %zu role(s)", roleNames.size());
-    }
-    catch (const std::exception& e)
-    {
-        LE_WARN("Exception: %s - role is not configured for DID", e.what());
-        return true;  // If not found in configuration, return true
+        LE_DEBUG("No roles configured, allowing access");
+        return true;
     }
 
-    // Get authentication_roles configuration
+    LE_DEBUG("Checking %zu role(s)", roleNames.size());
+
     std::map<std::string, uint64_t> authentication_roles;
     try
     {
@@ -6136,7 +6331,6 @@ bool UdsCommunicationMgr::IsAuthRoleMatched
         return false;
     }
 
-    // Check if any of the required roles match
     try
     {
         bool isRoleMatched = false;
@@ -6180,61 +6374,57 @@ bool UdsCommunicationMgr::IsAuthRoleMatched
     }
 }
 
-bool UdsCommunicationMgr::IsSecurityAccessMatched
+bool UdsCommunicationMgr::IsAuthRoleMatched
 (
+    taf_UDSReqSvcID_t serviceType,
+    const DidEntry& didEntry
+)
+{
+    LE_DEBUG("IsAuthRoleMatched for DID, service type = 0x%x", serviceType);
+
+    if (serviceType == READ_DID_REQUEST_ID)
+        return IsAuthRoleMatchedImpl(didEntry.read_role);
+    else if (serviceType == WRITE_DID_REQUEST_ID)
+        return IsAuthRoleMatchedImpl(didEntry.write_role);
+    else
+    {
+        LE_ERROR("Role check for DID called with unsupported service type 0x%x", serviceType);
+        return false;
+    }
+}
+
+bool UdsCommunicationMgr::IsAuthRoleMatched
+(
+    taf_UDSReqSvcID_t serviceType,
+    const IOEntry& ioEntry
+)
+{
+    LE_DEBUG("IsAuthRoleMatched for IO, service type = 0x%x", serviceType);
+
+    if (serviceType == INPUT_OUTPUT_CONTROL_REQUEST_ID)
+        return IsAuthRoleMatchedImpl(ioEntry.io_role);
+    else
+    {
+        LE_ERROR("Role check for IO called with unsupported service type 0x%x", serviceType);
+        return false;
+    }
+}
+
+bool UdsCommunicationMgr::IsAuthRoleMatched
+(
+    taf_UDSReqSvcID_t serviceType,
     const RoutineEntry& routineEntry
 )
 {
-    if (SessionType == DEFAULT_SESSION)
+    LE_DEBUG("IsAuthRoleMatched for Routine, service type = 0x%x", serviceType);
+
+    if (serviceType == ROUTINE_CONTROL_REQUEST_ID)
+        return IsAuthRoleMatchedImpl(routineEntry.routine_role);
+    else
     {
-        return true;
-    }
-
-    if (routineEntry.access.security_type == 0)
-    {
-        return true;
-    }
-
-    LE_DEBUG("Routine is secured. Security Type: 0x%x", routineEntry.access.security_type);
-
-    bool isUnlocked = false;
-    const auto& levels = routineEntry.access.security_level;
-
-    for (const std::string& levelName : levels)
-    {
-        uint8_t levelId = cfg::get_security_level_id(levelName);
-        if (SecurityAccess_IsLevelUnlocked(this, levelId))
-        {
-            isUnlocked = true;
-            break;
-        }
-    }
-
-    if (!isUnlocked)
-    {
-        LE_WARN("Routine is secured and the server is not unlocked.");
+        LE_ERROR("Role check for Routine called with unsupported service type 0x%x", serviceType);
         return false;
     }
-
-    return true;
-}
-
-bool UdsCommunicationMgr::IsRequestSubFuncSupported
-(
-    const RoutineEntry& routineEntry,
-    uint8_t subFunc
-)
-{
-    const std::vector<int>& supportedSubFuncs = routineEntry.request.sub_function;
-
-    if (std::find(supportedSubFuncs.begin(), supportedSubFuncs.end(), (int)subFunc) != supportedSubFuncs.end())
-    {
-        LE_DEBUG("subFunction(0x%x) is supported for this routine", subFunc);
-        return true;
-    }
-
-    LE_DEBUG("subFunction(0x%x) is unsupported for this routine", subFunc);
-    return false;
 }
 
 bool UdsCommunicationMgr::IsControlOptionRecordValid

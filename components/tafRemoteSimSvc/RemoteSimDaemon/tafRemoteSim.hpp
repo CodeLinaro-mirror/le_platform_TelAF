@@ -36,9 +36,11 @@
 
 #include "legato.h"
 #include "interfaces.h"
-#include <telux/tel/PhoneFactory.hpp>
-#include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
+#include "tafRemotesimPa.hpp"
+#include <chrono>
+#include <queue>
+#include <mutex>
 
 #define TAF_RSIM_SUBSYSTEM_TIMEOUT 30
 
@@ -179,8 +181,7 @@
 #define MSB_SHIFT   8
 #define MSG_POOL_SIZE 2
 
-using namespace telux::tel;
-using namespace telux::common;
+#define APDU_TX_POOL_SIZE 32
 
     namespace tafsvc {
         typedef enum
@@ -210,6 +211,13 @@ using namespace telux::common;
 
         typedef struct
         {
+            unsigned int id;
+            uint8_t      apdu[TAF_SIMRSIM_MAX_MSG_SIZE];
+            size_t       apduSize;
+        } taf_RsimApduTx_t;
+
+        typedef struct
+        {
             taf_simRsim_MessageHandlerRef_t  handlerRef;
             taf_SapState_t                sapState;
             taf_SapSubState_t             sapSubState;
@@ -222,23 +230,6 @@ using namespace telux::common;
             taf_simRsim_CallbackHandlerFunc_t callbackRef;
             void* context;
         } taf_RsimMsg_Client_t;
-
-        class tafRemoteSimListener : public telux::tel::IRemoteSimListener {
-            public:
-                void onApduTransfer(const unsigned int id, const std::vector<uint8_t> &apdu) override;
-
-                void onCardConnect() override;
-
-                void onCardDisconnect() override;
-
-                void onCardPowerUp() override;
-
-                void onCardPowerDown() override;
-
-                void onCardReset() override;
-
-                void onServiceStatusChange(telux::common::ServiceStatus status) override;
-        };
 
         class taf_simRsim :public ITafSvc {
             public:
@@ -261,16 +252,19 @@ using namespace telux::common;
                 void NotifyConnectionAvailable();
                 void NotifyConnectionUnavailable();
             private:
-                std::shared_ptr<telux::tel::IRemoteSimManager> remoteSimMgr = nullptr;
-                std::shared_ptr<telux::tel::IRemoteSimListener> listener;
+                taf_pa_remotesim_EventListener paEventListener;
 
                 le_thread_Ref_t MainThread;
+                le_thread_Ref_t PaTxThread = NULL;
                 le_event_Id_t MessageEventId;
                 taf_RsimObj_t RsimObj;
 
                 static void FirstLayerMessageHandler( void* reportPtr, void* secondLayerHandlerFunc);
-                static void eventCallback(ErrorCode errorCode);
                 static void HandleClientMsg(void* param1Ptr, void* param2Ptr);
+                static void SendConnectionAvailableToPa(void* param1Ptr, void* param2Ptr);
+                static void SendConnectionUnavailableToPa(void* param1Ptr, void* param2Ptr);
+                static void* PaTxThreadMain(void* contextPtr);
+                static void DoSendApduToPa(void* param1Ptr, void* param2Ptr);
 
                 le_result_t VerifyConnectionParameter(const uint8_t* buf, size_t size);
                 le_result_t VerifyMaxMsgSizeParameter(const uint8_t* buf, size_t size);
@@ -294,7 +288,7 @@ using namespace telux::common;
                 le_result_t HandleCardReset(const uint8_t* messagePtr, size_t messageNumElements);
                 le_result_t HandleCardInserted(const uint8_t* messagePtr, size_t messageNumElements);
                 le_result_t HandleCardRemoved();
-                le_result_t HandleCardError(CardErrorCause cardError);
+                le_result_t HandleCardError(taf_pa_remotesim_CardErrorCause_t cardError);
                 le_result_t HandleCardWakeUp();
                 le_result_t HandleStatusInd(const uint8_t* msgPtr, size_t messageNumElements);
                 le_result_t HandleResetResponse(const uint8_t* msgPtr, size_t msgLength);
@@ -302,7 +296,7 @@ using namespace telux::common;
                 le_result_t HandleErrorResp();
 
                 le_mem_PoolRef_t RSimMsgPool = NULL;
-
+                le_mem_PoolRef_t ApduTxPool = NULL;
         };
     }
 

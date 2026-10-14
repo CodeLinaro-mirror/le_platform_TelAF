@@ -115,6 +115,18 @@ typedef enum
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Enumeration of the TLS authentication type
+ */
+//-------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_DOIP_AUTH_SERVER,  ///< Authenticate server.
+    TAF_DOIP_AUTH_MUTUAL   ///< Authenticate server and client.
+}taf_doip_AuthTYpe_t;
+
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Logical address information structure in DoIP communication.
  */
 //-------------------------------------------------------------------------------------------------
@@ -598,6 +610,97 @@ LE_SHARED taf_doip_EventHandlerRef_t taf_doip_AddEventHandler
 LE_SHARED void taf_doip_RemoveEventHandler
 (
     taf_doip_EventHandlerRef_t eventHandlerRef  ///< [IN] DoIP event handler reference.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Adds the DoIP's own certificates to enable TLS connection.
+ *
+ * @return
+ *  - LE_OK            Function success
+ *  - LE_BAD_PARAMETER Invalid parameter
+ *  - LE_FORMAT_ERROR  Invalid certificate
+ *  - LE_FAULT         Internal error
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_doip_AddOwnCertificate
+(
+    const uint8_t*  certificatePtr, ///< [IN] Certificate pointer.
+    size_t          certificateLen  ///< [IN] Certificate length.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Adds the DoIP's own private key to the DoIP for TLS mutual authenticataion.
+ *
+ * @return
+ *  - LE_OK            Function success
+ *  - LE_BAD_PARAMETER Invalid parameter
+ *  - LE_FAULT         Internal error
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_doip_AddOwnPrivateKey
+(
+    const uint8_t*  pkeyPtr,    ///< [IN] Private key pointer.
+    size_t          pkeyLen     ///< [IN] Private key length.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Sets cipher suites to the DoIP in order to transmit data securely over TLS socket.
+ *
+ *          TLSv1.2                                                  TLSv1.3
+ *   0 - default: no restriction, let OpenSSL choose
+ *   { NULL,                                                          NULL },
+ *   1 - RSA with AES-128-CBC and SHA-1 (broad compatibility)
+ *   { "AES128-SHA",                                                  NULL },
+ *   2 - RSA with AES-128-CBC and SHA-256
+ *   { "AES128-SHA256",                                               NULL },
+ *   3 - RSA with AES-256-CBC and SHA-256
+ *   { "AES256-SHA256",                                               NULL },
+ *   4 - ECDHE-RSA with AES-128-CBC and SHA-256 (PFS)
+ *   { "ECDHE-RSA-AES128-SHA256",                                     NULL },
+ *   5 - ECDHE-RSA with AES-256-CBC and SHA-384 (PFS)
+ *   { "ECDHE-RSA-AES256-SHA384",                                     NULL },
+ *   6 - ECDHE-RSA with AES-128-GCM and SHA-256 (PFS + AEAD)
+ *   { "ECDHE-RSA-AES128-GCM-SHA256",                                 NULL },
+ *   7 - ECDHE-RSA with AES-256-GCM and SHA-384 (PFS + AEAD)
+ *   { "ECDHE-RSA-AES256-GCM-SHA384",                                 NULL },
+ *   8 - ECDHE-ECDSA with AES-128-GCM and SHA-256 (PFS + AEAD)
+ *   { "ECDHE-ECDSA-AES128-GCM-SHA256",                               NULL },
+ *   9 - ECDHE-ECDSA with AES-256-GCM and SHA-384 (PFS + AEAD)
+ *   { "ECDHE-ECDSA-AES256-GCM-SHA384",                               NULL },
+ *   10 - TLS 1.3 only: AES-128-GCM-SHA256
+ *   { "ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256",  "TLS_AES_128_GCM_SHA256" },
+ *   11 - TLS 1.3 only: AES-256-GCM-SHA384
+ *   { "ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384",  "TLS_AES_256_GCM_SHA384" },
+ *   12 - TLS 1.3 only: CHACHA20-POLY1305-SHA256
+ *   { "ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-CHACHA20-POLY1305",  "TLS_CHACHA20_POLY1305_SHA256" }
+ *
+ * @return
+ *  - LE_OK            Function success
+ *  - LE_BAD_PARAMETER Invalid parameter
+ *  - LE_FAULT         Internal error
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_doip_SetCipherSuites
+(
+    uint8_t         cipherIdx   ///< [IN] Cipher suite index.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Set autentication type to the DoIP in order to enable one-way TLS or mutual TLS(mTLS).
+ *
+ * @return
+ *  - LE_OK            Function success
+ *  - LE_BAD_PARAMETER Invalid parameter
+ *  - LE_FAULT         Internal error
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_doip_SetAuthType
+(
+    taf_doip_AuthTYpe_t authType    ///< [IN] Authentication type.
 );
 
 #ifdef  __cplusplus

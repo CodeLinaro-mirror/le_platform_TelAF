@@ -8,6 +8,7 @@
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
 #include <future>
+#include <atomic>
 #include <curl/curl.h>
 #include "tafMngdConn_Common.hpp"
 #include "tafMngdConnSvcJSONParser.hpp"
@@ -84,6 +85,9 @@ namespace tafsvc {
         MCS_EVT_GET_CONNECTION_INFO_SYNC,
         MCS_EVT_DATA_START_CONNECTIONTEST,
         MCS_EVT_DATA_PERIODIC_CONNECTIONTEST,
+        // Completion events posted back by the connectivity-test worker thread.
+        MCS_EVT_DATA_START_CONNECTIONTEST_DONE,
+        MCS_EVT_DATA_PERIODIC_CONNECTIONTEST_DONE,
         MCS_EVT_CONN_RECOVERY_SCHEDULE_L1, // Schedule L1 connectivity recovery
         MCS_EVT_CONN_RECOVERY_START_L1,
         MCS_EVT_CONN_RECOVERY_SCHEDULE_L2, // Schedule L2 connectivity recovery
@@ -106,6 +110,10 @@ namespace tafsvc {
             uint8_t                                 phoneId;
         };
         le_msg_SessionRef_t sessionRef;
+        // Result of an asynchronous connectivity test.
+        bool                boolResult;
+        // Generation of the connectivity test this result belongs to. Zero for all other events.
+        uint32_t            connTestGeneration;
     } stateMachineEvent_t;
 
     /* Internal structure to report Data State */
@@ -154,6 +162,17 @@ namespace tafsvc {
         bool flag;
     } mcs_RetryClientNode_t;
 
+    // Context passed to the connectivity-test worker thread.
+    typedef struct
+    {
+        uint8_t                       dataId;
+        mcs_EventType_t               doneEvent;   // completion event to post back
+        uint32_t                      generation;  // dispatch this test belongs to
+        char                          url[MCS_MAX_CONNECTION_URL_LEN];
+        char                          ipv4Addr[MCS_MAX_IPV4_LEN];
+        char                          intfName[TAF_DCS_NAME_MAX_LEN];
+    } mcs_ConnTestCtx_t;
+
 //Context to maintain the state for each data id.
     typedef struct tag_mcs_DataCtx_t
     {
@@ -168,6 +187,7 @@ namespace tafsvc {
         bool                          dataRetry;              // DataRetry enabled/disabled
         bool                          isDStartConnTestInProgress; // DataStartConnectionTest in
                                                                   // progress.
+        uint32_t                      connTestGeneration; // Bumped on every conn-test dispatch.
         uint8_t                       profileNumber;          // Profile number
         char                          dataName[MCS_MAX_NAME_LEN]; //DataName
         bool                          autoStart;              // Auto start or not
@@ -283,9 +303,12 @@ namespace tafsvc {
             char ConfigFileName[MCS_MAX_FILE_PATH_LEN];
 
             bool IsJsonValid = false;
+            bool IsInitialized = false;         // Set to true after InitializeStates() completes
+            le_sem_Ref_t InitCompleteSemRef = NULL; // Semaphore to sync Init() with EventInit()
 
             le_mem_PoolRef_t dataStatePool;
             std::promise<le_result_t> CmdSynchronousPromise;
+            std::atomic<bool> bWaitingForCmdSynchronousPromise = {false};
 
             le_dls_List_t DataCtxList = LE_DLS_LIST_INIT;
             le_mem_PoolRef_t DataCtxPool = NULL;
@@ -294,6 +317,11 @@ namespace tafsvc {
 
             le_mem_PoolRef_t recoveryEventPool;
             le_event_Id_t recoveryEvent; // Recovery event
+
+            // Long-lived connectivity-test worker thread and the event used to dispatch tests to
+            // it. The test (blocking curl/ping) runs here instead of on the state machine thread.
+            le_thread_Ref_t connTestThreadRef = NULL;
+            le_event_Id_t   connTestEventId = NULL;
 
             // resources for multi-client management
             static mcs_Clients_t ConnectedClients;
@@ -345,8 +373,22 @@ namespace tafsvc {
             //Connectiontest
             void EventDataStartConnectionTest(uint8_t dataId);
             void EventDataPeriodicConnectivityTest(uint8_t dataId);
+            // Completion handlers, run on MngdEvtThread when the worker reports a result.
+            void EventDataStartConnectionTestDone(uint8_t dataId, bool passed,
+                                                 uint32_t generation);
+            void EventDataPeriodicConnectivityTestDone(uint8_t dataId, bool passed,
+                                                       uint32_t generation);
+            // True when a returning test result has been superseded by a later dispatch.
+            bool IsConnTestResultStale(mcs_DataCtx_t *dataCtxPtr, uint32_t generation);
+            // True when the data context has left the state that dispatched the test, so no test
+            // result is applicable any more.
+            bool IsConnTestResultObsolete(mcs_DataCtx_t *dataCtxPtr,
+                                          mcs_Admin_State_t expectedState);
+            // Dispatch the (blocking) connectivity test to the worker thread; doneEvent carries
+            // the result back to the state machine thread.
+            void ScheduleConnectivityTest(uint8_t dataId, mcs_EventType_t doneEvent);
             bool DataConnectivityTest_URL(std::string url, std::string interfaceName);
-            bool DataConnectivityTest_IPv4(std::string ipv4);
+            bool DataConnectivityTest_IPv4(std::string ipv4, std::string interfaceName);
             bool DataConnectivityTest_Ping(std::string addr, std::string interfaceName);
 
             // L1 Connectivity Recovery
@@ -374,17 +416,19 @@ namespace tafsvc {
             bool ReadJSONFileNamesFromConfigTree(char *ConfigurationFileNamePtr);
 
 
+            void FulfillCmdSynchronousPromise(le_result_t result);
+            void ResetCmdSynchronousPromise(void);
+
             // TelAF event handler and callback functions
             // Entry function for thread that receives events from TelAF services.
             static void *callback_thread_func(void *contextPtr);
-            // Events thread destructor
-            static void callback_thread_destructor(void *contextPtr);
             // State machine thread entry function
             static void *StateMachineEventThreadFunc(void *contextPtr);
             // State machine event handler function
             static void StateMachineEvtHandlerFunc(void *reqPtr);
-            // State machine thread destructor function
-            static void StateMachineEvtThreadDestructorFunc(void *contextPtr);
+            // Long-lived connectivity-test worker thread entry function and its event handler.
+            static void *ConnectivityTestThreadFunc(void *contextPtr);
+            static void ConnTestEvtHandlerFunc(void *reqPtr);
 
             // Timer handler
             static void PeriodicConnectivityTestTimerHandler(le_timer_Ref_t timerRef);

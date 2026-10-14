@@ -73,7 +73,7 @@ namespace tafsvc {
             taf_net_DestNatEntryListRef_t GetDestNatEntryList(uint32_t profileId);
             le_result_t DeleteDestNatEntryList(taf_net_DestNatEntryListRef_t destNatEntryListRef);
             bool IsRmnetBringUp(uint32_t profileId);
-            bool IsDestNatEntryPresent(uint32_t profileId, const char* priIpAddrPtr, uint16_t priPort, uint16_t globalPort, taf_net_IpProto_t ipProto);
+            le_result_t IsDestNatEntryPresent(uint32_t profileId, const char* priIpAddrPtr, uint16_t priPort, uint16_t globalPort, taf_net_IpProto_t ipProto);
             taf_net_IpProto_t MapIPProtocol(uint8_t iptype);
             static void FirstLayerDestNatChangeHandler(void* reportPtr, void* secondLayerHandlerFunc);
 

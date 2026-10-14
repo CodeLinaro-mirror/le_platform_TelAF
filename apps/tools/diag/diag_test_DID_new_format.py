@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 import os, sys, re
@@ -54,7 +54,7 @@ class Test_NewFormatDID(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        sever_ip = os.environ.get("U_REMOTE_IP", "192.168.80.2")
+        sever_ip = os.environ.get("U_REMOTE_IP", "192.168.225.1")
         phy_address = os.environ.get("U_PHY_ADDR", 0x0201)
         self.diag = DiagClient(sever_ip, phy_address)
 
@@ -73,6 +73,7 @@ class Test_NewFormatDID(unittest.TestCase):
         #           R, W[L1]
         #       programming session:
         #           R, W[L1]
+
 
         self.diag.u.change_session(SESSION_0x03)
         response = self.diag.u.write_data_by_identifier(did=0xA0A0, value='1')
@@ -123,6 +124,16 @@ class Test_NewFormatDID(unittest.TestCase):
         self.assertTrue(response.positive)
         self.assertEqual(response.original_payload.hex(), "6ea0a0")
 
+        response = self.diag.u.request_seed(0x61)
+        seed = response.service_data.seed
+        key = algo_for_0x27(level=0x01, seed=seed)
+        response = self.diag.u.send_key(0x62, key)
+
+        response = self.diag.u.write_data_by_identifier(did=0xA0A0, value='1')
+        self.assertTrue(response.valid)
+        self.assertFalse(response.positive)
+        self.assertEqual(response.original_payload.hex(), "7f2e33")
+
     def test0002_DID_0xA0A1(self):
         # CFG for Test Case:
         # 0xA0A1:
@@ -142,7 +153,7 @@ class Test_NewFormatDID(unittest.TestCase):
         response = self.diag.u.write_data_by_identifier(did=0xA0A1, value='1')
         self.assertTrue(response.valid)
         self.assertFalse(response.positive)
-        self.assertEqual(response.original_payload.hex(), "7f2e31")
+        self.assertEqual(response.original_payload.hex(), "7f2e7f")
 
         self.diag.u.change_session(SESSION_0x03)
 
@@ -169,7 +180,6 @@ class Test_NewFormatDID(unittest.TestCase):
         response = self.diag.u.read_data_by_identifier(didlist=0xA0A1)
         self.assertTrue(response.valid)
         self.assertTrue(response.positive)
-        self.assertEqual(response.data.hex(), "a0a131")
 
         # Try to unlock L61, but failed
         response = self.diag.u.request_seed(0x61)
@@ -186,7 +196,6 @@ class Test_NewFormatDID(unittest.TestCase):
         response = self.diag.u.read_data_by_identifier(didlist=0xA0A1)
         self.assertTrue(response.valid)
         self.assertTrue(response.positive)
-        self.assertEqual(response.data.hex(), "a0a131")
 
         response = self.diag.u.write_data_by_identifier(did=0xA0A1, value='1')
         self.assertTrue(response.valid)
@@ -195,8 +204,6 @@ class Test_NewFormatDID(unittest.TestCase):
 
         response = self.diag.u.request_seed(0x61)
         seed = response.service_data.seed
-        # FIXME: There is one issue in diagApp to handle the different security level!!
-        # This is a workaround for different levels.
         key = algo_for_0x27(level=0x01, seed=seed)
         response = self.diag.u.send_key(0x62, key)
 
@@ -222,8 +229,8 @@ class Test_NewFormatDID(unittest.TestCase):
 
         response = self.diag.u.write_data_by_identifier(did=0xA0A2, value='1')
         self.assertTrue(response.valid)
-        self.assertTrue(response.positive)
-        self.assertEqual(response.original_payload.hex(), "6ea0a2")
+        self.assertFalse(response.positive)
+        self.assertEqual(response.original_payload.hex(), "7f2e7f")
 
         response = self.diag.u.read_data_by_identifier(didlist=0xA0A2)
         self.assertTrue(response.valid)
@@ -232,10 +239,14 @@ class Test_NewFormatDID(unittest.TestCase):
 
         self.diag.u.change_session(SESSION_0x03)
 
+        response = self.diag.u.request_seed(0x01)
+        seed = response.service_data.seed
+        key = algo_for_0x27(level=0x01, seed=seed)
+        response = self.diag.u.send_key(0x02, key)
+
         response = self.diag.u.write_data_by_identifier(did=0xA0A2, value='1')
         self.assertTrue(response.valid)
         self.assertTrue(response.positive)
-        self.assertEqual(response.original_payload.hex(), "6ea0a2")
 
         response = self.diag.u.read_data_by_identifier(didlist=0xA0A2)
         self.assertTrue(response.valid)

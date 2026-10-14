@@ -6,6 +6,7 @@
 #include "legato.h"
 #include "tafDataAccessComp.h"
 #include "tafDataAccessTest.h"
+#include "tafDIDDataAccessComp.h"
 
 static void SignalHandler
 (
@@ -746,6 +747,65 @@ __attribute__((unused)) void TestSnapshotIdentification
     LE_TEST_ASSERT(count != 0, "TestSnapshotIdentification");
 }
 
+__attribute__((unused)) void TestDIDReadWrite
+(
+    void
+)
+{
+    LE_TEST_INFO("TestDIDReadWrite testing");
+    le_result_t ret;
+    uint8_t writeVal[8] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
+    uint8_t readVal[8] = {0};
+    size_t readLen = sizeof(readVal);
+
+    ret = taf_DIDDataAccess_WriteDID(DATA_ACCESS_DID, writeVal, sizeof(writeVal));
+    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DIDDataAccess_WriteDID");
+
+    ret = taf_DIDDataAccess_ReadDID(DATA_ACCESS_DID, readVal, &readLen);
+    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DIDDataAccess_ReadDID");
+    LE_TEST_ASSERT(readLen == sizeof(writeVal), "Test DID read length");
+
+    for (size_t i = 0; i < readLen; i++)
+    {
+        LE_TEST_ASSERT(readVal[i] == writeVal[i], "Test DID read value");
+    }
+
+    LE_TEST_INFO("TestDIDReadWrite Exit...");
+}
+
+__attribute__((unused)) void TestDIDUpdate
+(
+    void
+)
+{
+    LE_TEST_INFO("TestDIDUpdate testing");
+    le_result_t ret;
+    uint8_t val1[4] = {0xAA, 0xBB, 0xCC, 0xDD};
+    uint8_t val2[4] = {0x11, 0x22, 0x33, 0x44};
+    uint8_t readVal[8] = {0};
+    size_t readLen;
+
+    ret = taf_DIDDataAccess_WriteDID(DATA_ACCESS_DID, val1, sizeof(val1));
+    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DIDDataAccess_WriteDID");
+
+    readLen = sizeof(readVal);
+    ret = taf_DIDDataAccess_ReadDID(DATA_ACCESS_DID, readVal, &readLen);
+    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DIDDataAccess_ReadDID");
+    LE_TEST_ASSERT(readLen == sizeof(val1), "Test DID read length after first write");
+    LE_TEST_ASSERT(readVal[0] == val1[0] && readVal[3] == val1[3], "Test DID first value");
+
+    ret = taf_DIDDataAccess_WriteDID(DATA_ACCESS_DID, val2, sizeof(val2));
+    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DIDDataAccess_WriteDID update");
+
+    readLen = sizeof(readVal);
+    ret = taf_DIDDataAccess_ReadDID(DATA_ACCESS_DID, readVal, &readLen);
+    LE_TEST_ASSERT(ret == LE_OK, "Test taf_DIDDataAccess_ReadDID after update");
+    LE_TEST_ASSERT(readLen == sizeof(val2), "Test DID read length after update");
+    LE_TEST_ASSERT(readVal[0] == val2[0] && readVal[3] == val2[3], "Test DID updated value");
+
+    LE_TEST_INFO("TestDIDUpdate Exit...");
+}
+
 __attribute__((unused)) void TestGetSnapshotRecord
 (
     void
@@ -875,6 +935,10 @@ COMPONENT_INIT
 
     DEMTableReset();
     TestGetSnapshotRecord();
+
+    taf_DIDDataAccess_Init();
+    TestDIDReadWrite();
+    TestDIDUpdate();
 
     LE_TEST_INFO("=== telaf Data Access test END ===");
 }

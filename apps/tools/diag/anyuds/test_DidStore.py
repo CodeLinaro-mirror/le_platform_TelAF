@@ -13,6 +13,11 @@ tcpdump_start("Test DIDStoreSvc")
 uds("10 01")
 uds("10 03")
 
+#Unlock level
+resp = uds("2701")
+key = algo_for_0x27(0x01, resp.payload[2:])
+uds("27 02" + key.hex())
+
 #WriteDID
 uds("2E A5 A5 33 34")
 
@@ -27,11 +32,6 @@ uds("22 A5 A6")
 
 #ReadDID
 uds("22 A5 A5 A5 A6")
-
-#Unlock level
-resp = uds("2701")
-key = algo_for_0x27(0x01, resp.payload[2:])
-uds("27 02" + key.hex())
 
 #WriteDID
 uds("2E A0 A0 37")

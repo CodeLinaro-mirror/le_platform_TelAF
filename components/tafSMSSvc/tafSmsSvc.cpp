@@ -2163,7 +2163,6 @@ SIDE EFFECTS
 
 COMPONENT_INIT
 {
-   LE_INFO("tafSms service Init...\n");
    auto &mySms = taf_Sms::GetInstance();
    mySms.Init();
 

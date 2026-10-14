@@ -47,6 +47,7 @@
 #define TAF_MNGDPM_STATE_SUSPENDING 7
 #define TAF_MNGDPM_STATE_SHUTTING_DOWN 8
 #define TAF_MNGDPM_STATE_WAKING_UP 9
+#define WS_DUMP_TIMER_INTERVAL 10000
 
 namespace tafsvc {
 
@@ -85,9 +86,10 @@ typedef enum
 
 typedef enum
 {
-    SYSTEM_NORMAL_SHUTDOWN,
+    SYSTEM_NORMAL_SHUTDOWN = 0,
     RESTART_WITH_NAD_POWER_OFF_ON,
-    RESTART_WITH_NAD_REBOOT
+    RESTART_WITH_NAD_REBOOT,
+    ASYNC_REQ_UNKNOWN_ST,
 }taf_mngdPm_RequestedState_t;
 
 typedef struct
@@ -158,6 +160,14 @@ typedef struct
 
 typedef struct
 {
+    taf_mngdPm_nodePowerStateRef_t nodeStateRef;
+    le_msg_SessionRef_t sessionRef;
+    taf_mngdPm_NodePowerState_t state;
+    bool isAcked;
+}taf_mngdPm_NodePowerStateChangeCtxt_t;
+
+typedef struct
+{
     taf_mngdPm_NodePowerStateChangeHandlerFunc_t handlerPtr;
     uint8_t pmNodeId;
     le_dls_Link_t link;               // Link to handler list
@@ -165,20 +175,15 @@ typedef struct
     taf_mngdPm_NodePowerStateChangeBitMask_t powerStateMask;
     taf_mngdPm_NodePowerStateChangeHandlerRef_t handlerRef;
     void* nodePowerStateHandlerCtxPtr;
+
+    // Per-handler snapshot of the current node power state (used for immediate notify)
+    taf_mngdPm_NodePowerStateChangeCtxt_t initialNodePowerState;
 }taf_mngdPm_NodePowerStateCtxt_t;
 
 typedef struct
 {
     taf_mngdPm_NodePowerState_t state;
 }taf_mngdPm_NodePowerStateChange_t;
-
-typedef struct
-{
-    taf_mngdPm_nodePowerStateRef_t nodeStateRef;
-    le_msg_SessionRef_t sessionRef;
-    taf_mngdPm_NodePowerState_t state;
-    bool isAcked;
-}taf_mngdPm_NodePowerStateChangeCtxt_t;
 
 typedef struct
 {
@@ -241,6 +246,24 @@ typedef struct
     taf_mngdPm_InternalEventType_t type;
 } taf_mngdPm_NodeEventData_t;
 
+// Payload to thread-hop shutdown/restart CB results from VHAL driver threads to the main
+// event loop (Legato APIs aren't thread-safe); handled by VhalPrepareRespHandler.
+typedef enum
+{
+    VHAL_PREPARE_RESP_SHUTDOWN,
+    VHAL_PREPARE_RESP_RESTART,
+} vhalPrepareRespType_t;
+
+typedef struct
+{
+    vhalPrepareRespType_t   type;
+    uint8_t                 pmNodeId;
+    hal_pm_NodeState_t      state;
+    hal_pm_PowerMode_t      mode;
+    uint8_t                 reasonCode;
+    hal_pm_RspReason_t      rsp;
+} vhalPrepareRespPayload_t;
+
 
 class tafMngdPMSvc: public ITafSvc
 {
@@ -265,6 +288,16 @@ class tafMngdPMSvc: public ITafSvc
         static void WakeSourceTimerHandler(le_timer_Ref_t timerRef);
         static void WaitWakeSourceTimer();
         static void VehichleWakeupTimerHandler(le_timer_Ref_t timerRef);
+
+        // VHAL prepare-response handling for the SHUTTING_DOWN/RESTARTING window. The handler
+        // holds a race guard so only the first of {CB, timer} runs; RevertPendingWindow reverts
+        // state and reconciles wsCount vs isWsAcquired on NACK/INVALID/timeout.
+        static void VhalPrepareRespHandler(void* reportPtr);
+        static void RevertPendingWindow();
+        static void HandleShutdownPrepareResp(const vhalPrepareRespPayload_t* payload);
+        static void HandleRestartPrepareResp(const vhalPrepareRespPayload_t* payload);
+
+        static taf_mngdPm_RequestedState_t ModeToRequestedState(const vhalPrepareRespPayload_t* payload);
 
         static le_result_t ShutdownNAD();
         static le_result_t RestartNAD();
@@ -373,11 +406,16 @@ class tafMngdPMSvc: public ITafSvc
         bool IsAuthorizedStayAwakeReason(taf_mngdPm_StayAwakeReason_t stayAwakeReason, std::bitset<32> mask);
         void RefreshWakeSources();
         static le_result_t ReleaseWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
+        static le_result_t ReleaseWakeSourceWithoutStateCheck(taf_wsRefCtx_t * wsRefCtxPtr);
         le_result_t AcquireWakeSource(taf_wsRefCtx_t * wsRefCtxPtr);
 
         //resources for clients state change acknowledgement
         static le_timer_Ref_t stateChangeAckTimerRef;
         static void StateChangeAckTimerHandler(le_timer_Ref_t timerRef);
+
+        // periodic wake source dump timer
+        static le_timer_Ref_t wsDumpTimerRef;
+        static void WsDumpTimerHandler(le_timer_Ref_t timerRef);
         static taf_mngdPm_NodePowerState_t currentStateChangePtr;
 
         static le_mem_PoolRef_t cbHandlerPool;
@@ -404,6 +442,11 @@ class tafMngdPMSvc: public ITafSvc
         static void GetPmVhalReady(void *p1, void *p2);
         static void RetryHandler(le_timer_Ref_t timerRef);
         static void PMVhalReadyEvtHandler(void * reportPtr);
+
+        // Event ID for thread-hopping VHAL prepare responses to the main event loop.
+        static le_event_Id_t vhalPrepareRespEvent;
+        // Race guard: set false at request trigger, true when first of {CB, timer} fires.
+        static bool vhalRespHandled;
 
         // Single snapshot used for immediate notification to newly registered handlers.
         // Initialized at service start via taf_pm_GetPowerState and updated on nodePowerStateChange events.

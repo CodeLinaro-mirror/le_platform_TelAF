@@ -890,6 +890,8 @@ taf_net_VlanRef_t taf_net_CreateVlan
  *          LE_NOT_FOUND                VLAN is not present.
  *          LE_BAD_PARAMETER            Invalid parameter.
  *          LE_FAULT                    Failed to set priority to a VLAN.
+ *          LE_CAP_NOT_IMPLEMENTED      Phone-to-slot mapping is not implemented by PA.
+ *          LE_CAP_UNSUPPORTED          Phone-to-slot mapping is unsupported by PA.
  *
  */
 le_result_t taf_net_SetVlanNetworkType
@@ -965,6 +967,8 @@ le_result_t taf_net_SetVlanBackhaulVlanId
  *          LE_NOT_FOUND                VLAN is not present.
  *          LE_BAD_PARAMETER            Invalid parameter.
  *          LE_FAULT                    Failed to set priority to a VLAN.
+ *          LE_CAP_NOT_IMPLEMENTED      Phone-to-slot mapping is not implemented by PA.
+ *          LE_CAP_UNSUPPORTED          Phone-to-slot mapping is unsupported by PA.
  *
  */
 le_result_t taf_net_SetVlanBackhaulPhoneId
@@ -1417,6 +1421,8 @@ le_result_t taf_net_GetVlanBoundPhoneId
  *          LE_BAD_PARAMETER            Invalid parameter.
  *          LE_FAULT                    Failed to bind VLAN with profile.
  *          LE_TIMEOUT                  Time out.
+ *          LE_CAP_NOT_IMPLEMENTED      Phone-to-slot mapping is not implemented by PA.
+ *          LE_CAP_UNSUPPORTED          Phone-to-slot mapping is unsupported by PA.
  *
  * @note  If bind VLAN with default profile id, the system will auto reboot after 5 seconds
  */
@@ -1452,6 +1458,8 @@ le_result_t taf_net_BindVlanWithProfile
  *          LE_BAD_PARAMETER            Invalid parameter.
  *          LE_FAULT                    Failed to bind VLAN with profile.
  *          LE_TIMEOUT                  Time out.
+ *          LE_CAP_NOT_IMPLEMENTED      Phone-to-slot mapping is not implemented by PA.
+ *          LE_CAP_UNSUPPORTED          Phone-to-slot mapping is unsupported by PA.
  *
  * @note  If bind VLAN with default profile id and phone id, the system will auto reboot after 5
  *        seconds
@@ -2740,7 +2748,20 @@ le_result_t taf_net_SetSocksAuthMethod
     if(auth != TAF_PA_NET_SOCKS_NONE && auth != TAF_PA_NET_SOCKS_USER_PASSWD)
         return LE_FAULT;
 
-    return PA_TO_LE_RESULT(taf_pa_net_SetSocksAuthMethod(auth));
+    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_SetSocksAuthMethod(auth));
+
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("SetSocksAuthMethod is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("SetSocksAuthMethod is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+
+    return result;
 }
 
 /**
@@ -2786,7 +2807,20 @@ le_result_t taf_net_SetSocksLanInterface
     const char* ifName
 )
 {
-    return PA_TO_LE_RESULT(taf_pa_net_SetSocksLanInterface(ifName));
+    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_SetSocksLanInterface(ifName));
+
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("SetSocksLanInterface is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("SetSocksLanInterface is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+
+    return result;
 }
 
 /**
@@ -2805,7 +2839,20 @@ le_result_t taf_net_GetSocksLanInterface
     size_t ifNameSize
 )
 {
-    return PA_TO_LE_RESULT(taf_pa_net_GetSocksLanInterface(ifName, ifNameSize));
+    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_GetSocksLanInterface(ifName, ifNameSize));
+
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("GetSocksLanInterface is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("GetSocksLanInterface is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+
+    return result;
 }
 
 /**
@@ -2824,7 +2871,20 @@ le_result_t taf_net_AddSocksAssociation
     uint32_t profileId
 )
 {
-    return PA_TO_LE_RESULT(taf_pa_net_AddSocksAssociation(userName, profileId));
+    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_AddSocksAssociation(userName, profileId));
+
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("AddSocksAssociation is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("AddSocksAssociation is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+
+    return result;
 }
 
 /**
@@ -2841,7 +2901,20 @@ le_result_t taf_net_RemoveSocksAssociation
     const char* userName
 )
 {
-    return PA_TO_LE_RESULT(taf_pa_net_RemoveSocksAssociation(userName));
+    le_result_t result = PA_TO_LE_RESULT(taf_pa_net_RemoveSocksAssociation(userName));
+
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("RemoveSocksAssociation is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("RemoveSocksAssociation is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+
+    return result;
 }
 
 /*=========================================GSB=========================================*/

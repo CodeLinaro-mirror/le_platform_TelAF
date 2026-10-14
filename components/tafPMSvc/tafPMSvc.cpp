@@ -358,6 +358,20 @@ static inline const char *to_StateText
     }
 }
 
+static le_result_t to_SvcResult
+(
+    taf_pa_result_t paRst
+)
+{
+    switch (paRst)
+    {
+        case TAF_PA_OK:              return LE_OK;
+        case TAF_PA_NOT_IMPLEMENTED: return LE_CAP_NOT_IMPLEMENTED;
+        case TAF_PA_UNSUPPORTED:     return LE_CAP_UNSUPPORTED;
+        default:                 return LE_FAULT;
+    }
+}
+
 static taf_pa_pms_PowerState_t to_PaPowerState
 (
     taf_pm_State_t state
@@ -417,7 +431,7 @@ le_result_t taf_PM::SetPowerState
     const char* machineName
 )
 {
-    le_result_t rst = LE_OK;
+    le_result_t svcRst = LE_OK;
     taf_pm_State_t currentState = pm.GetCurrentState();
 
     // TODO:
@@ -469,10 +483,10 @@ le_result_t taf_PM::SetPowerState
                     to_PaPowerState(state),
                     machineName);
 
+            svcRst = to_SvcResult(paRst);
             if (TAF_PA_OK != paRst)
             {
-                LE_ERROR("Failed to invoke PA:SetPowerStateAsMaster: %d", paRst);
-                rst = LE_FAULT;
+                LE_ERROR("Failed to invoke PA:SetPowerStateAsMaster: %d (svc_result: %d)", paRst, svcRst);
             }
             else
             {
@@ -508,11 +522,11 @@ le_result_t taf_PM::SetPowerState
         default:
         {
             LE_ERROR("API Unsupported state: [%d]", state);
-            rst = LE_BAD_PARAMETER;
+            svcRst = LE_BAD_PARAMETER;
         }
     }
 
-    return rst;
+    return svcRst;
 }
 
 void taf_PM::OnClientConnected
@@ -704,13 +718,14 @@ void taf_PM::SendAckToPaLayer
             ack == taf_pa_pms_ACK ? "ACK" : "NACK",
             to_StateText(state));
 
-    taf_pa_result_t rst =
+    taf_pa_result_t paRst =
         taf_pa_pms_SendAckForStateUpdate(
             pm.pa, to_PaPowerState(state), ack);
 
-    if (TAF_PA_OK != rst)
+    if (TAF_PA_OK != paRst)
     {
-        LE_ERROR("Failed to invoke PA:SendAckForStateUpdate: %d", rst);
+        le_result_t svcRst = to_SvcResult(paRst);
+        LE_ERROR("Failed to invoke PA:SendAckForStateUpdate: %d (svc_result: %d)", paRst, svcRst);
     }
 }
 
@@ -1145,18 +1160,22 @@ void taf_PM::Handle_sig_SIGTERM
 {
     LE_INFO("Captured sig(SIGTERM) <--");
 
+    taf_pa_result_t paRst = TAF_PA_OK;
+    le_result_t svcRst = LE_OK;
+
     // Resume in SA525M before service termination as master app is terminating
     if (pm.GetCurrentState() != TAF_PM_STATE_RESUME)
     {
-        taf_pa_result_t rst =
+        paRst =
             taf_pa_pms_SetPowerStateAsMaster(
                 pm.pa,
                 to_PaPowerState(TAF_PM_STATE_RESUME),
                 "ALL_MACHINES");
 
-        if (TAF_PA_OK != rst)
+        if (TAF_PA_OK != paRst)
         {
-            LE_ERROR("Failed to invoke PA:SetPowerStateAsMaster error: %d", rst);
+            svcRst = to_SvcResult(paRst);
+            LE_ERROR("Failed to invoke PA:SetPowerStateAsMaster error: %d (le_result: %d)", paRst, svcRst);
         }
         else
         {
@@ -1167,7 +1186,12 @@ void taf_PM::Handle_sig_SIGTERM
 
     le_event_RemoveHandler(pm.ref_PaEventHandler);
 
-    taf_pa_pms_Deinit(&pm.pa);
+    paRst = taf_pa_pms_Deinit(&pm.pa);
+    if (TAF_PA_OK != paRst)
+    {
+        svcRst = to_SvcResult(paRst);
+        LE_ERROR("Failed to invoke PA:Deinit: %d (le_result: %d)", paRst, svcRst);
+    }
 
     exit(EXIT_SUCCESS);
 }
@@ -1511,8 +1535,8 @@ le_result_t API(StayAwake)
         le_result_t rst = pm.SetPowerState(TAF_PM_STATE_RESUME, "ALL_MACHINES");
         if (rst != LE_OK)
         {
-            LE_ERROR("Failed to SetPowerState from non-RESUME to RESUME");
-            return LE_FAULT;
+            LE_ERROR("Failed to SetPowerState from non-RESUME to RESUME: %d", rst);
+            return rst;
         }
     }
 
@@ -2108,10 +2132,11 @@ taf_pm_VMListRef_t API(GetMachineList)
 {
     std::vector<std::string> machineNames;
 
-    taf_pa_result_t rst = taf_pa_pms_GetAllMachineNames(pm.pa, machineNames);
-    if (TAF_PA_OK != rst)
+    taf_pa_result_t paRst = taf_pa_pms_GetAllMachineNames(pm.pa, machineNames);
+    if (TAF_PA_OK != paRst)
     {
-        LE_ERROR("Failed to GetAllMachineNames from PA Layer");
+        le_result_t svcRst = to_SvcResult(paRst);
+        LE_ERROR("Failed to GetAllMachineNames from PA Layer: %d (le_result: %d)", paRst, svcRst);
         return nullptr;
     }
 
@@ -2288,13 +2313,8 @@ le_result_t API(SetModemWakeupSel)
     taf_pm_NodeModemWsBitMask_t wsBitmask
 )
 {
-    taf_pa_result_t rst = taf_pa_pms_SetModemWakeupFilter(pm.pa, wsBitmask);
-    if (TAF_PA_OK != rst)
-    {
-        return LE_FAULT;
-    }
-
-    return LE_OK;
+    taf_pa_result_t paRst = taf_pa_pms_SetModemWakeupFilter(pm.pa, wsBitmask);
+    return to_SvcResult(paRst);
 }
 
 /**
@@ -2311,11 +2331,11 @@ le_result_t API(GetModemWakeupSel)
         return LE_BAD_PARAMETER;
     }
 
-    taf_pa_result_t rst = taf_pa_pms_GetModemWakeupFilter(pm.pa, wsBitmaskPtr);
-    if (TAF_PA_OK != rst)
+    taf_pa_result_t paRst = taf_pa_pms_GetModemWakeupFilter(pm.pa, wsBitmaskPtr);
+    if (TAF_PA_OK != paRst)
     {
         *wsBitmaskPtr = 0;
-        return LE_FAULT;
+        return to_SvcResult(paRst);
     }
 
     return LE_OK;
@@ -2339,7 +2359,8 @@ le_result_t API(GetModemAwakeReason)
 
     mask = (TAF_PM_NODE_MODEM_WS_BIT_MASK_SMS |
             TAF_PM_NODE_MODEM_WS_BIT_MASK_VOICE_CALL |
-            TAF_PM_NODE_MODEM_WS_BIT_MASK_REMOTE_SIM_PROFILE_SWAP);
+            TAF_PM_NODE_MODEM_WS_BIT_MASK_REMOTE_SIM_PROFILE_SWAP |
+            TAF_PM_NODE_MODEM_WS_BIT_MASK_NAS_SYS_INFO);
 
     LE_INFO("mask: 0x%08x, value: 0x%08x [get]",
             mask,

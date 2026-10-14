@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 import os, sys, re
@@ -49,7 +49,7 @@ def dummy_send2key(level, seed):
 class Test_SecurityAccessService(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        sever_ip = os.environ.get("U_REMOTE_IP", "192.168.80.2")
+        sever_ip = os.environ.get("U_REMOTE_IP", "192.168.225.1")
         phy_address = os.environ.get("U_PHY_ADDR", 0x0201)
         self.diag = DiagClient(sever_ip, phy_address)
 
@@ -175,8 +175,8 @@ class Test_SecurityAccessService(unittest.TestCase):
         self.diag.u.change_session(SESSION_0x03)
         response = self.diag.u.read_data_by_identifier(didlist=0xA5A5)
         self.assertTrue(response.valid)
-        self.assertFalse(response.positive)
-        self.assertEqual(response.original_payload.hex(), "7f2233")
+        self.assertTrue(response.positive)
+        self.assertEqual(response.original_payload.hex(), "62a5a50102")
 
         response = self.diag.u.request_seed(0x01)
         seed = response.service_data.seed

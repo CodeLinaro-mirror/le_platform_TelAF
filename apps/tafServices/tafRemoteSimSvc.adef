@@ -5,7 +5,6 @@ username: telaf
 
 capability:
 {
-        CAP_WAKE_ALARM
         CAP_NET_BIND_SERVICE
         CAP_NET_ADMIN
 #if ${LE_CONFIG_TEST_COVERAGE} = y

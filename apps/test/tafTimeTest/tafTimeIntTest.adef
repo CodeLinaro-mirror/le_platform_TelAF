@@ -1,3 +1,4 @@
+username: telaf
 maxThreads: 600
 sandboxed: false
 
@@ -21,6 +22,7 @@ processes:
 capability:
 {
         CAP_NET_ADMIN
+        CAP_DAC_OVERRIDE
 }
 
 bindings:

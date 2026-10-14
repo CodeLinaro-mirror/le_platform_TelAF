@@ -11,7 +11,6 @@ using namespace std;
 
 COMPONENT_INIT
 {
-    LE_INFO("tafECall service Init...\n");
     auto &ecall = taf_ecall::GetInstance();
     ecall.Init();
     LE_INFO(" tafECall service Ready...\n");
@@ -34,7 +33,7 @@ COMPONENT_INIT
     }
     else // successfully loaded
     {
-        LE_INFO("Driver loaded successfully....");
+        LE_DEBUG("Driver loaded successfully....");
         ecall.isDrvPresent = true;
         // init VHAL module first
         (*(ecall.eCallInf->InitHAL))();
@@ -477,7 +476,7 @@ le_result_t taf_ecall_SetVIN
     {
         return LE_BAD_PARAMETER;
     }
-    LE_INFO(" vehicle idendification number =  %s", vin);
+    LE_DEBUG(" vehicle idendification number =  %s", vin);
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
 
     le_cfg_SetString(iteratorRef, CFG_NODE_MSDVIN, vin);
@@ -1271,6 +1270,37 @@ le_result_t taf_ecall_ResetMsdTimeStamp
 
 /*======================================================================
 
+ FUNCTION       taf_ecall_SetMsdControlBits
+
+ DESCRIPTION    Sets the MSD control automaticActivation and testCall bits.
+
+ DEPENDENCIES   Initialization of ECall service
+
+ PARAMETERS     [IN] ecallRef : reference for ecall
+                [IN] automaticActivation : automatic activation bit
+                [IN] testCall : test call bit
+
+ RETURN VALUE   le_result_t
+                    LE_BAD_PARAMETER:     Bad eCall reference or invalid bit combination.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
+ NOTE           The process exits when an invalid eCall reference is given.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_SetMsdControlBits
+(
+    taf_ecall_CallRef_t ecallRef,
+    bool automaticActivation,
+    bool testCall
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetMsdControlBits(ecallRef, automaticActivation, testCall);
+}
+
+/*======================================================================
  FUNCTION        taf_ecall_StartTest
 
  DESCRIPTION    Initiate a test voice eCall with a configured telephone
@@ -1594,6 +1624,32 @@ taf_ecall_TerminationReason_t taf_ecall_GetTerminationReason
 {
     auto &ecall = taf_ecall::GetInstance();
     return ecall.GetTerminationReason(ecallRef);
+}
+
+/*======================================================================
+
+ FUNCTION       taf_ecall_GetTerminationRedialReason
+
+ DESCRIPTION    Get eCall termination redial reason
+
+ DEPENDENCIES   Initialization of ECall service
+
+ PARAMETERS     [IN]  ecallRef: ecall reference
+                [OUT] reason: termination redial reason
+
+ RETURN VALUE   LE_OK on success, error code otherwise
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_GetTerminationRedialReason
+(
+    taf_ecall_CallRef_t ecallRef,
+    taf_ecall_TerminationRedialReason_t* reason
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.GetTerminationRedialReason(ecallRef, reason);
 }
 
 /*======================================================================

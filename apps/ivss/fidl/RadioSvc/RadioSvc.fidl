@@ -11,7 +11,7 @@ package com.qualcomm.qti.telephony
             
 **/
 typeCollection RadioSvcTypes {
-    version { major 2 minor 1 }
+    version { major 2 minor 2 }
     
     /**
         @description :
@@ -398,7 +398,7 @@ typeCollection RadioSvcTypes {
 
 **/
 interface RadioSvc {
-    version { major 2 minor 1 }
+    version { major 2 minor 2 }
     
 
     /**
@@ -539,7 +539,42 @@ interface RadioSvc {
     
     
         
-            
+
+   /**
+        
+        @description :
+            Event to report network registration state change.
+                        
+        @experimental: asil-level  : ASIL_QM
+        
+        @experimental: exclusion_time  : 500.0 ms
+    **/
+    broadcast NetRegState {
+        out {
+
+            /**
+                @description : None 
+                
+            **/
+            RadioSvcTypes.ValueState valueState
+
+            /**
+                @description : Phone ID
+                
+            **/
+            RadioSvcTypes.PhoneIdT phoneId
+
+            /**
+                @description : Network registration state
+                
+            **/
+            RadioSvcTypes.RadioNetRegStateT netRegState
+
+        }
+    }
+
+
+
     /**
         @description :
             Gets GSM signal metrics.
@@ -910,7 +945,7 @@ interface RadioSvc {
             
     /**
         @description :
-            Gets Radio signal metrics.
+            Gets Radio rat preferences.
                         
         @experimental: asil-level  : 
         @experimental: periodicity :
@@ -951,7 +986,7 @@ interface RadioSvc {
             
     /**
         @description :
-            Gets Radio signal metrics.
+            Gets Radio current network name.
                         
         @experimental: asil-level  : 
         @experimental: periodicity :
@@ -1006,7 +1041,8 @@ interface RadioSvc {
             
     /**
         @description :
-            Gets Radio signal metrics.
+            Gets the network registration state (netReg) along with rat/cellId/mcc/mnc.
+            rat/cellId/mcc/mnc are only valid when netReg is registered (HOME or ROAMING).
                         
         @experimental: asil-level  : 
         @experimental: periodicity :
@@ -1034,7 +1070,7 @@ interface RadioSvc {
             RadioSvcTypes.RadioRatT rat
 
             /**
-                @description : Cell ID. 
+                @description : Cell ID. 0xFFFFFFFF if unavailable. 
                 
             **/
             UInt32 cellId
@@ -1079,7 +1115,7 @@ interface RadioSvc {
             
     /**
         @description :
-            Gets Radio signal metrics.
+            Gets Radio Nr dual connectivity restriction status.
                         
         @experimental: asil-level  : 
         @experimental: periodicity :

@@ -135,9 +135,38 @@ void tafMRCIntTest_GetEfsMetrics
         taf_mrc_GetEfsAvgPECount(metrics, avgPE);
         taf_mrc_GetEfsPEStandardDeviation(metrics, stdDevPE);
         taf_mrc_GetEfsBadBlocks(metrics, badBlocks);
-        
+
         taf_mrc_DeleteEfsMetrics(metrics);
     }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Retrieves the number of EFS blocks whose PE count falls within the range [lower, upper).
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMRCIntTest_GetEfsBlocksInPECountRange
+(
+    uint32_t lower,       ///< [IN] Lower bound (inclusive).
+    uint32_t upper,       ///< [IN] Upper bound (exclusive).
+    uint32_t* count       ///< [OUT] Number of blocks with lower <= PE count < upper.
+)
+{
+    taf_mrc_MetricsRef_t metrics = NULL;
+    le_result_t result = taf_mrc_MeasureEfsMetrics(&metrics);
+    LE_TEST_OK(result == LE_OK, "taf_mrc_MeasureEfsMetrics - LE_OK");
+
+    if (result != LE_OK)
+    {
+        return result;
+    }
+
+    result = taf_mrc_GetEfsBlocksInPECountRange(metrics, lower, upper, count);
+    LE_TEST_OK(result == LE_OK, "taf_mrc_GetEfsBlocksInPECountRange - LE_OK");
+
+    taf_mrc_DeleteEfsMetrics(metrics);
+
+    return result;
 }
 
 //--------------------------------------------------------------------------------------------------

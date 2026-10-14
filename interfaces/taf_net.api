@@ -371,32 +371,10 @@
  * removing GSB, and querying GSB information. GSB enables hardware IP acceleration (IPA) for
  * traffic on physical interfaces corresponding to the NON-QTI WLAN and ethernet chips.
  *
- * @b NOTE: GSB APIs are not supported on SA515M.
- *          The following example shows how to add GSB. This example adds an interface named "wlan0",
- *          of TAF_NET_GSB_WLAN_AP type, and with 800 Mbps bandwidth.
+ * @b NOTE: GSB is not supported. The GSB APIs return LE_UNSUPPORTED, or NULL, GSB_UNKNOWN or -1
+ *          for the APIs that do not return le_result_t.
  *
- * @verbatim
-   result = taf_net_AddGsb("wlan0", TAF_NET_GSB_WLAN_AP, 900);
-   if (result != LE_OK)
-   {
-      LE_INFO("Failed to add GSB");
-      return LE_FAULT;
-   }
-   @endverbatim
- *
- * An application can enable GSB using taf_net_EnableGsb after adding GSB. The following example
- * shows how to enable GSB.
- *
- * @verbatim
-   result = taf_net_EnableGsb();
-   if (result != LE_OK)
-   {
-      LE_INFO("Failed to enable GSB");
-      return LE_FAULT;
-   }
-   @endverbatim
- *
- * The following APIs are supported for GSB management.
+ * The following APIs are provided for GSB management.
  *
  * - taf_net_AddGsb()               -- Adds GSB.
  * - taf_net_RemoveGsb()            -- Removes GSB.
@@ -2462,9 +2440,7 @@ FUNCTION le_result_t RemoveSocksAssociation
  * Adds GSB configuration for an interface.
  *
  * @return
- *   - LE_OK -- Succeeded.
- *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failed.
+ *   - LE_UNSUPPORTED -- Not supported.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t AddGsb
@@ -2479,9 +2455,7 @@ FUNCTION le_result_t AddGsb
  * Removes GSB configuration for an interface.
  *
  * @return
- *   - LE_OK -- Succeeded.
- *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failed.
+ *   - LE_UNSUPPORTED -- Not supported.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RemoveGsb
@@ -2494,8 +2468,7 @@ FUNCTION le_result_t RemoveGsb
  * Enables GSB in the system.
  *
  * @return
- *   - LE_OK -- Succeeded.
- *   - LE_FAULT -- Failed.
+ *   - LE_UNSUPPORTED -- Not supported.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t EnableGsb
@@ -2507,8 +2480,7 @@ FUNCTION le_result_t EnableGsb
  * Disables GSB in the system.
  *
  * @return
- *   - LE_OK -- Succeeded.
- *   - LE_FAULT -- Failed.
+ *   - LE_UNSUPPORTED -- Not supported.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DisableGsb
@@ -2520,8 +2492,7 @@ FUNCTION le_result_t DisableGsb
  * Gets GSB list.
  *
  * @return
- *   - NULL -- Failed.
- *   - Others -- The GSB list reference.
+ *   - NULL -- Not supported.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION GsbList GetGsbList
@@ -2533,8 +2504,7 @@ FUNCTION GsbList GetGsbList
  * Gets the reference of the first GSB.
  *
  * @return
- *   - NULL -- Failed.
- *   - Others -- The first GSB reference.
+ *   - NULL -- Not supported.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Gsb GetFirstGsb
@@ -2547,8 +2517,7 @@ FUNCTION Gsb GetFirstGsb
  * Gets the reference of the next GSB.
  *
  * @return
- *   - NULL -- Failed.
- *   - Others -- The next GSB reference.
+ *   - NULL -- Not supported.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Gsb GetNextGsb
@@ -2561,10 +2530,7 @@ FUNCTION Gsb GetNextGsb
  * Deletes the GSB list.
  *
  * @return
- *   - LE_OK -- Succeeded.
- *   - LE_NOT_FOUND -- Not found.
- *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failed.
+ *   - LE_UNSUPPORTED -- Not supported.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteGsbList
@@ -2577,10 +2543,7 @@ FUNCTION le_result_t DeleteGsbList
  * Gets the interface name of a GSB.
  *
  * @return
- *   - LE_OK -- Succeeded.
- *   - LE_NOT_FOUND -- Not found.
- *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failed.
+ *   - LE_UNSUPPORTED -- Not supported.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetGsbInterfaceName
@@ -2594,10 +2557,7 @@ FUNCTION le_result_t GetGsbInterfaceName
  * Gets the interface type of a GSB.
  *
  * @return
- *   - GSB_UNKNOWN -- Unknown type.
- *   - GSB_WLAN_AP -- WLAN AP.
- *   - GSB_WLAN_STA -- WLAN station.
- *   - GSB_ETH -- Ethernet.
+ *   - GSB_UNKNOWN -- Not supported.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION GsbIfType GetGsbInterfaceType
@@ -2610,8 +2570,7 @@ FUNCTION GsbIfType GetGsbInterfaceType
  * Gets the bandwidth of a GSB.
  *
  * @return
- *   - -1 -- Failed.
- *   - Others -- Succeeded.
+ *   - -1 -- Not supported.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION int32 GetGsbBandWidth

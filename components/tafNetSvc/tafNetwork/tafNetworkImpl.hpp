@@ -35,6 +35,7 @@ class taf_Net: public ITafSvc
 {
     public:
         void Init(void);
+        void Deinit(void);
         static taf_Net &GetInstance();
         static void ClientCloseSessionHandler(le_msg_SessionRef_t sessionRef, void *contextPtr);
         le_result_t ChangeRoute(const char *intfNamePtr, const char *destAddrPtr, const char *preLenPtr, uint16_t metric, taf_net_NetAction_t isAdd);

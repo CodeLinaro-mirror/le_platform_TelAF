@@ -106,8 +106,9 @@ void taf_Socks::Init(void)
     // 4. Create and start callback event thread.
     le_sem_Ref_t socksEvtSemRef = le_sem_Create("SocksEvtThreadSem", 0);
     socksEvId = le_event_CreateId("socksEvId", sizeof(taf_SocksEventType_t));
-    le_thread_Ref_t socksEvtThreadRef = le_thread_Create("socksEvtThread", SocksEvtThread,
-                                                         (void*)socksEvtSemRef);
+    socksEvtThreadRef = le_thread_Create("socksEvtThread", SocksEvtThread,
+                                         (void*)socksEvtSemRef);
+    le_thread_SetJoinable(socksEvtThreadRef);
     le_thread_Start(socksEvtThreadRef);
 
     le_sem_Wait(socksEvtSemRef);
@@ -118,8 +119,9 @@ void taf_Socks::Init(void)
     // 5. Create and start SOCKS command thread.
     le_sem_Ref_t socksCmdThreadSem = le_sem_Create("socksCmdThreadSem", 0);
     socksCmdId = le_event_CreateId("socksCmd", sizeof(taf_SocksCmdReq_t));
-    le_thread_Ref_t socksCmdThreadRef = le_thread_Create("socksCmdThread", SocksCmdThread,
-                                                         (void*)socksCmdThreadSem);
+    socksCmdThreadRef = le_thread_Create("socksCmdThread", SocksCmdThread,
+                                         (void*)socksCmdThreadSem);
+    le_thread_SetJoinable(socksCmdThreadRef);
     le_thread_Start(socksCmdThreadRef);
 
     le_sem_Wait(socksCmdThreadSem);
@@ -130,6 +132,39 @@ void taf_Socks::Init(void)
     //6. Add close handler
     le_msg_AddServiceCloseHandler(taf_net_GetServiceRef(), CloseEventHandler, NULL);
     return;
+}
+
+/*======================================================================
+
+ FUNCTION        taf_Socks::Deinit
+
+ DESCRIPTION     Stop the Socks threads and release the telsdk resources of Socks.
+
+ DEPENDENCIES    The initialization of Socks.
+
+ PARAMETERS      None
+
+ RETURN VALUE    None
+
+======================================================================*/
+void taf_Socks::Deinit(void)
+{
+    LE_INFO("socks component deinit...");
+
+    // Stop the threads before releasing the manager they use.
+    if (socksCmdThreadRef != nullptr)
+    {
+        le_thread_Cancel(socksCmdThreadRef);
+        le_thread_Join(socksCmdThreadRef, nullptr);
+        socksCmdThreadRef = nullptr;
+    }
+    if (socksEvtThreadRef != nullptr)
+    {
+        le_thread_Cancel(socksEvtThreadRef);
+        le_thread_Join(socksEvtThreadRef, nullptr);
+        socksEvtThreadRef = nullptr;
+    }
+
 }
 
 /*======================================================================

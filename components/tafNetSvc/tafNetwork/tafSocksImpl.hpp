@@ -85,6 +85,7 @@ namespace tafsvc {
             ~taf_Socks() {};
 
             void Init(void);
+            void Deinit(void);
 
             static taf_Socks &GetInstance();
 
@@ -126,6 +127,8 @@ namespace tafsvc {
             static void CloseEventHandler(le_msg_SessionRef_t sessionRef,void* contextPtr);
         private:
             std::shared_ptr<telux::data::net::ISocksManager> socksManager = nullptr;
+            le_thread_Ref_t socksEvtThreadRef = nullptr;
+            le_thread_Ref_t socksCmdThreadRef = nullptr;
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             bool IsSubSystemStatusUpdated=false;
             std::mutex mMutex;

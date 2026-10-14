@@ -145,17 +145,18 @@ void DeregisterListeners()
         }
         else
         {
-            if (tafVlan.vlanManager)
+            if (tafVlan.vlanManager && tafVlan.vlanManager->getServiceStatus() ==
+                                                  telux::common::ServiceStatus::SERVICE_AVAILABLE)
             {
                 if (tafVlan.vlanManager-> deregisterListener(tafVlan.vlanListener) ==
                                                                   telux::common::Status::SUCCESS)
                 {
-                    LE_INFO("Vlan listener registered.");
+                    LE_INFO("Vlan listener deregistered.");
                     bVlanListenerRegistered = false;
                 }
                 else
                 {
-                    LE_ERROR("Fail to register serving system listener.");
+                    LE_ERROR("Fail to deregister vlan listener.");
                 }
             }
         }
@@ -420,6 +421,25 @@ void taf_Vlan::Init(void)
     }
 
     return;
+}
+
+/*======================================================================
+
+ FUNCTION        taf_Vlan::Deinit
+
+ DESCRIPTION     Deregister the vlan listener and release the telsdk resources of Vlan.
+
+ DEPENDENCIES    The initialization of Vlan.
+
+ PARAMETERS      None
+
+ RETURN VALUE    None
+
+======================================================================*/
+void taf_Vlan::Deinit(void)
+{
+    LE_INFO("vlan component deinit...");
+    DeregisterListeners();
 }
 
 /*======================================================================

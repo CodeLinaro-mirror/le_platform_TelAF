@@ -241,6 +241,7 @@ namespace tafsvc {
             ~taf_L2tp() {};
 
             void Init(void);
+            void Deinit(void);
             static taf_L2tp &GetInstance();
 
             static void* L2tpEventThread(void* contextPtr);
@@ -354,6 +355,8 @@ namespace tafsvc {
 
         private:
             std::shared_ptr<telux::data::net::IL2tpManager> l2tpManager = nullptr;
+            le_thread_Ref_t l2tpEvtThreadRef = nullptr;
+            le_thread_Ref_t l2tpCmdThreadRef = nullptr;
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             bool IsSubSystemStatusUpdated=false;
             std::mutex mMutex;

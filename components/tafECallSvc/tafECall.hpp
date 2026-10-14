@@ -248,33 +248,33 @@ using namespace std;
         class tafCallCommandCallback{
             public:
                 static void makeECallResponse(std::shared_ptr<taf_pa_ecall_CallInfo_t> callInfo,
-                    pa_result_t errorCode,std::any context);
+                    taf_pa_result_t errorCode,std::any context);
         };
 
         class tafPrieCallCommandCallback{
             public:
                 static void makeECallResponse(std::shared_ptr<taf_pa_ecall_CallInfo_t> callInfo,
-                    pa_result_t errorCode,std::any context);
+                    taf_pa_result_t errorCode,std::any context);
         };
 
         class tafUpdateMsdCommandCallback{
             public:
-                static void commandResponse(pa_result_t errorCode,std::any context);
+                static void commandResponse(taf_pa_result_t errorCode,std::any context);
         };
 
         class tafHangupCommandCallback{
             public:
-                static void commandResponse(pa_result_t errorCode,std::any context);
+                static void commandResponse(taf_pa_result_t errorCode,std::any context);
         };
 
         class tafRejectCommandCallback{
             public:
-                static void commandResponse(pa_result_t errorCode,std::any context);
+                static void commandResponse(taf_pa_result_t errorCode,std::any context);
         };
 
         class tafAnswerCommandCallback{
             public:
-                static void commandResponse(pa_result_t errorCode,std::any context);
+                static void commandResponse(taf_pa_result_t errorCode,std::any context);
         };
 
         class taf_ecall :public ITafSvc {
@@ -438,9 +438,9 @@ using namespace std;
                 return;
             }
             static void onIncomingCall(std::shared_ptr<taf_pa_ecall_CallInfo_t> callInfo,
-                pa_result_t errorCode,std::any context);
+                taf_pa_result_t errorCode,std::any context);
             static void onCallInfoChange(std::shared_ptr<taf_pa_ecall_CallInfo_t> callInfo,
-                pa_result_t errorCode,std::any context);
+                taf_pa_result_t errorCode,std::any context);
             static void onMsdTransmissionStatus(int32_t phoneId,taf_pa_ecall_msd_status_t msdStatus,
                 std::any context);
             static void onMsdUpdateRequest(int32_t phoneId,std::any context);

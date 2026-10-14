@@ -64,8 +64,8 @@ namespace tafsvc {
     class tafSocksCallback
     {
         public:
-            static void enableSocksAsyncResponse(pa_result_t error,void *contextPtr);
-            static void disableSocksAsyncResponse(pa_result_t error,void *contextPtr);
+            static void enableSocksAsyncResponse(taf_pa_result_t error,void *contextPtr);
+            static void disableSocksAsyncResponse(taf_pa_result_t error,void *contextPtr);
             tafSocksCallback(){};
             ~tafSocksCallback(){};
     };

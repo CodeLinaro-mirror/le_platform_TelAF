@@ -360,14 +360,14 @@ static inline const char *to_StateText
 
 static le_result_t to_SvcResult
 (
-    pa_result_t paRst
+    taf_pa_result_t paRst
 )
 {
     switch (paRst)
     {
-        case PA_OK:              return LE_OK;
-        case PA_NOT_IMPLEMENTED: return LE_CAP_NOT_IMPLEMENTED;
-        case PA_UNSUPPORTED:     return LE_CAP_UNSUPPORTED;
+        case TAF_PA_OK:              return LE_OK;
+        case TAF_PA_NOT_IMPLEMENTED: return LE_CAP_NOT_IMPLEMENTED;
+        case TAF_PA_UNSUPPORTED:     return LE_CAP_UNSUPPORTED;
         default:                 return LE_FAULT;
     }
 }
@@ -477,14 +477,14 @@ le_result_t taf_PM::SetPowerState
         case TAF_PM_STATE_RESUME:
         case TAF_PM_STATE_SHUTDOWN:
         {
-            pa_result_t paRst =
+            taf_pa_result_t paRst =
                 taf_pa_pms_SetPowerStateAsMaster(
                     pm.pa,
                     to_PaPowerState(state),
                     machineName);
 
             svcRst = to_SvcResult(paRst);
-            if (PA_OK != paRst)
+            if (TAF_PA_OK != paRst)
             {
                 LE_ERROR("Failed to invoke PA:SetPowerStateAsMaster: %d (svc_result: %d)", paRst, svcRst);
             }
@@ -718,11 +718,11 @@ void taf_PM::SendAckToPaLayer
             ack == taf_pa_pms_ACK ? "ACK" : "NACK",
             to_StateText(state));
 
-    pa_result_t paRst =
+    taf_pa_result_t paRst =
         taf_pa_pms_SendAckForStateUpdate(
             pm.pa, to_PaPowerState(state), ack);
 
-    if (PA_OK != paRst)
+    if (TAF_PA_OK != paRst)
     {
         le_result_t svcRst = to_SvcResult(paRst);
         LE_ERROR("Failed to invoke PA:SendAckForStateUpdate: %d (svc_result: %d)", paRst, svcRst);
@@ -1160,7 +1160,7 @@ void taf_PM::Handle_sig_SIGTERM
 {
     LE_INFO("Captured sig(SIGTERM) <--");
 
-    pa_result_t paRst = PA_OK;
+    taf_pa_result_t paRst = TAF_PA_OK;
     le_result_t svcRst = LE_OK;
 
     // Resume in SA525M before service termination as master app is terminating
@@ -1172,7 +1172,7 @@ void taf_PM::Handle_sig_SIGTERM
                 to_PaPowerState(TAF_PM_STATE_RESUME),
                 "ALL_MACHINES");
 
-        if (PA_OK != paRst)
+        if (TAF_PA_OK != paRst)
         {
             svcRst = to_SvcResult(paRst);
             LE_ERROR("Failed to invoke PA:SetPowerStateAsMaster error: %d (le_result: %d)", paRst, svcRst);
@@ -1187,7 +1187,7 @@ void taf_PM::Handle_sig_SIGTERM
     le_event_RemoveHandler(pm.ref_PaEventHandler);
 
     paRst = taf_pa_pms_Deinit(&pm.pa);
-    if (PA_OK != paRst)
+    if (TAF_PA_OK != paRst)
     {
         svcRst = to_SvcResult(paRst);
         LE_ERROR("Failed to invoke PA:Deinit: %d (le_result: %d)", paRst, svcRst);
@@ -1356,17 +1356,17 @@ void taf_PM::TryToInitPaLayer()
             PaIndication_Handler);
 
     // Also register the logger and event-reporter
-    pa_result_t rst =
+    taf_pa_result_t rst =
         taf_pa_pms_Init(
             &pm.pa,
             PaEventReportCallback,
             PA_LAYER_TIMEOUT_MAX_MS);
 
-    if (PA_OK == rst)
+    if (TAF_PA_OK == rst)
     {
         LE_INFO("Pa Init Done");
     }
-    else if (PA_TIMEOUT == rst)
+    else if (TAF_PA_TIMEOUT == rst)
     {
         // Retry ? No, we don't know where is stoped, so..
         LE_FATAL("Pa Init Timeout");
@@ -2132,8 +2132,8 @@ taf_pm_VMListRef_t API(GetMachineList)
 {
     std::vector<std::string> machineNames;
 
-    pa_result_t paRst = taf_pa_pms_GetAllMachineNames(pm.pa, machineNames);
-    if (PA_OK != paRst)
+    taf_pa_result_t paRst = taf_pa_pms_GetAllMachineNames(pm.pa, machineNames);
+    if (TAF_PA_OK != paRst)
     {
         le_result_t svcRst = to_SvcResult(paRst);
         LE_ERROR("Failed to GetAllMachineNames from PA Layer: %d (le_result: %d)", paRst, svcRst);
@@ -2313,7 +2313,7 @@ le_result_t API(SetModemWakeupSel)
     taf_pm_NodeModemWsBitMask_t wsBitmask
 )
 {
-    pa_result_t paRst = taf_pa_pms_SetModemWakeupFilter(pm.pa, wsBitmask);
+    taf_pa_result_t paRst = taf_pa_pms_SetModemWakeupFilter(pm.pa, wsBitmask);
     return to_SvcResult(paRst);
 }
 
@@ -2331,8 +2331,8 @@ le_result_t API(GetModemWakeupSel)
         return LE_BAD_PARAMETER;
     }
 
-    pa_result_t paRst = taf_pa_pms_GetModemWakeupFilter(pm.pa, wsBitmaskPtr);
-    if (PA_OK != paRst)
+    taf_pa_result_t paRst = taf_pa_pms_GetModemWakeupFilter(pm.pa, wsBitmaskPtr);
+    if (TAF_PA_OK != paRst)
     {
         *wsBitmaskPtr = 0;
         return to_SvcResult(paRst);

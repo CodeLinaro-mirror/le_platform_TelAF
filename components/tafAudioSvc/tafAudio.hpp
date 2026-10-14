@@ -93,11 +93,11 @@ using namespace tafpa::audio;
 #define ID_DATA    0x61746164
 
 #define CALLBACK_TO_SET_PA_RESULT                               \
-    auto prom = std::make_shared<std::promise<pa_result_t>>();  \
-    auto cb = [prom](pa_result_t res, std::any context) {       \
+    auto prom = std::make_shared<std::promise<taf_pa_result_t>>();  \
+    auto cb = [prom](taf_pa_result_t res, std::any context) {       \
         try                                                     \
         {                                                       \
-            if (res != PA_OK) {                                 \
+            if (res != TAF_PA_OK) {                                 \
                 LE_ERROR("Request failed!, err : %d", res);     \
             }                                                   \
             prom->set_value(res);                               \
@@ -117,11 +117,11 @@ using namespace tafpa::audio;
     };                                                          \
 
 #define CALLBACK1_TO_SET_PA_RESULT                              \
-    auto prom1 = std::make_shared<std::promise<pa_result_t>>(); \
-    auto cb1 = [prom1](pa_result_t res, std::any context) {     \
+    auto prom1 = std::make_shared<std::promise<taf_pa_result_t>>(); \
+    auto cb1 = [prom1](taf_pa_result_t res, std::any context) {     \
         try                                                     \
         {                                                       \
-            if (res != PA_OK) {                                 \
+            if (res != TAF_PA_OK) {                                 \
                 LE_ERROR("Request failed!, err : %d", res);     \
             }                                                   \
             prom1->set_value(res);                              \
@@ -361,7 +361,7 @@ class taf_Audio : public ITafSvc
         taf_Audio() {};
         ~taf_Audio() {};
 
-        std::promise<pa_result_t> gCallbackPromise, gDelCbPromise;
+        std::promise<taf_pa_result_t> gCallbackPromise, gDelCbPromise;
         bool mIsPlaying = false;
         bool mIsTxPlaying = false;
         bool mIsPbError = false;
@@ -528,9 +528,9 @@ class taf_Audio : public ITafSvc
         static void* RegisterBufferEvent( void* ctxPtr);
         static void* RegisterRecBufferEvent( void* ctxPtr);
         static void ReadCallback(std::shared_ptr<tafpa::audio::IPaStreamBuffer> buffer,
-                    pa_result_t paRes);
+                    taf_pa_result_t paRes);
         static void RxReadCallback(std::shared_ptr<tafpa::audio::IPaStreamBuffer> buffer,
-                    pa_result_t paRes);
+                    taf_pa_result_t paRes);
         static void BuBStatusCB(int32_t status, void *contextPtr);
         std::pair<int, int> getDTMFFrequencies(char key);
         static void* playAllDtmfTones(void* dtmfTones);

@@ -94,8 +94,8 @@ static void onServiceStatusChangeCallback(const std::shared_ptr<taf_pa_remotesim
 void taf_simRsim:: Init(void) {
     MainThread = le_thread_GetCurrent();
 
-    pa_result_t result = taf_pa_remotesim_Init(1);
-    if (result != PA_OK)
+    taf_pa_result_t result = taf_pa_remotesim_Init(1);
+    if (result != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=Init result=%d", static_cast<int>(result));
     }
@@ -121,7 +121,7 @@ void taf_simRsim:: Init(void) {
     paEventListener.onServiceStatusChange = onServiceStatusChangeCallback;
 
     result = taf_pa_remotesim_RegisterEventListener(&paEventListener, {});
-    if (result != PA_OK) {
+    if (result != TAF_PA_OK) {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_RegisterEventListener result=%d", static_cast<int>(result));
         return;
     }
@@ -146,8 +146,8 @@ taf_simRsim_MessageHandlerRef_t taf_simRsim::AddMessageHandler(taf_simRsim_Messa
     le_event_SetContextPtr(handlerRef, contextPtr);
 
     //Send connection available request to modem
-    pa_result_t result = taf_pa_remotesim_SendConnectionAvailable(nullptr, {});
-    if (result != PA_OK) {
+    taf_pa_result_t result = taf_pa_remotesim_SendConnectionAvailable(nullptr, {});
+    if (result != TAF_PA_OK) {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendConnectionAvailable result=%d", static_cast<int>(result));
         LE_KILL_CLIENT("Failed to send connection available event request to the modem!\n");
     }
@@ -160,8 +160,8 @@ taf_simRsim_MessageHandlerRef_t taf_simRsim::AddMessageHandler(taf_simRsim_Messa
 void taf_simRsim::RemoveMessageHandler( taf_simRsim_MessageHandlerRef_t handlerRef) {
 
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
-    pa_result_t result = taf_pa_remotesim_SendConnectionUnavailable(nullptr, {});
-    if (result != PA_OK) {
+    taf_pa_result_t result = taf_pa_remotesim_SendConnectionUnavailable(nullptr, {});
+    if (result != TAF_PA_OK) {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendConnectionUnavailable result=%d", static_cast<int>(result));
         LE_KILL_CLIENT("Failed to send connection unavailable event request to the modem!\n");
     }
@@ -573,9 +573,9 @@ void taf_simRsim::DoSendApduToPa(void* param1Ptr, void* param2Ptr) {
 
     std::vector<uint8_t> apdu(txPtr->apdu, txPtr->apdu + txPtr->apduSize);
 
-    pa_result_t result = taf_pa_remotesim_SendApdu(txPtr->id, apdu, true, apdu.size(),
+    taf_pa_result_t result = taf_pa_remotesim_SendApdu(txPtr->id, apdu, true, apdu.size(),
                                                   0, nullptr, {});
-    if (result != PA_OK) {
+    if (result != TAF_PA_OK) {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendApdu result=%d",
                 static_cast<int>(result));
     }
@@ -967,8 +967,8 @@ le_result_t taf_simRsim::HandleCardReset(const uint8_t* messagePtr, size_t messa
             atr.push_back(messagePtr[i]);
         }
 
-        pa_result_t result = taf_pa_remotesim_SendCardReset(atr, nullptr, {});
-        if (result != PA_OK) {
+        taf_pa_result_t result = taf_pa_remotesim_SendCardReset(atr, nullptr, {});
+        if (result != TAF_PA_OK) {
             LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendCardReset result=%d", static_cast<int>(result));
             return LE_FAULT;
         }
@@ -1015,8 +1015,8 @@ le_result_t taf_simRsim::HandleCardInserted(const uint8_t* messagePtr, size_t me
         atr.push_back(messagePtr[i]);
     }
 
-    pa_result_t result = taf_pa_remotesim_SendCardInserted(atr, nullptr, {});
-    if (result != PA_OK) {
+    taf_pa_result_t result = taf_pa_remotesim_SendCardInserted(atr, nullptr, {});
+    if (result != TAF_PA_OK) {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendCardInserted result=%d", static_cast<int>(result));
         return LE_FAULT;
     }
@@ -1027,8 +1027,8 @@ le_result_t taf_simRsim::HandleCardRemoved()
 {
     LE_DEBUG("Received Card Removed msg from client.\n");
 
-    pa_result_t result = taf_pa_remotesim_SendCardRemoved(nullptr, {});
-    if (result != PA_OK) {
+    taf_pa_result_t result = taf_pa_remotesim_SendCardRemoved(nullptr, {});
+    if (result != TAF_PA_OK) {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendCardRemoved result=%d", static_cast<int>(result));
         return LE_FAULT;
     }
@@ -1037,8 +1037,8 @@ le_result_t taf_simRsim::HandleCardRemoved()
 
 le_result_t taf_simRsim::HandleCardError(taf_pa_remotesim_CardErrorCause_t cardError)
 {
-    pa_result_t result = taf_pa_remotesim_SendCardError(cardError, nullptr, {});
-    if (result != PA_OK) {
+    taf_pa_result_t result = taf_pa_remotesim_SendCardError(cardError, nullptr, {});
+    if (result != TAF_PA_OK) {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendCardError result=%d", static_cast<int>(result));
         return LE_FAULT;
     }
@@ -1048,8 +1048,8 @@ le_result_t taf_simRsim::HandleCardError(taf_pa_remotesim_CardErrorCause_t cardE
 le_result_t taf_simRsim::HandleCardWakeUp()
 {
     LE_DEBUG("Received Card Wake Up");
-    pa_result_t result = taf_pa_remotesim_SendCardWakeup(nullptr, {});
-    if (result != PA_OK) {
+    taf_pa_result_t result = taf_pa_remotesim_SendCardWakeup(nullptr, {});
+    if (result != TAF_PA_OK) {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendCardWakeup result=%d", static_cast<int>(result));
         return LE_FAULT;
     }
@@ -1057,15 +1057,15 @@ le_result_t taf_simRsim::HandleCardWakeUp()
 }
 
 void taf_simRsim::SendConnectionAvailableToPa(void* param1Ptr, void* param2Ptr) {
-    pa_result_t result = taf_pa_remotesim_SendConnectionAvailable(nullptr, {});
-    if (result != PA_OK) {
+    taf_pa_result_t result = taf_pa_remotesim_SendConnectionAvailable(nullptr, {});
+    if (result != TAF_PA_OK) {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendConnectionAvailable result=%d", static_cast<int>(result));
     }
 }
 
 void taf_simRsim::SendConnectionUnavailableToPa(void* param1Ptr, void* param2Ptr) {
-    pa_result_t result = taf_pa_remotesim_SendConnectionUnavailable(nullptr, {});
-    if (result != PA_OK) {
+    taf_pa_result_t result = taf_pa_remotesim_SendConnectionUnavailable(nullptr, {});
+    if (result != TAF_PA_OK) {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendConnectionUnavailable result=%d", static_cast<int>(result));
     }
 }

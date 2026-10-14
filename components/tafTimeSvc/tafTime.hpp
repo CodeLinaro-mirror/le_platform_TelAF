@@ -89,9 +89,9 @@
  */
 //--------------------------------------------------------------------------------------------------
 #define PA_TO_LE_RESULT_FAULT(result) \
-    (((result) == PA_OK) ? LE_OK : \
-     ((result) == PA_NOT_IMPLEMENTED) ? LE_CAP_NOT_IMPLEMENTED : \
-     ((result) == PA_UNSUPPORTED) ?     LE_CAP_UNSUPPORTED : \
+    (((result) == TAF_PA_OK) ? LE_OK : \
+     ((result) == TAF_PA_NOT_IMPLEMENTED) ? LE_CAP_NOT_IMPLEMENTED : \
+     ((result) == TAF_PA_UNSUPPORTED) ?     LE_CAP_UNSUPPORTED : \
      LE_FAULT)
 
 //--------------------------------------------------------------------------------------------------

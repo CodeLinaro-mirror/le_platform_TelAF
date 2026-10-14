@@ -27,8 +27,8 @@ le_result_t taf_devInfo::GetIMEI(char* imeiPtr, size_t numElements) {
 
     char imeiValue[TAF_DEVINFO_IMEI_MAX_BYTES];
 
-    pa_result_t status = taf_pa_deviceinfo_GetIMEI(imeiValue, sizeof(imeiValue));
-    TAF_ERROR_IF_RET_VAL(status != PA_OK, LE_FAULT,
+    taf_pa_result_t status = taf_pa_deviceinfo_GetIMEI(imeiValue, sizeof(imeiValue));
+    TAF_ERROR_IF_RET_VAL(status != TAF_PA_OK, LE_FAULT,
          "request for IMEI failed(status = %d)", static_cast<int>(status));
 
     LE_INFO("Retrieved IMEI successfully: %s", imeiValue);
@@ -66,9 +66,9 @@ void taf_devInfo::Init() {
     LE_INFO("taf_devInfo::Init");
 
 #ifdef LE_CONFIG_GET_IMEI_SUPPORT
-    pa_result_t  result;
+    taf_pa_result_t  result;
     result = taf_pa_deviceinfo_Init();
-    if (result != PA_OK)
+    if (result != TAF_PA_OK)
     {
         LE_FATAL("Cannot initialize device info platform adaptor");
     }

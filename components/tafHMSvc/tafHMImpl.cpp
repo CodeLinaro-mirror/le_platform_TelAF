@@ -94,8 +94,8 @@ void taf_Hms::CleanupOnSigTerm()
 
     if (isPaPhoneInitialized)
     {
-        pa_result_t result = taf_pa_health_Deinit();
-        if (result != PA_OK)
+        taf_pa_result_t result = taf_pa_health_Deinit();
+        if (result != TAF_PA_OK)
         {
             LE_ERROR("taf_pa_health_Deinit failed, err: %d", (int)result);
         }
@@ -1714,10 +1714,10 @@ void ModemStatus::HandleOperatingModeResponse(void)
     pendingCount_ = 0;
 }
 
-void ReportOperatingModeResponse(pa_result_t result)
+void ReportOperatingModeResponse(taf_pa_result_t result)
 {
     auto &modem = ModemStatus::GetInstance();
-    if (result == PA_OK)
+    if (result == TAF_PA_OK)
     {
         modem.HandleOperatingModeResponse();
     }
@@ -1725,7 +1725,7 @@ void ReportOperatingModeResponse(pa_result_t result)
 
 void ModemStatus::ReqsOperatingMode(void)
 {
-    if(taf_pa_health_ReqPhoneOperatingMode() == PA_OK)
+    if(taf_pa_health_ReqPhoneOperatingMode() == TAF_PA_OK)
     {
         if (pendingCount_ < COUNTER_RESPONSE_TIME_OUT)
         {
@@ -1749,8 +1749,8 @@ void ModemStatus::CheckOperModeStatus(void)
 {
     if (!isPaPhoneInitialized)
     {
-        pa_result_t res = taf_pa_health_PhoneInit();
-        if (res == PA_OK)
+        taf_pa_result_t res = taf_pa_health_PhoneInit();
+        if (res == TAF_PA_OK)
         {
             LE_INFO("Phone initilization successful");
             isPaPhoneInitialized = true;
@@ -2075,8 +2075,8 @@ le_result_t taf_Hms::GetResetInformation
 void InitModemStatusChangeSupport(void)
 {
     //Initialise ISubsystemManager
-    pa_result_t pa_result = taf_pa_health_ModemNotificationInit();
-    if (pa_result != PA_OK)
+    taf_pa_result_t pa_result = taf_pa_health_ModemNotificationInit();
+    if (pa_result != TAF_PA_OK)
     {
         LE_WARN("Modem Notification Init failed");
         return;
@@ -2084,7 +2084,7 @@ void InitModemStatusChangeSupport(void)
 
     //Register CB for modem status change
     pa_result = taf_pa_health_RegModemStatusUpdateHandler(ModemStatusChangePAHandler);
-    if (pa_result != PA_OK)
+    if (pa_result != TAF_PA_OK)
     {
         LE_ERROR("taf_pa_health_RegModemStatusUpdateHandler failed");
         return;
@@ -2093,7 +2093,7 @@ void InitModemStatusChangeSupport(void)
     //Register CB for modem operation status change
     pa_result =
         taf_pa_health_RegModemOperationModeUpdateHandler(ReportOperatingModeResponse);
-    if (pa_result != PA_OK)
+    if (pa_result != TAF_PA_OK)
     {
         LE_ERROR("taf_pa_health_RegModemOperationModeUpdateHandler failed");
         return;
@@ -2101,7 +2101,7 @@ void InitModemStatusChangeSupport(void)
 
     //Register listener for modem MPPS status change
     pa_result = taf_pa_health_RegModemListener();
-    if (pa_result != PA_OK)
+    if (pa_result != TAF_PA_OK)
     {
         LE_ERROR("taf_pa_RegModemListener failed");
         return;

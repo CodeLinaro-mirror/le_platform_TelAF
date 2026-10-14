@@ -57,9 +57,9 @@ void taf_simSap::Init(void)
 {
     MainThread = le_thread_GetCurrent();
     slotId = taf_sim_GetSelectedCard();
-    pa_result_t result = taf_pa_sap_Init(slotId);
+    taf_pa_result_t result = taf_pa_sap_Init(slotId);
 
-    if (result != PA_OK)
+    if (result != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sap_Init result=%d", static_cast<int>(result));
     }
@@ -178,27 +178,27 @@ void taf_simSap::RequestHandler(void* contextPtr)
     {
         case COMMAND_OPEN_CONNECTION:
         {
-            pa_result_t result = taf_pa_sap_OpenConnection(TAF_PA_SAP_CONDITION_BLOCK_NONE, nullptr, nullptr);
+            taf_pa_result_t result = taf_pa_sap_OpenConnection(TAF_PA_SAP_CONDITION_BLOCK_NONE, nullptr, nullptr);
             uint8_t connectStatus = CONNSTATUS_SERVER_NOK;
-            if (result == PA_OK) {
+            if (result == TAF_PA_OK) {
                 sap.cardConnected = true;
                 connectStatus = CONNSTATUS_OK;
             } else {
                 sap.cardConnected = false;
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sap_OpenConnection result=%d", static_cast<int>(result));
             }
-            ErrorCode errorCode = (result == PA_OK) ? ErrorCode::SUCCESS : ErrorCode::GENERIC_FAILURE;
+            ErrorCode errorCode = (result == TAF_PA_OK) ? ErrorCode::SUCCESS : ErrorCode::GENERIC_FAILURE;
             sap.SendConnectResponse(errorCode, connectStatus);
-            if (result == PA_OK) {
+            if (result == TAF_PA_OK) {
                 sap.SendStatusInd(STATUSCHANGE_CARD_RESET);
             }
             break;
         }
         case COMMAND_CLOSE_CONNECTION:
         {
-            pa_result_t result = taf_pa_sap_CloseConnection(nullptr, nullptr);
+            taf_pa_result_t result = taf_pa_sap_CloseConnection(nullptr, nullptr);
             ErrorCode errorCode = ErrorCode::GENERIC_FAILURE;
-            if (result == PA_OK) {
+            if (result == TAF_PA_OK) {
                 sap.cardConnected = false;
                 errorCode = ErrorCode::SUCCESS;
             } else {
@@ -209,9 +209,9 @@ void taf_simSap::RequestHandler(void* contextPtr)
         }
         case COMMAND_POWER_ON:
         {
-            pa_result_t result = taf_pa_sap_RequestPowerOn(nullptr, nullptr);
+            taf_pa_result_t result = taf_pa_sap_RequestPowerOn(nullptr, nullptr);
             ErrorCode errorCode = ErrorCode::GENERIC_FAILURE;
-            if (result == PA_OK) {
+            if (result == TAF_PA_OK) {
                 sap.cardpoweredOn = true;
                 errorCode = ErrorCode::SUCCESS;
             } else {
@@ -222,9 +222,9 @@ void taf_simSap::RequestHandler(void* contextPtr)
         }
         case COMMAND_POWER_OFF:
         {
-            pa_result_t result = taf_pa_sap_RequestPowerOff(nullptr, nullptr);
+            taf_pa_result_t result = taf_pa_sap_RequestPowerOff(nullptr, nullptr);
             ErrorCode errorCode = ErrorCode::GENERIC_FAILURE;
-            if (result == PA_OK) {
+            if (result == TAF_PA_OK) {
                 sap.cardpoweredOn = false;
                 errorCode = ErrorCode::SUCCESS;
             } else {
@@ -235,11 +235,11 @@ void taf_simSap::RequestHandler(void* contextPtr)
         }
         case COMMAND_RESET:
         {
-            pa_result_t result = taf_pa_sap_RequestReset(nullptr, nullptr);
-            if (result != PA_OK) {
+            taf_pa_result_t result = taf_pa_sap_RequestReset(nullptr, nullptr);
+            if (result != TAF_PA_OK) {
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sap_RequestReset result=%d", static_cast<int>(result));
             }
-            ErrorCode errorCode = (result == PA_OK) ? ErrorCode::SUCCESS : ErrorCode::GENERIC_FAILURE;
+            ErrorCode errorCode = (result == TAF_PA_OK) ? ErrorCode::SUCCESS : ErrorCode::GENERIC_FAILURE;
             sap.SendCardResetResponse(errorCode);
             break;
         }
@@ -251,15 +251,15 @@ void taf_simSap::RequestHandler(void* contextPtr)
             auto apduCallback = [apduId](const std::shared_ptr<taf_pa_sap_ApduResponse_t>& response, std::any context) {
                 LE_DEBUG("Received APDU response from modem with result %d", static_cast<int>(response->result));
                 auto &sap = taf_simSap::GetInstance();
-                ErrorCode errorCode = (response->result == PA_OK) ? ErrorCode::SUCCESS : ErrorCode::GENERIC_FAILURE;
+                ErrorCode errorCode = (response->result == TAF_PA_OK) ? ErrorCode::SUCCESS : ErrorCode::GENERIC_FAILURE;
                 sap.SendAPDUResponse(response->data, apduId, errorCode);
             };
 
-            pa_result_t result = taf_pa_sap_TransmitApdu(apduId, requestPtr->apdu.cla, requestPtr->apdu.instruction,
+            taf_pa_result_t result = taf_pa_sap_TransmitApdu(apduId, requestPtr->apdu.cla, requestPtr->apdu.instruction,
                 requestPtr->apdu.p1, requestPtr->apdu.p2, requestPtr->apdu.lc, data, requestPtr->apdu.le,
                 apduCallback, nullptr);
 
-            if (result != PA_OK) {
+            if (result != TAF_PA_OK) {
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sap_TransmitApdu result=%d", static_cast<int>(result));
                 sap.SendResultCodeResponse(MSGID_TRANSFER_APDU_RESP, RESULTCODE_ERROR_NO_REASON);
             }
@@ -270,12 +270,12 @@ void taf_simSap::RequestHandler(void* contextPtr)
             auto atrCallback = [](const std::shared_ptr<taf_pa_sap_AtrResponse_t>& response, std::any context) {
                 LE_DEBUG("Received ATR response from modem with result %d", static_cast<int>(response->result));
                 auto &sap = taf_simSap::GetInstance();
-                ErrorCode errorCode = (response->result == PA_OK) ? ErrorCode::SUCCESS : ErrorCode::GENERIC_FAILURE;
+                ErrorCode errorCode = (response->result == TAF_PA_OK) ? ErrorCode::SUCCESS : ErrorCode::GENERIC_FAILURE;
                 sap.SendATRResponse(response->atr, errorCode);
             };
 
-            pa_result_t result = taf_pa_sap_RequestAtr(atrCallback, nullptr);
-            if (result != PA_OK) {
+            taf_pa_result_t result = taf_pa_sap_RequestAtr(atrCallback, nullptr);
+            if (result != TAF_PA_OK) {
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sap_RequestAtr result=%d", static_cast<int>(result));
                 sap.SendResultCodeResponse(MSGID_TRANSFER_ATR_RESP, RESULTCODE_ERROR_NO_REASON);
             }
@@ -295,12 +295,12 @@ void taf_simSap::RequestHandler(void* contextPtr)
                 readerStatus.isCardPresent = response->isCardPresent;
                 readerStatus.isCardPoweredOn = response->isCardPoweredOn;
 
-                ErrorCode errorCode = (response->result == PA_OK) ? ErrorCode::SUCCESS : ErrorCode::GENERIC_FAILURE;
+                ErrorCode errorCode = (response->result == TAF_PA_OK) ? ErrorCode::SUCCESS : ErrorCode::GENERIC_FAILURE;
                 sap.SendCardReaderResponse(errorCode, readerStatus);
             };
 
-            pa_result_t result = taf_pa_sap_RequestCardReaderStatus(cardReaderCallback, nullptr);
-            if (result != PA_OK) {
+            taf_pa_result_t result = taf_pa_sap_RequestCardReaderStatus(cardReaderCallback, nullptr);
+            if (result != TAF_PA_OK) {
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sap_RequestCardReaderStatus result=%d", static_cast<int>(result));
                 sap.SendResultCodeResponse(MSGID_SET_TRANSPORT_PROTOCOL_RESP, RESULTCODE_ERROR_NO_REASON);
             }

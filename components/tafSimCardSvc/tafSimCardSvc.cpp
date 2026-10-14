@@ -53,8 +53,8 @@ COMPONENT_INIT
     }
 
     // PA must be initialized before sim.Init() uses it
-    pa_result_t result = taf_pa_sim_Init();
-    if (result != 0)
+    taf_pa_result_t result = taf_pa_sim_Init();
+    if (result != TAF_PA_OK)
     {
         LE_ERROR("Failed to initialize platform adaptor.");
     }

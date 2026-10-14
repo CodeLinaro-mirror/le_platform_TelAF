@@ -1822,6 +1822,13 @@ static void SensorTerminateHandler(int sigNum)
         le_thread_Cancel(sensorMngr.SensorWorkerThRef);
         le_thread_Join(sensorMngr.SensorWorkerThRef, NULL);
     }
+
+    taf_pa_result_t paResult = tafpa::sensor::taf_pa_sensor_Deinit();
+    if(paResult != TAF_PA_OK){
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sensor_Deinit reason=%d",
+            paResult);
+    }
+
     exit(EXIT_SUCCESS);
 }
 

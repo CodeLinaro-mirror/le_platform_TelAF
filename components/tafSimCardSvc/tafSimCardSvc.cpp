@@ -47,6 +47,17 @@ using namespace telux::tel;
 using namespace telux::common;
 using namespace tafsvc;
 
+static void SigTermEventHandler(int sigNum)
+{
+    LE_INFO("SigTermEventHandler signal : %d", sigNum);
+
+    if (taf_pa_sim_DeInit() != LE_OK)
+    {
+        LE_ERROR("Failed to deinitialize SIM platform adaptor.");
+    }
+
+    exit(EXIT_SUCCESS);
+}
 
 COMPONENT_INIT
 {
@@ -59,6 +70,8 @@ COMPONENT_INIT
     rsp.Init();
     LE_INFO(" RSP service Ready...\n");
 
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);
 }
 
 taf_sim_NewStateHandlerRef_t taf_sim_AddNewStateHandler(taf_sim_NewStateHandlerFunc_t handlerPtr,

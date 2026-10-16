@@ -114,4 +114,32 @@ LE_SHARED void taf_pa_sim_RemoveRefreshChangeHandler
     taf_pa_sim_RefreshChangeHandlerRef_t handlerRef ///< [IN] Handler reference.
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Initializes the SIM platform adaptor.
+ *
+ * @return
+ *  - LE_OK      - SIM platform adaptor initialized successfully.
+ *  - LE_FAULT   - Failed to initialize the SIM platform adaptor.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_sim_Init
+(
+    void
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deinitializes the SIM platform adaptor.
+ *
+ * @return
+ *  - LE_OK      - SIM platform adaptor deinitialized successfully.
+ *  - LE_FAULT   - Failed to deinitialize the SIM platform adaptor.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_sim_DeInit
+(
+    void
+);
+
 #endif /* TAF_PA_SIM_HPP */

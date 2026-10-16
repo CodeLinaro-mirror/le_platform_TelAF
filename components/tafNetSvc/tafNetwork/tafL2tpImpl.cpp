@@ -227,7 +227,7 @@ void taf_L2tp::L2tpProcEvtHandler(void* cmdReqPtr)
             {
                 LE_ERROR( "EVT_ENABLE_L2TP_ASYNC_CALLBACK failed with errorCode: %d ",
                            static_cast<int>(cmdReq->errorCode));
-                result = LE_FAULT;
+                result = cmdReq->errorCode;
             }
             else
             {
@@ -251,7 +251,7 @@ void taf_L2tp::L2tpProcEvtHandler(void* cmdReqPtr)
             {
                 LE_ERROR( "EVT_DISABLE_L2TP_ASYNC_CALLBACK failed with errorCode: %d ",
                            static_cast<int>(cmdReq->errorCode));
-                result = LE_FAULT;
+                result = cmdReq->errorCode;
             }
             else
             {
@@ -274,7 +274,7 @@ void taf_L2tp::L2tpProcEvtHandler(void* cmdReqPtr)
             {
                 LE_ERROR( "EVT_START_TUNNEL_ASYNC_CALLBACK failed with errorCode: %d ",
                            static_cast<int>(cmdReq->errorCode));
-                result = LE_FAULT;
+                result = cmdReq->errorCode;
             }
             else
             {
@@ -287,8 +287,11 @@ void taf_L2tp::L2tpProcEvtHandler(void* cmdReqPtr)
 
             if(tunnelHandlerMappingPtr != NULL && tunnelHandlerMappingPtr->asyncHandler != NULL)
             {
-                //Set tunnel status.
-                tafL2tp.SetTunnelStatus( tunnelHandlerMappingPtr->tunnelRef, true);
+                // Set tunnel status only after a successful asynchronous operation.
+                if (result == LE_OK)
+                {
+                    tafL2tp.SetTunnelStatus(tunnelHandlerMappingPtr->tunnelRef, true);
+                }
                 //Call handler function, and then remove it from mapping list
                 tunnelHandlerMappingPtr->asyncHandler(tunnelHandlerMappingPtr->tunnelRef, result,
                                                       tunnelHandlerMappingPtr->contextPtr);
@@ -302,7 +305,7 @@ void taf_L2tp::L2tpProcEvtHandler(void* cmdReqPtr)
             {
                 LE_ERROR( "EVT_STOP_TUNNEL_ASYNC_CALLBACK failed with errorCode: %d ",
                            static_cast<int>(cmdReq->errorCode));
-                result = LE_FAULT;
+                result = cmdReq->errorCode;
             }
             else
             {
@@ -315,8 +318,11 @@ void taf_L2tp::L2tpProcEvtHandler(void* cmdReqPtr)
 
             if(tunnelHandlerMappingPtr != NULL && tunnelHandlerMappingPtr->asyncHandler != NULL)
             {
-                //Set tunnel status.
-                tafL2tp.SetTunnelStatus( tunnelHandlerMappingPtr->tunnelRef, false);
+                // Set tunnel status only after a successful asynchronous operation.
+                if (result == LE_OK)
+                {
+                    tafL2tp.SetTunnelStatus(tunnelHandlerMappingPtr->tunnelRef, false);
+                }
                 //Call handler function, and then remove it from mapping list
                 tunnelHandlerMappingPtr->asyncHandler(tunnelHandlerMappingPtr->tunnelRef, result,
                                                       tunnelHandlerMappingPtr->contextPtr);
@@ -382,6 +388,10 @@ void taf_L2tp::L2tpProcCmdHandler(void* cmdReqPtr)
                 ENABLE_L2TP_MAX_NUMBER_AT_THE_SAME_TIME )
             {
                 LE_DEBUG("Only one client can enable L2TP at the same time");
+                if (cmdReq->l2tpHandlerFuncPtr != NULL)
+                {
+                    cmdReq->l2tpHandlerFuncPtr(LE_BUSY, cmdReq->contextPtr);
+                }
                 return;
             }
 
@@ -399,7 +409,10 @@ void taf_L2tp::L2tpProcCmdHandler(void* cmdReqPtr)
             {
                 LE_ERROR("Enable L2TP asynchronously error %d", result);
                 if(cmdReq->l2tpHandlerFuncPtr != NULL)
+                {
+                    cmdReq->l2tpHandlerFuncPtr(result, cmdReq->contextPtr);
                     tafL2tp.DeleteL2tpHandlerInfo(cmdReq->l2tpHandlerFuncPtr);
+                }
             }
 
         break;
@@ -407,6 +420,10 @@ void taf_L2tp::L2tpProcCmdHandler(void* cmdReqPtr)
             //check if another client session enabled the tunnel
             if(tafL2tp.IsTunnelStartedByOtherClient(cmdReq->sessionRef))
             {
+                if (cmdReq->l2tpHandlerFuncPtr != NULL)
+                {
+                    cmdReq->l2tpHandlerFuncPtr(LE_BUSY, cmdReq->contextPtr);
+                }
                 return;
             }
             //Only one client can disable L2TP at the same time.
@@ -414,6 +431,10 @@ void taf_L2tp::L2tpProcCmdHandler(void* cmdReqPtr)
                 ENABLE_L2TP_MAX_NUMBER_AT_THE_SAME_TIME )
             {
                 LE_DEBUG("Only one client can disable L2TP at the same time");
+                if (cmdReq->l2tpHandlerFuncPtr != NULL)
+                {
+                    cmdReq->l2tpHandlerFuncPtr(LE_BUSY, cmdReq->contextPtr);
+                }
                 return;
             }
 
@@ -429,7 +450,10 @@ void taf_L2tp::L2tpProcCmdHandler(void* cmdReqPtr)
             {
                 LE_ERROR("Disable L2TP asynchronously error %d", result);
                 if(cmdReq->l2tpHandlerFuncPtr != NULL)
+                {
+                    cmdReq->l2tpHandlerFuncPtr(result, cmdReq->contextPtr);
                     tafL2tp.DeleteL2tpHandlerInfo(cmdReq->l2tpHandlerFuncPtr);
+                }
             }
 
         break;
@@ -446,8 +470,11 @@ void taf_L2tp::L2tpProcCmdHandler(void* cmdReqPtr)
             if (result != LE_OK)
             {
                 LE_ERROR("Start tunnel asynchronously error %d", result);
-                if(cmdReq->tunnelHandlerFuncPtr != NULL)
+                if (cmdReq->tunnelHandlerFuncPtr != NULL)
+                {
+                    cmdReq->tunnelHandlerFuncPtr(cmdReq->tunnelRef, result, cmdReq->contextPtr);
                     tafL2tp.DeleteTunnelHandlerInfo(cmdReq->tunnelHandlerFuncPtr);
+                }
             }
 
         break;
@@ -464,8 +491,11 @@ void taf_L2tp::L2tpProcCmdHandler(void* cmdReqPtr)
             if (result != LE_OK)
             {
                 LE_ERROR("Stop tunnel asynchronously error %d", result);
-                if(cmdReq->tunnelHandlerFuncPtr != NULL)
+                if (cmdReq->tunnelHandlerFuncPtr != NULL)
+                {
+                    cmdReq->tunnelHandlerFuncPtr(cmdReq->tunnelRef, result, cmdReq->contextPtr);
                     tafL2tp.DeleteTunnelHandlerInfo(cmdReq->tunnelHandlerFuncPtr);
+                }
             }
 
         break;

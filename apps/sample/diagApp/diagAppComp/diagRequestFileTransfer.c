@@ -508,7 +508,7 @@ static void xferDataMsgHandler
 )
 {
     le_result_t result;
-    uint8_t xferData[TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE];
+    static uint8_t xferData[TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE];
     size_t xferDataLen = 0;
     size_t nbytes = 0;
     uint8_t incomingSeqCounter = 0;
@@ -767,7 +767,7 @@ static void xferExitMsgHandler
 
     le_result_t result = LE_OK;
     size_t recLength = 0;
-    uint8_t recData[TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE];
+    uint8_t recData[TAF_DIAGUPDATE_MAX_XFER_EXIT_PARAM_REC_SIZE];
 
     result = taf_diagUpdate_GetXferExitParamRecLen(rxMsgRef, (uint16_t *)&recLength);
     if (result != LE_OK)

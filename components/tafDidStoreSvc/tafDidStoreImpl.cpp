@@ -8,6 +8,8 @@
 #include "tafDidStore.hpp"
 #include <setjmp.h>
 #include "tafDIDDataAccessComp.h"
+#include <semaphore.h>
+#include <time.h>
 
 namespace pt = boost::property_tree;
 using namespace tafsvc;
@@ -22,8 +24,90 @@ using namespace tafsvc;
 #define DIAG_CONN_RETRY_TIMER_INTERVAL 1000
 DECLARE_SAFE_CALL();
 
-le_sem_Ref_t read_semaphore = NULL;
-le_sem_Ref_t write_semaphore = NULL;
+sem_t* read_semaphore = NULL;
+sem_t* write_semaphore = NULL;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Create a POSIX semaphore with initial count 0.
+ */
+//-------------------------------------------------------------------------------------------------
+static sem_t* CreateSemaphore
+(
+    void
+)
+{
+    sem_t* semPtr = new sem_t;
+    if (sem_init(semPtr, 0, 0) != 0)
+    {
+        LE_ERROR("Failed to init semaphore, errno %d", errno);
+        delete semPtr;
+        return NULL;
+    }
+    return semPtr;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Destroy a POSIX semaphore created by CreateSemaphore.
+ */
+//-------------------------------------------------------------------------------------------------
+static void DeleteSemaphore
+(
+    sem_t* semPtr
+)
+{
+    if (semPtr != NULL)
+    {
+        sem_destroy(semPtr);
+        delete semPtr;
+    }
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Wait on a semaphore with a timeout based on the monotonic clock, so that system time changes
+ * do not affect the timeout.
+ */
+//-------------------------------------------------------------------------------------------------
+static le_result_t WaitSemaphoreMonotonic
+(
+    sem_t* semPtr,
+    time_t timeoutSec
+)
+{
+    if (semPtr == NULL)
+    {
+        return LE_FAULT;
+    }
+
+    struct timespec ts;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
+    {
+        LE_ERROR("clock_gettime failed, errno %d", errno);
+        return LE_FAULT;
+    }
+    ts.tv_sec += timeoutSec;
+
+    int ret;
+    do
+    {
+        ret = sem_clockwait(semPtr, CLOCK_MONOTONIC, &ts);
+    } while (ret != 0 && errno == EINTR);
+
+    if (ret == 0)
+    {
+        return LE_OK;
+    }
+
+    if (errno == ETIMEDOUT)
+    {
+        return LE_TIMEOUT;
+    }
+
+    LE_ERROR("sem_clockwait failed, errno %d", errno);
+    return LE_FAULT;
+}
 
 // Diag RDBI/WDBI
 taf_diagDataID_ServiceRef_t taf_diagDidStore::DiagDataIDSvcRef = NULL;
@@ -381,7 +465,7 @@ semPostOut:
     // Signal the client-specific semaphore
     if (read_semaphore != NULL)
     {
-        le_sem_Post(read_semaphore);
+        sem_post(read_semaphore);
     }
     return;
 }
@@ -408,7 +492,7 @@ le_result_t taf_diagDidStore::Read
     // Create semaphore.
     if (read_semaphore == NULL)
     {
-        read_semaphore = le_sem_Create("ReadDID Semaphore", 0);
+        read_semaphore = CreateSemaphore();
     }
 
     // Prepare a read request
@@ -442,14 +526,13 @@ le_result_t taf_diagDidStore::Read
     le_event_QueueFunctionToThread(ReadThreadRef, HandleReadWriteReq, requestPtr, NULL);
 
     // Wait for the read operation to complete for the defined time period
-    le_clk_Time_t time = {SEM_TIME_TO_WAIT, 0};
-    le_result_t ret = le_sem_WaitWithTimeOut(read_semaphore, time);
+    le_result_t ret = WaitSemaphoreMonotonic(read_semaphore, SEM_TIME_TO_WAIT);
     isReadDIDLock.store(true);
     if (ret != LE_OK)
     {
         LE_ERROR("Read operation timeout");
 
-        le_sem_Delete(read_semaphore);
+        DeleteSemaphore(read_semaphore);
         read_semaphore = NULL;
         isReadDIDLock.store(false);
         readStrg.result = TAF_DIAGDATAID_READ_DID_CONDITIONS_NOT_CORRECT;
@@ -532,7 +615,7 @@ void taf_diagDidStore::didWriteCb
 
     if (write_semaphore != NULL)
     {
-        le_sem_Post(write_semaphore);
+        sem_post(write_semaphore);
     }
     return;
 }
@@ -564,7 +647,7 @@ le_result_t taf_diagDidStore::Write
     // Create semaphore.
     if (write_semaphore == NULL)
     {
-        write_semaphore = le_sem_Create("WriteDID Semaphore", 0);
+        write_semaphore = CreateSemaphore();
     }
 
     requestPtr->request = WRITE_REQUEST_PI;
@@ -588,14 +671,13 @@ le_result_t taf_diagDidStore::Write
     le_event_QueueFunctionToThread(WriteThreadRef, HandleReadWriteReq, requestPtr, NULL);
 
     // Wait for the write operation to complete
-    le_clk_Time_t time = {SEM_TIME_TO_WAIT, 0};
-    le_result_t ret = le_sem_WaitWithTimeOut(write_semaphore, time);
+    le_result_t ret = WaitSemaphoreMonotonic(write_semaphore, SEM_TIME_TO_WAIT);
     isWriteDIDLock.store(true);
     if (ret != LE_OK)
     {
         LE_ERROR("Write operation timeout");
 
-        le_sem_Delete(write_semaphore);
+        DeleteSemaphore(write_semaphore);
         write_semaphore = NULL;
         isWriteDIDLock.store(false);
         writeDIDPIResult = TAF_DIAGDATAID_WRITE_DID_CONDITIONS_NOT_CORRECT;
@@ -663,7 +745,7 @@ void taf_diagDidStore::HandleReadWriteReq
                     //Post the semaphore since result will be used
                     if (read_semaphore != NULL)
                     {
-                        le_sem_Post(read_semaphore);
+                        sem_post(read_semaphore);
                     }
                 }
             }
@@ -693,7 +775,7 @@ void taf_diagDidStore::HandleReadWriteReq
                      //Post the semaphore since result will be used
                     if (write_semaphore != NULL)
                     {
-                        le_sem_Post(write_semaphore);
+                        sem_post(write_semaphore);
                     }
                 }
             }

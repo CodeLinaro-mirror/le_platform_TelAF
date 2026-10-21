@@ -18,6 +18,45 @@ using namespace tafsvc;
 
 #define CONFIG_FILE_NAME "mngdConnectivity.json"
 
+// Delay before the next data start attempt when the SIM is not ready or PS is not registered.
+#define MCS_NW_REG_CHECK_INTERVAL_MS 5000
+
+// Time after a fresh data start (boot, connectivity recovery, PS registered after failure) in
+// which "PS not registered" is not counted as a data start retry. It gives the modem time to
+// register.
+#define MCS_NW_REG_GRACE_PERIOD_MS 60000
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the monotonic time in milliseconds.
+ */
+//--------------------------------------------------------------------------------------------------
+static uint64_t GetMonotonicMs(void)
+{
+    le_clk_Time_t now = le_clk_GetRelativeTime();
+    return (uint64_t)now.sec * 1000 + (uint64_t)now.usec / 1000;
+}
+
+// Reason of an uncounted wait before data start (mcs_DataCtx_t::nwWaitReason).
+#define MCS_NW_WAIT_NONE              0
+#define MCS_NW_WAIT_SIM_NOT_READY     1
+#define MCS_NW_WAIT_PS_NOT_REGISTERED 2
+
+// During an uncounted wait, the checks are logged at INFO level once every this many checks
+// (5 minutes with MCS_NW_REG_CHECK_INTERVAL_MS), and at DEBUG level otherwise.
+#define MCS_NW_WAIT_LOG_EVERY_N_CHECKS 60
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Check if the next periodic check of an uncounted wait must be logged at DEBUG level only.
+ */
+//--------------------------------------------------------------------------------------------------
+static bool IsNwWaitLogQuiet(const mcs_DataCtx_t* dataCtxPtr)
+{
+    return MCS_NW_WAIT_NONE != dataCtxPtr->nwWaitReason &&
+           0 != dataCtxPtr->nwWaitCheckCount % MCS_NW_WAIT_LOG_EVERY_N_CHECKS;
+}
+
 // DCS client connections are thread-local. A DCS server disconnect can therefore invoke the
 // handler from more than one client thread. Only the first callback may deinitialize the service.
 static std::atomic_bool DcsDisconnectHandled{false};
@@ -262,79 +301,6 @@ void tafMngdConnAdmin::Deinit(le_thread_Ref_t threadToSkip)
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for power state changes.
- */
-//--------------------------------------------------------------------------------------------------
-void tafMngdConnAdmin::PowerStateChangeHandler
-(
-    taf_pm_State_t state,
-    void* contextPtr
-)
-{
-    if (state != TAF_PM_STATE_RESUME)
-    {
-        LE_INFO("Power state change to SUSPEND");
-        return;
-    }
-
-    LE_INFO("Power state change to RESUME");
-
-    auto& mngdConnAdmin = tafMngdConnAdmin::GetInstance();
-    le_event_Id_t eventId = mngdConnAdmin.GetStateMachineEventId();
-
-    std::vector<stateMachineEvent_t> eventsToReport;
-
-    le_mutex_Lock(mngdConnAdmin.DataCtxMutex);
-    le_dls_Link_t* linkPtr = le_dls_Peek(&mngdConnAdmin.DataCtxList);
-    while (linkPtr)
-    {
-        mcs_DataCtx_t* dataCtxPtr = CONTAINER_OF(linkPtr, mcs_DataCtx_t, link);
-        linkPtr = le_dls_PeekNext(&mngdConnAdmin.DataCtxList, linkPtr);
-
-        taf_radio_NetRegState_t psState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
-        le_result_t result = taf_radio_GetPacketSwitchedState(&psState, dataCtxPtr->phoneId);
-        if (result != LE_OK)
-        {
-            LE_WARN("Failed to get packet switched state for phoneId %d after resume: %d",
-                dataCtxPtr->phoneId, result);
-            continue;
-        }
-
-        stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
-
-        if ((psState == TAF_RADIO_NET_REG_STATE_HOME ||
-            psState == TAF_RADIO_NET_REG_STATE_ROAMING) &&
-            dataCtxPtr->dataState == TAF_MNGDCONN_DATA_DISCONNECTED)
-        {
-            stateMachineEvt.event = MCS_EVT_NETWORK_REG_STATE;
-            stateMachineEvt.phoneId = dataCtxPtr->phoneId;
-            eventsToReport.push_back(stateMachineEvt);
-        }
-        else if (psState == TAF_RADIO_NET_REG_STATE_NONE &&
-            dataCtxPtr->dataState != TAF_MNGDCONN_DATA_DISCONNECTED)
-        {
-            stateMachineEvt.event = MCS_EVT_NETWORK_UNREG_STATE;
-            stateMachineEvt.phoneId = dataCtxPtr->phoneId;
-            eventsToReport.push_back(stateMachineEvt);
-        }
-    }
-    le_mutex_Unlock(mngdConnAdmin.DataCtxMutex);
-
-    for (auto& evt : eventsToReport)
-    {
-        if (eventId != nullptr)
-        {
-            le_event_Report(eventId, &evt, sizeof(stateMachineEvent_t));
-            LE_DEBUG("Reported event %d for phoneId %d after resume", evt.event, evt.phoneId);
-        }
-        else
-            LE_ERROR("Cannot report event - eventId is null");
-    }
-
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Client connect function.
  */
 //--------------------------------------------------------------------------------------------------
@@ -488,14 +454,6 @@ void tafMngdConnAdmin::callback_thread_destructor(void *contextPtr)
     auto &data = tafMngdConnData::GetInstance();
     data.UnregisterEvents();
     taf_dcs_DisconnectService();
-
-    auto &radio = tafMngdConnRadio::GetInstance();
-    radio.UnregisterEvents ();
-    taf_radio_DisconnectService();
-
-    auto &sim = tafMngdConnSim::GetInstance();
-    sim.UnregisterEvents ();
-    taf_sim_DisconnectService();
     LE_DEBUG("Disconnect done");
 }
 //--------------------------------------------------------------------------------------------------
@@ -514,12 +472,6 @@ void *tafMngdConnAdmin::callback_thread_func(void *contextPtr)
 
     auto &data = tafMngdConnData::GetInstance();
     data.RegisterEvents ();
-
-    auto &radio = tafMngdConnRadio::GetInstance();
-    radio.RegisterEvents ();
-
-    auto &sim = tafMngdConnSim::GetInstance();
-    sim.RegisterEvents ();
 
     le_sem_Post(semRef);
 
@@ -777,8 +729,8 @@ le_result_t tafMngdConnAdmin::Startdata(taf_mngdConn_DataRef_t dataRef)
     // If data start is success and the data id is not auto started, then add this client to the
     // list of clients that have requested data start with this data id.
     le_msg_SessionRef_t sessionRef = taf_mngdConn_GetClientSessionRef();
-    if ((LE_OK == result || LE_DUPLICATE == result || LE_TIMEOUT == result )
-                                                        && (!dataCtxPtr->autoStart))
+    if ((LE_OK == result || LE_DUPLICATE == result || LE_TIMEOUT == result ||
+         LE_IN_PROGRESS == result) && (!dataCtxPtr->autoStart))
     {
         LE_INFO("Client %p started data for Data ID: %d", sessionRef, dataCtxPtr->dataId);
         dataCtxPtr->clients.insert(sessionRef);
@@ -1186,7 +1138,7 @@ void tafMngdConnAdmin::EventInit()
     }
     else
     {
-        // Initialization did not complete. Wait for SIM/Radio events and act on them
+        // Initialization did not complete.
         LE_INFO("Initialization not complete. Wait for further events");
     }
 
@@ -1284,24 +1236,27 @@ le_result_t tafMngdConnAdmin::EventSetPolicyConfigJSONs
 //--------------------------------------------------------------------------------------------------
 void tafMngdConnAdmin::EventSetRadioPowerOn()
 {
-    le_result_t result = LE_OK;
     auto &radio = tafMngdConnRadio::GetInstance();
+    std::set<uint8_t> phoneIds;
+
     le_mutex_Lock(DataCtxMutex);
     le_dls_Link_t *linkPtr = le_dls_Peek(&DataCtxList);
-
     while (linkPtr)
     {
         mcs_DataCtx_t *dataCtxPtr = CONTAINER_OF(linkPtr, mcs_DataCtx_t, link);
         linkPtr = le_dls_PeekNext(&DataCtxList, linkPtr);
-        result = radio.StartUp(dataCtxPtr->phoneId);
-        if (result != LE_OK)
-        {
-            LE_ERROR("Radio startup failed");
-            continue;
-        }
-        ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
+        phoneIds.insert(dataCtxPtr->phoneId);
     }
     le_mutex_Unlock(DataCtxMutex);
+
+    // Several data contexts can share one phone. Start each radio once.
+    for (uint8_t phoneId : phoneIds)
+    {
+        if (radio.StartUp(phoneId) != LE_OK)
+        {
+            LE_ERROR("Radio startup failed for phoneId %d", phoneId);
+        }
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1312,6 +1267,8 @@ void tafMngdConnAdmin::EventSetRadioPowerOn()
 le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
 {
     auto &data = tafMngdConnData::GetInstance();
+    auto &radio = tafMngdConnRadio::GetInstance();
+    auto &sim = tafMngdConnSim::GetInstance();
     le_result_t result;
     mcs_DataCtx_t* dataCtxPtr = GetDataCtx(dataId);
 
@@ -1325,21 +1282,7 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
     //Do action according to the current state.
     switch(dataCtxPtr->adminState)
     {
-        case MCS_DATA_NOT_CONNECTED_NW_NOT_REGISTERED:
-                // Network is not yet registed. Wait for registered event and data state will
-                // happen from there.
-                ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
-                LE_INFO("Registration is in progress");
-                return LE_IN_PROGRESS;
-            break;
-
-        case MCS_DATA_NOT_CONNECTED_SIM_NOT_READY:
-            LE_ERROR("Sim is not ready or network is not registered");
-            return LE_FAULT;
-            break;
-
         case MCS_DATA_NOT_CONNECTED_RETRYING:
-        case MCS_DATA_NOT_CONNECTED_NW_REGISTERED:
         case MCS_DATA_NOT_CONNECTED:
         case MCS_DATA_NOT_CONNECTED_FAILED:
         case MCS_RECOVERY_CANCELED_L1:
@@ -1348,6 +1291,104 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
         case MCS_RECOVERY_FAILED_L1:
         case MCS_RECOVERY_FAILED_L2:
         case MCS_RECOVERY_FAILED_L3:
+            {
+                // Data can only start when the SIM is ready and PS is registered.
+                bool simReady = sim.IsSimReady(dataCtxPtr->slotId);
+                // Without a ready SIM, PS cannot register. Skip the PS query, which also logs
+                // errors when it fails.
+                bool psRegistered = simReady && radio.IsNetworkRegistered(dataCtxPtr->phoneId);
+                if (!simReady || !psRegistered)
+                {
+                    dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_RETRYING;
+                    ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
+
+                    // Auto start, SIM not ready: check again later without counting a retry.
+                    // Connectivity recovery cannot fix an absent or locked SIM, so counting
+                    // would only lead to useless radio/SIM off/on and NAD reboots.
+                    bool countRetry = simReady;
+
+                    // Auto start, SIM ready, PS not registered: count a data start retry with the
+                    // DataStartRetry backoff policy. Exception: within the grace period of a fresh
+                    // start, check again later without counting, to give the modem time to
+                    // register after boot or after a radio/SIM off/on.
+                    if (countRetry && 0 == dataCtxPtr->dataStartRetryCount)
+                    {
+                        uint64_t nowMs = GetMonotonicMs();
+                        if (0 == dataCtxPtr->nwRegGraceStartMs)
+                        {
+                            dataCtxPtr->nwRegGraceStartMs = nowMs;
+                        }
+                        if (nowMs - dataCtxPtr->nwRegGraceStartMs < MCS_NW_REG_GRACE_PERIOD_MS)
+                        {
+                            countRetry = false;
+                        }
+                    }
+
+                    if (!countRetry)
+                    {
+                        // This check repeats every MCS_NW_REG_CHECK_INTERVAL_MS, possibly forever
+                        // (no SIM). Log at INFO level when the wait reason changes and then once
+                        // every MCS_NW_WAIT_LOG_EVERY_N_CHECKS checks. Log the others at DEBUG.
+                        uint8_t reason = simReady ? MCS_NW_WAIT_PS_NOT_REGISTERED
+                                                  : MCS_NW_WAIT_SIM_NOT_READY;
+                        bool logInfo = (reason != dataCtxPtr->nwWaitReason) ||
+                            (0 == dataCtxPtr->nwWaitCheckCount % MCS_NW_WAIT_LOG_EVERY_N_CHECKS);
+                        if (reason != dataCtxPtr->nwWaitReason)
+                        {
+                            dataCtxPtr->nwWaitReason = reason;
+                            dataCtxPtr->nwWaitCheckCount = 0;
+                        }
+                        dataCtxPtr->nwWaitCheckCount++;
+
+                        const char* reasonStr = simReady ? "PS not registered" : "SIM not ready";
+                        unsigned int checks = dataCtxPtr->nwWaitCheckCount;
+                        if (logInfo)
+                        {
+                            LE_INFO("Data ID %d: %s (SIM slot %d, phoneId %d), check %u. "
+                                    "Check again in %d ms.", dataCtxPtr->dataId, reasonStr,
+                                    dataCtxPtr->slotId, dataCtxPtr->phoneId, checks,
+                                    MCS_NW_REG_CHECK_INTERVAL_MS);
+                        }
+                        else
+                        {
+                            LE_DEBUG("Data ID %d: %s (SIM slot %d, phoneId %d), check %u. "
+                                     "Check again in %d ms.", dataCtxPtr->dataId, reasonStr,
+                                     dataCtxPtr->slotId, dataCtxPtr->phoneId, checks,
+                                     MCS_NW_REG_CHECK_INTERVAL_MS);
+                        }
+
+                        le_timer_SetMsInterval(dataCtxPtr->dataStartRetryTimerRef,
+                                               MCS_NW_REG_CHECK_INTERVAL_MS);
+                        le_timer_Restart(dataCtxPtr->dataStartRetryTimerRef);
+                        return LE_IN_PROGRESS;
+                    }
+
+                    // Counted retries are spaced by the backoff interval, so log them at INFO.
+                    LE_INFO("Data ID %d: PS on phoneId %d not registered. Counting as a data "
+                            "start retry.", dataCtxPtr->dataId, dataCtxPtr->phoneId);
+                    dataCtxPtr->nwWaitReason = MCS_NW_WAIT_NONE;
+                    dataCtxPtr->nwWaitCheckCount = 0;
+                    dataCtxPtr->failedOnNwNotReady = true;
+                    stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
+                    stateMachineEvt.event = MCS_EVT_DATA_START_RETRY;
+                    stateMachineEvt.dataId = dataCtxPtr->dataId;
+                    le_event_Report(StateMachineEventId, &stateMachineEvt,
+                                    sizeof(stateMachineEvent_t));
+                    return LE_IN_PROGRESS;
+                }
+
+                // SIM ready and PS registered. The next wait for PS starts a new grace period.
+                if (MCS_NW_WAIT_NONE != dataCtxPtr->nwWaitReason)
+                {
+                    LE_INFO("Data ID %d: SIM ready and PS registered after %u checks.",
+                            dataCtxPtr->dataId, (unsigned int)dataCtxPtr->nwWaitCheckCount);
+                }
+                dataCtxPtr->nwWaitReason = MCS_NW_WAIT_NONE;
+                dataCtxPtr->nwWaitCheckCount = 0;
+                dataCtxPtr->nwRegGraceStartMs = 0;
+                dataCtxPtr->failedOnNwNotReady = false;
+            }
+
             for (uint32_t dataIdx = 0; dataIdx < Configuration.DataCount; dataIdx++)
             {
                 if(Configuration.Data[dataIdx].ID == dataId &&
@@ -1464,6 +1505,10 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
         return LE_FAULT;
     }
 
+    // The PS registration grace period ends with the first counted retry. Clear it, so that the
+    // next fresh start (retry count reset to zero) starts a new grace period.
+    dataCtxPtr->nwRegGraceStartMs = 0;
+
     if(!dataCtxPtr->dataRetry)
     {
         LE_ERROR("Data retry disabled.");
@@ -1504,9 +1549,6 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
         return LE_NOT_POSSIBLE;
     }
 
-    le_timer_SetHandler(dataCtxPtr->dataStartRetryTimerRef, DataRetryTimerHandler);
-    le_timer_SetContextPtr(dataCtxPtr->dataStartRetryTimerRef, (void *)dataCtxPtr);
-
     // Increment the retry count number
     dataCtxPtr->dataStartRetryCount = (dataCtxPtr->dataStartRetryCount) + 1;
 
@@ -1521,6 +1563,87 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
 
     // Return IN PROGRESS signalling retry timer is running.
     return LE_IN_PROGRESS;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * PS state change handler.
+ * Only posts MCS_EVT_NW_READY to the state machine for each auto start data on the phone. It does
+ * not touch any data context state. The state machine decides whether to act on the event.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::PsStateChangeHandler(const taf_radio_NetRegStateInd_t* stateIndPtr,
+                                            void* contextPtr)
+{
+    TAF_ERROR_IF_RET_NIL(stateIndPtr == NULL, "Null ptr(stateIndPtr)");
+
+    if (stateIndPtr->state != TAF_RADIO_NET_REG_STATE_HOME &&
+        stateIndPtr->state != TAF_RADIO_NET_REG_STATE_ROAMING)
+    {
+        return;
+    }
+    LE_DEBUG("PS registered on phoneId %d", stateIndPtr->phoneId);
+
+    auto &admin = tafMngdConnAdmin::GetInstance();
+    le_mutex_Lock(admin.DataCtxMutex);
+    le_dls_Link_t* linkPtr = le_dls_Peek(&admin.DataCtxList);
+    while (linkPtr)
+    {
+        mcs_DataCtx_t* dataCtxPtr = CONTAINER_OF(linkPtr, mcs_DataCtx_t, link);
+        linkPtr = le_dls_PeekNext(&admin.DataCtxList, linkPtr);
+        if (dataCtxPtr->autoStart && dataCtxPtr->phoneId == stateIndPtr->phoneId)
+        {
+            stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
+            stateMachineEvt.event = MCS_EVT_NW_READY;
+            stateMachineEvt.dataId = dataCtxPtr->dataId;
+            le_event_Report(admin.StateMachineEventId, &stateMachineEvt,
+                            sizeof(stateMachineEvent_t));
+        }
+    }
+    le_mutex_Unlock(admin.DataCtxMutex);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handle the event MCS_EVT_NW_READY.
+ * Restart an auto start data that has FAILED because PS was not registered. All other states are
+ * owned by the retry timer, DCS events or connectivity recovery, so the event is ignored for them.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::EventNwReady(uint8_t dataId)
+{
+    auto &radio = tafMngdConnRadio::GetInstance();
+    auto &sim = tafMngdConnSim::GetInstance();
+    mcs_DataCtx_t* dataCtxPtr = GetDataCtx(dataId);
+
+    if (dataCtxPtr == NULL)
+    {
+        return;
+    }
+
+    if (!dataCtxPtr->autoStart ||
+        MCS_DATA_NOT_CONNECTED_FAILED != dataCtxPtr->adminState ||
+        !dataCtxPtr->failedOnNwNotReady)
+    {
+        LE_DEBUG("Data ID %d: NW ready ignored in state %s", dataId,
+                 StateToString(dataCtxPtr->adminState));
+        return;
+    }
+
+    // The event may be stale. Check the current state again.
+    if (!sim.IsSimReady(dataCtxPtr->slotId) || !radio.IsNetworkRegistered(dataCtxPtr->phoneId))
+    {
+        LE_DEBUG("Data ID %d: NW ready ignored, SIM or PS no longer ready", dataId);
+        return;
+    }
+
+    LE_INFO("Data ID %d: PS registered after data start failed. Restart data.", dataId);
+    dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_RETRYING;
+    dataCtxPtr->dataStartRetryCount = 0;
+    dataCtxPtr->nwRegGraceStartMs = 0;
+    dataCtxPtr->failedOnNwNotReady = false;
+    ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
+    EventStartData(dataId);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1677,13 +1800,6 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
     //Do action according to the current state.
     switch(dataCtxPtr->adminState)
     {
-        case MCS_DATA_NOT_CONNECTED_NW_NOT_REGISTERED:
-            LE_ERROR("Network not registered. Data is not started");
-            return LE_FAULT;
-        case MCS_DATA_NOT_CONNECTED_SIM_NOT_READY:
-            LE_ERROR("SIM not ready. Data is not started");
-            return LE_FAULT;
-        case MCS_DATA_NOT_CONNECTED_NW_REGISTERED:
         case MCS_DATA_NOT_CONNECTED:
             // DataStart has not been called yet.
             LE_ERROR("Data not started. DataStart should be called first.");
@@ -1818,181 +1934,6 @@ le_result_t tafMngdConnAdmin::EventGetConnectionInfo(uint8_t dataId)
     }
 
     return result;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Handle the event MCS_EVT_SIM_READY which is sent by SIM module when SIM status is
- * ready.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t tafMngdConnAdmin::EventSimReadyState(uint8_t slotId)
-{
-    le_dls_Link_t* linkPtr = NULL;
-    auto &radio = tafMngdConnRadio::GetInstance();
-    le_result_t result;
-
-    le_mutex_Lock(DataCtxMutex);
-    linkPtr = le_dls_Peek(&DataCtxList);
-
-    while (linkPtr)
-    {
-        mcs_DataCtx_t* dataCtxPtr = CONTAINER_OF(linkPtr, mcs_DataCtx_t, link);
-        linkPtr = le_dls_PeekNext(&DataCtxList, linkPtr);
-        if(slotId == dataCtxPtr->slotId)
-        {
-            if(dataCtxPtr->adminState == MCS_DATA_NOT_CONNECTED_SIM_NOT_READY ||
-               dataCtxPtr->adminState == MCS_DATA_NOT_CONNECTED_NW_NOT_REGISTERED)
-            {
-                dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_SIM_READY;
-                result = radio.StartUp(dataCtxPtr->phoneId);
-                if(result != LE_OK)
-                {
-                    LE_ERROR("Radio startup failed");
-                    continue;
-                }
-            }
-
-            ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
-        }
-
-    }
-
-    le_mutex_Unlock(DataCtxMutex);
-
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Handle the event MCS_EVT_SIM_NOT_READY which is sent by SIM module when SIM status is
- * not ready.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t tafMngdConnAdmin::EventSimNotReadyState(uint8_t slotId)
-{
-
-    le_dls_Link_t* linkPtr = NULL;
-
-    le_mutex_Lock(DataCtxMutex);
-    linkPtr = le_dls_Peek(&DataCtxList);
-    while (linkPtr)
-    {
-        mcs_DataCtx_t* dataCtxPtr = CONTAINER_OF(linkPtr, mcs_DataCtx_t, link);
-        linkPtr = le_dls_PeekNext(&DataCtxList, linkPtr);
-        if(slotId == dataCtxPtr->slotId)
-        {
-            if(dataCtxPtr->adminState == MCS_DATA_NOT_CONNECTED_SIM_READY)
-                dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_SIM_NOT_READY;
-
-            ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
-        }
-    }
-
-    le_mutex_Unlock(DataCtxMutex);
-
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Handle the event MCS_EVT_NETWORK_REG_STATE which is sent by radio module when network
- * status is registered.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t tafMngdConnAdmin::EventNetworkRegState(uint8_t phoneId)
-{
-
-    le_dls_Link_t* linkPtr = NULL;
-
-    le_mutex_Lock(DataCtxMutex);
-    linkPtr = le_dls_Peek(&DataCtxList);
-
-    while (linkPtr)
-    {
-        mcs_DataCtx_t* dataCtxPtr = CONTAINER_OF(linkPtr, mcs_DataCtx_t, link);
-        linkPtr = le_dls_PeekNext(&DataCtxList, linkPtr);
-        if(phoneId == dataCtxPtr->phoneId)
-        {
-            LE_INFO("current admin state= %d, autoStart = %d, needReConn=%d",
-                     dataCtxPtr->adminState, dataCtxPtr->autoStart, dataCtxPtr->needReConn);
-            //Do action according to the current state.
-            switch(dataCtxPtr->adminState)
-            {
-                case MCS_DATA_NOT_CONNECTED_SIM_NOT_READY:
-                case MCS_DATA_NOT_CONNECTED_NW_NOT_REGISTERED:
-                case MCS_DATA_NOT_CONNECTED_SIM_READY:
-                case MCS_DATA_NOT_CONNECTED_RETRYING:
-                    dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_NW_REGISTERED;
-                    //Start a data call if autoStart, or reconnection flag is true
-                    if(dataCtxPtr->autoStart || dataCtxPtr->needReConn)
-                    {
-                        // Send MCS_EVT_DATA_START event to admin
-                        stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
-                        stateMachineEvt.event = MCS_EVT_DATA_START;
-                        stateMachineEvt.dataId = dataCtxPtr->dataId;
-                        le_event_Report(StateMachineEventId, &stateMachineEvt,
-                                                            sizeof(stateMachineEvent_t));
-                    }
-                    else
-                    {
-                        // Wait for user to call DataStart()
-                        dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED;
-                    }
-                    break;
-                default:
-                    break;
-            }
-        }
-    }
-
-    le_mutex_Unlock(DataCtxMutex);
-
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Handle the event MCS_EVT_NETWORK_UNREG_STATE which is sent by radio module when
- * network status is unregistered.
- *
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t tafMngdConnAdmin::EventNetworkUnregState(uint8_t phoneId)
-{
-
-    LE_INFO("EventNetworkUnregState. Phone ID: %d", phoneId);
-    le_dls_Link_t *linkPtr = NULL;
-
-    le_mutex_Lock(DataCtxMutex);
-    linkPtr = le_dls_Peek(&DataCtxList);
-    while (linkPtr)
-    {
-        mcs_DataCtx_t* dataCtxPtr = CONTAINER_OF(linkPtr, mcs_DataCtx_t, link);
-        linkPtr = le_dls_PeekNext(&DataCtxList, linkPtr);
-        if(phoneId == dataCtxPtr->phoneId)
-        {
-            //Do action according to the current state.
-            switch(dataCtxPtr->adminState)
-            {
-                case MCS_DATA_NOT_CONNECTED_RETRYING:
-                    // Stop data start retry timer if it's running
-                    if (le_timer_IsRunning(dataCtxPtr->dataStartRetryTimerRef))
-                    {
-                        le_timer_Stop(dataCtxPtr->dataStartRetryTimerRef);
-                    }
-                    break;
-                default:
-                    break;
-            }
-            // Update service state and report DISCONNECTED event
-            LE_INFO("Report data disconnected event");
-            dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_NW_NOT_REGISTERED;
-            ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
-        }
-    }
-    le_mutex_Unlock(DataCtxMutex);
-    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2209,6 +2150,10 @@ void *tafMngdConnAdmin::StateMachineEventThreadFunc(void *contextPtr)
     taf_dcs_ConnectService();
     taf_dcs_SetNonExitServerDisconnectHandler(tafMngdConnAdmin::DcsDisconnectHandler, nullptr);
     taf_sim_ConnectService();
+
+    // PS state changes are reported to this thread. The handler only posts MCS_EVT_NW_READY to
+    // the state machine, which decides whether to act on it.
+    taf_radio_AddPacketSwitchedChangeHandler(PsStateChangeHandler, nullptr);
 #ifndef LE_CONFIG_TARGET_SIMULATION
     taf_net_ConnectService();
     taf_mngdPm_ConnectService();
@@ -2220,49 +2165,12 @@ void *tafMngdConnAdmin::StateMachineEventThreadFunc(void *contextPtr)
     le_event_AddHandler("StateMachine Event Handler", mngdConnAdmin.StateMachineEventId,
                         StateMachineEvtHandlerFunc);
 
-    taf_pm_AddStateChangeHandler(tafMngdConnAdmin::PowerStateChangeHandler, nullptr);
-
     le_sem_Post(semRef);
 
     LE_INFO("Create event loop for state machine event");
 
     le_event_RunLoop();
     return NULL;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Reset Data Retry and periodic connectivity check values for all Data Id contexts
- * Stop timer if it's running.
- */
-//--------------------------------------------------------------------------------------------------
-void tafMngdConnAdmin::ResetDataRetryPeriodicConnCheckValues()
-{
-    LE_INFO("Reset Data Retry Values for all Data Ids");
-
-    le_dls_Link_t* linkPtr = NULL;
-    linkPtr = le_dls_Peek(&DataCtxList);
-    while (linkPtr)
-    {
-        mcs_DataCtx_t* dataCtxPtr = CONTAINER_OF(linkPtr, mcs_DataCtx_t, link);
-        LE_INFO("Reset Data Retry Values for Data Id: %d", dataCtxPtr->dataId);
-        // Stop timer if it is running
-        if (le_timer_IsRunning(dataCtxPtr->dataStartRetryTimerRef))
-        {
-            le_timer_Stop(dataCtxPtr->dataStartRetryTimerRef);
-        }
-        dataCtxPtr->dataStartRetryCount = 0;
-        // Stop periodic connectivity check timer if it's running
-        if (le_timer_IsRunning(dataCtxPtr->periodicConnectivityTestTimerRef))
-        {
-            le_timer_Stop(dataCtxPtr->periodicConnectivityTestTimerRef);
-        }
-        // Reset the retryCount
-        dataCtxPtr->conn_periodic_test_retryCount = 1;
-        linkPtr = le_dls_PeekNext(&DataCtxList, linkPtr);
-    }
-
-    return;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2285,6 +2193,10 @@ void tafMngdConnAdmin::ResetDataRetryPeriodicConnCheckValues(uint8_t dataId)
         le_timer_Stop(dataCtxPtr->dataStartRetryTimerRef);
     }
     dataCtxPtr->dataStartRetryCount = 0;
+    dataCtxPtr->nwRegGraceStartMs = 0;
+    dataCtxPtr->failedOnNwNotReady = false;
+    dataCtxPtr->nwWaitReason = MCS_NW_WAIT_NONE;
+    dataCtxPtr->nwWaitCheckCount = 0;
     // Stop periodic connectivity check timer if it's running
     if (le_timer_IsRunning(dataCtxPtr->periodicConnectivityTestTimerRef))
     {
@@ -2315,9 +2227,25 @@ void tafMngdConnAdmin::StateMachineEvtHandlerFunc(void *reqPtr)
         return;
     }
 
-    LE_INFO("STATE MACHINE --received event=%s for data ID: %d",
+    // MCS_EVT_DATA_START repeats every MCS_NW_REG_CHECK_INTERVAL_MS while data waits for SIM ready
+    // or PS registration. Log it at DEBUG level then, like the check itself.
+    bool quiet = false;
+    if (MCS_EVT_DATA_START == eventReq->event)
+    {
+        mcs_DataCtx_t* dataCtxPtr = mngdConnAdmin.GetDataCtx(eventReq->dataId);
+        quiet = (dataCtxPtr != NULL) && IsNwWaitLogQuiet(dataCtxPtr);
+    }
+    if (quiet)
+    {
+        LE_DEBUG("STATE MACHINE --received event=%s for data ID: %d",
+                 mngdConnAdmin.EventToString(eventReq->event), eventReq->dataId);
+    }
+    else
+    {
+        LE_INFO("STATE MACHINE --received event=%s for data ID: %d",
                                             mngdConnAdmin.EventToString(eventReq->event),
                                             eventReq->dataId);
+    }
 
     switch (eventReq->event) {
         case MCS_EVT_INIT:
@@ -2330,7 +2258,6 @@ void tafMngdConnAdmin::StateMachineEvtHandlerFunc(void *reqPtr)
             break;
 
         case MCS_RADIO_POWER_ON:
-            mngdConnAdmin.ResetDataRetryPeriodicConnCheckValues();
             mngdConnAdmin.EventSetRadioPowerOn();
             break;
 
@@ -2345,6 +2272,10 @@ void tafMngdConnAdmin::StateMachineEvtHandlerFunc(void *reqPtr)
 
         case MCS_EVT_DATA_START_RETRY:
             mngdConnAdmin.EventStartDataRetry(eventReq->dataId);
+            break;
+
+        case MCS_EVT_NW_READY:
+            mngdConnAdmin.EventNwReady(eventReq->dataId);
             break;
 
         case MCS_EVT_DATA_START_RETRY_APP_REQ:
@@ -2375,27 +2306,6 @@ void tafMngdConnAdmin::StateMachineEvtHandlerFunc(void *reqPtr)
         case MCS_EVT_GET_CONNECTION_INFO_SYNC:
             result = mngdConnAdmin.EventGetConnectionInfo(eventReq->dataId);
             mngdConnAdmin.FulfillCmdSynchronousPromise(result);
-            break;
-
-        case MCS_EVT_SIM_READY:
-            mngdConnAdmin.ResetDataRetryPeriodicConnCheckValues();
-            mngdConnAdmin.EventSimReadyState(eventReq->slotId);
-            break;
-
-        case MCS_EVT_SIM_NOT_READY:
-             mngdConnAdmin.EventSimNotReadyState(eventReq->slotId);
-            break;
-
-        case MCS_EVT_NETWORK_REG_STATE:
-            LE_DEBUG("phoneid=%d", eventReq->phoneId);
-            mngdConnAdmin.ResetDataRetryPeriodicConnCheckValues();
-            mngdConnAdmin.EventNetworkRegState(eventReq->phoneId);
-            break;
-
-        case MCS_EVT_NETWORK_UNREG_STATE:
-            LE_DEBUG("phoneid=%d", eventReq->phoneId);
-            mngdConnAdmin.ResetDataRetryPeriodicConnCheckValues();
-            mngdConnAdmin.EventNetworkUnregState(eventReq->phoneId);
             break;
 
         case MCS_EVT_DATA_CONNECTION_CONNECTED:
@@ -2618,6 +2528,10 @@ tafMngdConnAdmin::CreateDataCtx(
     dataCtxPtr->wasL1ConnectivityRecoveryDone = false;
     dataCtxPtr->isDStartConnTestInProgress = false;
     dataCtxPtr->connTestGeneration = 0;
+    dataCtxPtr->nwRegGraceStartMs = 0;
+    dataCtxPtr->failedOnNwNotReady = false;
+    dataCtxPtr->nwWaitReason = MCS_NW_WAIT_NONE;
+    dataCtxPtr->nwWaitCheckCount = 0;
     dataCtxPtr->link = LE_DLS_LINK_INIT;
 
     if(conn_test_url != NULL)
@@ -2638,7 +2552,9 @@ tafMngdConnAdmin::CreateDataCtx(
     //Create data start retry timer
     snprintf(timerName, sizeof(timerName)-1, "dataId-%d Start Retry Timer", dataId);
     dataCtxPtr->dataStartRetryTimerRef = le_timer_Create(timerName);
+    le_timer_SetContextPtr(dataCtxPtr->dataStartRetryTimerRef, dataCtxPtr);
     le_timer_SetWakeup(dataCtxPtr->dataStartRetryTimerRef, false);
+    le_timer_SetHandler(dataCtxPtr->dataStartRetryTimerRef, DataRetryTimerHandler);
 
     //Create radio off/on interval timer
     memset(timerName, 0, sizeof(timerName));
@@ -2951,8 +2867,9 @@ void tafMngdConnAdmin::ReportRecoveryEvent(
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Check the configuration in JSON and set correct states for Network and SIM.
- * If data is set to Autostart send MCS_EVT_DATA_START to the admin state machine.
+ * Create the data contexts from the configuration in JSON and power on the radios.
+ * If data is set to Autostart send MCS_EVT_DATA_START to the admin state machine. Data start
+ * waits for PS registration by itself, so the SIM and network state are not checked here.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t tafMngdConnAdmin::InitializeStates()
@@ -2966,9 +2883,14 @@ le_result_t tafMngdConnAdmin::InitializeStates()
     char dataName[MCS_MAX_NAME_LEN] = {'\0'};
     le_result_t result = LE_OK;
     mcs_DataCtx_t* dataCtxPtr = NULL;
-    auto &radio = tafMngdConnRadio::GetInstance();
-    auto &sim = tafMngdConnSim::GetInstance();
     taf_dcs_ProfileRef_t profileRef = NULL;
+
+    // Power on the radios first. This event is handled before the MCS_EVT_DATA_START events
+    // sent below, after all data contexts have been created.
+    LE_INFO("Sending event to start radio");
+    stateMachineEvent_t radioOnEvt = {MCS_EVT_INIT, 0};
+    radioOnEvt.event = MCS_RADIO_POWER_ON;
+    le_event_Report(StateMachineEventId, &radioOnEvt, sizeof(stateMachineEvent_t));
 
     //Iterate through Policy DataSession elements to create the data sessions
     for (sessionIdx = 0; sessionIdx < Policy.DataSession.dataConnectionCount; sessionIdx++)
@@ -3134,28 +3056,7 @@ le_result_t tafMngdConnAdmin::InitializeStates()
             dataCtxPtr->conn_periodic_test_maxRetryCount =
                                 Configuration.Data[dataIdx].PeriodicConnectivityCheck.RetryCount;
 
-            if(sim.IsSimReady(slotNumber))
-            {
-                dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_SIM_READY;
-            }
-            else
-            {
-                LE_ERROR("SIM NOT READY");
-                dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_SIM_NOT_READY;
-                continue;
-            }
-
-            // Send an event to start radio
-            LE_INFO("Sending event to start radio for phoneID: %d", phoneId);
-            stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
-            stateMachineEvt.event = MCS_RADIO_POWER_ON;
-            le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
-
-            //Update dataCtxPtr->adminState according to the network register state.
-            if(radio.IsNetworkRegistered(dataCtxPtr->phoneId))
-                dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_NW_REGISTERED;
-            else
-                dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_NW_NOT_REGISTERED;
+            dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED;
 
             if ( Configuration.Data[dataIdx].AutoStart)
             {
@@ -3168,12 +3069,8 @@ le_result_t tafMngdConnAdmin::InitializeStates()
             }
             else
             {
-                // Set state expecting application to start data
-                if (dataCtxPtr->adminState == MCS_DATA_NOT_CONNECTED_NW_REGISTERED)
-                {
-                    dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED;
-                    ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
-                }
+                // Expect the application to start data
+                ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
             }
         }
     }
@@ -3317,6 +3214,18 @@ void tafMngdConnAdmin::RadioOffOnIntervalTimerHandler(le_timer_Ref_t timerRef)
         LE_WARN ("Radio power on failed: %d", result);
     }
     LE_INFO("Radio turned on");
+
+    // Reconnect. For auto start data, EventStartData() waits for SIM ready without counting
+    // retries, and gives PS a grace period to register before it counts retries. Manual start
+    // data stops if they are not ready.
+    if (MCS_RECOVERY_STARTED_L1 == dataCtxPtr->adminState)
+    {
+        auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
+        dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_RETRYING;
+        dataCtxPtr->dataStartRetryCount = 0;
+        mngdConnAdmin.ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
+        mngdConnAdmin.EventStartData(dataCtxPtr->dataId);
+    }
     return;
 }
 
@@ -3344,9 +3253,20 @@ void tafMngdConnAdmin::SimOffOnIntervalTimerHandler(le_timer_Ref_t timerRef)
         LE_WARN ("SIM power on failed: %d", result);
     }
     LE_INFO("SIM turned on");
+
+    // Reconnect. For auto start data, EventStartData() waits for SIM ready without counting
+    // retries, and gives PS a grace period to register before it counts retries. Manual start
+    // data stops if they are not ready.
+    if (MCS_RECOVERY_STARTED_L2 == dataCtxPtr->adminState)
+    {
+        auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
+        dataCtxPtr->adminState = MCS_DATA_NOT_CONNECTED_RETRYING;
+        dataCtxPtr->dataStartRetryCount = 0;
+        mngdConnAdmin.ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_DISCONNECTED);
+        mngdConnAdmin.EventStartData(dataCtxPtr->dataId);
+    }
     return;
 }
-
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -3355,15 +3275,26 @@ void tafMngdConnAdmin::SimOffOnIntervalTimerHandler(le_timer_Ref_t timerRef)
 //--------------------------------------------------------------------------------------------------
 void tafMngdConnAdmin::DataRetryTimerHandler(le_timer_Ref_t timerRef)
 {
-    LE_INFO("Data Retry timer handler");
     auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
     mcs_DataCtx_t* dataCtxPtr = (mcs_DataCtx_t *)le_timer_GetContextPtr(timerRef);
     if(dataCtxPtr == NULL)
     {
-        LE_INFO("Stop the timer.");
+        LE_INFO("Data Retry timer handler: stop the timer.");
         if (le_timer_IsRunning(timerRef))
             le_timer_Stop(timerRef);
         return;
+    }
+
+    // While data waits for SIM ready or PS registration, this timer fires every
+    // MCS_NW_REG_CHECK_INTERVAL_MS. Log at DEBUG level then, like the check itself.
+    bool quiet = IsNwWaitLogQuiet(dataCtxPtr);
+    if (quiet)
+    {
+        LE_DEBUG("Data Retry timer handler");
+    }
+    else
+    {
+        LE_INFO("Data Retry timer handler");
     }
 
     //If need to reconnect, start a data call
@@ -3379,7 +3310,14 @@ void tafMngdConnAdmin::DataRetryTimerHandler(le_timer_Ref_t timerRef)
         }
 
         // Send MCS_EVT_DATA_START event to admin
-        LE_INFO("Send MCS_EVT_DATA_START event");
+        if (quiet)
+        {
+            LE_DEBUG("Send MCS_EVT_DATA_START event");
+        }
+        else
+        {
+            LE_INFO("Send MCS_EVT_DATA_START event");
+        }
         stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
         stateMachineEvt.event = MCS_EVT_DATA_START;
         stateMachineEvt.dataId = dataCtxPtr->dataId;
@@ -3554,8 +3492,8 @@ bool tafMngdConnAdmin::IsConnTestResultStale(mcs_DataCtx_t *dataCtxPtr, uint32_t
  * torn down without a new one replacing it (network detach, SIM removal, StopData) no further
  * dispatch happens, so the generation still matches while the result describes a bearer that is
  * gone. Applying it would resurrect a dead connection: a stale "pass" overwrites the current state
- * with MCS_DATA_CONNECTED_ACTIVE, and EventNetworkRegState() does not act on that state, so the
- * next registration never triggers a reconnect.
+ * with MCS_DATA_CONNECTED_ACTIVE, so the context neither retries nor waits for the network to
+ * reconnect.
  */
 //--------------------------------------------------------------------------------------------------
 bool tafMngdConnAdmin::IsConnTestResultObsolete(mcs_DataCtx_t *dataCtxPtr,
@@ -4281,7 +4219,7 @@ void tafMngdConnAdmin::EventL1ConnRecoveryStart(uint8_t dataId)
     le_timer_Start(dataCtxPtr->radioOffOnIntervalTimerRef);
     le_mutex_Unlock(DataCtxMutex);
 
-    //NAD should register again and data will be managed based on received events
+    // RadioOffOnIntervalTimerHandler() turns the radio on and waits for PS registration.
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -4756,16 +4694,8 @@ const char * tafMngdConnAdmin::EventToString(mcs_EventType_t event)
             return "MCS_EVT_INIT";
         case MCS_EVT_SET_POLICY_CONF_SYNC:
             return "MCS_EVT_SET_POLICY_CONF_SYNC";
-        case MCS_EVT_SIM_READY:
-            return "MCS_EVT_SIM_READY";
-        case MCS_EVT_SIM_NOT_READY:
-            return "MCS_EVT_SIM_NOT_READY";
         case MCS_RADIO_POWER_ON:
             return "MCS_RADIO_POWER_ON";
-        case MCS_EVT_NETWORK_REG_STATE:
-            return "MCS_EVT_NETWORK_REG_STATE";
-        case MCS_EVT_NETWORK_UNREG_STATE:
-            return "MCS_EVT_NETWORK_UNREG_STATE";
         case MCS_EVT_DATA_START_SYNC:
             return "MCS_EVT_DATA_START_SYNC";
         case MCS_EVT_DATA_START:
@@ -4814,6 +4744,8 @@ const char * tafMngdConnAdmin::EventToString(mcs_EventType_t event)
             return "MCS_EVT_CONN_RECOVERY_SCHEDULE_L3";
         case MCS_EVT_CONN_RECOVERY_START_L3:
             return "MCS_EVT_CONN_RECOVERY_START_L3";
+        case MCS_EVT_NW_READY:
+            return "MCS_EVT_NW_READY";
         default:
             LE_ERROR("unknown status: %d", event);
             return "unknow status";
@@ -4830,14 +4762,6 @@ const char * tafMngdConnAdmin::StateToString(mcs_Admin_State_t state)
             return "MCS_ADMIN_INIT";
         case MCS_ADMIN_ERROR:
             return "MCS_ADMIN_ERROR";
-        case MCS_DATA_NOT_CONNECTED_SIM_READY:
-            return "MCS_DATA_NOT_CONNECTED_SIM_READY";
-        case MCS_DATA_NOT_CONNECTED_SIM_NOT_READY:
-            return "MCS_DATA_NOT_CONNECTED_SIM_NOT_READY";
-        case MCS_DATA_NOT_CONNECTED_NW_REGISTERED:
-            return "MCS_DATA_NOT_CONNECTED_NW_REGISTERED";
-        case MCS_DATA_NOT_CONNECTED_NW_NOT_REGISTERED:
-            return "MCS_DATA_NOT_CONNECTED_NW_NOT_REGISTERED";
         case MCS_DATA_NOT_CONNECTED:
             return "MCS_DATA_NOT_CONNECTED";
         case MCS_DATA_NOT_CONNECTED_RETRYING:

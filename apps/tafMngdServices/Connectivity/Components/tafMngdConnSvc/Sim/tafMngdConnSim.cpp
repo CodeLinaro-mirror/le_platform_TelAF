@@ -5,7 +5,6 @@
 
 
 #include "tafMngdConnSim.hpp"
-#include "tafMngdConnAdmin.hpp"
 
 using namespace tafsvc;
 
@@ -19,65 +18,6 @@ tafMngdConnSim &tafMngdConnSim::GetInstance()
 {
     static tafMngdConnSim instance;
     return instance;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Handler for SIM state change.
- */
-//--------------------------------------------------------------------------------------------------
-void tafMngdConnSim::SimStateHandler
-(
-    taf_sim_Id_t simId,
-    taf_sim_States_t simState,
-    void* contextPtr
-)
-{
-    if(simId != TAF_SIM_SLOT_ID_1 && simId != TAF_SIM_SLOT_ID_2)
-        return;
-
-    stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
-
-    if(simState == TAF_SIM_READY)
-        stateMachineEvt.event=MCS_EVT_SIM_READY;
-    else
-        stateMachineEvt.event=MCS_EVT_SIM_NOT_READY;
-
-    stateMachineEvt.slotId = (uint8_t)simId;
-
-    auto &mcsAdmin = tafMngdConnAdmin::GetInstance();
-    le_event_Report(mcsAdmin.GetStateMachineEventId(), &stateMachineEvt,
-                    sizeof(stateMachineEvent_t));
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Register SIM state change handler.
- */
-//--------------------------------------------------------------------------------------------------
-void tafMngdConnSim::UnregisterEvents()
-{
-    if (simtateHandlerRef)
-    {
-        taf_sim_RemoveNewStateHandler(simtateHandlerRef);
-        simtateHandlerRef = NULL;
-        LE_DEBUG("Sim Event callback is removed.");
-    }
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Register SIM state change handler.
- */
-//--------------------------------------------------------------------------------------------------
-void tafMngdConnSim::RegisterEvents()
-{
-    taf_sim_ConnectService();
-
-    simtateHandlerRef = taf_sim_AddNewStateHandler(SimStateHandler, NULL);
-
-    LE_INFO ("Sim Event callback is set");
-    return;
 }
 
 //--------------------------------------------------------------------------------------------------

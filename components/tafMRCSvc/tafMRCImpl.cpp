@@ -319,6 +319,8 @@ COMPONENT_INIT
     if (result != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_mrc_Init reason=%d", result);
+        if (result == TAF_PA_TIMEOUT)
+            _exit(EXIT_FAILURE);
     }
     else
     {

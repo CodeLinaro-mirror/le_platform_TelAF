@@ -17,6 +17,8 @@
 #include "tafFwUpdate.hpp"
 #include "tafUpdateConfigTreeHelper.hpp"
 
+#include "selinux/ctx.h"
+
 using namespace std;
 using namespace tafsvc;
 
@@ -374,6 +376,9 @@ void taf_FwUpdate::CleanupContext
             break;
         case TAF_UPDATE_SYNCHRONIZING:
             wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_SYNC_CONTEXT);
+            break;
+        case TAF_UPDATE_PROBATION:
+            wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_ACTIVATE_CONTEXT);
             break;
         default:
             LE_ERROR("Can not clean up context.");
@@ -2192,6 +2197,15 @@ void taf_FwUpdate::UpdateImage
         return;
     }
 
+    // The new release is going to be activated. A saved context list left by a previous update
+    // belongs to the release that has just been overwritten: it must be removed before the bank
+    // is switched, so that the supervisor of the new release creates a fresh one.
+    if (selinuxCtx_RemoveBackup("Install") != LE_OK)
+    {
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
+        return;
+    }
+
     taf_update_Bank_t bank = TAF_UPDATE_BANK_UNKNOWN;
     result = tafFwUpdate.GetActiveBank(&bank);
     if (result != LE_OK)
@@ -2337,6 +2351,12 @@ void taf_FwUpdate::SyncPartition
             return;
         }
     }
+
+    tafFwUpdate.CleanupContext(TAF_UPDATE_PROBATION);
+
+    // After bank sync a rollback is no longer possible, so the saved contexts are not needed.
+    // A failure is not fatal: the list is also removed before the next install.
+    (void)selinuxCtx_RemoveBackup("Bank sync");
 
     tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_SUCCESS);
 }
@@ -3500,9 +3520,10 @@ le_result_t taf_FwUpdate::Rollback
     }
 
     taf_update_Bank_t bootBank = TAF_UPDATE_BANK_UNKNOWN;
-    if (tafFwUpdate.GetActiveBank(&bootBank) != LE_OK)
+    // Determine and validate both banks before changing any labels.
+    if (tafFwUpdate.GetActiveBank(&bootBank) != LE_OK ||
+        (bootBank != TAF_UPDATE_BANK_A && bootBank != TAF_UPDATE_BANK_B))
     {
-        LE_ERROR("Fail to get active bank.");
         return LE_FAULT;
     }
 
@@ -3512,11 +3533,30 @@ le_result_t taf_FwUpdate::Rollback
     else if (bootBank == TAF_UPDATE_BANK_B)
         activeBank = TAF_UPDATE_BANK_A;
 
-    if (tafFwUpdate.SetActiveBank(activeBank) != LE_OK)
+    // Restore the old SELinux contexts before switching the bank, so that the previous release
+    // boots with the contexts it expects. Errors are retried in rounds inside
+    // selinuxCtx_Restore(); entries that still fail are skipped. If the saved context list cannot
+    // be used, the current bank stays active and the rollback fails; it can be requested again
+    // later.
+    selinuxCtx_SetLogTag("tafUpdateSvc");
+    if (selinuxCtx_Restore() != LE_OK)
     {
-        LE_ERROR("Fail to set active bank.");
+        SELINUXCTX_ERROR("SELinux context restore failed; bank is not switched.");
         return LE_FAULT;
     }
+
+    if (tafFwUpdate.SetActiveBank(activeBank) != LE_OK)
+    {
+        // The old contexts are restored but the current release stays active. The saved list is
+        // kept so that the rollback can be retried.
+        SELINUXCTX_ERROR("Failed to switch to bank %d after restoring the SELinux contexts.",
+            activeBank);
+        return LE_FAULT;
+    }
+
+    // The bank is switched; the saved contexts are not needed anymore. A failure is not fatal:
+    // the list is also removed before the next install.
+    (void)selinuxCtx_RemoveBackup("Rollback");
 
     tafFwUpdate.SetActivationContext(TAF_UPDATE_ROLLBACK_SUCCESS, bootBank);
     return LE_OK;
@@ -3792,6 +3832,14 @@ void taf_FwUpdate::FwUpdateHandler
                 else
                 {
                     LE_DEBUG("Perform bank sync successfully.");
+
+                    tafFwUpdate.CleanupContext(TAF_UPDATE_PROBATION);
+
+                    // After bank sync a rollback is no longer possible, so the saved contexts are
+                    // not needed. A failure is not fatal: the list is also removed before the
+                    // next install.
+                    (void)selinuxCtx_RemoveBackup("Bank sync");
+
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_SUCCESS);
                 }
             }

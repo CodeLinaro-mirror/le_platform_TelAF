@@ -24,7 +24,7 @@ init_telaf_app_domain(telaf_tafDataAccessTest_t,telaf_tafDataAccessTest_exec_t)
 
 telaf_admin_manage_all_files_perms(telaf_tafDataAccessTest_exec_t)
 telaf_admin_manage_all_files_perms(telaf_tafDataAccessTest_data_t)
-telaf_admin_file_perms(telaf_tafDataAccessTest_t, telaf_tafDataAccessTest_data_t)
+telaf_manage_app_data_files(telaf_tafDataAccessTest_t, telaf_tafDataAccessTest_data_t)
 
 allow telaf_tafDataAccessTest_t cert_t:dir { search };
 allow telaf_tafDataAccessTest_t data_t:file { open read getattr };

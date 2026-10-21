@@ -132,6 +132,9 @@ attribute telaf_admin_domain;
 # Generic executable attribute used by per-service exec types.
 attribute telaf_app_exec_attr;
 
+# Per-service data file types (*_data_t), registered by telaf_manage_app_data_files().
+attribute telaf_app_data_type;
+
 # TelAF framework root and shared runtime file types.
 type telaf_fw_t;
 files_type(telaf_fw_t);
@@ -527,6 +530,12 @@ exec_files_pattern(telaf_admin_domain, telaf_app_bundle_t, telaf_app_bundle_t)
 exec_files_pattern(telaf_admin_domain, telaf_admin_exec_t, telaf_admin_exec_t)
 
 allow telaf_admin_domain devlog_t:sock_file write;
+dev_write_kmsg(telaf_admin_t)
+selinux_get_fs_mount(telaf_admin_t)
+selinux_get_enforce_mode(telaf_admin_t)
+# is_context_customizable() (used by the migration, same rule as restorecon) reads
+# /etc/selinux/<policy>/contexts/customizable_types (default_context_t).
+seutil_read_default_contexts(telaf_admin_t)
 allow telaf_admin_domain self:process setsched;
 allow telaf_admin_domain sysfs_t:file { read write open };
 allow telaf_admin_t telaf_sdir_t:fd use;

@@ -25,7 +25,7 @@
 # OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 # IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# Changes from Qualcomm Innovation Center are provided under the following license:
+# Changes from Qualcomm Technologies, Inc. are provided under the following license:
 # Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
@@ -344,9 +344,7 @@ interface(`telaf_admin_lnk_file_perms',`
 ########################################
 ## <summary>
 ##      Allow a domain to traverse the TelAF framework directory tree
-##      and read shared library files under
-##      /legato/systems/current/lib/.
-##
+##      and load shared library files under/legato/systems/current/lib/.
 ## </summary>
 ## <param name="source_domain">
 ##              <summary>
@@ -360,14 +358,19 @@ interface(`telaf_read_lib_files',`
                 type telaf_sys_t;
                 type telaf_lib_t;
                 type telaf_app_bundle_t;
+                type telaf_apptmp_rw_t;
         ')
         allow $1 telaf_fw_t:dir { search_dir_perms };
         allow $1 telaf_sys_t:dir { search_dir_perms };
         allow $1 telaf_sys_t:lnk_file { read_file_perms };
         allow $1 telaf_app_bundle_t:dir { search_dir_perms };
         allow $1 telaf_lib_t:dir { search_dir_perms };
-        allow $1 telaf_lib_t:file { read_file_perms };
+        # Dynamic linker mmap(PROT_EXEC) of liblegato and other TelAF libraries.
+        allow $1 telaf_lib_t:file { read_file_perms mmap_exec_file_perms };
         allow $1 telaf_lib_t:lnk_file { read_file_perms };
+        # Runtime socket directory (/tmp/legato) and the IPC socket files in it.
+        allow $1 telaf_apptmp_rw_t:dir { search_dir_perms };
+        allow $1 telaf_apptmp_rw_t:sock_file { write getattr };
 ')
 
 ########################################
@@ -824,7 +827,9 @@ interface(`telaf_use_vsomeip_network',`
 interface(`telaf_manage_app_data_files',`
         gen_require(`
                 type telaf_app_rw_t;
+                attribute telaf_app_data_type;
         ')
+        typeattribute $2 telaf_app_data_type;
         manage_dirs_pattern($1, $2, $2)
         manage_files_pattern($1, $2, $2)
         manage_lnk_files_pattern($1, $2, $2)

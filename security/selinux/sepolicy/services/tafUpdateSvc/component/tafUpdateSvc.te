@@ -156,3 +156,18 @@ allow telaf_tafUpdateSvc_t syslogd_var_run_t:sock_file { rw_file_perms };
 
 # Support deprivilege
 allow telaf_tafUpdateSvc_t self:capability { setgid setuid };
+
+# On rollback, restore the SELinux contexts of /data/le_fs and /data/diag saved by the
+# supervisor before it relabeled them (see /data/.telaf_ctx_bk).
+gen_require(`
+    type data_t;
+    type telaf_sys_t;
+    type telaf_app_rw_t;
+    attribute telaf_app_data_type;
+')
+allow telaf_tafUpdateSvc_t telaf_app_data_type:dir { search_dir_perms getattr };
+allow telaf_tafUpdateSvc_t telaf_app_data_type:{ file lnk_file sock_file } getattr;
+allow telaf_tafUpdateSvc_t { data_t telaf_sys_t telaf_app_rw_t telaf_app_data_type }:dir { relabelfrom relabelto };
+allow telaf_tafUpdateSvc_t { data_t telaf_sys_t telaf_app_rw_t telaf_app_data_type }:{ file lnk_file sock_file } { relabelfrom relabelto };
+
+kernel_read_vm_overcommit_sysctl(telaf_tafUpdateSvc_t)

@@ -44,6 +44,7 @@ cxxflags:
     -I$TELAF_ROOT/components/tafHalComp
     -I$TELAF_ROOT/include/plugin
     -I$TELAF_PA_DEFAULT/include
+    -I$TELAF_ROOT/framework/common
     -std=c++17
     -DTAFPA_ENABLE_LEGACY_MACROS=1
 }
@@ -66,6 +67,7 @@ sources:
     tafFwUpdateImpl.cpp
     tafFlashSvc.cpp
     tafUpdateConfigTreeHelper.cpp
+    $TELAF_ROOT/framework/common/selinux/ctx.c
 }
 
 bundles:

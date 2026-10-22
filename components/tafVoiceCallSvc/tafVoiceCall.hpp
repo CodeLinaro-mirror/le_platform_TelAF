@@ -197,7 +197,18 @@ public:
 
     static le_result_t ConvertPaResult(taf_pa_result_t paResult)
     {
-        return (le_result_t)paResult;
+        switch (paResult)
+        {
+            case TAF_PA_OK:              return LE_OK;
+            case TAF_PA_FAULT:           return LE_FAULT;
+            case TAF_PA_NOT_FOUND:       return LE_NOT_FOUND;
+            case TAF_PA_DUPLICATE:       return LE_DUPLICATE;
+            case TAF_PA_UNSUPPORTED:     return LE_CAP_UNSUPPORTED;
+            case TAF_PA_NOT_IMPLEMENTED: return LE_CAP_NOT_IMPLEMENTED;
+            default:
+                LE_WARN("Unsupported PA result value: %d; mapping to LE_FAULT", (int)paResult);
+                return LE_FAULT;
+        }
     }
 
     template<typename CallFunc>
@@ -264,7 +275,7 @@ public:
             le_event_Report(CallEvent, &msgCallEvent, sizeof(CallEvent_t));
         }
 
-        return LE_OK;
+        return ConvertPaResult(asyncResult);
     }
 };
 

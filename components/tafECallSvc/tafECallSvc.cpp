@@ -929,7 +929,7 @@ le_result_t taf_ecall_SetMsdTxMode
 )
 {
     LE_DEBUG("Set MsdTransmission mode %d", txMode);
-    return LE_UNSUPPORTED;
+    return LE_CAP_UNSUPPORTED;
 
 #if 0
     auto &ecall = taf_ecall::GetInstance();
@@ -960,7 +960,7 @@ le_result_t taf_ecall_GetMsdTxMode
     taf_ecall_MsdTransmissionMode_t* modePtr
 )
 {
-    return LE_UNSUPPORTED;
+    return LE_CAP_UNSUPPORTED;
 
 #if 0
     TAF_KILL_CLIENT_IF_RET_VAL(modePtr == NULL, LE_FAULT," TxMode pointer is NULL");

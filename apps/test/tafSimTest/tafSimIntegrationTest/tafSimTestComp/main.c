@@ -573,8 +573,16 @@ COMPONENT_INIT
     }
     else if (strncmp(testType, "Reset", 5) == 0)
     {
-        LE_ASSERT_OK(taf_sim_Reset(simId));
-        LE_INFO("SIM Reset successfull");
+        le_result_t resetRes = taf_sim_Reset(simId);
+        if ((resetRes == LE_CAP_NOT_IMPLEMENTED) || (resetRes == LE_CAP_UNSUPPORTED))
+        {
+            LE_INFO("taf_sim_Reset returned %s, test skipped", LE_RESULT_TXT(resetRes));
+        }
+        else
+        {
+            LE_ASSERT_OK(resetRes);
+            LE_INFO("SIM Reset successfull");
+        }
     }
     else if (strncmp(testType, "isEmergency", 11) == 0)
     {

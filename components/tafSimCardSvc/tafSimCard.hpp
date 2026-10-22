@@ -143,7 +143,7 @@ using namespace std;
                 class Convert
                 {
                     public:
-                        static le_result_t Result(int32_t result);
+                        static le_result_t ConvertPaFailure(int32_t result);
                         static taf_pa_common_LogLevel_t Level(le_log_Level_t level);
                         static taf_sim_States_t taf_Common_State_Result(taf_pa_sim_States_t state);
                 };

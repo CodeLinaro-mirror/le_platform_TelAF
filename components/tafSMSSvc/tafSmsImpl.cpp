@@ -47,6 +47,20 @@ LE_MEM_DEFINE_STATIC_POOL(SessionCtx, MAX_SMS_SESSION, sizeof(SessionNode_t));
 LE_MEM_DEFINE_STATIC_POOL(MsgRef, MAX_SMS_SESSION*MAX_OF_SMS_MSG, sizeof(MsgNode_t));
 LE_MEM_DEFINE_STATIC_POOL(SmsSendStatus, MAX_OF_SMS_MSG, sizeof(tafSmsSendStatus_t));
 
+static le_result_t ConvertPaFailure(taf_pa_result_t paResult)
+{
+   switch (paResult)
+   {
+      case TAF_PA_FAULT:           return LE_FAULT;
+      case TAF_PA_UNSUPPORTED:     return LE_CAP_UNSUPPORTED;
+      case TAF_PA_NOT_IMPLEMENTED: return LE_CAP_NOT_IMPLEMENTED;
+      case TAF_PA_TIMEOUT:         return LE_TIMEOUT;
+      default:
+         LE_WARN("Unknown PA result value: %d", (int)paResult);
+         return LE_FAULT;
+   }
+}
+
 taf_Sms* taf_Handler::TafSmsPtr = NULL;
 
 #define TP_MTI_MASK                 0x03
@@ -988,6 +1002,7 @@ uint32_t taf_Sms::ListRxMsg
       if (ret != TAF_PA_OK)
       {
           LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_RequestSmsMessageList reason=%d", (int)ret);
+          listPaResult = ConvertPaFailure(ret);
           return -1;
       }
       else
@@ -1129,7 +1144,7 @@ le_result_t taf_Sms::ReadFromStorage(taf_sms_Pdu_t* pduMsg,
    if (paRes != TAF_PA_OK)
    {
       LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_ReadMessage reason=%d", (int)paRes);
-      return LE_FAULT;
+      return ConvertPaFailure(paRes);
    }
    LE_DEBUG("taf_pa_sms_ReadMessage was successful");
 
@@ -1194,7 +1209,7 @@ le_result_t taf_Sms::SendPDUMessageSync
    if (paRes != TAF_PA_OK)
    {
       LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_SendRawSms reason=%d", (int)paRes);
-      return LE_FAULT;
+      return ConvertPaFailure(paRes);
 
    }
    LE_DEBUG("taf_pa_sms_SendRawSms was successful");
@@ -1264,7 +1279,7 @@ le_result_t taf_Sms::SendPDUMessageAsync(taf_sms_MsgRef_t msgRef)
    if (paRes != TAF_PA_OK)
    {
        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_SendPDUMessageAsync reason=%d", (int)paRes);
-       return LE_FAULT;
+       return ConvertPaFailure(paRes);
    }
    return LE_OK;
 }
@@ -1277,7 +1292,7 @@ le_result_t taf_Sms::SetTag(taf_sms_Msg_t* msgPtr, taf_pa_sms_Tag tagType)
    if (paRes != TAF_PA_OK)
    {
       LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_SetTag reason=%d", (int)paRes);
-      return LE_FAULT;
+      return ConvertPaFailure(paRes);
    }
 
    LE_DEBUG("taf_pa_sms_SetTag was successful");
@@ -1291,7 +1306,7 @@ le_result_t taf_Sms::DeleteMessage(uint32_t messageIndex)
    if (paRes != TAF_PA_OK)
    {
       LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_DeleteMessage reason=%d", (int)paRes);
-      return LE_FAULT;
+      return ConvertPaFailure(paRes);
    }
 
    LE_DEBUG("taf_pa_sms_DeleteMessage was successful");
@@ -1302,12 +1317,24 @@ le_result_t taf_Sms::DeleteAllMessages(taf_sms_Storage_t storage)
 {
    auto &sms = taf_Sms::GetInstance();
 
+   listPaResult = LE_OK;
    taf_sms_MsgListRef_t listRef = CreateNewMsgList();
+   if ((listPaResult == LE_CAP_NOT_IMPLEMENTED) || (listPaResult == LE_CAP_UNSUPPORTED))
+   {
+      LE_ERROR("List messages failed: %s", LE_RESULT_TXT(listPaResult));
+      if (listRef != nullptr)
+      {
+         taf_sms_DeleteList(listRef);
+      }
+      return listPaResult;
+   }
    if (listRef == nullptr)
    {
       LE_INFO("listRef is NULL");
       return LE_UNSUPPORTED;
    }
+
+   le_result_t capResult = LE_OK;
 
    taf_sms_MsgRef_t msgRef = GetFirstMessage(listRef);
    do
@@ -1325,6 +1352,10 @@ le_result_t taf_Sms::DeleteAllMessages(taf_sms_Storage_t storage)
          le_result_t res = DeleteMessage(msgPtr->storageIdx);
          LE_DEBUG("Delete result: %d, storage: %d, index: %d", res,
             msgPtr->storage, msgPtr->storageIdx);
+         if ((res == LE_CAP_NOT_IMPLEMENTED) || (res == LE_CAP_UNSUPPORTED))
+         {
+            capResult = res;
+         }
 
          msgPtr->applyDel = true;
          LE_DEBUG("applyDel for storage: %d, index: %d", msgPtr->storage, msgPtr->storageIdx);
@@ -1334,7 +1365,7 @@ le_result_t taf_Sms::DeleteAllMessages(taf_sms_Storage_t storage)
 
    taf_sms_DeleteList(listRef);
 
-   return LE_OK;
+   return capResult;
 }
 
 void taf_Sms::Init(void)
@@ -1476,7 +1507,7 @@ le_result_t taf_Sms::ActivateCellBroadcast(uint8_t phoneId, bool activate)
    if (paRes != TAF_PA_OK)
    {
       LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_SetActivationStatus reason=%d", (int)paRes);
-      return LE_FAULT;
+      return ConvertPaFailure(paRes);
    }
 
    LE_DEBUG("Set Activation status request sent successfully");
@@ -1494,7 +1525,7 @@ le_result_t taf_Sms::RequestBroadcastIds(uint8_t phoneId)
    if (paRes != TAF_PA_OK)
    {
       LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_RequestMessageFilters reason=%d", (int)paRes);
-      return LE_FAULT;
+      return ConvertPaFailure(paRes);
    }
 
    LE_DEBUG("taf_pa_sms_RequestMessageFilters was successful");
@@ -1513,16 +1544,20 @@ le_result_t taf_Sms::AddCellBroadcastIds(uint8_t phoneId, uint16_t fromId, uint1
       return LE_BAD_PARAMETER;
    }
 
-   // Retrieve current filter list
-   TAF_ERROR_IF_RET_VAL(RequestBroadcastIds(phoneId) != LE_OK,
-                        LE_FAULT, "Request message filter failed");
+    // Retrieve current filter list and preserve capability-specific failures.
+    le_result_t requestResult = RequestBroadcastIds(phoneId);
+    if (requestResult != LE_OK)
+    {
+       LE_ERROR("Request message filter failed, result=%d", requestResult);
+       return requestResult;
+    }
 
    taf_pa_result_t paRes = taf_pa_sms_AddCellBroadcastIds(phoneId,
       fromId, toId, TIMEOUT_RQUEST_CB_FILTER);
    if (paRes != TAF_PA_OK)
    {
       LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_AddCellBroadcastIds reason=%d", (int)paRes);
-      return LE_FAULT;
+      return ConvertPaFailure(paRes);
    }
 
    LE_DEBUG("taf_pa_sms_AddCellBroadcastIds was successful");
@@ -1541,16 +1576,20 @@ le_result_t taf_Sms::RemoveCellBroadcastIds(uint8_t phoneId, uint16_t fromId, ui
       return LE_BAD_PARAMETER;
    }
 
-   // Retrieve current filter list
-   TAF_ERROR_IF_RET_VAL(RequestBroadcastIds(phoneId) != LE_OK,
-                        LE_FAULT, "Request broadcast filter failed");
+    // Retrieve current filter list and preserve capability-specific failures.
+    le_result_t requestResult = RequestBroadcastIds(phoneId);
+    if (requestResult != LE_OK)
+    {
+       LE_ERROR("Request broadcast filter failed, result=%d", requestResult);
+       return requestResult;
+    }
 
    taf_pa_result_t paRes = taf_pa_sms_RemoveCellBroadcastIds(phoneId,
       fromId, toId, TIMEOUT_RQUEST_CB_FILTER);
    if (paRes != TAF_PA_OK)
    {
       LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_RemoveCellBroadcastIds reason=%d", (int)paRes);
-      return LE_FAULT;
+      return ConvertPaFailure(paRes);
    }
 
    LE_DEBUG("taf_pa_sms_RemoveCellBroadcastIds was successful");
@@ -1571,7 +1610,7 @@ le_result_t taf_Sms::GetPreferredStorage(taf_sms_Storage_t* storage)
    if (paRes != TAF_PA_OK)
    {
       LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_GetPreferredStorage reason=%d", (int)paRes);
-      return LE_FAULT;
+      return ConvertPaFailure(paRes);
    }
    else
    {
@@ -1617,7 +1656,7 @@ le_result_t taf_Sms::SetPreferredStorage(taf_sms_Storage_t storage)
    for(uint8_t phoneId = 1; phoneId <= NumOfSlot; phoneId++)
    {
       taf_pa_result_t paRes = taf_pa_sms_SetPreferredStorage(type, kPreferredStorageWaitTime, phoneId);
-      res = (paRes == TAF_PA_OK) ? LE_OK : LE_FAULT;
+      res = (paRes == TAF_PA_OK) ? LE_OK : ConvertPaFailure(paRes);
       if(res == LE_OK)
       {
          sysPrefStorage = storage;

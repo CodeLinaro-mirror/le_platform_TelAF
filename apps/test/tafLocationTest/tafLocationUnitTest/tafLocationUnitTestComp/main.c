@@ -3762,6 +3762,11 @@ static void TestTafGnssRobustLocation
     enable = 1;
     enabled911 = 1;
     result = taf_locGnss_ConfigureRobustLocation(enable,enabled911);
+    if (result == LE_CAP_NOT_IMPLEMENTED || result == LE_CAP_UNSUPPORTED)
+    {
+        LE_TEST_INFO("taf_locGnss_ConfigureRobustLocation skipped: %s", LE_RESULT_TXT(result));
+        return;
+    }
     LE_TEST_OK(result==LE_OK,"taf_locGnss_ConfigureRobustLocation-LE_OK");
     le_thread_Sleep(3);
     LE_INFO("TestTafGnssRobustLocation Wait for 3 seconds");
@@ -4026,6 +4031,10 @@ static void TestTafSetMinGpsWeek
         case LE_NOT_PERMITTED:
             LE_TEST_INFO("GNSS device is not in \"Ready\" state\n");
             break;
+        case LE_CAP_NOT_IMPLEMENTED:
+        case LE_CAP_UNSUPPORTED:
+            LE_TEST_INFO("SetMinGpsWeek skipped: %s", LE_RESULT_TXT(result));
+            break;
         default:
             LE_TEST_INFO("Invalid status\n");
             break;
@@ -4051,6 +4060,10 @@ static void TestTafGetMinGpsWeek
         case LE_NOT_PERMITTED:
             LE_TEST_INFO("GNSS device is not in \"Ready\" state\n");
             break;
+        case LE_CAP_NOT_IMPLEMENTED:
+        case LE_CAP_UNSUPPORTED:
+            LE_TEST_INFO("GetMinGpsWeek skipped: %s", LE_RESULT_TXT(result));
+            break;
         default:
             LE_TEST_INFO("Invalid status\n");
             break;
@@ -4072,6 +4085,10 @@ static void TestTafGetCapabilities
             break;
         case LE_FAULT:
             LE_TEST_INFO("Failed to get the location capabilities. See logs for details\n");
+            break;
+        case LE_CAP_NOT_IMPLEMENTED:
+        case LE_CAP_UNSUPPORTED:
+            LE_TEST_INFO("GetCapabilities skipped: %s", LE_RESULT_TXT(result));
             break;
         default:
             LE_TEST_INFO("Invalid status\n");
@@ -4457,7 +4474,14 @@ static void TestTafGnssXtraInformation
     {
         LE_TEST_INFO("XtraParamPtr is NULL pointer");
     }
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_GetXtraStatus-LE_OK");
+    if (result == LE_CAP_NOT_IMPLEMENTED || result == LE_CAP_UNSUPPORTED)
+    {
+        LE_TEST_INFO("taf_locGnss_GetXtraStatus skipped: %s", LE_RESULT_TXT(result));
+    }
+    else
+    {
+        LE_TEST_OK(result == LE_OK, "taf_locGnss_GetXtraStatus-LE_OK");
+    }
     if(result == LE_OK)
     {
         LE_TEST_INFO("**** Request Xtra Status Info ****\n");
@@ -4598,7 +4622,14 @@ static void TestTafGnssRestart
    //Delete DR sensor calibration data - LE_OK
     LE_TEST_INFO("taf_locGnss_DeleteDRSensorCalData() API is called");
     result = taf_locGnss_DeleteDRSensorCalData();
-    LE_TEST_OK(result == LE_OK, "taf_locGnss_DeleteDRSensorCalData-LE_OK");
+    if (result == LE_CAP_NOT_IMPLEMENTED || result == LE_CAP_UNSUPPORTED)
+    {
+        LE_TEST_INFO("taf_locGnss_DeleteDRSensorCalData skipped: %s", LE_RESULT_TXT(result));
+    }
+    else
+    {
+        LE_TEST_OK(result == LE_OK, "taf_locGnss_DeleteDRSensorCalData-LE_OK");
+    }
 
    //208.Force Warm Restart-Not Permitted
     LE_TEST_INFO("taf_locGnss_ForceWarmRestart() API is called to check whether it returns"
@@ -4623,7 +4654,8 @@ static void TestTafGnssRestart
     LE_TEST_INFO("taf_locGnss_ForceFactoryRestart() API is called to check whether it returns"
         " Not supported state or not");
     result = taf_locGnss_ForceFactoryRestart();
-    LE_TEST_OK(result == LE_UNSUPPORTED, "taf_locGnss_ForceFactoryRestart-LE_UNSUPPORTED");
+    LE_TEST_OK(result == LE_CAP_UNSUPPORTED,
+               "taf_locGnss_ForceFactoryRestart-capability result");
 
     //212. Get Leap Seconds-LE_OK
     LE_TEST_INFO("taf_locGnss_GetLeapSeconds() API is triggerred to get Leap Seconds");
@@ -5127,8 +5159,8 @@ static void TestTafDgnssAPI
 
         if (result != LE_OK)
         {
-            LE_ERROR("Injection failed at chunk %zu, result=%d",
-                     sequenceNumber, result);
+            LE_ERROR("Injection failed at chunk %zu, result=%d (%s)",
+                     sequenceNumber, result, LE_RESULT_TXT(result));
             fclose(file);
             goto cleanup;
         }
@@ -5182,6 +5214,11 @@ static void TestTafGnssConfigureOsnma
     LE_TEST_INFO("taf_locGnss_ConfigureOsnma() API is triggered enable Galileo OSNMA");
     osnma = true;
     result = taf_locGnss_ConfigureOsnma(osnma);
+    if (result == LE_CAP_NOT_IMPLEMENTED || result == LE_CAP_UNSUPPORTED)
+    {
+        LE_TEST_INFO("taf_locGnss_ConfigureOsnma skipped: %s", LE_RESULT_TXT(result));
+        return;
+    }
     LE_TEST_OK(result == LE_OK, "taf_locGnss_ConfigureOsnma-enable-LE_OK");
 
     LE_TEST_INFO("taf_locGnss_ConfigureOsnma() API is triggered disable Galileo OSNMA");
@@ -5199,6 +5236,12 @@ static void TestTafGnssInjectMerkleTree
 
     LE_TEST_INFO("taf_locGnss_InjectMerkleTreeInformationByPath() API is triggered to inject Merkle data");
     result = taf_locGnss_InjectMerkleTreeInformationByPath(MERKLE_XML_PATH);
+    if (result == LE_CAP_NOT_IMPLEMENTED || result == LE_CAP_UNSUPPORTED)
+    {
+        LE_TEST_INFO("taf_locGnss_InjectMerkleTreeInformationByPath skipped: %s",
+                     LE_RESULT_TXT(result));
+        return;
+    }
     LE_TEST_OK(result == LE_OK, "taf_locGnss_InjectMerkleTreeInformationByPath-LE_OK");
 
     LE_TEST_INFO("Inject Merkle data with empty path");

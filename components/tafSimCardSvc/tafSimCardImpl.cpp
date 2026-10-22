@@ -319,29 +319,36 @@ taf_pa_common_LogLevel_t Utility::Convert::Level
     return TAF_PA_COMMON_LOG_LEVEL_INFO;
 }
 
-le_result_t Utility::Convert::Result
+le_result_t Utility::Convert::ConvertPaFailure
 (
     int32_t result
 )
 {
     switch (result)
     {
-        case TAF_PA_OK:
-            return LE_OK;
         case TAF_PA_FAULT:
             return LE_FAULT;
-        case TAF_PA_BAD_PARAMETER:
-            return LE_BAD_PARAMETER ;
         case TAF_PA_UNSUPPORTED:
-            return LE_UNSUPPORTED;
-        case TAF_PA_TIMEOUT:
-            return LE_TIMEOUT;
+            return LE_CAP_UNSUPPORTED;
         case TAF_PA_NOT_IMPLEMENTED:
-            return LE_NOT_IMPLEMENTED;
+            return LE_CAP_NOT_IMPLEMENTED;
         default:
             LE_DEBUG("Unknown result %d.", result);
     }
     return LE_FAULT;
+}
+
+static le_result_t PreserveSlotSelectionCapability
+(
+    le_result_t result,
+    le_result_t fallback
+)
+{
+    if (result == LE_CAP_NOT_IMPLEMENTED || result == LE_CAP_UNSUPPORTED)
+    {
+        return result;
+    }
+    return fallback;
 }
 
 taf_pa_sim_AppType_t taf_sim::ConvertTafappTypeToPaappType(taf_sim_AppType_t appType) {
@@ -420,7 +427,14 @@ void Handler::ChangeCardPinResponseCb
         return;
     }
     simResponsePtr.responseType = (taf_sim_LockResponse_t)responseInfo->responseType;
-    simResponsePtr.result = Utility::Convert::Result(responseInfo->result);
+    if (responseInfo->result == TAF_PA_OK)
+    {
+        simResponsePtr.result = LE_OK;
+    }
+    else
+    {
+        simResponsePtr.result = Utility::Convert::ConvertPaFailure(responseInfo->result);
+    }
     LE_DEBUG("ChangeCardPinResponse: simId=%d type=%d result=%d",simResponsePtr.simId,
             simResponsePtr.responseType,
             simResponsePtr.result);
@@ -445,7 +459,14 @@ void Handler::unlockCardByPukResponseCb
         return;
     }
     simResponsePtr.responseType = (taf_sim_LockResponse_t)responseInfo->responseType;
-    simResponsePtr.result = Utility::Convert::Result(responseInfo->result);
+    if (responseInfo->result == TAF_PA_OK)
+    {
+        simResponsePtr.result = LE_OK;
+    }
+    else
+    {
+        simResponsePtr.result = Utility::Convert::ConvertPaFailure(responseInfo->result);
+    }
     LE_INFO("unlockCardByPukResponseCb: simId=%d type=%d result=%d",simResponsePtr.simId,
             simResponsePtr.responseType,simResponsePtr.result);
     le_event_Report(sim.ResponseEventId, &simResponsePtr,sizeof(simResponsePtr));
@@ -469,7 +490,14 @@ void Handler::unlockCardByPinResponseCb
         return;
     }
     simResponsePtr.responseType = (taf_sim_LockResponse_t)responseInfo->responseType;
-    simResponsePtr.result = Utility::Convert::Result(responseInfo->result);
+    if (responseInfo->result == TAF_PA_OK)
+    {
+        simResponsePtr.result = LE_OK;
+    }
+    else
+    {
+        simResponsePtr.result = Utility::Convert::ConvertPaFailure(responseInfo->result);
+    }
     LE_INFO("unlockCardByPinResponseCb: simId=%d type=%d result=%d",simResponsePtr.simId,
             simResponsePtr.responseType,simResponsePtr.result);
     le_event_Report(sim.ResponseEventId, &simResponsePtr,sizeof(simResponsePtr));
@@ -493,7 +521,14 @@ void Handler::setCardLockResponseCb
         return;
     }
     simResponsePtr.responseType = (taf_sim_LockResponse_t)responseInfo->responseType;
-    simResponsePtr.result = Utility::Convert::Result(responseInfo->result);
+    if (responseInfo->result == TAF_PA_OK)
+    {
+        simResponsePtr.result = LE_OK;
+    }
+    else
+    {
+        simResponsePtr.result = Utility::Convert::ConvertPaFailure(responseInfo->result);
+    }
     LE_INFO("setCardLockResponseCb: simId=%d type=%d result=%d",simResponsePtr.simId,
             simResponsePtr.responseType,simResponsePtr.result);
     le_event_Report(sim.ResponseEventId, &simResponsePtr,sizeof(simResponsePtr));
@@ -1287,11 +1322,11 @@ le_result_t taf_sim::RefreshRegisterFilesForSessionType(taf_sim_SessionType_t se
     if (res != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_RefreshRegister reason=%d", res);
+        return Utility::Convert::ConvertPaFailure(res);
     }
-    le_result_t result = Utility::Convert::Result(res);
     LE_INFO("Refresh re-register done for sessionType=%d with union file count=%zu result=%d",
             sessionType, uniqueFiles.size(), res);
-    return result;
+    return LE_OK;
 }
 
 le_result_t taf_sim::SetRefreshMode(taf_sim_RefreshRef_t refreshSessionRef, taf_sim_RefreshMode_t refreshMode) {
@@ -1406,17 +1441,14 @@ le_result_t taf_sim::SetRefreshAllow(taf_sim_RefreshRef_t refreshSessionRef, boo
     if (res != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_RefreshRegister reason=%d", res);
+        return Utility::Convert::ConvertPaFailure(res);
     }
-    le_result_t result =Utility::Convert::Result(res);
 
     LE_INFO("Refresh register done for sessionType=%d with union file count=%zu result=%d",
             clientRequestPtr->sessionType, uniqueFiles.size(), res);
 
-    if (result == LE_OK)
-    {
     clientRequestPtr->refreshAllow = isRefreshAllowed;
-    }
-    return result;
+    return LE_OK;
 }
 
 bool taf_sim::CheckRefreshAllow(taf_pa_sim_RefreshChangeInd_t* ind)
@@ -1842,36 +1874,29 @@ le_result_t taf_sim::selectSimSlot(taf_sim_Id_t simId) {
         return LE_FAULT;
     }
     taf_pa_result_t paResult = taf_pa_sim_selectSimSlot((taf_pa_sim_Id_t)simId);
-    if (paResult == TAF_PA_OK)
-    {
-        auto &sim = taf_sim::GetInstance();
-        sim.slot= simId;
-        return LE_OK;
-    }
-    else if (paResult == TAF_PA_TIMEOUT)
+    if (paResult != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_selectSimSlot reason=%d", paResult);
-        return LE_TIMEOUT;
+        return Utility::Convert::ConvertPaFailure(paResult);
     }
-    else
-    {
-        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_selectSimSlot reason=%d", paResult);
-        return LE_FAULT;
-    }
+
+    slot= simId;
+    return LE_OK;
 }
 
 le_result_t taf_sim::getICCID(taf_sim_Id_t simId, char *iccid, int length)
 {
     std::string iccIdStr = "";
-    if(selectSimSlot(simId) != LE_OK) {
-        return LE_BAD_PARAMETER;
+    le_result_t selectResult = selectSimSlot(simId);
+    if(selectResult != LE_OK) {
+        return PreserveSlotSelectionCapability(selectResult, LE_BAD_PARAMETER);
     }
 
     taf_pa_result_t paResult = taf_pa_sim_GetIccid((taf_pa_sim_Id_t)simId, iccIdStr);
     if (paResult != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetIccid reason=%d", paResult);
-        return LE_FAULT;
+        return Utility::Convert::ConvertPaFailure(paResult);
 
     }
     LE_DEBUG("iccIdStr: %s", iccIdStr.c_str());
@@ -1893,7 +1918,7 @@ le_result_t taf_sim::getICCIDWithoutSlotSwitch(taf_sim_Id_t simId,char* iccid, i
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetIccid reason=%d", paResult);
         iccid[0] = '\0';
-        return LE_FAULT;
+        return Utility::Convert::ConvertPaFailure(paResult);
     }
 
     LE_INFO("ICCID for simId %d: %s", simId, iccIdStr.c_str());
@@ -1902,15 +1927,16 @@ le_result_t taf_sim::getICCIDWithoutSlotSwitch(taf_sim_Id_t simId,char* iccid, i
 
 le_result_t taf_sim::getSubscriberPhoneNumber(taf_sim_Id_t simId, char *phoneNumber, int length) {
     string phoneNumberString = "";
-    if (selectSimSlot(simId) != LE_OK) {
-        return LE_BAD_PARAMETER;
+    le_result_t selectResult = selectSimSlot(simId);
+    if (selectResult != LE_OK) {
+        return PreserveSlotSelectionCapability(selectResult, LE_BAD_PARAMETER);
     }
     taf_pa_result_t paResult = taf_pa_sim_GetSubscriberPhoneNumber(
                                  (taf_pa_sim_Id_t) simId,phoneNumberString);
     if (paResult != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetSubscriberPhoneNumber reason=%d", paResult);
-        return LE_FAULT;
+        return Utility::Convert::ConvertPaFailure(paResult);
     }
     LE_DEBUG("phoneNumberString.c_str()-> %s",phoneNumberString.c_str());
     return le_utf8_Copy(phoneNumber, phoneNumberString.c_str(), length, NULL);
@@ -1918,14 +1944,15 @@ le_result_t taf_sim::getSubscriberPhoneNumber(taf_sim_Id_t simId, char *phoneNum
 
 le_result_t taf_sim::getIMSI(taf_sim_Id_t simId, char *imsi, int length) {
     string imsiString = "";
-    if (selectSimSlot(simId) != LE_OK) {
-        return LE_BAD_PARAMETER;
+    le_result_t selectResult = selectSimSlot(simId);
+    if (selectResult != LE_OK) {
+        return PreserveSlotSelectionCapability(selectResult, LE_BAD_PARAMETER);
     }
     taf_pa_result_t paResult = taf_pa_sim_GetImsi((taf_pa_sim_Id_t)simId,imsiString);
     if (paResult != TAF_PA_OK)
     {
        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetImsi reason=%d", paResult);
-       return LE_FAULT;
+       return Utility::Convert::ConvertPaFailure(paResult);
     }
     LE_DEBUG("imsiString.c_str()-> %s",imsiString.c_str());
     return le_utf8_Copy(imsi, imsiString.c_str(), length, NULL);
@@ -1933,14 +1960,15 @@ le_result_t taf_sim::getIMSI(taf_sim_Id_t simId, char *imsi, int length) {
 
 le_result_t taf_sim::getHomeNetworkOperator(taf_sim_Id_t simId, char *name, int length) {
     string nameString = "";
-    if (selectSimSlot(simId) != LE_OK) {
-        return LE_BAD_PARAMETER;
+    le_result_t selectResult = selectSimSlot(simId);
+    if (selectResult != LE_OK) {
+        return PreserveSlotSelectionCapability(selectResult, LE_BAD_PARAMETER);
     }
     taf_pa_result_t paResult = taf_pa_sim_GetCarrierName((taf_pa_sim_Id_t)simId,nameString);
     if (paResult != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetCarrierName reason=%d", paResult);
-        return LE_FAULT;
+        return Utility::Convert::ConvertPaFailure(paResult);
     }
     LE_INFO("nameString.c_str()-> %s",nameString.c_str());
     return le_utf8_Copy(name, nameString.c_str(), length, NULL);
@@ -1952,15 +1980,16 @@ le_result_t taf_sim::getHomeNetworkMccMnc(taf_sim_Id_t simId, char *mccPtr,
     std::string mcc;
     std::string mnc;
     LE_INFO("getHomeNetworkMccMnc for simId %d", simId);
-    if (selectSimSlot(simId) != LE_OK) {
+    le_result_t selectResult = selectSimSlot(simId);
+    if (selectResult != LE_OK) {
         LE_ERROR("Invalid simId or failed to select SIM slot");
-        return LE_BAD_PARAMETER;
+        return PreserveSlotSelectionCapability(selectResult, LE_BAD_PARAMETER);
     }
     taf_pa_result_t paResult = taf_pa_sim_GetHomeNetworkMccMncStr((taf_pa_sim_Id_t)simId, mcc, mnc);
     if (paResult != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetHomeNetworkMccMncStr reason=%d", paResult);
-        return LE_FAULT;
+        return Utility::Convert::ConvertPaFailure(paResult);
     }
     LE_INFO("Retrieved MCC: %s, MNC: %s", mcc.c_str(), mnc.c_str());
     if (mcc.empty() || mnc.empty())
@@ -1984,9 +2013,10 @@ le_result_t taf_sim::getHomeNetworkMccMnc(taf_sim_Id_t simId, char *mccPtr,
 le_result_t taf_sim::UnlockCardByPin(taf_sim_Id_t simId,taf_sim_LockType_t lockType,
         const char* pinPtr)
 {
-    if(selectSimSlot(simId) != LE_OK)
+    le_result_t selectResult = selectSimSlot(simId);
+    if(selectResult != LE_OK)
     {
-        return LE_BAD_PARAMETER;
+        return PreserveSlotSelectionCapability(selectResult, LE_BAD_PARAMETER);
     }
     taf_pa_result_t paResult = taf_pa_sim_UnlockCardByPin((taf_pa_sim_LockType_t)lockType, pinPtr,
                 nullptr,std::any());
@@ -1994,7 +2024,7 @@ le_result_t taf_sim::UnlockCardByPin(taf_sim_Id_t simId,taf_sim_LockType_t lockT
     if (paResult != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_UnlockCardByPin reason=%d", paResult);
-        return LE_FAULT;
+        return Utility::Convert::ConvertPaFailure(paResult);
     }
     return LE_OK;
 }
@@ -2002,30 +2032,32 @@ le_result_t taf_sim::UnlockCardByPin(taf_sim_Id_t simId,taf_sim_LockType_t lockT
 le_result_t taf_sim::ChangeCardPin( taf_sim_Id_t simId, taf_sim_LockType_t lockType,
         const char* oldpinPtr, const char* newpinPtr)
 {
-    if(selectSimSlot(simId) != LE_OK) {
-        return LE_BAD_PARAMETER;
+    le_result_t selectResult = selectSimSlot(simId);
+    if(selectResult != LE_OK) {
+        return PreserveSlotSelectionCapability(selectResult, LE_BAD_PARAMETER);
     }
     taf_pa_result_t paResult = taf_pa_sim_ChangeCardPin((taf_pa_sim_LockType_t)lockType,oldpinPtr,newpinPtr,
                           nullptr,std::any());
     if (paResult != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_ChangeCardPin reason=%d", paResult);
-        return LE_FAULT;
+        return Utility::Convert::ConvertPaFailure(paResult);
     }
     return LE_OK;
 }
 
 le_result_t taf_sim::UnlockCardByPuk(taf_sim_Id_t  simId, taf_sim_LockType_t lockType,
         const char* pukPtr, const char* newpinPtr) {
-    if(selectSimSlot(simId) != LE_OK) {
-        return LE_BAD_PARAMETER;
+    le_result_t selectResult = selectSimSlot(simId);
+    if(selectResult != LE_OK) {
+        return PreserveSlotSelectionCapability(selectResult, LE_BAD_PARAMETER);
     }
     taf_pa_result_t paResult = taf_pa_sim_UnlockCardByPuk((taf_pa_sim_LockType_t)lockType,pukPtr,newpinPtr,
                            nullptr,std::any());
     if (paResult != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_UnlockCardByPuk reason=%d", paResult);
-        return LE_FAULT;
+        return Utility::Convert::ConvertPaFailure(paResult);
     }
     return LE_OK;
 }
@@ -2064,8 +2096,9 @@ taf_sim_States_t Utility::Convert::taf_Common_State_Result
 le_result_t taf_sim::SetCardLock(taf_sim_Id_t  simId, taf_sim_LockType_t lockType,
         const char* pinPtr, bool lockEnable)
 {
-    if(selectSimSlot(simId) != LE_OK) {
-        return LE_BAD_PARAMETER;
+    le_result_t selectResult = selectSimSlot(simId);
+    if(selectResult != LE_OK) {
+        return PreserveSlotSelectionCapability(selectResult, LE_BAD_PARAMETER);
     }
     if(lockEnable)
     {
@@ -2074,7 +2107,7 @@ le_result_t taf_sim::SetCardLock(taf_sim_Id_t  simId, taf_sim_LockType_t lockTyp
         if (paResult != TAF_PA_OK)
         {
             LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_SetCardLock reason=%d", paResult);
-            return LE_FAULT;
+            return Utility::Convert::ConvertPaFailure(paResult);
         }
         return LE_OK;
     }
@@ -2085,7 +2118,7 @@ le_result_t taf_sim::SetCardLock(taf_sim_Id_t  simId, taf_sim_LockType_t lockTyp
         if (paResult != TAF_PA_OK)
         {
             LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_SetCardUnLock reason=%d", paResult);
-            return LE_FAULT;
+            return Utility::Convert::ConvertPaFailure(paResult);
         }
         return LE_OK;
     }
@@ -2112,23 +2145,24 @@ le_result_t taf_sim::GetRemainingPukTries(taf_sim_Id_t simId,uint32_t* remaining
         return LE_BAD_PARAMETER;
     }
 
-    if (selectSimSlot(simId) != LE_OK) {
+    le_result_t selectResult = selectSimSlot(simId);
+    if (selectResult != LE_OK) {
         LE_ERROR("Failed to select SIM slot %d", simId);
-        return LE_BAD_PARAMETER;
+        return PreserveSlotSelectionCapability(selectResult, LE_BAD_PARAMETER);
     }
 
     uint32_t remainingPukTries = 0;
     taf_pa_result_t paResult = taf_pa_sim_GetRemainingPukTries((taf_pa_sim_Id_t) simId,&remainingPukTries);
 
-    le_result_t result = Utility::Convert::Result(paResult);
-
-    if (result == LE_OK) {
-        *remainingPukTriesPtr = remainingPukTries;
-        LE_DEBUG("Remaining PUK tries for simId %d: %u",simId, remainingPukTries);
-    } else {
+    if (paResult != TAF_PA_OK)
+    {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetRemainingPukTries reason=%d", paResult);
+        return Utility::Convert::ConvertPaFailure(paResult);
     }
-    return result;
+
+    *remainingPukTriesPtr = remainingPukTries;
+    LE_DEBUG("Remaining PUK tries for simId %d: %u",simId, remainingPukTries);
+    return LE_OK;
 }
 
 taf_sim_AuthenticationResponseHandlerRef_t taf_sim::AddAuthenticationResponseHandler(
@@ -2178,10 +2212,10 @@ le_result_t taf_sim::GetEID(taf_sim_Id_t simId, char *eidPtr, size_t eidLen)
     eidPtr[0] = '\0';
     std::string eidStr;
     taf_pa_result_t paResult =taf_pa_sim_GetEID((taf_pa_sim_Id_t) simId, eidStr);
-    le_result_t result = Utility::Convert::Result(paResult);
-    if (result != LE_OK) {
+    if (paResult != TAF_PA_OK)
+    {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetEID reason=%d", paResult);
-        return LE_FAULT;
+        return Utility::Convert::ConvertPaFailure(paResult);
     }
     if (eidStr.size() + 1 > eidLen) {
         LE_ERROR("EID buffer overflow for simId: %d, required: %zu, provided: %zu",simId, eidStr.size() + 1, eidLen);
@@ -2204,15 +2238,16 @@ le_result_t taf_sim::GetAutomaticSelection( bool* enablePtr) {
 
 le_result_t taf_sim::GetAppTypes(taf_sim_Id_t slotId, taf_sim_AppType_t* appTypePtr, size_t* appTypeNumElementsPtr) {
     *appTypeNumElementsPtr = 0;
-    if (selectSimSlot(slotId) != LE_OK) {
+    le_result_t selectResult = selectSimSlot(slotId);
+    if (selectResult != LE_OK) {
         LE_INFO("Selecting sim slot failed");
-        return LE_NOT_FOUND;
+        return PreserveSlotSelectionCapability(selectResult, LE_NOT_FOUND);
     }
     taf_pa_result_t paResult = taf_pa_sim_GetAppTypes((taf_pa_sim_AppType_t*)appTypePtr,appTypeNumElementsPtr);
     if (paResult != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetAppTypes reason=%d", paResult);
-        return LE_FAULT;
+        return Utility::Convert::ConvertPaFailure(paResult);
     }
     return LE_OK;
 }
@@ -2224,9 +2259,10 @@ le_result_t taf_sim::OpenLogicalChannel( taf_sim_Id_t simId, taf_sim_AppType_t a
         return LE_BAD_PARAMETER;
     }
 
-    if (selectSimSlot(simId) != LE_OK) {
+    le_result_t selectResult = selectSimSlot(simId);
+    if (selectResult != LE_OK) {
         LE_INFO("Selecting sim slot failed");
-        return LE_NOT_FOUND;
+        return PreserveSlotSelectionCapability(selectResult, LE_NOT_FOUND);
     }
     taf_pa_sim_AppType_t  paAppType = ConvertTafappTypeToPaappType(appType);
     if(paAppType != TAF_PA_APPTYPE_UNKNOWN)
@@ -2235,9 +2271,9 @@ le_result_t taf_sim::OpenLogicalChannel( taf_sim_Id_t simId, taf_sim_AppType_t a
         if (paResult != TAF_PA_OK)
         {
             LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_OpenLogicalChannel reason=%d", paResult);
+            return Utility::Convert::ConvertPaFailure(paResult);
         }
-        le_result_t result =Utility::Convert::Result(paResult);
-        return result;
+        return LE_OK;
     }
     return LE_FAULT;
 }
@@ -2253,30 +2289,32 @@ le_result_t taf_sim::OpenLogicalChannelByAid( taf_sim_Id_t simId, const char* ai
         LE_INFO("Invalid aid");
         return LE_BAD_PARAMETER;
     }
-    if (selectSimSlot(simId) != LE_OK) {
+    le_result_t selectResult = selectSimSlot(simId);
+    if (selectResult != LE_OK) {
         LE_INFO("Selecting sim slot failed");
-        return LE_NOT_FOUND;
+        return PreserveSlotSelectionCapability(selectResult, LE_NOT_FOUND);
     }
     taf_pa_result_t paResult = taf_pa_sim_OpenLogicalChannelByAid(aid,channelPtr,nullptr,{});
     if (paResult != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_OpenLogicalChannelByAid reason=%d", paResult);
+        return Utility::Convert::ConvertPaFailure(paResult);
     }
-    le_result_t result =Utility::Convert::Result(paResult);
-    return result;
+    return LE_OK;
 }
 
 le_result_t taf_sim::CloseLogicalChannel( taf_sim_Id_t simId, uint8_t channel) {
-    if (selectSimSlot(simId) != LE_OK) {
-        return LE_NOT_FOUND;
+    le_result_t selectResult = selectSimSlot(simId);
+    if (selectResult != LE_OK) {
+        return PreserveSlotSelectionCapability(selectResult, LE_NOT_FOUND);
     }
     taf_pa_result_t paResult = taf_pa_sim_CloseLogicalChannel(channel,nullptr,{});
     if (paResult != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_CloseLogicalChannel reason=%d", paResult);
+        return Utility::Convert::ConvertPaFailure(paResult);
     }
-    le_result_t result =Utility::Convert::Result(paResult);
-    return result;
+    return LE_OK;
 }
 
 le_result_t taf_sim::SendApduOnChannel( taf_sim_Id_t simId, uint8_t channel,
@@ -2303,8 +2341,9 @@ le_result_t taf_sim::SendApduOnChannel( taf_sim_Id_t simId, uint8_t channel,
     p2 = commandApduPtr[3];
     p3 = commandApduPtr[4];
 
-    if (selectSimSlot(simId) != LE_OK) {
-        return LE_NOT_FOUND;
+    le_result_t selectResult = selectSimSlot(simId);
+    if (selectResult != LE_OK) {
+        return PreserveSlotSelectionCapability(selectResult, LE_NOT_FOUND);
     }
     LE_DEBUG("SendApduOnChannel: Data size(p3) = %d and commandApduNumElements: %d,channel id: %d", (int)p3, (int)commandApduNumElements,channel);
 
@@ -2319,9 +2358,9 @@ le_result_t taf_sim::SendApduOnChannel( taf_sim_Id_t simId, uint8_t channel,
     if (paResult != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_SendApduOnLogicalChannel reason=%d", paResult);
+        return Utility::Convert::ConvertPaFailure(paResult);
     }
-    le_result_t result =Utility::Convert::Result(paResult);
-    return result;
+    return LE_OK;
 }
 
 le_result_t taf_sim::SendApdu( taf_sim_Id_t simId,const uint8_t* commandApduPtr, size_t commandApduNumElements,
@@ -2338,8 +2377,9 @@ le_result_t taf_sim::SendApdu( taf_sim_Id_t simId,const uint8_t* commandApduPtr,
         return LE_BAD_PARAMETER;
     }
 
-    if (selectSimSlot(simId) != LE_OK) {
-        return LE_NOT_FOUND;
+    le_result_t selectResult = selectSimSlot(simId);
+    if (selectResult != LE_OK) {
+        return PreserveSlotSelectionCapability(selectResult, LE_NOT_FOUND);
     }
     uint8_t cla, instruction, p1, p2, p3;
     std::vector<uint8_t> data;
@@ -2359,9 +2399,9 @@ le_result_t taf_sim::SendApdu( taf_sim_Id_t simId,const uint8_t* commandApduPtr,
     if (paResult != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_SendApdu reason=%d", paResult);
+        return Utility::Convert::ConvertPaFailure(paResult);
     }
-    le_result_t result =Utility::Convert::Result(paResult);
-    return result;
+    return LE_OK;
 }
 
 le_result_t taf_sim::SendCommand(
@@ -2374,9 +2414,10 @@ le_result_t taf_sim::SendCommand(
     uint8_t* responsePtr, size_t* responseNumElementsPtr
 )
 {
-    if (selectSimSlot(simId) != LE_OK) {
+    le_result_t selectResult = selectSimSlot(simId);
+    if (selectResult != LE_OK) {
         LE_INFO("Issue with simId");
-        return LE_NOT_FOUND;
+        return PreserveSlotSelectionCapability(selectResult, LE_NOT_FOUND);
     }
     TAF_ERROR_IF_RET_VAL(fileIdentifierPtr == NULL, LE_BAD_PARAMETER, "fileIdentifierPtr is NULL");
     TAF_ERROR_IF_RET_VAL(p1 == NULL, LE_BAD_PARAMETER, "p1 is NULL");
@@ -2410,16 +2451,18 @@ le_result_t taf_sim::SendCommand(
     if (paResult != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_ExchangeSimIO reason=%d", paResult);
+        return Utility::Convert::ConvertPaFailure(paResult);
     }
-    return Utility::Convert::Result(paResult);
+    return LE_OK;
 }
 
 le_result_t taf_sim::SetPower(taf_sim_Id_t simId, le_onoff_t powerState)
 {
-    if (selectSimSlot(simId) != LE_OK)
+    le_result_t selectResult = selectSimSlot(simId);
+    if (selectResult != LE_OK)
     {
         LE_INFO("Sim ID %d Invalid", simId);
-        return LE_BAD_PARAMETER;
+        return PreserveSlotSelectionCapability(selectResult, LE_BAD_PARAMETER);
     }
     if(!(powerState==LE_OFF || powerState==LE_ON))
     {
@@ -2430,7 +2473,7 @@ le_result_t taf_sim::SetPower(taf_sim_Id_t simId, le_onoff_t powerState)
     if (paResult != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_SetPower reason=%d", paResult);
-        return LE_FAULT;
+        return Utility::Convert::ConvertPaFailure(paResult);
     }
     return LE_OK;
 }
@@ -2440,12 +2483,12 @@ le_result_t taf_sim::Reset(taf_sim_Id_t simId)
     le_result_t r=SetPower(simId, LE_OFF);
     if(r!=LE_OK){
         LE_INFO("Powering off while resetting failed");
-        return LE_FAULT;
+        return r;
     }
     r = SetPower(simId, LE_ON);
     if(r!=LE_OK){
         LE_INFO("Powering on while resetting failed");
-        return LE_FAULT;
+        return r;
     }
     LE_INFO("SIM Reset successful");
     return LE_OK;
@@ -2529,14 +2572,16 @@ le_result_t taf_sim::IsEmergencyCallSubscriptionSelected
 
     *isEcs = false;
 
-    if (selectSimSlot(simId) != LE_OK) {
+    le_result_t selectResult = selectSimSlot(simId);
+    if (selectResult != LE_OK) {
         LE_INFO("Selecting sim slot failed");
-        return LE_BAD_PARAMETER;
+        return PreserveSlotSelectionCapability(selectResult, LE_BAD_PARAMETER);
     }
 
     taf_pa_sim_SlotId_t paSlot;
-    if (MapSimIdToPaSlot(simId, &paSlot) != LE_OK) {
-        return LE_BAD_PARAMETER;
+    le_result_t mapResult = MapSimIdToPaSlot(simId, &paSlot);
+    if (mapResult != LE_OK) {
+        return mapResult;
     }
 
     uint8_t profileCount = 0;
@@ -2544,7 +2589,7 @@ le_result_t taf_sim::IsEmergencyCallSubscriptionSelected
     if (profileNumRes != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetProfileNum reason=%d", profileNumRes);
-        return LE_FAULT;
+        return Utility::Convert::ConvertPaFailure(profileNumRes);
     }
     if (profileCount == 0) {
         LE_INFO("IsEmergencyCallSubscriptionSelected: profiles list is empty");
@@ -2639,7 +2684,8 @@ le_result_t taf_sim::SelectFileAndGetFCP(
     size_t  respLen = 0;
 
     le_result_t res = SendApduOnChannel(simId, channel, selectApdu, sizeof(selectApdu), respBuf, &respLen);
-    if (res != LE_OK || respLen < 2) return LE_FAULT;
+    if (res != LE_OK) return res;
+    if (respLen < 2) return LE_FAULT;
 
     uint8_t sw1 = respBuf[respLen - 2];
     uint8_t sw2 = respBuf[respLen - 1];
@@ -2672,7 +2718,7 @@ le_result_t taf_sim::SelectFileAndGetFCP(
                 return LE_FAULT;
             }
         } else {
-            return LE_FAULT;
+            return (res != LE_OK) ? res : LE_FAULT;
         }
     }
     else
@@ -2915,17 +2961,20 @@ taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(taf_sim_Id_t simId)
 le_result_t taf_sim::ClearFPLMNToFF(taf_sim_Id_t simId)
 {
     LE_INFO("ClearFPLMNToFF: Start");
-    if (selectSimSlot(simId) != LE_OK) return LE_FAULT;
+    le_result_t selectResult = selectSimSlot(simId);
+    if (selectResult != LE_OK) return PreserveSlotSelectionCapability(selectResult, LE_FAULT);
 
     uint8_t channel = 0;
-    if (OpenLogicalChannel(simId, TAF_SIM_APPTYPE_USIM, &channel) != LE_OK) return LE_FAULT;
+    le_result_t openResult = OpenLogicalChannel(simId, TAF_SIM_APPTYPE_USIM, &channel);
+    if (openResult != LE_OK) return openResult;
 
     uint8_t fileId[] = { 0x6F, 0x7B };
     uint16_t fileSize = 0;
 
-    if (SelectFileAndGetFCP(simId, channel, fileId, &fileSize) != LE_OK) {
+    le_result_t selectFileResult = SelectFileAndGetFCP(simId, channel, fileId, &fileSize);
+    if (selectFileResult != LE_OK) {
         CloseLogicalChannel(simId, channel);
-        return LE_FAULT;
+        return selectFileResult;
     }
 
     uint16_t writeLen = (fileSize > 0 && fileSize < 255) ? fileSize : 255;
@@ -2966,18 +3015,21 @@ le_result_t taf_sim::WriteFPLMNList
         return ClearFPLMNToFF(simId);
     }
 
-    if (selectSimSlot(simId) != LE_OK) return LE_FAULT;
+    le_result_t selectResult = selectSimSlot(simId);
+    if (selectResult != LE_OK) return PreserveSlotSelectionCapability(selectResult, LE_FAULT);
 
     uint8_t channel = 0;
-    if (OpenLogicalChannel(simId, TAF_SIM_APPTYPE_USIM, &channel) != LE_OK) return LE_FAULT;
+    le_result_t openResult = OpenLogicalChannel(simId, TAF_SIM_APPTYPE_USIM, &channel);
+    if (openResult != LE_OK) return openResult;
 
     uint8_t fileId[] = { 0x6F, 0x7B };
     uint16_t fileSize = 0;
 
-    if (SelectFileAndGetFCP(simId, channel, fileId, &fileSize) != LE_OK) {
+    le_result_t selectFileResult = SelectFileAndGetFCP(simId, channel, fileId, &fileSize);
+    if (selectFileResult != LE_OK) {
         LE_ERROR("WriteFPLMNList: Select Failed");
         CloseLogicalChannel(simId, channel);
-        return LE_FAULT;
+        return selectFileResult;
     }
 
     if (fileSize == 0) {
@@ -3044,7 +3096,11 @@ le_result_t taf_sim::WriteFPLMNList
     size_t respLen = sizeof(respBuf);
 
     le_result_t res = SendApduOnChannel(simId, channel, writeApdu.data(), writeApdu.size(), respBuf, &respLen);
-    if (res != LE_OK || respLen < 2) {
+    if (res != LE_OK) {
+        CloseLogicalChannel(simId, channel);
+        return res;
+    }
+    if (respLen < 2) {
         CloseLogicalChannel(simId, channel);
         return LE_FAULT;
     }
@@ -3071,6 +3127,7 @@ le_result_t taf_sim::getSlotCount(int *count) {
     if (result != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_IsSubsystemReady reason=%d", result);
+        return Utility::Convert::ConvertPaFailure(result);
     }
     *count = 1; //Single SIM by default
     if(result == TAF_PA_OK)
@@ -3082,7 +3139,7 @@ le_result_t taf_sim::getSlotCount(int *count) {
             if (paResult != TAF_PA_OK)
             {
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_getSlotCount reason=%d", paResult);
-                return LE_FAULT;
+                return Utility::Convert::ConvertPaFailure(paResult);
             }
             else
             {
@@ -3146,14 +3203,16 @@ le_result_t taf_sim::SwapSubscriptionInternal
         return LE_UNSUPPORTED;
     }
     if (toEmergency) {
-        if (selectSimSlot(simId) != LE_OK) {
-            return LE_BAD_PARAMETER;
+        le_result_t selectResult = selectSimSlot(simId);
+        if (selectResult != LE_OK) {
+            return PreserveSlotSelectionCapability(selectResult, LE_BAD_PARAMETER);
         }
     }
 
     taf_pa_sim_SlotId_t paSlot;
-    if (MapSimIdToPaSlot(simId, &paSlot) != LE_OK) {
-        return LE_BAD_PARAMETER;
+    le_result_t mapResult = MapSimIdToPaSlot(simId, &paSlot);
+    if (mapResult != LE_OK) {
+        return mapResult;
     }
 
     uint8_t profileCount = 0;
@@ -3161,7 +3220,7 @@ le_result_t taf_sim::SwapSubscriptionInternal
     if (profileNumRes2 != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetProfileNum reason=%d", profileNumRes2);
-        return LE_FAULT;
+        return Utility::Convert::ConvertPaFailure(profileNumRes2);
     }
     if (profileCount == 0) {
         LE_INFO("profiles list is empty");
@@ -3197,7 +3256,7 @@ le_result_t taf_sim::SwapSubscriptionInternal
     taf_pa_result_t paRes = taf_pa_sim_SetActiveProfile(paSlot, targetInfo->profileId);
     if (paRes != TAF_PA_OK) {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_SetActiveProfile reason=%d", paRes);
-        return LE_FAULT;
+        return Utility::Convert::ConvertPaFailure(paRes);
     }
     LE_INFO("SetActiveProfile requested successfully (slot=%d, profileId=%d)",(int)paSlot, (int)targetInfo->profileId);
     return LE_OK;

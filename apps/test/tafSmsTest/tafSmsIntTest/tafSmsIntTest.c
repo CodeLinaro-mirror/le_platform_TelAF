@@ -123,6 +123,25 @@ static bool TxPassed = false;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Returns true if the result indicates the chipset does not support/implement the API.
+ */
+//--------------------------------------------------------------------------------------------------
+static bool IsCapResult
+(
+    const char* apiName,
+    le_result_t res
+)
+{
+    if ((res == LE_CAP_NOT_IMPLEMENTED) || (res == LE_CAP_UNSUPPORTED))
+    {
+        LE_INFO("%s returned %s, test skipped", apiName, LE_RESULT_TXT(res));
+        return true;
+    }
+    return false;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Set semaphore timeout
  */
 //--------------------------------------------------------------------------------------------------
@@ -206,7 +225,13 @@ static void* SmsTxThread
 
     LE_INFO("taf_sms_SetCallback, set callback OK");
 
-    LE_ASSERT(taf_sms_Send(tmpMsg_1) == LE_OK);
+    le_result_t res = taf_sms_Send(tmpMsg_1);
+    if (IsCapResult("taf_sms_Send", res))
+    {
+        le_sem_Post(sem_TxTest);
+        le_event_RunLoop();
+    }
+    LE_ASSERT(res == LE_OK);
 
     le_thread_Sleep(TIME_TX_SEND);
 
@@ -354,9 +379,13 @@ static void RxHandler
 
     LE_INFO("taf_sms_GetReadStatus, read status OK");
 
-    LE_ASSERT(taf_sms_DeleteFromStorage(msgRef) == LE_OK);
+    le_result_t res = taf_sms_DeleteFromStorage(msgRef);
+    if (!IsCapResult("taf_sms_DeleteFromStorage", res))
+    {
+        LE_ASSERT(res == LE_OK);
 
-    LE_INFO("taf_sms_DeleteFromStorage, delete msg OK");
+        LE_INFO("taf_sms_DeleteFromStorage, delete msg OK");
+    }
 
     RxCount++;
 

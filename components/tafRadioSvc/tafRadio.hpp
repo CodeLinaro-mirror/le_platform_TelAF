@@ -599,7 +599,7 @@ class Utility
                  *      - LE_OUT_OF_RANGE if the PA layer returned TAF_PA_OUT_OF_RANGE.
                  *      - LE_BAD_PARAMETER if the PA layer returned TAF_PA_BAD_PARAMETER.
                  *      - LE_UNSUPPORTED if the PA layer returned TAF_PA_UNSUPPORTED.
-                 *      - LE_NOT_IMPLEMENTED if the PA layer returned TAF_PA_NOT_IMPLEMENTED.
+                 *      - LE_CAP_NOT_IMPLEMENTED if the PA layer returned TAF_PA_NOT_IMPLEMENTED.
                  */
                 static le_result_t Result
                 (
@@ -1117,7 +1117,7 @@ class Utility
                  *      - LE_OK on success.
                  *      - LE_BAD_PARAMETER on invalid inputs.
                  *      - LE_OUT_OF_RANGE if MCC/MNC is outside [0, 999].
-                 *      - LE_FAULT/LE_TIMEOUT/LE_UNSUPPORTED/LE_NOT_IMPLEMENTED depending on PA error.
+                 *      - LE_FAULT/LE_TIMEOUT/LE_UNSUPPORTED/LE_CAP_NOT_IMPLEMENTED depending on PA error.
                  */
                 static le_result_t ManualNetworkSelection
                 (

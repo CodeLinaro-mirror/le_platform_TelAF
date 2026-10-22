@@ -319,7 +319,7 @@ using namespace std;
                 le_result_t SetPsapNumber( const char* psapNumber );
                 le_result_t GetPsapNumber( char* psapNumber, size_t psapNumLength );
                 le_result_t UseUSimNumbers();
-                bool isIdle();
+                bool isIdle(le_result_t* resultPtr = nullptr);
                 le_result_t SetNadDeregistrationTime(uint16_t deregTime);
                 le_result_t GetNadDeregistrationTime(uint16_t* deregTime);
                 le_result_t TerminateRegistration();
@@ -331,7 +331,8 @@ using namespace std;
                 taf_ecall_TerminationReason_t GetTerminationReason ( taf_ecall_CallRef_t ecallRef);
                 taf_ecall_Type_t GetType ( taf_ecall_CallRef_t ecallRef);
                 le_result_t GetHlapTimerState(taf_ecall_HlapTimerType_t timerType, taf_ecall_HlapTimerStatus_t* timerStatus, uint16_t* elapsedTime);
-                taf_ecall_HlapTimerStatus_t GetHlapTimerStatus(taf_ecall_HlapTimerType_t timerType);
+                taf_ecall_HlapTimerStatus_t GetHlapTimerStatus(taf_ecall_HlapTimerType_t timerType,
+                    le_result_t* resultPtr = nullptr);
                 taf_ecall_HlapTimerStatus_t ConvertHlapTimerStatus(taf_pa_ecall_hlap_timer_state_t status);
                 uint16_t ConvertElapsedTime(const timespec& start);
                 static void T9TimerExpiryHandler(le_timer_Ref_t timerRef);

@@ -43,6 +43,21 @@ uint32_t msdVersion = 2;
 
 static void PrintUsage(void);
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Returns true and logs when the result shows the API is not supported on this chipset.
+ */
+//--------------------------------------------------------------------------------------------------
+static bool IsCapUnsupported(le_result_t res, const char* apiName)
+{
+    if (res == LE_CAP_NOT_IMPLEMENTED || res == LE_CAP_UNSUPPORTED)
+    {
+        LE_INFO("%s not supported on this chipset: %s, skipped", apiName, LE_RESULT_TXT(res));
+        return true;
+    }
+    return false;
+}
+
 static uint8_t msdRawData[39] = {2, 37, 28, 6, 128, 227, 10, 81, 67, 158, 41, 85, 212, 56, 0,
         128, 8, 55, 248, 12, 159, 215, 07, 240, 154, 148, 189, 211, 14, 85, 224, 128, 0, 0, 1,
         255, 255, 224, 64};
@@ -912,7 +927,7 @@ static int setPsapNumber()
     }
 
     le_result_t result = taf_ecall_SetPsapNumber(psapNum);
-    LE_TEST_OK(result == LE_OK, "setPsapNumber - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_SetPsapNumber"), "setPsapNumber - LE_OK");
     printf("Update PSAP number as %s is %s\n", psapNum, result == LE_OK ? "Success." : "Failed!!");
 
     return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
@@ -922,7 +937,7 @@ static int getPsapNumber()
 {
     char psapNumber[TAF_SIM_PHONE_NUM_MAX_LEN];
     le_result_t result = taf_ecall_GetPsapNumber(psapNumber, TAF_SIM_PHONE_NUM_MAX_LEN);
-    LE_TEST_OK(result == LE_OK || strcmp("None", psapNumber) == 0, "getPsapNumber - LE_OK");
+    LE_TEST_OK((result == LE_OK || strcmp("None", psapNumber) == 0) || IsCapUnsupported(result, "taf_ecall_GetPsapNumber"), "getPsapNumber - LE_OK");
     printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
     if (result == LE_OK) {
         printf("The PSAP Number is %s\n", psapNumber);
@@ -1022,7 +1037,7 @@ static int importMsd()
 static int useUSimNumbers()
 {
     le_result_t result = taf_ecall_UseUSimNumbers();
-    LE_TEST_OK(result == LE_OK, "useUSimNumbers - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_UseUSimNumbers"), "useUSimNumbers - LE_OK");
     printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
     LE_TEST_INFO("useUSimNumbers done");
 
@@ -1034,7 +1049,7 @@ static int getNadDeregTime()
     // Test Case
     uint16_t deregTimeOrg = 0;
     le_result_t result = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
-    LE_TEST_OK(result == LE_OK, "getNadDeregTime - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_GetNadDeregistrationTime"), "getNadDeregTime - LE_OK");
     printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
     if (result == LE_OK) {
         printf("NAD de-registration time: %d min.\n", deregTimeOrg);
@@ -1060,7 +1075,7 @@ static int setNadDeregTime()
     }
     uint16_t deregTime = atoi(time);
     le_result_t result = taf_ecall_SetNadDeregistrationTime(deregTime);
-    LE_TEST_OK(result == LE_OK, "setNadDeregTime - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_SetNadDeregistrationTime"), "setNadDeregTime - LE_OK");
     printf("Set de-reg time as %d is %s\n", deregTime, result == LE_OK ? "Success." : "Failed!");
 
     return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
@@ -1071,7 +1086,7 @@ static int getNadClearDownFallbackTime()
     // Test Case
     uint16_t ccftTime = 0;
     le_result_t result = taf_ecall_GetNadClearDownFallbackTime(&ccftTime);
-    LE_TEST_OK(result == LE_OK, "getNadClearDownFallbackTime - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_GetNadClearDownFallbackTime"), "getNadClearDownFallbackTime - LE_OK");
     printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
     if (result == LE_OK) {
         printf("NAD clear down fallback time: %d min.\n", ccftTime);
@@ -1097,7 +1112,7 @@ static int setNadClearDownFallbackTime()
     }
     uint16_t ccftTime = atoi(time);
     le_result_t result = taf_ecall_SetNadClearDownFallbackTime(ccftTime);
-    LE_TEST_OK(result == LE_OK, "setNadClearDownFallbackTime - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_SetNadClearDownFallbackTime"), "setNadClearDownFallbackTime - LE_OK");
     printf("Set clear down fallback time as %d is %s\n", ccftTime, result == LE_OK ? "Success." : "Failed!");
 
     return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
@@ -1108,7 +1123,7 @@ static int getNadMinNetworkRegistrationTime()
     // Test Case
     uint16_t minNwRegTime = 0;
     le_result_t result = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
-    LE_TEST_OK(result == LE_OK, "getNadMinNetworkRegistrationTime - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_GetNadMinNetworkRegistrationTime"), "getNadMinNetworkRegistrationTime - LE_OK");
     printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
     if (result == LE_OK) {
         printf("NAD min network registration time: %d min.\n", minNwRegTime);
@@ -1134,7 +1149,7 @@ static int setNadMinNetworkRegistrationTime()
     }
     uint16_t minNwRegTime = atoi(time);
     le_result_t result = taf_ecall_SetNadMinNetworkRegistrationTime(minNwRegTime);
-    LE_TEST_OK(result == LE_OK, "setNadMinNetworkRegistrationTime - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_SetNadMinNetworkRegistrationTime"), "setNadMinNetworkRegistrationTime - LE_OK");
     printf("Set min network registration time as %d is %s\n", minNwRegTime, result == LE_OK ? "Success." : "Failed!");
 
     return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
@@ -1526,7 +1541,7 @@ static int getHlapTimerState()
     taf_ecall_HlapTimerStatus_t timerStatus;
     uint16_t elapsedTime;
     le_result_t result = taf_ecall_GetHlapTimerState(hlapTimerType, &timerStatus, &elapsedTime);
-    LE_TEST_OK(result == LE_OK, "getHlapTimerState - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_GetHlapTimerState"), "getHlapTimerState - LE_OK");
     printf("Get eCall hlap timer status as: %d, elapsedTime as: %d\n", timerStatus, elapsedTime);
 
     return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
@@ -1537,7 +1552,7 @@ static int getIsInProgress()
     bool isInProgress = false;
     ECallRef = taf_ecall_Create();
     le_result_t result = taf_ecall_IsInProgress(ECallRef, &isInProgress);
-    LE_TEST_OK(result == LE_OK, "getIsInProgress - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_IsInProgress"), "getIsInProgress - LE_OK");
     printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
     if (result == LE_OK) {
         if (isInProgress == true)
@@ -1574,7 +1589,7 @@ static int setInitialDialAttempts()
     }
     uint8_t dialAttempts = atoi(attempts);
     le_result_t result = taf_ecall_SetInitialDialAttempts(dialAttempts);
-    LE_TEST_OK(result == LE_OK, "setInitialDialAttempts - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_SetInitialDialAttempts"), "setInitialDialAttempts - LE_OK");
     printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
     return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }
@@ -1611,7 +1626,7 @@ static int setInitialDialIntervalBetweenDialAttempts()
     }
 
     le_result_t result = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(dialInterval, count-2);
-    LE_TEST_OK(result == LE_OK, "setInitialDialIntervalBetweenDialAttempts - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_SetInitialDialIntervalBetweenDialAttempts"), "setInitialDialIntervalBetweenDialAttempts - LE_OK");
     printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
     return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }

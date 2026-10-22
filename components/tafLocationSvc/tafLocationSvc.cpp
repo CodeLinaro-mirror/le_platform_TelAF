@@ -1332,7 +1332,7 @@ void taf_locGnss_ForceWarmRestart
 * DESCRIPTION  :
 * DEPENDECY    :
 * PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_FAULT on failed
+* RETURN VALUES: LE_CAP_UNSUPPORTED, not supported on this platform
 */
 void taf_locGnss_ForceFactoryRestart
 (
@@ -1340,7 +1340,7 @@ void taf_locGnss_ForceFactoryRestart
 )
 {
     LE_DEBUG("Feature not Supported");
-    taf_locGnss_ForceFactoryRestartRespond(cmdRef, LE_UNSUPPORTED);
+    taf_locGnss_ForceFactoryRestartRespond(cmdRef, LE_CAP_UNSUPPORTED);
 }
 
 /**

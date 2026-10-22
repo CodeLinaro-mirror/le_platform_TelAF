@@ -468,6 +468,15 @@ void UdsCommunicationMgr::UdsTimerHandler
                 le_timer_SetMsInterval(udsCmMgr->testerStateTimerRef, eventReq->interval);
                 le_timer_Restart(udsCmMgr->testerStateTimerRef);
             }
+            else
+            {
+                LE_DEBUG("Start tester state timer, interval=%d", eventReq->interval);
+                le_timer_SetMsInterval(udsCmMgr->testerStateTimerRef, eventReq->interval);
+                le_timer_Start(udsCmMgr->testerStateTimerRef);
+
+                // Indicate the current tester state is ON.
+                IndicateTesterStateChange(eventReq->ifName, ON);
+            }
             break;
         #endif
         default:
@@ -845,17 +854,18 @@ void UdsCommunicationMgr::CheckAndRestartTesterStateTimer
     }
 
     testerStateTimer = TESTER_STATE_CHANGE_TIMER;
-    //If Tester state timer is running, restart it with smaller interval.
-    if(testerStateTimer < p2StarServerInterval*maxNumberOfRcrrp)
+
+    //NRC is sent or tester present resp is sent
+    if(!isRespFromSvc)
     {
-        //When a req is handled and NRC is sent or tester present resp is sent
-        if(!isRespFromSvc)
-        {
-            UdsTimerEventReport(TAF_UDS_TESTER_STATE_TIMER_CHECK_TO_RESTART, testerStateTimer,
-                (char*)interface);
-        }
-        //When resp is sent by app, restart the timer with a smaller value
-        else
+        UdsTimerEventReport(TAF_UDS_TESTER_STATE_TIMER_CHECK_TO_RESTART, testerStateTimer,
+            (char*)interface);
+    }
+    //Resp is sent from app
+    else
+    {
+        //If Tester state timer is running, restart it with smaller interval.
+        if(testerStateTimer < p2StarServerInterval*maxNumberOfRcrrp)
         {
             UdsTimerEventReport(TAF_UDS_TESTER_STATE_TIMER_RESTART, testerStateTimer,
                 (char*)interface);
@@ -4500,11 +4510,11 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
+    udsCmMgr->addrInfo = *addrInfoPtr;
     if (result == TAF_DOIP_RESULT_SA_DEREGISTERED)
     {
         LE_INFO("Disconnected, stopped the running timer");
 
-        udsCmMgr->addrInfo = *addrInfoPtr;
         udsCmMgr->UdsTimerEventReport(TAF_UDS_S3_TIMER_STOP, 0, addrInfoPtr->ifName);
     #ifdef LE_CONFIG_DIAG_FEATURE_A
         // Indicate the Tester state is OFF.
@@ -4637,7 +4647,6 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
-    udsCmMgr->addrInfo = *addrInfoPtr;
     size_t copyLen = (diagMsgPtr->dataLen < UDS_MAX_DATA_SIZE) ? diagMsgPtr->dataLen :
         UDS_MAX_DATA_SIZE;
     if (copyLen > 0)

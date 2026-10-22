@@ -210,6 +210,64 @@ COMPONENT_INIT
                     "diagDoIP_Init -> init failed");
 #endif
         }
+#ifdef LE_CONFIG_DIAG_FEATURE_A
+        else if (strcmp(vlanTypePtr,"multiVlanWithoutTesterState") == 0)
+        {
+            LE_INFO("multi vlan without tester state");
+            // Multi-VLAN test
+            LE_INFO("=====> Enter multi-VLAN sample.");
+            LE_FATAL_IF(diagVlanDoIP_Init() != LE_OK,
+                    "diagVlanDoIP_Init -> init failed");
+            LE_ERROR_IF(diagVlanReadWriteDid_Init() != LE_OK,
+                    "diagVlanReadWriteDid_Init -> init failed");
+            LE_FATAL_IF(diagVlanSecurityAccess_Init() != LE_OK,
+                    "diagVlanSecurityAccess_Init -> init failed");
+            LE_FATAL_IF(diagVlanRequestFileTransfer_Init() != LE_OK,
+                    "diagVlanRequestFileTransfer_Init -> init failed");
+            LE_FATAL_IF(diagVlanReset_Init() != LE_OK,
+                    "diagVlanReset_Init -> init failed");
+            LE_FATAL_IF(diagVlanRoutineControl_Init() != LE_OK,
+                    "diagVlanRoutineControl_Init -> init failed");
+            LE_FATAL_IF(diagVlanIOControl_Init() != LE_OK,
+                    "diagVlanIOControl_Init -> init failed");
+            LE_FATAL_IF(diagVlanAuth_Init(roleValue) != LE_OK,
+                    "diagVlanAuth_Init -> init failed");
+        }
+        else if(strcmp(vlanTypePtr,"multiVlanTesterState") == 0)
+        {
+            LE_INFO("multi vlan tester state");
+            LE_FATAL_IF(diagVlanDiag_Init() != LE_OK,
+                "diagVlan_Init -> init failed");
+        }
+        else if (strcmp(vlanTypePtr,"nonMultiVlanWithoutTesterState") == 0)
+        {
+            LE_INFO("non MultiVlan Without Tester State");
+            LE_ERROR_IF(diagReadWriteDid_Init() != LE_OK,
+                    "diagReadWriteDid_Init -> init failed");
+            LE_FATAL_IF(diagSecurityAccess_Init() != LE_OK,
+                    "diagSecurityAccess_Init -> init failed");
+            LE_FATAL_IF(diagRequestFileTransfer_Init() != LE_OK,
+                    "diagRequestFileTransfer_Init -> init failed");
+            LE_FATAL_IF(diagReset_Init() != LE_OK,
+                    "diagReset_Init -> init failed");
+            LE_FATAL_IF(diagRoutineControl_Init() != LE_OK,
+                    "diagRoutineControl_Init -> init failed");
+            LE_FATAL_IF(diagIOControl_Init() != LE_OK,
+                    "diagIOControl_Init -> init failed");
+            LE_FATAL_IF(diagAuth_Init(roleValue) != LE_OK,
+                    "diagAuth_Init -> init failed");
+#ifndef LE_CONFIG_DIAG_VSTACK
+            LE_FATAL_IF(diagDoIP_Init() != LE_OK,
+                    "diagDoIP_Init -> init failed");
+#endif
+        }
+        else if (strcmp(vlanTypePtr,"nonMultiVlanTesterState") == 0)
+        {
+            LE_INFO("non MultiVlan Tester State");
+            LE_ERROR_IF(diagCommon_Init() != LE_OK,
+                    "diagCommon_Init -> init failed");
+        }
+#endif
         else
         {
             printf("\n === multi vlan type argument is not correct ===\n");

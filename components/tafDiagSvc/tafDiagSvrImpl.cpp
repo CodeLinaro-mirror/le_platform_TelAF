@@ -330,6 +330,20 @@ void taf_DiagSvr::UDSMsgHandler
 
     if (sid == stateChangeId)
     {
+        // Message format: [sid, previous state, current state].
+        if (msgLen < 3)
+        {
+            LE_ERROR("Invalid tester state message length: %" PRIuS, msgLen);
+            return;
+        }
+
+        // Keep the latest state for handlers registered later.
+#ifdef LE_CONFIG_DIAG_VSTACK
+        UpdateTesterState(0, (taf_diag_State_t)msgPtr[2]);
+#else
+        UpdateTesterState(addrPtr->vlanId, (taf_diag_State_t)msgPtr[2]);
+#endif
+
         if (msgPtr[1] != msgPtr[2])
         {
             LE_DEBUG("DiagSvc VlanId = %d, previous state: %d and current state: %d",
@@ -433,7 +447,126 @@ taf_diag_TesterStateHandlerRef_t taf_DiagSvr::AddTesterStateHandler
     LE_INFO("TesterState: Registered Tester state change Handler for VLAN ID %d",
         servicePtr->targetVlanId);
 
+    // Immediately notify this client with the current tester state of its VLAN IDs.
+    NotifyCurrentTesterState(servicePtr, handlerObjPtr);
+
     return handlerObjPtr->handlerRef;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Update the latest tester state of a VLAN ID.
+ */
+//-------------------------------------------------------------------------------------------------
+void taf_DiagSvr::UpdateTesterState
+(
+    uint16_t vlanId,
+    taf_diag_State_t state
+)
+{
+    taf_DiagVlanTesterState_t* statePtr = FindTesterState(vlanId);
+    if (statePtr == NULL)
+    {
+        statePtr = (taf_DiagVlanTesterState_t*)le_mem_ForceAlloc(TesterStatePool);
+        statePtr->vlanId = vlanId;
+        statePtr->link = LE_DLS_LINK_INIT;
+        le_dls_Queue(&testerStateList, &statePtr->link);
+    }
+
+    statePtr->testerState = state;
+    LE_DEBUG("Tester state of VlanId %d updated to %d", vlanId, state);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Find the latest tester state of a VLAN ID.
+ */
+//-------------------------------------------------------------------------------------------------
+taf_DiagVlanTesterState_t* taf_DiagSvr::FindTesterState
+(
+    uint16_t vlanId
+)
+{
+    le_dls_Link_t* linkPtr = le_dls_Peek(&testerStateList);
+    while (linkPtr)
+    {
+        taf_DiagVlanTesterState_t* statePtr = CONTAINER_OF(linkPtr, taf_DiagVlanTesterState_t,
+                link);
+        if (statePtr->vlanId == vlanId)
+        {
+            return statePtr;
+        }
+        linkPtr = le_dls_PeekNext(&testerStateList, linkPtr);
+    }
+
+    return NULL;
+}
+
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Notify a handler with the latest tester state of a VLAN ID.
+ */
+//-------------------------------------------------------------------------------------------------
+void taf_DiagSvr::NotifyTesterState
+(
+    taf_TesterStateHandler_t* handlerObjPtr,
+    uint16_t vlanId
+)
+{
+    // The UDS stack starts with tester state OFF and only reports changes, so no recorded state
+    // means the tester state is still OFF.
+    taf_diag_State_t testerState = TAF_DIAG_OFF;
+    taf_DiagVlanTesterState_t* statePtr = FindTesterState(vlanId);
+    if (statePtr != NULL)
+    {
+        testerState = statePtr->testerState;
+    }
+
+    LE_INFO("Immediate notify client with current tester state: %d for VlanId %d",
+            testerState, vlanId);
+
+    // Create a short-lived state message, released after the handler returns.
+    taf_RxTesterStateMsg_t* rxStatePtr = (taf_RxTesterStateMsg_t*)le_mem_ForceAlloc(RxMsgPool);
+    memset(rxStatePtr, 0, sizeof(taf_RxTesterStateMsg_t));
+    rxStatePtr->addrInfo.vlanId = vlanId;
+    rxStatePtr->currentTesterState = testerState;
+    rxStatePtr->rxStateRef = (taf_diag_TesterStateRef_t)le_ref_CreateRef(RxTesterStateRefMap,
+            rxStatePtr);
+
+    // Call the client handler directly.
+    handlerObjPtr->func(rxStatePtr->rxStateRef, vlanId, rxStatePtr->currentTesterState,
+            handlerObjPtr->ctxPtr);
+
+    le_ref_DeleteRef(RxTesterStateRefMap, rxStatePtr->rxStateRef);
+    le_mem_Release(rxStatePtr);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Notify a handler with the latest tester state of all VLAN IDs of the service.
+ */
+//-------------------------------------------------------------------------------------------------
+void taf_DiagSvr::NotifyCurrentTesterState
+(
+    taf_DiagSvc_t* servicePtr,
+    taf_TesterStateHandler_t* handlerObjPtr
+)
+{
+    // A service without VLAN ID receives the state of VLAN ID 0.
+    if (le_dls_NumLinks(&servicePtr->supportedVlanList) == 0)
+    {
+        NotifyTesterState(handlerObjPtr, 0);
+        return;
+    }
+
+    le_dls_Link_t* linkPtr = le_dls_Peek(&servicePtr->supportedVlanList);
+    while (linkPtr)
+    {
+        taf_DiagVlanIdNode_t *vlanPtr = CONTAINER_OF(linkPtr, taf_DiagVlanIdNode_t, link);
+        NotifyTesterState(handlerObjPtr, vlanPtr->vlanId);
+        linkPtr = le_dls_PeekNext(&servicePtr->supportedVlanList, linkPtr);
+    }
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -1064,6 +1197,7 @@ void taf_DiagSvr::Init
     CancelFileXferCbPool = le_mem_CreatePool("CancelFileXferCbPool",
             sizeof(taf_CancelFileXferHandler_t));
     VlanPool = le_mem_CreatePool("DiagVlanPool", sizeof(taf_DiagVlanIdNode_t));
+    TesterStatePool = le_mem_CreatePool("DiagTesterStatePool", sizeof(taf_DiagVlanTesterState_t));
 
     // Create reference maps
     SvcRefMap = le_ref_CreateMap("DiagSvcRefMap", DEFAULT_SVC_REF_CNT);

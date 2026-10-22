@@ -90,6 +90,9 @@ breathe_domain_by_extension = {
     "h" : "cpp"
 }
 
+# Recognize the non-null pointer annotation emitted by ifgen.
+cpp_id_attributes = ['LE_NONNULL']
+
 #############################
 # Exhale extension
 #############################

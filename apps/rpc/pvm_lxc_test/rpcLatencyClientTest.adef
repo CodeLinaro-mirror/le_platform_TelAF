@@ -1,0 +1,22 @@
+username: telaf
+maxThreads: 600
+sandboxed: false
+executables:
+{
+    rpcLatencyClientTest = (rpcLatencyClientComp)
+}
+
+processes:
+{
+    faultAction: restart
+
+    run:
+    {
+        (rpcLatencyClientTest)
+    }
+}
+
+bindings:
+{
+    rpcLatencyClientTest.rpcLatencyClientComp.rpcLatency -> <telaf>.rpcServer_101_telaf_rpcLatency
+}

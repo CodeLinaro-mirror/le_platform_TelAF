@@ -449,6 +449,14 @@ void Connection::ConsumeTCPData
             if (doipResult != TAF_DOIP_RESULT_OK)
             {
                 LE_ERROR("DoIP header error!, ret=0x%x\n", doipResult);
+                if (connection->connState == TAF_DOIP_CONNECT_STATE_FINALIZE)
+                {
+                    // If the NACK is TAF_DOIP_HEADER_NACK_INCORRECT_PATTERN_FORMAT
+                    // or TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH, the connection
+                    // will be deleted.
+                    return;
+                }
+
                 // Reset the buffer.
                 connection->inBuf->dataSize    = 0;
                 connection->inBuf->dataPos     = 0;
@@ -483,6 +491,14 @@ void Connection::ConsumeTCPData
             if (doipResult != TAF_DOIP_RESULT_OK)
             {
                 LE_ERROR("DoIP header error!, ret=0x%x\n", doipResult);
+                if (connection->connState == TAF_DOIP_CONNECT_STATE_FINALIZE)
+                {
+                    // If the NACK is TAF_DOIP_HEADER_NACK_INCORRECT_PATTERN_FORMAT
+                    // or TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH, the connection
+                    // will be deleted.
+                    return;
+                }
+
                 // Reset the buffer.
                 connection->inBuf->dataSize    = 0;
                 connection->inBuf->dataPos     = 0;

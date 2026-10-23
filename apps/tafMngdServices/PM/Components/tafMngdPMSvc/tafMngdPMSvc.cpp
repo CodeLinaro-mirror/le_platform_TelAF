@@ -116,16 +116,21 @@ le_result_t taf_mngdPm_ShutdownReqAsync(taf_mngdPm_ShutdownMode_t mode,
     if (mpms.RequestStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN) != LE_OK)
     {
         handlerPtr(mode, TAF_MNGDPM_NOT_READY, LE_OK, contextPtr);
+        LE_WARN("MPMS not in a shutdownable state (currentState=%d)",
+                mpms.stateMachine.currentState);
         return LE_OK;
     }
     mpms.powerMode.isForceful = true;
     tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN);
     if(mpms.pmInf && mpms.pmInf->nodeStateChangePrepareAsync)
     {
-        LE_DEBUG("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_NORMAL);
         const uint8_t shutdownReason = (uint8_t)reason;
+        LE_DEBUG("Open shutdown window, send prepare mode=%d reason=%d, start ack timer",
+                HAL_PM_SHUTDOWN_MODE_NORMAL, shutdownReason);
         mpms.statePtr = SYSTEM_NORMAL_SHUTDOWN;
         le_timer_SetContextPtr(mpms.vhalAckTimerRef, &(mpms.statePtr));
+        // Reset race guard before starting timer so the first of {CB, timer} wins.
+        tafMngdPMSvc::vhalRespHandled = false;
         le_timer_Start(mpms.vhalAckTimerRef);
         mpms.shutdownCB.shutdownCallbackFunc = handlerPtr;
         mpms.shutdownCB.shutdownCBCtxPtr = contextPtr;
@@ -196,6 +201,8 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
             else
             {
                 handlerPtr(mode, TAF_MNGDPM_NOT_READY, LE_OK, contextPtr);
+                LE_WARN("RestartReqAsync(SYSTEM_OFF_ON): MPMS not shutdownable (currentState=%d)",
+                        mpms.stateMachine.currentState);
                 return LE_OK;
             }
         }
@@ -218,6 +225,8 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
             else
             {
                 handlerPtr(mode, TAF_MNGDPM_NOT_READY, LE_OK, contextPtr);
+                LE_WARN("RestartReqAsync(NAD_REBOOT): MPMS not restartable (currentState=%d)",
+                        mpms.stateMachine.currentState);
                 return LE_OK;
             }
         }
@@ -228,10 +237,12 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
         const uint8_t restartReason = (uint8_t)reason;
         if(mode == TAF_MNGDPM_RESTART_SYSTEM_OFF_ON)
         {
-            LE_DEBUG("Send restartReqAsync %d", HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF);
+            LE_INFO("Open restart(SYSTEM_OFF_ON) window, send prepare, start ack timer");
             mpms.powerMode.isShutDown = true;
             mpms.statePtr = RESTART_WITH_NAD_POWER_OFF_ON;
             le_timer_SetContextPtr(mpms.vhalAckTimerRef, &(mpms.statePtr));
+            // Reset race guard before starting timer so the first of {CB, timer} wins.
+            tafMngdPMSvc::vhalRespHandled = false;
             le_timer_Start(mpms.vhalAckTimerRef);
             mpms.restartCB.restartCallbackFunc = handlerPtr;
             mpms.restartCB.restartCBCtxPtr = contextPtr;
@@ -241,10 +252,12 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
         }
         else if(mode == TAF_MNGDPM_RESTART_MODE_NAD_REBOOT)
         {
-            LE_DEBUG("Send restartReqAsync %d", HAL_PM_RESTART_MODE_NAD_REBOOT);
+            LE_DEBUG("Open restart(NAD_REBOOT) window, send prepare, start ack timer");
             mpms.powerMode.isRestart = true;
             mpms.statePtr = RESTART_WITH_NAD_REBOOT;
             le_timer_SetContextPtr(mpms.vhalAckTimerRef, &(mpms.statePtr));
+            // Reset race guard before starting timer so the first of {CB, timer} wins.
+            tafMngdPMSvc::vhalRespHandled = false;
             le_timer_Start(mpms.vhalAckTimerRef);
             mpms.restartCB.restartCallbackFunc = handlerPtr;
             mpms.restartCB.restartCBCtxPtr = contextPtr;
@@ -864,8 +877,7 @@ le_result_t taf_mngdPm_StayAwake(taf_mngdPm_wsRef_t wsRef)
             }
             else
             {
-                LE_INFO("Non authorized StayAwakeReason for stayawake");
-                if (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SUSPEND || mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SUSPENDING)
+                if (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SUSPEND)
                 {
                     wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
                     LE_ERROR("StayAwake LE_NOT_PERMITTED: unauthorized Wake Source State: %d, current system state: %d",wsRefCtxPtr->wakeSourceState, mpms.stateMachine.currentState);
@@ -1728,6 +1740,11 @@ COMPONENT_INIT
     // Initialize new internal event ID and handler for thread-safe processing of NodeEventCB
     mpms.nodeInternalEvent = le_event_CreateId("NodeInternalEvent", sizeof(taf_mngdPm_NodeEventData_t));
     le_event_AddHandler("NodeInternalEventHandler", mpms.nodeInternalEvent, mpms.NodeInternalEventHandler);
+
+    // Thread-hop VHAL prepare responses to the main loop: the driver-thread CBs only
+    // le_event_Report; all logic runs in VhalPrepareRespHandler.
+    mpms.vhalPrepareRespEvent = le_event_CreateId("vhalPrepareResp", sizeof(vhalPrepareRespPayload_t));
+    le_event_AddHandler("vhalPrepareRespHandler", mpms.vhalPrepareRespEvent, tafMngdPMSvc::VhalPrepareRespHandler);
 
     //Init RPC
     auto &rpcPm = tafMngdRpcPm::GetInstance();

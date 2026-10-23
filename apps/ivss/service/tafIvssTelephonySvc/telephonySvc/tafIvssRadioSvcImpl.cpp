@@ -550,17 +550,19 @@ void tafIvssRadioSvc::GetNetRegStateHandler
     TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
 
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
-    indPtr->result = taf_radio_GetRadioAccessTechInUse(&indPtr->getNetRegState.rat,
+    indPtr->result = taf_radio_GetNetRegState(&indPtr->getNetRegState.netReg,
         indPtr->getNetRegState.phoneId);
     TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
-        "taf_radio_GetRadioAccessTechInUse failed - %s", LE_RESULT_TXT(indPtr->result));
+        "taf_radio_GetNetRegState failed - %s", LE_RESULT_TXT(indPtr->result));
 
-    indPtr->getNetRegState.cellId = taf_radio_GetServingCellId(indPtr->getNetRegState.phoneId);
-    if (indPtr->getNetRegState.cellId == UINT32_MAX)
+    // Only query MCC/MNC, RAT and CellId when registered (HOME or ROAMING).
+    if (indPtr->getNetRegState.netReg != TAF_RADIO_NET_REG_STATE_HOME &&
+        indPtr->getNetRegState.netReg != TAF_RADIO_NET_REG_STATE_ROAMING)
     {
-        indPtr->result = LE_FAULT;
-        TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
-            "taf_radio_GetServingCellId failed - %s", LE_RESULT_TXT(indPtr->result));
+        LE_INFO("Not registered (state=%d), skip MCC/MNC/RAT/CellId queries.",
+            static_cast<int>(indPtr->getNetRegState.netReg));
+        le_sem_Post(indPtr->semRef);
+        return;
     }
 
     indPtr->result = taf_radio_GetCurrentNetworkMccMnc(indPtr->getNetRegState.mcc,
@@ -569,10 +571,12 @@ void tafIvssRadioSvc::GetNetRegStateHandler
     TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
         "taf_radio_GetCurrentNetworkMccMnc failed - %s", LE_RESULT_TXT(indPtr->result));
 
-    indPtr->result = taf_radio_GetNetRegState(&indPtr->getNetRegState.netReg,
+    indPtr->result = taf_radio_GetRadioAccessTechInUse(&indPtr->getNetRegState.rat,
         indPtr->getNetRegState.phoneId);
     TAF_ERROR_IF_COND_POST_SEM(indPtr->result != LE_OK, indPtr->semRef,
-        "taf_radio_GetNetRegState failed - %s", LE_RESULT_TXT(indPtr->result));
+        "taf_radio_GetRadioAccessTechInUse failed - %s", LE_RESULT_TXT(indPtr->result));
+
+    indPtr->getNetRegState.cellId = taf_radio_GetServingCellId(indPtr->getNetRegState.phoneId);
 
     le_sem_Post(indPtr->semRef);
 }
@@ -986,6 +990,28 @@ void tafIvssRadioSvc::taf_ivss_radio_CellInfoChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for network registration state change.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssRadioSvc::taf_ivss_radio_NetRegStateHandler
+(
+    taf_radio_NetRegStateInd_t* netRegStateIndPtr, ///< [IN] Indication on net reg state change.
+    void* contextPtr                               ///< [IN] Handler context.
+)
+{
+    TAF_ERROR_IF_RET_NIL(netRegStateIndPtr == NULL, "Null ptr(netRegStateIndPtr)");
+
+    LE_DEBUG("tafIvssRadioSvc NetRegState Event: phoneId=%d state=%d",
+        netRegStateIndPtr->phoneId, static_cast<int>(netRegStateIndPtr->state));
+
+    auto ivssRadio = tafIvssRadioSvc::GetInstance();
+    ivssRadio->fireNetRegStateEvent(RadioSvcTypes::ValueState::VALUE_STATE_VALID,
+        PhoneIdUint8ToIvssRadio(netRegStateIndPtr->phoneId),
+        NetRegRadioToIvss(netRegStateIndPtr->state));
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for Radio Access Technology change.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1083,6 +1109,8 @@ void tafIvssRadioSvc::Init
         (taf_radio_CellInfoChangeHandlerFunc_t)taf_ivss_radio_CellInfoChangeHandler, NULL);
     RatChangeHandlerRef = taf_radio_AddRatChangeHandler(
         (taf_radio_RatChangeHandlerFunc_t)taf_ivss_radio_RatChangeHandler, NULL);
+    NetRegStateEventHandlerRef = taf_radio_AddNetRegStateEventHandler(
+        (taf_radio_NetRegStateHandlerFunc_t)taf_ivss_radio_NetRegStateHandler, NULL);
 
     LE_INFO("tafIvssRadioSvc Service initialized");
 };

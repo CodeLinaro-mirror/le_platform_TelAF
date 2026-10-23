@@ -165,11 +165,15 @@ le_result_t taf_mrc_SendSyncStatusMsg
     }
 
     // Wait until the daemon reports that it has processed the ABSYNC status update.
-    le_clk_Time_t time = { .sec = RESP_TIMEOUT };
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    ts.tv_sec += RESP_TIMEOUT;
     auto& mrcFactory = MRCFactory::GetInstance();
-    result = le_sem_WaitWithTimeOut(mrcFactory.semaphores.abSync, time);
-    if (result != LE_OK)
+    if (sem_clockwait(&mrcFactory.semaphores.abSync, CLOCK_MONOTONIC, &ts) != 0)
+    {
         LE_ERROR("Timeout for MRC to handle AB sync status.");
+        return LE_TIMEOUT;
+    }
 
     return LE_OK;
 }

@@ -44,7 +44,7 @@ Automatic Data Connection Establishment
          Svc->>App: a.4. DATA_CONNECTED
 
          Note over App,Svc: Query IP address
-         App->>Svc: a.5. taf_mngdConn_DataGetConnectionIPAddresses()
+         App->>Svc: a.5. taf_mngdConn_GetDataConnectionIPAddresses()
          Svc-->>App: IP Addresses
 
 .. list-table::
@@ -125,7 +125,7 @@ Customer Application Triggered Data Connection Establishment
          Svc->>App: a.10. DATA_CONNECTED
 
          Note over App,Svc: Query IP address
-         App->>Svc: a.11. taf_mngdConn_DataGetConnectionIPAddresses()
+         App->>Svc: a.11. taf_mngdConn_GetDataConnectionIPAddresses()
          Svc-->>App: IP Addresses
 
 .. list-table::

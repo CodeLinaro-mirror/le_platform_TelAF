@@ -8,7 +8,6 @@ startGroup: 11
 
 capability:
 {
-    CAP_WAKE_ALARM
     CAP_SYS_ADMIN
 #if ${LE_CONFIG_TEST_COVERAGE} = y
     CAP_DAC_READ_SEARCH

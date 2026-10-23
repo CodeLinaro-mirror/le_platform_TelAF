@@ -1622,6 +1622,13 @@ le_result_t TafDcsProfileManager::SvcGetAPNThrottledStatus
     }
     else
     {
+        taf_dcs_Pdp_t pdp = TAF_DCS_PDP_UNKNOWN;
+        profile.GetPdp(pdp);
+
+        if (pdp == TAF_DCS_PDP_UNKNOWN) {
+            LE_WARN("Profile PDP type is UNKNOWN; passing through both throttle times");
+        }
+
         // Update the throttled status in the profiles.
         for (auto &throttledApnEventInfo : throttledApnEventInfoList)
         {
@@ -1630,9 +1637,10 @@ le_result_t TafDcsProfileManager::SvcGetAPNThrottledStatus
                 if (profileId == static_cast<uint32_t>(paProfileId))
                 {
                     *isThrottledPtr       = true;
-                    *ipv4RemainingTimePtr = throttledApnEventInfo.ipv4Time;
-                    *ipv6RemainingTimePtr = throttledApnEventInfo.ipv6Time;
-                    LE_DEBUG ("Throttled APN      : %s", throttledApnEventInfo.apn.c_str());
+                    *ipv4RemainingTimePtr = (pdp == TAF_DCS_PDP_IPV6) ? 0 : throttledApnEventInfo.ipv4Time;
+                    *ipv6RemainingTimePtr = (pdp == TAF_DCS_PDP_IPV4) ? 0 : throttledApnEventInfo.ipv6Time;
+                    LE_DEBUG ("Throttled APN      : %s,", throttledApnEventInfo.apn.c_str());
+                    LE_DEBUG ("PDP                : %d,", pdp);
                     LE_DEBUG ("IPv4 remaining time: %u", *ipv4RemainingTimePtr);
                     LE_DEBUG ("IPv6 remaining time: %u", *ipv6RemainingTimePtr);
                     return LE_OK;
@@ -3657,11 +3665,18 @@ le_result_t TafDcsProfileManager::sendThrottledApnEvent
 
     GET_DCS_PROFILE_FROM_ID_RET_VAL(eventPtr->phoneId, eventPtr->profileId, LE_NOT_FOUND);
 
+    taf_dcs_Pdp_t pdp = TAF_DCS_PDP_UNKNOWN;
+    profile.GetPdp(pdp);
+
+    if (pdp == TAF_DCS_PDP_UNKNOWN) {
+        LE_WARN("Profile PDP type is UNKNOWN; passing through both throttle times");
+    }
+
     // Transform to external DCS struct
     taf_dcs_ThrottledApnEvent_t event;
     event.profileRef  = profile.GetReference();
-    event.ipv4Time    = eventPtr->ipv4Time;
-    event.ipv6Time    = eventPtr->ipv6Time;
+    event.ipv4Time    = (pdp == TAF_DCS_PDP_IPV6) ? 0 : eventPtr->ipv4Time;
+    event.ipv6Time    = (pdp == TAF_DCS_PDP_IPV4) ? 0 : eventPtr->ipv6Time;
     event.isthrottled = eventPtr->isBlockedOnAllPLMNs;
 
     // Send the external event

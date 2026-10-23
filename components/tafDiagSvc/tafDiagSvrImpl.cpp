@@ -923,6 +923,9 @@ le_result_t taf_DiagSvr::Pause
 {
     taf_uds_DiagMsg_t diagMsg;
     taf_uds_AddrInfo_t addrInfo;
+    uint8_t dummy = 0;
+    diagMsg.dataPtr = &dummy; //dataPtr is not used, initialize it with dummy
+    diagMsg.dataLen = sizeof(dummy);
 
     TAF_ERROR_IF_RET_VAL(svcRef == NULL, LE_BAD_PARAMETER, "Invalid service reference");
     taf_DiagSvc_t* servicePtr = (taf_DiagSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
@@ -942,6 +945,9 @@ le_result_t taf_DiagSvr::Resume
 {
     taf_uds_DiagMsg_t diagMsg;
     taf_uds_AddrInfo_t addrInfo;
+    uint8_t dummy = 0;
+    diagMsg.dataPtr = &dummy; //dataPtr is not used, initialize it with dummy
+    diagMsg.dataLen = sizeof(dummy);
 
     TAF_ERROR_IF_RET_VAL(svcRef == NULL, LE_BAD_PARAMETER, "Invalid service reference");
     taf_DiagSvc_t* servicePtr = (taf_DiagSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);

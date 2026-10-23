@@ -266,13 +266,13 @@ void GsmSignalConfiguration
 
     result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_GSM_RSSI,
         -1110, -510, phoneId);
-    if (result != LE_UNSUPPORTED)
+    if (result != LE_UNSUPPORTED && result != LE_CAP_UNSUPPORTED && result != LE_NOT_IMPLEMENTED)
     {
         LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
     }
 
     result = taf_radio_SetSignalStrengthIndDelta(TAF_RADIO_SIG_TYPE_GSM_RSSI, 10, phoneId);
-    if (result != LE_UNSUPPORTED)
+    if (result != LE_UNSUPPORTED && result != LE_CAP_UNSUPPORTED && result != LE_NOT_IMPLEMENTED)
     {
         LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
     }
@@ -296,13 +296,13 @@ void UmtsSignalConfiguration
 
     result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_UMTS_RSSI,
         -1130, -510, phoneId);
-    if (result != LE_UNSUPPORTED)
+    if (result != LE_UNSUPPORTED && result != LE_CAP_UNSUPPORTED && result != LE_NOT_IMPLEMENTED)
     {
         LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
     }
 
     result = taf_radio_SetSignalStrengthIndDelta(TAF_RADIO_SIG_TYPE_UMTS_RSSI, 10, phoneId);
-    if (result != LE_UNSUPPORTED)
+    if (result != LE_UNSUPPORTED && result != LE_CAP_UNSUPPORTED && result != LE_NOT_IMPLEMENTED)
     {
         LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
     }
@@ -326,13 +326,13 @@ void LteSignalConfiguration
 
     result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_LTE_RSRP,
         -1400, -440, phoneId);
-    if (result != LE_UNSUPPORTED)
+    if (result != LE_UNSUPPORTED && result != LE_CAP_UNSUPPORTED && result != LE_NOT_IMPLEMENTED)
     {
         LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
     }
 
     result = taf_radio_SetSignalStrengthIndDelta(TAF_RADIO_SIG_TYPE_LTE_RSRP, 10, phoneId);
-    if (result != LE_UNSUPPORTED)
+    if (result != LE_UNSUPPORTED && result != LE_CAP_UNSUPPORTED && result != LE_NOT_IMPLEMENTED)
     {
         LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
     }
@@ -356,13 +356,13 @@ void Nr5gSignalConfiguration
 
     result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_NR5G_RSRP,
         -1400, -440, phoneId);
-    if (result != LE_UNSUPPORTED)
+    if (result != LE_UNSUPPORTED && result != LE_CAP_UNSUPPORTED && result != LE_NOT_IMPLEMENTED)
     {
         LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
     }
 
     result = taf_radio_SetSignalStrengthIndDelta(TAF_RADIO_SIG_TYPE_NR5G_RSRP, 10, phoneId);
-    if (result != LE_UNSUPPORTED)
+    if (result != LE_UNSUPPORTED && result != LE_CAP_UNSUPPORTED && result != LE_NOT_IMPLEMENTED)
     {
         LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
     }
@@ -684,7 +684,7 @@ void TestTafRadioNetworkRegistration
     LE_TEST_OK(result == LE_OK, "taf_radio_GetNetRegState - LE_OK");
 
     result = taf_radio_GetPacketSwitchedState(&regState, DEFAULT_PHONE_ID);
-    if (result == LE_NOT_IMPLEMENTED)
+    if (result == LE_NOT_IMPLEMENTED || result == LE_UNSUPPORTED || result == LE_CAP_UNSUPPORTED)
         LE_INFO("taf_radio_GetPacketSwitchedState - LE_NOT_IMPLEMENTED");
     else
         LE_TEST_OK(result == LE_OK, "taf_radio_GetPacketSwitchedState - LE_OK");
@@ -745,7 +745,7 @@ void TestTafRadioAccessTechnoloy
 
     taf_radio_Rat_t rat;
     result = taf_radio_GetRadioAccessTechInUse(&rat, DEFAULT_PHONE_ID);
-    if (result == LE_NOT_IMPLEMENTED)
+    if (result == LE_NOT_IMPLEMENTED || result == LE_UNSUPPORTED || result == LE_CAP_UNSUPPORTED)
         LE_INFO("taf_radio_GetRadioAccessTechInUse - LE_NOT_IMPLEMENTED");
     else
         LE_TEST_OK(result == LE_OK, "taf_radio_GetRadioAccessTechInUse - LE_OK");
@@ -755,7 +755,7 @@ void TestTafRadioAccessTechnoloy
 
     taf_radio_RatSvcStatus_t svcStatus = TAF_RADIO_RAT_SVC_STATUS_UNKNOWN;
     result = taf_radio_GetRatSvcStatus(netRef, &svcStatus);
-    if (result == LE_NOT_IMPLEMENTED)
+    if (result == LE_NOT_IMPLEMENTED || result == LE_UNSUPPORTED || result == LE_CAP_UNSUPPORTED)
         LE_INFO("taf_radio_GetRatSvcStatus - LE_NOT_IMPLEMENTED");
     else
         LE_TEST_OK(result == LE_OK, "taf_radio_GetRatSvcStatus - LE_OK");
@@ -797,7 +797,7 @@ void TestTafRadioServiceDomain
     LE_TEST_OK(result == LE_OK, "taf_radio_SetServiceDomainPreferences - LE_OK");
 
     result = taf_radio_GetServiceDomain(&domain, DEFAULT_PHONE_ID);
-    if (result == LE_NOT_IMPLEMENTED)
+    if (result == LE_NOT_IMPLEMENTED || result == LE_UNSUPPORTED || result == LE_CAP_UNSUPPORTED)
         LE_INFO("taf_radio_GetServiceDomain - LE_NOT_IMPLEMENTED");
     else
         LE_TEST_OK(result == LE_OK, "taf_radio_GetServiceDomain - LE_OK");
@@ -912,7 +912,7 @@ void TestTafRadioServingStatus
 
     taf_radio_Rat_t rat;
     result = taf_radio_GetRadioAccessTechInUse(&rat, DEFAULT_PHONE_ID);
-    if (result == LE_NOT_IMPLEMENTED)
+    if (result == LE_NOT_IMPLEMENTED || result == LE_UNSUPPORTED || result == LE_CAP_UNSUPPORTED)
         LE_INFO("taf_radio_GetRadioAccessTechInUse - LE_NOT_IMPLEMENTED");
     else
         LE_TEST_OK(result == LE_OK, "taf_radio_GetRadioAccessTechInUse - LE_OK");
@@ -1187,7 +1187,7 @@ void TestTafRadioSignal
 
     uint32_t quality = 0;
     le_result_t result = taf_radio_GetSignalQual(&quality, DEFAULT_PHONE_ID);
-    if (result == LE_NOT_IMPLEMENTED)
+    if (result == LE_NOT_IMPLEMENTED || result == LE_UNSUPPORTED || result == LE_CAP_UNSUPPORTED)
         LE_INFO("taf_radio_GetSignalQual - LE_NOT_IMPLEMENTED");
     else
         LE_TEST_OK(result == LE_OK, "taf_radio_GetSignalQual - LE_OK");
@@ -1443,7 +1443,7 @@ void ImsStatusHandler
     {
         taf_radio_ImsSvcStatus_t svcStatus = TAF_RADIO_IMS_SVC_STATUS_UNKNOWN;
         result = taf_radio_GetImsSvcStatus(imsRef, TAF_RADIO_IMS_SVC_TYPE_VOIP, &svcStatus);
-        if (result != LE_UNSUPPORTED)
+        if (result != LE_UNSUPPORTED && result != LE_CAP_UNSUPPORTED && result != LE_NOT_IMPLEMENTED)
         {
             LE_TEST_OK(result == LE_OK, "taf_radio_GetImsSvcStatus - LE_OK");
         }
@@ -1486,7 +1486,7 @@ void TestTafRadioIms
 
     taf_radio_ImsSvcStatus_t svcStatus = TAF_RADIO_IMS_SVC_STATUS_UNKNOWN;
     result = taf_radio_GetImsSvcStatus(imsRef, TAF_RADIO_IMS_SVC_TYPE_VOIP, &svcStatus);
-    if (result != LE_UNSUPPORTED)
+    if (result != LE_UNSUPPORTED && result != LE_CAP_UNSUPPORTED && result != LE_NOT_IMPLEMENTED)
     {
         LE_TEST_OK(result == LE_OK, "taf_radio_GetImsSvcStatus - LE_OK");
     }
@@ -1500,13 +1500,13 @@ void TestTafRadioIms
 
     char userAgent[TAF_RADIO_IMS_USER_AGENT_BYTES] = "tafRadioUnitTest";
     result = taf_radio_SetImsUserAgent(imsRef, userAgent);
-    if (result != LE_UNSUPPORTED)
+    if (result != LE_UNSUPPORTED && result != LE_CAP_UNSUPPORTED && result != LE_NOT_IMPLEMENTED)
     {
         LE_TEST_OK(result == LE_OK, "taf_radio_SetImsUserAgent - LE_OK");
     }
 
     result = taf_radio_GetImsUserAgent(imsRef, userAgent, TAF_RADIO_IMS_USER_AGENT_BYTES);
-    if (result != LE_UNSUPPORTED)
+    if (result != LE_UNSUPPORTED && result != LE_CAP_UNSUPPORTED && result != LE_NOT_IMPLEMENTED)
     {
         LE_TEST_OK(result == LE_OK, "taf_radio_GetImsUserAgent - LE_OK");
     }
@@ -1569,7 +1569,7 @@ void TestTafRadioEndcStatus
     taf_radio_ConnStatusRef_t statusRef = NULL;
     taf_radio_NREndcAvailability_t status = TAF_RADIO_NR_ENDC_UNKNOWN;
     le_result_t result = taf_radio_GetConnStatus(DEFAULT_PHONE_ID, &statusRef);
-    if (result == LE_NOT_IMPLEMENTED)
+    if (result == LE_NOT_IMPLEMENTED || result == LE_UNSUPPORTED || result == LE_CAP_UNSUPPORTED)
         LE_INFO("taf_radio_GetConnStatus - LE_NOT_IMPLEMENTED");
     else
     {

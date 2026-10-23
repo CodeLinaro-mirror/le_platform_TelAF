@@ -192,6 +192,16 @@ le_result_t taf_Nat::AddDestNatEntry(uint32_t profileId, const char *priIpAddrPt
         le_event_ReportWithRefCounting(DestNatChangeEvId, (void*)reportPtr);
         return LE_OK;
     }
+    else if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("AddDestNatEntry is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("AddDestNatEntry is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
     else
     {
         LE_ERROR("ERROR - Failed to add destination NAT entry, result: %d", static_cast<int>(result));
@@ -241,8 +251,20 @@ le_result_t taf_Nat::RemoveDestNatEntry(uint32_t profileId, const char *priIpAdd
     }
 
    // fix telsdk bug:when the dest nat entry exists,then call removeStaticNatEntry,telsdk always return OK
-    if(!IsDestNatEntryPresent(profileId, priIpAddrPtr, priPort, globalPort, ipProto))
+    result = IsDestNatEntryPresent(profileId, priIpAddrPtr, priPort, globalPort, ipProto);
+    if (result != LE_OK)
     {
+        if (result == LE_CAP_NOT_IMPLEMENTED)
+        {
+            LE_ERROR("Query destination NAT entry list is not implemented by PA");
+            return LE_CAP_NOT_IMPLEMENTED;
+        }
+        else if (result == LE_CAP_UNSUPPORTED)
+        {
+            LE_ERROR("Query destination NAT entry list is unsupported by PA");
+            return LE_CAP_UNSUPPORTED;
+        }
+
         LE_ERROR("Can't find the destination NAT entry");
         return LE_FAULT;
     }
@@ -265,6 +287,16 @@ le_result_t taf_Nat::RemoveDestNatEntry(uint32_t profileId, const char *priIpAdd
         reportPtr->action = TAF_NET_DELETE;
         le_event_ReportWithRefCounting(DestNatChangeEvId, (void*)reportPtr);
         return LE_OK;
+    }
+    else if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("RemoveDestNatEntry is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("RemoveDestNatEntry is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
     }
     else
     {
@@ -295,7 +327,7 @@ le_result_t taf_Nat::RemoveDestNatEntry(uint32_t profileId, const char *priIpAdd
  SIDE EFFECTS
 
 ======================================================================*/
-bool taf_Nat::IsDestNatEntryPresent(uint32_t profileId, const char* priIpAddrPtr, uint16_t priPort, uint16_t globalPort, taf_net_IpProto_t ipProto)
+le_result_t taf_Nat::IsDestNatEntryPresent(uint32_t profileId, const char* priIpAddrPtr, uint16_t priPort, uint16_t globalPort, taf_net_IpProto_t ipProto)
 {
     uint8_t slotId = DEFAULT_SLOT_ID_1;
     le_result_t result;
@@ -309,7 +341,7 @@ bool taf_Nat::IsDestNatEntryPresent(uint32_t profileId, const char* priIpAddrPtr
         if(natEntryInfo.size() == 0)
         {
             LE_DEBUG("profileId %d has no destination NAT entry", profileId);
-            return false;
+            return LE_FAULT;
         }
 
         for (auto info : natEntryInfo)
@@ -318,16 +350,27 @@ bool taf_Nat::IsDestNatEntryPresent(uint32_t profileId, const char* priIpAddrPtr
                strncmp(info.addr, priIpAddrPtr, TAF_DCS_USER_NAME_MAX_LEN) == 0)
             {
                 LE_DEBUG("the dest nat entry exists in the system");
-                return true;
+                return LE_OK;
             }
         }
     }
     else
     {
-        LE_ERROR("Request static nat entry list failed, result: %d", int(result));
-        return false;
+        if (result == LE_CAP_NOT_IMPLEMENTED)
+        {
+            LE_ERROR("Query destination NAT entry list is not implemented by PA");
+        }
+        else if (result == LE_CAP_UNSUPPORTED)
+        {
+            LE_ERROR("Query destination NAT entry list is unsupported by PA");
+        }
+        else
+        {
+            LE_ERROR("Request static nat entry list failed, result: %d", int(result));
+        }
+        return result;
     }
-    return false;
+    return LE_FAULT;
 }
 
 /*======================================================================
@@ -411,7 +454,18 @@ taf_net_DestNatEntryListRef_t taf_Nat::GetDestNatEntryList(uint32_t profileId)
     }
     else
     {
-        LE_ERROR("Request static nat entry list failed, result: %d",int(result));
+        if (result == LE_CAP_NOT_IMPLEMENTED)
+        {
+            LE_ERROR("Query destination NAT entry list is not implemented by PA");
+        }
+        else if (result == LE_CAP_UNSUPPORTED)
+        {
+            LE_ERROR("Query destination NAT entry list is unsupported by PA");
+        }
+        else
+        {
+            LE_ERROR("Request static nat entry list failed, result: %d",int(result));
+        }
         return NULL;
     }
 

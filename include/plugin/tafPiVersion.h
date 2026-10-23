@@ -20,9 +20,9 @@
  * Maximum number of bytes in version.
  */
 //--------------------------------------------------------------------------------------------------
-#define TAF_PI_VERSION_MAJOR_MAX_BYTES 3
-#define TAF_PI_VERSION_MINOR_MAX_BYTES 4
-#define TAF_PI_VERSION_PATCH_MAX_BYTES 6
+#define TAF_PI_VERSION_MAJOR_MAX_BYTES 8
+#define TAF_PI_VERSION_MINOR_MAX_BYTES 8
+#define TAF_PI_VERSION_PATCH_MAX_BYTES 8
 
 //--------------------------------------------------------------------------------------------------
 /**

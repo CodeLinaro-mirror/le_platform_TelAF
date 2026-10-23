@@ -380,6 +380,18 @@ le_result_t taf_Socks::EnableSocksCmdSync()
 {
     le_result_t result;
     result = PA_TO_LE_RESULT(taf_pa_net_EnableSocksCmdSync());
+
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("EnableSocksCmdSync is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("EnableSocksCmdSync is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+
     return result;
 }
 
@@ -403,6 +415,18 @@ le_result_t taf_Socks::DisableSocksCmdSync()
 {
     le_result_t result;
     result = PA_TO_LE_RESULT(taf_pa_net_DisableSocksCmdSync());
+
+    if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("DisableSocksCmdSync is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("DisableSocksCmdSync is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
+    }
+
     return result;
 
 }
@@ -516,6 +540,16 @@ le_result_t taf_Socks::EnableSocks(taf_SocksCmdType_t type)
     if (result == LE_OK)
     {
         return LE_OK;
+    }
+    else if (result == LE_CAP_NOT_IMPLEMENTED)
+    {
+        LE_ERROR("Enable/disable socks is not implemented by PA");
+        return LE_CAP_NOT_IMPLEMENTED;
+    }
+    else if (result == LE_CAP_UNSUPPORTED)
+    {
+        LE_ERROR("Enable/disable socks is unsupported by PA");
+        return LE_CAP_UNSUPPORTED;
     }
     else
     {

@@ -6,7 +6,6 @@ startGroup: 23
 
 capability:
 {
-    CAP_WAKE_ALARM
     CAP_SYS_BOOT
     CAP_SYS_RESOURCE
 

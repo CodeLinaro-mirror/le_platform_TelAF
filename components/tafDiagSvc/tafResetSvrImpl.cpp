@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -224,7 +224,7 @@ void taf_ResetSvr::UDSMsgHandler
     try
     {
         const EnableConditionData& cond =
-            cfg::get_event_enable_conditions(resetType);
+            cfg::get_reset_enable_conditions(resetType);
 
         // Process the “and” list (if any)
         if (!cond.and_conditions.empty())

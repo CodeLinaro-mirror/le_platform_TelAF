@@ -506,6 +506,11 @@ EXPORT_SYM const SubFunction& get_subfunction(uint16_t sid, uint16_t subFunc)
     return it->second;
 }
 
+EXPORT_SYM const Access& get_subfunction_access(uint16_t sid, uint16_t subFunc)
+{
+    return get_subfunction(sid, subFunc).access;
+}
+
 EXPORT_SYM const std::vector<std::string>& get_subfunction_session_list(uint16_t sid, uint16_t subFunc)
 {
     return get_subfunction(sid, subFunc).access.session;

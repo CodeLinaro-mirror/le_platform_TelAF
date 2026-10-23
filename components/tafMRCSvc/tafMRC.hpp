@@ -10,6 +10,9 @@
 #include "legato.h"
 #include "interfaces.h"
 
+#include <semaphore.h>
+#include <time.h>
+
 #include "tafMrcPa.hpp"
 
 #define DISABLE_INDICATION 0
@@ -41,7 +44,7 @@ typedef struct
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
-    le_sem_Ref_t abSync; ///< Semaphore for AB sync
+    sem_t abSync; ///< Semaphore for AB sync
 } Semaphore_t;
 
 /**

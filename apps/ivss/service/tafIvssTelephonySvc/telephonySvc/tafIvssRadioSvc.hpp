@@ -847,7 +847,7 @@ static inline RadioSvcTypes::RadioCellInfoStatusT CellInfoRadioToIvss
  * IVSS radio service class
  */
 //--------------------------------------------------------------------------------------------------
-class tafIvssRadioSvc: public v2_1::com::qualcomm::qti::telephony::RadioSvcStubDefault
+class tafIvssRadioSvc: public v2_2::com::qualcomm::qti::telephony::RadioSvcStubDefault
 {
 public:
     tafIvssRadioSvc() {};
@@ -921,6 +921,8 @@ public:
         uint8_t phoneId, void* contextPtr);
     static void taf_ivss_radio_RatChangeHandler(taf_radio_RatChangeInd_t* ratChangeIndPtr,
         void *contextPtr);
+    static void taf_ivss_radio_NetRegStateHandler(taf_radio_NetRegStateInd_t* netRegStateIndPtr,
+        void *contextPtr);
 
     // memory pools.
     le_mem_PoolRef_t EventPool;
@@ -964,6 +966,7 @@ public:
     taf_radio_OpModeChangeHandlerRef_t StateChangeHandlerRef;
     taf_radio_CellInfoChangeHandlerRef_t CellInfoChangeHandlerRef;
     taf_radio_RatChangeHandlerRef_t RatChangeHandlerRef;
+    taf_radio_NetRegStateEventHandlerRef_t NetRegStateEventHandlerRef;
 };
 
 #endif // TAFIVSSRADIOSVC_HPP_

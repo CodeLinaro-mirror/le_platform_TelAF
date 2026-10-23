@@ -172,10 +172,6 @@ void taf_SomeipSvr::VSOMEIPStopOfferService
     std::shared_ptr<vsomeip::application> routingApp =
         someip_GetRoutingManager(servicePtr->routingId);
 
-    // Stop service.
-    routingApp->stop_offer_service(servicePtr->serviceId, servicePtr->instanceId,
-                                   servicePtr->majorVersion, servicePtr->minorVersion);
-
     // Remove UPD port from the configuration.
     if (servicePtr->udpPort != 0)
     {
@@ -193,6 +189,10 @@ void taf_SomeipSvr::VSOMEIPStopOfferService
                                                  servicePtr->isMagicCookieEnabled,
                                                  false);
     }
+
+    // Stop service.
+    routingApp->stop_offer_service(servicePtr->serviceId, servicePtr->instanceId,
+                                   servicePtr->majorVersion, servicePtr->minorVersion);
 
     // Service is marked as stopped.
     servicePtr->isOffered = false;
@@ -923,8 +923,7 @@ taf_someipSvr_ServiceRef_t taf_SomeipSvr::GetServiceRef
     uint16_t instanceId
 )
 {
-    // Check the valid serviceId and instanceId according to [PRS_SOMEIPSD_00515] and
-    // [PRS_SOMEIPSD_00516] of <SOME/IP Service Discovery Protocol Specification AUTOSAR FO R21-11>.
+    // Check the valid serviceId and instanceId according to SOME/IP Spec.
     if (((serviceId == 0xFFFF) || (serviceId == 0xFFFE) || (serviceId == 0x0000)) ||
         ((instanceId == 0xFFFF) || (instanceId == 0x0000)))
     {
@@ -1192,8 +1191,7 @@ le_result_t taf_SomeipSvr::EnableEvent
     uint16_t eventgroupId
 )
 {
-    // Check the vaild eventId and eventGroupId according to [PRS_SOMEIPSD_00517] and
-    // [PRS_SOMEIPSD_00531] of <SOME/IP Service Discovery Protocol Specification AUTOSAR FO R21-11>.
+    // Check the vaild eventId and eventGroupId according to SOME/IP Spec.
     if (((!(eventId & TAF_SOMEIPDEF_EVENT_MASK)) || (eventId == TAF_SOMEIPDEF_EVENT_MASK) ||
         (eventId == 0xFFFF)) || ((eventgroupId == 0x0000) || (eventgroupId == 0xFFFF)))
     {

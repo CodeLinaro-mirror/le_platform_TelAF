@@ -16,21 +16,6 @@
 
 using namespace tafsvc;
 
-//gsb list definition
-LE_MEM_DEFINE_STATIC_POOL(gsbListPool, TAF_NET_MAX_GSB_LIST_NUM, sizeof(taf_GsbList_t));
-
-LE_MEM_DEFINE_STATIC_POOL(gsbPool, TAF_NET_MAX_GSB_NUM, sizeof(taf_Gsb_t));
-
-LE_MEM_DEFINE_STATIC_POOL(gsbSafeRefPool, TAF_NET_MAX_GSB_NUM, sizeof(taf_GsbSafeRef_t));
-
-LE_REF_DEFINE_STATIC_MAP(gsbListRefMap, TAF_NET_MAX_GSB_LIST_NUM);
-
-LE_REF_DEFINE_STATIC_MAP(gsbSafeRefMap, TAF_NET_MAX_GSB_NUM);
-
-#if 0
-std::vector<telux::data::net::BridgeInfo> tafGsbCallback::gsbInfo;
-#endif
-
 le_sem_Ref_t tafGsbCallback::semaphore = nullptr;
 
 
@@ -51,90 +36,8 @@ le_sem_Ref_t tafGsbCallback::semaphore = nullptr;
 void taf_Gsb::Init(void)
 {
 
-    // 1. Initiate the semaphore
+    // Initiate the semaphore
     tafGsbCallback::semaphore = le_sem_Create("taf_GsbRespCbSem", 0);
-
-    gsbListPool = le_mem_InitStaticPool(gsbListPool,
-                               TAF_NET_MAX_GSB_LIST_NUM, sizeof(taf_GsbList_t));
-
-    gsbPool = le_mem_InitStaticPool(gsbPool,
-                           TAF_NET_MAX_GSB_NUM, sizeof(taf_Gsb_t));
-
-    // 2. Initiate the memory pool
-    gsbListPool = le_mem_InitStaticPool(gsbListPool,
-                                        TAF_NET_MAX_GSB_LIST_NUM, sizeof(taf_GsbList_t));
-
-    gsbPool = le_mem_InitStaticPool(gsbPool, TAF_NET_MAX_GSB_NUM, sizeof(taf_Gsb_t));
-
-    gsbSafeRefPool = le_mem_InitStaticPool(gsbSafeRefPool,
-                                        TAF_NET_MAX_GSB_NUM, sizeof(taf_GsbSafeRef_t));
-
-    // 3. Initiate the reference map.
-    gsbListRefMap = le_ref_InitStaticMap(gsbListRefMap, TAF_NET_MAX_GSB_LIST_NUM);
-    gsbSafeRefMap = le_ref_InitStaticMap(gsbSafeRefMap, TAF_NET_MAX_GSB_NUM);
-
-#if 0
-    bool isReady = false;
-
-    // 4. Get the DataFactory and static BridgeManager instances
-    if (gsbManager == nullptr)
-    {
-        auto &dataFactory = telux::data::DataFactory::getInstance();
-//SA415 using old telsdk,without initCb parameter
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-        auto initCb = std::bind(&taf_Gsb::onInitComplete, this, std::placeholders::_1);
-        gsbManager = dataFactory.getBridgeManager( initCb );
-#else
-        gsbManager = dataFactory.getBridgeManager();
-#endif
-    }
-
-    if(gsbManager == nullptr )
-    {
-        LE_INFO("Gsb manager initialize error...");
-        return ;
-    }
-
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-    // 6. Check subsystem status
-    std::unique_lock<std::mutex> lck(mMutex);
-
-    telux::common::ServiceStatus subSystemStatus = gsbManager->getServiceStatus();
-
-    if (subSystemStatus == telux::common::ServiceStatus::SERVICE_UNAVAILABLE)
-    {
-        LE_INFO("Gsb manager initialize...");
-        conVar.wait(lck, [this]{return this->IsSubSystemStatusUpdated;});
-        subSystemStatus = gsbManager->getServiceStatus();
-    }
-
-    //At this point, initialization should be either AVAILABLE or Failure
-    if (subSystemStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
-    {
-        LE_ERROR("Gsb Manager initialization failed");
-        gsbManager = nullptr;
-        return ;
-    }
-#endif
-
-    isReady = gsbManager->isSubsystemReady();
-
-    if(isReady == false)
-    {
-        LE_INFO("Gsb component is not ready, wait for it unconditionally...");
-        std::future<bool> readyFunc = gsbManager->onSubsystemReady();
-        isReady = readyFunc.get();
-    }
-
-    if(isReady)
-    {
-        LE_INFO("gsb component is ready...");
-    }
-    else
-    {
-        LE_CRIT("unable to init gsb component!");
-    }
-#endif
 
     return;
 }
@@ -158,99 +61,6 @@ taf_Gsb &taf_Gsb::GetInstance()
     return instance;
 }
 
-#if 0
-/*======================================================================
-
- FUNCTION        tafGsbCallback::onResponseCallback
-
- DESCRIPTION     Call back function for enable, add or remove gsb.
-
- DEPENDENCIES    The initialization of gsb.
-
- PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
-
- RETURN VALUE    None.
-
-======================================================================*/
-void tafGsbCallback::onResponseCallback(telux::common::ErrorCode error)
-{
-    le_result_t result = LE_OK;
-    auto &tafGsb = taf_Gsb::GetInstance();
-
-    if (error != telux::common::ErrorCode::SUCCESS)
-    {
-        LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
-        result = LE_FAULT;
-    }
-    else
-    {
-        LE_DEBUG("Request processed successfully \n");
-    }
-
-    tafGsb.GsbSyncPromise.set_value(result);
-}
-
-/*======================================================================
-
- FUNCTION        tafGsbCallback::onBridgeListResponse
-
- DESCRIPTION     Call back function for request bridge info list.
-
- DEPENDENCIES    The initialization of gsb.
-
- PARAMETERS      [IN] std::vector<telux::data::net::BridgeInfo> &infos:
-                                                                The gsb list.
-                 [IN] telux::common::ErrorCode error: error code.
- RETURN VALUE    None.
-
- SIDE EFFECTS
-
-======================================================================*/
-void tafGsbCallback::onBridgeListResponse
-(
-    const std::vector<telux::data::net::BridgeInfo> &infos,
-    telux::common::ErrorCode error
-)
-{
-    LE_DEBUG("<SDK Callback> tafGsbCallback --> onBridgeListResponse");
-
-    if (error != telux::common::ErrorCode::SUCCESS)
-    {
-        LE_ERROR("Error(%d)", (int)error);
-    }
-
-    gsbInfo.assign(infos.begin(), infos.end());
-
-    le_sem_Post(semaphore);
-}
-
-
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-/*======================================================================
-
- FUNCTION        taf_Gsb::onInitComplete
-
- DESCRIPTION     Call back function of gsbManager.
-
- DEPENDENCIES    The initialization of Gsb.
-
- PARAMETERS      [IN] telux::common::ServiceStatus status : Gsb manager service status.
-
- RETURN VALUE    None
-
- SIDE EFFECTS
-
-======================================================================*/
-void taf_Gsb::onInitComplete(telux::common::ServiceStatus status)
-{
-    std::lock_guard<std::mutex> lock(mMutex);
-    IsSubSystemStatusUpdated = true;
-    conVar.notify_all();
-}
-#endif
-
-#endif // remove telux
-
 /*======================================================================
 
  FUNCTION        taf_Gsb::AddGsb
@@ -271,51 +81,6 @@ void taf_Gsb::onInitComplete(telux::common::ServiceStatus status)
 ======================================================================*/
 le_result_t taf_Gsb::AddGsb(const char* ifName, taf_net_GsbIfType_t ifType, uint32_t bandwidth)
 {
-    #if 0
-    le_result_t result;
-    telux::data::net::BridgeInfo bridgeConfig;
-    std::chrono::seconds span(CONFIG_GSB_TIMEOUT);
-
-    TAF_ERROR_IF_RET_VAL(gsbManager == NULL, LE_FAULT, "gsbManager is null");
-    TAF_ERROR_IF_RET_VAL(ifName == NULL, LE_BAD_PARAMETER, "ifName is null");
-    TAF_ERROR_IF_RET_VAL(bandwidth > 900, LE_BAD_PARAMETER, "bandwidth is error");
-
-    bridgeConfig.ifaceName = ifName;
-    bridgeConfig.ifaceType = telux::data::net::BridgeIFaceType(ifType);
-    bridgeConfig.bandwidth = bandwidth;
-
-    GsbSyncPromise = std::promise<le_result_t>();
-
-    std::shared_ptr<tafGsbCallback> addGsbCb = std::make_shared<tafGsbCallback>();
-
-    auto  addGsbRespCb = std::bind(&tafGsbCallback::onResponseCallback, addGsbCb,
-                                          std::placeholders::_1);
-
-    Status status = gsbManager->addBridge(bridgeConfig, addGsbRespCb);
-
-    if (status == Status::SUCCESS)
-    {
-        std::future<le_result_t> futureResult = GsbSyncPromise.get_future();
-        std::future_status waitStatus = futureResult.wait_for(span);
-
-        if (std::future_status::timeout == waitStatus)
-        {
-            LE_ERROR("Add GSB timeout for %d seconds", CONFIG_GSB_TIMEOUT);
-            result = LE_TIMEOUT;
-        }
-        else
-        {
-            result = futureResult.get();
-        }
-
-        return result;
-    }
-    else
-    {
-        LE_ERROR( "ERROR - Failed to add GSB, Status:%d ", static_cast<int>(status));
-        return LE_FAULT;
-    }
-    #endif
     return LE_UNSUPPORTED;
 }
 
@@ -337,45 +102,6 @@ le_result_t taf_Gsb::AddGsb(const char* ifName, taf_net_GsbIfType_t ifType, uint
 ======================================================================*/
 le_result_t taf_Gsb::RemoveGsb(const char* ifName)
 {
-    #if 0
-    le_result_t result;
-    std::chrono::seconds span(CONFIG_GSB_TIMEOUT);
-
-    TAF_ERROR_IF_RET_VAL(gsbManager == NULL, LE_FAULT, "gsbManager is null");
-    TAF_ERROR_IF_RET_VAL(ifName == NULL, LE_BAD_PARAMETER, "ifName is null");
-
-    GsbSyncPromise = std::promise<le_result_t>();
-
-    std::shared_ptr<tafGsbCallback> removeGsbCb = std::make_shared<tafGsbCallback>();
-
-    auto  removeGsbRespCb = std::bind(&tafGsbCallback::onResponseCallback,
-                                             removeGsbCb, std::placeholders::_1);
-
-    Status status = gsbManager->removeBridge(ifName, removeGsbRespCb);
-
-    if (status == Status::SUCCESS)
-    {
-        std::future<le_result_t> futureResult = GsbSyncPromise.get_future();
-        std::future_status waitStatus = futureResult.wait_for(span);
-
-        if (std::future_status::timeout == waitStatus)
-        {
-            LE_ERROR("Remove GSB timeout for %d seconds", CONFIG_GSB_TIMEOUT);
-            result = LE_TIMEOUT;
-        }
-        else
-        {
-            result = futureResult.get();
-        }
-
-        return result;
-    }
-    else
-    {
-        LE_ERROR( "ERROR - Failed to remove GSB, Status:%d ", static_cast<int>(status));
-        return LE_FAULT;
-    }
-    #endif
     return LE_UNSUPPORTED;
 }
 
@@ -396,43 +122,6 @@ le_result_t taf_Gsb::RemoveGsb(const char* ifName)
 ======================================================================*/
 le_result_t taf_Gsb::EnableGsb(bool enable)
 {
-    #if 0
-    le_result_t result;
-    std::chrono::seconds span(CONFIG_GSB_TIMEOUT);
-
-    TAF_ERROR_IF_RET_VAL(gsbManager == NULL, LE_FAULT, "gsbManager is null");
-
-    GsbSyncPromise = std::promise<le_result_t>();
-
-    std::shared_ptr<tafGsbCallback> enableGsbCb = std::make_shared<tafGsbCallback>();
-
-    auto  enableGsbRespCb = std::bind(&tafGsbCallback::onResponseCallback, enableGsbCb,
-                                          std::placeholders::_1);
-
-    Status status = gsbManager->enableBridge(enable, enableGsbRespCb);
-
-    if (status == Status::SUCCESS)
-    {
-        std::future<le_result_t> futureResult = GsbSyncPromise.get_future();
-        std::future_status waitStatus = futureResult.wait_for(span);
-
-        if (std::future_status::timeout == waitStatus)
-        {
-            LE_ERROR("Enable/Disable GSB timeout for %d seconds", CONFIG_GSB_TIMEOUT);
-            result = LE_TIMEOUT;
-        }
-        else
-        {
-            result = futureResult.get();
-        }
-        return result;
-    }
-    else
-    {
-        LE_ERROR( "ERROR - Failed to enable(%d) GSB, Status:%d ", enable, static_cast<int>(status));
-        return LE_FAULT;
-    }
-    #endif
     return LE_UNSUPPORTED;
 }
 
@@ -453,57 +142,6 @@ le_result_t taf_Gsb::EnableGsb(bool enable)
 ======================================================================*/
 taf_net_GsbListRef_t taf_Gsb::GetGsbList()
 {
-    #if 0
-    TAF_ERROR_IF_RET_VAL(gsbManager == NULL, NULL, "gsbManager is null");
-
-    std::chrono::time_point<std::chrono::system_clock> startTime = std::chrono::system_clock::now();
-
-    telux::common::Status status = gsbManager->requestBridgeInfo(tafGsbCallback::onBridgeListResponse);
-
-    if (status == telux::common::Status::SUCCESS)
-    {
-        le_clk_Time_t timeToWait = {CONFIG_GSB_TIMEOUT, 0};
-        le_result_t res = le_sem_WaitWithTimeOut(tafGsbCallback::semaphore, timeToWait);
-        TAF_ERROR_IF_RET_VAL(res != LE_OK, NULL, "Wait semaphore timeout\n");
-        std::chrono::time_point<std::chrono::system_clock> endTime =
-                                                                   std::chrono::system_clock::now();
-        std::chrono::duration<double> elapsedTime = endTime - startTime;
-        LE_DEBUG("Elapsed time: %lfs\n", elapsedTime.count());
-        if(tafGsbCallback::gsbInfo.size() == 0)
-        {
-            LE_DEBUG("No gsb");
-            return NULL;
-        }
-
-        taf_GsbList_t* gsbsList =
-                                       (taf_GsbList_t*)le_mem_ForceAlloc(gsbListPool);
-        gsbsList->gsbList = LE_SLS_LIST_INIT;
-        gsbsList->safeRefList = LE_SLS_LIST_INIT;
-        gsbsList->currPtr = NULL;
-
-        taf_Gsb_t* gsbPtr;
-        //queue gsb information
-        for (auto info : tafGsbCallback::gsbInfo)
-        {
-            gsbPtr = (taf_Gsb_t*)le_mem_ForceAlloc(gsbPool);
-            le_utf8_Copy(gsbPtr->info.ifName, info.ifaceName.c_str(), TAF_NET_INTERFACE_NAME_MAX_NUM, NULL);
-            gsbPtr->info.ifType=(taf_net_GsbIfType_t)info.ifaceType;
-            gsbPtr->info.bandwidth=info.bandwidth;
-
-            gsbPtr->link = LE_SLS_LINK_INIT;
-            le_sls_Queue(&(gsbsList->gsbList), &(gsbPtr->link));
-        }
-
-        return (taf_net_GsbListRef_t)le_ref_CreateRef(gsbListRefMap,
-                                                            (void*)gsbsList);
-
-    }
-    else
-    {
-        LE_ERROR("Request gsb list failed, status: %d",int(status));
-        return NULL;
-    }
-    #endif
     return NULL;
 }
 
@@ -524,26 +162,6 @@ taf_net_GsbListRef_t taf_Gsb::GetGsbList()
 ======================================================================*/
 taf_net_GsbRef_t taf_Gsb::GetFirstGsb( taf_net_GsbListRef_t gsbListRef )
 {
-    #if 0
-    taf_GsbList_t* listPtr = (taf_GsbList_t*)le_ref_Lookup(gsbListRefMap, gsbListRef);
-
-    TAF_ERROR_IF_RET_VAL(listPtr == NULL, NULL,
-        "failed to look up the reference:%p", gsbListRef);
-
-    le_sls_Link_t* linkPtr = le_sls_Peek(&(listPtr->gsbList));
-    TAF_ERROR_IF_RET_VAL(linkPtr == NULL, NULL, "Empty list");
-
-    taf_Gsb_t* gsbPtr = CONTAINER_OF(linkPtr, taf_Gsb_t , link);
-    listPtr->currPtr = linkPtr;
-
-    taf_GsbSafeRef_t* safeRefPtr =
-                           (taf_GsbSafeRef_t*)le_mem_ForceAlloc(gsbSafeRefPool);
-    safeRefPtr->safeRef = le_ref_CreateRef(gsbSafeRefMap, (void*)gsbPtr);
-    safeRefPtr->link = LE_SLS_LINK_INIT;
-    le_sls_Queue(&(listPtr->safeRefList), &(safeRefPtr->link));
-
-    return (taf_net_GsbRef_t)safeRefPtr->safeRef;
-    #endif
     return NULL;
 }
 
@@ -564,31 +182,6 @@ taf_net_GsbRef_t taf_Gsb::GetFirstGsb( taf_net_GsbListRef_t gsbListRef )
 ======================================================================*/
 taf_net_GsbRef_t taf_Gsb::GetNextGsb( taf_net_GsbListRef_t gsbListRef )
 {
-    #if 0
-    taf_GsbList_t* listPtr = (taf_GsbList_t*)le_ref_Lookup(gsbListRefMap, gsbListRef);
-
-    TAF_ERROR_IF_RET_VAL(listPtr == NULL, NULL,
-        "failed to look up the reference:%p", gsbListRef);
-
-    le_sls_Link_t* linkPtr = le_sls_PeekNext(&(listPtr->gsbList), listPtr->currPtr);
-
-    if(linkPtr == nullptr)
-    {
-        LE_DEBUG("Reach to the end of list");
-        return NULL;
-    }
-
-    taf_Gsb_t* gsbPtr = CONTAINER_OF(linkPtr, taf_Gsb_t , link);
-    listPtr->currPtr = linkPtr;
-
-    taf_GsbSafeRef_t* safeRefPtr =
-                           (taf_GsbSafeRef_t*)le_mem_ForceAlloc(gsbSafeRefPool);
-    safeRefPtr->safeRef = le_ref_CreateRef(gsbSafeRefMap, (void*)gsbPtr);
-    safeRefPtr->link = LE_SLS_LINK_INIT;
-    le_sls_Queue(&(listPtr->safeRefList), &(safeRefPtr->link));
-
-    return (taf_net_GsbRef_t)safeRefPtr->safeRef;
-    #endif
     return NULL;
 }
 
@@ -610,36 +203,6 @@ taf_net_GsbRef_t taf_Gsb::GetNextGsb( taf_net_GsbListRef_t gsbListRef )
 ======================================================================*/
 le_result_t taf_Gsb::DeleteGsbList( taf_net_GsbListRef_t gsbListRef )
 {
-    #if 0
-    taf_Gsb_t* gsbPtr;
-    taf_GsbSafeRef_t* safeRefPtr;
-    le_sls_Link_t *linkPtr;
-
-    TAF_ERROR_IF_RET_VAL(gsbListRef == NULL, LE_BAD_PARAMETER, "Null reference(gsbListRef)");
-
-    taf_GsbList_t* listPtr = (taf_GsbList_t*)le_ref_Lookup(gsbListRefMap, gsbListRef);
-
-    TAF_ERROR_IF_RET_VAL(listPtr == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
-
-    while ((linkPtr = le_sls_Pop(&(listPtr->gsbList))) != NULL)
-    {
-        gsbPtr = CONTAINER_OF(linkPtr, taf_Gsb_t, link);
-        le_mem_Release(gsbPtr);
-    }
-
-    while ((linkPtr = le_sls_Pop(&(listPtr->safeRefList))) != NULL)
-    {
-        safeRefPtr = CONTAINER_OF(linkPtr, taf_GsbSafeRef_t, link);
-        le_ref_DeleteRef(gsbSafeRefMap, safeRefPtr->safeRef);
-        le_mem_Release(safeRefPtr);
-    }
-
-    le_ref_DeleteRef(gsbListRefMap, gsbListRef);
-
-    le_mem_Release(listPtr);
-
-    return LE_OK;
-    #endif
     return LE_UNSUPPORTED;
 }
 
@@ -670,17 +233,6 @@ le_result_t taf_Gsb::GetGsbInterfaceName
     size_t ifNamePtrSize
 )
 {
-    #if 0
-    TAF_ERROR_IF_RET_VAL(gsbRef == NULL, LE_NOT_FOUND, "gsbRef is null");
-    TAF_ERROR_IF_RET_VAL(ifNamePtr == NULL, LE_BAD_PARAMETER, "ifNamePtr is null");
-
-    taf_Gsb_t* gsbPtr = (taf_Gsb_t*)le_ref_Lookup(gsbSafeRefMap, gsbRef);
-    TAF_ERROR_IF_RET_VAL(gsbPtr == NULL, LE_FAULT, "Invalid para(null reference ptr)");
-
-    le_utf8_Copy(ifNamePtr, gsbPtr->info.ifName, ifNamePtrSize, NULL);
-
-    return LE_OK;
-    #endif
     return LE_UNSUPPORTED;
 }
 
@@ -703,15 +255,6 @@ taf_net_GsbIfType_t taf_Gsb::GetGsbInterfaceType
     taf_net_GsbRef_t gsbRef
 )
 {
-    #if 0
-    TAF_ERROR_IF_RET_VAL(gsbRef == NULL, TAF_NET_GSB_UNKNOWN, "Null reference(gsbRef)");
-
-    taf_Gsb_t* gsbPtr = (taf_Gsb_t*)le_ref_Lookup(gsbSafeRefMap,
-                                                                    gsbRef);
-    TAF_ERROR_IF_RET_VAL(gsbPtr  == NULL, TAF_NET_GSB_UNKNOWN, "Invalid para(null reference ptr)");
-
-    return gsbPtr ->info.ifType;
-    #endif
     return TAF_NET_GSB_UNKNOWN;
 }
 
@@ -735,15 +278,5 @@ int32_t taf_Gsb::GetGsbBandWidth
     taf_net_GsbRef_t gsbRef
 )
 {
-    #if 0
-    TAF_ERROR_IF_RET_VAL(gsbRef == NULL, -1, "Null reference(gsbRef)");
-
-    taf_Gsb_t* gsbPtr = (taf_Gsb_t*)le_ref_Lookup(gsbSafeRefMap,
-                                                                    gsbRef);
-    TAF_ERROR_IF_RET_VAL(gsbPtr == NULL, -1, "Invalid para(null reference ptr)");
-
-    return gsbPtr->info.bandwidth;
-    #endif
     return -1;
 }
-

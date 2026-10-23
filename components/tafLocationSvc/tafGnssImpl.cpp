@@ -273,13 +273,23 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
     }
 
     for (auto locationInfo : locationEngineInfo) {
-        std::chrono::time_point<std::chrono::system_clock> mEndTime = std::chrono::system_clock::now();
+        struct timespec mEndTime;
+        if (clock_gettime(CLOCK_BOOTTIME, &mEndTime) < 0)
+        {
+            LE_ERROR("Failed to get CLOCK_BOOTTIME for TTFF end time");
+            break;
+        }
         if (clientRequestPtr->mTtffReportCount < TTFF_REPORT_COUNT)
         {
-            LE_DEBUG("TTFF reportStatus = %d, received report time = %" PRIu64 ", utc timeStamp = %" PRIu64 "", (int)(locationInfo->reportStatus), mEndTime.time_since_epoch().count(), locationInfo->timeStamp);
+            LE_DEBUG("TTFF reportStatus = %d, received report time = %ld.%09ld, utc timeStamp = %" PRIu64 "",
+                 (int)(locationInfo->reportStatus),
+                 mEndTime.tv_sec,
+                 mEndTime.tv_nsec,
+                 locationInfo->timeStamp);
             (clientRequestPtr->mTtffReportCount)++;
         }
         if ((clientRequestPtr->mFirstFix) &&
+            (clientRequestPtr->mStartTimeValid) &&
             (locationInfo->reportStatus == TAF_PA_LOCATION_SUCCESS) &&
             (locationInfo->latitude != NAN) &&
             (locationInfo->longitude != NAN))
@@ -290,9 +300,16 @@ void Handler::onDetailedEngineLocationUpdate(taf_pa_location_LocationId clientId
                 clientRequestPtr->mTtffPtr=  0;
             } else{
                 clientRequestPtr->mFirstFix = false;
-                std::chrono::duration<double> elapsedTime = mEndTime - clientRequestPtr->mStartTime;
-                clientRequestPtr->mTtffPtr = elapsedTime.count() * 1e+3;
-                LE_DEBUG("TTFF mEndTime = %ld, TTFF value = %d", mEndTime.time_since_epoch().count(), clientRequestPtr->mTtffPtr);
+                // Compute elapsed time in milliseconds using timespec arithmetic
+                double elapsedSec = (double)(mEndTime.tv_sec  - clientRequestPtr->mStartTime.tv_sec) +
+                                    (double)(mEndTime.tv_nsec - clientRequestPtr->mStartTime.tv_nsec) / 1e9;
+
+                clientRequestPtr->mTtffPtr = (uint32_t)(elapsedSec * 1e3);
+
+                LE_DEBUG("TTFF mEndTime = %ld.%09ld, TTFF value = %d ms",
+                        mEndTime.tv_sec,
+                        mEndTime.tv_nsec,
+                        clientRequestPtr->mTtffPtr);
             }
         }
     }
@@ -2592,6 +2609,7 @@ void taf_locGnss::InitializeClient
     clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY;
     clientRequestPtr->mStarted = false;
     clientRequestPtr->mFirstFix = false;
+    clientRequestPtr->mStartTimeValid = false;
     clientRequestPtr->mEngineType = 0; //By default set to FUSED mode
     clientRequestPtr->mTtffPtr = 0;
     clientRequestPtr->mAcqRate = 0;
@@ -2778,10 +2796,22 @@ void taf_locGnss::ConfigureAcqStartInfo(taf_locGnss_Client_t* clientRequestPtr) 
     clientRequestPtr->mStarted = true;
     clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_ACTIVE;
     clientRequestPtr->mTtffPtr = 0;
-    clientRequestPtr->mStartTime = std::chrono::system_clock::now();
     clientRequestPtr->mTtffReportCount = 0;
-    LE_DEBUG("TTFF mStartTime = %ld", (clientRequestPtr->mStartTime).time_since_epoch().count());
     clientRequestPtr->mFirstFix = true;
+    struct timespec bootTime;
+    if (clock_gettime(CLOCK_BOOTTIME, &bootTime) < 0)
+    {
+        LE_ERROR("Failed to get CLOCK_BOOTTIME for TTFF start time");
+        clientRequestPtr->mStartTimeValid = false;
+        memset(&clientRequestPtr->mStartTime, 0, sizeof(clientRequestPtr->mStartTime));
+        return;
+    }
+
+    clientRequestPtr->mStartTime = bootTime;
+    clientRequestPtr->mStartTimeValid = true;
+    LE_DEBUG("TTFF mStartTime = %ld.%09ld (sec.nsec)",
+             clientRequestPtr->mStartTime.tv_sec,
+             clientRequestPtr->mStartTime.tv_nsec);
 }
 
 taf_locGnss_State_t taf_locGnss::GetState

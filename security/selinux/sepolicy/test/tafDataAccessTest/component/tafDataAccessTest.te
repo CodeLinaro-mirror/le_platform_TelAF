@@ -30,3 +30,4 @@ allow telaf_tafDataAccessTest_t cert_t:dir { search };
 allow telaf_tafDataAccessTest_t data_t:file { open read getattr };
 allow telaf_tafDataAccessTest_t data_t:file { map };
 allow telaf_tafDataAccessTest_t cert_t:file { open read getattr };
+allow telaf_tafDataAccessTest_t telaf_sys_t:file map;

@@ -115,7 +115,7 @@ typedef struct
     taf_diagUpdate_RxXferExitMsgRef_t rxMsgRef;                     ///< Own reference.
     taf_uds_AddrInfo_t addrInfo;
     uint8_t serviceId;                                              ///< Service Identifier.
-    uint8_t exitDataRec[TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE];    ///< Xfer exit data record.
+    uint8_t exitDataRec[TAF_DIAGUPDATE_MAX_XFER_EXIT_PARAM_REC_SIZE]; ///< Xfer exit data record.
     size_t exitDataSize;                                            ///< The size of exitDataRec.
 }taf_XferExitRxMsg_t;
 

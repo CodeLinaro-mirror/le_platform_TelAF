@@ -14,11 +14,11 @@
 #include "tafHealthPa.hpp"
 #include <memory>
 #include <future>
+#include <atomic>
 
 using namespace std;
 
 // Max number of Handler
-#define MAX_HMS_HANLDER 32
 #define MAX_CORES 8
 #define MAX_FIELDS 10
 
@@ -88,17 +88,6 @@ using namespace std;
      ((result) == TAF_PA_NOT_IMPLEMENTED) ? LE_CAP_NOT_IMPLEMENTED : \
      ((result) == TAF_PA_UNSUPPORTED) ?     LE_CAP_UNSUPPORTED : \
      LE_FAULT)
-
-//-------------------------------------------------------------------------------------------------
-/**
-* Structure to hold the HmsInfo
-*/
-//-------------------------------------------------------------------------------------------------
-typedef struct
-{
-    double cpuLoadInfo;
-    uint32_t ramMemfreeInfo;
-}tafHmsInfo_t;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -220,9 +209,19 @@ typedef struct
     taf_hms_ModemEvtHandlerFunc_t handlerFunc = NULL;
     taf_hms_ModemEvtBitmask_t     reqEventBits;  // Client only needs the registered event type.
     le_msg_SessionRef_t           sessionRef = NULL;
+    uint32_t                      clientId = 0;       // Monotonic ID for log correlation.
+    // Per-client count of events sent, by type.
+    uint32_t                      txRebootCnt = 0;
+    uint32_t                      txLostCnt = 0;
+    uint32_t                      txAvailCnt = 0;
     void* contextPtr;
 }taf_hms_modemInfo_t;
 
+//-------------------------------------------------------------------------------------------------
+/**
+* Structure to hold the Modem Event Info
+*/
+//-------------------------------------------------------------------------------------------------
 typedef struct
 {
     taf_hms_ModemEvtType_t      eventType;
@@ -242,9 +241,18 @@ taf_hms_operationStatus_t;
 
 typedef struct
 {
-    taf_hms_operationStatus_t   status;
-    uint8_t      ModemCrashCounter = 0;
+    int operationalStatus;
 }taf_hms_modemOperaInfo_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Internal payload struct used to marshal the PA operating-mode response to the main thread.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_pa_result_t result;  ///< TAF_PA_OK if the modem responded successfully
+} taf_hms_operModeRespData_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -259,8 +267,7 @@ namespace tafsvc {
         int counter {0};
         uint64_t AllModemEventMap = 0x0;
         uint8_t ModemCrashCounter = 0;
-
-        le_timer_Ref_t ModemResetTimer = NULL;
+        static std::atomic<bool> ModemAvailability;
 
         static tafHmsListener& GetInstance()
         {
@@ -270,27 +277,34 @@ namespace tafsvc {
 
         void StartResetTimer(void);
         void DeleteResetTime(void);
-
-        private:
-            static bool ModemAvailability;
     };
 
     class ModemStatus {
     public:
         ModemStatus() {};
         ~ModemStatus() {};
-        static ModemStatus& GetInstance()
-        {
-            static ModemStatus instance;
-            return instance;
-        }
-        void CheckOperModeStatus(void);
-        void HandleOperatingModeResponse(void);
-        void ReqsOperatingMode(void);
+        // Called by main thread to start/stop the worker thread and main timer.
+        void StartWorkerThread(void);
+        void StopWorkerThread(void);
+
+        // Called by main thread to dispatch modem status events to clients.
         void ReportModemStatus(taf_hms_ModemEvtType_t eventType,
-                                    taf_hms_ModemEvtSeverity_t eventLevel);
-        std::shared_ptr<std::promise<bool>> responsePromise_{nullptr};
-        int pendingCount_{0};  // Counter for consecutive requests without response
+                               taf_hms_ModemEvtSeverity_t eventLevel);
+
+        // Called on the worker thread - queued by the main-thread timer each tick.
+        void DoRequestOperatingMode(void);
+
+        le_thread_Ref_t GetWorkerThread(void) const { return workerThread_; }
+
+    private:
+        // Worker thread entry point and PhoneInit helper (run on worker thread).
+        static void* WorkerThreadFunc(void* ctx);
+        bool         PhoneInit(void);
+
+        // Worker thread handle.
+        le_thread_Ref_t   workerThread_{nullptr};
+        // Main-thread timer (3s repeating) - owns pendingCount.
+        le_timer_Ref_t    mainTimer_{nullptr};
     };
 
     class taf_Hms: public ITafSvc
@@ -331,8 +345,6 @@ namespace tafsvc {
                 size_t ubiVolNameSize);
             le_result_t GetUbiVolSize(taf_hms_UbiVolInfoRef_t ubiVolInfoRef,
                 uint32_t* ubiVolSizePtr);
-            le_result_t GetUbiVolNum(taf_hms_UbiVolInfoRef_t ubiVolInfoRef,
-                uint32_t* ubiVolMajNumPtr, uint32_t* ubiVolMinNumPtr);
             taf_hms_MtdDevInfoListRef_t GetMtdDevInfoList();
             le_result_t DeleteMtdDevInfoList(taf_hms_MtdDevInfoListRef_t mtdDevInfoListRef);
             taf_hms_MtdDevInfoRef_t GetFirstMtdDevInfo(taf_hms_MtdDevInfoListRef_t mtdDevInfoListRef);
@@ -348,13 +360,14 @@ namespace tafsvc {
             taf_hms_ModemEvtHandlerRef_t AddModemEvtHandler(
                                        taf_hms_ModemEvtBitmask_t reqEventbits,
                                        taf_hms_ModemEvtHandlerFunc_t handlerPtr, void* contextPtr);
-            static void ModemStatusChangeNotify(void* reportPtr);
+            static void ModemStatusChNotifyClient(void* reportPtr);
             void RemoveModemEvtHandler(taf_hms_ModemEvtHandlerRef_t handlerRef);
             bool IsModemEventMapEmpty(void);
             le_result_t ReleaseModemEvt(taf_hms_ModemEventRef_t  eventRef);
 
-            le_event_Id_t ModemStatusChangeId;
+            le_event_Id_t MdStatusChNotifyCliId;
             le_event_Id_t MdStatusOnChangeCBId;
+            le_event_Id_t OperModeRespId;
             le_ref_MapRef_t ModemInfoRefMap;
             le_ref_MapRef_t ModemEventInfoRefMap;
             le_mem_PoolRef_t ModemEventInfoPool;

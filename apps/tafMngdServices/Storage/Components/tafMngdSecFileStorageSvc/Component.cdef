@@ -21,7 +21,7 @@ requires:
 {
     api:
     {
-        taf_fsc.api
+        taf_fsc.api [optional]
         le_appInfo.api
         taf_mngdStorSecData.api
     }

@@ -192,6 +192,34 @@ class tafMngdStorageSvc: public ITafSvc
         void LoadSecDataRefForDataSharedKey(const char* namespacePtr, const char* dataNamePtr);
 
         /**
+         * Functions for the optional KeyStore (taf_ks) dependency
+         */
+
+        // Connect to KeyStore if not connected yet. Loads the shared app data on first success.
+        // Returns LE_OK if connected, otherwise LE_UNAVAILABLE.
+        le_result_t KsEnsureConnected();
+
+        // Ensure KeyStore is connected and the key reference of the secure data is valid.
+        le_result_t PrepareKs(tafMngdStorage_SecDataRef_t secDataRef);
+
+        // Drop all KeyStore references and abort the ongoing operations.
+        void ResetKsReferences();
+
+        void StartKsRetryTimer();
+
+        static void KsDisconnectHandler(void* contextPtr);
+
+        static void KsRetryHandler(le_timer_Ref_t timerRef);
+
+        static const uint32_t KS_RETRY_INTERVALS_MS[];
+        static const uint8_t KS_MAX_RETRIES;
+
+        bool ksConnected = false;
+        bool sharedDataLoaded = false;
+        le_timer_Ref_t ksRetryTimer = nullptr;
+        uint8_t ksRetryIndex = 0;
+
+        /**
          * Functions for secure data
          */
 

@@ -16,7 +16,7 @@ requires:
 {
     api:
     {
-        taf_fsc.api
+        taf_fsc.api [optional]
         le_cfg.api
         le_cfgAdmin.api
         taf_mngdStorSecData.api

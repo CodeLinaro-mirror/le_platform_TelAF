@@ -3057,6 +3057,15 @@ void taf_locGnss::SetConstellation(taf_locGnss_ServerCmdRef_t cmdRef,
                                     taf_locGnss_ConstellationBitMask_t constellationMask)
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("SetConstellation: Failed to acquire session");
+        taf_locGnss_SetConstellationRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -4363,6 +4372,15 @@ void taf_locGnss::DeleteDRSensorCalDataWorker(void* cmdPtr, void*)
 void taf_locGnss::DeleteDRSensorCalData(taf_locGnss_ServerCmdRef_t cmdRef)
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("DeleteDRSensorCalData: Failed to acquire session");
+        taf_locGnss_DeleteDRSensorCalDataRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -5002,6 +5020,15 @@ void taf_locGnss::ForceColdRestartWorker(void* cmdPtr, void*)
 void taf_locGnss::ForceColdRestart(taf_locGnss_ServerCmdRef_t cmdRef)
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("ForceColdRestart: Failed to acquire session");
+        taf_locGnss_ForceColdRestartRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -5100,6 +5127,15 @@ void taf_locGnss::ForceWarmRestartWorker(void* cmdPtr, void*)
 void taf_locGnss::ForceWarmRestart(taf_locGnss_ServerCmdRef_t cmdRef)
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("ForceWarmRestart: Failed to acquire session");
+        taf_locGnss_ForceWarmRestartRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -5185,6 +5221,15 @@ void taf_locGnss::ForceHotRestartWorker(void* cmdPtr, void*)
 void taf_locGnss::ForceHotRestart(taf_locGnss_ServerCmdRef_t cmdRef)
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("ForceHotRestart: Failed to acquire session");
+        taf_locGnss_ForceHotRestartRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -5573,6 +5618,15 @@ void taf_locGnss::SetMinElevationWorker(void* cmdPtr, void*)
 void taf_locGnss::SetMinElevation(taf_locGnss_ServerCmdRef_t cmdRef, uint8_t minElevation)
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("SetMinElevation: Failed to acquire session");
+        taf_locGnss_SetMinElevationRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -5693,6 +5747,15 @@ void taf_locGnss::StartModeWorker(void* cmdPtr, void*)
 void taf_locGnss::StartMode(taf_locGnss_ServerCmdRef_t cmdRef, taf_locGnss_StartMode_t mode)
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("StartMode: Failed to acquire session");
+        taf_locGnss_StartModeRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -6292,6 +6355,15 @@ void taf_locGnss::SetNmeaSentences(taf_locGnss_ServerCmdRef_t cmdRef,
                                     taf_locGnss_NmeaBitMask_t nmeaMask)
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("SetNmeaSentences: Failed to acquire session");
+        taf_locGnss_SetNmeaSentencesRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -6581,6 +6653,15 @@ void taf_locGnss::SetDRConfig(taf_locGnss_ServerCmdRef_t cmdRef,
         taf_locGnss_SetDRConfigRespond(cmdRef, LE_FAULT);
         return;
     }
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("SetDRConfig: Failed to acquire session");
+        taf_locGnss_SetDRConfigRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -6845,6 +6926,15 @@ void taf_locGnss::ConfigureEngineState(taf_locGnss_ServerCmdRef_t cmdRef,
                                         taf_locGnss_EngineState_t engState)
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("ConfigureEngineState: Failed to acquire session");
+        taf_locGnss_ConfigureEngineStateRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -6963,6 +7053,15 @@ void taf_locGnss::ConfigureRobustLocation(taf_locGnss_ServerCmdRef_t cmdRef,
                                            uint8_t enable, uint8_t enabled911)
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("ConfigureRobustLocation: Failed to acquire session");
+        taf_locGnss_ConfigureRobustLocationRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -7138,6 +7237,15 @@ void taf_locGnss::DefaultSecondaryBandConstellationsWorker(void* cmdPtr, void*)
 void taf_locGnss::DefaultSecondaryBandConstellations(taf_locGnss_ServerCmdRef_t cmdRef)
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("DefaultSecondaryBandConstellations: Failed to acquire session");
+        taf_locGnss_DefaultSecondaryBandConstellationsRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -7267,6 +7375,15 @@ void taf_locGnss::RequestSecondaryBandConstellationsWorker(void* cmdPtr, void*)
 void taf_locGnss::RequestSecondaryBandConstellations(taf_locGnss_ServerCmdRef_t cmdRef)
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("RequestSecondaryBandConstellations: Failed to acquire session");
+        taf_locGnss_RequestSecondaryBandConstellationsRespond(cmdRef, LE_FAULT, 0);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -7383,6 +7500,15 @@ void taf_locGnss::ConfigureSecondaryBandConstellations(taf_locGnss_ServerCmdRef_
                                                          uint32_t constellationSb)
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("ConfigureSecondaryBandConstellations: Failed to acquire session");
+        taf_locGnss_ConfigureSecondaryBandConstellationsRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -7520,6 +7646,15 @@ void taf_locGnss::SetLeverArmConfig(taf_locGnss_ServerCmdRef_t cmdRef,
         taf_locGnss_SetLeverArmConfigRespond(cmdRef, LE_FAULT);
         return;
     }
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("SetLeverArmConfig: Failed to acquire session");
+        taf_locGnss_SetLeverArmConfigRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -7595,6 +7730,15 @@ void taf_locGnss::SetEngineType(taf_locGnss_ServerCmdRef_t cmdRef,
                                  taf_locGnss_EngineReportsType_t EngineType)
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("SetEngineType: Failed to acquire session");
+        taf_locGnss_SetEngineTypeRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -8633,6 +8777,15 @@ void taf_locGnss::SetMinGpsWeekWorker(void* cmdPtr, void*)
 void taf_locGnss::SetMinGpsWeek(taf_locGnss_ServerCmdRef_t cmdRef, uint16_t minGpsWeek)
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("SetMinGpsWeek: Failed to acquire session");
+        taf_locGnss_SetMinGpsWeekRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -8864,6 +9017,15 @@ void taf_locGnss::SetNmeaConfiguration(taf_locGnss_ServerCmdRef_t cmdRef,
                                          taf_locGnss_LocEngineType_t engineType)
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("SetNmeaConfiguration: Failed to acquire session");
+        taf_locGnss_SetNmeaConfigurationRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -9388,6 +9550,15 @@ void taf_locGnss::ConfigureOsnmaWorker(void* cmdPtr, void*)
 void taf_locGnss::ConfigureOsnma(taf_locGnss_ServerCmdRef_t cmdRef, bool galOsnma)
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("ConfigureOsnma: Failed to acquire session");
+        taf_locGnss_ConfigureOsnmaRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr = (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
     cPtr->cmdRef     = cmdRef;
@@ -9620,6 +9791,14 @@ void taf_locGnss::InjectDgnssCorrection
         return;
     }
 
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("InjectDgnssCorrection: Failed to acquire session");
+        taf_locGnss_InjectDgnssCorrectionRespond(cmdRef, LE_FAULT);
+        return;
+    }
+
     LocationCmdInfo_t* cPtr =
         (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);
     memset(cPtr, 0, sizeof(*cPtr));
@@ -9826,6 +10005,14 @@ void taf_locGnss::CreateDgnssSource
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("CreateDgnssSource: Failed to acquire session");
+        taf_locGnss_CreateDgnssSourceRespond(cmdRef, NULL);
+        return;
+    }
 
     LocationCmdInfo_t* cPtr =
         (LocationCmdInfo_t*)le_mem_ForceAlloc(gnss.CmdLocationPoolRef);
@@ -10083,6 +10270,14 @@ void taf_locGnss::ReleaseDgnssSource
 )
 {
     auto &gnss = taf_locGnss::GetInstance();
+
+    taf_locGnss_Client_t* clientRequestPtr = AcquireSessionRef();
+    if (NULL == clientRequestPtr)
+    {
+        LE_ERROR("ReleaseDgnssSource: Failed to acquire session");
+        taf_locGnss_ReleaseDgnssSourceRespond(cmdRef, LE_FAULT);
+        return;
+    }
 
     LocationCmdInfo_t* cPtr =
         (LocationCmdInfo_t*)le_mem_ForceAlloc(CmdLocationPoolRef);

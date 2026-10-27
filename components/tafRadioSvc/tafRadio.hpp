@@ -1130,6 +1130,20 @@ class Utility
                 );
 
                 /**
+                 * Validates a network code (MCC or MNC) string.
+                 *
+                 * @return
+                 *      - true if the code is valid.
+                 *      - false if the code is null, has invalid length, or contains non-digit characters.
+                 */
+                static bool IsValidNetworkCode
+                (
+                    const char* code,  ///< [IN] Network code string to validate.
+                    size_t minLen,     ///< [IN] Minimum valid length.
+                    size_t maxLen      ///< [IN] Maximum valid length.
+                );
+
+                /**
                  * Performs manual network selection with the given MCC/MNC.
                  *
                  * @return

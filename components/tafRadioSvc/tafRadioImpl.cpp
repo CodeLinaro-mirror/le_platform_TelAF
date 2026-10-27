@@ -3388,6 +3388,47 @@ taf_radio_ScanInformationListRef_t Utility::Common::PlmnNetworkScan
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Validates a network code (MCC or MNC) string.
+ *
+ * @return
+ *      - true if the code is valid.
+ *      - false if the code is null, has invalid length, or contains non-digit characters.
+ */
+//--------------------------------------------------------------------------------------------------
+bool Utility::Common::IsValidNetworkCode
+(
+    const char* code,  ///< [IN] Network code string to validate.
+    size_t minLen,     ///< [IN] Minimum valid length.
+    size_t maxLen      ///< [IN] Maximum valid length.
+)
+{
+    if (code == nullptr)
+    {
+        LE_ERROR("Network code pointer is null.");
+        return false;
+    }
+
+    size_t len = strlen(code);
+    if (len < minLen || len > maxLen)
+    {
+        LE_ERROR("Invalid network code length: expected %zu-%zu, got %zu", minLen, maxLen, len);
+        return false;
+    }
+
+    for (size_t i = 0; i < len; ++i)
+    {
+        if (!std::isdigit(static_cast<unsigned char>(code[i])))
+        {
+            LE_ERROR("Invalid network code digit: %c", code[i]);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Performs manual network selection with the given MCC/MNC.
  *
  * @return
@@ -3404,35 +3445,33 @@ le_result_t Utility::Common::ManualNetworkSelection
     const char* mncPtr  ///< [IN] MNC string.
 )
 {
-    if (mccPtr == nullptr)
+    if (!IsValidNetworkCode(mccPtr, 3, 3))
     {
-        LE_ERROR("mccPtr is nullptr.");
+        LE_ERROR("Invalid MCC: must be exactly 3 digits.");
         return LE_BAD_PARAMETER;
     }
 
-    if (mncPtr == nullptr)
+    if (!IsValidNetworkCode(mncPtr, 2, 3))
     {
-        LE_ERROR("mncPtr is nullptr.");
+        LE_ERROR("Invalid MNC: must be 2-3 digits.");
         return LE_BAD_PARAMETER;
     }
 
     uint32_t instance = Utility::Convert::PhoneToInstance(phone);
 
-    taf_pa_radio_NetworkSelectionPreference_t preference;
+    taf_pa_radio_NetworkSelectionPreference_t preference = {};
     preference.mode = TAF_PA_RADIO_NETWORK_SELECTION_MODE_MANUAL;
 
-    le_result_t result = Utility::Convert::StringToU16(mccPtr, &preference.mcc);
-    if (result != LE_OK)
+    if (le_utf8_Copy(preference.mcc, mccPtr, sizeof(preference.mcc), nullptr) != LE_OK)
     {
-        LE_ERROR("Failed to convert MCC %s.", mccPtr);
-        return result;
+        LE_ERROR("Failed to copy MCC string.");
+        return LE_BAD_PARAMETER;
     }
 
-    result = Utility::Convert::StringToU16(mncPtr, &preference.mnc);
-    if (result != LE_OK)
+    if (le_utf8_Copy(preference.mnc, mncPtr, sizeof(preference.mnc), nullptr) != LE_OK)
     {
-        LE_ERROR("Failed to convert MNC %s.", mncPtr);
-        return result;
+        LE_ERROR("Failed to copy MNC string.");
+        return LE_BAD_PARAMETER;
     }
 
     taf_pa_result_t paResult = taf_pa_radio_SetNetworkSelectionPreference(instance, &preference);

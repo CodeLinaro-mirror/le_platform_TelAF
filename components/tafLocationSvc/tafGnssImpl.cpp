@@ -9269,7 +9269,7 @@ le_result_t taf_locGnss::GetGnssData
     size_t* maxSignalTypes
 )
 {
-    le_result_t result = LE_OK;
+    le_result_t result = LE_FAULT;
     taf_locGnss_PositionSampleRequest_t* posSampleReqPtr = (taf_locGnss_PositionSampleRequest_t*)le_ref_Lookup(PositionSampleMap,positionSampleRef);
     int i;
 
@@ -9287,12 +9287,13 @@ le_result_t taf_locGnss::GetGnssData
             gnssDataPtr[i].jammerInd = posSampleReqPtr->positionSampleNodePtr->gnssData[i].jammerInd;
             gnssDataPtr[i].agc = posSampleReqPtr->positionSampleNodePtr->gnssData[i].agc;
         }
+        return LE_OK;
     }
     else
     {
         LE_DEBUG("GetGnssData Invalid");
+        return LE_FAULT;
     }
-    return result;
 }
 
 le_result_t taf_locGnss::GetGptpTime
@@ -9302,10 +9303,10 @@ le_result_t taf_locGnss::GetGptpTime
     uint64_t* gPtpTimeUnc
 )
 {
-    le_result_t result = LE_OK;
+    le_result_t result = LE_FAULT;
     TAF_KILL_CLIENT_IF_RET_VAL(((NULL == gPtpTime) || (NULL == gPtpTimeUnc)), LE_FAULT, "Invalid reference");
     taf_locGnss_PositionSampleRequest_t* posSampleReqPtr
-                                            = (taf_locGnss_PositionSampleRequest_t*)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+                = (taf_locGnss_PositionSampleRequest_t*)le_ref_Lookup(PositionSampleMap,positionSampleRef);
 
     result = CheckValidatePosition(posSampleReqPtr);
     if (LE_OK != result)
@@ -9313,23 +9314,32 @@ le_result_t taf_locGnss::GetGptpTime
         return result;
     }
 
-    if (posSampleReqPtr->positionSampleNodePtr->gPtpTimeValid)
+    // Initialize outputs to "invalid" so callers never consume stale/uninitialized values.
+    *gPtpTime    = UINT64_MAX;
+    *gPtpTimeUnc = UINT64_MAX;
+
+    const auto* nodePtr = posSampleReqPtr->positionSampleNodePtr;
+
+    // gPTP time is mandatory for this API; without it, the uncertainty is meaningless.
+    if (!nodePtr->gPtpTimeValid)
     {
-        *gPtpTime = posSampleReqPtr->positionSampleNodePtr->gPtpTime;
+        LE_DEBUG("gPTP time is invalid");
+        return LE_FAULT;
+    }
+
+    *gPtpTime = nodePtr->gPtpTime;
+
+    // gPTP time uncertainty is optional. If invalid, keep UINT64_MAX (unknown) which could be misread as "zero uncertainty".
+    if (nodePtr->gPtpTimeUncValid)
+    {
+        *gPtpTimeUnc = nodePtr->gPtpTimeUnc;
     }
     else
     {
-        LE_ERROR("taf_locGnss_GetGptpTime time is invalid");
+        LE_DEBUG("gPTP time uncertainty is invalid, reporting UINT64_MAX");
     }
-    if (posSampleReqPtr->positionSampleNodePtr->gPtpTimeUncValid)
-    {
-        *gPtpTimeUnc = posSampleReqPtr->positionSampleNodePtr->gPtpTimeUnc;
-    }
-    else
-    {
-        LE_ERROR("taf_locGnss_GetGptpTime timeUnc is invalid");
-    }
-    return result;
+
+    return LE_OK;
 }
 
 le_result_t taf_locGnss::GetIsNHz(taf_locGnss_MeasSampleRef_t measSampleRef, bool* isNHZPtr)
@@ -10618,8 +10628,13 @@ le_result_t taf_locGnss::GetBaselineLength
             *baselineLengthPtr = posSampleReqPtr->positionSampleNodePtr->baselineLength;
             return LE_OK;
         }
+        else
+        {
+            LE_DEBUG("GetBaselineLength Invalid");
+            return LE_FAULT;
+        }
     }
-    return result;
+    return LE_FAULT;
 }
 
 le_result_t taf_locGnss::GetAgeOfCorrections
@@ -10643,8 +10658,13 @@ le_result_t taf_locGnss::GetAgeOfCorrections
             *ageCorrectionsPtr = posSampleReqPtr->positionSampleNodePtr->ageCorrections;
             return LE_OK;
         }
+        else
+        {
+            LE_DEBUG("GetAgeOfCorrections Invalid");
+            return LE_FAULT;
+        }
     }
-    return result;
+    return LE_FAULT;
 }
 
 le_result_t taf_locGnss::GetIntegrityRiskUsed

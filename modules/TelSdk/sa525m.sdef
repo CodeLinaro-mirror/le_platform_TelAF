@@ -127,6 +127,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafLXCIntTest/tafLXCIntTest.adef
     // $TELAF_ROOT/apps/test/tafHMSTest/tafHMSUnitTest
     // $TELAF_ROOT/apps/test/tafHMSTest/tafHMSIntTest
+    // $TELAF_ROOT/apps/test/tafHMSTest/tafHMSEcallUnitTest
     // $TELAF_ROOT/apps/test/tafWLAN/tafWlanUnitTest.adef
     // $TELAF_ROOT/apps/test/tafWLAN/tafWlanIntTest.adef
     // $TELAF_ROOT/apps/test/tafWLAN/tafWlanAPIntTest.adef
@@ -174,6 +175,7 @@ interfaceSearch:
 {
     $TELAF_ROOT/interfaces
     $TELAF_ROOT/interfaces/someipGW
+    $TELAF_ROOT/interfaces/healthM
     $TELAF_ROOT/interfaces/tafVNW
     $TELAF_ROOT/interfaces/staging
     $TELAF_ROOT/apps/tafMngdServices/interfaces

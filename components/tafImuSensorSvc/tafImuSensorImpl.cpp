@@ -439,7 +439,7 @@ void taf_Sensor::SetEulerAngleWorker(void* cmdPtr, void*)
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sensor_SetEulerAngle failed "
                  "(pitch=%lf, roll=%lf, yaw=%lf), reason=%d",
                  cPtr->euler.pitch, cPtr->euler.roll, cPtr->euler.yaw, eulerRes);
-        cPtr->retCode = LE_FAULT;
+        cPtr->retCode = PA_TO_LE_RESULT_FAULT(eulerRes);
     }
     le_event_QueueFunctionToThread(sens.SensorSvcThRef, SetEulerAngleSvcRespond, cPtr, NULL);
 }
@@ -772,7 +772,7 @@ void taf_Sensor::ActivateWorker(void* cmdPtr, void*)
                  " (rate=%lf, batch=%u), reason=%d",
                  cPtr->paClientId, cPtr->activate.samplingRate,
                  cPtr->activate.batchCount, configRes);
-        cPtr->retCode = LE_FAULT;
+        cPtr->retCode = PA_TO_LE_RESULT_FAULT(configRes);
     }
     else
     {
@@ -781,7 +781,7 @@ void taf_Sensor::ActivateWorker(void* cmdPtr, void*)
         {
             LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sensor_Activate for paClientId %" PRIu64
                      ", reason=%d", cPtr->paClientId, activateRes);
-            cPtr->retCode = LE_FAULT;
+            cPtr->retCode = PA_TO_LE_RESULT_FAULT(activateRes);
         }
         else
         {
@@ -915,8 +915,7 @@ void taf_Sensor::SelfTestWorker(void* cmdPtr, void*)
             }
 
             *timestampPtr = ts;
-            le_result_t rc = (result == TAF_PA_OK) ? LE_OK :
-                             (result == TAF_PA_BUSY) ? LE_BUSY : LE_FAULT;
+            le_result_t rc = PA_TO_LE_RESULT_FAULT(result);
             promiseptr->set_value(rc);
         }
         catch (...)
@@ -932,7 +931,7 @@ void taf_Sensor::SelfTestWorker(void* cmdPtr, void*)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sensor_SelfTestAsync for paClientId %" PRIu64
                  ", reason=%d", cPtr->paClientId, res);
-        cPtr->retCode = LE_FAULT;
+        cPtr->retCode = PA_TO_LE_RESULT_FAULT(res);
         cPtr->selfTest.timestamp = 0;
         le_event_QueueFunctionToThread(sens.SensorSvcThRef, SelfTestSvcRespond, cPtr, NULL);
         return;
@@ -1375,7 +1374,7 @@ void taf_Sensor::DeactivateWorker(void* cmdPtr, void*)
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sensor_Deactivate for paClientId %" PRIu64
                  ", reason=%d", cPtr->paClientId, deactRes);
     }
-    cPtr->retCode = (deactRes == TAF_PA_OK) ? LE_OK : LE_FAULT;
+    cPtr->retCode = PA_TO_LE_RESULT_FAULT(deactRes);
     le_event_QueueFunctionToThread(sens.SensorSvcThRef, DeactivateSvcRespond, cPtr, NULL);
 }
 
@@ -1783,7 +1782,7 @@ le_result_t taf_Sensor::GetSensorList(int8_t listSize){
         if(res != TAF_PA_OK){
             LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sensor_GetSensorInfo for index %d, "
                      "reason=%d", i, res);
-            return LE_FAULT;
+            return PA_TO_LE_RESULT_FAULT(res);
         }
         sList.push_back(info);
     }

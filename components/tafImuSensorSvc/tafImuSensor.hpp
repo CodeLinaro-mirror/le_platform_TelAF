@@ -22,6 +22,20 @@
 #define MAX_TIME_OUT 5
 #define SENSOR_VERSION_SIZE 20
 
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert a PA result code to a Legato result code.
+ * Unrecognized PA errors are mapped to LE_FAULT.
+ */
+//--------------------------------------------------------------------------------------------------
+#define PA_TO_LE_RESULT_FAULT(result) \
+    (((result) == TAF_PA_OK) ? LE_OK : \
+     ((result) == TAF_PA_BUSY) ? LE_BUSY : \
+     ((result) == TAF_PA_NOT_IMPLEMENTED) ? LE_CAP_NOT_IMPLEMENTED : \
+     ((result) == TAF_PA_UNSUPPORTED) ?     LE_CAP_UNSUPPORTED : \
+     LE_FAULT)
+
 // -------------------------------------------------------------------------------------------------
 // Sensor Info (per sensor)
 // -------------------------------------------------------------------------------------------------

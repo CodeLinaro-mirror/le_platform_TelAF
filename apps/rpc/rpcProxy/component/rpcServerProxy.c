@@ -274,6 +274,29 @@ static void RpcDeleteSessionRespHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * RPC delete zombie session response handler. A zombie session is a remote proxy session which
+ * has no corresponding local proxy session.
+ */
+//--------------------------------------------------------------------------------------------------
+static void RpcDeleteZombieSessionRespHandler
+(
+    le_result_t result,
+    RpcSessionResp_t respType,
+    uint32_t sessionId,
+    void* contextPtr
+)
+{
+    RpcServerProxy_t* rpcServerPtr = contextPtr;
+    LE_ASSERT(rpcServerPtr != NULL);
+
+    LE_INFO("Deleted zombie RPC session(rID=0x%x) of service(0x%x/0x%x) (result='%s').",
+            sessionId, rpcServerPtr->someipClient.serviceId,
+            rpcServerPtr->someipClient.instanceId, LE_RESULT_TXT(result));
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * RPC message command response handler.
  */
 //--------------------------------------------------------------------------------------------------
@@ -349,9 +372,16 @@ static void RpcMessageRespHandler
 
         if (proxySessionPtr->sessionRef != NULL)
         {
-            // Assume remote proxy session is closed,
+            // A timeout does not mean the remote proxy session is closed, it may be left as a
+            // zombie session on remote side. Keep isRemoteClosed false so that a RPC DeleteSession
+            // command is sent to delete it once all ongoing messages are handled.
+            // For other failures, assume remote proxy session is closed.
+            if (result != LE_TIMEOUT)
+            {
+                proxySessionPtr->isRemoteClosed = true;
+            }
+
             // Close the local proxy session.
-            proxySessionPtr->isRemoteClosed = true;
             le_msg_CloseSession(proxySessionPtr->sessionRef);
             le_msg_ReleaseMsg(msgRef);
         }
@@ -1321,6 +1351,7 @@ static void RpcEventMsgHandler
 
     uint16_t serviceId = rpcServerPtr->someipClient.serviceId;
     uint16_t instanceId = rpcServerPtr->someipClient.instanceId;
+    bool isReliable = rpcServerPtr->someipClient.isReliable;
     ProxySession_t* proxySessionPtr;
     const uint8_t* msgPtr;
     size_t msgSize;
@@ -1351,7 +1382,18 @@ static void RpcEventMsgHandler
                 LE_ERROR("No proxySession found for rpcSessionId(0x%x) of service(0x%x/0x%x).",
                          commonHeaderPtr->rpcSessionId, serviceId, instanceId);
 
-                // <TBD> Do we need to notify remote side ?
+                if (commonHeaderPtr->rpcSessionId != 0)
+                {
+                    // A remote proxy session without corresponding local proxy session is a zombie
+                    // session. Send a RPC DeleteSession command to delete it to avoid resource leak
+                    // on remote side. RPC session ID 0 is invalid and never assigned.
+                    rpcProxyMessage_DeleteSessionRequestResponse(serviceRef,
+                                                                 isReliable,
+                                                                 commonHeaderPtr->rpcSessionId,
+                                                                 RpcDeleteZombieSessionRespHandler,
+                                                                 (void*)rpcServerPtr);
+                }
+
                 return;
             }
 

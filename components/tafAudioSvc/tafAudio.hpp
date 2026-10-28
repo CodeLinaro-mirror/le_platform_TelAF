@@ -44,6 +44,18 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
 
 using namespace tafpa::audio;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert a PA result code to a Legato result code.
+ * Unrecognized PA errors are mapped to LE_FAULT.
+ */
+//--------------------------------------------------------------------------------------------------
+#define PA_TO_LE_RESULT_FAULT(result) \
+    (((result) == TAF_PA_OK) ? LE_OK : \
+     ((result) == TAF_PA_NOT_IMPLEMENTED) ? LE_CAP_NOT_IMPLEMENTED : \
+     ((result) == TAF_PA_UNSUPPORTED) ?     LE_CAP_UNSUPPORTED : \
+     LE_FAULT)
+
 #define SUBSYSTEM_TIMEOUT          5
 #define STOP_TIMEOUT               5
 #define MAX_CONNECTOR              8

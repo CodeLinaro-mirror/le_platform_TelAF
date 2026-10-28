@@ -1560,14 +1560,14 @@ le_result_t taf_Audio::CloseRoute( taf_audio_RouteRef_t routeRef )
 
         if (status != TAF_PA_OK) {
             LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_StopAudio for loopback, "
-                     "reason=%d", status);
-            return LE_FAULT;
+                    "reason=%d", status);
+            return PA_TO_LE_RESULT_FAULT(status);
         }
 
         cbRes = prom->get_future().get();
         if (cbRes != TAF_PA_OK) {
             LE_ERROR("Failed to stop loopback, error : %d", (int)cbRes);
-            return LE_FAULT;
+            return  PA_TO_LE_RESULT_FAULT(cbRes);
         }
         LE_DEBUG("Loopback stopped");
 
@@ -1576,14 +1576,14 @@ le_result_t taf_Audio::CloseRoute( taf_audio_RouteRef_t routeRef )
 
         if (status != TAF_PA_OK) {
             LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_DeleteStream for loopback, "
-                     "reason=%d", status);
-            return LE_FAULT;
+                    "reason=%d", status);
+            return PA_TO_LE_RESULT_FAULT(status);
         }
 
         cbRes = prom1->get_future().get();
         if (cbRes != TAF_PA_OK) {
             LE_ERROR("Failed to delete loopback, error : %d", (int)cbRes);
-            return LE_FAULT;
+            return PA_TO_LE_RESULT_FAULT(cbRes);
         }
         mIsLoopbackActive = false;
         LE_DEBUG("Loopback stream deleted");
@@ -1787,10 +1787,11 @@ le_result_t taf_Audio::StartAudio
         LE_DEBUG("Request to create stream sent" );
     } else {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_CreateStream reason=%d", audioStatus);
-        return LE_FAULT;
+        return PA_TO_LE_RESULT_FAULT(audioStatus);
     }
     CALLBACK1_TO_SET_PA_RESULT;
-    if (prom->get_future().get() == TAF_PA_OK) {
+    audioStatus = prom->get_future().get();
+    if (audioStatus == TAF_PA_OK) {
         LE_DEBUG("Audio Stream is Created" );
         if(config.type == PaStreamType::VOICE_CALL) {
             LE_DEBUG("Voice Stream is Created on slot id");
@@ -1803,7 +1804,7 @@ le_result_t taf_Audio::StartAudio
                     taf_pa_result_t startRes = prom1->get_future().get();
                     if (TAF_PA_OK != startRes) {
                         LE_ERROR("Request to start failed error : %d", (int)startRes);
-                        return LE_FAULT;
+                        return PA_TO_LE_RESULT_FAULT(startRes);
                     }
                     mVoiceEnabled1 = true;
                     mCallStarted = true;
@@ -1811,8 +1812,8 @@ le_result_t taf_Audio::StartAudio
                     setVhalRouteStatus(TAF_AUDIO_VOICE_CALL, true);
                 } else {
                     LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_StartAudio for voice, "
-                             "reason=%d", status);
-                    return LE_FAULT;
+                            "reason=%d", status);
+                    return PA_TO_LE_RESULT_FAULT(status);
                 }
             }
         } else if(config.type == PaStreamType::CAPTURE) {
@@ -1830,13 +1831,13 @@ le_result_t taf_Audio::StartAudio
             status = taf_pa_audio_StartAudio(config, cb1, context);
             if (status != TAF_PA_OK) {
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_StartAudio for loopback, "
-                         "reason=%d", status);
-                return LE_FAULT;
+                        "reason=%d", status);
+                return PA_TO_LE_RESULT_FAULT(status);
             }
             status = prom1->get_future().get();
             if (status != TAF_PA_OK) {
                 LE_ERROR("start loopback failed error : %d", (int)status);
-                return LE_FAULT;
+                return PA_TO_LE_RESULT_FAULT(status);
             }
             LE_DEBUG("Loopback started\n");
             mIsLoopbackActive = true;
@@ -1844,8 +1845,8 @@ le_result_t taf_Audio::StartAudio
             LE_DEBUG("Unknown Stream Created" );
         }
     } else {
-        LE_ERROR("Invalid configuration, failed to create the stream");
-        return LE_FAULT;
+        LE_ERROR("Invalid configuration, failed to create the stream : %d", audioStatus);
+        return PA_TO_LE_RESULT_FAULT(audioStatus);
     }
 
     return LE_OK;
@@ -2040,7 +2041,7 @@ void taf_Audio::RemoveDtmfDetectorHandler
             taf_pa_result_t result = taf_pa_audio_deregisterDtmfListener(mDtmfListener);
             if(result != TAF_PA_OK) {
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_deregisterDtmfListener "
-                         "reason=%d", result);
+                        "reason=%d", result);
                 return;
             }
             mDtmfAudioRef = NULL;
@@ -2252,8 +2253,8 @@ le_result_t taf_Audio::startRecording(taf_audio_Stream_t* streamPtr)
         if (captureStreamRes != TAF_PA_OK)
         {
             LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_GetCaptureStream reason=%d",
-                     captureStreamRes);
-            return LE_FAULT;
+                    captureStreamRes);
+            return PA_TO_LE_RESULT_FAULT(captureStreamRes);
         }
         isRecording = &mIsRecording;
         bufferRecordedTillNow = &mBufferRecordedTillNow;
@@ -2268,8 +2269,8 @@ le_result_t taf_Audio::startRecording(taf_audio_Stream_t* streamPtr)
         if (captureStreamRes != TAF_PA_OK)
         {
             LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_GetCaptureStream reason=%d",
-                     captureStreamRes);
-            return LE_FAULT;
+                    captureStreamRes);
+            return PA_TO_LE_RESULT_FAULT(captureStreamRes);
         }
         isRecording = &mIsRxRecording;
         bufferRecordedTillNow = &mRxBufferRecordedTillNow;
@@ -2322,7 +2323,7 @@ le_result_t taf_Audio::startRecording(taf_audio_Stream_t* streamPtr)
         if(status != TAF_PA_OK) {
             LE_ERROR("read() failed with result %d",int(status));
             *isRecording = false;
-            return LE_FAULT;
+            return PA_TO_LE_RESULT_FAULT(status);
         }
     }
 
@@ -2776,7 +2777,7 @@ le_result_t taf_Audio::StopAudio(taf_audio_Stream_t* streamPtr)
             if(res != TAF_PA_OK)
             {
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_StopPlayback reason=%d", res);
-                return LE_FAULT;
+                return PA_TO_LE_RESULT_FAULT(res);
             }
 
             if(streamPtr->direction == TAF_AUDIO_RX)
@@ -2817,7 +2818,7 @@ le_result_t taf_Audio::DeleteAudioStream(taf_audio_Stream_t* streamPtr)
             cbRes = prom->get_future().get();
             if (TAF_PA_OK != cbRes) {
                 LE_ERROR("Request to delete voice stream failed error: %d", int (cbRes));
-                return LE_FAULT;
+                return PA_TO_LE_RESULT_FAULT(cbRes);
             }
             else
             {
@@ -2827,8 +2828,8 @@ le_result_t taf_Audio::DeleteAudioStream(taf_audio_Stream_t* streamPtr)
             }
         } else {
             LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_DeleteStream for voice, "
-                     "reason=%d", status);
-            return LE_FAULT;
+                    "reason=%d", status);
+            return PA_TO_LE_RESULT_FAULT(status);
         }
     }
 
@@ -2853,8 +2854,8 @@ le_result_t taf_Audio::DeleteAudioStream(taf_audio_Stream_t* streamPtr)
             }
             else {
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_DeleteStream for capture, "
-                         "reason=%d", status);
-                return LE_FAULT;
+                        "reason=%d", status);
+                return PA_TO_LE_RESULT_FAULT(status);
             }
         }
         else if (streamPtr->direction == TAF_AUDIO_RX && mIsRxCaptureStreamCreated)
@@ -2877,8 +2878,8 @@ le_result_t taf_Audio::DeleteAudioStream(taf_audio_Stream_t* streamPtr)
             }
             else {
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_DeleteStream for capture, "
-                         "reason=%d", status);
-                return LE_FAULT;
+                        "reason=%d", status);
+                return PA_TO_LE_RESULT_FAULT(status);
             }
         }
         try
@@ -3069,7 +3070,7 @@ void taf_Audio::RecBufferHandler(taf_audio_Stream_t* streamPtr)
         if (captureStreamRes != TAF_PA_OK)
         {
             LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_GetCaptureStream reason=%d",
-                     captureStreamRes);
+                    captureStreamRes);
             mIsRecording = false;
             mIsRecError = true;
         }
@@ -3089,7 +3090,7 @@ void taf_Audio::RecBufferHandler(taf_audio_Stream_t* streamPtr)
         if (captureStreamRes != TAF_PA_OK)
         {
             LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_GetCaptureStream reason=%d",
-                     captureStreamRes);
+                    captureStreamRes);
             mIsRxRecording = false;
             mIsRecError = true;
         }
@@ -3309,7 +3310,7 @@ le_result_t taf_Audio::PlayList
     if (pbRes != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_StartPlayback reason=%d", pbRes);
-        return LE_FAULT;
+        return PA_TO_LE_RESULT_FAULT(pbRes);
     }
     // Set volume and mute status to local stream
     if(streamPtr->direction == TAF_AUDIO_RX)
@@ -3416,7 +3417,7 @@ le_result_t taf_Audio::SetMute
             } else {
                 LE_ERROR("Request to UnMute failed");
             }
-            return LE_FAULT;
+            return PA_TO_LE_RESULT_FAULT(paRes);
         }
         else
         {
@@ -3427,7 +3428,7 @@ le_result_t taf_Audio::SetMute
     } else {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_SetMute reason=%d, isMute %d",
                  status, isMute);
-        return LE_FAULT;
+        return PA_TO_LE_RESULT_FAULT(status);
     }
 
     return res;
@@ -3499,11 +3500,12 @@ le_result_t taf_Audio::GetMute
     if(status == TAF_PA_OK) {
         if(prom->get_future().get() == TAF_PA_OK)
         {
-        LE_INFO("Successfully got the mute status %s", *isMute ? "true" : "false");
-        return LE_OK;
+            LE_INFO("Successfully got the mute status %s", *isMute ? "true" : "false");
+            return LE_OK;
         }
     } else {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_GetMute reason=%d", status);
+        return PA_TO_LE_RESULT_FAULT(status);
     }
     return LE_FAULT;
 }
@@ -3574,7 +3576,7 @@ le_result_t taf_Audio::SetVolume
         LE_INFO("Request to set volume sent");
     } else {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_SetVolume reason=%d", status);
-        return LE_FAULT;
+        return PA_TO_LE_RESULT_FAULT(status);
     }
     if (prom->get_future().get() == TAF_PA_OK) {
         LE_INFO("setVolume successful.");
@@ -3644,7 +3646,7 @@ le_result_t taf_Audio::GetVolume
         LE_INFO("Request to get volume sent");
     } else {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_GetVolume reason=%d", status);
-        return LE_FAULT;
+        return PA_TO_LE_RESULT_FAULT(status);
     }
     if (prom->get_future().get() != TAF_PA_OK) {
         LE_ERROR("Failed to get volume");
@@ -3948,7 +3950,7 @@ le_result_t taf_Audio::StopDtmf(taf_audio_StreamRef_t streamRef)
             dtmfDataRx = {};
         }else {
             LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_StopDtmf reason=%d", paResult);
-            return LE_FAULT;
+            return PA_TO_LE_RESULT_FAULT(paResult);
         }
     } else {
         LE_ERROR("Request to play stop Tone failed");
@@ -3976,14 +3978,13 @@ le_result_t taf_Audio::StopSignallingDtmf(uint32_t slotId) {
         CALLBACK_TO_SET_PA_RESULT;
         taf_pa_result_t result = taf_pa_audio_StopSignallingDtmfOnTx(slotId, cb, context);
         if(result != TAF_PA_OK) {
-            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_StopSignallingDtmfOnTx reason=%d",
-                     result);
-            return LE_FAULT;
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_StopSignallingDtmfOnTx reason=%d", result);
+            return PA_TO_LE_RESULT_FAULT(result);
         }
         result = prom->get_future().get();
         if (result != TAF_PA_OK) {
             LE_ERROR("Stop Dtmf signalling failed");
-            return LE_FAULT;
+            return PA_TO_LE_RESULT_FAULT(result);
         }
     }
     mDtmfStartedTx = false;
@@ -4071,8 +4072,7 @@ void taf_Audio::CleanUpBeforeExit()
     if(mDtmfAudioRef && mVoiceEnabled1 && mDtmfListener) {
         result = taf_pa_audio_deregisterDtmfListener(mDtmfListener);
         if(result != TAF_PA_OK) {
-            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_deregisterDtmfListener reason=%d",
-                     result);
+            LE_ERROR("[PA_CALL_FAILED] api=taf_pa_audio_deregisterDtmfListener reason=%d", result);
         }
         mDtmfAudioRef = nullptr;
         mDtmfListener = nullptr;

@@ -47,7 +47,7 @@
  *
  * @section taf_mngdStorageSvc_binding IPC interfaces binding
  *
- * The following example illustrates how to bind to the Managed Storage Service.
+ * The following example shows how to bind to the Managed Storage Service.
  * @verbatim
    bindings:
    {
@@ -62,7 +62,7 @@
  * The client can also provide its own service configuration file at the extension path mentioned
  * in default service json. Then service will be initialized with that service json.
  *
- * @b NOTE: It is advised to provide absolute paths in service configuration json.
+ * @b NOTE: It's advised to provide absolute paths in service configuration json.
  *
  * @section taf_mngdStorCfg Manage config storage
  *
@@ -119,7 +119,7 @@
  * @section taf_mngdStorCfg_Rollback Revert the config file to original version
  *
  * The client calls taf_mngdStorCfg_Rollback() to revert the configuration file to previous version.
- * It is advised to use in case of failure in firmware update.
+ * It's advised to use in case of failure in firmware update.
  *
  * @code
 
@@ -226,7 +226,7 @@ ENUM NodeType
     TYPE_BOOL,            ///< A node with boolean value.
     TYPE_INT,             ///< A node with signed 32 bit value.
     TYPE_FLOAT,           ///< A node with 64 bit floating point value.
-    TYPE_DOESNT_EXIST     ///< Node does not exist.
+    TYPE_DOESNT_EXIST     ///< Node doesn't exist.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -236,7 +236,7 @@ ENUM NodeType
  * @instaging
  * @return
  *     - Config            Configuration storage reference.
- *     - NULL              Invalid file name.
+ *     - NULL              Invalid filename.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Config GetRef
@@ -264,7 +264,7 @@ FUNCTION le_result_t Update
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Replaces the orignal configuration file with the updated file. It is advised to use this API if
+ * Replaces the orignal configuration file with the updated file. It's advised to use this API if
  * the update file operation is successful.
  *
  * @instaging
@@ -281,7 +281,7 @@ FUNCTION le_result_t Activate
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Verifies the hash value for the activated configuration file. It is advised to use this API if
+ * Verifies the hash value for the activated configuration file. It's advised to use this API if
  * the activation operation is successful.
  *
  * @instaging
@@ -298,7 +298,7 @@ FUNCTION le_result_t VerifyActivation
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Cancels the config file update campaign. It is advised to use this API if the update file
+ * Cancels the config file update campaign. It's advised to use this API if the update file
  * operation fails.
  *
  * @instaging
@@ -315,7 +315,7 @@ FUNCTION le_result_t Cancel
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Reverts to orignal version of configuration file. It is advised to use in case of failure in
+ * Reverts to orignal version of configuration file. It's advised to use in case of failure in
  * firmware update or anything wrong with new config file.
  *
  * @instaging
@@ -348,12 +348,12 @@ FUNCTION le_result_t Commit
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the major, minor and patch version of the given configuration file reference.
+ * Gets the major, minor and patch version of the specified configuration file reference.
  *
  * @instaging
  * @return
  *     - LE_OK             Successfully read the data.
- *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
+ *     - LE_BAD_PARAMETER  The specified config storage reference is invalid.
  *     - LE_FAULT          Failed to read the data.
  */
 //--------------------------------------------------------------------------------------------------
@@ -372,7 +372,7 @@ FUNCTION le_result_t GetVersion
  * @instaging
  * @return
  *     - LE_OK             Successfully read the data.
- *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
+ *     - LE_BAD_PARAMETER  The specified config storage reference is invalid.
  *     - LE_FAULT          Failed to read the data.
  */
 //--------------------------------------------------------------------------------------------------
@@ -392,7 +392,7 @@ FUNCTION le_result_t GetValue
  * @instaging
  * @return
  *     - LE_OK             Successfully read the data.
- *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
+ *     - LE_BAD_PARAMETER  The specified config storage reference is invalid.
  *     - LE_FAULT          Failed to read the data.
  */
 //--------------------------------------------------------------------------------------------------
@@ -411,7 +411,7 @@ FUNCTION le_result_t GetType
  * @instaging
  * @return
  *     - LE_OK             Successfully read the data.
- *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
+ *     - LE_BAD_PARAMETER  The specified config storage reference is invalid.
  *     - LE_FAULT          Failed to read the data.
  */
 //--------------------------------------------------------------------------------------------------
@@ -430,7 +430,7 @@ FUNCTION le_result_t GetString
  * @instaging
  * @return
  *     - LE_OK             Successfully read the data.
- *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
+ *     - LE_BAD_PARAMETER  The specified config storage reference is invalid.
  *     - LE_FAULT          Failed to read the data.
  */
 //--------------------------------------------------------------------------------------------------
@@ -449,7 +449,7 @@ FUNCTION le_result_t GetInt
  * @instaging
  * @return
  *     - LE_OK             Successfully read the data.
- *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
+ *     - LE_BAD_PARAMETER  The specified config storage reference is invalid.
  *     - LE_FAULT          Failed to read the data.
  */
 //--------------------------------------------------------------------------------------------------
@@ -468,7 +468,7 @@ FUNCTION le_result_t GetFloat
  * @instaging
  * @return
  *     - LE_OK             Successfully read the data.
- *     - LE_BAD_PARAMETER  The given config storage reference is invalid.
+ *     - LE_BAD_PARAMETER  The specified config storage reference is invalid.
  *     - LE_FAULT          Failed to read the data.
  */
 //--------------------------------------------------------------------------------------------------

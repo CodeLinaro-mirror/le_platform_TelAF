@@ -19,7 +19,7 @@
  * To implement file access with reliability in TelAF application, the developer needs to get
  * this file. The header tafRFSLib.hpp provides all file access APIs, which are compatible with
  * POSIX file access interfaces, and maintain file reliability in the background. The developer
- * does not need to change the logics of file access, just call taf_rfs_Init() to initailize RFS
+ * doesn't need to change the logics of file access, just call taf_rfs_Init() to initailize RFS
  * component and call the corresponding APIs with RFS APIs.
  *
  * @code
@@ -117,7 +117,7 @@ LE_SHARED le_result_t taf_rfs_Init
  *
  * @instaging
  * @param
- *      filePathPtr  Path name of backup storage
+ *      filePathPtr  Pathname of backup storage
  *
  * @return
  *      Result for the setup
@@ -151,7 +151,7 @@ LE_SHARED le_result_t taf_rfs_SetBackupCapacity
  * Opens a file and returns a file descriptor.
  *
  * @instaging
- * @param    filePathPtr   Path name of file
+ * @param    filePathPtr   Pathname of file
  * @param    flags         File open flags
  * @param    mode          File open mode
  *
@@ -175,7 +175,7 @@ LE_SHARED int taf_rfs_Open
  *      fd    Opened file descriptor
  *
  * @return
- *      0 on successful, -1 on failed
+ *      0 on successful, −1 on failed
  */
 //--------------------------------------------------------------------------------------------------
 LE_SHARED int taf_rfs_Close
@@ -229,7 +229,7 @@ LE_SHARED int taf_rfs_Write
  *
  * @instaging
  * @param
- *      filePathPtr    Path name of file
+ *      filePathPtr    Pathname of file
  *
  * @return
  *

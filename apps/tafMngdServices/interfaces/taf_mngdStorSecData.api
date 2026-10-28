@@ -45,7 +45,7 @@
  *
  * @section taf_mngdStorageSvc_binding IPC interfaces binding
  *
- * The following example illustrates how to bind to the Managed Storage Service.
+ * The following example shows how to bind to the Managed Storage Service.
  * @verbatim
    bindings:
    {
@@ -60,7 +60,7 @@
  * The client can also provide its own service configuration file at the extension path mentioned
  * in default service json. Then service will be initialized with that service json.
  *
- * @b NOTE: It is advised to provide absolute paths in service configuration json.
+ * @b NOTE: It's advised to provide absolute paths in service configuration json.
  *
  * @section taf_mngdStorSec Manage secure storage
  *
@@ -87,7 +87,7 @@
  * to get the data item which is allocated to the client to store data.
  *
  * The data is identified by data name which is a unique string within an application. Data ID shall
- * follow POSIX portable file name format, that is only characters in [A-Za-z0-9._-] are allowed to
+ * follow POSIX portable filename format, that's only characters in [A-Za-z0-9._-] are allowed to
  * be used.
  *
  * The data label which is passed to API taf_mngdStorSecData_GetDataRef() shall follow the format of
@@ -127,12 +127,12 @@
  * Optionally, client calls the following interfaces to finish the data item manipulations.
  *
  * The following storage APIs are supported.
- * - taf_mngdStorSecData_GetDataSize() -- Gets the data size from the given data item.
+ * - taf_mngdStorSecData_GetDataSize() -- Gets the data size from the specified data item.
  * - taf_mngdStorSecData_DeleteData() -- Deletes the data item.
  *
  * @section taf_mngdStorSecData_data_write Write data to the data item
  *
- * To store data in secure data item, the client firstly calls taf_mngdStorSecData_WriteDataStart()
+ * To store data in secure data item, the client first calls taf_mngdStorSecData_WriteDataStart()
  * to start a writing operation, then calls taf_mngdStorSecData_WriteDataChunk() to input data buffer
  * and specify data length. This API can be called back-to-back to do multiple writing operation.
  * At the end, the client calls taf_mngdStorSecData_WriteDataEnd() to finish the current writing
@@ -234,7 +234,7 @@ ENUM DataUsage
     USAGE_UNKNOWN,       ///< Uknown usage.
     USAGE_READ_WRITE,    ///< With read and write access.
     USAGE_READ,          ///< With read only access.
-    USAGE_WRITE          ///< With write only access.
+    USAGE_WRITE          ///< With write-only access.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -296,7 +296,7 @@ FUNCTION le_result_t GetFreeSize
 //--------------------------------------------------------------------------------------------------
 /**
  * Creates a data name with empty data and returns the reference to the data name. The data name
- * shall follow POSIX portable file name convention.
+ * shall follow POSIX portable filename convention.
  *
  * The created data will be owned by the calling app.
  *
@@ -313,13 +313,13 @@ FUNCTION le_result_t CreateData
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the data reference for the data label. The label name shall follow POSIX portable file name
+ * Gets the data reference for the data label. The label name shall follow POSIX portable filename
  * convention.
  *
  * @instaging
  * @return
  *     - Date       Data reference.
- *     - NULL       Invalid data label, or the data label does not exist.
+ *     - NULL       Invalid data label, or the data label doesn't exist.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Data GetDataRef
@@ -335,11 +335,11 @@ FUNCTION Data GetDataRef
  * @return
  *     - LE_OK             Successfully initializes the operation.
  *     - LE_NOT_FOUND      The data reference is invalid.
- *     - LE_BAD_PARAMETER  The given data label is invalid.
+ *     - LE_BAD_PARAMETER  The specified data label is invalid.
  *     - LE_FAULT          Failed.
  *     - LE_BUSY           The data is in reading/writing process.
- *     - LE_NOT_PERMITTED  The calling app does not have the access to write the data.
- *     - LE_UNAVAILABLE    The data does not exist.
+ *     - LE_NOT_PERMITTED  The calling app doesn't have the access to write the data.
+ *     - LE_UNAVAILABLE    The data doesn't exist.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t WriteDataStart
@@ -356,7 +356,7 @@ FUNCTION le_result_t WriteDataStart
  * @return
  *     - LE_OK             Successfully processes the operation.
  *     - LE_NOT_FOUND      The data reference is invalid.
- *     - LE_BAD_PARAMETER  The given data label is invalid.
+ *     - LE_BAD_PARAMETER  The specified data label is invalid.
  *     - LE_FAULT          Failed.
  *     - LE_BUSY           Data is in writing by another sessions.
  *     - LE_UNAVAILABLE    The data is not in writing process.
@@ -378,7 +378,7 @@ FUNCTION le_result_t WriteDataChunk
  * @return
  *     - LE_OK             Successfully ends the operation.
  *     - LE_NOT_FOUND      The data reference is invalid.
- *     - LE_BAD_PARAMETER  The given data label is invalid.
+ *     - LE_BAD_PARAMETER  The specified data label is invalid.
  *     - LE_FAULT          Failed.
  *     - LE_UNAVAILABLE    The data is not in writing process.
  *     - LE_BUSY           Data is in writing by another session.
@@ -391,17 +391,17 @@ FUNCTION le_result_t WriteDataEnd
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Reads the first chunk from the given data item.
+ * Reads the first chunk from the specified data item.
  *
  * @instaging
  * @return
  *     - LE_OK             Successfully reads the data.
  *     - LE_NOT_FOUND      The data reference is invalid.
- *     - LE_BAD_PARAMETER  The given data label is invalid.
+ *     - LE_BAD_PARAMETER  The specified data label is invalid.
  *     - LE_FAULT          Failed.
  *     - LE_BUSY           The data is in reading/writing process.
  *     - LE_OUT_OF_RANGE   The input read size is too large.
- *     - LE_NOT_PERMITTED  The calling app does not have the access to read the data.
+ *     - LE_NOT_PERMITTED  The calling app doesn't have the access to read the data.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ReadDataFirstChunk
@@ -412,14 +412,14 @@ FUNCTION le_result_t ReadDataFirstChunk
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Reads the next data chunk from the given data item. To get the entire data, the client should
+ * Reads the next data chunk from the specified data item. To get the entire data, the client should
  * keep calling this API after calling ReadDataFirstChunk(), until the return output length is 0.
  *
  * @instaging
  * @return
  *     - LE_OK             Successfully reads the data.
  *     - LE_NOT_FOUND      The data reference is invalid.
- *     - LE_BAD_PARAMETER  The given data label is invalid.
+ *     - LE_BAD_PARAMETER  The specified data label is invalid.
  *     - LE_FAULT          Failed.
  *     - LE_BUSY           The data is in writing process or being read by another session.
  *     - LE_OUT_OF_RANGE   The input read size is too large.
@@ -434,13 +434,13 @@ FUNCTION le_result_t ReadDataNextChunk
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the data size for the given data item in bytes. If the data item is empty, the returned data
+ * Gets the data size for the specified data item in bytes. If the data item is empty, the returned data
  * size will be 0.
  *
  * @instaging
  * @return
  *     - LE_OK             Successfully deletes the data.
- *     - LE_BAD_PARAMETER  The given data label is invalid.
+ *     - LE_BAD_PARAMETER  The specified data label is invalid.
  *     - LE_FAULT          Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -452,14 +452,14 @@ FUNCTION le_result_t GetDataSize
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Deletes the data from the given data item.
+ * Deletes the data from the specified data item.
  *
  * Only the data owner app is allowed to delete the data.
  *
  * @instaging
  * @return
  *     - LE_OK             Successfully deletes the data.
- *     - LE_BAD_PARAMETER  The given data label is invalid.
+ *     - LE_BAD_PARAMETER  The specified data label is invalid.
  *     - LE_FAULT          Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -477,14 +477,14 @@ FUNCTION le_result_t DeleteData
  * 12 applications to read/write.
  *
  * If the data owner app intends to change the usage of the data that has been shared to the shared
- * app, it is necessary to call CancelDataSharing() to cancel the sharing and call ShareData() again
+ * app, it's necessary to call CancelDataSharing() to cancel the sharing and call ShareData() again
  * to set up the new data usage.
  *
  * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameter(s).
- *     - LE_NOT_FOUND -- Data does not exist.
+ *     - LE_NOT_FOUND -- Data doesn't exist.
  *     - LE_NOT_PERMITTED -- Data is not provisioned or calling application is not the data owner.
  *     - LE_FAULT -- Error.
  */
@@ -504,8 +504,8 @@ FUNCTION le_result_t ShareData
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameter(s).
- *     - LE_NOT_FOUND -- Data does not exist.
- *     - LE_NOT_PERMITTED -- Data is not provisioned or is not shared to the given application before,
+ *     - LE_NOT_FOUND -- Data doesn't exist.
+ *     - LE_NOT_PERMITTED -- Data is not provisioned or is not shared to the specified application before,
  *       calling application is not the data owner.
  *     - LE_FAULT -- Error.
  */
@@ -518,13 +518,13 @@ FUNCTION le_result_t CancelDataSharing
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the first application that the given data is shared to.
+ * Gets the first application that the specified data is shared to.
  *
  * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameter(s).
- *     - LE_NOT_FOUND -- Data does not exist.
+ *     - LE_NOT_FOUND -- Data doesn't exist.
  *     - LE_NOT_PERMITTED -- Data is not provisioned or calling application is not the data owner.
  *     - LE_FAULT -- Error.
  */
@@ -538,13 +538,13 @@ FUNCTION le_result_t GetFirstSharedApp
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the next application that the given data is shared to.
+ * Gets the next application that the specified data is shared to.
  *
  * @instaging
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameter(s).
- *     - LE_NOT_FOUND -- Data does not exist.
+ *     - LE_NOT_FOUND -- Data doesn't exist.
  *     - LE_NOT_PERMITTED -- Data is not provisioned or calling application is not the data owner.
  *     - LE_FAULT -- Error.
  */

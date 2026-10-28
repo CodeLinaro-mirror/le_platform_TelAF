@@ -140,7 +140,7 @@ typedef void (*TAF_PI_DIAGDID_DATACHANGECALLBACK)
 //--------------------------------------------------------------------------------------------------
 /**
  * Add data change handler to hal module.
- * (The DID change will not be notify, if service has not whitelisted the DID using
+ * (The DID change won't be notify, if service hasn't whitelisted the DID using
  * TAF_PI_DIAGDID_ADDDATACHANGENOTIFICATION API.)
  *
  * @instaging
@@ -159,7 +159,7 @@ typedef le_result_t (*TAF_PI_DIAGDID_ADDDATACHANGEHANDLER)
  * Add DID for data change notification
  *
  * @instaging
- * @param    dataID     Specified DID that is added for notification
+ * @param    dataID     Specified DID that's added for notification
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_DUPLICATE -- Data identifier already added.
@@ -176,7 +176,7 @@ typedef le_result_t (*TAF_PI_DIAGDID_ADDDATACHANGENOTIFICATION)
  * Remove DID for data change notification
  *
  * @instaging
- * @param    dataID      Specified DID that is removed for notification
+ * @param    dataID      Specified DID that's removed for notification
  * @return
  *      result for removing the DID for notification
  */

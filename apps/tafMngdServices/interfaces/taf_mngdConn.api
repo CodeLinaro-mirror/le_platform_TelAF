@@ -16,7 +16,7 @@
  * @section taf_mngdConn_binding IPC interfaces binding
  *
  *
- * The following example illustrates how to bind to the Managed Connectivity service.
+ * The following example shows how to bind to the Managed Connectivity service.
  * @verbatim
    bindings:
    {
@@ -32,7 +32,7 @@
  * from the TelAF RO location.
  * Upon startup, the service will examine the path specified in the "Extension" object to verify
  * the presence of a valid JSON file. Should a valid JSON be located at the "Extension" path,
- * the service will utilize that JSON. In the event that the JSON is either unavailable or invalid,
+ * the service will use that JSON. In the event that the JSON is either unavailable or invalid,
  * the service will revert to using the JSON bundled with the service.
  *
  * Template of mngdConnectivity.json:
@@ -75,7 +75,7 @@
                     "Profile":{
                         "Number": 1,        ///< Profile number.
                         "APN": null         ///< Profile APN. If APN is valid, profile will be
-                                            ///  updated with the provided APN. The service will not
+                                            ///  updated with the provided APN. The service won't
                                             ///  validate the correctness of the APN. If update
                                             ///  fails,the service will log an error and stop.
                     },
@@ -104,7 +104,7 @@
                         "RetryCount": 5,           ///< Number of times to retry connectivity check.
                         "URL": null                ///< If not null, the URL will be used for
                                                    ///  periodic connectivity tests. If null,
-                                                   ///  periodic connectivity test will not be
+                                                   ///  periodic connectivity test won't be
                                                    ///  performed.
                     }
                 },
@@ -204,7 +204,7 @@
  @endverbatim
  * @section json_details Configurations and Policy
  *
- * The following table illustrates details about Configuration and Policy JSON.
+ * The following table shows details about Configuration and Policy JSON.
  * @rstblock
 .. raw:: html
 
@@ -244,7 +244,7 @@
      <td>511</td>
      <td>If user provided JSON is available in this location, use that JSON.
          <br>
-         Otherwise, use the JSON that is bundled with the service.</td>
+         Otherwise, use the JSON that's bundled with the service.</td>
    </tr>
    <tr>
      <td rowspan="44">ManagedConnectivityService</td>
@@ -327,7 +327,7 @@
      <td>PhoneID</td>
      <td>unit8_t</td>
      <td>0</td>
-     <td>Refer to TelAF radio service.</td>
+     <td>See TelAF radio service.</td>
      <td>Phone ID to use if multi card is supported</td>
    </tr>
    <tr>
@@ -382,7 +382,7 @@
      <td>Number</td>
      <td>unit8_t</td>
      <td>1</td>
-     <td>Refer to TelAF data call service.</td>
+     <td>See TelAF data call service.</td>
      <td>The data profile to use with this data object.</td>
    </tr>
    <tr>
@@ -390,8 +390,8 @@
      <td>char</td>
      <td>null</td>
      <td>128</td>
-     <td>If the value is null or an empty string, do not make any changes to the APN.
-         <br> Otherwise, compare this APN with the NAD APN and update it if they are different.
+     <td>If the value is null or an empty string, don't make any changes to the APN.
+         <br> Otherwise, compare this APN with the NAD APN and update it if they're different.
          <br> If there is only a single space, set the APN to an empty string.
          <br> If APN set fails, log an ERROR, stop the service.</td>
    </tr>
@@ -522,7 +522,7 @@
      <td>1</td>
      <td></td>
      <td>User defined priority.<br> 1 is highest priority.
-         <br> Duplicates are not allowed. </td>
+         <br> Duplicates aren't allowed. </td>
    </tr>
    <tr>
      <td>Use_Data_ID</td>
@@ -530,7 +530,7 @@
      <td>Data ID</td>
      <td></td>
      <td>Valid reference to Configuration-&gt;Data→ID.
-         <br> Duplicates are not allowed. </td>
+         <br> Duplicates aren't allowed. </td>
    </tr>
    <tr>
      <td rowspan="2">MultiDataSession</td>
@@ -566,14 +566,14 @@
         <br> None → Recovery is disabled. Default value.
         <br> L1 → Level 1 connectivity recovery. During this operation, the radio is turned
                 off and on to trigger NAD re-registration. Between radio off and radio on,
-                there will be a wait time that is specified using RadioOffOnInterval.
+                there will be a wait time that's specified using RadioOffOnInterval.
         <br> L2 → Level 2 connectivity recovery. During this operation, the sim is turned
                 off and on to trigger SIM reinitialization and NAD re-registration. Between
-                sim off and sim on, there will be a wait time that is specified using
+                sim off and sim on, there will be a wait time that's specified using
                 SimOffOnInterval.
                 Enabling L2 also enables L1 recovery. The service will try L1 recovery followed
                 by L2 recovery.
-        <br> L3 -> Level 3 connectivity recovery. A NAD reboot is tiggered using Managed
+        <br> L3 -> Level 3 connectivity recovery. A NAD reboot is triggered using Managed
                 Power Management service.
                 Enabling L3 also enables L1 and L2 recoveries. The service will try L1 recovery
                 followed by L2 recovery and then L3 recovery.
@@ -596,7 +596,7 @@
      <td>3600</td>
      <td>Time in seconds the service will wait before retrying a recovery process that was
          canceled or failed.
-         <br> If set to 0, then retry will not be attempted by the service.The service should be
+         <br> If set to 0, then retry won't be attempted by the service.The service should be
           restarted externally.
      </td>
    </tr>
@@ -622,7 +622,7 @@
      <td>
         Allow applications to cancel a scheduled recovery.
         <br>Yes → Allow applications to cancel a scheduled recovery.
-        <br>No → Do not allow applications to cancel a scheduled recovery.
+        <br>No → Don't allow applications to cancel a scheduled recovery.
             taf_mngdConn_CancelRecoveryOperation() will return LE_NOT_PERMITTED
        </td>
    </tr>
@@ -638,7 +638,7 @@
               previously requested data using taf_mngdConn_StartData(). If the app that calls
               taf_mngdConn_CancelRecoveryOperation() had not previously called
               taf_mngdConn_StartData(), the service will return LE_NOT_PERMITTED.<br>
-        No → Service will not check if the app calling taf_mngdConn_CancelRecoveryOperation() had
+        No → Service won't check if the app calling taf_mngdConn_CancelRecoveryOperation() had
              previously called taf_mngdConn_StartData().
        </td>
    </tr>
@@ -651,7 +651,7 @@
      <td>
         Allow app triggered recovery mechanisms.
         <br>Yes → Allow applications to trigger recovery.
-        <br>No → Do not allow applications to trigger recovery.<br>
+        <br>No → Don't allow applications to trigger recovery.<br>
                  taf_mngdConn_StartDataRetry() will return LE_NOT_PERMITTED.
      </td>
    </tr>
@@ -671,7 +671,7 @@
         client's ID until the "MaxTimeBetweenTriggers" expires. If another client calls
         taf_mngdConn_StartDataRetry() when "MaxTimeBetweenTriggers" is active, the service will
         return LE_BUSY.<br>
-        Note: taf_mngdConn_StartDataRetry() API is not multi app safe, as it does not wait for all
+        Note: taf_mngdConn_StartDataRetry() API is not multi app safe, as it doesn't wait for all
               apps that requested data to either call taf_mngdConn_StartData() or disconnect. 
     </td>
    </tr>
@@ -742,7 +742,7 @@
  *
  *
  * @par Connection Test:
- *      - It is not a mandatory operation and it is only launched when the data connection is
+ *      - It's not a mandatory operation and it's only launched when the data connection is
  *        establishing by the service.
  *      - This will be used only once during data startup for checking connectivity.
  *      - If both of the URL and IPv4 are null, the connection test will be skipped.
@@ -936,7 +936,7 @@ ENUM RecoveryOperation{
     RECOVERY_NONE,         ///< Unsupported operation.
     RECOVERY_RADIO_OFF_ON, ///< Radio off on recovery operation.
     RECOVERY_SIM_OFF_ON,   ///< Sim off on recovery operation.
-    RECOVERY_NAD_REBOOT    ///< NAD reboot recovery operation.
+    RECOVERY_NAD_REBOOT    ///< NAD restart recovery operation.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -969,7 +969,7 @@ EVENT RecoveryEvent
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the data reference for the given data ID(as provided in the configuration JSON).
+ * Gets the data reference for the specified data ID(as provided in the configuration JSON).
  *
  * @return
  *  - NULL -- Error.
@@ -983,7 +983,7 @@ FUNCTION Data GetData
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the data reference for the given data name(as provided in the configuration JSON).
+ * Gets the data reference for the specified data name(as provided in the configuration JSON).
  *
  * @return
  *  - NULL -- Error.
@@ -997,7 +997,7 @@ FUNCTION Data GetDataByName
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the data object ID (as provided in the configuration JSON) for the given data reference.
+ * Gets the data object ID (as provided in the configuration JSON) for the specified data reference.
  *
  * @return
  *   - LE_OK -- Succeeded.
@@ -1013,7 +1013,7 @@ FUNCTION le_result_t GetDataIdByRef
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the data object name (as provided in the configuration JSON) for the given data reference.
+ * Gets the data object name (as provided in the configuration JSON) for the specified data reference.
  *
  * @return
  *   - LE_OK -- Succeeded.
@@ -1028,7 +1028,7 @@ FUNCTION le_result_t GetDataNameByRef(
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the data profile number (as provided in the configuration JSON) for the given data
+ * Gets the data profile number (as provided in the configuration JSON) for the specified data
  * reference. The profile number can be used by applications with the data call service to get
  * in depth details about the profile.
  *
@@ -1045,7 +1045,7 @@ FUNCTION le_result_t GetProfileNumberByRef(
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the phone ID that is used by the data object (as provided in the configuration JSON).
+ * Gets the phone ID that's used by the data object (as provided in the configuration JSON).
  *
  * @return
  *   - LE_OK -- Succeeded.
@@ -1061,7 +1061,7 @@ FUNCTION le_result_t GetPhoneIdByRef
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Starts a data session for the given data reference. This API should be used when the value of
+ * Starts a data session for the specified data reference. This API should be used when the value of
  * "AutoStart" is "No" in the configuration file.
  *
  * The service tracks clients that call StartData for Data objects with AutoStart:No and is used
@@ -1083,15 +1083,15 @@ FUNCTION le_result_t StartData
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Stops a data cellular session for the given data reference.
+ * Stops a data cellular session for the specified data reference.
  *
  * Data will be stopped only when all clients that have called StartData for data objects with
- * AutoStart:No either stop data or exit.
+ * AutoStart:No either stop data or terminate.
  *
  * @return
  *   - LE_OK -- Succeeded.
- *   - LE_NOT_PERMITTED -- If data is auto started by the service, application cannot stop data.
- *   - LE_NOT_POSSIBLE  -- If data start connection test is enabled and it is in progress,
+ *   - LE_NOT_PERMITTED -- If data is auto started by the service, application can't stop data.
+ *   - LE_NOT_POSSIBLE  -- If data start connection test is enabled and it's in progress,
  *                         LE_NOT_POSSIBLE is returned. Applications can retry StopData after an
  *                         appropriate delay. Data start connection test is either curl or 5 ping
  *                         packets, which typically takes around 5s.
@@ -1107,7 +1107,7 @@ FUNCTION le_result_t StopData
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the data connection state information for the given data reference.
+ * Gets the data connection state information for the specified data reference.
  *
  * @return
  *   - LE_OK -- Succeeded.
@@ -1123,7 +1123,7 @@ FUNCTION le_result_t GetDataConnectionState
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the data connection IP addresses for the given data reference. An empty string is returned
+ * Gets the data connection IP addresses for the specified data reference. An empty string is returned
  * if either IP address is not available.
  *
  * @return
@@ -1159,13 +1159,13 @@ FUNCTION le_result_t StartDataRetry
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Cancels a scheduled recovery. A recovery could be scheduled for one or more data
+ * Cancels a scheduled recovery. A recovery can be scheduled for one or more data
  * connetions. For a scheduled recovery to be canceled, this API should be called for all
  * data references for which recovery has been scheduled.
  *
  * @return
  *   - LE_OK            -- Succeeded.
- *   - LE_NOT_POSSIBLE  -- A recovery has not been scheduled.
+ *   - LE_NOT_POSSIBLE  -- A recovery hasn't been scheduled.
  *   - LE_NOT_PERMITTED -- A recovery has already started.
  *   - Appropriate error is returned on failure.
  */

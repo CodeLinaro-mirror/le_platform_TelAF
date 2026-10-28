@@ -266,7 +266,7 @@ typedef taf_hal_gpio_State (*TAF_HAL_GPIO_GETSTATE)
  * @instaging
  * @param
  *      pinNum      - requested pin number
- *      state       - state that is needed to be written
+ *      state       - state that's needed to be written
  *
  * @return
  *      result of setting the value for the requested pin number

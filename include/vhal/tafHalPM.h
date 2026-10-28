@@ -54,7 +54,7 @@
  * - hwInitInf -- Hardware initialization function after installation.
  * - powerOffInf -- Power off function called by the device manager during uninstallation.
  * - powerOnInf -- Power on function called by the device manager during installation.
- * - selfTest -- Self-test function to check if the driver functions work normally (reserved for future).
+ * - selfTest -- Self-test function to check if the driver functions work correctly (reserved for future).
  * - getModInf -- Function to get the address of the functional interface.
  *
  * The following is an example of the definition of PM functional interfaces.
@@ -175,8 +175,8 @@ typedef void (*INIT)(void);
  * Callback for response of NodeStateChangePrepare request.
  *
  * @instaging
- * @param    pmNodeId    nodeid for a given node
- * @param    state       State of the given node
+ * @param    pmNodeId    nodeid for a specified node
+ * @param    state       State of the specified node
  * @param    mode        Corresonding shutdown mode to respond
  * @param    StateChangeReason     State Change request Reason
  * @param    reason      Response to the request
@@ -198,8 +198,8 @@ typedef void (*hal_pm_NodeStateChangePrepareCallbackFunc_t)
  * NodeStateChangeShutdownPrepareAsync request to the VHAL hardware component.
  *
  * @instaging
- * @param    pmNodeId    nodeid for a given node
- * @param    state       State of the given node
+ * @param    pmNodeId    nodeid for a specified node
+ * @param    state       State of the specified node
  * @param    mode        Shutdown mode request to the VHAL compoment
  * @param    reason      shutdown/restart reason.
  * @param    callback    Callback function to response the request
@@ -221,8 +221,8 @@ typedef le_result_t (*hal_pm_NodeStateChangePrepareAsync)(
  * Callback for response of NodeStateChange request.
  *
  * @instaging
- * @param    pmNodeId    nodeid for a given node
- * @param    state       State of the given node
+ * @param    pmNodeId    nodeid for a specified node
+ * @param    state       State of the specified node
  * @param    mode        Corresonding shutdown mode to respond
  *
  * @return
@@ -239,8 +239,8 @@ hal_pm_PowerMode_t mode
  * NodeStateChange request to the VHAL hardware component.
  *
  * @instaging
- * @param    pmNodeId    nodeid for a given node
- * @param    state       State of the given node
+ * @param    pmNodeId    nodeid for a specified node
+ * @param    state       State of the specified node
  * @param    mode        Shutdown mode request to the VHAL compoment
  * @param    callback    Callback function to response the request
  *

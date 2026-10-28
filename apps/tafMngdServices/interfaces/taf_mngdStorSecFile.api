@@ -45,7 +45,7 @@
  *
  * @section taf_mngdStorageSvc_binding IPC interfaces binding
  *
- * The following example illustrates how to bind to the secure file storage interface.
+ * The following example shows how to bind to the secure file storage interface.
  * @verbatim
    bindings:
    {
@@ -60,7 +60,7 @@
  * The client can also provide its own service configuration file at the extension path mentioned
  * in default service json. Then service will be initialized with that service json.
  *
- * @b NOTE: It is advised to provide absolute paths in service configuration json.
+ * @b NOTE: It's advised to provide absolute paths in service configuration json.
  *
  * @section taf_mngdStorSecFile Create secure file storage
  *
@@ -77,7 +77,7 @@
     {
         taf_mngdStorSecFile_StorageRef_t storageRef = taf_mngdStorSecFile_GetStorageRef("StorageName");
 
-        // Use storage reference to manipulate the secure folder or file operations
+        // Use storage reference to handle the secure folder or file operations
     }
 
  * @endcode
@@ -90,7 +90,7 @@
  *
  * The client can lock the storage by calling taf_mngdStorSecFile_LockStorage(). This function sends
  * a request to lock the specified storage. After locking, the files under the storage will be encrypted
- * and cannot be accessed.
+ * and can't be accessed.
  *
  * @code
 
@@ -179,13 +179,13 @@ FUNCTION le_result_t CreateStorage
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the storage reference for the storage name. The storage name shall follow POSIX folder file name
+ * Gets the storage reference for the storage name. The storage name shall follow POSIX folder filename
  * convention.
  *
  * @instaging
  * @return
  *     - Storage    New storage reference.
- *     - NULL       Invalid storage name, or the storage name does not exist.
+ *     - NULL       Invalid storage name, or the storage name doesn't exist.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Storage GetStorageRef
@@ -289,7 +289,7 @@ FUNCTION le_result_t DeleteFile
  * @instaging
  * @return
  *     - LE_OK             Sent request successfully.
- *     - LE_BAD_PARAMETER  The given storage reference is invalid.
+ *     - LE_BAD_PARAMETER  The specified storage reference is invalid.
  *     - LE_FAULT          Failed.
  */
 //--------------------------------------------------------------------------------------------------
@@ -306,7 +306,7 @@ FUNCTION le_result_t GetBasePath
  * @instaging
  * @return
  *     - LE_OK             Sent request successfully.
- *     - LE_BAD_PARAMETER  The given storage reference is invalid.
+ *     - LE_BAD_PARAMETER  The specified storage reference is invalid.
  *     - LE_FAULT          Failed.
  */
 //--------------------------------------------------------------------------------------------------

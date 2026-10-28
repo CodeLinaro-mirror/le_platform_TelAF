@@ -19,7 +19,7 @@
  * @section taf_mngdPm_binding IPC interfaces binding
  *
  *
- * The following example illustrates how to bind to the Managed Power Management service.
+ * The following example shows how to bind to the Managed Power Management service.
  * @verbatim
    bindings:
    {
@@ -29,7 +29,7 @@
  *
  * @section taf_mngdPm Configuration
  *
- * Before starting the service, the user should place a JSON file named
+ * Before starting the service, the user should place a JSON filenamed
  * tafMngdPMSvc.json into /data/ManagedServices directory. This JSON file contains the
  * configurations for bootup system awake time, whether PM HAL is enabled, timeout length
  * for hal responses.
@@ -134,7 +134,7 @@
  * TelAF Managed Power Management Service's client calls taf_mngdPm_CreateWakeupSource() and
  * taf_mngdPm_StayAwake() to acquire a wake source to keep the system awake.
  * The reason parameter in taf_mngdPm_CreateWakeupSource() is authenticated based on the mask
- * given by
+ * specified by
  * taf_mngdPm_AuthorizeStayAwakeReason() and passed to VHAL.
  * The authorized wake source keeps the system awake when taf_mngdPm_StayAwake() is called.
  * By default, all the stake awake reasons are authorized.
@@ -275,28 +275,28 @@ ENUM StayAwakeReason
  */
 BITMASK StayAwakeReasonBitMask
 {
-    STAY_AWAKE_REASON_BIT_MASK_NORMAL,           ///< StayAwake Reason bit mask normal.
-    STAY_AWAKE_REASON_BIT_MASK_ECALL_ACTIVE,     ///< StayAwake Reason bit mask for ecall active.
-    STAY_AWAKE_REASON_BIT_MASK_ECALL_CALLBACK,   ///< StayAwake Reason bit mask for ecall callback.
-    STAY_AWAKE_REASON_BIT_MASK_SW_UPDATE,        ///< StayAwake Reason bit mask for software update.
-    STAY_AWAKE_REASON_BIT_MASK_VEH_NETWORK,      ///< StayAwake Reason bit mask for vehicle net.
-    STAY_AWAKE_REASON_BIT_MASK_VENDOR_1 = 0x10000, ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_NORMAL,           ///< StayAwake Reason bitmask normal.
+    STAY_AWAKE_REASON_BIT_MASK_ECALL_ACTIVE,     ///< StayAwake Reason bitmask for ecall active.
+    STAY_AWAKE_REASON_BIT_MASK_ECALL_CALLBACK,   ///< StayAwake Reason bitmask for ecall callback.
+    STAY_AWAKE_REASON_BIT_MASK_SW_UPDATE,        ///< StayAwake Reason bitmask for software update.
+    STAY_AWAKE_REASON_BIT_MASK_VEH_NETWORK,      ///< StayAwake Reason bitmask for vehicle net.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_1 = 0x10000, ///< StayAwake Reason bitmask for vendor specific.
                                                  ///< For handling bub state.
-    STAY_AWAKE_REASON_BIT_MASK_VENDOR_2,         ///< StayAwake Reason bit mask for vendor specific.
-    STAY_AWAKE_REASON_BIT_MASK_VENDOR_3,         ///< StayAwake Reason bit mask for vendor specific.
-    STAY_AWAKE_REASON_BIT_MASK_VENDOR_4,         ///< StayAwake Reason bit mask for vendor specific.
-    STAY_AWAKE_REASON_BIT_MASK_VENDOR_5,         ///< StayAwake Reason bit mask for vendor specific.
-    STAY_AWAKE_REASON_BIT_MASK_VENDOR_6,         ///< StayAwake Reason bit mask for vendor specific.
-    STAY_AWAKE_REASON_BIT_MASK_VENDOR_7,         ///< StayAwake Reason bit mask for vendor specific.
-    STAY_AWAKE_REASON_BIT_MASK_VENDOR_8,         ///< StayAwake Reason bit mask for vendor specific.
-    STAY_AWAKE_REASON_BIT_MASK_VENDOR_9,         ///< StayAwake Reason bit mask for vendor specific.
-    STAY_AWAKE_REASON_BIT_MASK_VENDOR_10,        ///< StayAwake Reason bit mask for vendor specific.
-    STAY_AWAKE_REASON_BIT_MASK_VENDOR_11,        ///< StayAwake Reason bit mask for vendor specific.
-    STAY_AWAKE_REASON_BIT_MASK_VENDOR_12,        ///< StayAwake Reason bit mask for vendor specific.
-    STAY_AWAKE_REASON_BIT_MASK_VENDOR_13,        ///< StayAwake Reason bit mask for vendor specific.
-    STAY_AWAKE_REASON_BIT_MASK_VENDOR_14,        ///< StayAwake Reason bit mask for vendor specific.
-    STAY_AWAKE_REASON_BIT_MASK_VENDOR_15,        ///< StayAwake Reason bit mask for vendor specific.
-    STAY_AWAKE_REASON_BIT_MASK_VENDOR_16         ///< StayAwake Reason bit mask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_2,         ///< StayAwake Reason bitmask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_3,         ///< StayAwake Reason bitmask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_4,         ///< StayAwake Reason bitmask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_5,         ///< StayAwake Reason bitmask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_6,         ///< StayAwake Reason bitmask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_7,         ///< StayAwake Reason bitmask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_8,         ///< StayAwake Reason bitmask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_9,         ///< StayAwake Reason bitmask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_10,        ///< StayAwake Reason bitmask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_11,        ///< StayAwake Reason bitmask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_12,        ///< StayAwake Reason bitmask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_13,        ///< StayAwake Reason bitmask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_14,        ///< StayAwake Reason bitmask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_15,        ///< StayAwake Reason bitmask for vendor specific.
+    STAY_AWAKE_REASON_BIT_MASK_VENDOR_16         ///< StayAwake Reason bitmask for vendor specific.
 };
 
 /**
@@ -375,7 +375,7 @@ ENUM InfoDataId
     INFO_REPORT_BUB    ///< Info report for BUB.
 };
 /**
- * Bit Mask for the information data report.
+ * bitmask for the information data report.
  */
 BITMASK InfoReportBitMask
 {
@@ -416,45 +416,45 @@ ENUM NodePowerState
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Bit mask for modem wakeup selection.
+ * bitmask for modem wakeup selection.
  */
 //--------------------------------------------------------------------------------------------------
 BITMASK NodeModemWsBitMask
 {
-    NODE_MODEM_WS_BIT_MASK_SMS,        ///< Node Modem Wake Source bit mask for received SMS.
-    NODE_MODEM_WS_BIT_MASK_VOICE_CALL, ///< Node Modem Wake Source bit mask for incoming voice call.
-    NODE_MODEM_WS_BIT_MASK_REMOTE_SIM_PROFILE_SWAP, ///< Node Modem Wake Source bit mask for remote
+    NODE_MODEM_WS_BIT_MASK_SMS,        ///< Node Modem Wake Source bitmask for received SMS.
+    NODE_MODEM_WS_BIT_MASK_VOICE_CALL, ///< Node Modem Wake Source bitmask for incoming voice call.
+    NODE_MODEM_WS_BIT_MASK_REMOTE_SIM_PROFILE_SWAP, ///< Node Modem Wake Source bitmask for remote
                                                     ///< sim profile swapped based SIM refresh
                                                     ///< indication wake up.
-    NODE_MODEM_WS_BIT_MASK_NAS_SYS_INFO, ///< Node Modem Wake Source bit mask for NAS system information.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_4,   ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_5,   ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_6,   ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_7,   ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_8,   ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_9,   ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_10,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_11,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_12,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_13,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_14,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_15,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_16,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_17,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_18,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_19,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_20,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_21,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_22,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_23,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_24,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_25,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_26,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_27,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_28,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_29,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_30,  ///< Node Modem Wake Source bit mask Reserved.
-    NODE_MODEM_WS_BIT_MASK_RESERVED_31   ///< Node Modem Wake Source bit mask Reserved.
+    NODE_MODEM_WS_BIT_MASK_NAS_SYS_INFO, ///< Node Modem Wake Source bitmask for NAS system information.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_4,   ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_5,   ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_6,   ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_7,   ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_8,   ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_9,   ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_10,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_11,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_12,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_13,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_14,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_15,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_16,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_17,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_18,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_19,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_20,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_21,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_22,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_23,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_24,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_25,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_26,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_27,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_28,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_29,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_30,  ///< Node Modem Wake Source bitmask Reserved.
+    NODE_MODEM_WS_BIT_MASK_RESERVED_31   ///< Node Modem Wake Source bitmask Reserved.
 };
 
 /**
@@ -557,7 +557,7 @@ HANDLER InfoReportHandler
  */
 EVENT InfoReport
 (
-    InfoReportBitMask infoReportMask,  ///< Bit mask for the data report.
+    InfoReportBitMask infoReportMask,  ///< Bitmask for the data report.
     InfoReportHandler handler    ///< The data report handler.
 ) =(2,3);
 
@@ -634,13 +634,13 @@ EVENT NodeModemAwake
  *     - LE_OK             Successfully sets the targeted power mode.
  *     - LE_FAULT          Failed.
  *     - LE_UNSUPPORTED    The client session is invalid.
- *     - LE_NOT_PERMITTED  The current system state does not allow the requested power mode
+ *     - LE_NOT_PERMITTED  The current system state doesn't allow the requested power mode
  *                         transition.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetNodeTargetedPowerMode
 (
-    uint8 pmNodeId IN,               ///< The Node ID given.
+    uint8 pmNodeId IN,               ///< The Node ID specified.
     TargetedPowerMode powerMode IN   ///< The power mode to be set.
 ) =8;
 
@@ -691,7 +691,7 @@ FUNCTION le_result_t RestartReqAsync
  *     - LE_OK             Successfully sent the request.
  *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
  *     - LE_BUSY           A wakeup vehicle request is already in progress.
- *     - LE_UNSUPPORTED    The client session is invalid, the current state does not allow wakeup,
+ *     - LE_UNSUPPORTED    The client session is invalid, the current state doesn't allow wakeup,
  *                         or the VHAL driver is not available.
  */
 //--------------------------------------------------------------------------------------------------
@@ -713,8 +713,8 @@ FUNCTION le_result_t WakeupVehicleReqAsync
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION wsNode CreateNodeWakeupSource (
-    uint8 pmNodeId IN,               ///< The Node ID given.
-    WsOpt option   IN,               ///< The wakeup source option given.
+    uint8 pmNodeId IN,               ///< The Node ID specified.
+    WsOpt option   IN,               ///< The wakeup source option specified.
     string wsTag[WSREF_MAXLEN] IN    ///< The wakeup source tag information.
 ) =12;
 
@@ -726,13 +726,13 @@ FUNCTION wsNode CreateNodeWakeupSource (
  * @return
  *     - LE_OK             Successfully sent the request.
  *     - LE_FAULT          Failed to send the request.
- *     - LE_BAD_PARAMETER  The given wsRef is NULL.
+ *     - LE_BAD_PARAMETER  The specified wsRef is NULL.
  *     - LE_UNSUPPORTED    The client session is invalid.
- *     - LE_UNAVAILABLE    The wake source has not been acquired.
+ *     - LE_UNAVAILABLE    The wake source hasn't been acquired.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RelaxNode (
-    wsNode wsRef IN    ///< The wakesource reference ID given.
+    wsNode wsRef IN    ///< The wakesource reference ID specified.
 ) =14;
 
 //--------------------------------------------------------------------------------------------------
@@ -743,55 +743,55 @@ FUNCTION le_result_t RelaxNode (
  * @return
  *     - LE_OK                    Successfully sent the request.
  *     - LE_FAULT                 Failed to send the request.
- *     - LE_BAD_PARAMETER         The given wsRef is NULL.
+ *     - LE_BAD_PARAMETER         The specified wsRef is NULL.
  *     - LE_UNSUPPORTED           The client session is invalid.
  *     - LE_DUPLICATE             The wake source has already been acquired.
- *     - LE_CAP_NOT_IMPLEMENTED   The underlying platform has not implemented this capability.
+ *     - LE_CAP_NOT_IMPLEMENTED   The underlying platform hasn't implemented this capability.
  *     - LE_CAP_UNSUPPORTED       Unsupported due to platform capability/SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StayAwakeNode(
-    wsNode wsRef IN     ///< The wakesource reference ID given.
+    wsNode wsRef IN     ///< The wakesource reference ID specified.
 ) =15;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Initiates the forceful shutdown for the given node.
+ * Initiates the forceful shutdown for the specified node.
  *
  * @instaging
  * @return
- *     - LE_OK                    Successfully shuts down for the given node.
+ *     - LE_OK                    Successfully shuts down for the specified node.
  *     - LE_FAULT                 Failed.
  *     - LE_UNSUPPORTED           The client session is invalid.
- *     - LE_CAP_NOT_IMPLEMENTED   The underlying platform has not implemented this capability.
+ *     - LE_CAP_NOT_IMPLEMENTED   The underlying platform hasn't implemented this capability.
  *     - LE_CAP_UNSUPPORTED       Unsupported due to platform capability/SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ShutdownNode
 (
-    uint8 pmNodeId IN   ///< The Node ID given.
+    uint8 pmNodeId IN   ///< The Node ID specified.
 ) =16;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Initiates the forceful restart for the given node.
+ * Initiates the forceful restart for the specified node.
  *
  * @instaging
  * @return
- *     - LE_OK                    Successfully restarts for the given node.
+ *     - LE_OK                    Successfully restarts for the specified node.
  *     - LE_FAULT                 Failed to send the request.
  *     - LE_UNSUPPORTED           The client session is invalid.
- *     - LE_CAP_NOT_IMPLEMENTED   The underlying platform has not implemented this capability.
+ *     - LE_CAP_NOT_IMPLEMENTED   The underlying platform hasn't implemented this capability.
  *     - LE_CAP_UNSUPPORTED       Unsupported due to platform capability/SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RestartNode
 (
-    uint8 pmNodeId IN   ///< The Node ID given.
+    uint8 pmNodeId IN   ///< The Node ID specified.
 ) =17;
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the status information report based on the given report ID.
+ * Gets the status information report based on the specified report ID.
  *
  * @instaging
  * @return
@@ -819,14 +819,14 @@ FUNCTION le_result_t GetInfoReport
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendNodePowerStateChangeAck
 (
-    uint8 pmNodeId IN,     ///< The Node ID given.
+    uint8 pmNodeId IN,     ///< The Node ID specified.
     nodePowerState Ref IN, ///< The node power state reference
     NodeClientAck ack IN   ///< The acknowledgement of the power state.
 ) =19;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Authorize the StayAwake reasons with bit mask.
+ * Authorize the StayAwake reasons with bitmask.
  *
  * @instaging
  * @return
@@ -841,7 +841,7 @@ FUNCTION le_result_t AuthorizeStayAwakeReason
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Creates a new wake lock reference with given StayAwakeReason.
+ * Creates a new wake lock reference with specified StayAwakeReason.
  *
  * @instaging
  * @return
@@ -851,7 +851,7 @@ FUNCTION le_result_t AuthorizeStayAwakeReason
 
 //--------------------------------------------------------------------------------------------------
 FUNCTION ws CreateWakeupSource (
-    StayAwakeReason reason IN,       ///< The wakeup type given.
+    StayAwakeReason reason IN,       ///< The wakeup type specified.
     WsOpt option,
     string wsTag[WSREF_MAXLEN] IN  ///< The HAL tag information.
 ) =21;
@@ -865,12 +865,12 @@ FUNCTION ws CreateWakeupSource (
  *     - LE_OK             Successfully sent the request.
  *     - LE_FAULT          Failed to send the request.
  *     - LE_UNSUPPORTED    The client session is invalid.
- *     - LE_UNAVAILABLE    The wake source has not been acquired.
- *     - LE_NOT_PERMITTED  The current system state does not allow releasing the wake source.
+ *     - LE_UNAVAILABLE    The wake source hasn't been acquired.
+ *     - LE_NOT_PERMITTED  The current system state doesn't allow releasing the wake source.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Relax (
-    ws wsRef IN    ///< The wakesource reference ID given.
+    ws wsRef IN    ///< The wakesource reference ID specified.
 ) =22;
 
 //--------------------------------------------------------------------------------------------------
@@ -884,12 +884,12 @@ FUNCTION le_result_t Relax (
  *     - LE_UNSUPPORTED           The client session is invalid.
  *     - LE_DUPLICATE             The wake source has already been acquired.
  *     - LE_NOT_PERMITTED         The StayAwake reason is not authorized in the current system state.
- *     - LE_CAP_NOT_IMPLEMENTED   The underlying platform has not implemented this capability.
+ *     - LE_CAP_NOT_IMPLEMENTED   The underlying platform hasn't implemented this capability.
  *     - LE_CAP_UNSUPPORTED       Unsupported due to platform capability/SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StayAwake(
-    ws wsRef IN     ///< The wakesource reference ID given.
+    ws wsRef IN     ///< The wakesource reference ID specified.
 ) =23;
 
 //--------------------------------------------------------------------------------------------------
@@ -903,13 +903,13 @@ FUNCTION le_result_t StayAwake(
  *     - LE_OK                    Successfully set the modem wakeup selection.
  *     - LE_FAULT                 Failed to set the modem wakeup selection.
  *     - LE_UNSUPPORTED           The client session is invalid.
- *     - LE_CAP_NOT_IMPLEMENTED   The underlying platform has not implemented this capability.
+ *     - LE_CAP_NOT_IMPLEMENTED   The underlying platform hasn't implemented this capability.
  *     - LE_CAP_UNSUPPORTED       Unsupported due to platform capability/SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetNodeModemWakeupSel
 (
-    uint8 pmNodeId IN,               ///< The Node ID given.
+    uint8 pmNodeId IN,               ///< The Node ID specified.
     NodeModemWsBitMask wsBitmask     ///< Modem wakeup selection to be whitelisted.
 ) =24;
 
@@ -925,13 +925,13 @@ FUNCTION le_result_t SetNodeModemWakeupSel
  *     - LE_FAULT                 Failed to retrieve the modem wakeup selection.
  *     - LE_UNSUPPORTED           The client session is invalid.
  *     - LE_BAD_PARAMETER         Invalid wsBitmask.
- *     - LE_CAP_NOT_IMPLEMENTED   The underlying platform has not implemented this capability.
+ *     - LE_CAP_NOT_IMPLEMENTED   The underlying platform hasn't implemented this capability.
  *     - LE_CAP_UNSUPPORTED       Unsupported due to platform capability/SW limitations.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNodeModemWakeupSel
 (
-    uint8 pmNodeId IN,                   ///< The Node ID given.
+    uint8 pmNodeId IN,                   ///< The Node ID specified.
     NodeModemWsBitMask wsBitmask OUT     ///< Modem wakeup selection to be whitelisted.
 ) =25;
 
@@ -950,25 +950,25 @@ FUNCTION le_result_t GetNodeModemWakeupSel
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNodeModemAwakeReason
 (
-    uint8 pmNodeId IN,                   ///< The Node ID given.
+    uint8 pmNodeId IN,                   ///< The Node ID specified.
     NodeModemWsBitMask wsBitmask OUT     ///< Modem wakeup reason.
 ) =26;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Deletes the given wakeup source.
+ * Deletes the specified wakeup source.
  *
  * @instaging
  * @return
  *     - LE_OK             Successfully deleted the wakeup source.
- *     - LE_NOT_PERMITTED  The wakeup source is currently acquired and cannot be deleted.
- *     - LE_NOT_FOUND      The wakeup source reference was not found.
+ *     - LE_NOT_PERMITTED  The wakeup source is currently acquired and can't be deleted.
+ *     - LE_NOT_FOUND      The wakeup source reference wasn't found.
  *     - LE_UNSUPPORTED    The client session is invalid.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteWakeupSource
 (
-    ws wsRef IN     ///< The wakesource reference ID given.
+    ws wsRef IN     ///< The wakesource reference ID specified.
 ) =27;
 
 //--------------------------------------------------------------------------------------------------
@@ -978,7 +978,7 @@ FUNCTION le_result_t DeleteWakeupSource
  * @instaging
  * @return
  *     - LE_OK             Successfully retrieved the node power state.
- *     - LE_BAD_PARAMETER  The given pmNodeId or state pointer is invalid.
+ *     - LE_BAD_PARAMETER  The specified pmNodeId or state pointer is invalid.
  *     - LE_FAULT          Failed to retrieve the node power state.
  */
 //--------------------------------------------------------------------------------------------------
@@ -990,18 +990,18 @@ FUNCTION le_result_t GetNodePowerState
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Deletes the given node-level wakeup source.
+ * Deletes the specified node-level wakeup source.
  *
  * @instaging
  * @return
  *     - LE_OK             Successfully deleted the node wakeup source.
- *     - LE_BAD_PARAMETER  The given wsRef is NULL.
+ *     - LE_BAD_PARAMETER  The specified wsRef is NULL.
  *     - LE_UNSUPPORTED    The client session is invalid.
- *     - LE_NOT_PERMITTED  The wakeup source is currently acquired and cannot be deleted.
- *     - LE_NOT_FOUND      The wakeup source reference was not found.
+ *     - LE_NOT_PERMITTED  The wakeup source is currently acquired and can't be deleted.
+ *     - LE_NOT_FOUND      The wakeup source reference wasn't found.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteNodeWakeupSource
 (
-    wsNode wsRef IN     ///< The node level wakesource reference ID given.
+    wsNode wsRef IN     ///< The node level wakesource reference ID specified.
 ) =29;

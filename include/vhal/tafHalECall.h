@@ -55,7 +55,7 @@
  * - hwInitInf -- Hardware initialization function after installation.
  * - powerOffInf -- Power off function called by the device manager during uninstallation.
  * - powerOnInf -- Power on function called by the device manager during installation.
- * - selfTest -- Self-test function to check if the driver functions work normally (reserved for future).
+ * - selfTest -- Self-test function to check if the driver functions work correctly (reserved for future).
  * - getModInf -- Function to get the address of the functional interface.
  *
  * The following is an example of the definition of eCall functional interfaces.

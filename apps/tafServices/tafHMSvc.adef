@@ -53,4 +53,5 @@ bindings:
 extern:
 {
     tafHMSvc.tafHMSvc.taf_hms
+    tafHMSvc.tafHMSvc.taf_hmsEcall
 }

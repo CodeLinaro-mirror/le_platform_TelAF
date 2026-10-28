@@ -1,0 +1,27 @@
+maxThreads: 600
+sandboxed: false
+
+executables:
+{
+    tafHMSEcallUnitTest = ( tafHMSEcallUnitTest )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafHMSEcallUnitTest)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+    faultAction: stopApp
+}
+
+bindings:
+{
+    tafHMSEcallUnitTest.tafHMSEcallUnitTest.taf_hmsEcall -> tafHMSvc.taf_hmsEcall
+}

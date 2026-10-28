@@ -8,6 +8,7 @@ provides:
     api:
     {
         taf_hms.api [manual-start]
+        taf_hmsEcall.api
     }
 }
 
@@ -41,4 +42,5 @@ sources:
 {
     tafHMSvc.cpp
     tafHMImpl.cpp
+    tafHMEcallRec.cpp
 }

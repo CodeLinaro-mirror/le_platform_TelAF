@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -10,6 +10,8 @@
 using namespace tafsvc;
 using namespace std;
 
+// Implemented in tafHMEcallRec.cpp.
+void taf_hmsEcallRec_Init(void);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -580,6 +582,7 @@ COMPONENT_INIT
     LE_INFO("TelAF Health Monitor Service init Started...");
     auto &hms = taf_Hms::GetInstance();
     hms.Init();
+    taf_hmsEcallRec_Init();
     LE_INFO("TelAF Health Monitor Service init completed and service advertised...");
 }
 

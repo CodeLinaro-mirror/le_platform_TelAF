@@ -1,0 +1,12 @@
+sources:
+{
+    tafHMSEcallUnitTest.cpp
+}
+
+requires:
+{
+    api:
+    {
+        healthM/taf_hmsEcall.api
+    }
+}

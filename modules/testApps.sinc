@@ -74,6 +74,7 @@ apps:
     $TELAF_ROOT/apps/test/tafLXCIntTest/tafLXCIntTest.adef
     $TELAF_ROOT/apps/test/tafHMSTest/tafHMSUnitTest
     $TELAF_ROOT/apps/test/tafHMSTest/tafHMSIntTest
+    $TELAF_ROOT/apps/test/tafHMSTest/tafHMSEcallUnitTest.adef
     $TELAF_ROOT/apps/test/tafWLAN/tafWlanUnitTest
     $TELAF_ROOT/apps/test/tafWLAN/tafWlanIntTest
     $TELAF_ROOT/apps/test/tafWLAN/tafWlanAPIntTest

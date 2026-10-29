@@ -146,6 +146,7 @@ using namespace std;
                         static le_result_t ConvertPaFailure(int32_t result);
                         static taf_pa_common_LogLevel_t Level(le_log_Level_t level);
                         static taf_sim_States_t taf_Common_State_Result(taf_pa_sim_States_t state);
+                        static taf_sim_Id_t SimId(taf_pa_sim_Id_t paSimId);
                 };
         };
         class Handler : public ITafSvc
@@ -181,7 +182,6 @@ using namespace std;
                 static taf_sim &GetInstance();
                 taf_sim() {};
                 ~taf_sim() {};
-                int slot = TAF_SIM_SLOT_ID_1;
                 bool isSingleActive = false;
                 CardEvent cardEventExpected;
                 std::mutex eventMutex;
@@ -288,5 +288,6 @@ using namespace std;
                 void ResetVoteSend(taf_sim_Session_t* session);
                 void DestroySessionLocked(taf_sim_Session_t* session);
                 static void OnClientDisconnect(le_msg_SessionRef_t clientSessionRef, void* contextPtr);
+                taf_sim_Id_t GetSelectedCard();
         };
     }

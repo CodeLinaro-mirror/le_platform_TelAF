@@ -725,7 +725,9 @@ void taf_sim::FirstLayerIccidChangeHandler(void* reportPtr,
 }
 
 taf_sim_info_t* taf_sim::GetSimContext(taf_sim_Id_t simId) {
-    simId = (TAF_SIM_UNSPECIFIED == simId) ? (taf_sim_Id_t)slot : simId;
+    if (TAF_SIM_UNSPECIFIED == simId) {
+        simId = GetSelectedCard();
+    }
     return simId > 0 ? &simList[simId - 1] : &simList[0];
 }
 
@@ -1908,14 +1910,15 @@ le_result_t taf_sim::selectSimSlot(taf_sim_Id_t simId) {
         return LE_FAULT;
     }
     taf_pa_result_t paResult = taf_pa_sim_selectSimSlot((taf_pa_sim_Id_t)simId);
-    if (paResult != TAF_PA_OK)
+    if (paResult == TAF_PA_OK)
+    {
+        return LE_OK;
+    }
+    else
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_selectSimSlot reason=%d", paResult);
         return Utility::Convert::ConvertPaFailure(paResult);
     }
-
-    slot= simId;
-    return LE_OK;
 }
 
 le_result_t taf_sim::getICCID(taf_sim_Id_t simId, char *iccid, int length)
@@ -2125,6 +2128,29 @@ taf_sim_States_t Utility::Convert::taf_Common_State_Result
             LE_DEBUG("Unknown state %d.", state);
     }
     return TAF_SIM_STATE_UNKNOWN;
+}
+
+taf_sim_Id_t Utility::Convert::SimId
+(
+    taf_pa_sim_Id_t paSimId
+)
+{
+    switch (paSimId)
+    {
+        case TAF_PA_SIM_EMBEDDED:
+            return TAF_SIM_EMBEDDED;
+        case TAF_PA_SIM_SLOT_ID_1:
+            return TAF_SIM_SLOT_ID_1;
+        case TAF_PA_SIM_SLOT_ID_2:
+            return TAF_SIM_SLOT_ID_2;
+        case TAF_PA_SIM_REMOTE:
+            return TAF_SIM_REMOTE;
+        case TAF_PA_SIM_UNSPECIFIED:
+            return TAF_SIM_UNSPECIFIED;
+        default:
+            LE_DEBUG("Unknown sim ID %d.", paSimId);
+    }
+    return TAF_SIM_UNSPECIFIED;
 }
 
 le_result_t taf_sim::SetCardLock(taf_sim_Id_t  simId, taf_sim_LockType_t lockType,
@@ -3449,4 +3475,20 @@ void taf_sim::HandleSubscriptionInfoChanged_Queued(void* param1, void* param2)
         sim.CheckAndSendProfileSwitchEvent();
     }
     le_mem_Release(evt);
+}
+
+taf_sim_Id_t taf_sim::GetSelectedCard()
+{
+    taf_pa_sim_Id_t paSimId = TAF_PA_SIM_UNSPECIFIED;
+
+    const taf_pa_result_t paResult = taf_pa_sim_GetSelectedCard(&paSimId);
+
+    if (paResult != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_GetSelectedCard result=%d",static_cast<int>(paResult));
+        return TAF_SIM_UNSPECIFIED;
+    }
+    const taf_sim_Id_t simId = Utility::Convert::SimId(paSimId);
+    LE_INFO("taf_sim::GetSelectedCard: selected slot=%d",static_cast<int>(simId));
+    return simId;
 }

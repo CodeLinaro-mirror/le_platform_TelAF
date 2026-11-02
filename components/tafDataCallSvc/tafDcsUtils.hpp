@@ -114,6 +114,16 @@ namespace datacall
         static taf_dcs_QosFlowState_t   ConvertQoSFlowState(taf::pa::data::QosFlowState_e);
         static taf_dcs_QosFlowBitMask_t ConvertQoSFlowBitMask(taf::pa::data::QosFlowMask_e);
 
+        static taf_dcs_PowerSaveFilterMode_t      ConvertFilterMode(taf::pa::data::FilterMode_e);
+        static taf::pa::data::FilterMode_e        ConvertFilterMode(taf_dcs_PowerSaveFilterMode_t);
+
+
+        static le_result_t ConvertPacketFilterConfig
+        (
+            const taf_dcs_PacketFilterConfig_t &config,
+            taf::pa::data::IpFilter_t &filter
+        );
+
         // To string functions
         static const char *ToString(taf::pa::data::TechPref_e);
         static const char *ToString(taf::pa::data::Subsystem_e);

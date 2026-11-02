@@ -10,6 +10,7 @@
  */
 
 #include "tafDcsUtils.hpp"
+#include <arpa/inet.h>
 
 using namespace taf::svc::datacall;
 
@@ -337,6 +338,223 @@ taf_dcs_QosFlowBitMask_t TafDcsUtils::ConvertQoSFlowBitMask(taf::pa::data::QosFl
 {
     // They are both 32 bit.
     return static_cast<taf_dcs_QosFlowBitMask_t>(static_cast<std::bitset<32>>(mask).to_ulong());
+}
+
+taf_dcs_PowerSaveFilterMode_t TafDcsUtils::ConvertFilterMode(taf::pa::data::FilterMode_e mode)
+{
+    using namespace taf::pa::data;
+    switch (mode)
+    {
+    case FilterMode_e::DISABLE:
+        return TAF_DCS_POWER_SAVE_FILTER_MODE_DISABLE;
+    case FilterMode_e::ENABLE:
+        return TAF_DCS_POWER_SAVE_FILTER_MODE_ENABLE;
+    default:
+        break;
+    }
+    return TAF_DCS_POWER_SAVE_FILTER_MODE_UNKNOWN;
+}
+
+taf::pa::data::FilterMode_e TafDcsUtils::ConvertFilterMode(taf_dcs_PowerSaveFilterMode_t mode)
+{
+    using namespace taf::pa::data;
+    switch (mode)
+    {
+    case TAF_DCS_POWER_SAVE_FILTER_MODE_DISABLE:
+        return FilterMode_e::DISABLE;
+    case TAF_DCS_POWER_SAVE_FILTER_MODE_ENABLE:
+        return FilterMode_e::ENABLE;
+    default:
+        break;
+    }
+    return FilterMode_e::UNKNOWN;
+}
+
+le_result_t TafDcsUtils::ConvertPacketFilterConfig
+(
+    const taf_dcs_PacketFilterConfig_t &config,
+    taf::pa::data::IpFilter_t &filter
+)
+{
+    using namespace taf::pa::data;
+
+    if (TAF_DCS_PACKET_FILTER_LIST_TYPE_WHITELIST != config.listType)
+    {
+        LE_ERROR("Only PACKET_FILTER_LIST_TYPE_WHITELIST is supported for listType, got %d",
+                  TO_INT(config.listType));
+        return LE_BAD_PARAMETER;
+    }
+
+    IpFilter_t emptyFilter;
+    filter = emptyFilter;
+    // Filters are global on this target; profile/IP-family scoping is deliberately not exposed
+    // at the IPC layer (see the c_taf_dcs_tcp_wake section in taf_dcs.api).
+    filter.profileId = std::nullopt;
+    filter.ipFamilyType = std::nullopt;
+
+    taf_dcs_PacketFilterRuleMask_t mask = config.ruleMask;
+
+    bool wantsTcpSrcPort = 0 != (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_TCP_SRC_PORT);
+    bool wantsTcpDestPort = 0 != (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_TCP_DEST_PORT);
+    bool wantsUdpSrcPort = 0 != (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_UDP_SRC_PORT);
+    bool wantsUdpDestPort = 0 != (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_UDP_DEST_PORT);
+    bool wantsTcpSrcRange = 0 != (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_TCP_SRC_RANGE);
+    bool wantsTcpDestRange = 0 != (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_TCP_DEST_RANGE);
+    bool wantsUdpSrcRange = 0 != (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_UDP_SRC_RANGE);
+    bool wantsUdpDestRange = 0 != (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_UDP_DEST_RANGE);
+
+    bool wantsTcp = wantsTcpSrcPort || wantsTcpDestPort;
+    bool wantsUdp = wantsUdpSrcPort || wantsUdpDestPort;
+    bool wantsIcmp = 0 != (mask & (TAF_DCS_PACKET_FILTER_RULE_MASK_ICMP_MSG_TYPE |
+                                    TAF_DCS_PACKET_FILTER_RULE_MASK_ICMP_MSG_CODE));
+    bool wantsEsp = 0 != (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_ESP_SPI);
+    bool wantsAh = 0 != (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_AH_SPI);
+
+    int protocolBitGroups =
+        (wantsTcp ? 1 : 0) + (wantsUdp ? 1 : 0) + (wantsIcmp ? 1 : 0) + (wantsEsp ? 1 : 0) +
+        (wantsAh ? 1 : 0);
+    if (protocolBitGroups > 1)
+    {
+        LE_ERROR("ruleMask selects more than one protocol; TCP/UDP/ICMP/ESP/AH port or SPI "
+                  "fields are mutually exclusive");
+        return LE_BAD_PARAMETER;
+    }
+    if (wantsAh)
+    {
+        // taf::pa::data::IpProtocol_e has no AH value, so the PA cannot express an AH-SPI filter.
+        LE_ERROR("AH_SPI filtering is not supported by the PA");
+        return LE_UNSUPPORTED;
+    }
+
+    if (wantsTcp)
+    {
+        filter.protocol = IpProtocol_e::TCP;
+    }
+    else if (wantsUdp)
+    {
+        filter.protocol = IpProtocol_e::UDP;
+    }
+    else if (wantsIcmp)
+    {
+        filter.protocol = IpProtocol_e::ICMP;
+    }
+    else if (wantsEsp)
+    {
+        filter.protocol = IpProtocol_e::ESP;
+    }
+    else
+    {
+        filter.protocol = IpProtocol_e::UNKNOWN;
+    }
+
+    bool wantsIpv4 = 0 != (mask & (TAF_DCS_PACKET_FILTER_RULE_MASK_IPV4_SRC_ADDR |
+                                    TAF_DCS_PACKET_FILTER_RULE_MASK_IPV4_DEST_ADDR |
+                                    TAF_DCS_PACKET_FILTER_RULE_MASK_IPV4_TOS));
+    bool wantsIpv6 = 0 != (mask & (TAF_DCS_PACKET_FILTER_RULE_MASK_IPV6_SRC_ADDR |
+                                    TAF_DCS_PACKET_FILTER_RULE_MASK_IPV6_DEST_ADDR |
+                                    TAF_DCS_PACKET_FILTER_RULE_MASK_IPV6_TRAFFIC_CLASS |
+                                    TAF_DCS_PACKET_FILTER_RULE_MASK_IPV6_FLOW_LABEL));
+    if (wantsIpv4 && wantsIpv6)
+    {
+        LE_ERROR("ruleMask mixes IPv4 and IPv6 fields");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (wantsIpv4)
+    {
+        Ipv4Filter_t ipv4;
+        if (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_IPV4_SRC_ADDR)
+        {
+            // config.ipv4SrcAddrSubnetMask is already a full 32-bit dotted-decimal mask (not a
+            // prefix length), so this is a plain network-order conversion, not prefix expansion.
+            char maskBuf[INET_ADDRSTRLEN] = {0};
+            uint32_t netMask = htonl(config.ipv4SrcAddrSubnetMask);
+            inet_ntop(AF_INET, &netMask, maskBuf, sizeof(maskBuf));
+            Ipv4Address_t srcAddr;
+            srcAddr.address = config.ipSrcAddr;
+            srcAddr.subnetMask = maskBuf;
+            ipv4.source = srcAddr;
+        }
+        if (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_IPV4_DEST_ADDR)
+        {
+            char maskBuf[INET_ADDRSTRLEN] = {0};
+            uint32_t netMask = htonl(config.ipv4DestAddrSubnetMask);
+            inet_ntop(AF_INET, &netMask, maskBuf, sizeof(maskBuf));
+            Ipv4Address_t dstAddr;
+            dstAddr.address = config.ipDestAddr;
+            dstAddr.subnetMask = maskBuf;
+            ipv4.destination = dstAddr;
+        }
+        if (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_IPV4_TOS)
+        {
+            ipv4.typeOfServiceValue = config.dscpVal;
+            ipv4.typeOfServiceMask = config.dscpMask;
+        }
+        filter.ipv4 = ipv4;
+    }
+    else if (wantsIpv6)
+    {
+        Ipv6Filter_t ipv6;
+        if (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_IPV6_SRC_ADDR)
+        {
+            Ipv6Address_t srcAddr;
+            srcAddr.address = config.ipSrcAddr;
+            srcAddr.prefixLength = config.ipv6SrcAddrPrefixLen;
+            ipv6.source = srcAddr;
+        }
+        if (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_IPV6_DEST_ADDR)
+        {
+            Ipv6Address_t dstAddr;
+            dstAddr.address = config.ipDestAddr;
+            dstAddr.prefixLength = config.ipv6DestAddrPrefixLen;
+            ipv6.destination = dstAddr;
+        }
+        if (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_IPV6_TRAFFIC_CLASS)
+        {
+            ipv6.trafficClassValue = config.dscpVal;
+            ipv6.trafficClassMask = config.dscpMask;
+        }
+        if (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_IPV6_FLOW_LABEL)
+        {
+            ipv6.flowLabel = config.flowLabel;
+        }
+        filter.ipv6 = ipv6;
+    }
+
+    if (wantsTcp || wantsUdp)
+    {
+        if (wantsTcpSrcPort || wantsUdpSrcPort)
+        {
+            PortInfo_t srcPort;
+            srcPort.port = config.srcPort;
+            srcPort.range = (wantsTcpSrcRange || wantsUdpSrcRange) ? config.srcRange : 0;
+            filter.sourcePort = srcPort;
+        }
+        if (wantsTcpDestPort || wantsUdpDestPort)
+        {
+            PortInfo_t dstPort;
+            dstPort.port = config.destPort;
+            dstPort.range = (wantsTcpDestRange || wantsUdpDestRange) ? config.destRange : 0;
+            filter.destinationPort = dstPort;
+        }
+    }
+
+    if (wantsIcmp)
+    {
+        IcmpInfo_t icmp;
+        icmp.type = (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_ICMP_MSG_TYPE) ? config.icmpType : 0;
+        icmp.code = (mask & TAF_DCS_PACKET_FILTER_RULE_MASK_ICMP_MSG_CODE) ? config.icmpCode : 0;
+        filter.icmp = icmp;
+    }
+
+    if (wantsEsp)
+    {
+        EspInfo_t esp;
+        esp.spi = config.spi;
+        filter.esp = esp;
+    }
+
+    return LE_OK;
 }
 
 /***************************************************************************************************

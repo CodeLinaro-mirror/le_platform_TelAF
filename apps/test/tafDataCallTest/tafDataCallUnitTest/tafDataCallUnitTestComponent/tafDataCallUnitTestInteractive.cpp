@@ -36,6 +36,13 @@ static std::map<uint32_t, taf_dcs_ThrottledStatusHandlerRef_t>
 
 static taf_dcs_ThroughputInfoChangeHandlerRef_t gTputHdlrRefByPhone[3] = { NULL, NULL, NULL };
 
+// Containers for multiple active TCP monitor/offload references, so the interactive operator can
+// add several and then pick one by index for follow-up operations. Mirrors the pattern used for
+// g_ActiveQosFlowRefs above. There is no equivalent container for power save filters:
+// taf_dcs_AddPowerSaveFilter() returns no reference (only bulk removal is supported).
+static std::vector<taf_dcs_TcpMonitorRef_t> g_ActiveTcpMonitorRefs;
+static std::vector<taf_dcs_TcpKeepAliveOffloadRef_t> g_ActiveTcpKeepAliveOffloadRefs;
+
 // Callback thread reference
 le_thread_Ref_t callbackThreadRef = nullptr;
 
@@ -96,7 +103,15 @@ typedef enum
     SESSION_GET_PROF_ID_BY_INTF_NAME, // 71
     SESSION_GET_THPUT_INFO,           // 72
     SESSION_ENABLE_THPUT_REPORT,      // 73
-    SESSION_DISABLE_THPUT_REPORT      // 74
+    SESSION_DISABLE_THPUT_REPORT,     // 74
+    TCP_MONITOR_ENABLE,               // 75
+    TCP_MONITOR_DISABLE,              // 76
+    TCP_KEEPALIVE_OFFLOAD_START,      // 77
+    TCP_KEEPALIVE_OFFLOAD_STOP,       // 78
+    POWER_SAVE_FILTER_MODE_SET,       // 79
+    POWER_SAVE_FILTER_MODE_GET,       // 80
+    POWER_SAVE_FILTER_ADD,            // 81
+    POWER_SAVE_FILTER_REMOVE_ALL      // 82
 } dcsAPIs;
 
 static void ShowMenu()
@@ -201,6 +216,22 @@ static void ShowMenu()
               << SESSION_ENABLE_THPUT_REPORT          << " -> Session: Enable throughput report"
               << std::endl
               << SESSION_DISABLE_THPUT_REPORT         << " -> Session: Disbale throughput report"
+              << std::endl
+              << TCP_MONITOR_ENABLE                   << " -> TCP keep-alive: Enable monitor"
+              << std::endl
+              << TCP_MONITOR_DISABLE                  << " -> TCP keep-alive: Disable monitor"
+              << std::endl
+              << TCP_KEEPALIVE_OFFLOAD_START           << " -> TCP keep-alive: Start offload"
+              << std::endl
+              << TCP_KEEPALIVE_OFFLOAD_STOP            << " -> TCP keep-alive: Stop offload"
+              << std::endl
+              << POWER_SAVE_FILTER_MODE_SET           << " -> Power save filter: Set mode"
+              << std::endl
+              << POWER_SAVE_FILTER_MODE_GET           << " -> Power save filter: Get mode"
+              << std::endl
+              << POWER_SAVE_FILTER_ADD                << " -> Power save filter: Add filter"
+              << std::endl
+              << POWER_SAVE_FILTER_REMOVE_ALL         << " -> Power save filter: Remove all filters"
               << std::endl
               << std::endl;
 }
@@ -2229,6 +2260,322 @@ static void DisableThroughputReport(uint8_t phone)
     LE_INFO("Throughput report disabled for phoneId %u", phone);
 }
 
+// ----------------------------------------------------------------------------
+// TCP keep-alive offload and power save filter test cases
+//
+// NOTE: Neither tafDataCallSvc nor the PA layer implement these APIs yet (see taf_dcs.api
+// c_taf_dcs_tcp_wake section). Calls below are expected to surface LE_NOT_IMPLEMENTED or
+// LE_UNSUPPORTED until that lands; this still exercises the IPC transport and reference
+// lifecycle end-to-end.
+// ----------------------------------------------------------------------------
+
+// Prints the entries of a reference vector and lets the operator pick one by index.
+// Returns -1 if there is nothing to pick, or the choice was invalid.
+template <typename T>
+static int SelectRefIndex(const std::vector<T> &refs, const char *label)
+{
+    if (refs.empty())
+    {
+        std::cout << "No active " << label << " to select." << std::endl;
+        return -1;
+    }
+
+    std::cout << "Active " << label << ":" << std::endl;
+    for (size_t i = 0; i < refs.size(); i++)
+    {
+        std::cout << "  [" << i << "] " << refs[i] << std::endl;
+    }
+
+    std::cout << "Enter index:  ";
+    int idx = -1;
+    std::cin.clear();
+    std::cin >> idx;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    if (idx < 0 || static_cast<size_t>(idx) >= refs.size())
+    {
+        std::cout << "Invalid index." << std::endl;
+        return -1;
+    }
+    return idx;
+}
+
+static le_result_t EnableTcpMonitor()
+{
+    int phoneID = 1;
+    char srcAddr[TAF_DCS_IPV6_ADDR_MAX_LEN] = {0};
+    char dstAddr[TAF_DCS_IPV6_ADDR_MAX_LEN] = {0};
+    int srcPort = 0, dstPort = 0;
+
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    std::cout << "Enter source address(IPv4/IPv6):  ";
+    std::cin.getline(srcAddr, TAF_DCS_IPV6_ADDR_MAX_LEN);
+
+    std::cout << "Enter destination address(IPv4/IPv6):  ";
+    std::cin.getline(dstAddr, TAF_DCS_IPV6_ADDR_MAX_LEN);
+
+    std::cout << "Enter source port:  ";
+    std::cin.clear();
+    std::cin >> srcPort;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    std::cout << "Enter destination port:  ";
+    std::cin.clear();
+    std::cin >> dstPort;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_TcpKeepAliveParams_t params = {0};
+    le_utf8_Copy(params.sourceAddress, srcAddr, sizeof(params.sourceAddress), NULL);
+    le_utf8_Copy(params.destinationAddress, dstAddr, sizeof(params.destinationAddress), NULL);
+    params.sourcePort = static_cast<uint16_t>(srcPort);
+    params.destinationPort = static_cast<uint16_t>(dstPort);
+
+    taf_dcs_TcpMonitorRef_t monitorRef = NULL;
+    le_result_t result = taf_dcs_EnableTcpMonitor(static_cast<uint8_t>(phoneID), &params,
+                                                                                    &monitorRef);
+    if (LE_OK == result && NULL != monitorRef)
+    {
+        g_ActiveTcpMonitorRefs.push_back(monitorRef);
+        std::cout << "TCP monitor enabled. Index: " << (g_ActiveTcpMonitorRefs.size() - 1)
+                  << ", ref: " << monitorRef << std::endl;
+    }
+    return result;
+}
+
+static le_result_t DisableTcpMonitor()
+{
+    int idx = SelectRefIndex(g_ActiveTcpMonitorRefs, "TCP monitors");
+    if (idx < 0)
+    {
+        return LE_FAULT;
+    }
+
+    taf_dcs_TcpMonitorRef_t monitorRef = g_ActiveTcpMonitorRefs[idx];
+    le_result_t result = taf_dcs_DisableTcpMonitor(monitorRef);
+    if (LE_OK == result)
+    {
+        g_ActiveTcpMonitorRefs.erase(g_ActiveTcpMonitorRefs.begin() + idx);
+    }
+    return result;
+}
+
+static le_result_t StartTcpKeepAliveOffload()
+{
+    int idx = SelectRefIndex(g_ActiveTcpMonitorRefs, "TCP monitors");
+    if (idx < 0)
+    {
+        return LE_FAULT;
+    }
+
+    int interval = 30000;
+    std::cout << "Enter keep-alive interval(ms):  ";
+    std::cin.clear();
+    std::cin >> interval;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    taf_dcs_TcpKeepAliveOffloadRef_t offloadRef = NULL;
+    le_result_t result = taf_dcs_StartTcpKeepAliveOffload(g_ActiveTcpMonitorRefs[idx],
+                                             static_cast<uint32_t>(interval), &offloadRef);
+    if (LE_OK == result && NULL != offloadRef)
+    {
+        g_ActiveTcpKeepAliveOffloadRefs.push_back(offloadRef);
+        std::cout << "TCP keep-alive offload started. Index: "
+                  << (g_ActiveTcpKeepAliveOffloadRefs.size() - 1)
+                  << ", ref: " << offloadRef << std::endl;
+    }
+    return result;
+}
+
+static le_result_t StopTcpKeepAliveOffload()
+{
+    int idx = SelectRefIndex(g_ActiveTcpKeepAliveOffloadRefs, "TCP keep-alive offloads");
+    if (idx < 0)
+    {
+        return LE_FAULT;
+    }
+
+    taf_dcs_TcpKeepAliveOffloadRef_t offloadRef = g_ActiveTcpKeepAliveOffloadRefs[idx];
+    le_result_t result = taf_dcs_StopTcpKeepAliveOffload(offloadRef);
+    if (LE_OK == result)
+    {
+        g_ActiveTcpKeepAliveOffloadRefs.erase(g_ActiveTcpKeepAliveOffloadRefs.begin() + idx);
+    }
+    return result;
+}
+
+static const char *FilterModeToString(taf_dcs_PowerSaveFilterMode_t mode)
+{
+    switch (mode)
+    {
+        case TAF_DCS_POWER_SAVE_FILTER_MODE_DISABLE:
+            return "DISABLE";
+        case TAF_DCS_POWER_SAVE_FILTER_MODE_ENABLE:
+            return "ENABLE";
+        case TAF_DCS_POWER_SAVE_FILTER_MODE_UNKNOWN:
+        default:
+            return "UNKNOWN";
+    }
+}
+
+static le_result_t SetPowerSaveFilterMode()
+{
+    int phoneID = 1;
+    int modeInput = TAF_DCS_POWER_SAVE_FILTER_MODE_DISABLE;
+
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    std::cout << "Power save filter mode: " << std::endl;
+    std::cout << TAF_DCS_POWER_SAVE_FILTER_MODE_DISABLE << "-DISABLE" << std::endl;
+    std::cout << TAF_DCS_POWER_SAVE_FILTER_MODE_ENABLE << "-ENABLE" << std::endl;
+    std::cout << "Enter mode:  ";
+    std::cin.clear();
+    std::cin >> modeInput;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    le_result_t result = taf_dcs_SetPowerSaveFilterMode(static_cast<uint8_t>(phoneID),
+                                             static_cast<taf_dcs_PowerSaveFilterMode_t>(modeInput));
+    LE_TEST_INFO("taf_dcs_SetPowerSaveFilterMode result: %d", result);
+    return result;
+}
+
+static le_result_t GetPowerSaveFilterMode()
+{
+    int phoneID = 1;
+    taf_dcs_PowerSaveFilterMode_t mode = TAF_DCS_POWER_SAVE_FILTER_MODE_UNKNOWN;
+
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    le_result_t result = taf_dcs_GetPowerSaveFilterMode(static_cast<uint8_t>(phoneID), &mode);
+    if (LE_OK == result)
+    {
+        LE_TEST_INFO("Power save filter mode: %d(%s)", mode, FilterModeToString(mode));
+        std::cout << "Power save filter mode: " << mode << "(" << FilterModeToString(mode) << ")"
+                                                                                    << std::endl;
+    }
+    return result;
+}
+
+// Builds a PacketFilterConfig to exercise TCP/UDP power-save filtering. The protocol is mandatory
+// since taf_dcs.api conveys it purely by which TCP_*/UDP_* rule bit is set; which of the
+// SRC_PORT/SRC_RANGE/DEST_PORT/DEST_RANGE bits (for the chosen protocol) to set is left to the
+// user so any combination -- including ones expected to be rejected further down, such as a
+// *_RANGE bit with no matching *_PORT bit, or no bits at all -- can be exercised here. See
+// PacketFilterRuleMask in taf_dcs.api for the exact combination rules. listType is fixed to
+// WHITELIST (the only supported list type) and is not prompted from the user.
+static le_result_t AddPowerSaveFilter()
+{
+    int phoneID = 1;
+    int protocolInput = -1; // 0=TCP, 1=UDP
+    int srcPort = -1;       // -1 leaves the source port rule bit unset.
+    int srcRange = 0;
+    int dstPort = -1;       // -1 leaves the destination port rule bit unset.
+    int dstRange = 0;
+
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    while (0 != protocolInput && 1 != protocolInput)
+    {
+        std::cout << "Protocol to match (required): " << std::endl;
+        std::cout << "0-TCP" << std::endl;
+        std::cout << "1-UDP" << std::endl;
+        std::cout << "Enter protocol:  ";
+        std::cin.clear();
+        if (!(std::cin >> protocolInput))
+        {
+            std::cin.clear();
+            protocolInput = -1;
+        }
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    }
+
+    std::cout << "Enter source port (-1 to leave the source port rule unset, 0 for any port):  ";
+    std::cin.clear();
+    std::cin >> srcPort;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    if (srcPort >= 0)
+    {
+        std::cout << "Enter number of additional source ports after the one above "
+                     "(0 for a single port):  ";
+        std::cin.clear();
+        std::cin >> srcRange;
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    }
+
+    std::cout << "Enter destination port (-1 to leave the destination port rule unset, 0 for any "
+                 "port):  ";
+    std::cin.clear();
+    std::cin >> dstPort;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    if (dstPort >= 0)
+    {
+        std::cout << "Enter number of additional destination ports after the one above "
+                     "(0 for a single port):  ";
+        std::cin.clear();
+        std::cin >> dstRange;
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    }
+
+    bool isTcp = (0 == protocolInput);
+    taf_dcs_PacketFilterConfig_t config = {};
+    // List type is fixed to whitelist (the only supported list type).
+    config.listType = TAF_DCS_PACKET_FILTER_LIST_TYPE_WHITELIST;
+    if (srcPort >= 0)
+    {
+        config.ruleMask |= isTcp ? TAF_DCS_PACKET_FILTER_RULE_MASK_TCP_SRC_PORT
+                                  : TAF_DCS_PACKET_FILTER_RULE_MASK_UDP_SRC_PORT;
+        config.srcPort = static_cast<uint16_t>(srcPort);
+        if (0 != srcRange)
+        {
+            config.ruleMask |= isTcp ? TAF_DCS_PACKET_FILTER_RULE_MASK_TCP_SRC_RANGE
+                                      : TAF_DCS_PACKET_FILTER_RULE_MASK_UDP_SRC_RANGE;
+            config.srcRange = static_cast<uint16_t>(srcRange);
+        }
+    }
+    if (dstPort >= 0)
+    {
+        config.ruleMask |= isTcp ? TAF_DCS_PACKET_FILTER_RULE_MASK_TCP_DEST_PORT
+                                  : TAF_DCS_PACKET_FILTER_RULE_MASK_UDP_DEST_PORT;
+        config.destPort = static_cast<uint16_t>(dstPort);
+        if (0 != dstRange)
+        {
+            config.ruleMask |= isTcp ? TAF_DCS_PACKET_FILTER_RULE_MASK_TCP_DEST_RANGE
+                                      : TAF_DCS_PACKET_FILTER_RULE_MASK_UDP_DEST_RANGE;
+            config.destRange = static_cast<uint16_t>(dstRange);
+        }
+    }
+
+    le_result_t result = taf_dcs_AddPowerSaveFilter(static_cast<uint8_t>(phoneID), &config);
+    if (LE_OK == result)
+    {
+        std::cout << "Power save filter added." << std::endl;
+    }
+    return result;
+}
+
+static le_result_t RemoveAllPowerSaveFilters()
+{
+    int phoneID = 1;
+    std::cout << "Enter phone id:  ";
+    std::cin.clear();
+    std::cin >> phoneID;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    return taf_dcs_RemoveAllPowerSaveFilters(static_cast<uint8_t>(phoneID));
+}
+
 void tafDCSUnitTest_RunInteractiveTests()
 {
     bool bRun = true;
@@ -2743,6 +3090,86 @@ void tafDCSUnitTest_RunInteractiveTests()
             {
                 int phoneId = GetIntInput("Enter Phone ID (Default 1): ");
                 DisableThroughputReport(phoneId);
+                break;
+            }
+            case TCP_MONITOR_ENABLE:
+            {
+                result = EnableTcpMonitor();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_EnableTcpMonitor: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case TCP_MONITOR_DISABLE:
+            {
+                result = DisableTcpMonitor();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_DisableTcpMonitor: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case TCP_KEEPALIVE_OFFLOAD_START:
+            {
+                result = StartTcpKeepAliveOffload();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_StartTcpKeepAliveOffload: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case TCP_KEEPALIVE_OFFLOAD_STOP:
+            {
+                result = StopTcpKeepAliveOffload();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_StopTcpKeepAliveOffload: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case POWER_SAVE_FILTER_MODE_SET:
+            {
+                result = SetPowerSaveFilterMode();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_SetPowerSaveFilterMode: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case POWER_SAVE_FILTER_MODE_GET:
+            {
+                result = GetPowerSaveFilterMode();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_GetPowerSaveFilterMode: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case POWER_SAVE_FILTER_ADD:
+            {
+                result = AddPowerSaveFilter();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_AddPowerSaveFilter: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
+                break;
+            }
+            case POWER_SAVE_FILTER_REMOVE_ALL:
+            {
+                result = RemoveAllPowerSaveFilters();
+                logStr.clear();
+                logStr = logStr + "taf_dcs_RemoveAllPowerSaveFilters: " +
+                         std::to_string(result) + "(" + LE_RESULT_TXT(result) + ")";
+                LE_TEST_INFO("%s", logStr.c_str());
+                std::cout << logStr << std::endl;
                 break;
             }
             default:

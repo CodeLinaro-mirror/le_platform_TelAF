@@ -32,6 +32,8 @@ ifdef(`sa525m',`
     telux_allow_data_setting(telaf_tafDataCallSvc_t)
     telux_allow_data_call_props(telaf_tafDataCallSvc_t)
     telux_allow_data_profile_ops(telaf_tafDataCallSvc_t)
+    telux_allow_data_ka_offload_ops(telaf_tafDataCallSvc_t)
+    telux_allow_data_filter_ops(telaf_tafDataCallSvc_t)
 
     # Data session setup triggers on-demand load of the rmnet data netdev
     # kernel module (netdev-rmnet_data0)

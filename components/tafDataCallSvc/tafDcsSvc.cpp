@@ -1538,3 +1538,170 @@ le_result_t taf_dcs_GetThroughputQuality
     auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
     return manager.SvcGetThroughputQuality(infoRef, direction, qualityPtr);
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Registers a TCP connection to monitor for keep-alive offload.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_EnableTcpMonitor
+(
+    uint8_t phoneId,
+        ///< [IN] The phone ID.
+    const taf_dcs_TcpKeepAliveParams_t* paramsPtr,
+        ///< [IN] The TCP connection to monitor.
+    taf_dcs_TcpMonitorRef_t* monitorRefPtr
+        ///< [OUT] The TCP monitor reference.
+)
+{
+    auto &tafDcsSvc = TafDcsSvc::GetInstance();
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
+                                                            LE_FAULT, "Service not initialized.");
+
+    auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
+    return manager.SvcEnableTcpMonitor(phoneId, paramsPtr, monitorRefPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Disables a TCP monitor and releases its reference.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_DisableTcpMonitor
+(
+    taf_dcs_TcpMonitorRef_t monitorRef
+        ///< [IN] The TCP monitor reference.
+)
+{
+    auto &tafDcsSvc = TafDcsSvc::GetInstance();
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
+                                                            LE_FAULT, "Service not initialized.");
+
+    auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
+    return manager.SvcDisableTcpMonitor(monitorRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Starts a TCP keep-alive offload for a monitored TCP connection.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_StartTcpKeepAliveOffload
+(
+    taf_dcs_TcpMonitorRef_t monitorRef,
+        ///< [IN] The TCP monitor reference.
+    uint32_t interval,
+        ///< [IN] The keep-alive interval in milliseconds.
+    taf_dcs_TcpKeepAliveOffloadRef_t* offloadRefPtr
+        ///< [OUT] The TCP keep-alive offload reference.
+)
+{
+    auto &tafDcsSvc = TafDcsSvc::GetInstance();
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
+                                                            LE_FAULT, "Service not initialized.");
+
+    auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
+    return manager.SvcStartTcpKeepAliveOffload(monitorRef, interval, offloadRefPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Stops a TCP keep-alive offload and releases its reference.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_StopTcpKeepAliveOffload
+(
+    taf_dcs_TcpKeepAliveOffloadRef_t offloadRef
+        ///< [IN] The TCP keep-alive offload reference.
+)
+{
+    auto &tafDcsSvc = TafDcsSvc::GetInstance();
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
+                                                            LE_FAULT, "Service not initialized.");
+
+    auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
+    return manager.SvcStopTcpKeepAliveOffload(offloadRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the power save packet filter mode.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_SetPowerSaveFilterMode
+(
+    uint8_t phoneId,
+        ///< [IN] The phone ID.
+    taf_dcs_PowerSaveFilterMode_t mode
+        ///< [IN] The filter mode to apply.
+)
+{
+    auto &tafDcsSvc = TafDcsSvc::GetInstance();
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
+                                                            LE_FAULT, "Service not initialized.");
+
+    auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
+    return manager.SvcSetPowerSaveFilterMode(phoneId, mode);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the current power save packet filter mode.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_GetPowerSaveFilterMode
+(
+    uint8_t phoneId,
+        ///< [IN] The phone ID.
+    taf_dcs_PowerSaveFilterMode_t* modePtr
+        ///< [OUT] The current filter mode.
+)
+{
+    auto &tafDcsSvc = TafDcsSvc::GetInstance();
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
+                                                            LE_FAULT, "Service not initialized.");
+
+    auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
+    return manager.SvcGetPowerSaveFilterMode(phoneId, modePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Adds a power save packet filter.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_AddPowerSaveFilter
+(
+    uint8_t phoneId,
+        ///< [IN] The phone ID.
+    const taf_dcs_PacketFilterConfig_t* configPtr
+        ///< [IN] The fields to match.
+)
+{
+    auto &tafDcsSvc = TafDcsSvc::GetInstance();
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
+                                                            LE_FAULT, "Service not initialized.");
+
+    auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
+    return manager.SvcAddPowerSaveFilter(phoneId, configPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes all configured power save packet filters for the given phone ID.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_dcs_RemoveAllPowerSaveFilters
+(
+    uint8_t phoneId
+        ///< [IN] The phone ID.
+)
+{
+    auto &tafDcsSvc = TafDcsSvc::GetInstance();
+    TAF_ERROR_IF_RET_VAL(taf::pa::data::SubsystemState_e::AVAILABLE != tafDcsSvc.GetInitState(),
+                                                            LE_FAULT, "Service not initialized.");
+
+    auto &manager = taf::svc::datacall::TafDcsProfileManager::GetInstance();
+    return manager.SvcRemoveAllPowerSaveFilters(phoneId);
+}
+

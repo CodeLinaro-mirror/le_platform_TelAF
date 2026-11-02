@@ -24,6 +24,7 @@ requires:
         lib/libtelux_tel.so
         lib/libtelux_data.so
         lib/libtelux_common.so
+        lib/libtelux_platform.so
     }
 
 }
@@ -35,6 +36,7 @@ cxxflags:
     -ltelux_tel
     -ltelux_data
     -ltelux_common
+    -ltelux_platform
 }
 
 cflags:

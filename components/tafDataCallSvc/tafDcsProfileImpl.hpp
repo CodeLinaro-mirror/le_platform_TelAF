@@ -40,17 +40,23 @@
 #include <vector>
 #include <iostream>
 #include <tuple>
+#include <atomic>
 #include "telux/data/DataFactory.hpp"
 #include "telux/data/DataConnectionManager.hpp"
 #include "telux/data/DataProfile.hpp"
 #include "telux/data/DataProfileManager.hpp"
 #include <telux/tel/PhoneFactory.hpp>
+#include <telux/platform/SubsystemFactory.hpp>
+#include <telux/platform/SubsystemManager.hpp>
 #include <telux/common/DeviceConfig.hpp>
 #include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
 
 using namespace telux::data;
 using namespace telux::common;
+
+#define TAF_DCS_MODEM_WAIT_TIMEOUT 180
+#define TAF_DCS_MODEM_WAIT_INTERVAL 10
 
 typedef struct
 {
@@ -171,6 +177,13 @@ namespace tafsvc {
        void commandResponse(telux::common::ErrorCode error) override;
     };
 
+    class taf_DataProfileModemEvtListener : public telux::platform::ISubsystemListener
+    {
+        public:
+            void onStateChange(telux::common::SubsystemInfo subsystemInfo,
+                               telux::common::OperationalStatus newOperationalStatus) override;
+    };
+
     // Data profile component implementation
     class taf_DataProfile: public ITafSvc
     {
@@ -178,6 +191,8 @@ namespace tafsvc {
 
             void Init(void);
             void Deinit(void);
+            void WaitForModem(void);
+            static void ModemUnavailableHandler(void* reportPtr);
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
                 void onInitCompleted(telux::common::ServiceStatus status);
 #endif
@@ -277,6 +292,8 @@ namespace tafsvc {
             std::promise<std::tuple<telux::common::ErrorCode, int>> CreateProfileSyncPromise;
 
         private:
+            friend class taf_DataProfileModemEvtListener;
+
             le_mem_PoolRef_t ListEventPool = NULL;
             le_mem_PoolRef_t ProfilePool = NULL;
             le_mem_PoolRef_t ListHandlerPool = NULL;
@@ -300,6 +317,10 @@ namespace tafsvc {
 #endif
 
             std::shared_ptr<telux::tel::IPhoneManager> PhoneMgr;
+            std::shared_ptr<telux::platform::ISubsystemManager> subsystemMgr;
+            std::shared_ptr<taf_DataProfileModemEvtListener> modemEvtListener;
+            le_event_Id_t modemUnavailableEvId = nullptr;
+            std::atomic<bool> modemUnavailable{false};
 
     };
 

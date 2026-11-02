@@ -9,11 +9,18 @@
 #include "tafMngdConnECall.hpp"
 #include "tafMngdConnAdmin.hpp"
 #include "limit.h"
+#include <atomic>
+#include <cstdlib>
+#include <unistd.h>
 
 
 using namespace tafsvc;
 
 #define CONFIG_FILE_NAME "mngdConnectivity.json"
+
+// DCS client connections are thread-local. A DCS server disconnect can therefore invoke the
+// handler from more than one client thread. Only the first callback may deinitialize the service.
+static std::atomic_bool DcsDisconnectHandled{false};
 
 /**
  * Initialize static variables
@@ -64,8 +71,25 @@ void ECall_init()
 #endif
 }
 
+void tafMngdConnAdmin::DcsDisconnectHandler(void *contextPtr)
+{
+    LE_UNUSED(contextPtr);
+
+    if (DcsDisconnectHandled.exchange(true))
+    {
+        return;
+    }
+
+    LE_EMERG("Disconnected from taf_dcs service, restarting tafMngdConnSvc");
+
+    tafMngdConnAdmin::GetInstance().Deinit(le_thread_GetCurrent());
+    _exit(EXIT_FAILURE);
+}
+
 void tafMngdConnAdmin::Init(void)
 {
+    taf_dcs_SetNonExitServerDisconnectHandler(DcsDisconnectHandler, nullptr);
+
     //Initiate data module.
     Data_init();
     //Initiate radio module.
@@ -188,26 +212,26 @@ void tafMngdConnAdmin::Init(void)
     }
 }
 
-void tafMngdConnAdmin::Deinit(void)
+void tafMngdConnAdmin::Deinit(le_thread_Ref_t threadToSkip)
 {
     auto &data = tafMngdConnData::GetInstance();
-    data.Deinit();
+    data.Deinit(threadToSkip);
 
-    if (StateMachineEventThreadRef)
+    if (StateMachineEventThreadRef && StateMachineEventThreadRef != threadToSkip)
     {
         LE_DEBUG("Stopping StateMachineEventThreadRef");
         le_thread_Cancel(StateMachineEventThreadRef);
         le_thread_Join(StateMachineEventThreadRef, NULL);
         StateMachineEventThreadRef = NULL;
     }
-    if (tafMngd_event_thread)
+    if (tafMngd_event_thread && tafMngd_event_thread != threadToSkip)
     {
         LE_DEBUG("Stopping tafMngd_event_thread");
         le_thread_Cancel(tafMngd_event_thread);
         le_thread_Join(tafMngd_event_thread, NULL);
         tafMngd_event_thread = NULL;
     }
-    if (connTestThreadRef)
+    if (connTestThreadRef && connTestThreadRef != threadToSkip)
     {
         LE_DEBUG("Stopping connTestThreadRef");
         le_thread_Cancel(connTestThreadRef);
@@ -2160,6 +2184,7 @@ void *tafMngdConnAdmin::StateMachineEventThreadFunc(void *contextPtr)
     taf_pm_ConnectService();
     taf_radio_ConnectService();
     taf_dcs_ConnectService();
+    taf_dcs_SetNonExitServerDisconnectHandler(tafMngdConnAdmin::DcsDisconnectHandler, nullptr);
     taf_sim_ConnectService();
 #ifndef LE_CONFIG_TARGET_SIMULATION
     taf_net_ConnectService();

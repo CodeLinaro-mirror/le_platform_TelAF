@@ -5,7 +5,7 @@
 
 /* @file       tafHMS.hpp
 * @brief      Interface for health monitor Service object. The functions
-*             in this file are impletmented internally.
+*             in this file are implemented internally.
 */
 
 #include "legato.h"
@@ -76,6 +76,10 @@ using namespace std;
 #define MODEM_CHECK_STATUS_INTERVAL 3000   //Time interval for checking the modem status
 #define COUNTER_RESPONSE_TIME_OUT   2      //Report event to client if counter equal to this macro
 #define COUNTER_EVENT_REPORT_DONE   3      //Stop requesting status if event reported to client
+
+// Max time (ms) to wait for the modem worker to exit on SIGTERM; must stay below the
+// supervisor's 1 s SIGKILL timeout.
+#define MODEM_WORKER_STOP_TIMEOUT_MS 500
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -230,6 +234,20 @@ typedef struct
     taf_hms_modemInfo_t*        modemInfo;
 }taf_hms_modemEventInfo_t;
 
+//-------------------------------------------------------------------------------------------------
+/**
+* Payload queued on MdStatusChNotifyCliId. Uses handlerRef + clientId instead of a raw pointer,
+* since the handler may be removed (and its ref reused) before the event is processed.
+*/
+//-------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_hms_ModemEvtType_t       eventType;
+    taf_hms_ModemEvtSeverity_t   eventLevel;
+    taf_hms_ModemEvtHandlerRef_t handlerRef;
+    uint32_t                     clientId;
+}taf_hms_modemEventReport_t;
+
 
 typedef enum
 {
@@ -285,24 +303,34 @@ namespace tafsvc {
         ~ModemStatus() {};
         // Called by main thread to start/stop the worker thread and main timer.
         void StartWorkerThread(void);
-        void StopWorkerThread(void);
+        void StopMainTimer(void);
+        bool StopWorkerThread(void);
 
         // Called by main thread to dispatch modem status events to clients.
         void ReportModemStatus(taf_hms_ModemEvtType_t eventType,
                                taf_hms_ModemEvtSeverity_t eventLevel);
 
-        // Called on the worker thread - queued by the main-thread timer each tick.
-        void DoRequestOperatingMode(void);
+        // Called by the main-thread timer each tick.
+        void QueueRequestOperatingMode(void);
 
-        le_thread_Ref_t GetWorkerThread(void) const { return workerThread_; }
+        // Called on the worker thread - queued by QueueRequestOperatingMode().
+        void DoRequestOperatingMode(void);
 
     private:
         // Worker thread entry point and PhoneInit helper (run on worker thread).
         static void* WorkerThreadFunc(void* ctx);
+        static void  WorkerExit(void* exitSemPtr, void* unused);
         bool         PhoneInit(void);
+        void         RequestOperatingMode(void);
 
         // Worker thread handle.
         le_thread_Ref_t   workerThread_{nullptr};
+        // Posted by the worker right before it exits.
+        le_sem_Ref_t      workerExitSem_{nullptr};
+        // True while the main timer is probing the modem.
+        std::atomic<bool> isProbingActive_{false};
+        // True while a request is queued or running on the worker.
+        std::atomic<bool> isWorkerBusy_{false};
         // Main-thread timer (3s repeating) - owns pendingCount.
         le_timer_Ref_t    mainTimer_{nullptr};
     };
@@ -315,7 +343,6 @@ namespace tafsvc {
             static taf_Hms& GetInstance();
             void Init();
             void AdvertiseService();
-            void CleanupOnSigTerm();
             static void SigTermEventHandler(int sigNum);
             static void OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *contextPtr);
             le_result_t GetCpuLoad(double* cpuCurrentLoadPtr);

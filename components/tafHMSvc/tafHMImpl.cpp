@@ -67,7 +67,7 @@ static bool isPaModemNotificationInitialized = false;
 // One-shot gate to print logs when connection between modem and APPs from LOST to ONLINE again.
 static bool oneTimeLog = true;
 
-extern std::shared_ptr<ModemStatus> modemStatus;
+static std::shared_ptr<ModemStatus> modemStatus = std::make_shared<ModemStatus>();
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -80,26 +80,23 @@ taf_Hms &taf_Hms::GetInstance()
     return instance;
 }
 
-void taf_Hms::CleanupOnSigTerm()
+//--------------------------------------------------------------------------------------------------
+/**
+ * SIGTERM cleanup.
+ *
+ * @return false if the modem worker thread is still busy in PA; PA deinit is skipped.
+ */
+//--------------------------------------------------------------------------------------------------
+static bool CleanupOnSigTerm()
 {
     LE_DEBUG("taf_Hms SIGTERM cleanup start");
 
-    if (HmsTimerRef != NULL)
+    TAF_ERROR_IF_RET_VAL(modemStatus == nullptr, true, "modemStatus is null");
+    if (!modemStatus->StopWorkerThread())
     {
-        le_timer_Stop(HmsTimerRef);
-        le_timer_Delete(HmsTimerRef);
-        HmsTimerRef = NULL;
+        LE_WARN("Modem worker still busy in PA, skipping PA deinit");
+        return false;
     }
-
-    if (ThreadRef != NULL)
-    {
-        le_thread_Cancel(ThreadRef);
-        le_thread_Join(ThreadRef, NULL);
-        ThreadRef = NULL;
-    }
-
-    auto &mppsListener = tafHmsListener::GetInstance();
-    mppsListener.DeleteResetTime();
 
     if (isPaModemNotificationInitialized || isPaPhoneInitialized)
     {
@@ -116,13 +113,17 @@ void taf_Hms::CleanupOnSigTerm()
     }
 
     LE_DEBUG("taf_Hms SIGTERM cleanup complete");
+    return true;
 }
 
 void taf_Hms::SigTermEventHandler(int sigNum)
 {
     LE_INFO("taf_Hms::SigTermEventHandler signal: %d", sigNum);
-    auto &hms = taf_Hms::GetInstance();
-    hms.CleanupOnSigTerm();
+    if (!CleanupOnSigTerm())
+    {
+        // Worker is still in PA: skip static destructors it may be using.
+        _exit(EXIT_SUCCESS);
+    }
     exit(EXIT_SUCCESS);
 }
 
@@ -177,24 +178,6 @@ void taf_Hms::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *contex
         hms.DeleteMtdDevInfoList(mtdRef);
     }
 
-    std::vector<taf_hms_ModemEvtHandlerRef_t> ModemInfoRefToRemove;
-    le_ref_IterRef_t infoIterRef = le_ref_GetIterator(hms.ModemInfoRefMap);
-    while (le_ref_NextNode(infoIterRef) == LE_OK)
-    {
-        taf_hms_modemInfo_t* infoPtr =
-            (taf_hms_modemInfo_t*)le_ref_GetValue(infoIterRef);
-
-        if ((infoPtr != nullptr) && (infoPtr->sessionRef == sessionRef))
-        {
-            LE_DEBUG("Removing modem handler ref %p for closed session %p",
-                infoPtr->handlerRef, sessionRef);
-            ModemInfoRefToRemove.push_back(infoPtr->handlerRef);
-        }
-    }
-    for (taf_hms_ModemEvtHandlerRef_t handlerRef : ModemInfoRefToRemove)
-    {
-        hms.RemoveModemEvtHandler(handlerRef);
-    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1490,11 +1473,7 @@ void ModemStatusTimerHandler(le_timer_Ref_t timerRef)
         // Queue the next operating-mode request on the worker thread.
         // The worker may block in PhoneInit, so the DoRequest must not run on the
         // main thread.
-        if (modemStatus->GetWorkerThread() != nullptr)
-        {
-            le_event_QueueFunctionToThread(modemStatus->GetWorkerThread(),
-                                           DoRequestOperatingModeTrampoline, nullptr, nullptr);
-        }
+        modemStatus->QueueRequestOperatingMode();
     }
 
 }
@@ -1608,8 +1587,9 @@ void MdStatusOnChangeCBNotify(void* reportPtr)
         taf_hms_modemInfo_t* clientInfo  = (taf_hms_modemInfo_t*)le_ref_GetValue(iterRef);
         TAF_ERROR_IF_RET_NIL(clientInfo == nullptr, "No registered client for modem info");
 
-        taf_hms_modemEventInfo_t newEvent;
-        newEvent.modemInfo = clientInfo;
+        taf_hms_modemEventReport_t newEvent;
+        newEvent.handlerRef = clientInfo->handlerRef;
+        newEvent.clientId   = clientInfo->clientId;
 
         //Check if client has registered for monitoring modem
         if (clientInfo->handlerFunc == NULL)
@@ -1635,23 +1615,28 @@ void MdStatusOnChangeCBNotify(void* reportPtr)
 
         newEvent.eventType = TAF_HMS_MODEM_EVENT_TYPE_CONTINUE_REBOOT;
 
-        le_event_Report(hms.MdStatusChNotifyCliId, &newEvent, sizeof(taf_hms_modemEventInfo_t));
+        le_event_Report(hms.MdStatusChNotifyCliId, &newEvent, sizeof(taf_hms_modemEventReport_t));
     }
 }
 
-static void DispatchEventToClient(taf_hms_modemEventInfo_t* evt)
+static void DispatchEventToClient
+(
+    taf_hms_modemInfo_t*       modemInfo,
+    taf_hms_ModemEvtType_t     eventType,
+    taf_hms_ModemEvtSeverity_t eventLevel
+)
 {
-    TAF_ERROR_IF_RET_NIL(evt == nullptr || evt->modemInfo == nullptr, "invalid event");
-    TAF_ERROR_IF_RET_NIL(evt->modemInfo->handlerFunc == NULL, "client handler is NULL");
+    TAF_ERROR_IF_RET_NIL(modemInfo == nullptr, "invalid event");
+    TAF_ERROR_IF_RET_NIL(modemInfo->handlerFunc == NULL, "client handler is NULL");
 
     auto &hms = taf_Hms::GetInstance();
 
     // Allocate a persistent event ref that the client will release via ReleaseModemEvt.
     taf_hms_modemEventInfo_t* evtAlloc =
         (taf_hms_modemEventInfo_t*)le_mem_ForceAlloc(hms.ModemEventInfoPool);
-    evtAlloc->eventType  = evt->eventType;
-    evtAlloc->eventLevel = evt->eventLevel;
-    evtAlloc->modemInfo  = evt->modemInfo;
+    evtAlloc->eventType  = eventType;
+    evtAlloc->eventLevel = eventLevel;
+    evtAlloc->modemInfo  = modemInfo;
     evtAlloc->ref = (taf_hms_ModemEventRef_t)le_ref_CreateRef(
                         hms.ModemEventInfoRefMap, (void*)evtAlloc);
 
@@ -1691,16 +1676,26 @@ void taf_Hms::ModemStatusChNotifyClient(void* reportPtr)
 {
     TAF_ERROR_IF_RET_NIL(reportPtr == nullptr, "reportPtr is nullptr");
 
-    taf_hms_modemEventInfo_t* incoming = (taf_hms_modemEventInfo_t*)reportPtr;
-    TAF_ERROR_IF_RET_NIL(incoming->modemInfo == nullptr, "modemInfo is nullptr");
-    TAF_ERROR_IF_RET_NIL(incoming->modemInfo->handlerFunc == NULL, "clientHandlerFunc is NULL");
+    auto &hms = taf_Hms::GetInstance();
+    taf_hms_modemEventReport_t* incoming = (taf_hms_modemEventReport_t*)reportPtr;
 
-    if (!(ModemEvtTypeMatchToBitmask(incoming->eventType) & incoming->modemInfo->reqEventBits))
+    // The handler may have been removed since the event was queued; re-validate it.
+    taf_hms_modemInfo_t* modemInfo =
+        (taf_hms_modemInfo_t*)le_ref_Lookup(hms.ModemInfoRefMap, incoming->handlerRef);
+    if (modemInfo == nullptr || modemInfo->clientId != incoming->clientId)
+    {
+        LE_DEBUG("Drop %s for removed clientId=%u",
+                 ModemEventTypeToStr(incoming->eventType), incoming->clientId);
+        return;
+    }
+    TAF_ERROR_IF_RET_NIL(modemInfo->handlerFunc == NULL, "clientHandlerFunc is NULL");
+
+    if (!(ModemEvtTypeMatchToBitmask(incoming->eventType) & modemInfo->reqEventBits))
     {
         return;
     }
 
-    DispatchEventToClient(incoming);
+    DispatchEventToClient(modemInfo, incoming->eventType, incoming->eventLevel);
 }
 
 
@@ -1767,7 +1762,7 @@ taf_hms_ModemEvtHandlerRef_t taf_Hms::AddModemEvtHandler
 void tafHmsListener::DeleteResetTime(void)
 {
     TAF_ERROR_IF_RET_NIL(modemStatus == nullptr, "modemStatus is null");
-    modemStatus->StopWorkerThread();
+    modemStatus->StopMainTimer();
 }
 
 bool taf_Hms::IsModemEventMapEmpty(void)
@@ -1849,6 +1844,15 @@ le_result_t taf_Hms::ReleaseModemEvt(taf_hms_ModemEventRef_t eventRef)
     taf_hms_modemEventInfo_t* evtPtr =
         (taf_hms_modemEventInfo_t*)le_ref_Lookup(ModemEventInfoRefMap, eventRef);
     TAF_ERROR_IF_RET_VAL(evtPtr == nullptr, LE_NOT_FOUND, "Invalid para(null reference ptr)");
+
+    // Freed refs are reused, so only the owning session may release the event.
+    le_msg_SessionRef_t callerSession = taf_hms_GetClientSessionRef();
+    if ((evtPtr->modemInfo == nullptr) || (evtPtr->modemInfo->sessionRef != callerSession))
+    {
+        LE_ERROR("Event ref %p not owned by session %p", eventRef, (void*)callerSession);
+        return LE_NOT_FOUND;
+    }
+
     LE_DEBUG("ReleaseModemEvt : %p", eventRef);
     le_ref_DeleteRef(ModemEventInfoRefMap, eventRef);
     le_mem_Release(evtPtr);
@@ -1920,8 +1924,6 @@ void ReportOperatingModeResponse(taf_pa_result_t result)
     le_event_Report(hms.OperModeRespId, &data, sizeof(data));
 }
 
-std::shared_ptr<ModemStatus> modemStatus = std::make_shared<ModemStatus>();
-
 //--------------------------------------------------------------------------------------------------
 /**
  * Worker thread entry point.
@@ -1936,8 +1938,49 @@ void* ModemStatus::WorkerThreadFunc(void*)
     return nullptr;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * QueueRequestOperatingMode - called from main thread on each timer tick.
+ * Skips the tick if the previous request has not finished (e.g. blocked in PhoneInit), so at most
+ * one request is on the worker. Skipped ticks still count towards pendingCount.
+ */
+//--------------------------------------------------------------------------------------------------
+void ModemStatus::QueueRequestOperatingMode(void)
+{
+    if (workerThread_ == nullptr)
+    {
+        return;
+    }
+
+    if (isWorkerBusy_.exchange(true))
+    {
+        LE_DEBUG("Previous requestOperatingMode not finished, skipping this tick");
+        return;
+    }
+
+    le_event_QueueFunctionToThread(workerThread_, DoRequestOperatingModeTrampoline,
+                                   nullptr, nullptr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * DoRequestOperatingMode - called from worker thread.
+ */
+//--------------------------------------------------------------------------------------------------
 void ModemStatus::DoRequestOperatingMode(void)
 {
+    RequestOperatingMode();
+    isWorkerBusy_.store(false);
+}
+
+void ModemStatus::RequestOperatingMode(void)
+{
+    // Probing stopped after this request was queued.
+    if (!isProbingActive_.load())
+    {
+        return;
+    }
+
     if (!tafHmsListener::ModemAvailability.load())
     {
         LE_WARN("Modem UNAVAILABLE, skipping requestOperatingMode");
@@ -1959,43 +2002,58 @@ void ModemStatus::DoRequestOperatingMode(void)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Queued onto the worker thread by StopWorkerThread().
+ */
+//--------------------------------------------------------------------------------------------------
+void ModemStatus::WorkerExit(void* exitSemPtr, void*)
+{
+    LE_INFO("WorkerThread: exiting");
+    le_sem_Post((le_sem_Ref_t)exitSemPtr);
+    le_thread_Exit(nullptr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * StartWorkerThread - called from main thread.
- * Starts the worker thread if not already running.
+ * Starts the worker thread if not already running, and the main timer if not already running.
+ * The worker thread is kept across handler removals and only exits on SIGTERM.
  */
 //--------------------------------------------------------------------------------------------------
 void ModemStatus::StartWorkerThread(void)
 {
-    if (workerThread_ != nullptr)
+    if (workerThread_ == nullptr)
     {
-        LE_INFO("WorkerThread: already running");
+        workerExitSem_ = le_sem_Create("ModemWorkerExitSem", 0);
+        workerThread_ = le_thread_Create("ModemStatusWorker", WorkerThreadFunc, this);
+        le_thread_SetJoinable(workerThread_);
+        le_thread_Start(workerThread_);
+    }
+
+    if (mainTimer_ != nullptr)
+    {
+        LE_INFO("WorkerThread: main timer already running");
         return;
     }
 
-    workerThread_ = le_thread_Create("ModemStatusWorker", WorkerThreadFunc, this);
-    le_thread_SetJoinable(workerThread_);
-    le_thread_Start(workerThread_);
-
+    isProbingActive_.store(true);
     mainTimer_ = le_timer_Create("ModemStatusMainTimer");
     le_timer_SetMsInterval(mainTimer_, MODEM_CHECK_STATUS_INTERVAL);
     le_timer_SetRepeat(mainTimer_, 0);  // repeat forever
     le_timer_SetHandler(mainTimer_, ModemStatusTimerHandler);
     le_timer_SetWakeup(mainTimer_, false);
     le_timer_Start(mainTimer_);
-    LE_INFO("WorkerThread: started");
+    LE_INFO("WorkerThread: main timer started");
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * StopWorkerThread - called from main thread for graceful shutdown.
- * Signals the worker thread to exit and joins it.
+ * StopMainTimer - called from main thread when the last handler is removed.
+ * Stops modem probing; the worker thread stays idle.
  */
 //--------------------------------------------------------------------------------------------------
-void ModemStatus::StopWorkerThread(void)
+void ModemStatus::StopMainTimer(void)
 {
-    if (workerThread_ == nullptr)
-    {
-        return;
-    }
+    isProbingActive_.store(false);
 
     if (mainTimer_ != nullptr)
     {
@@ -2004,14 +2062,45 @@ void ModemStatus::StopWorkerThread(void)
         mainTimer_ = nullptr;
     }
 
-    le_thread_Cancel(workerThread_);
-    le_thread_Join(workerThread_, nullptr);
-
-   // Worker thread is guaranteed dead here. Clear related flags.
-    workerThread_ = nullptr;
     pendingCount.store(0);
+    LE_INFO("WorkerThread: main timer stopped");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * StopWorkerThread - called from main thread on SIGTERM.
+ * Asks the worker to exit between jobs (never cancels it inside PA code) and waits at most
+ * MODEM_WORKER_STOP_TIMEOUT_MS.
+ *
+ * @return true if the worker thread is stopped, false if it is still busy.
+ */
+//--------------------------------------------------------------------------------------------------
+bool ModemStatus::StopWorkerThread(void)
+{
+    StopMainTimer();
+
+    if (workerThread_ == nullptr)
+    {
+        return true;
+    }
+
+    le_event_QueueFunctionToThread(workerThread_, WorkerExit, workerExitSem_, nullptr);
+
+    le_clk_Time_t timeout = {MODEM_WORKER_STOP_TIMEOUT_MS / 1000,
+                             (MODEM_WORKER_STOP_TIMEOUT_MS % 1000) * 1000};
+    if (le_sem_WaitWithTimeOut(workerExitSem_, timeout) != LE_OK)
+    {
+        LE_WARN("WorkerThread: still busy after %d ms, not joined", MODEM_WORKER_STOP_TIMEOUT_MS);
+        return false;
+    }
+
+    le_thread_Join(workerThread_, nullptr);
+    workerThread_ = nullptr;
+    le_sem_Delete(workerExitSem_);
+    workerExitSem_ = nullptr;
 
     LE_INFO("WorkerThread: stopped");
+    return true;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2024,7 +2113,6 @@ void ModemStatus::ReportModemStatus(taf_hms_ModemEvtType_t eventType,
                              taf_hms_ModemEvtSeverity_t eventLevel)
 {
     auto &hms = taf_Hms::GetInstance();
-    bool isAvail = (eventType == TAF_HMS_MODEM_EVENT_TYPE_CONNECTION_AVAIL);
 
     le_ref_IterRef_t iterRef = le_ref_GetIterator(hms.ModemInfoRefMap);
     while (le_ref_NextNode(iterRef) == LE_OK)
@@ -2051,20 +2139,13 @@ void ModemStatus::ReportModemStatus(taf_hms_ModemEvtType_t eventType,
             continue;
         }
 
-        taf_hms_modemEventInfo_t newEvent;
-        newEvent.modemInfo  = clientInfo;
+        taf_hms_modemEventReport_t newEvent;
+        newEvent.handlerRef = clientInfo->handlerRef;
+        newEvent.clientId   = clientInfo->clientId;
         newEvent.eventType  = eventType;
         newEvent.eventLevel = eventLevel;
-
-        if (isAvail)
-        {
-            DispatchEventToClient(&newEvent);
-        }
-        else
-        {
-            le_event_Report(hms.MdStatusChNotifyCliId, &newEvent,
-                            sizeof(taf_hms_modemEventInfo_t));
-        }
+        le_event_Report(hms.MdStatusChNotifyCliId, &newEvent,
+                        sizeof(taf_hms_modemEventReport_t));
     }
 }
 
@@ -2424,7 +2505,7 @@ void taf_Hms::Init()
     tafHmsListener::ModemAvailability.store(true);
 
     MdStatusChNotifyCliId =
-        le_event_CreateId("MdStatusChNotifyCliId", sizeof(taf_hms_modemEventInfo_t));
+        le_event_CreateId("MdStatusChNotifyCliId", sizeof(taf_hms_modemEventReport_t));
 
     le_event_AddHandler("ModemStatusChangeIdHandlerRef",
         MdStatusChNotifyCliId, ModemStatusChNotifyClient);

@@ -2152,7 +2152,7 @@ static void DcsSigTermEventHandler
     dataConnection.Deinit();
     dataProfile.Deinit();
 
-    exit(EXIT_SUCCESS);
+    _exit(EXIT_SUCCESS);
 }
 
 

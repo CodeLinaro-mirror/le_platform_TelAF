@@ -77,6 +77,18 @@ using namespace std;
 #define COUNTER_RESPONSE_TIME_OUT   2      //Report event to client if counter equal to this macro
 #define COUNTER_EVENT_REPORT_DONE   3      //Stop requesting status if event reported to client
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert a PA result code to a Legato result code.
+ * Unrecognized PA errors are mapped to LE_FAULT.
+ */
+//--------------------------------------------------------------------------------------------------
+#define PA_TO_LE_RESULT_FAULT(result) \
+    (((result) == TAF_PA_OK) ? LE_OK : \
+     ((result) == TAF_PA_NOT_IMPLEMENTED) ? LE_CAP_NOT_IMPLEMENTED : \
+     ((result) == TAF_PA_UNSUPPORTED) ?     LE_CAP_UNSUPPORTED : \
+     LE_FAULT)
+
 //-------------------------------------------------------------------------------------------------
 /**
 * Structure to hold the HmsInfo

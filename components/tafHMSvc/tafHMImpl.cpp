@@ -2079,14 +2079,14 @@ le_result_t taf_Hms::GetResetInformation
 }
 
 
-void InitModemStatusChangeSupport(void)
+le_result_t InitModemStatusChangeSupport(void)
 {
     //Initialise ISubsystemManager
     taf_pa_result_t pa_result = taf_pa_health_ModemNotificationInit();
     if (pa_result != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_health_ModemNotificationInit reason=%d", pa_result);
-        return;
+        return PA_TO_LE_RESULT_FAULT(pa_result);
     }
     isPaModemNotificationInitialized = true;
 
@@ -2096,7 +2096,7 @@ void InitModemStatusChangeSupport(void)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_health_RegModemStatusUpdateHandler reason=%d",
             pa_result);
-        return;
+        return PA_TO_LE_RESULT_FAULT(pa_result);
     }
 
     //Register CB for modem operation status change
@@ -2106,7 +2106,7 @@ void InitModemStatusChangeSupport(void)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_health_RegModemOperationModeUpdateHandler reason=%d",
             pa_result);
-        return;
+        return PA_TO_LE_RESULT_FAULT(pa_result);
     }
 
     //Register listener for modem MPPS status change
@@ -2114,10 +2114,10 @@ void InitModemStatusChangeSupport(void)
     if (pa_result != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_health_RegModemListener reason=%d", pa_result);
-        return;
+        return PA_TO_LE_RESULT_FAULT(pa_result);
     }
 
-    return;
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------

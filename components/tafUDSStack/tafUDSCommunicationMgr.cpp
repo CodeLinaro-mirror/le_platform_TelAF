@@ -2608,7 +2608,7 @@ le_result_t UdsCommunicationMgr::IndicateSessionCtrlReq
     }
 
     // About 'pattern' checking, put them in the last for now
-    uint8_t targetedSession = recvBuf[1];
+    uint8_t targetedSession = recvBuf[1] & 0x7F;
     if (!PrecheckForSwitchingSession((uint8_t)SessionType, targetedSession))
     {
         LE_WARN("The switch failed, cause of the condition is not satisfied.");

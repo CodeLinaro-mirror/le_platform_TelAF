@@ -394,6 +394,7 @@ using namespace std;
                 void SetCallPhoneId(int8_t phoneId);
                 void SetLastCallPhoneId(int8_t phoneId);
                 int8_t GetLastCallPhoneId();
+                int GetSelectedPhoneIdForECall();
                 le_event_Id_t StateChangeEventId;
                 le_event_Id_t RxECallEventId;
                 le_mem_PoolRef_t RxECallEventPool = NULL;

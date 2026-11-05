@@ -1642,22 +1642,10 @@ le_result_t taf_ecall::StartECall(taf_pa_ecall_category_t emergencyCategory,
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
 
     //Get Selected card
-    int8_t phoneId = -1;
-    int8_t slotId = ECALL_DEFAULT_LOGICAL_SLOT;
-    if (!SimServerConnect())
-    {
-        LE_WARN("SIM service not available, using default slotId %d", slotId);
-    }
-    else
-    {
-        slotId = static_cast<int8_t>(taf_sim_GetSelectedCard());
-    }
-    taf_pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(slotId, &phoneId);
-    if (phoneIdRes != TAF_PA_OK)
-    {
-        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ecall_GetPhoneIdFromSlotId reason=%d",
-                 (int)phoneIdRes);
-        return ConvertPaToLeResult(phoneIdRes);
+    int8_t phoneId = GetSelectedPhoneIdForECall();
+    if (phoneId < 0) {
+        LE_ERROR("%s: failed to resolve phoneId", __func__);
+        return LE_FAULT;
     }
 
     //Check ECall session
@@ -1810,22 +1798,10 @@ le_result_t taf_ecall::StartPrivate(taf_ecall_CallRef_t ecallRef,
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
 
     //Get Selected card
-    int8_t phoneId = -1;
-    int8_t slotId = ECALL_DEFAULT_LOGICAL_SLOT;
-    if (!SimServerConnect())
-    {
-        LE_WARN("SIM service not available, using default slotId %d", slotId);
-    }
-    else
-    {
-        slotId = static_cast<int8_t>(taf_sim_GetSelectedCard());
-    }
-    taf_pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(slotId, &phoneId);
-    if (phoneIdRes != TAF_PA_OK)
-    {
-        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ecall_GetPhoneIdFromSlotId reason=%d",
-                 (int)phoneIdRes);
-        return ConvertPaToLeResult(phoneIdRes);
+    int8_t phoneId = GetSelectedPhoneIdForECall();
+    if (phoneId < 0) {
+        LE_ERROR("%s: failed to resolve phoneId", __func__);
+        return LE_FAULT;
     }
 
     //Check ECall session
@@ -2945,22 +2921,10 @@ le_result_t taf_ecall::SetNadDeregistrationTime(uint16_t deregTime)
     uint32_t t10 = (uint32_t) deregTime;
     LE_INFO("Set eCall NAD deregistration time (in minutes): %d", t10);
 
-    int8_t phoneId = -1;
-    int8_t slotId = ECALL_DEFAULT_LOGICAL_SLOT;
-    if (!SimServerConnect())
-    {
-        LE_WARN("SIM service not available, using default slotId %d", slotId);
-    }
-    else
-    {
-        slotId = static_cast<int8_t>(taf_sim_GetSelectedCard());
-    }
-    taf_pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(slotId, &phoneId);
-    if (phoneIdRes != TAF_PA_OK)
-    {
-        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ecall_GetPhoneIdFromSlotId reason=%d",
-                 (int)phoneIdRes);
-        return ConvertPaToLeResult(phoneIdRes);
+    int8_t phoneId = GetSelectedPhoneIdForECall();
+    if (phoneId < 0) {
+        LE_ERROR("%s: failed to resolve phoneId", __func__);
+        return LE_FAULT;
     }
 
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
@@ -3016,22 +2980,10 @@ le_result_t taf_ecall::GetNadDeregistrationTime(uint16_t* deregTime)
         LE_ERROR("deregTime is null.");
         return LE_FAULT;
     }
-    int8_t phoneId = -1;
-    int8_t slotId = ECALL_DEFAULT_LOGICAL_SLOT;
-    if (!SimServerConnect())
-    {
-        LE_WARN("SIM service not available, using default slotId %d", slotId);
-    }
-    else
-    {
-        slotId = static_cast<int8_t>(taf_sim_GetSelectedCard());
-    }
-    taf_pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(slotId, &phoneId);
-    if (phoneIdRes != TAF_PA_OK)
-    {
-        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ecall_GetPhoneIdFromSlotId reason=%d",
-                 (int)phoneIdRes);
-        return ConvertPaToLeResult(phoneIdRes);
+    int8_t phoneId = GetSelectedPhoneIdForECall();
+    if (phoneId < 0) {
+        LE_ERROR("%s: failed to resolve phoneId", __func__);
+        return LE_FAULT;
     }
 
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
@@ -3085,22 +3037,10 @@ le_result_t taf_ecall::GetNadDeregistrationTime(uint16_t* deregTime)
 
 le_result_t taf_ecall::TerminateRegistration()
 {
-    int8_t phoneId = -1;
-    int8_t slotId = ECALL_DEFAULT_LOGICAL_SLOT;
-    if (!SimServerConnect())
-    {
-        LE_WARN("SIM service not available, using default slotId %d", slotId);
-    }
-    else
-    {
-        slotId = static_cast<int8_t>(taf_sim_GetSelectedCard());
-    }
-    taf_pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(slotId, &phoneId);
-    if (phoneIdRes != TAF_PA_OK)
-    {
-        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ecall_GetPhoneIdFromSlotId reason=%d",
-                 (int)phoneIdRes);
-        return ConvertPaToLeResult(phoneIdRes);
+    int8_t phoneId = GetSelectedPhoneIdForECall();
+    if (phoneId < 0) {
+        LE_ERROR("%s: failed to resolve phoneId", __func__);
+        return LE_FAULT;
     }
 
     auto promisePtr = std::make_shared<std::promise<le_result_t>>();
@@ -3444,25 +3384,9 @@ le_result_t taf_ecall::GetHlapTimerState(taf_ecall_HlapTimerType_t timerType, ta
 taf_ecall_HlapTimerStatus_t taf_ecall::GetHlapTimerStatus(taf_ecall_HlapTimerType_t timerType,
     le_result_t* resultPtr) {
     taf_ecall_HlapTimerStatus_t timerStatus = TAF_ECALL_TIMER_STATUS_UNKNOWN;
-    int8_t phone_id = -1;
-    int8_t slotId = ECALL_DEFAULT_LOGICAL_SLOT;
-    if (!SimServerConnect())
-    {
-        LE_WARN("SIM service not available, using default slotId %d", slotId);
-    }
-    else
-    {
-        slotId = static_cast<int8_t>(taf_sim_GetSelectedCard());
-    }
-    taf_pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(slotId, &phone_id);
-    if (phoneIdRes != TAF_PA_OK)
-    {
-        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_ecall_GetPhoneIdFromSlotId reason=%d",
-                 (int)phoneIdRes);
-        if (resultPtr != nullptr)
-        {
-            *resultPtr = ConvertPaToLeResult(phoneIdRes);
-        }
+    int8_t phone_id = GetSelectedPhoneIdForECall();
+    if (phone_id < 0) {
+        LE_ERROR("%s: failed to resolve phoneId", __func__);
         return TAF_ECALL_TIMER_STATUS_UNKNOWN;
     }
 
@@ -4529,4 +4453,36 @@ void taf_ecall::FirstLayerStateChangeHandler(void* reportPtr,
 
     clientHandlerFunc(stateEventPtr->eCallRef, stateEventPtr->state, le_event_GetContextPtr());
 
+}
+
+int taf_ecall::GetSelectedPhoneIdForECall()
+{
+    int8_t slotId = ECALL_DEFAULT_LOGICAL_SLOT;
+    if (!SimServerConnect())
+    {
+        LE_WARN("SIM service not available, using default slotId %d", slotId);
+    }
+    else
+    {
+        slotId = static_cast<int8_t>(taf_sim_GetSelectedCard());
+        int slotCount = 0;
+        if ((LE_OK == taf_sim_GetSlotCount(&slotCount)) && (slotCount == 1))
+        {
+            LE_DEBUG("DSSS single-active: translating slotId %d -> logical slotId %d",
+                 slotId, ECALL_DEFAULT_LOGICAL_SLOT);
+            slotId = ECALL_DEFAULT_LOGICAL_SLOT;
+        }
+        LE_DEBUG("ECall slot mapping: slotId=%d, slotCount=%d", slotId, slotCount);
+    }
+
+    int8_t phoneId = -1;
+    taf_pa_result_t phoneIdRes = taf_pa_ecall_GetPhoneIdFromSlotId(slotId, &phoneId);
+
+    if (phoneIdRes != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api= taf_pa_ecall_GetPhoneIdFromSlotId reason=%d", phoneIdRes);
+        return -1;
+    }
+    LE_DEBUG("GetSelectedPhoneIdForECall: resolved phoneId=%d", phoneId);
+    return phoneId;
 }

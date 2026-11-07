@@ -36,7 +36,7 @@ allow telaf_tafDiagSvc_t node_t:udp_socket { node_bind };
 allow telaf_tafDiagSvc_t unreserved_port_t:udp_socket { name_bind };
 allow telaf_tafDiagSvc_t unreserved_port_t:tcp_socket { name_bind };
 allow load_policy_t telaf_update_t:unix_stream_socket { read write };
-allow telaf_tafDiagSvc_t telaf_tafDiagSvc_t:netlink_route_socket *;
+telaf_use_network_routing(telaf_tafDiagSvc_t)
 allow telaf_tafDiagSvc_t telaf_tafDiagSvc_t:udp_socket *;
 allow telaf_tafDiagSvc_t telaf_tafDiagSvc_t:tcp_socket *;
 allow telaf_tafDiagSvc_t node_t:tcp_socket { node_bind };
@@ -46,6 +46,5 @@ allow telaf_tafDiagSvc_t proc_t:file {read_file_perms};
 allow telaf_tafDiagSvc_t data_t:dir {relabelfrom};
 allow telaf_tafDiagSvc_t data_t:file {map};
 
-# CRITICAL: unconfined_domain() bypasses all SELinux confinement.
-# This was a temporary workaround and must be replaced with explicit rules.
-unconfined_domain(telaf_tafDiagSvc_t)
+telaf_use_cert_files(telaf_tafDiagSvc_t)
+allow telaf_tafDiagSvc_t telaf_sys_t:file map;

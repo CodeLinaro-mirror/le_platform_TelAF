@@ -3049,7 +3049,7 @@ void taf_locGnss::SetConstellationWorker(void* cmdPtr, void*)
             {
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_configureConstellations "
                          "reason=%d", (int)res);
-                cPtr->retCode = LE_FAULT;
+                cPtr->retCode = ConvertPaResult(res);
             }
             else
             {
@@ -3060,7 +3060,7 @@ void taf_locGnss::SetConstellationWorker(void* cmdPtr, void*)
                 }
                 else
                 {
-                    cPtr->retCode = LE_FAULT;
+                    cPtr->retCode = ConvertPaResult(resCallback.result);
                 }
             }
         }
@@ -4359,13 +4359,13 @@ void taf_locGnss::DeleteDRSensorCalDataWorker(void* cmdPtr, void*)
                 {
                     LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_deleteAidingData reason=%d",
                              (int)res);
-                    cPtr->retCode = LE_FAULT;
+                    cPtr->retCode = ConvertPaResult(res);
                 }
                 else
                 {
                     if(resCallback.result != TAF_PA_OK)
                     {
-                        cPtr->retCode = LE_FAULT;
+                        cPtr->retCode = ConvertPaResult(resCallback.result);
                     }
                 }
         }
@@ -4982,7 +4982,7 @@ void taf_locGnss::ForceColdRestartWorker(void* cmdPtr, void*)
                 {
                     LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_stopReports reason=%d",
                              (int)((res != TAF_PA_OK) ? res : rc.result));
-                    result = LE_FAULT;
+                    result = ConvertPaResult((res != TAF_PA_OK) ? res : rc.result);
                 }
                 else { clientRequestPtr->mStarted = false; clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY; }
             }
@@ -4996,9 +4996,9 @@ void taf_locGnss::ForceColdRestartWorker(void* cmdPtr, void*)
                 {
                     LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_deleteAllAidingData "
                              "reason=%d", (int)res1);
-                    result = LE_FAULT;
+                    result = ConvertPaResult(res1);
                 }
-                else if (rc1.result != TAF_PA_OK) { result = LE_FAULT; }
+                else if (rc1.result != TAF_PA_OK) { result = ConvertPaResult(rc1.result); }
             }
             if (result == LE_OK && !clientRequestPtr->mStarted)
             {
@@ -5017,10 +5017,10 @@ void taf_locGnss::ForceColdRestartWorker(void* cmdPtr, void*)
                 {
                     LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_startDetailedEngineReports "
                              "reason=%d", (int)res2);
-                    result = LE_FAULT;
+                    result = ConvertPaResult(res2);
                 }
                 else if (rc2.result == TAF_PA_OK) { ConfigureAcqStartInfo(clientRequestPtr); }
-                else { result = LE_FAULT; }
+                else { result = ConvertPaResult(rc2.result); }
             }
             break;
         }
@@ -5089,7 +5089,7 @@ void taf_locGnss::ForceWarmRestartWorker(void* cmdPtr, void*)
                 if (res != TAF_PA_OK || rc.result != TAF_PA_OK) {
                     LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_stopReports "
                              "reason=%d", (int)((res != TAF_PA_OK) ? res : rc.result));
-                    result = LE_FAULT;
+                    result = ConvertPaResult((res != TAF_PA_OK) ? res : rc.result);
                 }
                 else { clientRequestPtr->mStarted = false; clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY; }
             }
@@ -5107,9 +5107,9 @@ void taf_locGnss::ForceWarmRestartWorker(void* cmdPtr, void*)
                 {
                     LE_ERROR("[PA_CALL_FAILED] "
                              "api=taf_pa_location_deleteAidingData reason=%d", (int)res1);
-                    result = LE_FAULT;
+                    result = ConvertPaResult(res1);
                 }
-                else if (rc1.result != TAF_PA_OK) { result = (le_result_t)rc1.result; }
+                else if (rc1.result != TAF_PA_OK) { result = ConvertPaResult(rc1.result); }
             }
 
             if (result == LE_OK && !clientRequestPtr->mStarted)
@@ -5129,10 +5129,10 @@ void taf_locGnss::ForceWarmRestartWorker(void* cmdPtr, void*)
                 {
                     LE_ERROR("[PA_CALL_FAILED] "
                              "api=taf_pa_location_startDetailedEngineReports reason=%d", (int)res2);
-                    result = LE_FAULT;
+                    result = ConvertPaResult(res2);
                 }
                 else if (rc2.result == TAF_PA_OK) { ConfigureAcqStartInfo(clientRequestPtr); }
-                else { result = LE_FAULT; }
+                else { result = ConvertPaResult(rc2.result); }
             }
             break;
         }
@@ -5202,10 +5202,10 @@ void taf_locGnss::ForceHotRestartWorker(void* cmdPtr, void*)
                 {
                     LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_stopReports "
                              "reason=%d", (int)res);
-                    result = LE_FAULT;
+                    result = ConvertPaResult(res);
                 }
                 else if (rc.result == TAF_PA_OK) { clientRequestPtr->mStarted = false; clientRequestPtr->GnssState = TAF_LOCGNSS_STATE_READY; }
-                else { result = LE_FAULT; }
+                else { result = ConvertPaResult(rc.result); }
             }
             if (result == LE_OK && !clientRequestPtr->mStarted)
             {
@@ -5224,10 +5224,10 @@ void taf_locGnss::ForceHotRestartWorker(void* cmdPtr, void*)
                 {
                     LE_ERROR("[PA_CALL_FAILED] "
                              "api=taf_pa_location_startDetailedEngineReports reason=%d", (int)res2);
-                    result = LE_FAULT;
+                    result = ConvertPaResult(res2);
                 }
                 else if (rc2.result == TAF_PA_OK) { ConfigureAcqStartInfo(clientRequestPtr); }
-                else { result = LE_FAULT; }
+                else { result = ConvertPaResult(rc2.result); }
             }
             break;
         }
@@ -5361,7 +5361,7 @@ void taf_locGnss::StartWorker(void* cmdPtr, void*)
                     LE_ERROR("[PA_CALL_FAILED] "
                              "api=taf_pa_location_startDetailedEngineReports reason=%d",
                              (int)res);
-                    cPtr->retCode = LE_FAULT;
+                    cPtr->retCode = ConvertPaResult(res);
                 }
                 else
                 {
@@ -5372,7 +5372,7 @@ void taf_locGnss::StartWorker(void* cmdPtr, void*)
                     }
                     else
                     {
-                        cPtr->retCode = LE_FAULT;
+                        cPtr->retCode = ConvertPaResult(resCallback.result);
                         LE_DEBUG("Start() commandResponse failed status: %d ", int(cPtr->retCode));
                     }
                 }
@@ -5503,7 +5503,9 @@ static void GnssStartInternalWorker(void* cmdPtr, void*)
                              (int)res);
                 }
 
-                cPtr->retCode = (res == TAF_PA_OK && resCallback.result == TAF_PA_OK) ? LE_OK : LE_FAULT;
+                cPtr->retCode = (res != TAF_PA_OK) ? ConvertPaResult(res) :
+                                 ((resCallback.result != TAF_PA_OK) ?
+                                  ConvertPaResult(resCallback.result) : LE_OK);
 
                 if (cPtr->retCode == LE_OK)
                 {
@@ -5626,10 +5628,10 @@ void taf_locGnss::SetMinElevationWorker(void* cmdPtr, void*)
                 {
                     LE_ERROR("[PA_CALL_FAILED] "
                              "api=taf_pa_location_configureMinSVElevation reason=%d", (int)res);
-                    result = LE_FAULT;
+                    result = ConvertPaResult(res);
                 }
                 else if (rc.result == TAF_PA_OK) { result = LE_OK; gnss.mMinSvEle = minElevation; }
-                else { result = LE_FAULT; }
+                else { result = ConvertPaResult(rc.result); }
                 break;
             }
             default:
@@ -5715,9 +5717,9 @@ void taf_locGnss::StartModeWorker(void* cmdPtr, void*)
                     {
                         LE_ERROR("[PA_CALL_FAILED] "
                                  "api=taf_pa_location_deleteAidingData reason=%d", (int)res1);
-                        result = LE_FAULT;
+                        result = ConvertPaResult(res1);
                     }
-                    else { result = (le_result_t)rc1.result; }
+                    else { result = ConvertPaResult(rc1.result); }
                 }
                 else if ((mode == TAF_LOCGNSS_COLD_START) || (mode == TAF_LOCGNSS_FACTORY_START))
                 {
@@ -5729,9 +5731,9 @@ void taf_locGnss::StartModeWorker(void* cmdPtr, void*)
                     {
                         LE_ERROR("[PA_CALL_FAILED] "
                                  "api=taf_pa_location_deleteAllAidingData reason=%d", (int)res2);
-                        result = LE_FAULT;
+                        result = ConvertPaResult(res2);
                     }
-                    else { result = (le_result_t)rc2.result; }
+                    else { result = ConvertPaResult(rc2.result); }
                 }
                 else { result = LE_FAULT; }
 
@@ -5752,7 +5754,7 @@ void taf_locGnss::StartModeWorker(void* cmdPtr, void*)
                         LE_ERROR("[PA_CALL_FAILED] "
                              "api=taf_pa_location_startDetailedEngineReports reason=%d",
                              (int)res3);
-                        result = LE_FAULT;
+                        result = ConvertPaResult(res3);
                     }
                     else if (rc3.result == TAF_PA_OK) { ConfigureAcqStartInfo(clientRequestPtr); }
                     else
@@ -5760,7 +5762,7 @@ void taf_locGnss::StartModeWorker(void* cmdPtr, void*)
                         LE_ERROR("[PA_CALL_FAILED] "
                                  "api=taf_pa_location_startDetailedEngineReports reason=%d",
                                  (int)rc3.result);
-                        result = LE_FAULT;
+                        result = ConvertPaResult(rc3.result);
                     }
                 }
                 break;
@@ -5844,14 +5846,14 @@ le_result_t taf_locGnss::GetMinElevation
                 else
                 {
                     LE_DEBUG("requestMinSVElevation is Failed");
-                    result = LE_FAULT;
+                    result = ConvertPaResult(resCallback.result);
                 }
             }
             else
             {
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_requestMinSVElevation reason=%d",
                          (int)res);
-                result = LE_FAULT;
+                result = ConvertPaResult(res);
             }
         }
         break;
@@ -5968,7 +5970,7 @@ static void GnssStopInternalWorker(void* cmdPtr, void*)
                 {
                     LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_stopReports reason=%d",
                              (int)res);
-                    cPtr->retCode = LE_FAULT;
+                    cPtr->retCode = ConvertPaResult(res);
                 }
                 else
                 {
@@ -5982,7 +5984,7 @@ static void GnssStopInternalWorker(void* cmdPtr, void*)
                     }
                     else
                     {
-                        cPtr->retCode = LE_FAULT;
+                        cPtr->retCode = ConvertPaResult(resCallback.result);
                         LE_DEBUG("GnssStopInternalWorker: Stop failed");
                     }
                 }
@@ -6078,7 +6080,7 @@ void taf_locGnss::StopWorker(void* cmdPtr, void*)
                     {
                         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_stopReports reason=%d",
                                  (int)res);
-                        cPtr->retCode = LE_FAULT;
+                        cPtr->retCode = ConvertPaResult(res);
                     }
                     else
                     {
@@ -6092,7 +6094,7 @@ void taf_locGnss::StopWorker(void* cmdPtr, void*)
                         }
                         else
                         {
-                            cPtr->retCode = LE_FAULT;
+                            cPtr->retCode = ConvertPaResult(resCallback.result);
                             LE_DEBUG("Stop() is failed");
                         }
                     }
@@ -6211,7 +6213,7 @@ le_result_t taf_locGnss::SetNmeaSentencesInternal
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_configureNmeaTypes reason=%d",
                  (int)((res != TAF_PA_OK) ? res : resCallback.result));
-        return LE_FAULT;
+        return ConvertPaResult((res != TAF_PA_OK) ? res : resCallback.result);
     }
     else
     {
@@ -6354,14 +6356,14 @@ void taf_locGnss::SetNmeaSentencesWorker(void* cmdPtr, void*)
                     }
                     else
                     {
-                        cPtr->retCode = LE_FAULT;
+                        cPtr->retCode = ConvertPaResult(resCallback.result);
                     }
                 }
                 else
                 {
                     LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_configureNmeaTypes reason=%d",
                              (int)res);
-                    cPtr->retCode = LE_FAULT;
+                    cPtr->retCode = ConvertPaResult(res);
                 }
                 if (LE_OK != cPtr->retCode)
                 {
@@ -6636,11 +6638,12 @@ void taf_locGnss::SetDRConfigWorker(void* cmdPtr, void*)
             };
             taf_SelfTestResult_t resCallback = {};
             taf_pa_result_t res = taf_pa_location_configureDR(drConfig, cb,(std::any)&resCallback);
-            if (res == TAF_PA_FAULT) {
+            if (res != TAF_PA_OK) {
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_configureDR reason=%d", (int)res);
-                cPtr->retCode = LE_FAULT;
+                cPtr->retCode = ConvertPaResult(res);
             } else if (res == TAF_PA_OK) {
-                result = (le_result_t)resCallback.result;
+                result = ConvertPaResult(resCallback.result);
+                cPtr->retCode = result;
                 if(result == LE_OK)
                 {
                     LE_DEBUG("SetDRConfig is Success");
@@ -6918,7 +6921,7 @@ void taf_locGnss::ConfigureEngineStateWorker(void* cmdPtr, void*)
                 if(res != TAF_PA_OK){
                     LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_configureEngineState reason=%d",
                              (int)res);
-                    cPtr->retCode = LE_FAULT;
+                    cPtr->retCode = ConvertPaResult(res);
                 }
                 else
                 {
@@ -6928,7 +6931,7 @@ void taf_locGnss::ConfigureEngineStateWorker(void* cmdPtr, void*)
                     }
                     else
                     {
-                        cPtr->retCode = LE_FAULT;
+                        cPtr->retCode = ConvertPaResult(resCallback.result);
                     }
                 }
             }
@@ -7047,11 +7050,11 @@ void taf_locGnss::ConfigureRobustLocationWorker(void* cmdPtr, void*)
                     LE_ERROR("[PA_CALL_FAILED] "
                              "api=taf_pa_location_configureRobustLocation reason=%d",
                              (int)res);
-                    cPtr->retCode = LE_FAULT;
+                    cPtr->retCode = ConvertPaResult(res);
                 }
                 else
                 {
-                    cPtr->retCode = (le_result_t)resCallback.result;
+                    cPtr->retCode = ConvertPaResult(resCallback.result);
                 }
             }
         break;
@@ -7143,7 +7146,7 @@ le_result_t taf_locGnss::RobustLocationInformation
                 {
                     LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_requestRobustLocation reason=%d",
                              (int)res);
-                    result = LE_FAULT;
+                    result = ConvertPaResult(res);
                 }
                 else
                 {
@@ -7157,7 +7160,7 @@ le_result_t taf_locGnss::RobustLocationInformation
                     else
                     {
                         LE_DEBUG("RobustLocationInformation is Failed");
-                        result = LE_FAULT;
+                        result = ConvertPaResult(resCallback.result);
                     }
                 }
             }
@@ -7350,7 +7353,7 @@ void taf_locGnss::RequestSecondaryBandConstellationsWorker(void* cmdPtr, void*)
                 LE_ERROR("[PA_CALL_FAILED] "
                          "api=taf_pa_location_requestSecondaryBandConfig reason=%d",
                          (int)res);
-                cPtr->retCode = LE_FAULT;
+                cPtr->retCode = ConvertPaResult(res);
             }
             else
             {
@@ -7362,7 +7365,7 @@ void taf_locGnss::RequestSecondaryBandConstellationsWorker(void* cmdPtr, void*)
                 }
                 else
                 {
-                    cPtr->retCode = LE_FAULT;
+                    cPtr->retCode = ConvertPaResult(resCallback.result);
                 }
             }
         }
@@ -7587,7 +7590,7 @@ void taf_locGnss::SetLeverArmConfigWorker(void* cmdPtr, void*)
             {
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_configureLeverArm reason=%d",
                          (int)res);
-                cPtr->retCode = LE_FAULT;
+                cPtr->retCode = ConvertPaResult(res);
             }
             else
             {
@@ -7597,7 +7600,7 @@ void taf_locGnss::SetLeverArmConfigWorker(void* cmdPtr, void*)
                 }
                 else
                 {
-                    cPtr->retCode = LE_FAULT;
+                    cPtr->retCode = ConvertPaResult(resCallback.result);
                 }
                 if (LE_OK != cPtr->retCode)
                 {
@@ -8730,12 +8733,16 @@ void taf_locGnss::SetMinGpsWeekWorker(void* cmdPtr, void*)
                 {
                     cPtr->retCode = LE_OK;
                 }
+                else
+                {
+                    cPtr->retCode = ConvertPaResult(resCallback.result);
+                }
             }
             else
             {
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_configureMinGpsWeek reason=%d",
                          (int)res);
-                cPtr->retCode = LE_FAULT;
+                cPtr->retCode = ConvertPaResult(res);
             }
         }
         break;
@@ -8807,12 +8814,16 @@ le_result_t taf_locGnss::GetMinGpsWeek
                     result = LE_OK;
                     *minGpsWeekPtr = resCallback.minGpsWeek;
                 }
+                else
+                {
+                    result = ConvertPaResult(resCallback.result);
+                }
             }
             else
             {
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_requestMinGpsWeek reason=%d",
                          (int)res);
-                result = LE_FAULT;
+                result = ConvertPaResult(res);
             }
         }
         break;
@@ -8846,7 +8857,7 @@ le_result_t taf_locGnss::GetCapabilities
     if (capsRes != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_getCapabilities reason=%d", (int)capsRes);
-        return LE_FAULT;
+        return ConvertPaResult(capsRes);
     }
     else
     {
@@ -8945,14 +8956,14 @@ void taf_locGnss::SetNmeaConfigurationWorker(void* cmdPtr, void*)
                     }
                     else
                     {
-                    cPtr->retCode = LE_FAULT;
+                    cPtr->retCode = ConvertPaResult(resCallback.result);
                     }
                 }
                 else
                 {
                     LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_configureNmea reason=%d",
                              (int)res);
-                    cPtr->retCode = LE_FAULT;
+                    cPtr->retCode = ConvertPaResult(res);
                 }
                 if (LE_OK != cPtr->retCode)
                 {
@@ -9034,7 +9045,7 @@ le_result_t taf_locGnss::GetXtraStatus
             if(res != TAF_PA_OK){
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_requestXtraStatus reason=%d",
                          (int)res);
-                return LE_FAULT;
+                return ConvertPaResult(res);
             }
             else
             {
@@ -9048,7 +9059,7 @@ le_result_t taf_locGnss::GetXtraStatus
                 else
                 {
                     LE_ERROR("Request xtra status is failed");
-                    result = LE_FAULT;
+                    result = ConvertPaResult(resCallback.result);
                 }
             }
         }
@@ -9379,7 +9390,7 @@ void taf_locGnss::InjectMerkleWorker
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_injectMerkleTreeInformation reason=%d",
                  (int)((res != TAF_PA_OK) ? res : resCallback.result));
-        cPtr->retCode = LE_FAULT;
+        cPtr->retCode = ConvertPaResult((res != TAF_PA_OK) ? res : resCallback.result);
     }
 
     le_event_QueueFunctionToThread(gnss.LocationSvcThRef,
@@ -9491,11 +9502,15 @@ void taf_locGnss::ConfigureOsnmaWorker(void* cmdPtr, void*)
                     LE_INFO("ConfigureOsnma status PASS for: %d",galOsnma);
                     cPtr->retCode = LE_OK;
                 }
+                else
+                {
+                    cPtr->retCode = ConvertPaResult(resCallback.result);
+                }
             }
             else
             {
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_configureOsnma reason=%d", (int)res);
-                cPtr->retCode = LE_FAULT;
+                cPtr->retCode = ConvertPaResult(res);
             }
         }
         break;
@@ -9692,14 +9707,14 @@ void taf_locGnss::InjectDgnssCorrectionWorker(void* cmdPtr, void*)
                 else
                 {
                     LE_ERROR("InjectCorrectionData callback failed with result: %d", resCallback.result);
-                    cPtr->retCode = LE_FAULT;
+                    cPtr->retCode = ConvertPaResult(resCallback.result);
                 }
             }
             else
             {
                 LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_injectCorrectionData reason=%d",
                          (int)res);
-                cPtr->retCode = LE_FAULT;
+                cPtr->retCode = ConvertPaResult(res);
             }
         }
         break;
@@ -9993,13 +10008,13 @@ le_result_t taf_locGnss::InternalReleaseDgnssSourceOnWorker
     if (res != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_releaseDgnssSource reason=%d", res);
-        return LE_FAULT;
+        return ConvertPaResult(res);
     }
     if (resCallback.result != TAF_PA_OK)
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_releaseDgnssSource reason=%d",
                  resCallback.result);
-        return LE_FAULT;
+        return ConvertPaResult(resCallback.result);
     }
 
     if (sourceRef != NULL)
@@ -10054,7 +10069,7 @@ le_result_t taf_locGnss::InternalReleaseDgnssSourceOnWorker
     {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_deInitializeDgnss reason=%d",
                  (int)((deInitRes != TAF_PA_OK) ? deInitRes : resCallback1.result));
-        return LE_FAULT;
+        return ConvertPaResult((deInitRes != TAF_PA_OK) ? deInitRes : resCallback1.result);
     }
 
     LE_INFO("InternalRelease: DGNSS manager de-initialised successfully");
@@ -10119,7 +10134,7 @@ void taf_locGnss::ReleaseDgnssSourceWorker(void* cmdPtr, void*)
                 {
                     LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_releaseDgnssSource reason=%d",
                              (int)res);
-                    cPtr->retCode = LE_FAULT;
+                    cPtr->retCode = ConvertPaResult(res);
                     le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ReleaseDgnssSourceSvcRespond, cPtr, NULL);
                     return;
                 }
@@ -10157,7 +10172,7 @@ void taf_locGnss::ReleaseDgnssSourceWorker(void* cmdPtr, void*)
                     else
                     {
                         LE_DEBUG("ReleaseSource is failed");
-                        cPtr->retCode = LE_FAULT;
+                        cPtr->retCode = ConvertPaResult(resCallback.result);
                         le_event_QueueFunctionToThread(gnss.LocationSvcThRef, ReleaseDgnssSourceSvcRespond, cPtr, NULL);
                         return;
                     }
@@ -10184,7 +10199,7 @@ void taf_locGnss::ReleaseDgnssSourceWorker(void* cmdPtr, void*)
                 {
                     LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_deInitializeDgnss reason=%d",
                              (int)deInit_res);
-                    cPtr->retCode = LE_FAULT;
+                    cPtr->retCode = ConvertPaResult(deInit_res);
                 }
                 else
                 {
@@ -10196,7 +10211,7 @@ void taf_locGnss::ReleaseDgnssSourceWorker(void* cmdPtr, void*)
                     else
                     {
                         LE_DEBUG("Dgnss Manager removal failed");
-                        cPtr->retCode = LE_FAULT;
+                        cPtr->retCode = ConvertPaResult(resCallback1.result);
                     }
                 }
             }else{
@@ -10279,13 +10294,17 @@ le_result_t taf_locGnss::SetEngineIntegrityRisk
                     LE_INFO("SetEngineIntegrityRisk is success");
                     return LE_OK;
                 }
+                else
+                {
+                    result = ConvertPaResult(resCallback.result);
+                }
             }
             else
             {
                 LE_ERROR("[PA_CALL_FAILED] "
                          "api=taf_pa_location_configureEngineIntegrityRisk reason=%d",
                          (int)res);
-                result = LE_FAULT;
+                result = ConvertPaResult(res);
             }
         }
         break;
@@ -10444,6 +10463,7 @@ le_result_t taf_locGnss::GetIntegrityRiskUsed
         else
         {
             LE_DEBUG("GetIntegrityRiskUsed Invalid");
+            result = LE_FAULT;
         }
     }
     return result;
@@ -10791,7 +10811,7 @@ void taf_locGnss::CloseEventHandler
                 {
                     LE_ERROR("[PA_CALL_FAILED] api=taf_pa_location_deInitializeDgnss reason=%d",
                              (int)deInit_res);
-                    result = LE_FAULT;
+                    result = ConvertPaResult(deInit_res);
                 }
                 else
                 {
@@ -10802,6 +10822,7 @@ void taf_locGnss::CloseEventHandler
                     else
                     {
                         LE_ERROR("Dgnss Manager removal failed");
+                        result = ConvertPaResult(resCallback.result);
                     }
                 }
             }

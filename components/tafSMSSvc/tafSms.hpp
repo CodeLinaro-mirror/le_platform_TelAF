@@ -283,6 +283,9 @@ namespace tafsvc
 
       uint8_t NumOfSlot = MIN_SIM_SLOT_COUNT;
 
+      // Converted PA failure of the last SIM message list request
+      le_result_t listPaResult = LE_OK;
+
       //for SMS center address
       char smscAddr[TAF_SMS_SMSC_ADDR_BYTES];
    };

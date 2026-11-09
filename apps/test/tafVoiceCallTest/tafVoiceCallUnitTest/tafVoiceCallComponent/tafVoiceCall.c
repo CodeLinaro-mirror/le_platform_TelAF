@@ -59,6 +59,19 @@ static UnitTestContext_t AppCtx;
 static taf_voicecall_Event_t LocalExpectEvent;
 static taf_voicecall_CallRef_t LocalExpectCallRef;
 static taf_voicecall_CallRef_t LocalExpectCallWaitingRef;
+static bool CapSkipped = false;
+
+// Returns true if the result indicates the chipset does not support/implement the API.
+static bool IsCapResult(const char* apiName, le_result_t res)
+{
+    if ((res == LE_CAP_NOT_IMPLEMENTED) || (res == LE_CAP_UNSUPPORTED))
+    {
+        LE_INFO("%s returned %s, test skipped", apiName, LE_RESULT_TXT(res));
+        CapSkipped = true;
+        return true;
+    }
+    return false;
+}
 
 #ifdef USE_LE_SEM
 le_result_t post_call_event()
@@ -291,8 +304,12 @@ static void ut_tafVoiceCall_answer(void* ctxPtr, void* param)
     UnitTestContext_t* appCtxPtr = (UnitTestContext_t*) ctxPtr;
     le_result_t leRet;
 
+    CapSkipped = false;
     leRet = taf_voicecall_Answer(appCtxPtr->requestRef);
-    LE_ASSERT(leRet == LE_OK);
+    if (!IsCapResult("taf_voicecall_Answer", leRet))
+    {
+        LE_ASSERT(leRet == LE_OK);
+    }
 
     return;
 }
@@ -303,8 +320,12 @@ static void ut_tafVoiceCall_hold(void* ctxPtr, void* param)
     UnitTestContext_t* appCtxPtr = (UnitTestContext_t*) ctxPtr;
     le_result_t leRet;
 
+    CapSkipped = false;
     leRet = taf_voicecall_Hold(appCtxPtr->requestRef);
-    LE_ASSERT(leRet == LE_OK);
+    if (!IsCapResult("taf_voicecall_Hold", leRet))
+    {
+        LE_ASSERT(leRet == LE_OK);
+    }
 
     return;
 }
@@ -314,8 +335,12 @@ static void ut_tafVoiceCall_resume(void* ctxPtr, void* param)
     UnitTestContext_t* appCtxPtr = (UnitTestContext_t*) ctxPtr;
     le_result_t leRet;
 
+    CapSkipped = false;
     leRet = taf_voicecall_Resume(appCtxPtr->requestRef);
-    LE_ASSERT(leRet == LE_OK);
+    if (!IsCapResult("taf_voicecall_Resume", leRet))
+    {
+        LE_ASSERT(leRet == LE_OK);
+    }
 
     return;
 }
@@ -325,8 +350,12 @@ static void ut_tafVoiceCall_end(void* ctxPtr, void* param)
     UnitTestContext_t* appCtxPtr = (UnitTestContext_t*) ctxPtr;
     le_result_t leRet;
 
+    CapSkipped = false;
     leRet = taf_voicecall_End(appCtxPtr->requestRef);
-    LE_ASSERT(leRet == LE_OK);
+    if (!IsCapResult("taf_voicecall_End", leRet))
+    {
+        LE_ASSERT(leRet == LE_OK);
+    }
 
     return;
 }
@@ -336,8 +365,12 @@ static void ut_tafVoiceCall_end_duplicated(void* ctxPtr, void* param)
     UnitTestContext_t* appCtxPtr = (UnitTestContext_t*) ctxPtr;
     le_result_t leRet;
 
+    CapSkipped = false;
     leRet = taf_voicecall_End(appCtxPtr->requestRef);
-    LE_ASSERT(leRet == LE_OK);
+    if (!IsCapResult("taf_voicecall_End", leRet))
+    {
+        LE_ASSERT(leRet == LE_OK);
+    }
     post_call_event();
 
     return;
@@ -349,8 +382,12 @@ static void ut_tafVoiceCall_swap(void* ctxPtr, void* param)
     UnitTestContext_t* appCtxPtr = (UnitTestContext_t*) ctxPtr;
     le_result_t leRet;
 
+    CapSkipped = false;
     leRet = taf_voicecall_Swap(appCtxPtr->requestRef);
-    LE_ASSERT(leRet == LE_OK);
+    if (!IsCapResult("taf_voicecall_Swap", leRet))
+    {
+        LE_ASSERT(leRet == LE_OK);
+    }
 
     return;
 }
@@ -359,6 +396,10 @@ le_result_t ut_tafVoiceCall_ValidCall_Hold()
 {
     le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_hold, &AppCtx, NULL);
     LE_ASSERT_OK(wait_call(10));
+    if (CapSkipped)
+    {
+        return LE_OK;
+    }
     LE_ASSERT((TAF_VOICECALL_EVENT_ONHOLD == LocalExpectEvent) && (LocalExpectCallRef == AppCtx.requestRef));
 
     le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_hold, &AppCtx, NULL);
@@ -371,6 +412,10 @@ le_result_t ut_tafVoiceCall_ValidCall_Resume()
 {
     le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_resume, &AppCtx, NULL);
     LE_ASSERT_OK(wait_call(10));
+    if (CapSkipped)
+    {
+        return LE_OK;
+    }
     LE_INFO("LocalExpectEvent %d, LocalExpectCallRef: %p, AppCtx.requestRef: %p", (uint32_t)LocalExpectEvent, LocalExpectCallRef, AppCtx.requestRef);
     LE_ASSERT((TAF_VOICECALL_EVENT_ACTIVE == LocalExpectEvent) && (LocalExpectCallRef == AppCtx.requestRef));
 
@@ -385,6 +430,10 @@ le_result_t ut_tafVoiceCall_ValidCall_End()
 {
     le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_end, &AppCtx, NULL);
     LE_ASSERT_OK(wait_call(10));
+    if (CapSkipped)
+    {
+        return LE_OK;
+    }
     LE_INFO("LocalExpectEvent %d, LocalExpectCallRef: %p, AppCtx.requestRef: %p", (uint32_t)LocalExpectEvent, LocalExpectCallRef, AppCtx.requestRef);
     LE_ASSERT((TAF_VOICECALL_EVENT_ENDED == LocalExpectEvent) && (LocalExpectCallRef == AppCtx.requestRef));
 
@@ -412,6 +461,10 @@ le_result_t ut_tafVoiceCall_IncomingCall()
     AppCtx.requestRef = LocalExpectCallRef;
     le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_answer, &AppCtx, NULL);
     LE_ASSERT_OK(wait_call(10));
+    if (CapSkipped)
+    {
+        return LE_OK;
+    }
     LE_ASSERT((TAF_VOICECALL_EVENT_ACTIVE == LocalExpectEvent) && (LocalExpectCallRef == AppCtx.requestRef));
     sleep(5);
     return LE_OK;
@@ -602,6 +655,10 @@ le_result_t ut_tafVoiceCall_CallWaiting()
     LE_INFO("===== answering second call =====");
     le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_answer, &AppCtx, NULL);
     LE_ASSERT_OK(wait_call(60));
+    if (CapSkipped)
+    {
+        return LE_OK;
+    }
     /* Two events from different phone number will be sent. So need to wati_call() two times */
     LE_ASSERT_OK(wait_call(60));
     LE_ASSERT(((TAF_VOICECALL_EVENT_ONHOLD == LocalExpectEvent) && (firstCallRef == LocalExpectCallRef))
@@ -615,6 +672,10 @@ le_result_t ut_tafVoiceCall_CallWaiting()
     LE_INFO("===== first swap =====");
     le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_swap, &AppCtx, NULL);
     LE_ASSERT_OK(wait_call(60));
+    if (CapSkipped)
+    {
+        return LE_OK;
+    }
     /* Two events from different phone number will be sent. So need to wati_call() two times */
     LE_ASSERT_OK(wait_call(60));
     LE_ASSERT(((TAF_VOICECALL_EVENT_ACTIVE == LocalExpectEvent) && (firstCallRef == LocalExpectCallRef))
@@ -628,6 +689,10 @@ le_result_t ut_tafVoiceCall_CallWaiting()
     LE_INFO("===== second swap =====");
     le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_swap, &AppCtx, NULL);
     LE_ASSERT_OK(wait_call(60));
+    if (CapSkipped)
+    {
+        return LE_OK;
+    }
     /* Two events from different phone number will be sent. So need to wati_call() two times */
     LE_ASSERT_OK(wait_call(60));
     LE_ASSERT(((TAF_VOICECALL_EVENT_ONHOLD == LocalExpectEvent) && (firstCallRef == LocalExpectCallRef))

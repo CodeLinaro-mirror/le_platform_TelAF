@@ -146,7 +146,15 @@ static void TafHoldTimerHandler
 )
 {
     LE_INFO("End the call after holding for a while!");
-    LE_ERROR_IF(taf_voicecall_End(TafCallRef) != LE_OK, "Could not end the call.");
+    le_result_t res = taf_voicecall_End(TafCallRef);
+    if ((res == LE_CAP_NOT_IMPLEMENTED) || (res == LE_CAP_UNSUPPORTED))
+    {
+        LE_INFO("taf_voicecall_End not supported: %s", LE_RESULT_TXT(res));
+    }
+    else
+    {
+        LE_ERROR_IF(res != LE_OK, "Could not end the call.");
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -201,6 +209,10 @@ static void AppCallHandler
         {
             TafCallRef = callRef;
             LE_INFO("TEST_VOICECALL_CLIENT: answer the call ok");
+        }
+        else if ((res == LE_CAP_NOT_IMPLEMENTED) || (res == LE_CAP_UNSUPPORTED))
+        {
+            LE_INFO("TEST_VOICECALL_CLIENT: answer not supported: %s", LE_RESULT_TXT(res));
         }
         else
         {

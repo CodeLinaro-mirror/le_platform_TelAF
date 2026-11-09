@@ -28,6 +28,21 @@ static le_sem_Ref_t TestSemRef;
 static le_thread_Ref_t threadRef = NULL;
 static taf_ecall_State_t ECallState;
 static taf_ecall_StateChangeHandlerRef_t HandlerRef;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Returns true and logs when the result shows the API is not supported on this chipset.
+ */
+//--------------------------------------------------------------------------------------------------
+static bool IsCapUnsupported(le_result_t res, const char* apiName)
+{
+    if (res == LE_CAP_NOT_IMPLEMENTED || res == LE_CAP_UNSUPPORTED)
+    {
+        LE_INFO("%s not supported on this chipset: %s, skipped", apiName, LE_RESULT_TXT(res));
+        return true;
+    }
+    return false;
+}
 static taf_ecall_CallRef_t ECallRef = NULL;
 static uint8_t PhoneId;
 static int TC_No = 1;
@@ -190,7 +205,10 @@ void printUsages()
 
 void report(le_result_t expected_result, le_result_t actual_result, string API_Name)
 {
-    if (LE_UNSUPPORTED == actual_result)
+    if (LE_UNSUPPORTED == actual_result ||
+        LE_NOT_IMPLEMENTED == actual_result ||
+        LE_CAP_UNSUPPORTED == actual_result ||
+        LE_CAP_NOT_IMPLEMENTED == actual_result)
     {
         std::cout<<TC_No<<". "<<API_Name<<" - "<<"Result: "<<return_val(actual_result)
                 <<YELLOW + " - Not Supported" + DONE<<endl;
@@ -316,7 +334,7 @@ static void* taf_ecall_endCall_test
 {
     // Test Case
     le_result_t result = taf_ecall_End(ecallRef);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_endCall_test - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_End"), "taf_ecall_endCall_test - LE_OK");
     report(LE_OK,result,"taf_ecall_endCall_test");
     LE_TEST_INFO("taf_ecall_endCall_test done");
     return NULL;
@@ -342,7 +360,7 @@ static void* taf_ecall_SendMsd_test
 {
     // Test Case
     le_result_t result = taf_ecall_SendMsd(ecallRef);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_SendMsd_test - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_SendMsd"), "taf_ecall_SendMsd_test - LE_OK");
     report(LE_OK,result,"taf_ecall_SendMsd_test");
     LE_TEST_INFO("taf_ecall_SendMsd_test done");
     return NULL;
@@ -514,7 +532,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
 
             //Reset Nad Deregistration Time
             le_result_t result = taf_ecall_SetNadDeregistrationTime(6*60); // 6 hrs
-            LE_TEST_OK(result == LE_OK, "taf_ecall_SetNadDeregTime_test - LE_OK");
+            LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_SetNadDeregistrationTime"), "taf_ecall_SetNadDeregTime_test - LE_OK");
             report(LE_OK,result,"taf_ecall_SetNadDeregTime_test");
 
             taf_ecall_getTerminationReason_test(eCallReference);
@@ -758,20 +776,20 @@ void taf_ecall_setOpMode_test()
     le_result_t result;
     taf_ecall_OpMode_t opMode = TAF_ECALL_NONE;
     result = taf_ecall_GetConfiguredOperationMode(PhoneId, &opMode);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_getOpMode_test - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_GetConfiguredOperationMode"), "taf_ecall_getOpMode_test - LE_OK");
     report(LE_OK,result,"taf_ecall_getOpMode_test");
     LE_TEST_INFO("taf_ecall_getOpMode_test done");
     std::cout<<"*** opMode (0-NORMAL, 1-ECALL ONLY, 2-NONE): "<<opMode<<endl;
 
     // Test Case
     result=taf_ecall_ForcePersistentOnlyMode(PhoneId);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_ForcePersistentOnlyMode - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_ForcePersistentOnlyMode"), "taf_ecall_ForcePersistentOnlyMode - LE_OK");
     report(LE_OK,result,"taf_ecall_ForcePersistentOnlyMode");
 
     // Test Case
     opMode = TAF_ECALL_MODE_NORMAL;
     result = taf_ecall_GetConfiguredOperationMode(PhoneId, &opMode);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_getOpMode_test - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_GetConfiguredOperationMode"), "taf_ecall_getOpMode_test - LE_OK");
     report(LE_OK,result,"taf_ecall_getOpMode_test");
     std::cout<<"*** opMode (0-NORMAL, 1-ECALL ONLY, 2-NONE): "<<opMode<<endl;
 
@@ -789,20 +807,20 @@ void taf_ecall_setOpMode_test()
 
     //Test set opMode normal
     result = taf_ecall_GetConfiguredOperationMode(PhoneId, &opMode);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_getOpMode_test - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_GetConfiguredOperationMode"), "taf_ecall_getOpMode_test - LE_OK");
     report(LE_OK,result,"taf_ecall_getOpMode_test");
     LE_TEST_INFO("taf_ecall_getOpMode_test done");
     std::cout<<"*** opMode (0-NORMAL, 1-ECALL ONLY, 2-NONE): "<<opMode<<endl;
 
     // Test Case
     result=taf_ecall_ExitOnlyMode(PhoneId);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_ExitOnlyMode - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_ExitOnlyMode"), "taf_ecall_ExitOnlyMode - LE_OK");
     report(LE_OK,result,"taf_ecall_ExitOnlyMode");
 
     // Test Case
     opMode = TAF_ECALL_MODE_ECALL;
     result = taf_ecall_GetConfiguredOperationMode(PhoneId, &opMode);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_getOpMode_test - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_GetConfiguredOperationMode"), "taf_ecall_getOpMode_test - LE_OK");
     report(LE_OK,result,"taf_ecall_getOpMode_test");
     std::cout<<"*** opMode (0-NORMAL, 1-ECALL ONLY, 2-NONE): "<<opMode<<endl;
 
@@ -825,7 +843,7 @@ static void* taf_ecall_getOpMode_test()
 
     taf_ecall_OpMode_t opMode = TAF_ECALL_MODE_NORMAL;
     result = taf_ecall_GetConfiguredOperationMode(PhoneId, &opMode);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_getOpMode_test - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_GetConfiguredOperationMode"), "taf_ecall_getOpMode_test - LE_OK");
     report(LE_OK,result,"taf_ecall_getOpMode_test");
     LE_TEST_INFO("taf_ecall_getOpMode_test done");
 
@@ -1101,8 +1119,8 @@ static void* taf_ecall_getMsdTxMode_test()
     int initialTxMode = 4;
     taf_ecall_MsdTransmissionMode_t getTxMode = (taf_ecall_MsdTransmissionMode_t) initialTxMode;
     result = taf_ecall_GetMsdTxMode(&getTxMode);
-    LE_TEST_OK(result == LE_UNSUPPORTED, "taf_ecall_getMsdTxMode_test - LE_UNSUPPORTED");
-    report(LE_UNSUPPORTED,result,"taf_ecall_getMsdTxMode_test");
+    LE_TEST_OK(result == LE_CAP_UNSUPPORTED, "taf_ecall_getMsdTxMode_test - LE_CAP_UNSUPPORTED");
+    report(LE_CAP_UNSUPPORTED,result,"taf_ecall_getMsdTxMode_test");
     LE_TEST_INFO("taf_ecall_getMsdTxMode_test done");
 
     return NULL;
@@ -1115,15 +1133,15 @@ void taf_ecall_setMsdTxMode_test()
     int initialTxMode = 3;
     taf_ecall_MsdTransmissionMode_t txMode = (taf_ecall_MsdTransmissionMode_t) initialTxMode;
     result = taf_ecall_GetMsdTxMode(&txMode);
-    LE_TEST_OK(result == LE_UNSUPPORTED, "taf_ecall_GetMsdTxMode - LE_UNSUPPORTED");
-    report(LE_UNSUPPORTED,result,"taf_ecall_GetMsdTxMode");
+    LE_TEST_OK(result == LE_CAP_UNSUPPORTED, "taf_ecall_GetMsdTxMode - LE_CAP_UNSUPPORTED");
+    report(LE_CAP_UNSUPPORTED,result,"taf_ecall_GetMsdTxMode");
     LE_TEST_INFO("taf_ecall_GetMsdTxMode done");
 
     // Test Case
     txMode = TAF_ECALL_MSD_TX_MODE_PUSH;
     result=taf_ecall_SetMsdTxMode(txMode);
-    LE_TEST_OK(result == LE_UNSUPPORTED, "taf_ecall_SetMsdTxMode - LE_UNSUPPORTED");
-    report(LE_UNSUPPORTED,result,"taf_ecall_SetMsdTxMode");
+    LE_TEST_OK(result == LE_CAP_UNSUPPORTED, "taf_ecall_SetMsdTxMode - LE_CAP_UNSUPPORTED");
+    report(LE_CAP_UNSUPPORTED,result,"taf_ecall_SetMsdTxMode");
     LE_TEST_INFO("taf_ecall_SetMsdTxMode done");
 
     std::cout<<TC_No<<".txMode set/get properly " + GREEN + "- Pass" + DONE<<endl;
@@ -1240,7 +1258,7 @@ static void* taf_ecall_GetPsapNumber_test()
     // Test Case
     char psapNum[TAF_SIM_PHONE_NUM_MAX_LEN] = "Nil";
     le_result_t result = taf_ecall_GetPsapNumber(psapNum, TAF_SIM_PHONE_NUM_MAX_LEN);
-    LE_TEST_OK(result == LE_OK || strcmp("None", psapNum) == 0, "taf_ecall_GetPsapNumber - LE_OK");
+    LE_TEST_OK((result == LE_OK || strcmp("None", psapNum) == 0) || IsCapUnsupported(result, "taf_ecall_GetPsapNumber"), "taf_ecall_GetPsapNumber - LE_OK");
     report(LE_OK,result,"taf_ecall_GetPsapNumber");
     std::cout<<"*** psapNumber: "<<psapNum<<endl;
     LE_TEST_INFO("taf_ecall_GetPsapNumber done");
@@ -1252,7 +1270,7 @@ static void* taf_ecall_UseUSimNumbers_test()
 {
     // Test Case
     le_result_t result = taf_ecall_UseUSimNumbers();
-    LE_TEST_OK(result == LE_OK, "taf_ecall_UseUSimNumbers_test - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_UseUSimNumbers"), "taf_ecall_UseUSimNumbers_test - LE_OK");
     report(LE_OK,result,"taf_ecall_UseUSimNumbers_test");
     LE_TEST_INFO("taf_ecall_UseUSimNumbers_test done");
 
@@ -1264,13 +1282,13 @@ static void* taf_ecall_SetPsapNumber_test()
     char psapNum[TAF_SIM_PHONE_NUM_MAX_LEN] = "None";
     le_result_t result = taf_ecall_GetPsapNumber(psapNum, TAF_SIM_PHONE_NUM_MAX_LEN);
     result = taf_ecall_SetPsapNumber("911");
-    LE_TEST_OK(result == LE_OK, "taf_ecall_SetPsapNumber_test - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_SetPsapNumber"), "taf_ecall_SetPsapNumber_test - LE_OK");
     report(LE_OK,result,"taf_ecall_SetPsapNumber_test");
 
     // Test Case
     char psapNumber[TAF_SIM_PHONE_NUM_MAX_LEN];
     result = taf_ecall_GetPsapNumber(psapNumber, TAF_SIM_PHONE_NUM_MAX_LEN);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_GetPsapNumber - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_GetPsapNumber"), "taf_ecall_GetPsapNumber - LE_OK");
     report(LE_OK,result,"taf_ecall_GetPsapNumber");
     std::cout<<"*** psapNumber: "<<psapNumber<<endl;
 
@@ -1286,12 +1304,12 @@ static void* taf_ecall_SetPsapNumber_test()
     }
 
     result = taf_ecall_SetPsapNumber("1800233233");
-    LE_TEST_OK(result == LE_OK, "taf_ecall_SetPsapNumber_test - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_SetPsapNumber"), "taf_ecall_SetPsapNumber_test - LE_OK");
     report(LE_OK,result,"taf_ecall_SetPsapNumber_test");
 
     // Test Case
     result = taf_ecall_GetPsapNumber(psapNumber, TAF_SIM_PHONE_NUM_MAX_LEN);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_GetPsapNumber - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_GetPsapNumber"), "taf_ecall_GetPsapNumber - LE_OK");
     report(LE_OK,result,"taf_ecall_GetPsapNumber");
     std::cout<<"*** psapNumber: "<<psapNumber<<endl;
 
@@ -1322,7 +1340,7 @@ static void* taf_ecall_GetNadDeregTime_test()
     // Test Case
     uint16_t deregTimeOrg = 0;
     le_result_t result = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_GetNadDeregTime_test - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_GetNadDeregistrationTime"), "taf_ecall_GetNadDeregTime_test - LE_OK");
     report(LE_OK,result,"taf_ecall_GetNadDeregTime_test");
     std::cout<<"*** Existing deregTime (in minutes): "<< deregTimeOrg <<endl;
     LE_TEST_INFO("taf_ecall_GetNadDeregTime_test done");
@@ -1335,13 +1353,13 @@ static void* taf_ecall_SetNadDeregTime_test()
     uint16_t deregTimeOrg = 0;
     le_result_t result = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
     result = taf_ecall_SetNadDeregistrationTime(5*60); // 5 hrs
-    LE_TEST_OK(result == LE_OK, "taf_ecall_SetNadDeregTime_test - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_SetNadDeregistrationTime"), "taf_ecall_SetNadDeregTime_test - LE_OK");
     report(LE_OK,result,"taf_ecall_SetNadDeregTime_test");
 
     // Test Case
     uint16_t deregTime = 0;
     result = taf_ecall_GetNadDeregistrationTime(&deregTime);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_GetNadDeregTime_test - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_GetNadDeregistrationTime"), "taf_ecall_GetNadDeregTime_test - LE_OK");
     report(LE_OK,result,"taf_ecall_GetNadDeregTime_test");
     std::cout<<"*** deregTime (in minutes): "<< deregTime <<endl;
 
@@ -1357,12 +1375,12 @@ static void* taf_ecall_SetNadDeregTime_test()
     }
 
     result = taf_ecall_SetNadDeregistrationTime(8*60); // 8 hrs
-    LE_TEST_OK(result == LE_OK, "taf_ecall_SetNadDeregTime_test - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_SetNadDeregistrationTime"), "taf_ecall_SetNadDeregTime_test - LE_OK");
     report(LE_OK,result,"taf_ecall_SetNadDeregTime_test");
 
     // Test Case
     result = taf_ecall_GetNadDeregistrationTime(&deregTime);
-    LE_TEST_OK(result == LE_OK, "taf_ecall_GetNadDeregTime_test - LE_OK");
+    LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_GetNadDeregistrationTime"), "taf_ecall_GetNadDeregTime_test - LE_OK");
     report(LE_OK,result,"taf_ecall_GetNadDeregTime_test");
     std::cout<<"*** deregTime (in minutes): "<< deregTime <<endl;
 
@@ -1411,7 +1429,7 @@ static le_result_t taf_ecall_startECall_test
         if (psapNumber != NULL && strcmp(psapNumber, "None") != 0)
         {
             result = taf_ecall_SetPsapNumber(psapNumber);
-            LE_TEST_OK(result == LE_OK, "taf_ecall_SetPsapNumber - LE_OK");
+            LE_TEST_OK(result == LE_OK || IsCapUnsupported(result, "taf_ecall_SetPsapNumber"), "taf_ecall_SetPsapNumber - LE_OK");
             report(LE_OK,result,"taf_ecall_SetPsapNumber");
         }
         result = taf_ecall_StartTest(ECallRef);

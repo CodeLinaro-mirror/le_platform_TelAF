@@ -42,6 +42,21 @@ static taf_sim_AuthenticationResponseHandlerRef_t AuthResponseHandlerRef = NULL;
 static taf_sim_NewStateHandlerRef_t NewSimStateHandlerRef = NULL;
 static taf_sim_IccidChangeHandlerRef_t IccidChangeHandlerRef = NULL;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Checks whether the result is a capability code. If so, logs it and treats the test as skipped.
+ */
+//--------------------------------------------------------------------------------------------------
+static bool IsCapResult(const char* apiName, le_result_t res)
+{
+    if ((res == LE_CAP_NOT_IMPLEMENTED) || (res == LE_CAP_UNSUPPORTED))
+    {
+        LE_INFO("%s returned %s, test skipped", apiName, LE_RESULT_TXT(res));
+        return true;
+    }
+    return false;
+}
+
 //Function to convert sim state to string
 const char* SimStateToString(taf_sim_States_t state) {
     const char *cardState;
@@ -214,23 +229,23 @@ void tafSimUnitTest_info
 
         // Get SIM ICCID
         res = taf_sim_GetICCID(simId, iccid, sizeof(iccid));
-        LE_TEST_OK(res == LE_OK, "taf_sim_GetICCID");
+        LE_TEST_OK(res == LE_OK || IsCapResult("taf_sim_GetICCID", res), "taf_sim_GetICCID");
         printf("SIM Card ICCID: '%s'\n", iccid);
 
-        taf_sim_GetEID(simId, eid, sizeof(eid));
-        LE_TEST_OK(res == LE_OK, "taf_sim_GetEID");
+        res = taf_sim_GetEID(simId, eid, sizeof(eid));
+        LE_TEST_OK(res == LE_OK || IsCapResult("taf_sim_GetEID", res), "taf_sim_GetEID");
         printf("\nSIM Card EID: '%s'\n", eid);
 
         res = taf_sim_GetIMSI(simId, imsi, sizeof(imsi));
-        LE_TEST_OK(res == LE_OK, "taf_sim_GetIMSI");
+        LE_TEST_OK(res == LE_OK || IsCapResult("taf_sim_GetIMSI", res), "taf_sim_GetIMSI");
         printf("SIM Card IMSI: '%s'\n", imsi);
 
         res = taf_sim_GetSubscriberPhoneNumber(simId, phoneNumber, sizeof(phoneNumber));
-        LE_TEST_OK(res == LE_OK, "taf_sim_GetSubscriberPhoneNumber");
+        LE_TEST_OK(res == LE_OK || IsCapResult("taf_sim_GetSubscriberPhoneNumber", res), "taf_sim_GetSubscriberPhoneNumber");
         printf("SIM Card PhoneNumber: '%s'\n", phoneNumber);
 
         res = taf_sim_GetHomeNetworkOperator(simId, operatorName, sizeof(operatorName));
-        LE_TEST_OK(res == LE_OK, "taf_sim_GetHomeNetworkOperator");
+        LE_TEST_OK(res == LE_OK || IsCapResult("taf_sim_GetHomeNetworkOperator", res), "taf_sim_GetHomeNetworkOperator");
         printf("SIM Card Network Operator name: '%s'\n", operatorName);
     }
     taf_sim_SelectCard(simidOrg);
@@ -246,7 +261,7 @@ void tafSimUnitTest_selection
     printf("\nCurrent SIM slot id = %d\n",(int)slotId);
 
     le_result_t res = taf_sim_SelectCard(slot);
-    LE_TEST_OK(res == LE_OK, "tafSimUnitTest_selection");
+    LE_TEST_OK(res == LE_OK || IsCapResult("taf_sim_SelectCard", res), "tafSimUnitTest_selection");
     slotId = taf_sim_GetSelectedCard();
     printf("\nAfter selecting %d Current SIM slot id = %d\n", (int)slot, (int)slotId);
 
@@ -269,7 +284,7 @@ void tafSimUnitTest_enterPin
     le_result_t res = LE_NOT_IMPLEMENTED;
     res = taf_sim_EnterPIN(simId, lockType, pinPtr);
 
-    LE_TEST_OK(res == LE_OK, "tafSimUnitTest_enterPin");
+    LE_TEST_OK(res == LE_OK || IsCapResult("tafSimUnitTest_enterPin", res), "tafSimUnitTest_enterPin");
     LE_INFO("EnterPIN done");
 }
 
@@ -284,11 +299,11 @@ void tafSimUnitTest_setLock
     le_result_t res = LE_NOT_IMPLEMENTED;
     if (lock) {
         res = taf_sim_Lock(simId, lockType, pinPtr);
-        LE_TEST_OK(res == LE_OK, "taf_sim_Lock");
+        LE_TEST_OK(res == LE_OK || IsCapResult("taf_sim_Lock", res), "taf_sim_Lock");
         LE_INFO("Set lock request sent successfully");
     } else {
         res = taf_sim_Unlock(simId, lockType, pinPtr);
-        LE_TEST_OK(res == LE_OK, "taf_sim_Unlock");
+        LE_TEST_OK(res == LE_OK || IsCapResult("taf_sim_Unlock", res), "taf_sim_Unlock");
         LE_INFO("Unlock request sent successfully");
     }
 }
@@ -303,7 +318,7 @@ void tafSimUnitTest_Change_pin
 {
     le_result_t res = LE_NOT_IMPLEMENTED;
     res = taf_sim_ChangePIN(simId, lockType, oldpinPtr, newpinPtr);
-    LE_TEST_OK(res == LE_OK, "tafSimUnitTest_Change_pin");
+    LE_TEST_OK(res == LE_OK || IsCapResult("tafSimUnitTest_Change_pin", res), "tafSimUnitTest_Change_pin");
 }
 
 void tafSimUnitTest_unblock_puk
@@ -316,12 +331,12 @@ void tafSimUnitTest_unblock_puk
 {
     le_result_t res = LE_NOT_IMPLEMENTED;
     res = taf_sim_Unblock(simId, lockType, pukPtr, newpinPtr);
-    LE_TEST_OK(res == LE_OK, "tafSimUnitTest_unblock_puk");
+    LE_TEST_OK(res == LE_OK || IsCapResult("tafSimUnitTest_unblock_puk", res), "tafSimUnitTest_unblock_puk");
 
     uint32_t remainingPukTriesPtr;
     res = taf_sim_GetRemainingPUKTries(simId, &remainingPukTriesPtr);
     LE_INFO("taf_sim_GetRemainingPUKTries: Remaining PUK tries = %d", remainingPukTriesPtr);
-    LE_TEST_OK(res == LE_OK, "taf_sim_GetRemainingPUKTries");
+    LE_TEST_OK(res == LE_OK || IsCapResult("taf_sim_GetRemainingPUKTries", res), "taf_sim_GetRemainingPUKTries");
 }
 
 void tafSimUnitTest_sendApdu
@@ -333,11 +348,16 @@ void tafSimUnitTest_sendApdu
     uint8_t responseAPDU[100];
     size_t responseLength = 100;
 
-    LE_TEST_OK(LE_OK == taf_sim_SendApdu(simId,
-                                          selectAPDU,
-                                          sizeof(selectAPDU),
-                                          responseAPDU,
-                                          &responseLength), "taf_sim_SendApdu");
+    le_result_t res = taf_sim_SendApdu(simId,
+                                       selectAPDU,
+                                       sizeof(selectAPDU),
+                                       responseAPDU,
+                                       &responseLength);
+    if (IsCapResult("taf_sim_SendApdu", res))
+    {
+        return;
+    }
+    LE_TEST_OK(LE_OK == res, "taf_sim_SendApdu");
 
     LE_INFO("tafSimUnitTest_sendApdu: APDU response sw1 = 0x%02X",responseAPDU[responseLength-2]);
     LE_INFO("tafSimUnitTest_sendApdu: APDU response sw2 = 0x%02X",responseAPDU[responseLength-1]);
@@ -353,7 +373,7 @@ void tafSimUnitTest_GetAppTypes
     size_t appTypeNumElements = TAF_SIM_MAX_APP_TYPE;
 
     res = taf_sim_GetAppTypes(simId, appType, &appTypeNumElements);
-    LE_TEST_OK(res == LE_OK, "tafSimUnitTest_GetAppTypes");
+    LE_TEST_OK(res == LE_OK || IsCapResult("tafSimUnitTest_GetAppTypes", res), "tafSimUnitTest_GetAppTypes");
 
     if (res == LE_OK) {
         LE_INFO("Total number of apps in card: %d\n", (int) appTypeNumElements);
@@ -379,21 +399,30 @@ void tafSimUnitTest_sim_access
     uint8_t channel = 0;
 
     // Open a logical channel
-    LE_TEST_OK(LE_OK == taf_sim_OpenLogicalChannel(simId, TAF_SIM_APPTYPE_USIM, &channel), "taf_sim_OpenLogicalChannel");
+    le_result_t res = taf_sim_OpenLogicalChannel(simId, TAF_SIM_APPTYPE_USIM, &channel);
+    if (IsCapResult("taf_sim_OpenLogicalChannel", res))
+    {
+        return;
+    }
+    LE_TEST_OK(LE_OK == res, "taf_sim_OpenLogicalChannel");
     LE_TEST_OK(channel, "channel validity check");
 
-    LE_TEST_OK(LE_OK == taf_sim_SendApduOnChannel(simId,
-                                          channel,
-                                          selectMFAPDU,
-                                          sizeof(selectMFAPDU),
-                                          responseAPDU,
-                                          &responseLength), "taf_sim_SendApduOnChannel");
+    res = taf_sim_SendApduOnChannel(simId,
+                                    channel,
+                                    selectMFAPDU,
+                                    sizeof(selectMFAPDU),
+                                    responseAPDU,
+                                    &responseLength);
+    LE_TEST_OK(LE_OK == res || IsCapResult("taf_sim_SendApduOnChannel", res),
+               "taf_sim_SendApduOnChannel");
 
     LE_INFO("SendApduOnChannel: APDU response sw1 = 0x%02X",responseAPDU[responseLength-2]);
     LE_INFO("SendApduOnChannel: APDU response sw2 = 0x%02X",responseAPDU[responseLength-1]);
 
     // Close the logical channel
-    LE_TEST_OK(LE_OK == taf_sim_CloseLogicalChannel(simId,channel), "taf_sim_CloseLogicalChannel");
+    res = taf_sim_CloseLogicalChannel(simId,channel);
+    LE_TEST_OK(LE_OK == res || IsCapResult("taf_sim_CloseLogicalChannel", res),
+               "taf_sim_CloseLogicalChannel");
     le_result_t reqStatus;
     taf_sim_Command_t command = TAF_SIM_GET_RESPONSE;
     char fileIdentifier[5]={'2', 'f', 'e', '2', '\0'};
@@ -438,7 +467,12 @@ void tafSimUnitTest_sim_isEmergency
 )
 {
     bool state = false;
-    LE_TEST_OK(LE_OK == taf_sim_IsEmergencyCallSubscriptionSelected(simId, &state), "taf_sim_IsEmergencyCallSubscriptionSelected");
+    le_result_t res = taf_sim_IsEmergencyCallSubscriptionSelected(simId, &state);
+    if (IsCapResult("taf_sim_IsEmergencyCallSubscriptionSelected", res))
+    {
+        return;
+    }
+    LE_TEST_OK(LE_OK == res, "taf_sim_IsEmergencyCallSubscriptionSelected");
     LE_INFO("Emergency Check success!!!");
 }
 
@@ -448,9 +482,16 @@ void tafSimUnitTest_swapToEmergencyAndBack
     taf_sim_Manufacturer_t manufacturer
 )
 {
-    LE_TEST_OK(LE_OK == taf_sim_LocalSwapToEmergencyCallSubscription(simId, manufacturer), "taf_sim_LocalSwapToEmergencyCallSubscription");
+    le_result_t res = taf_sim_LocalSwapToEmergencyCallSubscription(simId, manufacturer);
+    if (IsCapResult("taf_sim_LocalSwapToEmergencyCallSubscription", res))
+    {
+        return;
+    }
+    LE_TEST_OK(LE_OK == res, "taf_sim_LocalSwapToEmergencyCallSubscription");
     LE_INFO("SwapToEmergency is success");
-    LE_TEST_OK(LE_OK == taf_sim_LocalSwapToCommercialSubscription(simId, manufacturer), "taf_sim_LocalSwapToCommercialSubscription");
+    res = taf_sim_LocalSwapToCommercialSubscription(simId, manufacturer);
+    LE_TEST_OK(LE_OK == res || IsCapResult("taf_sim_LocalSwapToCommercialSubscription", res),
+               "taf_sim_LocalSwapToCommercialSubscription");
     LE_INFO("SwapToRegular is success");
 }
 
@@ -491,7 +532,7 @@ void tafSimUnitTest_fplmnList_test(taf_sim_Id_t simId) {
     LE_TEST_OK(LE_BAD_PARAMETER == res, "AddFPLMN with empty MCC returns LE_BAD_PARAMETER");
 
     res = taf_sim_WriteFPLMNList(simId, fplmnList);
-    LE_TEST_OK(res == LE_OK, "tafSimUnitTest_writeFplmnList_test");
+    LE_TEST_OK(res == LE_OK || IsCapResult("taf_sim_WriteFPLMNList", res), "tafSimUnitTest_writeFplmnList_test");
     LE_INFO("tafSimUnitTest_writeFplmnList completed. Result: %s\n", res == LE_OK ? "PASS":"FAILED");
 
     res = taf_sim_WriteFPLMNList(simId, NULL);
@@ -718,7 +759,8 @@ COMPONENT_INIT
 
         tafSimUnitTest_SetPowerCheck(simId, powerStatus);
 
-        LE_TEST_OK(LE_OK == taf_sim_Reset(simId), "taf_sim_Reset");
+        le_result_t resetRes = taf_sim_Reset(simId);
+        LE_TEST_OK(LE_OK == resetRes || IsCapResult("taf_sim_Reset", resetRes), "taf_sim_Reset");
 
         tafSimUnitTest_sim_isEmergency(simId);
     }

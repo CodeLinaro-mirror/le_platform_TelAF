@@ -41,6 +41,19 @@ using namespace tafsvc;
 LE_MEM_DEFINE_STATIC_POOL(RsimMsgs, MSG_POOL_SIZE, sizeof(taf_RsimMsg_Client_t));
 LE_MEM_DEFINE_STATIC_POOL(RsimApduTx, APDU_TX_POOL_SIZE, sizeof(taf_RsimApduTx_t));
 
+static le_result_t ConvertPaFailure(taf_pa_result_t paResult)
+{
+    switch (paResult)
+    {
+        case TAF_PA_FAULT:           return LE_FAULT;
+        case TAF_PA_UNSUPPORTED:     return LE_CAP_UNSUPPORTED;
+        case TAF_PA_NOT_IMPLEMENTED: return LE_CAP_NOT_IMPLEMENTED;
+        default:
+            LE_WARN("Unknown PA result value: %d", (int)paResult);
+            return LE_FAULT;
+    }
+}
+
 // PA Event Listener Callbacks
 static void onApduTransferCallback(const std::shared_ptr<taf_pa_remotesim_ApduTransfer_t>& apduEvent) {
     LE_INFO("Received Apdu transfer notification from modem.\n");
@@ -97,7 +110,7 @@ void taf_simRsim:: Init(void) {
     taf_pa_result_t result = taf_pa_remotesim_Init(1);
     if (result != TAF_PA_OK)
     {
-        LE_ERROR("[PA_CALL_FAILED] api=Init result=%d", static_cast<int>(result));
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_Init result=%d", static_cast<int>(result));
     }
 
     MessageEventId = le_event_CreateId("MessageEventId", sizeof(taf_RsimMsg_t));
@@ -672,7 +685,10 @@ le_result_t taf_simRsim::HandleCardConnect(const uint8_t* msgPtr, size_t message
     }
     if (!connectionSuccess) {
         LE_ERROR("Unable to establish link");
-        HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_NO_LINK);
+        le_result_t errResult = HandleCardError(TAF_PA_REMOTESIM_CARD_ERROR_NO_LINK);
+        if (result == LE_OK) {
+            result = errResult;
+        }
     }
     LE_INFO("HandleCardConnect exit ");
     return result;
@@ -970,7 +986,7 @@ le_result_t taf_simRsim::HandleCardReset(const uint8_t* messagePtr, size_t messa
         taf_pa_result_t result = taf_pa_remotesim_SendCardReset(atr, nullptr, {});
         if (result != TAF_PA_OK) {
             LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendCardReset result=%d", static_cast<int>(result));
-            return LE_FAULT;
+            return ConvertPaFailure(result);
         }
         return LE_OK;
 }
@@ -1018,7 +1034,7 @@ le_result_t taf_simRsim::HandleCardInserted(const uint8_t* messagePtr, size_t me
     taf_pa_result_t result = taf_pa_remotesim_SendCardInserted(atr, nullptr, {});
     if (result != TAF_PA_OK) {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendCardInserted result=%d", static_cast<int>(result));
-        return LE_FAULT;
+        return ConvertPaFailure(result);
     }
     return LE_OK;
 }
@@ -1030,7 +1046,7 @@ le_result_t taf_simRsim::HandleCardRemoved()
     taf_pa_result_t result = taf_pa_remotesim_SendCardRemoved(nullptr, {});
     if (result != TAF_PA_OK) {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendCardRemoved result=%d", static_cast<int>(result));
-        return LE_FAULT;
+        return ConvertPaFailure(result);
     }
     return LE_OK;
 }
@@ -1040,7 +1056,7 @@ le_result_t taf_simRsim::HandleCardError(taf_pa_remotesim_CardErrorCause_t cardE
     taf_pa_result_t result = taf_pa_remotesim_SendCardError(cardError, nullptr, {});
     if (result != TAF_PA_OK) {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendCardError result=%d", static_cast<int>(result));
-        return LE_FAULT;
+        return ConvertPaFailure(result);
     }
     return LE_OK;
 }
@@ -1051,7 +1067,7 @@ le_result_t taf_simRsim::HandleCardWakeUp()
     taf_pa_result_t result = taf_pa_remotesim_SendCardWakeup(nullptr, {});
     if (result != TAF_PA_OK) {
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_remotesim_SendCardWakeup result=%d", static_cast<int>(result));
-        return LE_FAULT;
+        return ConvertPaFailure(result);
     }
     return LE_OK;
 }

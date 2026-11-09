@@ -46,6 +46,20 @@
 using namespace tafsvc;
 using namespace std;
 
+static le_result_t ConvertPaFailure(taf_pa_result_t paResult)
+{
+   switch (paResult)
+   {
+      case TAF_PA_FAULT:           return LE_FAULT;
+      case TAF_PA_UNSUPPORTED:     return LE_CAP_UNSUPPORTED;
+      case TAF_PA_NOT_IMPLEMENTED: return LE_CAP_NOT_IMPLEMENTED;
+      case TAF_PA_TIMEOUT:         return LE_TIMEOUT;
+      default:
+         LE_WARN("Unknown PA result value: %d", (int)paResult);
+         return LE_FAULT;
+   }
+}
+
 /*======================================================================
 
 FUNCTION       taf_sms_AddRxMsgHandler
@@ -1546,7 +1560,7 @@ le_result_t taf_sms_GetSmsCenterAddress
    if (paRes != TAF_PA_OK)
    {
       LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_GetSmsCenterAddress reason=%d", (int)paRes);
-      return LE_FAULT;
+      return ConvertPaFailure(paRes);
    }
    return LE_OK;
 }
@@ -1588,7 +1602,7 @@ le_result_t taf_sms_SetSmsCenterAddress
    if (paRes != TAF_PA_OK)
    {
       LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sms_SetSmsCenterAddress reason=%d", (int)paRes);
-      return LE_FAULT;
+      return ConvertPaFailure(paRes);
    }
    return LE_OK;
 }

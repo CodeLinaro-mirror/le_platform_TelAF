@@ -231,11 +231,11 @@ le_result_t taf_sim_GetHomeNetworkMccMnc( taf_sim_Id_t slotId,char * mccPtr,
 le_result_t taf_sim_SelectCard( taf_sim_Id_t slotId) {
     auto &sim = taf_sim::GetInstance();
     // Select the SIM card
-    if (sim.selectSimSlot(slotId) != LE_OK) {
-        LE_ERROR("Unable to select Sim Card slot %d !", slotId);
-        return LE_FAULT;
+    le_result_t result = sim.selectSimSlot(slotId);
+    if (result != LE_OK) {
+        LE_ERROR("Unable to select Sim Card slot %d, result=%d", slotId, result);
     }
-    return LE_OK;
+    return result;
 }
 
 taf_sim_Id_t taf_sim_GetSelectedCard( void) {
@@ -608,10 +608,11 @@ le_result_t taf_sim_WriteFPLMNList
 
 le_result_t taf_sim_GetSlotCount(int *count) {
     auto &sim = taf_sim::GetInstance();
-    // Retrieve slot count
-    if (sim.getSlotCount(count) != LE_OK) {
-        LE_ERROR("Unable to retrieve slot count");
-        return LE_FAULT;
+    // Preserve the implementation result, including capability-specific
+    // errors returned by the PA layer.
+    le_result_t result = sim.getSlotCount(count);
+    if (result != LE_OK) {
+        LE_ERROR("Unable to retrieve slot count, result=%d", result);
     }
-    return LE_OK;
+    return result;
 }

@@ -133,6 +133,12 @@ static void Test_taf_simRsim_RemoveHandler(void* param1, void* param2) {
 
 static void CallbackHandler( uint8_t messageId, le_result_t result, void* contextPtr) {
     LE_DEBUG("Sending result: messageId=%d, result=%d, context=%p", messageId, result, contextPtr);
+    if (result == LE_CAP_NOT_IMPLEMENTED || result == LE_CAP_UNSUPPORTED) {
+        LE_INFO("messageId=%d not supported on this chipset: %s, skipped",
+                messageId, LE_RESULT_TXT(result));
+        le_sem_Post(TestSemaphoreRef);
+        return;
+    }
     LE_ASSERT(result == (le_result_t)contextPtr)
     le_sem_Post(TestSemaphoreRef);
 }

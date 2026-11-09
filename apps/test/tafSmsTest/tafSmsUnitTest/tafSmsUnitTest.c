@@ -144,6 +144,28 @@ static int callbackCount = 0;
 static taf_sms_SendStatus_t lastStatus[AMOUNT_MSG_TX];
 le_sem_Ref_t callbackSem = NULL;
 
+static bool SendCapSkipped = false;
+static bool SendAsyncCapSkipped = false;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Returns true if the result indicates the chipset does not support/implement the API.
+ */
+//--------------------------------------------------------------------------------------------------
+static bool IsCapResult
+(
+    const char* apiName,
+    le_result_t res
+)
+{
+    if ((res == LE_CAP_NOT_IMPLEMENTED) || (res == LE_CAP_UNSUPPORTED))
+    {
+        LE_INFO("%s returned %s, test skipped", apiName, LE_RESULT_TXT(res));
+        return true;
+    }
+    return false;
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Set semaphore timeout
@@ -406,10 +428,21 @@ __attribute__((unused)) static void Test_taf_sms_DeleteAllMsgFromStorage
 )
 {
     taf_sms_Storage_t prefStorage = TAF_SMS_STORAGE_UNKNOWN;
+    le_result_t res;
 
-    LE_TEST_ASSERT(taf_sms_GetPreferredStorage(&prefStorage) == LE_OK, "Test taf_sms_GetPreferredStorage");
+    res = taf_sms_GetPreferredStorage(&prefStorage);
+    if (IsCapResult("taf_sms_GetPreferredStorage", res))
+    {
+        return;
+    }
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_sms_GetPreferredStorage");
 
-    LE_TEST_ASSERT(taf_sms_DeleteAllFromStorage(prefStorage) == LE_OK, "Test taf_sms_DeleteAllFromStorage");
+    res = taf_sms_DeleteAllFromStorage(prefStorage);
+    if (IsCapResult("taf_sms_DeleteAllFromStorage", res))
+    {
+        return;
+    }
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_sms_DeleteAllFromStorage");
 }
 
 /*======================================================================
@@ -434,14 +467,30 @@ __attribute__((unused)) static void Test_taf_sms_SetGetPreferredStorage
 )
 {
     taf_sms_Storage_t prefStorage = TAF_SMS_STORAGE_UNKNOWN;
+    le_result_t res;
 
-    LE_TEST_ASSERT(taf_sms_SetPreferredStorage(TAF_SMS_STORAGE_NONE) == LE_OK, "Test taf_sms_SetPreferredStorage");
+    res = taf_sms_SetPreferredStorage(TAF_SMS_STORAGE_NONE);
+    if (IsCapResult("taf_sms_SetPreferredStorage", res))
+    {
+        return;
+    }
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_sms_SetPreferredStorage");
 
-    LE_TEST_ASSERT(taf_sms_GetPreferredStorage(&prefStorage) == LE_OK, "Test taf_sms_GetPreferredStorage");
+    res = taf_sms_GetPreferredStorage(&prefStorage);
+    if (IsCapResult("taf_sms_GetPreferredStorage", res))
+    {
+        return;
+    }
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_sms_GetPreferredStorage");
 
     LE_TEST_ASSERT(prefStorage == TAF_SMS_STORAGE_NONE, "Test taf_sms_GetPreferredStorage");
 
-    LE_TEST_ASSERT(taf_sms_SetPreferredStorage(TAF_SMS_STORAGE_HLOS) == LE_OK, "Test taf_sms_SetPreferredStorage");
+    res = taf_sms_SetPreferredStorage(TAF_SMS_STORAGE_HLOS);
+    if (IsCapResult("taf_sms_SetPreferredStorage", res))
+    {
+        return;
+    }
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_sms_SetPreferredStorage");
 
     LE_TEST_ASSERT(taf_sms_GetPreferredStorage(&prefStorage) == LE_OK, "Test taf_sms_GetPreferredStorage");
 
@@ -704,7 +753,14 @@ __attribute__((unused)) static void* SmsTxThread
 
     LE_TEST_ASSERT(taf_sms_SetText(tmpMsg_alphabet, TEXT_PATTERN_TEST) == LE_OK, "Test taf_sms_SetText");
 
-    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_alphabet) == LE_OK, "Test taf_sms_Send %s", "#s# + send msg with type [alphabet]");
+    le_result_t res = taf_sms_Send(tmpMsg_alphabet);
+    if (IsCapResult("taf_sms_Send", res))
+    {
+        SendCapSkipped = true;
+        le_sem_Post(sem_RxTest);
+        le_event_RunLoop();
+    }
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_sms_Send %s", "#s# + send msg with type [alphabet]");
 
     le_thread_Sleep(TIMEOUT_TX_TEST);
 
@@ -1028,10 +1084,20 @@ __attribute__((unused)) static void Test_taf_sms_Smsc
     char addr[TAF_SMS_SMSC_ADDR_BYTES - 1] = {};
     size_t len = TAF_SMS_SMSC_ADDR_BYTES - 1;
 
-    LE_TEST_ASSERT(taf_sms_GetSmsCenterAddress(PHONE_ID_PATTERN_1, addr, len) == LE_OK,
+    le_result_t res = taf_sms_GetSmsCenterAddress(PHONE_ID_PATTERN_1, addr, len);
+    if (IsCapResult("taf_sms_GetSmsCenterAddress", res))
+    {
+        return;
+    }
+    LE_TEST_ASSERT(res == LE_OK,
         "Test taf_sms_GetSmsCenterAddress");
 
-    LE_TEST_ASSERT(taf_sms_SetSmsCenterAddress(PHONE_ID_PATTERN_1, addr) == LE_OK,
+    res = taf_sms_SetSmsCenterAddress(PHONE_ID_PATTERN_1, addr);
+    if (IsCapResult("taf_sms_SetSmsCenterAddress", res))
+    {
+        return;
+    }
+    LE_TEST_ASSERT(res == LE_OK,
         "Test taf_sms_SetSmsCenterAddress");
 
     le_thread_Sleep(TIME_SET_SMSC);
@@ -1062,16 +1128,25 @@ __attribute__((unused)) static void Test_taf_sms_SendPdu
 {
 #ifdef TEST_SMS_PDU
     uint32_t dataSize = sizeof(PDU_TEST_PATTERN_7BITS)/sizeof(PDU_TEST_PATTERN_7BITS[0]);
-    LE_TEST_ASSERT(taf_sms_SendPduMsg(PDU_TEST_PATTERN_7BITS, dataSize, 1000) == LE_OK,
+    le_result_t res = taf_sms_SendPduMsg(PDU_TEST_PATTERN_7BITS, dataSize, 1000);
+    if (IsCapResult("taf_sms_SendPduMsg", res))
+    {
+        return;
+    }
+    LE_TEST_ASSERT(res == LE_OK,
                     "Test taf_sms_SendPduMsg");
 
     le_thread_Sleep(TIMEOUT_TX_TEST);
 
-    LE_TEST_ASSERT(taf_sms_SendPduMsgEx(PHONE_ID_PATTERN_1,
-                                        PDU_TEST_PATTERN_7BITS,
-                                        dataSize,
-                                        1000) == LE_OK,
-                                        "Test taf_sms_SendPduMsgEx");
+    res = taf_sms_SendPduMsgEx(PHONE_ID_PATTERN_1,
+                               PDU_TEST_PATTERN_7BITS,
+                               dataSize,
+                               1000);
+    if (IsCapResult("taf_sms_SendPduMsgEx", res))
+    {
+        return;
+    }
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_sms_SendPduMsgEx");
 #else
     LE_UNUSED(PDU_TEST_PATTERN_7BITS);
 #endif
@@ -1099,12 +1174,31 @@ __attribute__((unused)) static void Test_taf_sms_CellBroadcast
     void
 )
 {
-    LE_TEST_ASSERT(taf_sms_ActivateCellBroadcast(PHONE_ID_PATTERN_1) == LE_OK, "Test taf_sms_ActivateCellBroadcast");
+    le_result_t res = taf_sms_ActivateCellBroadcast(PHONE_ID_PATTERN_1);
+    if (IsCapResult("taf_sms_ActivateCellBroadcast", res))
+    {
+        return;
+    }
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_sms_ActivateCellBroadcast");
 
-    LE_TEST_ASSERT(taf_sms_AddCellBroadcastIds(PHONE_ID_PATTERN_1, 4352, 4354) == LE_OK, "Test taf_sms_AddCellBroadcastIds");
-    LE_TEST_ASSERT(taf_sms_RemoveCellBroadcastIds(PHONE_ID_PATTERN_1, 4352, 4354) == LE_OK, "Test taf_sms_RemoveCellBroadcastIds");
+    res = taf_sms_AddCellBroadcastIds(PHONE_ID_PATTERN_1, 4352, 4354);
+    if (!IsCapResult("taf_sms_AddCellBroadcastIds", res))
+    {
+        LE_TEST_ASSERT(res == LE_OK, "Test taf_sms_AddCellBroadcastIds");
 
-    LE_TEST_ASSERT(taf_sms_DeactivateCellBroadcast(PHONE_ID_PATTERN_1) == LE_OK, "Test taf_sms_DeactivateCellBroadcast");
+        res = taf_sms_RemoveCellBroadcastIds(PHONE_ID_PATTERN_1, 4352, 4354);
+        if (!IsCapResult("taf_sms_RemoveCellBroadcastIds", res))
+        {
+            LE_TEST_ASSERT(res == LE_OK, "Test taf_sms_RemoveCellBroadcastIds");
+        }
+    }
+
+    res = taf_sms_DeactivateCellBroadcast(PHONE_ID_PATTERN_1);
+    if (IsCapResult("taf_sms_DeactivateCellBroadcast", res))
+    {
+        return;
+    }
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_sms_DeactivateCellBroadcast");
 
     return;
 }
@@ -1180,7 +1274,14 @@ static void* EventThread(void* param)
         LE_TEST_ASSERT(taf_sms_SetText(msgRef, TEXT_PATTERN_TEST) == LE_OK,
             "Test taf_sms_SetText");
 
-        LE_TEST_ASSERT(taf_sms_SendAsync(msgRef, Callback_MsgSendStatusAsync, NULL) == LE_OK,
+        le_result_t res = taf_sms_SendAsync(msgRef, Callback_MsgSendStatusAsync, NULL);
+        if (IsCapResult("taf_sms_SendAsync", res))
+        {
+            SendAsyncCapSkipped = true;
+            le_sem_Post(callbackSem);
+            break;
+        }
+        LE_TEST_ASSERT(res == LE_OK,
             "Test taf_sms_Send %s", "#s# + send msg");
 
         le_thread_Sleep(1);
@@ -1231,6 +1332,11 @@ __attribute__((unused)) static void Test_taf_sms_SendAsync
     if (le_sem_WaitWithTimeOut(callbackSem, timeout) != LE_OK)
     {
         LE_FATAL("Timeout waiting for callback");
+        return;
+    }
+
+    if (SendAsyncCapSkipped)
+    {
         return;
     }
 
@@ -1305,7 +1411,10 @@ void Test_main
 
     LE_ASSERT_OK(WaitForSem_Timeout(sem_RxTest, TIMEOUT_RX_TEST));
 
-    LE_TEST_ASSERT(RxCount == AMOUNT_MSG_TX, "Test RX messages");
+    if (!SendCapSkipped)
+    {
+        LE_TEST_ASSERT(RxCount == AMOUNT_MSG_TX, "Test RX messages");
+    }
 
     taf_sms_RemoveRxMsgHandler(RxHandlerRef);
 

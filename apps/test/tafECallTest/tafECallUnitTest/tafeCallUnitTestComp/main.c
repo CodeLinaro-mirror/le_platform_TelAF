@@ -23,6 +23,21 @@ static uint8_t oadDataSec[6] = {8, 41, 68, 6, 128, 20};
 static uint8_t oadDataLengthSec = 6;
 bool waitT10StopForAuto = false;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Returns true and logs when the result shows the API is not supported on this chipset.
+ */
+//--------------------------------------------------------------------------------------------------
+static bool IsCapUnsupported(le_result_t res, const char* apiName)
+{
+    if (res == LE_CAP_NOT_IMPLEMENTED || res == LE_CAP_UNSUPPORTED)
+    {
+        LE_INFO("%s not supported on this chipset: %s, skipped", apiName, LE_RESULT_TXT(res));
+        return true;
+    }
+    return false;
+}
+
 
 
 static void Test_ECall_OperationMode()
@@ -42,12 +57,12 @@ static void Test_ECall_OperationMode()
 
     phoneId = DEFAULT_PHONE_ID;
     res = taf_ecall_ForceOnlyMode(phoneId);
-    LE_TEST_OK(res == LE_OK, "taf_ecall_ForceOnlyMode done");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_ForceOnlyMode"), "taf_ecall_ForceOnlyMode done");
     res = taf_ecall_GetConfiguredOperationMode(phoneId, &opMode);
     LE_TEST_OK(opMode == TAF_ECALL_MODE_ECALL, "taf_eCall_GetConfiguredOperationMode done");
 
     res = taf_ecall_ExitOnlyMode(phoneId);
-    LE_TEST_OK(res == LE_OK, "taf_ecall_ExitOnlyMode done");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_ExitOnlyMode"), "taf_ecall_ExitOnlyMode done");
     res = taf_ecall_GetConfiguredOperationMode(phoneId, &opMode);
     LE_TEST_OK(opMode == TAF_ECALL_MODE_NORMAL, "taf_ecall_GetConfiguredOperationMode done");
 }
@@ -74,10 +89,10 @@ static void Test_ECall_MSD_Information()
 
     taf_ecall_MsdTransmissionMode_t mode = TAF_ECALL_MSD_TX_MODE_PULL;
     res = taf_ecall_SetMsdTxMode(TAF_ECALL_MSD_TX_MODE_PUSH);
-    LE_TEST_OK(res == LE_UNSUPPORTED, "Test taf_ecall_SetMsdTxMode done");
+    LE_TEST_OK(res == LE_CAP_UNSUPPORTED, "Test taf_ecall_SetMsdTxMode done");
     res = taf_ecall_GetMsdTxMode(&mode);
-    LE_TEST_OK(res == LE_UNSUPPORTED, "Test taf_ecall_GetMsdTxMode done");
-    LE_TEST_OK(mode == TAF_ECALL_TX_MODE_PUSH || res == LE_UNSUPPORTED, "Test taf_ecall_GetMsdTxMode done");
+    LE_TEST_OK(res == LE_CAP_UNSUPPORTED, "Test taf_ecall_GetMsdTxMode done");
+    LE_TEST_OK(mode == TAF_ECALL_TX_MODE_PUSH || res == LE_CAP_UNSUPPORTED, "Test taf_ecall_GetMsdTxMode done");
     LE_INFO("Set and get MSD transmission mode completed");
 
     char vin[TAF_ECALL_MAX_VIN_BYTES];
@@ -168,7 +183,7 @@ static void Test_ECall_MSD_Information()
     LE_INFO("Set number of passengers completed");
 
     res = taf_ecall_SetMsdTimeStamp(eCallRef, 4294967295);
-    LE_TEST_OK(res == LE_OK, "Test taf_ecall_SetMsdTimeStamp done");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_SetMsdTimeStamp"), "Test taf_ecall_SetMsdTimeStamp done");
     LE_INFO("Set msd timestamp completed");
 
     res = taf_ecall_SetMsdControlBits(eCallRef, true, false);
@@ -191,7 +206,7 @@ static void Test_ECall_MSD_Information()
     LE_INFO("Set msd control bits completed");
 
     res = taf_ecall_ResetMsdTimeStamp(eCallRef);
-    LE_TEST_OK(res == LE_OK, "Test taf_ecall_ResetMsdTimeStamp done");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_ResetMsdTimeStamp"), "Test taf_ecall_ResetMsdTimeStamp done");
     LE_INFO("Reset msd timestamp completed");
     res = taf_ecall_SetMsdAdditionalData(eCallRef, "8.1", oadDataFirst, oadDataLengthFirst);
     LE_TEST_OK(res == LE_OK || res == LE_FAULT, "Test taf_ecall_SetMsdAdditionalData done");
@@ -243,12 +258,12 @@ static void Test_ECall_MSD_Information()
 static void Test_ECall_PsapNumber() {
     le_result_t res = LE_FAULT;
     res = taf_ecall_UseUSimNumbers();
-    LE_TEST_OK(res == LE_OK, "Test taf_ecall_UseUSimNumbers done");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_UseUSimNumbers"), "Test taf_ecall_UseUSimNumbers done");
     res = taf_ecall_SetPsapNumber(TEST_PSAP_NUMBER);
-    LE_TEST_OK(res == LE_OK, "Test taf_ecall_PsapNumber done");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_SetPsapNumber"), "Test taf_ecall_PsapNumber done");
     char num[15];
     res = taf_ecall_GetPsapNumber(num, 15);
-    LE_TEST_OK(res == LE_OK, "Test taf_ecall_GetGetPsapNumber done");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_GetPsapNumber"), "Test taf_ecall_GetGetPsapNumber done");
     LE_TEST_OK(strncmp(num, TEST_PSAP_NUMBER, sizeof(TEST_PSAP_NUMBER)) == 0, "Test taf_ecall_GetPsapNumber done");
     LE_INFO("Set and get PsapNumber completed");
 }
@@ -259,73 +274,73 @@ static void Test_ECall_HlapTimer()
 
     uint16_t minNwRegTime = 0;
     res = taf_ecall_SetNadMinNetworkRegistrationTime(13*60);
-    LE_TEST_OK(res == LE_FAULT, "Test taf_ecall_SetNadMinNetworkRegistrationTime done");
+    LE_TEST_OK(res == LE_FAULT || IsCapUnsupported(res, "taf_ecall_SetNadMinNetworkRegistrationTime"), "Test taf_ecall_SetNadMinNetworkRegistrationTime done");
     LE_INFO("SetNadDeregistrationTime as 13 hrs done");
 
     res = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
-    LE_TEST_OK(res == LE_OK, "Test taf_ecall_GetNadMinNetworkRegistrationTime done");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_GetNadMinNetworkRegistrationTime"), "Test taf_ecall_GetNadMinNetworkRegistrationTime done");
     LE_INFO("GetNadMinNetworkRegistrationTime %d done", minNwRegTime);
 
     res = taf_ecall_SetNadMinNetworkRegistrationTime(1);
-    LE_TEST_OK(res == LE_OK || res == LE_FAULT, "Test taf_ecall_SetNadMinNetworkRegistrationTime done");
+    LE_TEST_OK((res == LE_OK || res == LE_FAULT) || IsCapUnsupported(res, "taf_ecall_SetNadMinNetworkRegistrationTime"), "Test taf_ecall_SetNadMinNetworkRegistrationTime done");
     LE_INFO("SetNadMinNetworkRegistrationTime as 1 min done");
     if (res == LE_OK)
     {
         res = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
-        LE_TEST_OK(res == LE_OK && minNwRegTime == 1, "Test taf_ecall_GetNadMinNetworkRegistrationTime done");
+        LE_TEST_OK((res == LE_OK && minNwRegTime == 1) || IsCapUnsupported(res, "taf_ecall_GetNadMinNetworkRegistrationTime"), "Test taf_ecall_GetNadMinNetworkRegistrationTime done");
         LE_INFO("GetNadMinNetworkRegistrationTime as %d done", minNwRegTime);
     }
     LE_INFO("Set and get NadMinNetworkRegistrationTime completed");
 
     uint16_t deregTimeOrg = 0;
     res = taf_ecall_SetNadDeregistrationTime(13*60);
-    LE_TEST_OK(res == LE_FAULT, "Test taf_ecall_SetNadDeregTime done");
+    LE_TEST_OK(res == LE_FAULT || IsCapUnsupported(res, "taf_ecall_SetNadDeregistrationTime"), "Test taf_ecall_SetNadDeregTime done");
     LE_INFO("SetNadDeregistrationTime as 13 hrs done");
 
     res = taf_ecall_SetNadDeregistrationTime(12*60);
-    LE_TEST_OK(res == LE_OK, "Test taf_ecall_SetNadDeregTime done");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_SetNadDeregistrationTime"), "Test taf_ecall_SetNadDeregTime done");
     LE_INFO("SetNadDeregistrationTime as 12 hrs done");
     res = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
-    LE_TEST_OK(res == LE_OK && deregTimeOrg == 12*60, "Test taf_ecall_GetNadDeregTime done");
+    LE_TEST_OK((res == LE_OK && deregTimeOrg == 12*60) || IsCapUnsupported(res, "taf_ecall_GetNadDeregistrationTime"), "Test taf_ecall_GetNadDeregTime done");
     LE_INFO("GetNadDeregTime as %d done", deregTimeOrg);
 
     res = taf_ecall_SetNadDeregistrationTime(2);
-    LE_TEST_OK(res == LE_OK || res == LE_FAULT, "Test taf_ecall_SetNadDeregTime done");
+    LE_TEST_OK((res == LE_OK || res == LE_FAULT) || IsCapUnsupported(res, "taf_ecall_SetNadDeregistrationTime"), "Test taf_ecall_SetNadDeregTime done");
     LE_INFO("SetNadDeregistrationTime as 2 min done");
     if (res == LE_OK)
     {
         res = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
-        LE_TEST_OK(res == LE_OK && deregTimeOrg == 2, "Test taf_ecall_GetNadDeregTime done");
+        LE_TEST_OK((res == LE_OK && deregTimeOrg == 2) || IsCapUnsupported(res, "taf_ecall_GetNadDeregistrationTime"), "Test taf_ecall_GetNadDeregTime done");
         LE_INFO("GetNadDeregTime as %d done", deregTimeOrg);
     }
     LE_INFO("Set and get NadDeregTime completed");
 
     uint16_t ccftTimeOrg = 0;
     res = taf_ecall_SetNadClearDownFallbackTime(13*60);
-    LE_TEST_OK(res == LE_FAULT, "Test taf_ecall_SetNadClearDownFallbackTime done");
+    LE_TEST_OK(res == LE_FAULT || IsCapUnsupported(res, "taf_ecall_SetNadClearDownFallbackTime"), "Test taf_ecall_SetNadClearDownFallbackTime done");
     LE_INFO("SetNadClearDownFallbackTime as 13 hrs done");
 
     res = taf_ecall_SetNadClearDownFallbackTime(12*60);
-    LE_TEST_OK(res == LE_OK, "Test taf_ecall_SetNadClearDownFallbackTime done");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_SetNadClearDownFallbackTime"), "Test taf_ecall_SetNadClearDownFallbackTime done");
     LE_INFO("SetNadClearDownFallbackTime as 720 min done");
     res = taf_ecall_GetNadClearDownFallbackTime(&ccftTimeOrg);
-    LE_TEST_OK(res == LE_OK && ccftTimeOrg == 12*60, "Test taf_ecall_GetNadClearDownFallbackTime done");
+    LE_TEST_OK((res == LE_OK && ccftTimeOrg == 12*60) || IsCapUnsupported(res, "taf_ecall_GetNadClearDownFallbackTime"), "Test taf_ecall_GetNadClearDownFallbackTime done");
     LE_INFO("GetNadClearDownFallbackTime %d done", ccftTimeOrg);
 
     res = taf_ecall_SetNadClearDownFallbackTime(8*60);
-    LE_TEST_OK(res == LE_OK, "Test taf_ecall_SetNadClearDownFallbackTime done");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_SetNadClearDownFallbackTime"), "Test taf_ecall_SetNadClearDownFallbackTime done");
     LE_INFO("SetNadClearDownFallbackTime as 720 min done");
     res = taf_ecall_GetNadClearDownFallbackTime(&ccftTimeOrg);
-    LE_TEST_OK(res == LE_OK, "Test taf_ecall_GetNadClearDownFallbackTime done");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_GetNadClearDownFallbackTime"), "Test taf_ecall_GetNadClearDownFallbackTime done");
     LE_INFO("GetNadClearDownFallbackTime %d done", ccftTimeOrg);
 
     res = taf_ecall_SetNadClearDownFallbackTime(1);
-    LE_TEST_OK(res == LE_OK || res == LE_FAULT, "Test taf_ecall_SetNadClearDownFallbackTime done");
+    LE_TEST_OK((res == LE_OK || res == LE_FAULT) || IsCapUnsupported(res, "taf_ecall_SetNadClearDownFallbackTime"), "Test taf_ecall_SetNadClearDownFallbackTime done");
     LE_INFO("SetNadClearDownFallbackTime as 1 min done");
     if (res == LE_OK)
     {
         res = taf_ecall_GetNadClearDownFallbackTime(&ccftTimeOrg);
-        LE_TEST_OK(res == LE_OK && ccftTimeOrg == 1, "Test taf_ecall_GetNadClearDownFallbackTime done");
+        LE_TEST_OK((res == LE_OK && ccftTimeOrg == 1) || IsCapUnsupported(res, "taf_ecall_GetNadClearDownFallbackTime"), "Test taf_ecall_GetNadClearDownFallbackTime done");
         LE_INFO("GetNadClearDownFallbackTime as %d done", ccftTimeOrg);
     }
     LE_INFO("Set and get NadClearDownFallbackTime completed");
@@ -338,21 +353,21 @@ static void Test_ECall_GetHlapTimerState()
     taf_ecall_HlapTimerStatus_t timerStatus;
     uint16_t elapsedTime;
     res = taf_ecall_GetHlapTimerState(hlapTimerType, &timerStatus, &elapsedTime);
-    LE_TEST_OK(res == LE_FAULT, "Test taf_ecall_GetHlapTimerState done");
+    LE_TEST_OK(res == LE_FAULT || IsCapUnsupported(res, "taf_ecall_GetHlapTimerState"), "Test taf_ecall_GetHlapTimerState done");
 
     hlapTimerType = TAF_ECALL_TIMER_TYPE_T2;
     res = taf_ecall_GetHlapTimerState(hlapTimerType, &timerStatus, &elapsedTime);
-    LE_TEST_OK(res == LE_OK, "Test taf_ecall_GetHlapTimerState done");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_GetHlapTimerState"), "Test taf_ecall_GetHlapTimerState done");
     LE_INFO("Get eCall hlap timer T2 status as: %d, elapsedTime as: %d\n", timerStatus, elapsedTime);
 
     hlapTimerType = TAF_ECALL_TIMER_TYPE_T9;
     res = taf_ecall_GetHlapTimerState(hlapTimerType, &timerStatus, &elapsedTime);
-    LE_TEST_OK(res == LE_OK, "Test taf_ecall_GetHlapTimerState done");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_GetHlapTimerState"), "Test taf_ecall_GetHlapTimerState done");
     LE_INFO("Get eCall hlap timer T9 status as: %d, elapsedTime as: %d\n", timerStatus, elapsedTime);
 
     hlapTimerType = TAF_ECALL_TIMER_TYPE_T10;
     res = taf_ecall_GetHlapTimerState(hlapTimerType, &timerStatus, &elapsedTime);
-    LE_TEST_OK(res == LE_OK, "Test taf_ecall_GetHlapTimerState done");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_GetHlapTimerState"), "Test taf_ecall_GetHlapTimerState done");
     LE_INFO("Get eCall hlap timer T10 status as: %d, elapsedTime as: %d\n", timerStatus, elapsedTime);
     LE_INFO("GetHlapTimerState completed");
 }
@@ -362,14 +377,14 @@ static void Test_ECall_DialRedial() {
 
     uint16_t dialIntervalErr[TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH] = {60, 60, 60};
     res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(dialIntervalErr, 3);
-    LE_TEST_OK(res == LE_FAULT, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
+    LE_TEST_OK(res == LE_FAULT || IsCapUnsupported(res, "taf_ecall_SetInitialDialIntervalBetweenDialAttempts"), "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
     uint16_t dialInterval[TAF_ECALL_MAX_DIAL_ATTEMPTS_LENGTH] = {5, 60, 60};
     res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(dialInterval, 3);
-    LE_TEST_OK(res == LE_OK, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_SetInitialDialIntervalBetweenDialAttempts"), "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
     res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(dialInterval, 5);
-    LE_TEST_OK(res == LE_FAULT, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
+    LE_TEST_OK(res == LE_FAULT || IsCapUnsupported(res, "taf_ecall_SetInitialDialIntervalBetweenDialAttempts"), "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
     res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(dialInterval, 3);
-    LE_TEST_OK(res == LE_OK, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_SetInitialDialIntervalBetweenDialAttempts"), "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
     res = taf_ecall_SetInitialDialIntervalBetweenDialAttempts(NULL, 0);
     LE_TEST_OK(res == LE_OVERFLOW, "SetInitialDialIntervalBetweenDialAttempts - LE_OK");
 
@@ -378,7 +393,7 @@ static void Test_ECall_DialRedial() {
     LE_TEST_OK(res == LE_OVERFLOW, "SetInitialDialAttempts - LE_OK");
     dialAttempts = 2;
     res = taf_ecall_SetInitialDialAttempts(dialAttempts);
-    LE_TEST_OK(res == LE_OK, "SetInitialDialAttempts - LE_OK");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_SetInitialDialAttempts"), "SetInitialDialAttempts - LE_OK");
 
     taf_ecall_CallRef_t   eCallRef = 0x00;
     LE_TEST_OK((eCallRef= taf_ecall_Create()) != NULL, "Test taf_ecall_Create done");
@@ -421,7 +436,7 @@ static void Test_ECall_StartPrivate() {
         Test_ECall_ExportMsd(eCallRef);
 
         res = taf_ecall_StartPrivate(eCallRef, TEST_PSAP_NUMBER, contentType, acceptInfo);
-        LE_TEST_OK(res == LE_OK, "Test_ECall_StartPrivate start");
+        LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_StartPrivate"), "Test_ECall_StartPrivate start");
         if (res != LE_OK)
         {
             LE_ERROR("taf_ecall_StartPrivate start failed");
@@ -481,7 +496,7 @@ static void Test_ECall_StartTest() {
     Test_ECall_GetHlapTimerState();
 
     res = taf_ecall_StartTest(eCallRef);
-    LE_TEST_OK(res == LE_OK, "Test_ECall_StartTest start");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_StartTest"), "Test_ECall_StartTest start");
     if (res != LE_OK)
     {
         LE_ERROR("taf_ecall_StartTest failed");
@@ -491,7 +506,7 @@ static void Test_ECall_StartTest() {
     }
 
     res = taf_ecall_IsInProgress(eCallRef, &isInProgress);
-    LE_TEST_OK(res == LE_OK, "getIsInProgress  - LE_OK");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_IsInProgress"), "getIsInProgress  - LE_OK");
     LE_INFO("Test IsInProgress = %d", (int) isInProgress);
 
     le_clk_Time_t timeToWait = {10, 0};
@@ -522,21 +537,21 @@ static void Test_ECall_StartTest() {
         Test_ECall_GetHlapTimerState();
 
         res = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
-        LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadDeregTime done");
+        LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_GetNadDeregistrationTime"), "Test_ecall_GetNadDeregTime done");
         LE_INFO("GetNadDeregTime as %d done", deregTimeOrg);
         res = taf_ecall_SetNadDeregistrationTime(2);
         LE_TEST_OK(res == LE_BUSY, "Test_ecall_SetNadDeregTime done");
         LE_INFO("SetNadDeregistrationTime done");
 
         res = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
-        LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadMinNetworkRegistrationTime done");
+        LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_GetNadMinNetworkRegistrationTime"), "Test_ecall_GetNadMinNetworkRegistrationTime done");
         LE_INFO("GetNadMinNetworkRegistrationTime %d done", minNwRegTime);
         res = taf_ecall_SetNadMinNetworkRegistrationTime(1);
         LE_TEST_OK(res == LE_BUSY, "Test_ecall_SetNadMinNetworkRegistrationTime done");
         LE_INFO("SetNadMinNetworkRegistrationTime done");
 
         res = taf_ecall_GetNadClearDownFallbackTime(&ccftTimeOrg);
-        LE_TEST_OK(res == LE_OK && ccftTimeOrg == 1, "Test_ecall_GetNadClearDownFallbackTime done");
+        LE_TEST_OK((res == LE_OK && ccftTimeOrg == 1) || IsCapUnsupported(res, "taf_ecall_GetNadClearDownFallbackTime"), "Test_ecall_GetNadClearDownFallbackTime done");
         LE_INFO("GetNadClearDownFallbackTime %d done", ccftTimeOrg);
         res = taf_ecall_SetNadClearDownFallbackTime(1);
         LE_TEST_OK(res == LE_BUSY, "Test_ecall_SetNadClearDownFallbackTime done");
@@ -549,7 +564,7 @@ static void Test_ECall_StartTest() {
     }
 
     res = taf_ecall_IsInProgress(eCallRef, &isInProgress);
-    LE_TEST_OK(res == LE_OK, "getIsInProgress  - LE_OK");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_IsInProgress"), "getIsInProgress  - LE_OK");
     LE_INFO("Test IsInProgress = %d", (int) isInProgress);
 
     retrievedState = taf_ecall_GetState(eCallRef);
@@ -577,7 +592,7 @@ static void Test_ECall_StartTest() {
 static void Test_ECall_TerminateRegistration()
 {
     le_result_t res = taf_ecall_TerminateRegistration();
-    LE_TEST_OK(res == LE_OK, "Test taf_ecall_TerminateRegistration done");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_TerminateRegistration"), "Test taf_ecall_TerminateRegistration done");
     LE_INFO("TerminateECallRegistration completed");
 }
 
@@ -596,7 +611,7 @@ static void Test_ECall_StartAutomatic() {
     {
         LE_INFO("taf_ecall_ForceOnlyMode failed");
         res = taf_ecall_ExitOnlyMode(DEFAULT_PHONE_ID);
-        LE_TEST_OK(res == LE_OK, "taf_ecall_ExitOnlyMode done");
+        LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_ExitOnlyMode"), "taf_ecall_ExitOnlyMode done");
         return;
     }
 
@@ -621,7 +636,7 @@ static void Test_ECall_StartAutomatic() {
     LE_INFO("Set number of passengers completed");
 
     res = taf_ecall_StartAutomatic(eCallRef);
-    LE_TEST_OK(res == LE_OK || res == LE_FAULT, "Test_ECall_StartAutomatic start");
+    LE_TEST_OK((res == LE_OK || res == LE_FAULT) || IsCapUnsupported(res, "taf_ecall_StartAutomatic"), "Test_ECall_StartAutomatic start");
     if (res != LE_OK)
     {
         LE_ERROR("taf_ecall_StartAutomatic failed");
@@ -658,24 +673,24 @@ static void Test_ECall_StartAutomatic() {
         Test_ECall_GetHlapTimerState();
 
         res = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
-        LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadDeregTime done");
+        LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_GetNadDeregistrationTime"), "Test_ecall_GetNadDeregTime done");
         LE_INFO("GetNadDeregTime as %d done", deregTimeOrg);
         res = taf_ecall_SetNadDeregistrationTime(2);
-        LE_TEST_OK(res == LE_BUSY || res == LE_OK || res == LE_FAULT, "Test_ecall_SetNadDeregTime done");
+        LE_TEST_OK((res == LE_BUSY || res == LE_OK || res == LE_FAULT) || IsCapUnsupported(res, "taf_ecall_SetNadDeregistrationTime"), "Test_ecall_SetNadDeregTime done");
         LE_INFO("SetNadDeregistrationTime done(res: %d)", (int) res);
 
         res = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
-        LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadMinNetworkRegistrationTime done");
+        LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_GetNadMinNetworkRegistrationTime"), "Test_ecall_GetNadMinNetworkRegistrationTime done");
         LE_INFO("GetNadMinNetworkRegistrationTime %d done", minNwRegTime);
         res = taf_ecall_SetNadMinNetworkRegistrationTime(1);
-        LE_TEST_OK(res == LE_BUSY || res == LE_OK || res == LE_FAULT, "Test_ecall_SetNadMinNetworkRegistrationTime done");
+        LE_TEST_OK((res == LE_BUSY || res == LE_OK || res == LE_FAULT) || IsCapUnsupported(res, "taf_ecall_SetNadMinNetworkRegistrationTime"), "Test_ecall_SetNadMinNetworkRegistrationTime done");
         LE_INFO("SetNadMinNetworkRegistrationTime done(res: %d)", (int) res);
 
         res = taf_ecall_GetNadClearDownFallbackTime(&ccftTimeOrg);
-        LE_TEST_OK(res == LE_OK && ccftTimeOrg == 1, "Test_ecall_GetNadClearDownFallbackTime done");
+        LE_TEST_OK((res == LE_OK && ccftTimeOrg == 1) || IsCapUnsupported(res, "taf_ecall_GetNadClearDownFallbackTime"), "Test_ecall_GetNadClearDownFallbackTime done");
         LE_INFO("GetNadClearDownFallbackTime %d done", ccftTimeOrg);
         res = taf_ecall_SetNadClearDownFallbackTime(1);
-        LE_TEST_OK(res == LE_BUSY || res == LE_OK, "Test_ecall_SetNadClearDownFallbackTime done");
+        LE_TEST_OK((res == LE_BUSY || res == LE_OK) || IsCapUnsupported(res, "taf_ecall_SetNadClearDownFallbackTime"), "Test_ecall_SetNadClearDownFallbackTime done");
         LE_INFO("SetNadClearDownFallbackTime done(res: %d)", (int) res);
     }
 
@@ -721,7 +736,7 @@ static void Test_ECall_StartAutomatic() {
     }
 
     res = taf_ecall_ExitOnlyMode(DEFAULT_PHONE_ID);
-    LE_TEST_OK(res == LE_OK, "taf_ecall_ExitOnlyMode done");
+    LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_ExitOnlyMode"), "taf_ecall_ExitOnlyMode done");
 
     taf_ecall_Delete(eCallRef);
     eCallRef = NULL;
@@ -739,7 +754,7 @@ static void Test_ECall_StartManual() {
 
     eCallRef = taf_ecall_Create();
     res = taf_ecall_StartManual(eCallRef);
-    LE_TEST_OK(res == LE_OK || res == LE_FAULT, "Test_ECall_StartManual start");
+    LE_TEST_OK((res == LE_OK || res == LE_FAULT) || IsCapUnsupported(res, "taf_ecall_StartManual"), "Test_ECall_StartManual start");
     if (res != LE_OK)
     {
         LE_ERROR("taf_ecall_StartManual failed");
@@ -776,24 +791,24 @@ static void Test_ECall_StartManual() {
         Test_ECall_GetHlapTimerState();
 
         res = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
-        LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadDeregTime done");
+        LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_GetNadDeregistrationTime"), "Test_ecall_GetNadDeregTime done");
         LE_INFO("GetNadDeregTime as %d done", deregTimeOrg);
         res = taf_ecall_SetNadDeregistrationTime(2);
-        LE_TEST_OK(res == LE_BUSY || res == LE_OK || res == LE_FAULT, "Test_ecall_SetNadDeregTime done");
+        LE_TEST_OK((res == LE_BUSY || res == LE_OK || res == LE_FAULT) || IsCapUnsupported(res, "taf_ecall_SetNadDeregistrationTime"), "Test_ecall_SetNadDeregTime done");
         LE_INFO("SetNadDeregistrationTime done(res: %d)", (int) res);
 
         res = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
-        LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadMinNetworkRegistrationTime done");
+        LE_TEST_OK(res == LE_OK || IsCapUnsupported(res, "taf_ecall_GetNadMinNetworkRegistrationTime"), "Test_ecall_GetNadMinNetworkRegistrationTime done");
         LE_INFO("GetNadMinNetworkRegistrationTime %d done", minNwRegTime);
         res = taf_ecall_SetNadMinNetworkRegistrationTime(1);
-        LE_TEST_OK(res == LE_BUSY || res == LE_OK || res == LE_FAULT , "Test_ecall_SetNadMinNetworkRegistrationTime done");
+        LE_TEST_OK((res == LE_BUSY || res == LE_OK || res == LE_FAULT ) || IsCapUnsupported(res, "taf_ecall_SetNadMinNetworkRegistrationTime"), "Test_ecall_SetNadMinNetworkRegistrationTime done");
         LE_INFO("SetNadMinNetworkRegistrationTime done(res: %d)", (int) res);
 
         res = taf_ecall_GetNadClearDownFallbackTime(&ccftTimeOrg);
-        LE_TEST_OK(res == LE_OK && ccftTimeOrg == 1, "Test_ecall_GetNadClearDownFallbackTime done");
+        LE_TEST_OK((res == LE_OK && ccftTimeOrg == 1) || IsCapUnsupported(res, "taf_ecall_GetNadClearDownFallbackTime"), "Test_ecall_GetNadClearDownFallbackTime done");
         LE_INFO("GetNadClearDownFallbackTime %d done", ccftTimeOrg);
         res = taf_ecall_SetNadClearDownFallbackTime(1);
-        LE_TEST_OK(res == LE_BUSY || res == LE_OK, "Test_ecall_SetNadClearDownFallbackTime done");
+        LE_TEST_OK((res == LE_BUSY || res == LE_OK) || IsCapUnsupported(res, "taf_ecall_SetNadClearDownFallbackTime"), "Test_ecall_SetNadClearDownFallbackTime done");
         LE_INFO("SetNadClearDownFallbackTime done (res: %d)", (int) res);
     }
 

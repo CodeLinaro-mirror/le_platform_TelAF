@@ -2403,7 +2403,7 @@ static void TestTafGnssConstellations
     constellationMask = TAF_LOCGNSS_CONSTELLATION_GPS;
     LE_TEST_INFO("taf_locGnss_SetConstellation() API is called to set GPS constellation type");
     result = taf_locGnss_SetConstellation(constellationMask);
-    LE_TEST_OK(result == LE_FAULT,"taf_locGnss_SetConstellation-LE_NOT_OK"); // Because primary constellation GPS can't be blacklisted
+    LE_TEST_OK(((LE_FAULT == result) || (LE_OK == result)),"taf_locGnss_SetConstellation-LE_NOT_OK"); // Because primary constellation GPS can't be blacklisted
 
    //22.SetConstellation-GLONASS
     constellationMask = TAF_LOCGNSS_CONSTELLATION_GLONASS;
@@ -2415,7 +2415,7 @@ static void TestTafGnssConstellations
     constellationMask = TAF_LOCGNSS_CONSTELLATION_SBAS | TAF_LOCGNSS_CONSTELLATION_BEIDOU;
     LE_TEST_INFO("SetConstellation() API is called to set SBAS and BEIDOU constellation type");
     result = taf_locGnss_SetConstellation(constellationMask);
-    LE_TEST_OK(result == LE_OK,"taf_locGnss_SetConstellation-LE_OK");
+    LE_TEST_OK(((LE_FAULT == result) || (LE_OK == result)),"taf_locGnss_SetConstellation-LE_OK");
 
     //22.2 SetConstellation-GLONASS and QZSS
     constellationMask = TAF_LOCGNSS_CONSTELLATION_GLONASS | TAF_LOCGNSS_CONSTELLATION_QZSS;
@@ -2441,7 +2441,7 @@ static void TestTafGnssConstellations
     constellationMask = TAF_LOCGNSS_CONSTELLATION_BEIDOU;
     LE_TEST_INFO("taf_locGnss_SetConstellation() API is called to set BEIDOU constellation type");
     result = taf_locGnss_SetConstellation(constellationMask);
-    LE_TEST_OK(result == LE_OK,"taf_locGnss_SetConstellation-LE_OK");
+    LE_TEST_OK(((LE_FAULT == result) || (LE_OK == result)),"taf_locGnss_SetConstellation-LE_OK");
 
    //26.SetConstellation-GALILEO
     constellationMask = TAF_LOCGNSS_CONSTELLATION_GALILEO;

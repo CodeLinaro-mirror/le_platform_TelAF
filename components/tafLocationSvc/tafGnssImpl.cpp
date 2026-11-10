@@ -71,16 +71,39 @@ typedef struct { taf_pa_result_t result; } taf_SelfTestResult_t;
 
 static le_result_t ConvertPaResult(taf_pa_result_t result)
 {
+    le_result_t leResult;
+
     switch (result)
     {
-        case TAF_PA_OK:             return LE_OK;
-        case TAF_PA_FAULT:          return LE_FAULT;
-        case TAF_PA_NOT_IMPLEMENTED:return LE_CAP_NOT_IMPLEMENTED;
-        case TAF_PA_UNSUPPORTED:    return LE_CAP_UNSUPPORTED;
+        case TAF_PA_OK:
+            leResult = LE_OK;
+            break;
+
+        case TAF_PA_FAULT:
+            leResult = LE_FAULT;
+            break;
+
+        case TAF_PA_NOT_IMPLEMENTED:
+            leResult = LE_CAP_NOT_IMPLEMENTED;
+            break;
+
+        case TAF_PA_UNSUPPORTED:
+            leResult = LE_CAP_UNSUPPORTED;
+            break;
+
         default:
-            LE_WARN("PA result %d mapped to LE_FAULT", (int)result);
-            return LE_FAULT;
+            LE_WARN("Unknown PA result %d mapped to LE_FAULT", (int)result);
+            leResult = LE_FAULT;
+            break;
     }
+
+    if (result != TAF_PA_OK)
+    {
+        LE_ERROR("PA result %d mapped to LE result %d",
+                 (int)result, (int)leResult);
+    }
+
+    return leResult;
 }
 
 void bodyToSensorUtility(taf_pa_location_DREngineConfiguration_t& drConfig,
@@ -2935,6 +2958,22 @@ void taf_locGnss::SetConstellationWorker(void* cmdPtr, void*)
         return;
     }
 
+    LE_DEBUG("SetConstellation constellationMask is 0x%02X",constellationMask);
+
+    const taf_locGnss_ConstellationBitMask_t supportedMask =
+        TAF_LOCGNSS_CONSTELLATION_DEFAULT | TAF_LOCGNSS_CONSTELLATION_GPS |
+        TAF_LOCGNSS_CONSTELLATION_GLONASS | TAF_LOCGNSS_CONSTELLATION_BEIDOU |
+        TAF_LOCGNSS_CONSTELLATION_GALILEO | TAF_LOCGNSS_CONSTELLATION_SBAS |
+        TAF_LOCGNSS_CONSTELLATION_QZSS | TAF_LOCGNSS_CONSTELLATION_NAVIC;
+
+    if ((0 == constellationMask) || (constellationMask & ~supportedMask))
+    {
+        LE_ERROR("Invalid constellation mask 0x%X", constellationMask);
+        cPtr->retCode = LE_FAULT;
+        le_event_QueueFunctionToThread(gnss.LocationSvcThRef, SetConstellationSvcRespond, cPtr, NULL);
+        return;
+    }
+
     cPtr->retCode = LE_FAULT;
     typedef std::vector<taf_pa_location_SvBlackListInfo_t> SvBlackList;
     SvBlackList svBlackList;
@@ -2943,7 +2982,6 @@ void taf_locGnss::SetConstellationWorker(void* cmdPtr, void*)
     blackListInfo.svId = 0; // Here 0 means blacklist all SVIds of a given constellation type
     blackListInfo.constellation = (taf_pa_location_GnssConstellationType_t)TAF_PA_LOCATION_UNKNOWN;
 
-    LE_DEBUG("SetConstellation constellationMask is 0x%02X",constellationMask);
     if( constellationMask & TAF_LOCGNSS_CONSTELLATION_DEFAULT)
     {
         deviceReset = true;
@@ -3031,11 +3069,6 @@ void taf_locGnss::SetConstellationWorker(void* cmdPtr, void*)
         {
             blackListInfo.constellation = TAF_PA_LOCATION_NAVIC;
             svBlackList.push_back(blackListInfo);
-        }
-        if (blackListInfo.constellation == (taf_pa_location_GnssConstellationType_t)TAF_PA_LOCATION_UNKNOWN)
-        {
-            svBlackList.push_back(blackListInfo);
-            LE_DEBUG("constellation type is UNKNOWN");
         }
     }
 

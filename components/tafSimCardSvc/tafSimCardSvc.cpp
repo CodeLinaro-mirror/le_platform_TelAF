@@ -493,6 +493,17 @@ le_result_t taf_sim_IsEmergencyCallSubscriptionSelected
     return sim.IsEmergencyCallSubscriptionSelected(simId, isEcs);
 }
 
+le_result_t taf_sim_IsNtnProfileActive
+(
+    taf_sim_Id_t simId,
+    bool* activePtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(activePtr == NULL, LE_BAD_PARAMETER, "activePtr is NULL");
+    auto &sim = taf_sim::GetInstance();
+    return sim.IsNtnProfileActive(simId, activePtr);
+}
+
 le_result_t taf_sim_LocalSwapToEmergencyCallSubscription
 (
     taf_sim_Id_t simId,

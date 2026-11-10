@@ -16,6 +16,7 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafVoiceCallSvc
     $TELAF_ROOT/apps/tafServices/tafSimCardSvc
     $TELAF_ROOT/apps/tafServices/tafRadioSvc
+    $TELAF_ROOT/apps/tafServices/tafNtnSvc
     $TELAF_ROOT/apps/tafServices/tafAudioSvc
     $TELAF_ROOT/apps/tafServices/tafLocationSvc
     $TELAF_ROOT/apps/tafServices/tafSMSSvc

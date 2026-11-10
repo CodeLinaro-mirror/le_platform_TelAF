@@ -851,6 +851,21 @@ void tafSimTest_sim_isEmergency
     }
 }
 
+void tafSimTest_sim_isNtnProfileActive
+(
+    taf_sim_Id_t simId
+)
+{
+    bool active = false;
+    le_result_t r = taf_sim_IsNtnProfileActive(simId, &active);
+
+    if(r == LE_OK) {
+        printf("Query Success! NTN profile is%s active.\n", active ? "" : " not");
+    } else {
+        printf("Query NTN profile active failed! Error: %s\n", LE_RESULT_TXT(r));
+    }
+}
+
 void tafSimTest_swapToEmergencyAndBack
 (
     taf_sim_Id_t simId,

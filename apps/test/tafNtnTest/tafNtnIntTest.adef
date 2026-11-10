@@ -1,0 +1,25 @@
+username: telaf
+maxThreads: 600
+sandboxed: false
+
+executables:
+{
+    tafNtnIntTest = ( tafNtnIntTest )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafNtnIntTest)
+    }
+
+    faultAction: stopApp
+}
+
+bindings:
+{
+    tafNtnIntTest.tafNtnIntTest.taf_ntn -> tafNtnSvc.taf_ntn
+}

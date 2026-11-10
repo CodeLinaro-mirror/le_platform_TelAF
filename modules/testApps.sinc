@@ -16,6 +16,8 @@ apps:
     $TELAF_ROOT/apps/test/ConsoleApp/tafVoiceCallApp/tafVoiceCallConsoleApp
     $TELAF_ROOT/apps/test/tafRadioTest/tafRadioUnitTest
     $TELAF_ROOT/apps/test/tafRadioTest/tafRadioIntTest
+    $TELAF_ROOT/apps/test/tafNtnTest/tafNtnUnitTest
+    $TELAF_ROOT/apps/test/tafNtnTest/tafNtnIntTest
     $LEGATO_ROOT/apps/sample/voiceCallApp/voiceCallApp
     $TELAF_ROOT/apps/test/tafSimTest/tafSimIntegrationTest/tafSimIntTest
     $TELAF_ROOT/apps/test/tafSimTest/tafSimUnitTest/tafSimUnitTest

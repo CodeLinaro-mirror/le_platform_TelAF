@@ -96,6 +96,14 @@ LE_MEM_DEFINE_STATIC_POOL(signalStrengthInfo, INSTANCE_MAX_COUNT,
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Static pool for SMS capability information.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_MEM_DEFINE_STATIC_POOL(smsCapability, SMS_CAPABILITY_MAX_COUNT,
+    sizeof(taf_pa_radio_SmsCapability_t));
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Static pool for CA information.
  */
 //--------------------------------------------------------------------------------------------------
@@ -136,6 +144,13 @@ LE_REF_DEFINE_STATIC_MAP(safeRef, SAFE_REF_MAX_COUNT);
  */
 //--------------------------------------------------------------------------------------------------
 LE_REF_DEFINE_STATIC_MAP(signalStrengthInfo, INSTANCE_MAX_COUNT);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static map for SMS capability information.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_REF_DEFINE_STATIC_MAP(smsCapability, SMS_CAPABILITY_MAX_COUNT);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1770,6 +1785,8 @@ taf_radio_Rat_t Utility::Convert::Rat
             return TAF_RADIO_RAT_LTE;
         case TAF_PA_RADIO_RAT_NR5G:
             return TAF_RADIO_RAT_NR5G;
+        case TAF_PA_RADIO_RAT_NB1_NTN:
+            return TAF_RADIO_RAT_NB1_NTN;
         default:
             LE_INFO("Unknown RAT %d.", rat);
     }
@@ -2690,6 +2707,56 @@ taf_radio_RatSvcStatus_t Utility::Convert::RatServiceStatus
     }
 
     return TAF_RADIO_RAT_SVC_STATUS_UNKNOWN;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA SMS domain to public SMS domain.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_SmsDomain_t Utility::Convert::SmsDomain
+(
+    taf_pa_radio_SmsDomain_t domain ///< [IN] PA SMS domain.
+)
+{
+    switch (domain)
+    {
+        case TAF_PA_RADIO_SMS_DOMAIN_NO_SMS:
+            return TAF_RADIO_SMS_DOMAIN_NO_SMS;
+        case TAF_PA_RADIO_SMS_DOMAIN_SMS_ON_IMS:
+            return TAF_RADIO_SMS_DOMAIN_SMS_ON_IMS;
+        case TAF_PA_RADIO_SMS_DOMAIN_SMS_ON_3GPP:
+            return TAF_RADIO_SMS_DOMAIN_SMS_ON_3GPP;
+        default:
+            LE_INFO("Unknown SMS domain %d.", domain);
+    }
+
+    return TAF_RADIO_SMS_DOMAIN_UNKNOWN;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Converts PA NTN SMS status to public NTN SMS status.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_NtnSmsStatus_t Utility::Convert::NtnSmsStatus
+(
+    taf_pa_radio_NtnSmsStatus_t status ///< [IN] PA NTN SMS status.
+)
+{
+    switch (status)
+    {
+        case TAF_PA_RADIO_NTN_SMS_STATUS_NOT_AVAILABLE:
+            return TAF_RADIO_NTN_SMS_STATUS_NOT_AVAILABLE;
+        case TAF_PA_RADIO_NTN_SMS_STATUS_TEMP_FAILURE:
+            return TAF_RADIO_NTN_SMS_STATUS_TEMP_FAILURE;
+        case TAF_PA_RADIO_NTN_SMS_STATUS_AVAILABLE:
+            return TAF_RADIO_NTN_SMS_STATUS_AVAILABLE;
+        default:
+            LE_INFO("Unknown NTN SMS status %d.", status);
+    }
+
+    return TAF_RADIO_NTN_SMS_STATUS_UNKNOWN;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -4006,6 +4073,8 @@ COMPONENT_INIT
     factory.pools.safeRef = le_mem_InitStaticPool(safeRef, SAFE_REF_MAX_COUNT, sizeof(SafeRef_t));
     factory.pools.signalStrengthInfo = le_mem_InitStaticPool(signalStrengthInfo,
         INSTANCE_MAX_COUNT, sizeof(taf_pa_radio_SignalStrengthInfo_t));
+    factory.pools.smsCapability = le_mem_InitStaticPool(smsCapability,
+        SMS_CAPABILITY_MAX_COUNT, sizeof(taf_pa_radio_SmsCapability_t));
     factory.pools.caInfo = le_mem_InitStaticPool(caInfo, CA_INFO_MAX_COUNT, sizeof(CAInfo_t));
     factory.pools.connStatus = le_mem_InitStaticPool(connStatus, CONN_STATUS_MAX_COUNT,
         sizeof(taf_radio_NREndcAvailability_t));
@@ -4013,6 +4082,7 @@ COMPONENT_INIT
     factory.maps.commonList = le_ref_InitStaticMap(commonList, COMMON_LIST_MAX_COUNT);
     factory.maps.safeRef = le_ref_InitStaticMap(safeRef, SAFE_REF_MAX_COUNT);
     factory.maps.signalStrengthInfo = le_ref_InitStaticMap(signalStrengthInfo, INSTANCE_MAX_COUNT);
+    factory.maps.smsCapability = le_ref_InitStaticMap(smsCapability, SMS_CAPABILITY_MAX_COUNT);
     factory.maps.caInfo = le_ref_InitStaticMap(caInfo, CA_INFO_MAX_COUNT);
     factory.maps.connStatus = le_ref_InitStaticMap(connStatus, CONN_STATUS_MAX_COUNT);
     factory.maps.svcStatusRefMap = le_ref_InitStaticMap(svcStatusRefMap, TAF_RADIO_SVC_STATUS_HANDLER_MAX_NUM);

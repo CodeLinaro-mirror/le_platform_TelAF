@@ -244,6 +244,7 @@ using namespace std;
                 le_result_t SetPower( taf_sim_Id_t simId, le_onoff_t powerState);
                 le_result_t Reset(taf_sim_Id_t simId);
                 le_result_t IsEmergencyCallSubscriptionSelected (taf_sim_Id_t simId, bool* isEcs);
+                le_result_t IsNtnProfileActive(taf_sim_Id_t simId, bool* isActive);
                 le_result_t LocalSwapToEmergencyCallSubscription(taf_sim_Id_t simId, taf_sim_Manufacturer_t manufacturer);
                 le_result_t LocalSwapToCommercialCallSubscription(taf_sim_Id_t simId, taf_sim_Manufacturer_t manufacturer);
                 le_result_t MapSimIdToPaSlot(taf_sim_Id_t simId, taf_pa_sim_SlotId_t* slotOutPtr);

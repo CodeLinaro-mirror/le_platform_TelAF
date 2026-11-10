@@ -227,6 +227,12 @@ void PrintHelpMenu
         "       To show LTE Carrier Aggregation (CA) information (PCell/SCell).\n"
         "       phone : '1' or '2'.\n"
         "\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- nb1ntn <phone> <metrics|sms|serving>\n"
+        "       phone : '1' or '2'.\n"
+        "       metrics : show NB-IoT(NB1) NTN signal metrics.\n"
+        "       sms     : show SMS capability (rat/domain/ntn status) over the network.\n"
+        "       serving : show NB-IoT(NB1) NTN serving cell id/tac/earfcn/band.\n"
+        "\n"
     );
 
     exit(EXIT_SUCCESS);
@@ -3459,6 +3465,92 @@ COMPONENT_INIT
             PrintLteCAInfo(phoneId, infoRef);
             result = taf_radio_DeleteCAInformation(infoRef);
             LE_TEST_OK(result == LE_OK, "taf_radio_DeleteCAInformation - LE_OK");
+        }
+    }
+    else if (strncmp(cmd, "nb1ntn", strlen("nb1ntn")) == 0)
+    {
+        CheckArgs(3);
+        LE_TEST_INFO("======== NB1-NTN Test ========");
+
+        const char* phone = le_arg_GetArg(1);
+        const char* op = le_arg_GetArg(2);
+        if (phone == NULL || op == NULL)
+        {
+            PrintHelpMenu();
+        }
+        long phoneId = strtol(phone, NULL, 10);
+
+        if (strncmp(op, "metrics", strlen("metrics")) == 0)
+        {
+            taf_radio_MetricsRef_t metrics = taf_radio_MeasureSignalMetrics(phoneId);
+            LE_TEST_OK(metrics != NULL, "taf_radio_MeasureSignalMetrics - !NULL");
+            if (metrics != NULL)
+            {
+                int32_t ss = 0, rsrq = 0, rsrp = 0, snr = 0, rssi = 0;
+                result = taf_radio_GetNb1NtnSignalMetrics(metrics, &ss, &rsrq, &rsrp, &snr, &rssi);
+                LE_TEST_OK(result == LE_OK, "taf_radio_GetNb1NtnSignalMetrics - LE_OK");
+                if (result == LE_OK)
+                    LE_INFO("Phone %ld NB1 NTN ss=%d rsrq=%d rsrp=%d snr=%d rssi=%d", phoneId, ss,
+                        rsrq, rsrp, snr, rssi);
+
+                result = taf_radio_DeleteSignalMetrics(metrics);
+                LE_TEST_OK(result == LE_OK, "taf_radio_DeleteSignalMetrics - LE_OK");
+            }
+        }
+        else if (strncmp(op, "sms", strlen("sms")) == 0)
+        {
+            taf_radio_SmsCapabilityRef_t capRef = NULL;
+            result = taf_radio_GetSmsCapabilityOverNetwork(&capRef, phoneId);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetSmsCapabilityOverNetwork - LE_OK");
+            if (result == LE_OK && capRef != NULL)
+            {
+                taf_radio_Rat_t rat = TAF_RADIO_RAT_UNKNOWN;
+                result = taf_radio_GetSmsCapabilityRat(capRef, &rat);
+                LE_TEST_OK(result == LE_OK, "taf_radio_GetSmsCapabilityRat - LE_OK");
+                LE_INFO("Phone %ld SMS capability rat=%d", phoneId, rat);
+
+                taf_radio_SmsDomain_t domain = TAF_RADIO_SMS_DOMAIN_UNKNOWN;
+                result = taf_radio_GetSmsCapabilityDomain(capRef, &domain);
+                LE_INFO("Phone %ld SMS domain=%d (result %d)", phoneId, domain, result);
+
+                taf_radio_NtnSmsStatus_t ntnStatus = TAF_RADIO_NTN_SMS_STATUS_UNKNOWN;
+                result = taf_radio_GetSmsCapabilityNtnStatus(capRef, &ntnStatus);
+                LE_INFO("Phone %ld NTN SMS status=%d (result %d)", phoneId, ntnStatus, result);
+
+                result = taf_radio_DeleteSmsCapability(capRef);
+                LE_TEST_OK(result == LE_OK, "taf_radio_DeleteSmsCapability - LE_OK");
+            }
+        }
+        else if (strncmp(op, "serving", strlen("serving")) == 0)
+        {
+            uint32_t cellId = 0;
+            result = taf_radio_GetServingCellNb1NtnCellId(&cellId, phoneId);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellNb1NtnCellId - LE_OK");
+            if (result == LE_OK)
+                LE_INFO("Phone %ld NB1 NTN cell id : %u", phoneId, cellId);
+
+            int32_t tac = 0;
+            result = taf_radio_GetServingCellNb1NtnTac(&tac, phoneId);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellNb1NtnTac - LE_OK");
+            if (result == LE_OK)
+                LE_INFO("Phone %ld NB1 NTN tac : %d", phoneId, tac);
+
+            int32_t earfcn = 0;
+            result = taf_radio_GetServingCellNb1NtnEarfcn(&earfcn, phoneId);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellNb1NtnEarfcn - LE_OK");
+            if (result == LE_OK)
+                LE_INFO("Phone %ld NB1 NTN earfcn : %d", phoneId, earfcn);
+
+            uint32_t band = 0;
+            taf_radio_RFBandWidth_t bandWidth = TAF_RADIO_RF_BANDWIDTH_INVALID;
+            result = taf_radio_GetServingCellNb1NtnBandInfo(&band, &bandWidth, phoneId);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServingCellNb1NtnBandInfo - LE_OK");
+            if (result == LE_OK)
+                LE_INFO("Phone %ld NB1 NTN band : %u bandWidth : %d", phoneId, band, bandWidth);
+        }
+        else
+        {
+            PrintHelpMenu();
         }
     }
     else

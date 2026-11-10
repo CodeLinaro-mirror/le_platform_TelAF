@@ -6869,3 +6869,527 @@ le_result_t taf_radio_GetEndcConnectionStatus
 
     return LE_OK;
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets NB-IoT(NB1) NTN signal metrics.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetNb1NtnSignalMetrics
+(
+    taf_radio_MetricsRef_t metricsRef, ///< [IN] The signal metrics reference.
+    int32_t* ssPtr,                    ///< [OUT] Signal strength in dBm (RSRP based).
+    int32_t* rsrqPtr,                  ///< [OUT] Reference Signal Received Quality in dB.
+    int32_t* rsrpPtr,                  ///< [OUT] Reference Signal Received Power in dBm.
+    int32_t* snrPtr,                   ///< [OUT] Signal-to-Noise Ratio in units of 0.1 dB.
+    int32_t* rssiPtr                   ///< [OUT] Received Signal Strength Indicator in dBm.
+)
+{
+    if (metricsRef == nullptr)
+    {
+        LE_ERROR("metricsRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (ssPtr == nullptr)
+    {
+        LE_ERROR("ssPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (rsrqPtr == nullptr)
+    {
+        LE_ERROR("rsrqPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (rsrpPtr == nullptr)
+    {
+        LE_ERROR("rsrpPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (snrPtr == nullptr)
+    {
+        LE_ERROR("snrPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (rssiPtr == nullptr)
+    {
+        LE_ERROR("rssiPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SignalStrengthInfo_t* infoPtr =(taf_pa_radio_SignalStrengthInfo_t*)le_ref_Lookup(
+        factory.maps.signalStrengthInfo, metricsRef);
+    if (infoPtr == nullptr)
+    {
+        LE_ERROR("infoPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    if (infoPtr->bitmask & TAF_PA_RADIO_BITMASK_RAT_NB1_NTN)
+    {
+        *ssPtr = infoPtr->nb1NtnInfo.rsrp;
+        *rsrqPtr = infoPtr->nb1NtnInfo.rsrq;
+        *rsrpPtr = infoPtr->nb1NtnInfo.rsrp;
+        *snrPtr = infoPtr->nb1NtnInfo.rssnr;
+        *rssiPtr = infoPtr->nb1NtnInfo.rssi;
+    }
+    else
+    {
+        *ssPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        *rsrqPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        *rsrpPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        *snrPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+        *rssiPtr = TAF_RADIO_INVALID_SIGNAL_STRENGTH_VALUE;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets SMS capability over the currently registered network.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_UNAVAILABLE -- Serving system is unavailable.
+ *  - LE_UNSUPPORTED -- Not supported.
+ *  - LE_FAULT -- Failed.
+ *  - LE_TIMEOUT -- Timeout.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetSmsCapabilityOverNetwork
+(
+    taf_radio_SmsCapabilityRef_t* capabilityRefPtr, ///< [OUT] SMS capability reference.
+    uint8_t phone                                   ///< [IN] Phone.
+)
+{
+    if (capabilityRefPtr == nullptr)
+    {
+        LE_ERROR("capabilityRefPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_SmsCapability_t capability;
+    taf_pa_result_t paResult = taf_pa_radio_GetSmsCapability(instance, &capability);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] taf_pa_radio_GetSmsCapability reason=%d", paResult);
+        return result;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SmsCapability_t* capabilityPtr =
+        (taf_pa_radio_SmsCapability_t*)le_mem_ForceAlloc(factory.pools.smsCapability);
+    memcpy(capabilityPtr, &capability, sizeof(taf_pa_radio_SmsCapability_t));
+
+    *capabilityRefPtr = (taf_radio_SmsCapabilityRef_t)le_ref_CreateRef(factory.maps.smsCapability,
+        (void*)capabilityPtr);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Deletes an SMS capability reference.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- SMS capability reference not found.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_DeleteSmsCapability
+(
+    taf_radio_SmsCapabilityRef_t capabilityRef ///< [IN] SMS capability reference.
+)
+{
+    if (capabilityRef == nullptr)
+    {
+        LE_ERROR("capabilityRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SmsCapability_t* capabilityPtr =
+        (taf_pa_radio_SmsCapability_t*)le_ref_Lookup(factory.maps.smsCapability, capabilityRef);
+    if (capabilityPtr == nullptr)
+    {
+        LE_ERROR("capabilityPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    le_ref_DeleteRef(factory.maps.smsCapability, capabilityRef);
+    le_mem_Release(capabilityPtr);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the RAT from an SMS capability reference.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- SMS capability reference not found.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetSmsCapabilityRat
+(
+    taf_radio_SmsCapabilityRef_t capabilityRef, ///< [IN] SMS capability reference.
+    taf_radio_Rat_t* ratPtr                     ///< [OUT] Current serving RAT.
+)
+{
+    if (capabilityRef == nullptr)
+    {
+        LE_ERROR("capabilityRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (ratPtr == nullptr)
+    {
+        LE_ERROR("ratPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SmsCapability_t* capabilityPtr =
+        (taf_pa_radio_SmsCapability_t*)le_ref_Lookup(factory.maps.smsCapability, capabilityRef);
+    if (capabilityPtr == nullptr)
+    {
+        LE_ERROR("capabilityPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    *ratPtr = Utility::Convert::Rat(capabilityPtr->rat);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the SMS domain from an SMS capability reference.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- SMS capability reference not found.
+ *  - LE_UNSUPPORTED -- SMS domain is not applicable for the RAT of this reference.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetSmsCapabilityDomain
+(
+    taf_radio_SmsCapabilityRef_t capabilityRef, ///< [IN] SMS capability reference.
+    taf_radio_SmsDomain_t* domainPtr            ///< [OUT] SMS domain for non-NB1 NTN RATs.
+)
+{
+    if (capabilityRef == nullptr)
+    {
+        LE_ERROR("capabilityRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (domainPtr == nullptr)
+    {
+        LE_ERROR("domainPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SmsCapability_t* capabilityPtr =
+        (taf_pa_radio_SmsCapability_t*)le_ref_Lookup(factory.maps.smsCapability, capabilityRef);
+    if (capabilityPtr == nullptr)
+    {
+        LE_ERROR("capabilityPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    // SMS domain is not applicable for NB-IoT(NB1) NTN; the client should use
+    // taf_radio_GetSmsCapabilityNtnStatus() instead.
+    if (capabilityPtr->rat == TAF_PA_RADIO_RAT_NB1_NTN)
+    {
+        *domainPtr = TAF_RADIO_SMS_DOMAIN_UNKNOWN;
+        return LE_UNSUPPORTED;
+    }
+
+    *domainPtr = Utility::Convert::SmsDomain(capabilityPtr->domain);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the NTN SMS status from an SMS capability reference.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- SMS capability reference not found.
+ *  - LE_UNSUPPORTED -- NTN SMS status is not applicable for the RAT of this reference.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetSmsCapabilityNtnStatus
+(
+    taf_radio_SmsCapabilityRef_t capabilityRef, ///< [IN] SMS capability reference.
+    taf_radio_NtnSmsStatus_t* ntnStatusPtr      ///< [OUT] SMS status for NB-IoT(NB1) NTN RAT.
+)
+{
+    if (capabilityRef == nullptr)
+    {
+        LE_ERROR("capabilityRef is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (ntnStatusPtr == nullptr)
+    {
+        LE_ERROR("ntnStatusPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto& factory = Factory::GetInstance();
+    taf_pa_radio_SmsCapability_t* capabilityPtr =
+        (taf_pa_radio_SmsCapability_t*)le_ref_Lookup(factory.maps.smsCapability, capabilityRef);
+    if (capabilityPtr == nullptr)
+    {
+        LE_ERROR("capabilityPtr is nullptr.");
+        return LE_NOT_FOUND;
+    }
+
+    // NTN SMS status is applicable only for NB-IoT(NB1) NTN; other RATs should use
+    // taf_radio_GetSmsCapabilityDomain() instead.
+    if (capabilityPtr->rat != TAF_PA_RADIO_RAT_NB1_NTN)
+    {
+        *ntnStatusPtr = TAF_RADIO_NTN_SMS_STATUS_UNKNOWN;
+        return LE_UNSUPPORTED;
+    }
+
+    *ntnStatusPtr = Utility::Convert::NtnSmsStatus(capabilityPtr->smsStatus);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets NB-IoT(NB1) NTN serving cell identity.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- NB-IoT(NB1) NTN serving cell is not available.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellNb1NtnCellId
+(
+    uint32_t* cellIdPtr, ///< [OUT] NB-IoT(NB1) NTN cell identity.
+    uint8_t phone        ///< [IN] Phone.
+)
+{
+    if (cellIdPtr == nullptr)
+    {
+        LE_ERROR("cellIdPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", result);
+        return result;
+    }
+
+    uint32_t index = Utility::Common::FindServingCell(&info);
+    if (index < info.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT &&
+        info.cellLocInfo[index].rat == TAF_PA_RADIO_RAT_NB1_NTN)
+    {
+        *cellIdPtr = info.cellLocInfo[index].nb1NtnInfo.cid;
+        return LE_OK;
+    }
+
+    LE_ERROR("Failed to find NB-IoT(NB1) NTN serving cell.");
+
+    return LE_NOT_FOUND;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets NB-IoT(NB1) NTN serving cell Tracking Area Code (TAC).
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- NB-IoT(NB1) NTN serving cell is not available.
+ *  - LE_UNAVAILABLE -- TAC is not available from the network.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellNb1NtnTac
+(
+    int32_t* tacPtr, ///< [OUT] NB-IoT(NB1) NTN tracking area code.
+    uint8_t phone    ///< [IN] Phone.
+)
+{
+    if (tacPtr == nullptr)
+    {
+        LE_ERROR("tacPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", result);
+        return result;
+    }
+
+    uint32_t index = Utility::Common::FindServingCell(&info);
+    if (index < info.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT &&
+        info.cellLocInfo[index].rat == TAF_PA_RADIO_RAT_NB1_NTN)
+    {
+        *tacPtr = info.cellLocInfo[index].nb1NtnInfo.tac;
+        return LE_OK;
+    }
+
+    LE_ERROR("Failed to find NB-IoT(NB1) NTN serving cell.");
+
+    return LE_NOT_FOUND;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets NB-IoT(NB1) NTN serving cell EARFCN/channel number.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- NB-IoT(NB1) NTN serving cell is not available.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellNb1NtnEarfcn
+(
+    int32_t* earfcnPtr, ///< [OUT] NB-IoT(NB1) NTN E-UTRA absolute radio frequency channel number.
+    uint8_t phone       ///< [IN] Phone.
+)
+{
+    if (earfcnPtr == nullptr)
+    {
+        LE_ERROR("earfcnPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t info;
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &info);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", result);
+        return result;
+    }
+
+    uint32_t index = Utility::Common::FindServingCell(&info);
+    if (index < info.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT &&
+        info.cellLocInfo[index].rat == TAF_PA_RADIO_RAT_NB1_NTN)
+    {
+        *earfcnPtr = (int32_t)info.cellLocInfo[index].nb1NtnInfo.earfcn;
+        return LE_OK;
+    }
+
+    LE_ERROR("Failed to find NB-IoT(NB1) NTN serving cell.");
+
+    return LE_NOT_FOUND;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets NB-IoT(NB1) NTN active band information.
+ *
+ * @note Active bandwidth is not supported for NB-IoT(NB1) NTN. The implementation always returns
+ *       TAF_RADIO_RF_BANDWIDTH_INVALID in bandwidthPtr.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- NB-IoT(NB1) NTN serving cell is not available.
+ *  - LE_UNAVAILABLE -- Active band is not available from the network.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServingCellNb1NtnBandInfo
+(
+    uint32_t* bandPtr,                     ///< [OUT] NB-IoT(NB1) NTN active band.
+    taf_radio_RFBandWidth_t* bandwidthPtr, ///< [OUT] RF bandwidth, always RF_BANDWIDTH_INVALID.
+    uint8_t phone                          ///< [IN] Phone.
+)
+{
+    if (bandPtr == nullptr)
+    {
+        LE_ERROR("bandPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (bandwidthPtr == nullptr)
+    {
+        LE_ERROR("bandwidthPtr is nullptr.");
+        return LE_BAD_PARAMETER;
+    }
+
+    // Active bandwidth is not supported for NB-IoT(NB1) NTN.
+    *bandwidthPtr = TAF_RADIO_RF_BANDWIDTH_INVALID;
+
+    uint32_t instance = Utility::Convert::PhoneToInstance(phone);
+    taf_pa_radio_CellLocationListInfo_t cellInfo;
+    taf_pa_result_t paResult = taf_pa_radio_GetCellLocationListInfo(instance, &cellInfo);
+    le_result_t result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetCellLocationListInfo reason=%d", result);
+        return result;
+    }
+
+    uint32_t index = Utility::Common::FindServingCell(&cellInfo);
+    if (!(index < cellInfo.cellLocInfoCount && index < TAF_PA_RADIO_CELL_LOCATION_MAX_COUNT &&
+          cellInfo.cellLocInfo[index].rat == TAF_PA_RADIO_RAT_NB1_NTN))
+    {
+        LE_ERROR("Failed to find NB-IoT(NB1) NTN serving cell.");
+        return LE_NOT_FOUND;
+    }
+
+    taf_pa_radio_ServingCellBandInfo_t info;
+    info.lteBandInfoValid = 1;
+    info.bandInfoValid = 0;
+    info.nr5gBandInfoValid = 0;
+    paResult = taf_pa_radio_GetServingCellBandInfo(instance, &info);
+    result = Utility::Convert::Result(paResult);
+    if (result != LE_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_radio_GetServingCellBandInfo reason=%d", result);
+        return result;
+    }
+
+    // The PA reports the active band via the generic activeBand field; there is no NB1-NTN
+    // specific band field. NB-IoT band numbers fit in 32 bits.
+    *bandPtr = (uint32_t)info.activeBand;
+
+    return LE_OK;
+}

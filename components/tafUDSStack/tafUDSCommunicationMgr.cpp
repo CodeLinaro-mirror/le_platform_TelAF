@@ -729,6 +729,9 @@ void UdsCommunicationMgr::S3TimeoutHandler
     // Update current session
     udsCmMgr->SessionType = DEFAULT_SESSION;
 
+    // Terminate the file transfer when switching to default session.
+    udsCmMgr->isXferActive.store(false);
+
     // Report to main thread to send session change to diag service.
     le_event_Report(udsIndMsgEventId, &indMsg, sizeof(indMsg));
 }
@@ -5337,6 +5340,9 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
         {
             LE_INFO("default session:need to stop s3 timer");
             UdsTimerEventReport(TAF_UDS_S3_TIMER_STOP, 0, interface);
+
+            // Terminate the file transfer when switching to default session.
+            isXferActive.store(false);
         }
         // Switched to non-default session.
         else
@@ -5881,8 +5887,12 @@ le_result_t UdsCommunicationMgr::XferDataResp
 
     if (POSITIVE_RESPONSE != err)
     {
-        isXferActive.store(false);
-        LE_ERROR("Error code reported from Diag service");
+        // NRC 0x21/0x92/0x93 are temporary, keep the transfer active so the tester can retry.
+        if (BUSY_REPEAT_REQ != err && VOLTAGE_TOO_HIGH != err && VOLTAGE_TOO_LOW != err)
+        {
+            isXferActive.store(false);
+        }
+        LE_ERROR("Error code : 0x%x reported from Diag service module", err);
         SetNRC(serviceId, err);
         return LE_OK;
     }

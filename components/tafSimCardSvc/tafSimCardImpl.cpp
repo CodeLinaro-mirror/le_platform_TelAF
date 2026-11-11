@@ -556,6 +556,28 @@ void RegisterListeners()
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * SIGTERM Event Handler — invoked by Legato's signal event mechanism on SIGTERM.
+ * Triggers Deinit() for graceful cleanup before service restart.
+ */
+//--------------------------------------------------------------------------------------------------
+static void SigTermEventHandler
+(
+    int sigNum ///< [IN] Signal number received (expected: SIGTERM).
+)
+{
+    LE_INFO("SigTermEventHandler signal : %d", sigNum);
+
+    taf_pa_result_t deregRes = taf_pa_sim_Deinit();
+    if (deregRes != TAF_PA_OK)
+    {
+        LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_Deinit reason=%d", (int)deregRes);
+    }
+
+    exit(EXIT_SUCCESS);
+}
+
 void taf_sim::Init(void)
 {
     FPLMNNodePool = le_mem_CreatePool("FPLMNNodePool", sizeof(FPLMNNode_t));
@@ -608,7 +630,11 @@ void taf_sim::Init(void)
         LE_ERROR("[PA_CALL_FAILED] api=taf_pa_sim_RegisterEventListener reason=%d", regEvtRes);
         return;
     }
+
     le_msg_AddServiceCloseHandler(taf_sim_GetServiceRef(), OnClientDisconnect, NULL);
+
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);
 }
 
 taf_sim &taf_sim::GetInstance()

@@ -850,6 +850,7 @@ namespace tafsvc {
             void StopInternal(le_msg_SessionRef_t sessionRef, taf_locGnss_CompleteCb_t completeCb, void* contextPtr);
             static taf_locGnss_Client_t* AcquireSessionRefInternal(le_msg_SessionRef_t sessionRef);
             static le_result_t InternalReleaseDgnssSourceOnWorker(taf_locGnss_Client_t* clientRequestPtr, taf_locGnss_DgnssSourceRef_t  sourceRef);
+            void StopWorkerThreads(void);
 
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionExHandlerPoolRef;

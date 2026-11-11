@@ -11,6 +11,21 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Response timeout in milliseconds for the lightweight RPC control commands (connectService and
+ * deleteSession).
+ *
+ * These commands are answered by the remote RPC client proxy immediately without involving the
+ * real service, so a short timeout is used instead of the default SOME/IP transaction timeout
+ * (30s). If a request is lost (e.g. the first connectService is sent before the underlying
+ * SOME/IP TCP connection is fully established), the request fails fast instead of blocking for
+ * 30s.
+ */
+//--------------------------------------------------------------------------------------------------
+#define RPC_CONTROL_CMD_TIMEOUT_MS 1500
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * RPC commands.
  */
 //--------------------------------------------------------------------------------------------------
@@ -240,6 +255,9 @@ void rpcProxyMessage_ConnectServiceRequestResponse
         LE_ASSERT(LE_OK == taf_someipClnt_SetReliable(rpcMsgRef));
     }
 
+    // Set a short response timeout for the connectService handshake.
+    LE_ASSERT(LE_OK == taf_someipClnt_SetTimeout(rpcMsgRef, RPC_CONTROL_CMD_TIMEOUT_MS));
+
     // Set payload data.
     reqPtr->sysEventId = htobe16(reqPtr->sysEventId);
     LE_ASSERT(LE_OK == taf_someipClnt_SetPayload(rpcMsgRef, (uint8_t*)reqPtr,
@@ -324,6 +342,9 @@ void rpcProxyMessage_DeleteSessionRequestResponse
     {
         LE_ASSERT(LE_OK == taf_someipClnt_SetReliable(rpcMsgRef));
     }
+
+    // Set a short response timeout for the deleteSession command.
+    LE_ASSERT(LE_OK == taf_someipClnt_SetTimeout(rpcMsgRef, RPC_CONTROL_CMD_TIMEOUT_MS));
 
     // Set the RPC session ID and convert it to Network-Order in the payload message.
     RpcMessageCommonHeader_t reqData;

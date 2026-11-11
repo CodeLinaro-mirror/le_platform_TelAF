@@ -140,7 +140,7 @@ void taf_Socks::SocksEvtHandler(void* cmdReqPtr)
             {
                 LE_ERROR( "ENABLE_SOCKS_ASYNC_EVT failed with errorCode: %d ",
                            static_cast<int>(cmdReq->errorCode));
-                result = LE_FAULT;
+                result = cmdReq->errorCode;
             }
             else
             {
@@ -164,7 +164,7 @@ void taf_Socks::SocksEvtHandler(void* cmdReqPtr)
             {
                 LE_ERROR( "DISABLE_SOCKS_ASYNC_EVT failed with errorCode: %d ",
                            static_cast<int>(cmdReq->errorCode));
-                result = LE_FAULT;
+                result = cmdReq->errorCode;
             }
             else
             {
@@ -242,6 +242,10 @@ void taf_Socks::SocksProcCmdHandler(void* cmdReqPtr)
                 ENABLE_SOCKS_MAX_NUMBER_AT_THE_SAME_TIME )
             {
                 LE_DEBUG("Only one client can enable SOCKS at the same time");
+                if (cmdReq->handlerFuncPtr != NULL)
+                {
+                    cmdReq->handlerFuncPtr(LE_BUSY, cmdReq->contextPtr);
+                }
                 return;
             }
 
@@ -257,7 +261,10 @@ void taf_Socks::SocksProcCmdHandler(void* cmdReqPtr)
             {
                 LE_ERROR("Enable socks asynchronously error %d", result);
                 if(cmdReq->handlerFuncPtr != NULL)
+                {
+                    cmdReq->handlerFuncPtr(result, cmdReq->contextPtr);
                     tafSocks.DeleteHandlerInfo(cmdReq->handlerFuncPtr);
+                }
             }
         break;
         case ASYNC_DISABLE_SOCKS:
@@ -266,6 +273,10 @@ void taf_Socks::SocksProcCmdHandler(void* cmdReqPtr)
                 ENABLE_SOCKS_MAX_NUMBER_AT_THE_SAME_TIME )
             {
                 LE_DEBUG("Only one client can disable SOCKS at the same time");
+                if (cmdReq->handlerFuncPtr != NULL)
+                {
+                    cmdReq->handlerFuncPtr(LE_BUSY, cmdReq->contextPtr);
+                }
                 return;
             }
 
@@ -281,7 +292,10 @@ void taf_Socks::SocksProcCmdHandler(void* cmdReqPtr)
             {
                 LE_ERROR("Disable socks asynchronously error %d", result);
                 if(cmdReq->handlerFuncPtr != NULL)
+                {
+                    cmdReq->handlerFuncPtr(result, cmdReq->contextPtr);
                     tafSocks.DeleteHandlerInfo(cmdReq->handlerFuncPtr);
+                }
             }
         break;
         default:

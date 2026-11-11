@@ -184,7 +184,7 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
 
     if(mode == TAF_MNGDPM_RESTART_SYSTEM_OFF_ON)
     {
-        LE_INFO("mode is TAF_MNGDPM_RESTART_SYSTEM_OFF_ON");
+        LE_DEBUG("mode is TAF_MNGDPM_RESTART_SYSTEM_OFF_ON");
         if((mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SHUTTING_DOWN) ||
                 (mpms.stateMachine.currentState == TAF_MNGDPM_STATE_SHUTDOWN))
         {
@@ -383,7 +383,7 @@ taf_mngdPm_wsNodeRef_t taf_mngdPm_CreateNodeWakeupSource
 
     if(pmNodeId == 1)
     {
-        LE_INFO("RPC: CreateRpcNodeWakeupSource");
+        LE_DEBUG("RPC: CreateRpcNodeWakeupSource");
         auto &rpcPm = tafMngdRpcPm::GetInstance();
         taf_mngdPm_wsNodeRef_t wsRef = rpcPm.CreateRpcNodeWakeupSource(pmNodeId, option, wsTag);
         if(! wsRef)
@@ -544,7 +544,6 @@ le_result_t taf_mngdPm_StayAwakeNode(taf_mngdPm_wsNodeRef_t wsRef)
         if (wsRefCtxPtr && wsRef && wsRefCtxPtr->wsRef == wsRef
         &&  wsRefCtxPtr->sessionRef == taf_mngdPm_GetClientSessionRef())
         {
-            LE_DEBUG("ws:%s matched with nodeWsRefList for StayAwakeNode", wsRefCtxPtr->wsTag);
             //check if already a wakelock acquired
             if(wsRefCtxPtr->isAcquiredLock)
             {
@@ -620,8 +619,6 @@ le_result_t taf_mngdPm_RelaxNode(taf_mngdPm_wsNodeRef_t wsRef)
         if (wsRefCtxPtr && wsRef && wsRefCtxPtr->wsRef == wsRef
         &&  wsRefCtxPtr->sessionRef == taf_mngdPm_GetClientSessionRef())
         {
-            LE_DEBUG("ws:%s matched with nodeWsRefList for RelaxNode", wsRefCtxPtr->wsTag);
-
             if(! wsRefCtxPtr->isAcquiredLock)
             {
                 LE_WARN("The node wake source is not acquired.");
@@ -633,7 +630,7 @@ le_result_t taf_mngdPm_RelaxNode(taf_mngdPm_wsNodeRef_t wsRef)
             rst = tafMngdPMSvc::ReleaseNodeWakeLock();
             if(rst == LE_OK)
             {
-                LE_INFO("client Released WakeLock");
+                LE_DEBUG("client Released WakeLock");
                 wsRefCtxPtr->isAcquiredLock = false;
             }
             else
@@ -723,107 +720,107 @@ taf_mngdPm_StayAwakeReasonBitMask_t stayAwakeReasonBitMask
     mpms.stayAwakeReasonMask.reset();
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_NORMAL)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is STAY_AWAKE_REASON_BIT_MASK_NORMAL");
+        LE_DEBUG("stayAwakeReasonBitMask is STAY_AWAKE_REASON_BIT_MASK_NORMAL");
         mpms.stayAwakeReasonMask.set(0);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_ACTIVE)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_ECALL_ACTIVE");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_ECALL_ACTIVE");
         mpms.stayAwakeReasonMask.set(1);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_ECALL_CALLBACK)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_ECALL_CALLBACK");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_ECALL_CALLBACK");
         mpms.stayAwakeReasonMask.set(2);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_SW_UPDATE)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_SW_UPDATE");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_SW_UPDATE");
         mpms.stayAwakeReasonMask.set(3);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_VEH_NETWORK)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VEH_NETWORK");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VEH_NETWORK");
         mpms.stayAwakeReasonMask.set(4);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_1)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_1");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_1");
         mpms.stayAwakeReasonMask.set(16);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_2)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_2");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_2");
         mpms.stayAwakeReasonMask.set(17);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_3)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_3");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_3");
         mpms.stayAwakeReasonMask.set(18);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_4)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_4");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_4");
         mpms.stayAwakeReasonMask.set(19);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_5)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_5");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_5");
         mpms.stayAwakeReasonMask.set(20);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_6)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_6");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_6");
         mpms.stayAwakeReasonMask.set(21);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_7)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_7");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_7");
         mpms.stayAwakeReasonMask.set(22);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_8)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_1");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_1");
         mpms.stayAwakeReasonMask.set(23);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_9)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_9");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_9");
         mpms.stayAwakeReasonMask.set(24);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_10)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_10");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_10");
         mpms.stayAwakeReasonMask.set(25);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_11)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_11");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_11");
         mpms.stayAwakeReasonMask.set(26);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_12)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_12");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_12");
         mpms.stayAwakeReasonMask.set(27);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_13)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_1");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_1");
         mpms.stayAwakeReasonMask.set(28);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_14)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_1");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_1");
         mpms.stayAwakeReasonMask.set(29);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_15)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_15");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_15");
         mpms.stayAwakeReasonMask.set(30);
     }
     if((stayAwakeReasonBitMask & (1 << TAF_MNGDPM_STAY_AWAKE_REASON_VENDOR_16)) != 0)
     {
-        LE_INFO("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_16");
+        LE_DEBUG("stayAwakeReasonBitMask is TAF_MNGDPM_STAY_AWAKE_REASON_BIT_MASK_VENDOR_16");
         mpms.stayAwakeReasonMask.set(31);
     }
     mpms.RefreshWakeSources();
@@ -853,7 +850,7 @@ le_result_t taf_mngdPm_StayAwake(taf_mngdPm_wsRef_t wsRef)
         if (wsRefCtxPtr && wsRef && wsRefCtxPtr->wsRef == wsRef &&
                 wsRefCtxPtr->sessionRef == taf_mngdPm_GetClientSessionRef())
         {
-            LE_INFO("wsRef is valid in wsRefList for %s with StayAwakeReason: %d, WsState: %d ",
+            LE_DEBUG("wsRef is valid in wsRefList for %s with StayAwakeReason: %d, WsState: %d ",
                 wsRefCtxPtr->wsTag, wsRefCtxPtr->reason, wsRefCtxPtr->wakeSourceState);
             //check if already a wakelock acquired
             if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_ACQUIRED)
@@ -864,7 +861,7 @@ le_result_t taf_mngdPm_StayAwake(taf_mngdPm_wsRef_t wsRef)
 
             if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason, mpms.stayAwakeReasonMask))
             {
-                LE_INFO("stayAwakeReason:%d is in authorized stayAwakeReasonList", wsRefCtxPtr->reason);
+                LE_DEBUG("stayAwakeReason:%d is in authorized stayAwakeReasonList", wsRefCtxPtr->reason);
                 res = mpms.AcquireWakeSource(wsRefCtxPtr);
                 if (res == LE_OK)
                 {
@@ -886,7 +883,7 @@ le_result_t taf_mngdPm_StayAwake(taf_mngdPm_wsRef_t wsRef)
                 else
                 {
                     wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_ACQUIRED;
-                    LE_INFO("StayAwake: unauthorized Wake Source State: %d, current system state: %d",wsRefCtxPtr->wakeSourceState, mpms.stateMachine.currentState);
+                    LE_DEBUG("StayAwake: unauthorized Wake Source State: %d, current system state: %d",wsRefCtxPtr->wakeSourceState, mpms.stateMachine.currentState);
                     return LE_OK;
                 }
             }
@@ -919,7 +916,7 @@ le_result_t taf_mngdPm_Relax(taf_mngdPm_wsRef_t wsRef)
         if (wsRefCtxPtr && wsRef && wsRefCtxPtr->wsRef == wsRef &&
                 wsRefCtxPtr->sessionRef == taf_mngdPm_GetClientSessionRef())
         {
-            LE_INFO("wsRef is valid in wsRefList for %s with StayAwakeReason:%d, WsState:%d ",wsRefCtxPtr->wsTag, wsRefCtxPtr->reason, wsRefCtxPtr->wakeSourceState);
+            LE_DEBUG("wsRef is valid in wsRefList for %s with StayAwakeReason:%d, WsState:%d ",wsRefCtxPtr->wsTag, wsRefCtxPtr->reason, wsRefCtxPtr->wakeSourceState);
 
             if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_NOT_ACQUIRED)
             {
@@ -929,7 +926,7 @@ le_result_t taf_mngdPm_Relax(taf_mngdPm_wsRef_t wsRef)
 
             if(mpms.IsAuthorizedStayAwakeReason(wsRefCtxPtr->reason, mpms.stayAwakeReasonMask))
             {
-                LE_INFO("Authorized StayAwakeReason:%d for relax, releasing the wakeup source!", wsRefCtxPtr->reason);
+                LE_DEBUG("Authorized StayAwakeReason:%d for relax, releasing the wakeup source!", wsRefCtxPtr->reason);
                 res = mpms.ReleaseWakeSource(wsRefCtxPtr);
                 if (res == LE_OK)
                 {
@@ -942,7 +939,7 @@ le_result_t taf_mngdPm_Relax(taf_mngdPm_wsRef_t wsRef)
             }
             else
             {
-                LE_INFO("Unauthorized StayAwakeReason:%d for relax in state %d", wsRefCtxPtr->reason, mpms.stateMachine.currentState);
+                LE_DEBUG("Unauthorized StayAwakeReason:%d for relax in state %d", wsRefCtxPtr->reason, mpms.stateMachine.currentState);
                 wsRefCtxPtr->wakeSourceState = WAKE_SOURCE_NOT_ACQUIRED;
                 return LE_OK;
             }
@@ -1338,7 +1335,7 @@ le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
                 {
                     if (it->isAcked == true)
                     {
-                        LE_INFO("Client %p already acked, ignore counting", it->sessionRef);
+                        LE_DEBUG("Client %p already acked, ignore counting", it->sessionRef);
                         return LE_OK;
                     }
                     else
@@ -1579,7 +1576,7 @@ void taf_mngdPm_RemoveNodeModemAwakeHandler
 
     if (combo)
     {
-        LE_INFO("Found ref in local-map [remove]");
+        LE_DEBUG("Found ref in local-map [remove]");
         le_ref_DeleteRef(power.cbLocalMap, handlerRef);
         le_mem_Release(combo);
         return; // Fine, stop
@@ -1590,7 +1587,7 @@ void taf_mngdPm_RemoveNodeModemAwakeHandler
 
     if (combo)
     {
-        LE_INFO("Found ref in remote-map [remove]");
+        LE_DEBUG("Found ref in remote-map [remove]");
         le_ref_DeleteRef(power.cbRemoteMap, handlerRef);
         le_mem_Release(combo);
         return; // Hit, return
@@ -1626,8 +1623,6 @@ le_result_t taf_mngdPm_DeleteWakeupSource(taf_mngdPm_wsRef_t wsRef)
             LE_DEBUG("wsRef found in wsRefList for %s with sessionRef: %p, stayAwakeReason:%d, wsState:%d", wsRefCtxPtr->wsTag,
                 wsRefCtxPtr->sessionRef, wsRefCtxPtr->reason, wsRefCtxPtr->wakeSourceState);
             if(wsRefCtxPtr->wakeSourceState == WAKE_SOURCE_NOT_ACQUIRED) {
-
-                LE_INFO("Delete not acquired wakesource of wsTag:%s for client with sessionRef %p", wsRefCtxPtr->wsTag, wsRefCtxPtr->sessionRef);
                 le_ref_DeleteRef(mpms.wsRefMap, wsRefCtxPtr->wsRef);
                 le_dls_Remove(&(mpms.wsRefList), &wsRefCtxPtr->link);
                 free((void*)wsRefCtxPtr->wsTag);

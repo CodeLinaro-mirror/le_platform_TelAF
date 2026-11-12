@@ -48,6 +48,7 @@
 #include <chrono>
 #include <bitset>
 #include <fstream>
+#include <cmath>
 #include "tafSvcIF.hpp"
 #include "tafLocationPa.hpp"
 
@@ -130,6 +131,7 @@ namespace tafsvc {
         bool      satsUsedCountValid;
         bool      satInfoValid;
         bool      satMeasValid;
+        bool      altMeanSeaLevelValid;
         taf_locGnss_GnssMeasurementInfo_t measInfo[TAF_LOCGNSS_MEASUREMENT_INFO_MAX];
         uint8_t   measInfoCount;
         uint16_t SVIds[TAF_LOCGNSS_MEASUREMENT_INFO_MAX];

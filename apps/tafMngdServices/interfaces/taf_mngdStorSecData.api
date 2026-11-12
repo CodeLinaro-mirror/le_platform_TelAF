@@ -320,7 +320,8 @@ FUNCTION le_result_t CreateData
  * @instaging
  * @return
  *     - Date       Data reference.
- *     - NULL       Invalid data label, or the data label doesn't exist.
+ *     - NULL       Invalid data label, the data label doesn't exist, or the KeyStore service is
+ *                  not available.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Data GetDataRef
@@ -340,7 +341,7 @@ FUNCTION Data GetDataRef
  *     - LE_FAULT          Failed.
  *     - LE_BUSY           The data is in reading/writing process.
  *     - LE_NOT_PERMITTED  The calling app doesn't have the access to write the data.
- *     - LE_UNAVAILABLE    The data doesn't exist.
+ *     - LE_UNAVAILABLE    The data doesn't exist, or the KeyStore service is not available.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t WriteDataStart
@@ -360,7 +361,8 @@ FUNCTION le_result_t WriteDataStart
  *     - LE_BAD_PARAMETER  The specified data label is invalid.
  *     - LE_FAULT          Failed.
  *     - LE_BUSY           Data is in writing by another sessions.
- *     - LE_UNAVAILABLE    The data is not in writing process.
+ *     - LE_UNAVAILABLE    The data isn't in writing process, or the writing operation was aborted
+ *                         because the KeyStore service was disconnected.
  *     - LE_OVERFLOW       The input size is greater than the maximum data size.
  *     - LE_NO_MEMORY      The input size is greater than the remaining data size.
  */
@@ -381,7 +383,8 @@ FUNCTION le_result_t WriteDataChunk
  *     - LE_NOT_FOUND      The data reference is invalid.
  *     - LE_BAD_PARAMETER  The specified data label is invalid.
  *     - LE_FAULT          Failed.
- *     - LE_UNAVAILABLE    The data is not in writing process.
+ *     - LE_UNAVAILABLE    The data isn't in writing process, or the writing operation was aborted
+ *                         because the KeyStore service was disconnected.
  *     - LE_BUSY           Data is in writing by another session.
  */
 //--------------------------------------------------------------------------------------------------
@@ -403,6 +406,7 @@ FUNCTION le_result_t WriteDataEnd
  *     - LE_BUSY           The data is in reading/writing process.
  *     - LE_OUT_OF_RANGE   The input read size is too large.
  *     - LE_NOT_PERMITTED  The calling app doesn't have the access to read the data.
+ *     - LE_UNAVAILABLE    The KeyStore service isn't available.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ReadDataFirstChunk
@@ -424,7 +428,8 @@ FUNCTION le_result_t ReadDataFirstChunk
  *     - LE_FAULT          Failed.
  *     - LE_BUSY           The data is in writing process or being read by another session.
  *     - LE_OUT_OF_RANGE   The input read size is too large.
- *     - LE_UNAVAILABLE    The data is not in reading process.
+ *     - LE_UNAVAILABLE    The data isn't in reading process, or the reading operation was aborted
+ *                         because the KeyStore service was disconnected.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ReadDataNextChunk
@@ -462,6 +467,7 @@ FUNCTION le_result_t GetDataSize
  *     - LE_OK             Successfully deletes the data.
  *     - LE_BAD_PARAMETER  The specified data label is invalid.
  *     - LE_FAULT          Failed.
+ *     - LE_UNAVAILABLE    The KeyStore service isn't available.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteData
@@ -488,6 +494,7 @@ FUNCTION le_result_t DeleteData
  *     - LE_NOT_FOUND -- Data doesn't exist.
  *     - LE_NOT_PERMITTED -- Data is not provisioned or calling application is not the data owner.
  *     - LE_FAULT -- Error.
+ *     - LE_UNAVAILABLE -- The KeyStore service isn't available.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ShareData
@@ -509,6 +516,7 @@ FUNCTION le_result_t ShareData
  *     - LE_NOT_PERMITTED -- Data is not provisioned or is not shared to the specified application before,
  *       calling application is not the data owner.
  *     - LE_FAULT -- Error.
+ *     - LE_UNAVAILABLE -- The KeyStore service isn't available.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CancelDataSharing

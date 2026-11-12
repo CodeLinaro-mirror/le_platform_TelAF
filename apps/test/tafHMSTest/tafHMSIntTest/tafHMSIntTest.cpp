@@ -108,8 +108,30 @@ void ModemStatusHandler(
     void* contextPtr
 )
 {
-    LE_INFO("Event Type: %s. Event Level: %s Event Reference: %p\n",
-        ModemEventTypeToStr(eventType), ModemEventLevelToStr(eventLevel), eventRef);
+    // Per-type count of events received. Printed with every event
+    static uint32_t rxRebootCnt = 0;
+    static uint32_t rxLostCnt = 0;
+    static uint32_t rxAvailCnt = 0;
+    switch (eventType)
+    {
+        case TAF_HMS_MODEM_EVENT_TYPE_CONTINUE_REBOOT:
+            rxRebootCnt++;
+            break;
+        case TAF_HMS_MODEM_EVENT_TYPE_CONNECTION_LOST:
+            rxLostCnt++;
+            break;
+        case TAF_HMS_MODEM_EVENT_TYPE_CONNECTION_AVAIL:
+            rxAvailCnt++;
+            break;
+    }
+
+    LE_INFO("Event Type %s, Lvl %s, Ref %p,"
+            "Rx(reboot/lost/avail) = %u/%u/%u",
+        ModemEventTypeToStr(eventType),
+        ModemEventLevelToStr(eventLevel),
+        eventRef,
+        rxRebootCnt, rxLostCnt, rxAvailCnt);
+
     le_result_t result = taf_hms_ReleaseModemEvt(eventRef);
     LE_TEST_OK(result == LE_OK, "taf_hms_ReleaseModemEvt - LE_OK.");
 }

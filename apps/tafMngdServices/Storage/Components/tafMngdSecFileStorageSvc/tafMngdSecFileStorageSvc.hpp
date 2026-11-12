@@ -110,6 +110,39 @@ class tafMngdSecFileStorageSvc: public ITafSvc
         std::vector<tafMngdSecFileStorage_StorageCfg_t> storageAccessCfg;
 
         /**
+         * Functions for the optional dependency (taf_fsc)
+         */
+
+        // Connect to FSC service if not connected yet.
+        // Returns LE_OK if connected, otherwise LE_UNAVAILABLE.
+        le_result_t FscEnsureConnected();
+
+        // Ensure FSC is connected and the FSC storage references of the directory are valid.
+        // A newly acquired storage is locked, and unlocked again if there are active users.
+        le_result_t EnsureDirFsc(tafMngdSecFileStorage_Dir_t* dirPtr);
+
+        // Acquire the FSC storage references of all the directories again after FSC is back.
+        void RestoreDirFsc();
+
+        // Drop the FSC storage references of all the directories.
+        void ResetDirFscReferences();
+
+        void StartDepRetryTimer();
+
+        static void FscDisconnectHandler(void* contextPtr);
+
+        static void DepRetryHandler(le_timer_Ref_t timerRef);
+
+        static const uint32_t DEP_RETRY_INTERVALS_MS[];
+        static const uint8_t DEP_MAX_RETRIES;
+
+        bool fscConnected = false;
+        bool serviceStoragesPending = false;
+        bool creatingServiceStorages = false;   ///< Guard against re-entrant creation.
+        le_timer_Ref_t depRetryTimer = nullptr;
+        uint8_t depRetryIndex = 0;
+
+        /**
          * Functions for secure storages
          */
 

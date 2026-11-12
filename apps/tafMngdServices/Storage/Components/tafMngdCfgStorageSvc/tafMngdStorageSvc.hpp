@@ -230,5 +230,30 @@ class tafMngdStorageSvc: public ITafSvc
 
         le_result_t UnlockStorage();
 
+        /**
+         * Functions for the optional dependency (taf_fsc)
+         */
+
+        // Connect to FSC service if not connected yet.
+        // Returns LE_OK if connected, otherwise LE_UNAVAILABLE.
+        le_result_t FscEnsureConnected();
+
+        // Ensure FSC is connected and the FSC storage references are valid. Newly acquired
+        // storages are locked by default.
+        le_result_t EnsureFsc();
+
+        void StartFscRetryTimer();
+
+        static void FscDisconnectHandler(void* contextPtr);
+
+        static void FscRetryHandler(le_timer_Ref_t timerRef);
+
+        static const uint32_t FSC_RETRY_INTERVALS_MS[];
+        static const uint8_t FSC_MAX_RETRIES;
+
+        bool fscConnected = false;
+        le_timer_Ref_t fscRetryTimer = nullptr;
+        uint8_t fscRetryIndex = 0;
+
 };
 }

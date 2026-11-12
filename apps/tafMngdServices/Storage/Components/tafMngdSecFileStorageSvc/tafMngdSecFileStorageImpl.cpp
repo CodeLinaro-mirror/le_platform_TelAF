@@ -313,7 +313,15 @@ void tafMngdSecFileStorageSvc::Init(void)
 
     taf_rfs_SetBackupStorage(secFileRfsStorage);
 
+    // FSC (external) is an optional dependency and is connected on demand. If it is not
+    // available now, the service storages are created once it is connected.
     CreateServiceStorages();
+
+    if (serviceStoragesPending)
+    {
+        LE_WARN("FSC is not available, service storages will be created later");
+        StartDepRetryTimer();
+    }
 }
 
 void tafMngdSecFileStorageSvc::SessionCloseHandler
@@ -353,15 +361,21 @@ void tafMngdSecFileStorageSvc::SessionCloseHandler
                 LE_ERROR( "Invalid secure directory reference");
             }
 
-            if(clientPtr->lockState == false)
+            if(dirPtr != nullptr && clientPtr->lockState == false)
             {
                 dirPtr->userCount--;
                 if(dirPtr->userCount == 0)
                 {
-                    LE_DEBUG("Locking FSC storage for directory: %s", dirPtr->path);
-                    taf_fsc_LockStorage(dirPtr->fscStorageRef);
-                    LE_DEBUG("Locking RFS storage for directory: %s", dirPtr->rfsPath);
-                    taf_fsc_LockStorage(dirPtr->rfs_fscStorageRef);
+                    // If FSC is not available, the storage is locked when FSC is back.
+                    if (mss.fscConnected &&
+                        dirPtr->fscStorageRef != nullptr &&
+                        dirPtr->rfs_fscStorageRef != nullptr)
+                    {
+                        LE_DEBUG("Locking FSC storage for directory: %s", dirPtr->path);
+                        taf_fsc_LockStorage(dirPtr->fscStorageRef);
+                        LE_DEBUG("Locking RFS storage for directory: %s", dirPtr->rfsPath);
+                        taf_fsc_LockStorage(dirPtr->rfs_fscStorageRef);
+                    }
                 }
             }
 
@@ -515,6 +529,13 @@ tafMngdSecFileStorage_DirRef_t tafMngdSecFileStorageSvc::CreateDirRef
 )
 {
     LE_INFO("CreateDirRef for '%s'", storageNamePtr);
+
+    // FSC is required to create the directory reference.
+    if (FscEnsureConnected() != LE_OK)
+    {
+        LE_ERROR("FSC service is unavailable");
+        return nullptr;
+    }
 
     tafMngdSecFileStorage_Dir_t *dirPtr = nullptr;
     tafMngdSecFileStorage_DirRef_t dirRef = nullptr;
@@ -690,6 +711,9 @@ le_result_t tafMngdSecFileStorageSvc::SetStorageCreator
 
     TAF_ERROR_IF_RET_VAL(res == LE_DUPLICATE, LE_DUPLICATE, "Data already exists");
 
+    // SecData returns LE_UNAVAILABLE from CreateData when its KeyStore dependency is not available.
+    TAF_ERROR_IF_RET_VAL(res == LE_UNAVAILABLE, LE_UNAVAILABLE, "KeyStore is unavailable");
+
     TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Create data failed");
 
     taf_mngdStorSecData_DataRef_t dataRef = taf_mngdStorSecData_GetDataRef(dataName);
@@ -826,6 +850,14 @@ le_result_t tafMngdSecFileStorageSvc::CreateStorageRefImpl
         }
     }
 
+    // FSC is required to create a storage. Check it before the creator is saved, so that the
+    // creation can be retried when it is not available.
+    if (FscEnsureConnected() != LE_OK)
+    {
+        LE_WARN("FSC service is unavailable, cannot create storage '%s'", storageNamePtr);
+        return LE_UNAVAILABLE;
+    }
+
     // Set up creator for the new storage
     if(internal == true)
     {
@@ -841,7 +873,13 @@ le_result_t tafMngdSecFileStorageSvc::CreateStorageRefImpl
         }
     }
 
-    if(SetStorageCreator(storageNamePtr, myAppName) != LE_OK)
+    le_result_t creatorRes = SetStorageCreator(storageNamePtr, myAppName);
+    if (creatorRes == LE_UNAVAILABLE)
+    {
+        LE_WARN("Cannot set creator for storage %s, dependency unavailable.", storageNamePtr);
+        return LE_UNAVAILABLE;
+    }
+    if (creatorRes != LE_OK)
     {
         LE_ERROR("Failed to set creator for storage %s.", storageNamePtr);
         return LE_FAULT;
@@ -1076,6 +1114,9 @@ le_result_t tafMngdSecFileStorageSvc::UnlockStorageImpl
     // Check if the directory reference is valid
     TAF_ERROR_IF_RET_VAL(dirPtr == nullptr, LE_NOT_FOUND, "Invalid secure directory reference");
 
+    le_result_t fscRes = EnsureDirFsc(dirPtr);
+    TAF_ERROR_IF_RET_VAL(fscRes != LE_OK, LE_UNAVAILABLE, "FSC service is unavailable");
+
     if(dirPtr->userCount == 0)
     {
         // Unlock the RFS storage
@@ -1134,13 +1175,19 @@ le_result_t tafMngdSecFileStorageSvc::LockStorageImpl
     clienCxtPtr->lockState = true;
     if(dirPtr->userCount == 0)
     {
-        // Lock the RFS storage
-        LE_DEBUG("Locking RFS storage for directory: %s", dirPtr->rfsPath);
-        taf_fsc_LockStorage(dirPtr->rfs_fscStorageRef);
+        // If FSC is not available, the storage is locked when FSC is back.
+        if (fscConnected &&
+            dirPtr->fscStorageRef != nullptr &&
+            dirPtr->rfs_fscStorageRef != nullptr)
+        {
+            // Lock the RFS storage
+            LE_DEBUG("Locking RFS storage for directory: %s", dirPtr->rfsPath);
+            taf_fsc_LockStorage(dirPtr->rfs_fscStorageRef);
 
-        // Lock the FSC storage
-        LE_DEBUG("Locking FSC storage for directory: %s", dirPtr->path);
-        taf_fsc_LockStorage(dirPtr->fscStorageRef);
+            // Lock the FSC storage
+            LE_DEBUG("Locking FSC storage for directory: %s", dirPtr->path);
+            taf_fsc_LockStorage(dirPtr->fscStorageRef);
+        }
     }
     LE_DEBUG("Locking with userCount lockState : %d %d", dirPtr->userCount,clienCxtPtr->lockState);
     return LE_OK;
@@ -1185,6 +1232,10 @@ le_result_t tafMngdSecFileStorageSvc::ImportFileImpl
     TAF_ERROR_IF_RET_VAL(targetFilePathPtr == nullptr || strlen(targetFilePathPtr) == 0,
                          LE_BAD_PARAMETER,
                          "Invalid target file path");
+
+    TAF_ERROR_IF_RET_VAL(EnsureDirFsc(dirPtr) != LE_OK,
+                         LE_UNAVAILABLE,
+                         "FSC service is unavailable");
 
     size_t availableSize = GetAvailableSpace(dirPtr->path);
     size_t fileSize = GetFileSize(sourceFilePathPtr);
@@ -1300,6 +1351,10 @@ le_result_t tafMngdSecFileStorageSvc::ReadFileImpl
                          LE_BAD_PARAMETER,
                          "Invalid buffer pointer");
 
+    TAF_ERROR_IF_RET_VAL(EnsureDirFsc(dirPtr) != LE_OK,
+                         LE_UNAVAILABLE,
+                         "FSC service is unavailable");
+
     char storageTargetFilePath[LIMIT_MAX_PATH_BYTES] = {0};
 
     // Construct the target file path within the storage directory
@@ -1375,6 +1430,10 @@ le_result_t tafMngdSecFileStorageSvc::DeleteFileImpl
     // Check if the file path is valid
     TAF_ERROR_IF_RET_VAL(filePath == nullptr || strlen(filePath) == 0, LE_BAD_PARAMETER,
                          "Invalid file path");
+
+    TAF_ERROR_IF_RET_VAL(EnsureDirFsc(dirPtr) != LE_OK,
+                         LE_UNAVAILABLE,
+                         "FSC service is unavailable");
 
     char storageTargetFilePath[LIMIT_MAX_PATH_BYTES] = {0};
 
@@ -1479,6 +1538,13 @@ le_result_t tafMngdSecFileStorageSvc::DeleteStorageImpl
         return LE_NOT_PERMITTED;
     }
 
+    // FSC is required to delete the storage.
+    if (EnsureDirFsc(dirPtr) != LE_OK)
+    {
+        LE_ERROR("FSC service is unavailable");
+        return LE_UNAVAILABLE;
+    }
+
     result = taf_fsc_DeleteStorage(dirPtr->rfs_fscStorageRef);
     if(result == LE_OK)
     {
@@ -1526,10 +1592,32 @@ void tafMngdSecFileStorageSvc::CreateServiceStorages()
     bool internal = true;
     le_result_t res = LE_OK;
 
+    // CreateStorageRefImpl() -> FscEnsureConnected() may call back into this function when FSC
+    // becomes connected in the middle of the loop. Avoid the re-entrant creation.
+    if (creatingServiceStorages)
+    {
+        return;
+    }
+    creatingServiceStorages = true;
+
+    serviceStoragesPending = false;
+
     for (const auto& storage : storageAccessCfg)
     {
+        // Skip the service storages which were already created, e.g. in a previous attempt.
+        tafMngdSecFileStorage_DirRef_t existingDirRef = nullptr;
+        if (FindDirRef(storage.StorageName, &existingDirRef) == LE_OK)
+        {
+            continue;
+        }
+
         res = CreateStorageRefImpl(storage.StorageName, capMask, internal);
-        if (res != LE_OK)
+        if (res == LE_UNAVAILABLE)
+        {
+            LE_WARN("Dependencies are not available for service storage: %s", storage.StorageName);
+            serviceStoragesPending = true;
+        }
+        else if (res != LE_OK)
         {
             LE_WARN("Failed to create service storage: %s", storage.StorageName);
         }
@@ -1537,6 +1625,289 @@ void tafMngdSecFileStorageSvc::CreateServiceStorages()
         {
             LE_INFO("Successfully created service storage: %s", storage.StorageName);
         }
+    }
+
+    creatingServiceStorages = false;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Retry intervals (ms) for connecting to the optional dependencies.
+ */
+//--------------------------------------------------------------------------------------------------
+const uint32_t tafMngdSecFileStorageSvc::DEP_RETRY_INTERVALS_MS[] =
+{
+    10000, 30000, 60000, 120000
+};
+
+const uint8_t tafMngdSecFileStorageSvc::DEP_MAX_RETRIES =
+    sizeof(tafMngdSecFileStorageSvc::DEP_RETRY_INTERVALS_MS) /
+    sizeof(tafMngdSecFileStorageSvc::DEP_RETRY_INTERVALS_MS[0]);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Connects to FSC if it is not connected yet. After a successful connection, the FSC storage
+ * references of the existing directories are acquired again, and the pending service storages are
+ * created.
+ *
+ * @return
+ *  - LE_OK          FSC is connected.
+ *  - LE_UNAVAILABLE FSC is not available.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdSecFileStorageSvc::FscEnsureConnected()
+{
+    if (fscConnected)
+    {
+        return LE_OK;
+    }
+
+    le_result_t res = taf_fsc_TryConnectService();
+    if (res != LE_OK)
+    {
+        LE_WARN("Failed to connect to FSC service, res = %d", res);
+        return LE_UNAVAILABLE;
+    }
+
+    LE_INFO("Connected to FSC service");
+
+    fscConnected = true;
+    taf_fsc_SetNonExitServerDisconnectHandler(FscDisconnectHandler, nullptr);
+
+    RestoreDirFsc();
+
+    if (serviceStoragesPending)
+    {
+        CreateServiceStorages();
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Ensures FSC is connected and the FSC storage references of the directory are valid. The
+ * references are dropped when FSC is disconnected, so they are acquired again here. A newly acquired
+ * storage is locked, and it is unlocked again if there are active users.
+ *
+ * @return
+ *  - LE_OK          The FSC storage references are valid.
+ *  - LE_UNAVAILABLE FSC is not available.
+ *  - LE_FAULT       Failed to get the FSC storage references.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdSecFileStorageSvc::EnsureDirFsc
+(
+    tafMngdSecFileStorage_Dir_t* dirPtr
+)
+{
+    if (dirPtr == nullptr)
+    {
+        return LE_BAD_PARAMETER;
+    }
+
+    if (FscEnsureConnected() != LE_OK)
+    {
+        return LE_UNAVAILABLE;
+    }
+
+    if (dirPtr->fscStorageRef != nullptr && dirPtr->rfs_fscStorageRef != nullptr)
+    {
+        return LE_OK;
+    }
+
+    le_result_t res = LE_OK;
+
+    dirPtr->fscStorageRef = taf_fsc_GetStorageRef(dirPtr->path, &res);
+    if (res != LE_OK || dirPtr->fscStorageRef == nullptr)
+    {
+        LE_ERROR("Cannot get FSC storage '%s'", dirPtr->path);
+        dirPtr->fscStorageRef = nullptr;
+        return LE_FAULT;
+    }
+
+    dirPtr->rfs_fscStorageRef = taf_fsc_GetStorageRef(dirPtr->rfsPath, &res);
+    if (res != LE_OK || dirPtr->rfs_fscStorageRef == nullptr)
+    {
+        LE_ERROR("Cannot get RFS FSC storage '%s'", dirPtr->rfsPath);
+        dirPtr->fscStorageRef = nullptr;
+        dirPtr->rfs_fscStorageRef = nullptr;
+        return LE_FAULT;
+    }
+
+    // The storage is locked by default, same as when the directory reference is created.
+    if (taf_fsc_LockStorage(dirPtr->fscStorageRef) != LE_OK)
+    {
+        LE_ERROR("Cannot lock FSC storage '%s'", dirPtr->path);
+    }
+
+    if (taf_fsc_LockStorage(dirPtr->rfs_fscStorageRef) != LE_OK)
+    {
+        LE_ERROR("Cannot lock RFS FSC storage '%s'", dirPtr->rfsPath);
+    }
+
+    // Keep the storage unlocked if there are still users who unlocked it.
+    if (dirPtr->userCount > 0)
+    {
+        taf_fsc_UnlockStorage(dirPtr->rfs_fscStorageRef);
+        taf_fsc_UnlockStorage(dirPtr->fscStorageRef);
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Acquires the FSC storage references of all the directories again.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdSecFileStorageSvc::RestoreDirFsc()
+{
+    if (DirRefMap == nullptr)
+    {
+        return;
+    }
+
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(DirRefMap);
+
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        tafMngdSecFileStorage_Dir_t* dirPtr = (tafMngdSecFileStorage_Dir_t*)le_ref_GetValue(iterRef);
+        if (dirPtr == nullptr)
+        {
+            continue;
+        }
+
+        if (EnsureDirFsc(dirPtr) != LE_OK)
+        {
+            LE_WARN("Failed to restore the FSC storage of '%s'", dirPtr->storageName);
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Drops the FSC storage references of all the directories, because they are invalid after FSC is
+ * disconnected.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdSecFileStorageSvc::ResetDirFscReferences()
+{
+    if (DirRefMap == nullptr)
+    {
+        return;
+    }
+
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(DirRefMap);
+
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        tafMngdSecFileStorage_Dir_t* dirPtr = (tafMngdSecFileStorage_Dir_t*)le_ref_GetValue(iterRef);
+        if (dirPtr == nullptr)
+        {
+            continue;
+        }
+
+        dirPtr->fscStorageRef = nullptr;
+        dirPtr->rfs_fscStorageRef = nullptr;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for the unexpected disconnection of FSC.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdSecFileStorageSvc::FscDisconnectHandler(void* contextPtr)
+{
+    LE_WARN("FSC service disconnected");
+
+    auto& mss = tafMngdSecFileStorageSvc::GetInstance();
+
+    mss.fscConnected = false;
+    mss.ResetDirFscReferences();
+    mss.StartDepRetryTimer();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Starts the timer to reconnect to the dependencies.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdSecFileStorageSvc::StartDepRetryTimer()
+{
+    if (depRetryTimer == nullptr)
+    {
+        depRetryTimer = le_timer_Create("secFileDepRetryTimer");
+        if (depRetryTimer == nullptr)
+        {
+            LE_ERROR("Failed to create dependency retry timer");
+            return;
+        }
+
+        le_timer_SetHandler(depRetryTimer, DepRetryHandler);
+        le_timer_SetWakeup(depRetryTimer, false);
+    }
+    else if (le_timer_IsRunning(depRetryTimer))
+    {
+        return;
+    }
+
+    depRetryIndex = 0;
+
+    le_timer_SetMsInterval(depRetryTimer, DEP_RETRY_INTERVALS_MS[0]);
+    le_timer_Start(depRetryTimer);
+
+    LE_INFO("Dependency retry mechanism started");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Timer handler to reconnect to the dependencies. If all the retries fail, the dependencies are
+ * connected on demand when a client requests an operation that needs them.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdSecFileStorageSvc::DepRetryHandler(le_timer_Ref_t timerRef)
+{
+    auto& mss = tafMngdSecFileStorageSvc::GetInstance();
+
+    LE_INFO("Dependency retry attempt %d/%d", mss.depRetryIndex + 1, DEP_MAX_RETRIES);
+
+    bool fscOk = (mss.FscEnsureConnected() == LE_OK);
+
+    // FSC is connected but the service storages are still pending (e.g. KeyStore behind SecData
+    // was not ready before), try to create them again.
+    if (fscOk && mss.serviceStoragesPending)
+    {
+        mss.CreateServiceStorages();
+    }
+
+    if (fscOk && !mss.serviceStoragesPending)
+    {
+        le_timer_Delete(timerRef);
+        mss.depRetryTimer = nullptr;
+        mss.depRetryIndex = 0;
+        return;
+    }
+
+    mss.depRetryIndex++;
+
+    if (mss.depRetryIndex < DEP_MAX_RETRIES)
+    {
+        uint32_t interval = DEP_RETRY_INTERVALS_MS[mss.depRetryIndex];
+
+        LE_WARN("Dependencies are still unavailable, retry in %u ms", interval);
+
+        le_timer_SetMsInterval(timerRef, interval);
+        le_timer_Start(timerRef);
+    }
+    else
+    {
+        LE_ERROR("Max dependency retries reached, will connect on demand");
+
+        le_timer_Delete(timerRef);
+        mss.depRetryTimer = nullptr;
+        mss.depRetryIndex = 0;
     }
 }
 

@@ -81,29 +81,15 @@ void tafMngdStorageSvc::InitConfigStorage()
     }
     le_result_t result = LE_OK;
 
-    // Initialize FSC storage for configStorage and configRfsStorage
-    cfgFscRef = taf_fsc_GetStorageRef(configStorage, &result);
-    if(cfgFscRef == nullptr || result != LE_OK)
-    {
-        LE_FATAL("Failed to get fsc storage %s", configStorage);
-    }
-
-    result = taf_fsc_LockStorage(cfgFscRef);
+    // FSC is an optional dependency. Initialize FSC storage for configStorage and
+    // configRfsStorage now, or retry later if FSC is not available.
+    cfgFscRef = nullptr;
+    cfgRfsFscRef = nullptr;
+    result = EnsureFsc();
     if(result != LE_OK)
     {
-        LE_ERROR("Failed to lock fsc storage %s", configStorage);
-    }
-
-    cfgRfsFscRef = taf_fsc_GetStorageRef(configRfsStorage, &result);
-    if(cfgFscRef == nullptr || result != LE_OK)
-    {
-        LE_FATAL("Failed to get fsc storage %s", configRfsStorage);
-    }
-
-    result = taf_fsc_LockStorage(cfgRfsFscRef);
-    if(result != LE_OK)
-    {
-        LE_ERROR("Failed to lock fsc storage %s", configRfsStorage);
+        LE_WARN("FSC is not available (res = %d), will retry later", result);
+        StartFscRetryTimer();
     }
 
     configStoragePool = le_mem_CreatePool("configStoragePool",
@@ -993,6 +979,13 @@ le_result_t tafMngdStorageSvc::ReleaseRef(taf_mngdStorCfg_ConfigRef_t configRef)
 
 le_result_t tafMngdStorageSvc::LockStorage()
 {
+    // If FSC is not available, the storages are locked by default when FSC is back.
+    if (!fscConnected || cfgFscRef == nullptr || cfgRfsFscRef == nullptr)
+    {
+        LE_WARN("FSC is not available, storage will be locked when FSC is back");
+        return LE_OK;
+    }
+
     le_result_t result = taf_fsc_LockStorage(cfgFscRef);
     if(result != LE_OK)
     {
@@ -1011,6 +1004,13 @@ le_result_t tafMngdStorageSvc::LockStorage()
 
 le_result_t tafMngdStorageSvc::UnlockStorage()
 {
+    le_result_t ensureRes = EnsureFsc();
+    if (ensureRes != LE_OK)
+    {
+        LE_ERROR("FSC service is unavailable, res = %d", ensureRes);
+        return LE_UNAVAILABLE;
+    }
+
    le_result_t result = taf_fsc_UnlockStorage(cfgFscRef);
     if(result != LE_OK)
     {
@@ -1025,6 +1025,183 @@ le_result_t tafMngdStorageSvc::UnlockStorage()
         return LE_FAULT;
     }
     return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Retry intervals (ms) for connecting to FSC.
+ */
+//--------------------------------------------------------------------------------------------------
+const uint32_t tafMngdStorageSvc::FSC_RETRY_INTERVALS_MS[] =
+{
+    10000, 30000, 60000, 120000
+};
+
+const uint8_t tafMngdStorageSvc::FSC_MAX_RETRIES =
+    sizeof(tafMngdStorageSvc::FSC_RETRY_INTERVALS_MS) /
+    sizeof(tafMngdStorageSvc::FSC_RETRY_INTERVALS_MS[0]);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Connects to FSC if it is not connected yet.
+ *
+ * @return LE_OK if connected, otherwise LE_UNAVAILABLE.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdStorageSvc::FscEnsureConnected()
+{
+    if (fscConnected)
+    {
+        return LE_OK;
+    }
+
+    le_result_t res = taf_fsc_TryConnectService();
+    if (res != LE_OK)
+    {
+        LE_WARN("Failed to connect to FSC service, res = %d", res);
+        return LE_UNAVAILABLE;
+    }
+
+    LE_INFO("Connected to FSC service");
+    fscConnected = true;
+    taf_fsc_SetNonExitServerDisconnectHandler(FscDisconnectHandler, nullptr);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Ensures FSC is connected and the FSC storage references are valid. The references are dropped
+ * when FSC is disconnected, so they are acquired again here. Newly acquired storages are locked.
+ *
+ * @return
+ *  - LE_OK          The FSC storage references are valid.
+ *  - LE_UNAVAILABLE FSC is not available.
+ *  - LE_FAULT       Failed to get the FSC storage references.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdStorageSvc::EnsureFsc()
+{
+    if (FscEnsureConnected() != LE_OK)
+    {
+        return LE_UNAVAILABLE;
+    }
+
+    if (cfgFscRef != nullptr && cfgRfsFscRef != nullptr)
+    {
+        return LE_OK;
+    }
+
+    le_result_t result = LE_OK;
+
+    cfgFscRef = taf_fsc_GetStorageRef(configStorage, &result);
+    if (cfgFscRef == nullptr || result != LE_OK)
+    {
+        LE_ERROR("Failed to get fsc storage %s", configStorage);
+        cfgFscRef = nullptr;
+        return LE_FAULT;
+    }
+
+    cfgRfsFscRef = taf_fsc_GetStorageRef(configRfsStorage, &result);
+    if (cfgRfsFscRef == nullptr || result != LE_OK)
+    {
+        LE_ERROR("Failed to get fsc storage %s", configRfsStorage);
+        cfgFscRef = nullptr;
+        cfgRfsFscRef = nullptr;
+        return LE_FAULT;
+    }
+
+    if (taf_fsc_LockStorage(cfgFscRef) != LE_OK)
+    {
+        LE_ERROR("Failed to lock fsc storage %s", configStorage);
+    }
+
+    if (taf_fsc_LockStorage(cfgRfsFscRef) != LE_OK)
+    {
+        LE_ERROR("Failed to lock fsc storage %s", configRfsStorage);
+    }
+
+    return LE_OK;
+}
+
+void tafMngdStorageSvc::FscDisconnectHandler(void* contextPtr)
+{
+    LE_WARN("FSC service disconnected");
+
+    auto& mss = tafMngdStorageSvc::GetInstance();
+
+    mss.fscConnected = false;
+    mss.cfgFscRef = nullptr;
+    mss.cfgRfsFscRef = nullptr;
+    mss.StartFscRetryTimer();
+}
+
+void tafMngdStorageSvc::StartFscRetryTimer()
+{
+    if (fscRetryTimer == nullptr)
+    {
+        fscRetryTimer = le_timer_Create("cfgFscRetryTimer");
+        if (fscRetryTimer == nullptr)
+        {
+            LE_ERROR("Failed to create FSC retry timer");
+            return;
+        }
+
+        le_timer_SetHandler(fscRetryTimer, FscRetryHandler);
+        le_timer_SetWakeup(fscRetryTimer, false);
+    }
+    else if (le_timer_IsRunning(fscRetryTimer))
+    {
+        return;
+    }
+
+    fscRetryIndex = 0;
+
+    le_timer_SetMsInterval(fscRetryTimer, FSC_RETRY_INTERVALS_MS[0]);
+    le_timer_Start(fscRetryTimer);
+
+    LE_INFO("FSC retry mechanism started");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Timer handler to reconnect to FSC. If all the retries fail, FSC is connected on demand when a
+ * client requests an operation that needs it.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdStorageSvc::FscRetryHandler(le_timer_Ref_t timerRef)
+{
+    auto& mss = tafMngdStorageSvc::GetInstance();
+
+    LE_INFO("FSC retry attempt %d/%d", mss.fscRetryIndex + 1, FSC_MAX_RETRIES);
+
+    if (mss.EnsureFsc() == LE_OK)
+    {
+        le_timer_Delete(timerRef);
+        mss.fscRetryTimer = nullptr;
+        mss.fscRetryIndex = 0;
+        return;
+    }
+
+    mss.fscRetryIndex++;
+
+    if (mss.fscRetryIndex < FSC_MAX_RETRIES)
+    {
+        uint32_t interval = FSC_RETRY_INTERVALS_MS[mss.fscRetryIndex];
+
+        LE_WARN("FSC is still unavailable, retry in %u ms", interval);
+
+        le_timer_SetMsInterval(timerRef, interval);
+        le_timer_Start(timerRef);
+    }
+    else
+    {
+        LE_ERROR("Max FSC retries reached, will connect on demand");
+
+        le_timer_Delete(timerRef);
+        mss.fscRetryTimer = nullptr;
+        mss.fscRetryIndex = 0;
+    }
 }
 
 le_result_t tafMngdStorageSvc::ClearTree(){

@@ -304,6 +304,7 @@ FUNCTION le_result_t GetFreeSize
  * @return
  *     - Date       New data reference.
  *     - NULL       Invalid data name, or the data name already exists.
+ *     - LE_UNAVAILABLE  The KeyStore service is not available.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CreateData

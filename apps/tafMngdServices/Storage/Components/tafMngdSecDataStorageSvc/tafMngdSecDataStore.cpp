@@ -185,7 +185,12 @@ void tafMngdStorageSvc::InitStorage
 
     le_event_AddHandler("DataChangeEventhandler", DataChangeEventId, DataChangeEventHandler);
 
-    LoadAllSharedAppData();
+    // KeyStore is an optional dependency. Load the shared app data once it is connected.
+    if (KsEnsureConnected() != LE_OK)
+    {
+        LE_WARN("KeyStore is not available, shared app data will be loaded after it is connected");
+        StartKsRetryTimer();
+    }
 }
 
 le_result_t tafMngdStorageSvc::GetStoragePath
@@ -425,6 +430,15 @@ void tafMngdStorageSvc::LoadSecDataRefForDataSharedKey
 
     LE_INFO("Check keyId: %s", keyId);
 
+    // Skip the data which already has a reference (e.g. created by a client before KeyStore
+    // became available).
+    tafMngdStorage_SecDataRef_t existingRef = nullptr;
+    if (FindSecDataRef(dataNamePtr, namespacePtr, &existingRef) == LE_OK)
+    {
+        LE_INFO("Data '%s::%s' is already loaded", namespacePtr, dataNamePtr);
+        return;
+    }
+
     taf_ks_KeyRef_t keyRef;
     taf_ks_KeyUsage_t keyCap;
     taf_ks_AppCapMask_t appCap;
@@ -462,5 +476,244 @@ void tafMngdStorageSvc::LoadSecDataRefForDataSharedKey
         dataPtr->keyRef = keyRef;
 
         RefreshSharedAppInfo(secDataRef);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Retry intervals (ms) for connecting to KeyStore.
+ */
+//--------------------------------------------------------------------------------------------------
+const uint32_t tafMngdStorageSvc::KS_RETRY_INTERVALS_MS[] =
+{
+    10000, 30000, 60000, 120000
+};
+
+const uint8_t tafMngdStorageSvc::KS_MAX_RETRIES =
+    sizeof(tafMngdStorageSvc::KS_RETRY_INTERVALS_MS) /
+    sizeof(tafMngdStorageSvc::KS_RETRY_INTERVALS_MS[0]);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Connects to KeyStore if it is not connected yet. On the first successful connection, the shared
+ * app data saved in the storage is loaded.
+ *
+ * @return
+ *  - LE_OK          KeyStore is connected.
+ *  - LE_UNAVAILABLE KeyStore is not available.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdStorageSvc::KsEnsureConnected()
+{
+    if (ksConnected)
+    {
+        return LE_OK;
+    }
+
+    le_result_t res = taf_ks_TryConnectService();
+    if (res != LE_OK)
+    {
+        LE_WARN("Failed to connect to KeyStore service, res = %d", res);
+        return LE_UNAVAILABLE;
+    }
+
+    LE_INFO("Connected to KeyStore service");
+
+    ksConnected = true;
+    taf_ks_SetNonExitServerDisconnectHandler(KsDisconnectHandler, nullptr);
+
+    if (!sharedDataLoaded)
+    {
+        sharedDataLoaded = true;
+        LoadAllSharedAppData();
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Ensures KeyStore is connected and the key reference of the secure data is valid. The key
+ * reference is dropped when KeyStore is disconnected, so it is retrieved again here.
+ *
+ * @return
+ *  - LE_OK          KeyStore is ready to be used for the secure data.
+ *  - LE_UNAVAILABLE KeyStore is not available.
+ *  - LE_NOT_FOUND   The secure data reference is invalid.
+ *  - LE_FAULT       Failed to get the key.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdStorageSvc::PrepareKs
+(
+    tafMngdStorage_SecDataRef_t secDataRef
+)
+{
+    if (KsEnsureConnected() != LE_OK)
+    {
+        return LE_UNAVAILABLE;
+    }
+
+    tafMngdStorage_SecData_t* dataPtr =
+        (tafMngdStorage_SecData_t*)le_ref_Lookup(SecDataRefMap, secDataRef);
+
+    TAF_ERROR_IF_RET_VAL(dataPtr == nullptr, LE_NOT_FOUND, "invalid secure data ref");
+
+    if (dataPtr->keyRef == nullptr)
+    {
+        char keyId[TAF_KS_MAX_KEY_ID_SIZE] = {0};
+
+        TAF_ERROR_IF_RET_VAL(GetDataKeyId(secDataRef, keyId, sizeof(keyId)) != LE_OK,
+                                LE_FAULT, "cannot get data keyId");
+
+        TAF_ERROR_IF_RET_VAL(taf_ks_GetKey(keyId, &(dataPtr->keyRef)) != LE_OK,
+                                LE_FAULT, "Failed to get key with key id: %s", keyId);
+
+        RefreshSharedAppInfo(secDataRef);
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Drops all the KeyStore references and terminates the ongoing read/write operations, because the
+ * crypto sessions and key references are invalid after KeyStore is disconnected.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdStorageSvc::ResetKsReferences()
+{
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(SecDataRefMap);
+
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        tafMngdStorage_SecData_t* dataPtr = (tafMngdStorage_SecData_t*)le_ref_GetValue(iterRef);
+        if (dataPtr == nullptr)
+        {
+            continue;
+        }
+
+        if (dataPtr->isInWritingProcess)
+        {
+            LE_WARN("Abort writing '%s::%s' since KeyStore is disconnected",
+                    dataPtr->ownerAppName, dataPtr->dataName);
+
+            if (dataPtr->writeOp.outputFd >= 0)
+            {
+                taf_rfs_Close(dataPtr->writeOp.outputFd);
+            }
+            DeleteTempFile(dataPtr->path);
+
+            dataPtr->isInWritingProcess = false;
+            dataPtr->writeOp.outputFd = -1;
+            dataPtr->writeOp.sessionRef = nullptr;
+            dataPtr->writeOp.clientSessionRef = nullptr;
+        }
+
+        if (dataPtr->isInReadingProcess)
+        {
+            LE_WARN("Abort reading '%s::%s' since KeyStore is disconnected",
+                    dataPtr->ownerAppName, dataPtr->dataName);
+
+            if (dataPtr->readOp.outputFd >= 0)
+            {
+                taf_rfs_Close(dataPtr->readOp.outputFd);
+            }
+
+            dataPtr->isInReadingProcess = false;
+            dataPtr->readOp.outputFd = -1;
+            dataPtr->readOp.sessionRef = nullptr;
+            dataPtr->readOp.clientSessionRef = nullptr;
+        }
+
+        dataPtr->keyRef = nullptr;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for the unexpected disconnection of KeyStore.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdStorageSvc::KsDisconnectHandler(void* contextPtr)
+{
+    LE_WARN("KeyStore service disconnected");
+
+    auto& mss = tafMngdStorageSvc::GetInstance();
+
+    mss.ksConnected = false;
+    mss.ResetKsReferences();
+    mss.StartKsRetryTimer();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Starts the timer to reconnect to KeyStore.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdStorageSvc::StartKsRetryTimer()
+{
+    if (ksRetryTimer == nullptr)
+    {
+        ksRetryTimer = le_timer_Create("ksRetryTimer");
+        if (ksRetryTimer == nullptr)
+        {
+            LE_ERROR("Failed to create KeyStore retry timer");
+            return;
+        }
+
+        le_timer_SetHandler(ksRetryTimer, KsRetryHandler);
+        le_timer_SetWakeup(ksRetryTimer, false);
+    }
+    else if (le_timer_IsRunning(ksRetryTimer))
+    {
+        return;
+    }
+
+    ksRetryIndex = 0;
+
+    le_timer_SetMsInterval(ksRetryTimer, KS_RETRY_INTERVALS_MS[0]);
+    le_timer_Start(ksRetryTimer);
+
+    LE_INFO("KeyStore retry mechanism started");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Timer handler to reconnect to KeyStore. If all the retries fail, KeyStore is connected on demand
+ * when a client requests an operation that needs it.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdStorageSvc::KsRetryHandler(le_timer_Ref_t timerRef)
+{
+    auto& mss = tafMngdStorageSvc::GetInstance();
+
+    LE_INFO("KeyStore retry attempt %d/%d", mss.ksRetryIndex + 1, KS_MAX_RETRIES);
+
+    if (mss.KsEnsureConnected() == LE_OK)
+    {
+        le_timer_Delete(timerRef);
+        mss.ksRetryTimer = nullptr;
+        mss.ksRetryIndex = 0;
+        return;
+    }
+
+    mss.ksRetryIndex++;
+
+    if (mss.ksRetryIndex < KS_MAX_RETRIES)
+    {
+        uint32_t interval = KS_RETRY_INTERVALS_MS[mss.ksRetryIndex];
+
+        LE_WARN("KeyStore is still unavailable, retry in %u ms", interval);
+
+        le_timer_SetMsInterval(timerRef, interval);
+        le_timer_Start(timerRef);
+    }
+    else
+    {
+        LE_ERROR("Max KeyStore retries reached, will connect on demand");
+
+        le_timer_Delete(timerRef);
+        mss.ksRetryTimer = nullptr;
+        mss.ksRetryIndex = 0;
     }
 }

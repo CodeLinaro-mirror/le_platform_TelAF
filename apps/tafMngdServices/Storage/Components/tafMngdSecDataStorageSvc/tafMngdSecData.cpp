@@ -125,6 +125,10 @@ le_result_t tafMngdStorageSvc::CreateData
 
     LE_INFO("CreateData, dataName = %s", dataName);
 
+    TAF_ERROR_IF_RET_VAL(KsEnsureConnected() != LE_OK,
+                            LE_UNAVAILABLE,
+                            "KeyStore service is unavailable");
+
     TAF_ERROR_IF_RET_VAL(
         CreateStorageDir() != LE_OK,
         LE_FAULT,
@@ -195,6 +199,10 @@ taf_mngdStorSecData_DataRef_t tafMngdStorageSvc::GetDataRef
 )
 {
     LE_INFO("GetDataRef, dataLabel = %s", dataLabel);
+
+    TAF_ERROR_IF_RET_VAL(KsEnsureConnected() != LE_OK,
+                            nullptr,
+                            "KeyStore service is unavailable");
 
     char myAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
     char ownerAppName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
@@ -301,6 +309,11 @@ taf_mngdStorSecData_DataRef_t tafMngdStorageSvc::GetDataRef
                                 nullptr,
                                 "Cannot create sec data ref");
     }
+
+    // The key reference is dropped when KeyStore was disconnected, get it again if needed.
+    TAF_ERROR_IF_RET_VAL(PrepareKs(clientDataPtr->secDataRef) != LE_OK,
+                            nullptr,
+                            "KeyStore is not ready for the secure data");
 
     RefreshSharedAppInfo(clientDataPtr->secDataRef);
 
@@ -672,6 +685,9 @@ le_result_t tafMngdStorageSvc::WriteDataStart
                             LE_BUSY,
                             "data is in reading process");
 
+    le_result_t ksRes = PrepareKs(clientDataPtr->secDataRef);
+    TAF_ERROR_IF_RET_VAL(ksRes != LE_OK, ksRes, "KeyStore is not ready, res = %d", ksRes);
+
     memset((void*)(&(dataPtr->writeOp)), 0, sizeof(WriteOp_t));
 
     if(clientDataPtr->sharedClient == true)
@@ -1033,6 +1049,10 @@ le_result_t tafMngdStorageSvc::ReadDataFirstChunk
                             LE_OUT_OF_RANGE,
                             "Read size %" PRIuS " is larger than the limitation %d",
                             *readSize, TAF_MNGDSTORSECDATA_MAX_DATA_CHUNK_SIZE);
+
+    TAF_ERROR_IF_RET_VAL(KsEnsureConnected() != LE_OK,
+                            LE_UNAVAILABLE,
+                            "KeyStore service is unavailable");
 
     memset((void*)(&(dataPtr->readOp)), 0, sizeof(ReadOp_t));
 
@@ -1568,6 +1588,10 @@ le_result_t tafMngdStorageSvc::DeleteData
                             LE_NOT_PERMITTED,
                             "shared app is not permitted to delete file");
 
+    // The key is deleted together with the data, so KeyStore is required.
+    le_result_t ksRes = PrepareKs(clientDataPtr->secDataRef);
+    TAF_ERROR_IF_RET_VAL(ksRes != LE_OK, ksRes, "KeyStore is not ready, res = %d", ksRes);
+
     // Notify registered shared app before cleaning data
     for(uint i = 0; i < dataPtr->sharedAppList.appCount; i++)
     {
@@ -1696,6 +1720,9 @@ le_result_t tafMngdStorageSvc::ShareData
             return LE_BAD_PARAMETER;
     }
 
+    le_result_t ksRes = PrepareKs(clientDataPtr->secDataRef);
+    TAF_ERROR_IF_RET_VAL(ksRes != LE_OK, ksRes, "KeyStore is not ready, res = %d", ksRes);
+
     le_result_t res = taf_ks_ShareKey(dataPtr->keyRef, appName, keyCap, 0);
 
     if(res == LE_OK)
@@ -1742,6 +1769,9 @@ le_result_t tafMngdStorageSvc::CancelDataSharing
                             LE_BAD_PARAMETER,
                             "app '%s' is not shared app", appName);
 
+    le_result_t ksRes = PrepareKs(clientDataPtr->secDataRef);
+    TAF_ERROR_IF_RET_VAL(ksRes != LE_OK, ksRes, "KeyStore is not ready, res = %d", ksRes);
+
     le_result_t res = taf_ks_CancelKeySharing(dataPtr->keyRef, appName);
 
     if(res == LE_OK)
@@ -1772,6 +1802,11 @@ le_result_t tafMngdStorageSvc::RefreshSharedAppInfo
         (tafMngdStorage_SecData_t*)le_ref_Lookup(SecDataRefMap, dataRef);
 
     TAF_ERROR_IF_RET_VAL(dataPtr == nullptr, LE_NOT_FOUND, "invalid secure data ref");
+
+    // Do not call KeyStore APIs when it is disconnected or the key reference is dropped.
+    TAF_ERROR_IF_RET_VAL(ksConnected == false || dataPtr->keyRef == nullptr,
+                            LE_UNAVAILABLE,
+                            "KeyStore is not ready");
 
     char appName[LIMIT_MAX_APP_NAME_LEN + 1] = { 0 };
     le_result_t res = LE_OK;

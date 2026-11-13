@@ -123,6 +123,43 @@ taf_ecall_CallRef_t taf_ecall_Create()
 
 /*======================================================================
 
+ FUNCTION        taf_ecall_CreateEx
+
+ DESCRIPTION     Create an eCall reference of the requested kind. RefType
+                 REF_TYPE_NORMAL returns the normal eCall reference and is
+                 equivalent to taf_ecall_Create(). REF_TYPE_PTI_TEST returns
+                 the diagnostic reference, which addresses a separate MSD
+                 used for diagnostic (e.g. PTI) MSD generation and cannot
+                 start or control a call. Each call with REF_TYPE_PTI_TEST
+                 restarts the diagnostic MSD from the spec default values.
+
+ DEPENDENCIES    Initialization of Ecall Service
+
+ PARAMETERS      [IN]  refType: kind of reference to create.
+                 [OUT] ecallRefPtr: created eCall reference.
+
+ RETURN VALUE    le_result_t
+                     LE_OK:                Succeeded.
+                     LE_BAD_PARAMETER:     Invalid parameters.
+                     LE_FAULT:             Failed.
+
+ SIDE EFFECTS    Resets the diagnostic MSD when refType is REF_TYPE_PTI_TEST.
+
+======================================================================*/
+le_result_t taf_ecall_CreateEx
+(
+    taf_ecall_RefType_t  refType,
+    taf_ecall_CallRef_t* ecallRefPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(ecallRefPtr == NULL, LE_BAD_PARAMETER, "ecallRefPtr is NULL");
+
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.CreateECallReferenceEx(refType, ecallRefPtr);
+}
+
+/*======================================================================
+
  FUNCTION        taf_ecall_Delete
 
  DESCRIPTION     Call to free up a call reference.
@@ -773,6 +810,70 @@ le_result_t taf_ecall_GetPropulsionType
  SIDE EFFECTS
 
 ======================================================================*/
+/*======================================================================
+
+ FUNCTION       taf_ecall_SetMsdVersionEx / taf_ecall_SetVehicleTypeEx /
+                taf_ecall_SetVINEx / taf_ecall_SetPropulsionTypeEx
+
+ DESCRIPTION    Reference-aware form of the corresponding taf_ecall_SetXxx()
+                functions. With a normal eCall reference the behaviour is
+                identical to the reference-less original, including persisting
+                the value. With a diagnostic reference the value is applied only
+                to the diagnostic MSD in memory and is not persisted.
+
+ DEPENDENCIES   Initialization of ECall service
+
+ PARAMETERS     [IN] ecallRef: reference for ecall
+
+ RETURN VALUE   le_result_t
+                    LE_BAD_PARAMETER:     Invalid parameters.
+                    LE_FAULT:             Failed.
+                    LE_UNSUPPORTED:       Not supported.
+                    LE_OK:                Succeeded.
+
+ SIDE EFFECTS   Persists the value only for a normal eCall reference.
+
+======================================================================*/
+le_result_t taf_ecall_SetMsdVersionEx
+(
+    taf_ecall_CallRef_t ecallRef,
+    uint32_t            msdVersion
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetMsdVersionEx(ecallRef, msdVersion);
+}
+
+le_result_t taf_ecall_SetVehicleTypeEx
+(
+    taf_ecall_CallRef_t        ecallRef,
+    taf_ecall_MsdVehicleType_t vehType
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetVehicleTypeEx(ecallRef, vehType);
+}
+
+le_result_t taf_ecall_SetVINEx
+(
+    taf_ecall_CallRef_t ecallRef,
+    const char*         vin
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetVINEx(ecallRef, vin);
+}
+
+le_result_t taf_ecall_SetPropulsionTypeEx
+(
+    taf_ecall_CallRef_t               ecallRef,
+    taf_ecall_PropulsionStorageType_t propulsionType
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetPropulsionTypeEx(ecallRef, propulsionType);
+}
+
 le_result_t taf_ecall_SetMsdPosition
 (
     taf_ecall_CallRef_t  ecallRef,

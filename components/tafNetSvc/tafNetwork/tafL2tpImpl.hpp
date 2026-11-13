@@ -241,6 +241,7 @@ namespace tafsvc {
             ~taf_L2tp() {};
 
             void Init(void);
+            void Deinit(void);
             static taf_L2tp &GetInstance();
 
             static void* L2tpEventThread(void* contextPtr);

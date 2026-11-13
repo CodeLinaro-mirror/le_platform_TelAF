@@ -1486,6 +1486,11 @@ void taf_ecall::Init(void)
     {
         ElapsedTimeT9 = le_cfg_GetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T9, 0);
         LE_INFO("ElapsedTimeT9 is %d when tafECallSvc is initiated", ElapsedTimeT9);
+        if (ElapsedTimeT9 == 0xFFFFu)
+        {
+            LE_ERROR("Invalid persisted T9 elapsed time 0xFFFF; resetting to 0");
+            ElapsedTimeT9 = 0;
+        }
         if (LE_OK == GetNadMinNetworkRegistrationTime(&minNwRegTime))
         {
             if (ElapsedTimeT9 < minNwRegTime*60)
@@ -1507,6 +1512,11 @@ void taf_ecall::Init(void)
     {
         ElapsedTimeT10 = le_cfg_GetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T10, 0);
         LE_INFO("ElapsedTimeT10 is %d when tafECallSvc is initiated", ElapsedTimeT10);
+        if (ElapsedTimeT10 == 0xFFFFu)
+        {
+            LE_ERROR("Invalid persisted T10 elapsed time 0xFFFF; resetting to 0");
+            ElapsedTimeT10 = 0;
+        }
         if (LE_OK == GetNadDeregistrationTime(&deRegTime))
         {
             if (ElapsedTimeT10 < deRegTime*60)
@@ -3478,99 +3488,128 @@ HlapTimerEventType_t taf_ecall::ConvertHlapTimerEvent(HlapTimerEvent event) {
             return HLAP_TIMER_EVENT_TYPE_UNKNOWN;
     }
 }
-
 void taf_ecall::T9TimerExpiryHandler(le_timer_Ref_t timerRef)
 {
-    auto &eCall = taf_ecall::GetInstance();
+    auto& eCall = taf_ecall::GetInstance();
+
     taf_ecall_HlapTimerStatus_t timerStatus = TAF_ECALL_TIMER_STATUS_UNKNOWN;
+
     uint16_t elapsedTime = 0;
     uint16_t minNwRegTime = 0;
 
-    if (LE_OK == eCall.GetNadMinNetworkRegistrationTime(&minNwRegTime))
+    if (LE_OK != eCall.GetNadMinNetworkRegistrationTime(&minNwRegTime))
     {
-        if (eCall.ElapsedTimeT9 <= minNwRegTime*60)
-        {
-            if ((LE_OK == eCall.GetHlapTimerState(TAF_ECALL_TIMER_TYPE_T9, &timerStatus, &elapsedTime)))
-            {
-                if(timerStatus == TAF_ECALL_TIMER_STATUS_ACTIVE)
-                {
-                    LE_INFO("T9 timer is ACTIVE — persisting elapsedTime: %u sec to config", elapsedTime);
-                    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_ECALL_HLAPTIMERELAPSED_PATH );
-                    le_cfg_SetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T9, elapsedTime);
-                    le_cfg_CommitTxn(iteratorRef);
-                }
-                else
-                {
-                    LE_ERROR("T9 timer not active (status=%d), skipping config write.", (int)timerStatus);
-                }
-            }
-            else{
-                LE_ERROR("GetHlapTimerState FAILED for T9 — skipping config write ");
-            }
-        }
-        else {
-            LE_INFO("elapsedTimeT10Ref timer stopped");
-            le_timer_Stop(eCall.elapsedTimeT9Ref);
-            le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_ECALL_HLAPTIMERELAPSED_PATH );
-            le_cfg_SetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T9, minNwRegTime*60);
-            le_cfg_CommitTxn(iteratorRef);
-        }
-    } else {
-        LE_ERROR("GetNadDeregistrationTime FAILED — persisting sentinel value (-1) to config");
-        le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_ECALL_HLAPTIMERELAPSED_PATH );
-        le_cfg_SetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T9, -1);
-        le_cfg_CommitTxn(iteratorRef);
+        LE_ERROR("GetNadMinNetworkRegistrationTime() failed;");
+        return;
     }
-    LE_INFO("T9 timer status: %d, elapsed timer: %d, configuration timer: %d", (int)timerStatus, elapsedTime, minNwRegTime);
-}
 
-void taf_ecall::T10TimerExpiryHandler(le_timer_Ref_t timerRef)
-{
-    auto &eCall = taf_ecall::GetInstance();
-    taf_ecall_HlapTimerStatus_t timerStatus = TAF_ECALL_TIMER_STATUS_UNKNOWN;
-    uint16_t elapsedTime = 0;
-    uint16_t deRegTime = 0;
-
-    if (LE_OK == eCall.GetNadDeregistrationTime(&deRegTime))
+    if (eCall.ElapsedTimeT9 <= (minNwRegTime * 60))
     {
-        if (eCall.ElapsedTimeT10 <= deRegTime*60)
+        if (LE_OK != eCall.GetHlapTimerState(TAF_ECALL_TIMER_TYPE_T9,&timerStatus,&elapsedTime))
         {
-            if ((LE_OK == eCall.GetHlapTimerState(TAF_ECALL_TIMER_TYPE_T10, &timerStatus, &elapsedTime)))
-            {
-                if(timerStatus == TAF_ECALL_TIMER_STATUS_ACTIVE)
-                {
-                    LE_INFO("T10 timer is ACTIVE — persisting elapsedTime: %u sec to config", elapsedTime);
-                    le_cfg_IteratorRef_t iteratorRef =le_cfg_CreateWriteTxn(CFG_ECALL_HLAPTIMERELAPSED_PATH);
-                    le_cfg_SetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T10, elapsedTime);
-                    le_cfg_CommitTxn(iteratorRef);
-                }
-                else{
-                    LE_ERROR("T10 timer is NOT ACTIVE (status: %d) — skipping config write",(int)timerStatus);
-                }
-            }
-            else
-            {
-                LE_ERROR("GetHlapTimerState FAILED for T10 — skipping config write ");
-            }
+            LE_INFO("T9 timer status: %d, elapsed timer: %u, ""configuration timer: %u",
+                    static_cast<int>(timerStatus),elapsedTime,
+                    minNwRegTime);
+            return;
         }
-        else
+
+        if (timerStatus == TAF_ECALL_TIMER_STATUS_ACTIVE)
         {
-            le_timer_Stop(eCall.elapsedTimeT10Ref);
-            LE_INFO("elapsedTimeT10Ref timer stopped");
-            le_cfg_IteratorRef_t iteratorRef =le_cfg_CreateWriteTxn(CFG_ECALL_HLAPTIMERELAPSED_PATH);
-            le_cfg_SetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T10, deRegTime * 60);
-            le_cfg_CommitTxn(iteratorRef);
+            le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn(CFG_ECALL_HLAPTIMERELAPSED_PATH);
+
+            if (iteratorRef != nullptr)
+            {
+                le_cfg_SetInt(iteratorRef,CFG_NODE_HLAPTIMERELAPSED_T9,elapsedTime);
+                le_cfg_CommitTxn(iteratorRef);
+            }
         }
     }
     else
     {
-        LE_ERROR("GetNadDeregistrationTime FAILED — persisting sentinel value (-1) to config");
-        le_cfg_IteratorRef_t iteratorRef =le_cfg_CreateWriteTxn(CFG_ECALL_HLAPTIMERELAPSED_PATH);
-        le_cfg_SetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T10, -1);
-        le_cfg_CommitTxn(iteratorRef);
+        le_timer_Stop(eCall.elapsedTimeT9Ref);
+
+        le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn(CFG_ECALL_HLAPTIMERELAPSED_PATH);
+
+        if (iteratorRef != nullptr)
+        {
+            le_cfg_SetInt(iteratorRef,CFG_NODE_HLAPTIMERELAPSED_T9,minNwRegTime * 60);
+            le_cfg_CommitTxn(iteratorRef);
+        }
     }
 
-    LE_INFO("T10 timer status: %d, elapsed timer: %d, configuration timer: %d",(int)timerStatus, elapsedTime, deRegTime);
+    LE_INFO("T9 timer status: %d, elapsed timer: %u, ""configuration timer: %u",
+            static_cast<int>(timerStatus),elapsedTime,minNwRegTime);
+}
+
+void taf_ecall::T10TimerExpiryHandler(le_timer_Ref_t timerRef)
+{
+    auto& eCall = taf_ecall::GetInstance();
+
+    taf_ecall_HlapTimerStatus_t timerStatus = TAF_ECALL_TIMER_STATUS_UNKNOWN;
+
+    uint16_t elapsedTime = 0;
+    uint16_t deRegTime = 0;
+
+    if (LE_OK != eCall.GetNadDeregistrationTime(&deRegTime))
+    {
+        LE_ERROR("GetNadDeregistrationTime() failed; ""preserving the existing T10 persisted value");
+        return;
+    }
+
+    if (eCall.ElapsedTimeT10 <= (deRegTime * 60))
+    {
+        if (LE_OK != eCall.GetHlapTimerState(TAF_ECALL_TIMER_TYPE_T10,&timerStatus,&elapsedTime))
+        {
+            LE_ERROR("GetHlapTimerState() failed for T10; "
+                     "preserving the existing T10 persisted value");
+            return;
+        }
+
+        if (timerStatus == TAF_ECALL_TIMER_STATUS_ACTIVE)
+        {
+            LE_INFO("T10 timer is ACTIVE - persisting elapsedTime: %u sec to ConfigTree",
+                    elapsedTime);
+
+            le_cfg_IteratorRef_t iteratorRef =le_cfg_CreateWriteTxn(CFG_ECALL_HLAPTIMERELAPSED_PATH);
+
+            if (iteratorRef == nullptr)
+            {
+                LE_ERROR("Failed to create ConfigTree write transaction for T10");
+            }
+            else
+            {
+                le_cfg_SetInt(iteratorRef,CFG_NODE_HLAPTIMERELAPSED_T10,elapsedTime);
+                le_cfg_CommitTxn(iteratorRef);
+            }
+        }
+        else
+        {
+            LE_ERROR("T10 timer is not ACTIVE, status=%d; ""skipping ConfigTree write",static_cast<int>(timerStatus));
+        }
+    }
+    else
+    {
+        le_timer_Stop(eCall.elapsedTimeT10Ref);
+
+        LE_INFO("T10 elapsed-time timer stopped");
+
+        le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn(CFG_ECALL_HLAPTIMERELAPSED_PATH);
+
+        if (iteratorRef == nullptr)
+        {
+            LE_ERROR("Failed to create ConfigTree write transaction for T10 expiry");
+        }
+        else
+        {
+            le_cfg_SetInt(iteratorRef,CFG_NODE_HLAPTIMERELAPSED_T10, deRegTime * 60);
+            le_cfg_CommitTxn(iteratorRef);
+        }
+    }
+
+    LE_INFO("T10 timer status: %d, elapsed timer: %u, ""configuration timer: %u",
+            static_cast<int>(timerStatus),
+            elapsedTime,
+            deRegTime);
 }
 
 bool taf_ecall::WaitECallOperatingModeReady(int phoneId, taf_ecall_OpMode_t *opMode)
@@ -3903,62 +3942,75 @@ void taf_ecall::OnEventModemOperational()
     ResumeHlapTimers(needToResumeT9Local, needToResumeT10Local);
 }
 
-void taf_ecall::OnEventSaveHlapTimerElapsed(HlapTimerType_t type, HlapTimerEventType_t event)
+void taf_ecall::OnEventSaveHlapTimerElapsed(
+    HlapTimerType_t type,
+    HlapTimerEventType_t event)
 {
-    LE_INFO("OnEventSaveHlapTimerElapsed");
-    auto &eCall = taf_ecall::GetInstance();
+    le_cfg_IteratorRef_t iteratorRef =le_cfg_CreateWriteTxn(CFG_ECALL_HLAPTIMERELAPSED_PATH);
 
-    if ((type == HLAP_TIMER_TYPE_T9) || (type == HLAP_TIMER_TYPE_T10))
+    auto& eCall = taf_ecall::GetInstance();
+
+    switch (event)
     {
-        LE_INFO("T9 elapsedTime %d, T10 elapsedTime %d", ElapsedTimeT9, ElapsedTimeT10);
-        bool shouldStopTimer = (event == HLAP_TIMER_EVENT_TYPE_EXPIRED) ||
-                               (event == HLAP_TIMER_EVENT_TYPE_STOPPED) ||
-                               (event == HLAP_TIMER_EVENT_TYPE_UNKNOWN);
-
-        if (shouldStopTimer)
-        {
-            if (type == HLAP_TIMER_TYPE_T9)
-            {
-                le_timer_Stop(eCall.elapsedTimeT9Ref);
-            } else {
-                le_timer_Stop(eCall.elapsedTimeT10Ref);
-            }
-        }
-        else if ((event == HLAP_TIMER_EVENT_TYPE_STARTED) ||
-                 (event == HLAP_TIMER_EVENT_TYPE_RESUMED))
+        case HLAP_TIMER_EVENT_TYPE_STARTED:
         {
             if (type == HLAP_TIMER_TYPE_T9)
             {
                 le_timer_Start(eCall.elapsedTimeT9Ref);
-            } else {
-                le_timer_Start(eCall.elapsedTimeT10Ref);
+                le_cfg_SetInt(iteratorRef,CFG_NODE_HLAPTIMERELAPSED_T9,0);
             }
+            else if (type == HLAP_TIMER_TYPE_T10)
+            {
+                le_timer_Start(eCall.elapsedTimeT10Ref);
+                le_cfg_SetInt(iteratorRef,CFG_NODE_HLAPTIMERELAPSED_T10,0);
+            }
+            break;
         }
 
-        le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn(CFG_ECALL_HLAPTIMERELAPSED_PATH);
-        if (event != HLAP_TIMER_EVENT_TYPE_RESUMED)
+        case HLAP_TIMER_EVENT_TYPE_RESUMED:
         {
-            if (event == HLAP_TIMER_EVENT_TYPE_STARTED)
-            {
-                if (type == HLAP_TIMER_TYPE_T9)
-                {
-                    le_cfg_SetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T9, 0);
-                } else {
-                    le_cfg_SetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T10, 0);
-                }
-            } else {
-                le_cfg_DeleteNode(iteratorRef, "");
-            }
-        } else {
             if (type == HLAP_TIMER_TYPE_T9)
             {
-                le_cfg_SetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T9, ElapsedTimeT9);
-            } else {
-                le_cfg_SetInt(iteratorRef, CFG_NODE_HLAPTIMERELAPSED_T10, ElapsedTimeT10);
+                le_timer_Start(eCall.elapsedTimeT9Ref);
+                le_cfg_SetInt(iteratorRef,CFG_NODE_HLAPTIMERELAPSED_T9,ElapsedTimeT9);
             }
+            else if (type == HLAP_TIMER_TYPE_T10)
+            {
+                le_timer_Start(eCall.elapsedTimeT10Ref);
+
+                le_cfg_SetInt(iteratorRef,CFG_NODE_HLAPTIMERELAPSED_T10,ElapsedTimeT10);
+            }
+            break;
         }
-        le_cfg_CommitTxn(iteratorRef);
+
+        case HLAP_TIMER_EVENT_TYPE_EXPIRED:
+        case HLAP_TIMER_EVENT_TYPE_STOPPED:
+        case HLAP_TIMER_EVENT_TYPE_UNKNOWN:
+        {
+            // Stop local persistence timer and remove only the affected node.
+            if (type == HLAP_TIMER_TYPE_T9)
+            {
+                le_timer_Stop(eCall.elapsedTimeT9Ref);
+
+                le_cfg_DeleteNode(iteratorRef,CFG_NODE_HLAPTIMERELAPSED_T9);
+            }
+            else if (type == HLAP_TIMER_TYPE_T10)
+            {
+                le_timer_Stop(eCall.elapsedTimeT10Ref);
+
+                le_cfg_DeleteNode(iteratorRef,CFG_NODE_HLAPTIMERELAPSED_T10);
+            }
+            break;
+        }
+
+        default:
+        {
+            LE_WARN("Unhandled HLAP timer event %d", event);
+            break;
+        }
     }
+
+    le_cfg_CommitTxn(iteratorRef);
 }
 
 void taf_ecall::OnEventEcallInProgressModemReboot()

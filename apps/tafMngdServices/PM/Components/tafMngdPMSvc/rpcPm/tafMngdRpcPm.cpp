@@ -704,6 +704,38 @@ void tafMngdRpcPm::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *c
             le_mem_Release((void*)wsRefCtxPtr);
         }
     }
+    le_dls_Link_t* nodePowerStateListHandlerPtr = le_dls_PeekTail(&rpcNodePowerStateHandlerList);
+    while (nodePowerStateListHandlerPtr)
+    {
+        taf_mngdPm_NodePowerStateCtxt_t * handlerCtxPtr =
+                CONTAINER_OF(nodePowerStateListHandlerPtr, taf_mngdPm_NodePowerStateCtxt_t, link);
+        nodePowerStateListHandlerPtr = le_dls_PeekPrev(&rpcNodePowerStateHandlerList, nodePowerStateListHandlerPtr);
+        // Release the per-handler immediate-notify node state ref, if any
+        if (handlerCtxPtr && (handlerCtxPtr->sessionRef == sessionRef))
+        {
+            if (handlerCtxPtr->initialNodePowerState.nodeStateRef)
+            {
+                taf_NodePowerStateRef_t* nodeRefPtr =
+                    (taf_NodePowerStateRef_t*) le_ref_Lookup(
+                                    rpcNodePowerStateRefMap,
+                                    handlerCtxPtr->initialNodePowerState.nodeStateRef);
+                if (nodeRefPtr)
+                {
+                    le_ref_DeleteRef(
+                                rpcNodePowerStateRefMap,
+                                handlerCtxPtr->initialNodePowerState.nodeStateRef);
+                    le_mem_Release(nodeRefPtr);
+                }
+                handlerCtxPtr->initialNodePowerState.nodeStateRef = NULL;
+                handlerCtxPtr->initialNodePowerState.isAcked = false;
+            }
+            LE_INFO("Clearing RPC node power state handler for client sessionRef %p",
+                handlerCtxPtr->sessionRef);
+            le_ref_DeleteRef(rpcNodePowerStateHandlerMap, handlerCtxPtr->handlerRef);
+            le_dls_Remove(&(rpcNodePowerStateHandlerList), &handlerCtxPtr->link);
+            le_mem_Release((void*)handlerCtxPtr);
+        }
+    }
 }
 
 /**

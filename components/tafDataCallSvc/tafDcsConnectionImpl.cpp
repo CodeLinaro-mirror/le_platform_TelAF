@@ -4129,30 +4129,6 @@ void DeregisterListeners()
                 }
             }
         }
-
-        // Deregister data connection listener for each slot it
-        if (!bDataConnectionListenersRegistered[slotIdx - 1])
-        {
-            LE_INFO("Data connection listeners already deregistered.");
-        }
-        else
-        {
-            if (dataConnection.dataConnectionManagers.find((SlotId)slotIdx) !=
-                dataConnection.dataConnectionManagers.end())
-            {
-                if (dataConnection.dataConnectionManagers[(SlotId)slotIdx] -> deregisterListener(
-                                    dataConnection.dataConnectionListeners[(SlotId)slotIdx]) ==
-                                                                    telux::common::Status::SUCCESS)
-                {
-                    LE_INFO("Data connection listener for slot ID %d registered.", slotIdx);
-                    bDataConnectionListenersRegistered[slotIdx - 1] = false;
-                }
-                else
-                {
-                    LE_ERROR("Fail to register serving system listener %d.", slotIdx);
-                }
-            }
-        }
         UNLOCK
     }
 }

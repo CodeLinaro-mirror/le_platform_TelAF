@@ -89,10 +89,10 @@ static void Test_ECall_MSD_Information()
 
     taf_ecall_MsdTransmissionMode_t mode = TAF_ECALL_MSD_TX_MODE_PULL;
     res = taf_ecall_SetMsdTxMode(TAF_ECALL_MSD_TX_MODE_PUSH);
-    LE_TEST_OK(res == LE_CAP_UNSUPPORTED, "Test taf_ecall_SetMsdTxMode done");
+    LE_TEST_OK(res == LE_UNSUPPORTED, "Test taf_ecall_SetMsdTxMode done");
     res = taf_ecall_GetMsdTxMode(&mode);
-    LE_TEST_OK(res == LE_CAP_UNSUPPORTED, "Test taf_ecall_GetMsdTxMode done");
-    LE_TEST_OK(mode == TAF_ECALL_TX_MODE_PUSH || res == LE_CAP_UNSUPPORTED, "Test taf_ecall_GetMsdTxMode done");
+    LE_TEST_OK(res == LE_UNSUPPORTED, "Test taf_ecall_GetMsdTxMode done");
+    LE_TEST_OK(mode == TAF_ECALL_TX_MODE_PUSH || res == LE_UNSUPPORTED, "Test taf_ecall_GetMsdTxMode done");
     LE_INFO("Set and get MSD transmission mode completed");
 
     char vin[TAF_ECALL_MAX_VIN_BYTES];

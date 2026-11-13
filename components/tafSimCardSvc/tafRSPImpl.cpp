@@ -145,6 +145,12 @@ void taf_simRsp::Init(void)
     LE_INFO(" EID = %s", eidPtr);
 }
 
+void taf_simRsp::Deinit(void)
+{
+    rspListener.reset();
+    simProfileManager.reset();
+}
+
 taf_simRsp &taf_simRsp::GetInstance()
 {
     static taf_simRsp instance;

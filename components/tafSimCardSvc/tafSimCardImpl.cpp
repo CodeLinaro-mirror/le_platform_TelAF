@@ -38,6 +38,7 @@
 #include "interfaces.h"
 #include "telux/tel/PhoneFactory.hpp"
 #include "tafSimCard.hpp"
+#include "tafRSP.hpp"
 #include <unistd.h>
 
 using namespace telux::tel;
@@ -52,6 +53,10 @@ static taf_sim_FPLMNListRef_t fplmnListRefs = nullptr;
 void tafCardListener:: onCardInfoChanged(int slotId)
 {
     LE_INFO("Card info changed for slot: %d", slotId);
+    if (taf_sim::GetInstance().modemUnavailable.load())
+    {
+        return;
+    }
     auto &sim = taf_sim::GetInstance();
     sim_event_t simEvent;
     auto slotWithCard = slotId;
@@ -76,6 +81,10 @@ void tafCardListener:: onCardInfoChanged(int slotId)
 void tafSubscriptionListener:: onSubscriptionInfoChanged
                          (std::shared_ptr<telux::tel::ISubscription> subscription) {
     LE_INFO("onSubscriptionInfoChanged");
+    if (taf_sim::GetInstance().modemUnavailable.load())
+    {
+        return;
+    }
     auto &sim = taf_sim::GetInstance();
     taf_sim_info_t* simPtr = NULL;
     telux::common::Status status;
@@ -112,6 +121,10 @@ void tafSubscriptionListener:: onSubscriptionInfoChanged
 
 void tafMultiSimListener:: onSlotStatusChanged(std::map<SlotId, telux::tel::SlotStatus> slotStatus) {
     LE_INFO("onSlotStatusChanged: %" PRIuS, slotStatus.size());
+    if (taf_sim::GetInstance().modemUnavailable.load())
+    {
+        return;
+    }
     auto &sim = taf_sim::GetInstance();
     int activeSlotCount = 0;
     telux::common::Status status;
@@ -447,8 +460,126 @@ void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr)
     }
 }
 
+void tafSimModemEvtListener::onStateChange(telux::common::SubsystemInfo subsystemInfo,
+    telux::common::OperationalStatus newOperationalStatus)
+{
+    if (((subsystemInfo.subsystems & telux::common::Subsystem::MPSS) ==
+            telux::common::Subsystem::MPSS) &&
+        (newOperationalStatus == telux::common::OperationalStatus::UNAVAILABLE))
+    {
+        auto &sim = taf_sim::GetInstance();
+        if (sim.modemUnavailable.exchange(true))
+        {
+            return;
+        }
+        le_event_Report(sim.modemUnavailableEvId, &newOperationalStatus,
+            sizeof(newOperationalStatus));
+    }
+}
+
+void taf_sim::ModemUnavailableHandler(void* reportPtr)
+{
+    LE_UNUSED(reportPtr);
+
+    LE_CRIT("Modem SSR detected, exiting for restart");
+    taf_simRsp::GetInstance().Deinit();
+    taf_sim::GetInstance().Deinit();
+    _exit(EXIT_UNAVAILABLE);
+}
+
+void taf_sim::Deinit(void)
+{
+    LE_INFO("Deinitializing SIM service");
+    const auto available = telux::common::ServiceStatus::SERVICE_AVAILABLE;
+
+    if (multiSimMgr != nullptr && multiSimListener != nullptr &&
+        multiSimMgr->getServiceStatus() == available)
+    {
+        multiSimMgr->deregisterListener(multiSimListener);
+    }
+    if (cardManager != nullptr && cardListener != nullptr &&
+        cardManager->getServiceStatus() == available)
+    {
+        cardManager->removeListener(cardListener);
+    }
+    if (subMgr != nullptr && subscriptionListener != nullptr &&
+        subMgr->getServiceStatus() == available)
+    {
+        subMgr->removeListener(subscriptionListener);
+    }
+    if (subsystemMgr != nullptr && modemEvtListener != nullptr)
+    {
+        subsystemMgr->deRegisterListener(modemEvtListener);
+    }
+
+    if (taf_pa_sim_DeInit() != LE_OK)
+    {
+        LE_ERROR("Failed to deinit SIM PA");
+    }
+}
+
+void taf_sim::WaitForModem(void)
+{
+    modemUnavailableEvId = le_event_CreateId("SimModemUnavailable",
+        sizeof(telux::common::OperationalStatus));
+    le_event_AddHandler("SimModemUnavailable", modemUnavailableEvId, ModemUnavailableHandler);
+
+    auto prom = std::make_shared<std::promise<void>>();
+    subsystemMgr = telux::platform::SubsystemFactory::getInstance().getSubsystemManager(
+        [prom](telux::common::ServiceStatus status)
+        {
+            try {
+                if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                {
+                    prom->set_value();
+                }
+            }
+            catch (const std::future_error& e) {
+                LE_ERROR("Future error in subsystem manager callback: %s", e.what());
+            }
+            catch (const std::exception& e) {
+                LE_ERROR("Exception in subsystem manager callback: %s", e.what());
+            }
+            catch (...) {
+                LE_ERROR("Unknown error in subsystem manager callback.");
+            }
+        });
+    LE_FATAL_IF(subsystemMgr == nullptr, "Failed to get subsystem manager.");
+
+    telux::common::SubsystemInfo info{};
+    info.location   = telux::common::ProcType::LOCAL_PROC;
+    info.subsystems = telux::common::Subsystem::MPSS;
+    modemEvtListener = std::make_shared<tafSimModemEvtListener>();
+    LE_FATAL_IF(subsystemMgr->registerListener(modemEvtListener, {info}) !=
+        telux::common::ErrorCode::SUCCESS, "Failed to register modem state listener.");
+
+    auto f = prom->get_future();
+    int waited = 0;
+    while (f.wait_for(std::chrono::seconds(TAF_SIM_MODEM_WAIT_INTERVAL)) ==
+           std::future_status::timeout)
+    {
+        waited += TAF_SIM_MODEM_WAIT_INTERVAL;
+        if (subsystemMgr->getServiceStatus() == telux::common::ServiceStatus::SERVICE_FAILED)
+        {
+            LE_CRIT("Subsystem manager init failed, exiting for restart");
+            _exit(EXIT_UNAVAILABLE);
+        }
+        if (waited >= TAF_SIM_MODEM_WAIT_TIMEOUT)
+        {
+            LE_CRIT("Modem not operational after %d s, exiting for restart", waited);
+            _exit(EXIT_UNAVAILABLE);
+        }
+        LE_WARN("Waiting for modem to be operational (%d s)...", waited);
+    }
+    LE_INFO("Modem is operational");
+}
+
 void taf_sim::Init(void)
 {
+    WaitForModem();
+    taf_sim_AdvertiseService();
+    taf_simRsp_AdvertiseService();
+
     auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
     telux::common::ServiceStatus subMgrStatus = telux::common::ServiceStatus::SERVICE_UNAVAILABLE;
     LE_INFO("Subscription subsystem is not ready, waiting for it to be ready...");

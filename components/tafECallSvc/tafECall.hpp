@@ -71,6 +71,8 @@ using namespace std;
 #define MAX_T9_T10_ELAPSED_TIME_SEC 43200
 #define NSEC_PER_SEC 1000000000L
 #define ECALL_DEFAULT_LOGICAL_SLOT 1
+#define MAX_NUM_OF_SIM_CONN_ATTEMPTS 30
+#define SIM_CONN_RETRY_TIMER_INTERVAL 1000
 
     namespace tafsvc {
 

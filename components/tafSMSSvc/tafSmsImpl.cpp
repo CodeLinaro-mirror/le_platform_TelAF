@@ -2105,8 +2105,8 @@ void tafSmsListener::onIncomingSms(int phoneId, std::shared_ptr<SmsMessage> smsM
 
    auto &sms = taf_Sms::GetInstance();
 
-   LE_INFO("Received SMS from phone ID %d from: %s", phoneId, smsMsg->getSender().c_str());
-   LE_INFO("message: %s", smsMsg->getText().c_str());
+   LE_INFO("Received SMS from phone ID %d", phoneId);
+   LE_DEBUG("message: %s", smsMsg->getText().c_str());
 
    LE_INFO("sysPrefStorage: %d", sms.sysPrefStorage);
 
@@ -2116,7 +2116,7 @@ void tafSmsListener::onIncomingSms(int phoneId, std::shared_ptr<SmsMessage> smsM
 
    le_utf8_Copy(newMsg.pdu, smsMsg->getPdu().c_str(), (TAF_SMS_PDU_BYTES * 2) + 1, NULL);
 
-   LE_INFO("PDU: %s", smsMsg->getPdu().c_str());
+   LE_DEBUG("PDU: %s", smsMsg->getPdu().c_str());
 
    if(sms.sysPrefStorage == TAF_SMS_STORAGE_SIM)
    {

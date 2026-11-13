@@ -237,10 +237,10 @@ le_result_t taf_sim_SelectCard( taf_sim_Id_t slotId) {
     }
     return result;
 }
-
-taf_sim_Id_t taf_sim_GetSelectedCard( void) {
-    auto &sim = taf_sim::GetInstance();
-    return (taf_sim_Id_t)sim.slot;
+taf_sim_Id_t taf_sim_GetSelectedCard(void)
+{
+    auto& sim = taf_sim::GetInstance();
+    return sim.GetSelectedCard();
 }
 
 le_result_t taf_sim_EnterPIN( taf_sim_Id_t  slotId, taf_sim_LockType_t lockType,

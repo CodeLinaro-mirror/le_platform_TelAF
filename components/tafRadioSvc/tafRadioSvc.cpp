@@ -148,8 +148,8 @@ le_result_t taf_radio_SetAutomaticRegisterMode
 
     taf_pa_radio_NetworkSelectionPreference_t preference;
     preference.mode = TAF_PA_RADIO_NETWORK_SELECTION_MODE_AUTOMATIC;
-    preference.mcc = 0;
-    preference.mnc = 0;
+    le_utf8_Copy(preference.mcc, "0", sizeof(preference.mcc), NULL);
+    le_utf8_Copy(preference.mnc, "0", sizeof(preference.mnc), NULL);
     taf_pa_result_t result = taf_pa_radio_SetNetworkSelectionPreference(instance, &preference);
 
     if (result != TAF_PA_OK)
@@ -294,18 +294,16 @@ le_result_t taf_radio_GetRegisterMode
             return LE_BAD_PARAMETER;
     }
 
-    result = Utility::Convert::U16ToString(preference.mcc, mccPtr, TAF_RADIO_MCC_BYTES, false);
-    if (result != LE_OK)
+    if (le_utf8_Copy(mccPtr, preference.mcc, TAF_RADIO_MCC_BYTES, nullptr) != LE_OK)
     {
-        LE_ERROR("Failed to convert MCC %d.", preference.mcc);
-        return result;
+        LE_ERROR("Failed to copy MCC string.");
+        return LE_BAD_PARAMETER;
     }
 
-    result = Utility::Convert::U16ToString(preference.mnc, mncPtr, TAF_RADIO_MNC_BYTES, true);
-    if (result != LE_OK)
+    if (le_utf8_Copy(mncPtr, preference.mnc, TAF_RADIO_MNC_BYTES, nullptr) != LE_OK)
     {
-        LE_ERROR("Failed to convert MNC %d.", preference.mnc);
-        return result;
+        LE_ERROR("Failed to copy MNC string.");
+        return LE_BAD_PARAMETER;
     }
 
     return LE_OK;

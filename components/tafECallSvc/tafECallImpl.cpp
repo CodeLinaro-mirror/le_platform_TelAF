@@ -194,7 +194,7 @@ void tafUpdateMsdCommandCallback::commandResponse(telux::common::ErrorCode error
     try
     {
         if(errorCode == telux::common::ErrorCode::SUCCESS) {
-            LE_INFO("Update MSD is successful ");
+            LE_DEBUG("Update MSD is successful ");
         } else {
             LE_ERROR("Update MSD failed with error code: %d ", (static_cast<int>(errorCode)));
         }
@@ -215,7 +215,7 @@ void tafHangupCommandCallback::commandResponse(telux::common::ErrorCode errorCod
     try
     {
         if(errorCode == telux::common::ErrorCode::SUCCESS) {
-            LE_INFO("Call hangup is successful ");
+            LE_DEBUG("Call hangup is successful ");
         } else {
             LE_ERROR("Call hangup failed with error code: %d ", (static_cast<int>(errorCode)));
         }
@@ -236,7 +236,7 @@ void tafRejectCommandCallback::commandResponse(telux::common::ErrorCode errorCod
     try
     {
         if(errorCode == telux::common::ErrorCode::SUCCESS) {
-            LE_INFO("Call reject is successful ");
+            LE_DEBUG("Call reject is successful ");
         } else {
             LE_ERROR("Call reject failed with error code: %d ", (static_cast<int>(errorCode)));
         }
@@ -257,7 +257,7 @@ void tafAnswerCommandCallback::commandResponse(telux::common::ErrorCode errorCod
     try
     {
         if(errorCode == telux::common::ErrorCode::SUCCESS) {
-            LE_INFO("Call answer is successful ");
+            LE_DEBUG("Call answer is successful ");
         } else {
             LE_ERROR("Call answer failed with error code: %d ", (static_cast<int>(errorCode)));
         }
@@ -294,7 +294,7 @@ void tafECallListener::onIncomingCall(std::shared_ptr<telux::tel::ICall> call) {
     eventPtr->param.incomingCall.callState = call->getCallState();
 
     const std::string& number = call->getRemotePartyNumber();
-    LE_INFO("Incoming call remotePartyNumber: %s", number.c_str());
+    LE_DEBUG("Incoming call remotePartyNumber: %s", number.c_str());
 
     if (!number.empty()) {
         le_utf8_Copy(eventPtr->param.incomingCall.remotePartyNumber, number.c_str(), MAX_DESTINATION_LEN, nullptr);
@@ -559,7 +559,7 @@ void taf_ecall::HandleCallInfoChange(int phoneId, const RxECallInfoChangeParam_t
     }
 
     CallEndError = telux::tel::CallEndCause::NORMAL;
-    LE_INFO("Call state: %d", (int) callState);
+    LE_DEBUG("Call state: %d", (int) callState);
 
     switch (callState) {
         case CallState::CALL_ACTIVE:
@@ -950,7 +950,8 @@ void taf_ecall::ProcessRxECallEvent(void* msgPtr)
             if (!makeCallRespReceived) {
                 std::lock_guard<std::mutex> lock(eCall.pendingECallEventsMtx);
                 if (eventCallState == CallState::CALL_ENDED) {
-                    LE_INFO("CALL_INFO_CHANGE with CALL_ENDED received before makeCallResp, cleaning up directly.");
+                    LE_DEBUG("CALL_INFO_CHANGE with CALL_ENDED received before makeCallResp, cleaning up directly.");
+                    std::lock_guard<std::mutex> lock(eCall.pendingECallEventsMtx);
                     eCall.HandleCallEnd(eventPhoneId, eventCallIndex);
                 } else {
                     eCall.pendingECallEvents.push_back({
@@ -1347,7 +1348,7 @@ void taf_ecall::Init(void)
         }
 
         if (serviceStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-            LE_INFO("Phone subsystem is ready.");
+            LE_DEBUG("Phone subsystem is ready.");
         } else {
             LE_FATAL("Fail to init phone subsystem.");
         }
@@ -1395,7 +1396,7 @@ void taf_ecall::Init(void)
     } else {
         telux::common::ServiceStatus serviceStatus = subsystemMgr->getServiceStatus();
         if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-            LE_INFO("Subsystem is not ready, wait for it to be ready.");
+            LE_DEBUG("Subsystem is not ready, wait for it to be ready.");
 
             std::future<telux::common::ServiceStatus> initFuture = subsystemMgrPromisePtr->get_future();
             std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(MAX_INIT_TIMEOUT));
@@ -1408,7 +1409,7 @@ void taf_ecall::Init(void)
         }
 
         if (serviceStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-            LE_INFO("Subsystem is ready.");
+            LE_DEBUG("Subsystem is ready.");
         } else {
             LE_FATAL("Fail to init subsystem.");
         }
@@ -1566,7 +1567,7 @@ le_result_t taf_ecall::SetPsapNumber(const char* psapNumber)
     TAF_ERROR_IF_RET_VAL(strlen(psapNumber) > TAF_SIM_PHONE_NUM_MAX_LEN, LE_FAULT,
             "PsapNumber length is wrong");
 
-    LE_INFO("Set PSAP number as %s", psapNumber);
+    LE_DEBUG("Set PSAP number as %s", psapNumber);
 
     EcallConfig eCallConfig;
     eCallConfig.configValidityMask.set(ECALL_CONFIG_OVERRIDDEN_NUM);
@@ -1585,7 +1586,7 @@ le_result_t taf_ecall::GetPsapNumber(char* psapNumber, size_t psapNumLength)
     EcallConfig eCallConfig = {};
     Status status = CallManager->getECallConfig(eCallConfig);
     if (status == Status::SUCCESS && eCallConfig.configValidityMask.test(ECALL_CONFIG_OVERRIDDEN_NUM)) {
-        LE_INFO("PSAP number retrieved as: %s", eCallConfig.overriddenNum.c_str());
+        LE_DEBUG("PSAP number retrieved as: %s", eCallConfig.overriddenNum.c_str());
         le_utf8_Copy(psapNumber, eCallConfig.overriddenNum.c_str(), psapNumLength, NULL);
     } else {
         LE_ERROR("Unable to get PSAP number. Error: %d", (int) status);
@@ -1629,7 +1630,7 @@ le_result_t taf_ecall::SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t
             {
                 if (error == telux::common::ErrorCode::SUCCESS)
                 {
-                    LE_INFO("Set eCall operating mode successfully done");
+                    LE_DEBUG("Set eCall operating mode successfully done");
                     promisePtr->set_value(LE_OK);
                 }
                 else
@@ -1656,14 +1657,14 @@ le_result_t taf_ecall::SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t
             static_cast<telux::tel::ECallMode>(eCallMode), cb);
 
         if(status == telux::common::Status::SUCCESS) {
-            LE_INFO("Set eCall operating mode %d request sent successfully in phoneId: %d\n",
+            LE_DEBUG("Set eCall operating mode %d request sent successfully in phoneId: %d\n",
                     (int) eCallMode, phoneId);
 
             std::future<le_result_t> futResult = promisePtr->get_future();
             le_result_t res = futResult.get();
             if (res == LE_OK)
             {
-                LE_INFO("Set eCall operating mode successfully done");
+                LE_DEBUG("Set eCall operating mode successfully done");
                 return LE_OK;
             }
         } else {
@@ -1724,10 +1725,10 @@ le_result_t taf_ecall::GetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t
 
     telux::common::Status status = phone->requestECallOperatingMode(cb);
     if (status == telux::common::Status::SUCCESS) {
-        LE_INFO("Get eCall op mode request sent successfully in phoneId: %d\n", phoneId);
+        LE_DEBUG("Get eCall op mode request sent successfully in phoneId: %d\n", phoneId);
         if (futResult.get() == LE_OK)
         {
-            LE_INFO("Get eCall op mode successfully done");
+            LE_DEBUG("Get eCall op mode successfully done");
             if (telux::tel::ECallMode::NORMAL == *resultMode)
             {
                 *opMode = TAF_ECALL_MODE_NORMAL;
@@ -1788,7 +1789,7 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
     }
     ret = CallManager->getECallConfig(eCallConfig);
     if (ret == Status::SUCCESS) {
-        LE_INFO("Get eCall configuration successfully.");
+        LE_DEBUG("Get eCall configuration successfully.");
     }
 
     if (eCallVariant == ECallVariant::ECALL_TEST)
@@ -1809,7 +1810,7 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
             ret = CallManager->setECallConfig(eCallConfig);
             if (ret == Status::SUCCESS)
             {
-                LE_INFO("Set eCall configuration with number 112 successfully");
+                LE_DEBUG("Set eCall configuration with number 112 successfully");
             }
         }
         else if ((0 == strncmp(eCallConfig.overriddenNum.c_str(), "112", 3)) ||
@@ -1823,7 +1824,7 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
                 ret = CallManager->setECallConfig(eCallConfig);
                 if (ret == Status::SUCCESS)
                 {
-                    LE_INFO("Set eCall configuration with default number type successfully");
+                    LE_DEBUG("Set eCall configuration with default number type successfully");
                 }
             }
         }
@@ -1926,14 +1927,14 @@ le_result_t taf_ecall::StartPrivate(taf_ecall_CallRef_t ecallRef,
     CustomSipHeader header;
     if (contentType != NULL){
         header.contentType = contentType;
-        LE_INFO("Set content type as %s", contentType);
+        LE_DEBUG("Set content type as %s", contentType);
     } else {
         header.contentType = telux::tel::CONTENT_HEADER;
     }
 
     if (acceptInfo != NULL) {
         header.acceptInfo = acceptInfo;
-        LE_INFO("Set accept info as %s", acceptInfo);
+        LE_DEBUG("Set accept info as %s", acceptInfo);
     } else {
         header.acceptInfo = "";
     }
@@ -1942,13 +1943,13 @@ le_result_t taf_ecall::StartPrivate(taf_ecall_CallRef_t ecallRef,
     EcallConfig eCallConfig = {};
     ret = CallManager->getECallConfig(eCallConfig);
     if (ret == Status::SUCCESS) {
-        LE_INFO("get eCall configuration successfully.");
+        LE_DEBUG("get eCall configuration successfully.");
     }
 
     //Check msd imported or not to send msd in pdu format or not
     if (ECallObject.isMsdUpdated)
     {
-        LE_INFO("MSD updated.");
+        LE_DEBUG("MSD updated.");
         makePrieCallProm = std::promise<telux::common::ErrorCode>();
         std::vector< uint8_t > eCallMsdData = {};
         for (int i = 0; i < (int)(eCallPtr->pduMsdSize); i++)
@@ -2059,10 +2060,10 @@ le_result_t taf_ecall::SetMsdPosition (taf_ecall_CallRef_t ecallRef, bool isTrus
         LE_ERROR("Invalid direction value");
         direction=0xFF;
     }
-    LE_INFO("SetMsdPosition isTrusted = %d ", isTrusted);
-    LE_INFO("SetMsdPosition latitude = %d ", latitude);
-    LE_INFO("SetMsdPosition longitude = %d ", longitude);
-    LE_INFO("SetMsdPosition direction = %d ", direction);
+    LE_DEBUG("SetMsdPosition isTrusted = %d ", isTrusted);
+    LE_DEBUG("SetMsdPosition latitude = %d ", latitude);
+    LE_DEBUG("SetMsdPosition longitude = %d ", longitude);
+    LE_DEBUG("SetMsdPosition direction = %d ", direction);
 
     eCallPtr->msd.control.positionCanBeTrusted = isTrusted;
     eCallPtr->msd.vehicleLocation.positionLatitude = latitude;
@@ -2265,7 +2266,7 @@ le_result_t taf_ecall::SetMsdAdditionalData(taf_ecall_CallRef_t ecallRef, const 
         oadDataString.append(1,s1);
         oadDataString.append(1,s2);
     }
-    LE_INFO("Euro NCAP MSD OAD data = %s", oadDataString.c_str());
+    LE_DEBUG("Euro NCAP MSD OAD data = %s", oadDataString.c_str());
     std::vector<uint8_t> oadData(oadDataString.begin(), oadDataString.end());
     eCallPtr->msd.optionalPdu.data = oadData;
 #endif
@@ -2479,7 +2480,7 @@ int32_t taf_ecall::msd_EncodeOptionalDataForEuroNCAP(taf_EuroNCAPData_t* euroNCA
         uint8_t rangeLimitTmp = euroNCAPDataPtr->rangeLimit - 100;
         int16_t deltaVXTmp = euroNCAPDataPtr->deltaVX + 255;
         int16_t deltaVYTmp = euroNCAPDataPtr->deltaVY + 255;
-        LE_INFO("rangeLimit = %d, deltaVX  = %d, deltaVY = %d", rangeLimitTmp, deltaVXTmp, deltaVYTmp);
+        LE_DEBUG("rangeLimit = %d, deltaVX  = %d, deltaVY = %d", rangeLimitTmp, deltaVXTmp, deltaVYTmp);
 
         offset = PutBits(offset, 1, &extendFlag, outDataPtr);
 
@@ -2602,7 +2603,7 @@ le_result_t taf_ecall::ResetMsdTimeStamp( taf_ecall_CallRef_t ecallRef)
         LE_INFO("Failed to read the MSD timeStamp from config tree msdTimeStampSystem.");
     }
     eCallPtr->msd.timestamp = timeStamp;
-    LE_INFO("ResetMsdTimeStamp timestamp = %d", eCallPtr->msd.timestamp);
+    LE_DEBUG("ResetMsdTimeStamp timestamp = %d", eCallPtr->msd.timestamp);
 
     WriteMsdTimeStampToConfigTree(CFG_NODE_MSDTIMESTAMPSET, MSD_TIMESTAMP_STR_INVALID);
     return LE_OK;
@@ -2703,7 +2704,7 @@ le_result_t taf_ecall::SendMsd( taf_ecall_CallRef_t ecallRef)
             {
                 if (error == telux::common::ErrorCode::SUCCESS)
                 {
-                    LE_INFO("Send eCall MSD successfully done");
+                    LE_DEBUG("Send eCall MSD successfully done");
                     promisePtr->set_value(LE_OK);
                 }
                 else
@@ -2732,7 +2733,7 @@ le_result_t taf_ecall::SendMsd( taf_ecall_CallRef_t ecallRef)
             le_result_t res = futResult.get();
             if (res == LE_OK)
             {
-                LE_INFO("Send eCall MSD successfully done");
+                LE_DEBUG("Send eCall MSD successfully done");
                 return LE_OK;
             }
         } else {
@@ -2952,7 +2953,7 @@ le_result_t taf_ecall::SetNadDeregistrationTime(uint16_t deregTime)
         {
             if (error == telux::common::ErrorCode::SUCCESS)
             {
-                LE_INFO("Set eCall NAD deregistration time successfully done");
+                LE_DEBUG("Set eCall NAD deregistration time successfully done");
                 promisePtr->set_value(LE_OK);
             }
             else
@@ -2981,7 +2982,7 @@ le_result_t taf_ecall::SetNadDeregistrationTime(uint16_t deregTime)
         le_result_t res = futResult.get();
         if (res == LE_OK)
         {
-            LE_INFO("Set eCall NAD deregistration time successfully.");
+            LE_DEBUG("Set eCall NAD deregistration time successfully.");
             return LE_OK;
         }
     } else {
@@ -3065,7 +3066,7 @@ le_result_t taf_ecall::TerminateRegistration()
         {
             if (error == telux::common::ErrorCode::SUCCESS)
             {
-                LE_INFO("Terminate registration successfully done");
+                LE_DEBUG("Terminate registration successfully done");
                 promisePtr->set_value(LE_OK);
             }
             else
@@ -3094,7 +3095,7 @@ le_result_t taf_ecall::TerminateRegistration()
         le_result_t res = futResult.get();
         if (res == LE_OK)
         {
-            LE_INFO("Terminate registration successfully.");
+            LE_DEBUG("Terminate registration successfully.");
             return LE_OK;
         }
     } else {
@@ -3144,7 +3145,7 @@ le_result_t taf_ecall::GetNadClearDownFallbackTime(uint16_t* ccftTime)
     EcallConfig eCallConfig = {};
     Status status = CallManager->getECallConfig(eCallConfig);
     if (status == Status::SUCCESS && eCallConfig.configValidityMask.test(ECALL_CONFIG_T2_TIMER)) {
-        LE_INFO("NAD clear down fallback time (in minutes): %d", eCallConfig.t2Timer/60000);
+        LE_DEBUG("NAD clear down fallback time (in minutes): %d", eCallConfig.t2Timer/60000);
         *ccftTime = (uint16_t) (eCallConfig.t2Timer/60000);
     } else {
         LE_ERROR("Unable to get clear down fallback time. Error: %d", (int) status);
@@ -3184,7 +3185,7 @@ le_result_t taf_ecall::SetNadMinNetworkRegistrationTime(uint16_t minNwRegTime)
     if ((result == LE_OK) &&
         (minNwRegTimeGet == minNwRegTime))
     {
-        LE_INFO("Setting min network registration time is the same as the current value");
+        LE_DEBUG("Setting min network registration time is the same as the current value");
         return LE_OK;
     }
 
@@ -3387,7 +3388,7 @@ taf_ecall_HlapTimerStatus_t taf_ecall::GetHlapTimerStatus(taf_ecall_HlapTimerTyp
 
     telux::common::Status status = CallManager->requestECallHlapTimerStatus(phone_id, cb);
     if (status == telux::common::Status::SUCCESS) {
-        LE_INFO("Get eCall hlap timer successfully.");
+        LE_DEBUG("Get eCall hlap timer successfully.");
         if (futResult.get() == LE_OK) {
             switch (timerType)
             {
@@ -3674,7 +3675,6 @@ bool taf_ecall::WaitInitReadyAfterModemReboot()
     } else {
         telux::common::ServiceStatus serviceStatus = CallManager->getServiceStatus();
         if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-            LE_INFO("Call subsystem is not ready, wait for it to be ready.");
 
             std::future<telux::common::ServiceStatus> initFuture = callMgrPromisePtr->get_future();
             std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(MAX_INIT_TIMEOUT));
@@ -3688,7 +3688,7 @@ bool taf_ecall::WaitInitReadyAfterModemReboot()
         }
 
         if (serviceStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-            LE_INFO("Call subsystem is ready.");
+            LE_DEBUG("Call subsystem is ready.");
         } else {
             LE_CRIT("ResumeECallHlapTimer T9/T10 failed as fail to init call subsystem.");
             return false;
@@ -3721,7 +3721,6 @@ bool taf_ecall::WaitInitReadyAfterModemReboot()
     } else {
         telux::common::ServiceStatus serviceStatus = PhoneManager->getServiceStatus();
         if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-            LE_INFO("Phone subsystem is not ready, wait for it to be ready.");
 
             std::future<telux::common::ServiceStatus> initFuture = phoneMgrPromisePtr->get_future();
             std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(MAX_INIT_TIMEOUT));
@@ -3735,7 +3734,7 @@ bool taf_ecall::WaitInitReadyAfterModemReboot()
         }
 
         if (serviceStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-            LE_INFO("Phone subsystem is ready.");
+            LE_DEBUG("Phone subsystem is ready.");
         } else {
             LE_CRIT("ResumeECallHlapTimer T9/T10 failed as fail to init phone subsystem.");
             return false;
@@ -3838,7 +3837,7 @@ le_result_t taf_ecall::ResumeHlapTimer(taf_ecall_HlapTimerType_t timerType) {
                 {
                     if (error == telux::common::ErrorCode::SUCCESS)
                     {
-                        LE_INFO("Resume the hlap timer successfully done");
+                        LE_DEBUG("Resume the hlap timer successfully done");
                         promisePtr->set_value(LE_OK);
                     }
                     else
@@ -3867,7 +3866,7 @@ le_result_t taf_ecall::ResumeHlapTimer(taf_ecall_HlapTimerType_t timerType) {
                 le_result_t res = futResult.get();
                 if (res == LE_OK)
                 {
-                    LE_INFO("Resume the hlap timer successfully done");
+                    LE_DEBUG("Resume the hlap timer successfully done");
                     return LE_OK;
                 }
             } else {
@@ -4412,7 +4411,7 @@ le_result_t taf_ecall::ConfigureInitialDialRedial(std::vector<int> redialPara)
             {
                 if (error == telux::common::ErrorCode::SUCCESS)
                 {
-                    LE_INFO("Set eCall redial parameter successfully done");
+                    LE_DEBUG("Set eCall redial parameter successfully done");
                     promisePtr->set_value(LE_OK);
                 }
                 else
@@ -4441,7 +4440,7 @@ le_result_t taf_ecall::ConfigureInitialDialRedial(std::vector<int> redialPara)
             le_result_t res = futResult.get();
             if (res == LE_OK)
             {
-                LE_INFO("Set eCall redial parameter successfully.");
+                LE_DEBUG("Set eCall redial parameter successfully.");
                 return LE_OK;
             }
         } else {

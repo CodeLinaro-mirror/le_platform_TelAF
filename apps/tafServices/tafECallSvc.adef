@@ -58,6 +58,8 @@ requires:
 bindings:
 {
     tafECallSvc.tafECallSvc.taf_sim -> tafSimCardSvc.taf_sim
+    tafECallSvc.tafECallSvc.taf_hms -> tafHMSvc.taf_hms
+    tafECallSvc.tafECallSvc.taf_hmsEcall -> tafHMSvc.taf_hmsEcall
 }
 
 extern:

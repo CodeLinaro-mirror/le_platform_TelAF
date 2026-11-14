@@ -68,6 +68,145 @@ static void StartSimRetryTimer(void)
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Connection to tafHMSvc. The non-exit disconnect handler keeps tafECallSvc running when tafHMSvc
+ * exits, and reconnects to it.
+ */
+//--------------------------------------------------------------------------------------------------
+static bool hmsServiceAvailable = false;
+static le_timer_Ref_t hmsRetryTimer = nullptr;
+static void StartHmsRetryTimer(void);
+
+static void HmsServerDisconnectHandler(void* contextPtr)
+{
+    LE_WARN("Disconnected from HMS service, attempting to reconnect...");
+    hmsServiceAvailable = false;
+    StartHmsRetryTimer();
+}
+
+static bool HmsServerConnect(void)
+{
+    if (!hmsServiceAvailable && (taf_hms_TryConnectService() == LE_OK))
+    {
+        LE_INFO("Connected to HMS service");
+        taf_hms_SetNonExitServerDisconnectHandler(HmsServerDisconnectHandler, NULL);
+        hmsServiceAvailable = true;
+    }
+    return hmsServiceAvailable;
+}
+
+static void HmsRetryHandler(le_timer_Ref_t timerRef)
+{
+    uint32_t expiryCount = le_timer_GetExpiryCount(timerRef);
+    if (HmsServerConnect())
+    {
+        le_timer_Stop(timerRef);
+    }
+    else if (expiryCount >= MAX_NUM_OF_HMS_CONN_ATTEMPTS)
+    {
+        LE_ERROR("Failed to connect to HMS service after %d attempts", expiryCount);
+    }
+}
+
+static void StartHmsRetryTimer(void)
+{
+    if (hmsRetryTimer == nullptr)
+    {
+        hmsRetryTimer = le_timer_Create("hmsRetryTimer");
+        le_timer_SetHandler(hmsRetryTimer, HmsRetryHandler);
+        le_timer_SetWakeup(hmsRetryTimer, false);
+        le_timer_SetMsInterval(hmsRetryTimer, HMS_CONN_RETRY_TIMER_INTERVAL);
+        le_timer_SetRepeat(hmsRetryTimer, MAX_NUM_OF_HMS_CONN_ATTEMPTS);
+    }
+    if (!le_timer_IsRunning(hmsRetryTimer))
+    {
+        le_timer_Start(hmsRetryTimer);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * eCall type record in tafHMSvc (taf_hmsEcall). The connection is made on demand. A disconnect of
+ * tafHMSvc does not terminate tafECallSvc. Only test, automatic and manual eCalls are recorded.
+ */
+//--------------------------------------------------------------------------------------------------
+static bool hmsEcallServiceAvailable = false;
+
+static void HmsEcallServerDisconnectHandler(void* contextPtr)
+{
+    LE_ERROR("HMS eCall record server disconnected");
+    hmsEcallServiceAvailable = false;
+}
+
+static bool HmsEcallConnect(void)
+{
+    if (!hmsEcallServiceAvailable)
+    {
+        le_result_t res = taf_hmsEcall_TryConnectService();
+        if (res != LE_OK)
+        {
+            LE_WARN("Could not connect to HMS eCall record service (res=%d)", res);
+            return false;
+        }
+        taf_hmsEcall_SetNonExitServerDisconnectHandler(HmsEcallServerDisconnectHandler, NULL);
+        hmsEcallServiceAvailable = true;
+    }
+    return true;
+}
+
+static void HmsEcallSetType(int phoneId, taf_ecall_Type_t type)
+{
+    taf_hmsEcall_Type_t hmsType;
+    switch (type)
+    {
+        case TAF_ECALL_TYPE_TEST:
+            hmsType = TAF_HMSECALL_TYPE_TEST;
+            break;
+        case TAF_ECALL_TYPE_AUTO:
+            hmsType = TAF_HMSECALL_TYPE_AUTO;
+            break;
+        case TAF_ECALL_TYPE_MANUAL:
+            hmsType = TAF_HMSECALL_TYPE_MANUAL;
+            break;
+        default:
+            return;
+    }
+
+    if (!HmsEcallConnect())
+    {
+        return;
+    }
+
+    taf_hmsEcall_RecordRef_t recordRef = taf_hmsEcall_GetRecord((uint8_t)phoneId);
+    if (recordRef == NULL)
+    {
+        LE_ERROR("Failed to get HMS eCall record for phoneId %d", phoneId);
+        return;
+    }
+
+    le_result_t res = taf_hmsEcall_SetType(recordRef, hmsType);
+    if (res != LE_OK)
+    {
+        LE_ERROR("Failed to set HMS eCall type %d for phoneId %d (res=%d)", (int)hmsType, phoneId,
+                 res);
+    }
+}
+
+static void HmsEcallDelete(int phoneId)
+{
+    if ((phoneId < 1) || !HmsEcallConnect())
+    {
+        return;
+    }
+
+    taf_hmsEcall_RecordRef_t recordRef = taf_hmsEcall_GetRecord((uint8_t)phoneId);
+    if (recordRef != NULL)
+    {
+        taf_hmsEcall_Delete(recordRef);
+    }
+}
+
 void tafCallCommandCallback::makeCallResponse(telux::common::ErrorCode errorCode,
         std::shared_ptr<telux::tel::ICall> call) {
     auto &eCall = taf_ecall::GetInstance();
@@ -551,7 +690,59 @@ void taf_ecall::HandleCallInfoChange(int phoneId, const RxECallInfoChangeParam_t
     taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, GetECallReference());
     TAF_ERROR_IF_RET_NIL(eCallPtr == NULL, "cannot get callptr");
     LE_INFO("onCallInfoChange index %d %d, phoneId  %d, %d, state %d", eCallPtr->callIndex, callIndex, eCallPtr->phoneId, CallPhoneId, (int)callState);
-    if (((eCallPtr->callIndex != callIndex) && (eCallPtr->phoneId == CallPhoneId)) ||
+    if ((callIndex != eCallPtr->callIndex) && IsHeldMtCall(CallPhoneId, callIndex, callDirection)) {
+        HandleHeldMtCallInfo(CallPhoneId, callIndex, callState, callEndCause);
+        return;
+    }
+    if ((CallPhoneId == eCallPtr->phoneId) && (callIndex != eCallPtr->callIndex) &&
+        IsExcludedCall(callIndex, callDirection)) {
+        LE_INFO("Ignoring call existing before the eCall: phoneId=%d, callIndex=%d",
+            CallPhoneId, callIndex);
+        if (callState == CallState::CALL_ENDED) {
+            RemoveExcludedCall(callIndex);
+        }
+        return;
+    }
+    if (eCallPtr->callIndex < 0 && eCallPtr->phoneId < 0) {
+        taf_ECallRecoveryCtx_t ctx;
+        if (!LoadRecoveryContext(&ctx) || ctx.cleanEnded ||
+            ctx.phoneId != CallPhoneId || ctx.callIndex != callIndex) {
+            LE_INFO("Ignoring call that matches no eCall context: phoneId=%d, callIndex=%d",
+                CallPhoneId, callIndex);
+            return;
+        }
+        LE_INFO("Adopting callInfo for recovered/replayed call: phoneId=%d, callIndex=%d",
+            CallPhoneId, callIndex);
+        SetCallIndex(callIndex);
+        SetCallPhoneId(CallPhoneId);
+    } else if (eCallPtr->callIndex < 0 && eCallPtr->phoneId >= 0) {
+        if (eCallPtr->phoneId != CallPhoneId) {
+            LE_ERROR("Redial-pending: ignoring unrelated call on different phoneId, expected=%d, got=%d",
+                eCallPtr->phoneId, CallPhoneId);
+            return;
+        }
+        if (callDirection != telux::tel::CallDirection::OUTGOING) {
+            LE_INFO("Redial-pending: ignoring non-outgoing call, direction=%d, callIndex=%d",
+                (int)callDirection, callIndex);
+            return;
+        }
+        if (!redialInProgress) {
+            LE_INFO("Redial verdict not received yet, not adopting call phoneId=%d, callIndex=%d",
+                CallPhoneId, callIndex);
+            return;
+        }
+        LE_INFO("Adopting callInfo for redial-pending call: phoneId=%d, callIndex=%d",
+            CallPhoneId, callIndex);
+        SetCallIndex(callIndex);
+        SetCallPhoneId(CallPhoneId);
+    } else if ((eCallPtr->callIndex != callIndex) && (eCallPtr->phoneId == CallPhoneId) &&
+        (callDirection == telux::tel::CallDirection::OUTGOING) &&
+        (callState != CallState::CALL_ENDED) &&
+        SwitchMtToRedialAttempt(CallPhoneId, callIndex)) {
+        LE_INFO("Adopting callInfo for redial attempt after PSAP callback: phoneId=%d, callIndex=%d",
+            CallPhoneId, callIndex);
+        SetCallIndex(callIndex);
+    } else if (((eCallPtr->callIndex != callIndex) && (eCallPtr->phoneId == CallPhoneId)) ||
         (eCallPtr->phoneId != CallPhoneId))
     {
         LE_ERROR("Cannot match the index or phoneId");
@@ -560,6 +751,13 @@ void taf_ecall::HandleCallInfoChange(int phoneId, const RxECallInfoChangeParam_t
 
     CallEndError = telux::tel::CallEndCause::NORMAL;
     LE_DEBUG("Call state: %d", (int) callState);
+
+    if ((callState != CallState::CALL_ENDED) && (callDirection == CallDirection::OUTGOING) &&
+        (redialInProgress || waitingForRedialVerdict)) {
+        LE_INFO("New call attempt observed (state=%d), redial period is over", (int)callState);
+        redialInProgress = false;
+        waitingForRedialVerdict = false;
+    }
 
     switch (callState) {
         case CallState::CALL_ACTIVE:
@@ -578,7 +776,17 @@ void taf_ecall::HandleCallInfoChange(int phoneId, const RxECallInfoChangeParam_t
             isCallStateSet = true;
             break;
         case CallState::CALL_ENDED:
-            if ((callDirection == CallDirection::INCOMING) ||
+            if ((callDirection == CallDirection::INCOMING) &&
+                (redialInProgress || waitingForRedialVerdict))
+            {
+                LE_INFO("MT call ended during redial period, keeping phoneId=%d", CallPhoneId);
+                state = TAF_ECALL_STATE_ENDED;
+                isCallStateSet = true;
+                SetCallIndex(-1);
+                SetCallPhoneId(CallPhoneId);
+                eCallPtr->redialReason = TAF_ECALL_TERMINATION_REDIAL_REASON_NONE;
+            }
+            else if ((callDirection == CallDirection::INCOMING) ||
             ((eCallPtr->type != TAF_ECALL_TYPE_TEST) &&
              (eCallPtr->type != TAF_ECALL_TYPE_AUTO) &&
              (eCallPtr->type != TAF_ECALL_TYPE_MANUAL) &&
@@ -592,6 +800,15 @@ void taf_ecall::HandleCallInfoChange(int phoneId, const RxECallInfoChangeParam_t
                 SetCallPhoneId(-1);
                 eCallPtr->redialReason = TAF_ECALL_TERMINATION_REDIAL_REASON_NONE;
             }
+            else if (IsRedialCapableType(eCallPtr->type))
+            {
+                LE_INFO("Call ended but eCall type %d may redial, keeping phoneId=%d for next attempt",
+                    (int)eCallPtr->type, CallPhoneId);
+                SetCallIndex(-1);
+                SetCallPhoneId(CallPhoneId);
+                eCallPtr->state = TAF_ECALL_STATE_END_OF_REDIAL_PERIOD;
+                waitingForRedialVerdict = true;
+            }
 
             eCallPtr->waitForALACKPos = false;
             sessionState = ECALL_ENDED;
@@ -604,9 +821,24 @@ void taf_ecall::HandleCallInfoChange(int phoneId, const RxECallInfoChangeParam_t
 
     SetSessionState(sessionState);
 
+    if (callState == CallState::CALL_ENDED && (redialInProgress || waitingForRedialVerdict))
+    {
+        eCallPtr->iCall = spCall;
+        PersistRecoveryContext(true, false);
+        LE_INFO("Keeping recovery context alive while the redial verdict is pending");
+    }
+
     if (isCallStateSet)
     {
         eCallPtr->iCall= spCall;
+        if (!redialInProgress && !waitingForRedialVerdict)
+        {
+            PersistRecoveryContext(sessionState != ECALL_ENDED, sessionState == ECALL_ENDED);
+        }
+        else if (sessionState != ECALL_ENDED)
+        {
+            PersistRecoveryContext(true, false);
+        }
         SetStateAndReport(state, phoneId, "");
         if (needReportCallEndOnReboot == true)
         {
@@ -900,13 +1132,39 @@ void taf_ecall::HandleRedial(int phoneId, ECallRedialInfo redialInfo)
 
     taf_ecall_State_t state = TAF_ECALL_STATE_UNKNOWN;
 
+    waitingForRedialVerdict = false;
+
+    bool mtCallAlive = false;
+
     if (redialInfo.willECallRedial == true)
     {
         state = TAF_ECALL_STATE_END_OF_REDIAL_PERIOD;
+        redialInProgress = true;
+        if (eCallPtr->iCall && (eCallPtr->callIndex >= 0) &&
+            (eCallPtr->iCall->getCallDirection() == telux::tel::CallDirection::INCOMING) &&
+            (eCallPtr->iCall->getCallState() != telux::tel::CallState::CALL_ENDED)) {
+            LE_INFO("Redial pending, keeping MT callIndex=%d bound", eCallPtr->callIndex);
+            mtCallAlive = true;
+        } else {
+            SetCallIndex(-1);
+        }
+        SetCallPhoneId(phoneId);
+        SnapshotExcludedCalls(phoneId);
+        PersistRecoveryContext(true, false);
+        LE_INFO("Redial pending, recovery context kept with phoneId=%d", phoneId);
     } else {
         state = TAF_ECALL_STATE_ENDED;
+        redialInProgress = false;
         SetCallIndex(-1);
         SetCallPhoneId(-1);
+        PersistRecoveryContext(false, true);
+        LE_INFO("Redial period finished, recovery context cleared");
+    }
+
+    if (mtCallAlive)
+    {
+        LE_INFO("MT call in progress, END_OF_REDIAL_PERIOD not reported");
+        return;
     }
 
     SetStateAndReport(state, phoneId, "");
@@ -918,6 +1176,7 @@ void taf_ecall::HandleMakeCallResp(int phoneId, RxECallMakeCallResponse resp)
 
     SetCallIndex(resp.callIndex);
     SetCallPhoneId(phoneId);
+    PersistRecoveryContext(true, false);
     ProcessPendingCallEvents(phoneId, resp.callIndex);
 }
 void taf_ecall::ProcessRxECallEvent(void* msgPtr)
@@ -933,8 +1192,12 @@ void taf_ecall::ProcessRxECallEvent(void* msgPtr)
 
     int32_t currentCallIndex = eCallPtr->callIndex;
     int8_t currentPhoneId = eCallPtr->phoneId;
-    LE_INFO("ProcessRxECallEvent index %d, phoneId  %d", eCallPtr->callIndex, eCallPtr->phoneId);
-    bool makeCallRespReceived = (currentCallIndex >= 0 && currentPhoneId >= 0);
+    LE_INFO("ProcessRxECallEvent index %d, phoneId  %d, redialInProgress %d",
+        eCallPtr->callIndex, eCallPtr->phoneId, (int)eCall.redialInProgress);
+    bool sessionStarted = (eCallPtr->eCallSession != ECALL_INIT);
+    bool makeCallRespReceived = (currentCallIndex >= 0 && currentPhoneId >= 0) ||
+                               (eCall.redialInProgress && currentPhoneId >= 0) ||
+                               (eCall.redialInProgress && sessionStarted);
 
     RxECallEvent_t* eventPtr = (RxECallEvent_t*)msgPtr;
     bool needCache = false;
@@ -947,21 +1210,54 @@ void taf_ecall::ProcessRxECallEvent(void* msgPtr)
             int32_t eventCallIndex = eventPtr->param.infoChange.callIndex;
             int8_t eventPhoneId = eventPtr->phoneId;
             LE_INFO("Call state = %d", (int)eventCallState);
+            if ((eventCallIndex != eCallPtr->callIndex) &&
+                eCall.IsHeldMtCall(eventPhoneId, eventCallIndex, eventPtr->param.infoChange.callDirection)) {
+                eCall.HandleHeldMtCallInfo(eventPhoneId, eventCallIndex, eventCallState,
+                    eventPtr->param.infoChange.callEndCause);
+                eCall.TakeCall(eventPtr->param.infoChange.callToken);
+                needCache = true;
+                break;
+            }
+            if ((eventPhoneId == eCallPtr->phoneId) && (eventCallIndex != eCallPtr->callIndex) &&
+                eCall.IsExcludedCall(eventCallIndex, eventPtr->param.infoChange.callDirection)) {
+                LE_INFO("Ignoring call existing before the eCall: phoneId=%d, callIndex=%d",
+                    eventPhoneId, eventCallIndex);
+                if (eventCallState == CallState::CALL_ENDED) {
+                    eCall.RemoveExcludedCall(eventCallIndex);
+                }
+                eCall.TakeCall(eventPtr->param.infoChange.callToken);
+                needCache = true;
+                break;
+            }
             if (!makeCallRespReceived) {
-                std::lock_guard<std::mutex> lock(eCall.pendingECallEventsMtx);
+                taf_ECallRecoveryCtx_t ctx;
+                bool hasCtx = eCall.LoadRecoveryContext(&ctx);
+                bool shouldAdoptReplay = hasCtx && ctx.inProgressHint && !ctx.cleanEnded;
                 if (eventCallState == CallState::CALL_ENDED) {
                     LE_DEBUG("CALL_INFO_CHANGE with CALL_ENDED received before makeCallResp, cleaning up directly.");
                     std::lock_guard<std::mutex> lock(eCall.pendingECallEventsMtx);
                     eCall.HandleCallEnd(eventPhoneId, eventCallIndex);
-                } else {
+                    eCall.SetCallIndex(-1);
+                    if (eCall.redialInProgress) {
+                        eCall.SetCallPhoneId(eventPhoneId);
+                        eCall.PersistRecoveryContext(true, false);
+                    } else {
+                        eCall.SetCallPhoneId(-1);
+                        eCall.PersistRecoveryContext(false, true);
+                    }
+                    needCache = true;
+                } else if (!shouldAdoptReplay) {
+                    std::lock_guard<std::mutex> lock(eCall.pendingECallEventsMtx);
                     eCall.pendingECallEvents.push_back({
                         eventPtr->eventType,
                         eventPhoneId,
                         eventCallIndex,
                         eCall.CloneEventData(eventPtr)
                     });
+                    needCache = true;
+                } else {
+                    LE_INFO("Processing replayed callInfo directly for service-restart recovery.");
                 }
-                needCache = true;
             }
             break;
         }
@@ -1125,9 +1421,11 @@ void taf_ecall::ProcessPendingCallEvents(int phoneId, int callIndex)
                 default:
                     break;
             }
+            FreeEventData(it->eventType, it->eventData);
+            it = pendingECallEvents.erase(it);
+        } else {
+            ++it;
         }
-        FreeEventData(it->eventType, it->eventData);
-        it = pendingECallEvents.erase(it);
     }
 }
 
@@ -1418,14 +1716,9 @@ void taf_ecall::Init(void)
     InitializeECallPtr();
 
     ECallListener =  std::make_shared<tafECallListener>();
-    Status ret = CallManager->registerListener(ECallListener);
-    if(ret!= Status::SUCCESS)
-    {
-        LE_CRIT("Cannot register Listener for ecall event!\n");
-    }
 
     phoneListener =  std::make_shared<tafECallPhoneListener>();
-    ret = PhoneManager->registerListener(phoneListener);
+    Status ret = PhoneManager->registerListener(phoneListener);
     if(ret!= Status::SUCCESS)
     {
         LE_CRIT("Cannot register Listener for phone event!\n");
@@ -1463,6 +1756,13 @@ void taf_ecall::Init(void)
 
     RxECallEventId = le_event_CreateIdWithRefCounting("Received eCall Event");
     le_event_AddHandler("Received eCall Event Handler", RxECallEventId, ProcessRxECallEvent);
+
+    ret = CallManager->registerListener(ECallListener);
+    if(ret!= Status::SUCCESS)
+    {
+        LE_CRIT("Cannot register Listener for ecall event!\n");
+    }
+
     ResumeHlapTimerEventId = le_event_CreateId("ResumeHlapTimerEventId", sizeof(ResumeHlapTimerEvent_t));
     le_event_AddHandler("Resume Hlap Timer Event Handler", ResumeHlapTimerEventId, ResumeHlapTimerEventHandler);
 
@@ -1479,6 +1779,8 @@ void taf_ecall::Init(void)
     le_timer_SetWakeup(elapsedTimeT10Ref, false);
 
     lastCallPhoneId = GetLastCallPhoneId();
+    LoadMsdPdu();
+    RecoverAfterServiceRestart();
 
     uint16_t minNwRegTime = 0;
     bool needToResumeT9 = false;
@@ -1532,9 +1834,24 @@ void taf_ecall::Init(void)
     }
     le_cfg_CancelTxn(iteratorRef);
 
+    if (needToResumeT9 == true)
+    {
+        if (HasLiveCallInModem())
+        {
+            LE_INFO("Skip resuming T9: a call is still in progress");
+            needToResumeT9 = false;
+        }
+    }
+
     if ((needToResumeT9 == true) || (needToResumeT10 == true))
     {
         ResumeHlapTimers(needToResumeT9, needToResumeT10);
+    }
+
+    if (!HmsServerConnect())
+    {
+        LE_WARN("HMS service not available, retrying...");
+        StartHmsRetryTimer();
     }
 }
 
@@ -1544,8 +1861,740 @@ taf_ecall &taf_ecall::GetInstance()
     return instance;
 }
 
+tafECallSession_t taf_ecall::MapCallStateToSession(telux::tel::CallState callState)
+{
+    switch (callState) {
+        case CallState::CALL_ACTIVE:
+            return ECALL_ACTIVE;
+        case CallState::CALL_ALERTING:
+            return ECALL_ALERTING;
+        case CallState::CALL_DIALING:
+            return ECALL_DIALING;
+        case CallState::CALL_INCOMING:
+            return ECALL_INCOMING;
+        case CallState::CALL_ENDED:
+            return ECALL_ENDED;
+        default:
+            return ECALL_INIT;
+    }
+}
+
+taf_ecall_State_t taf_ecall::MapCallStateToTafState(telux::tel::CallState callState)
+{
+    switch (callState) {
+        case CallState::CALL_ACTIVE:
+            return TAF_ECALL_STATE_ACTIVE;
+        case CallState::CALL_ALERTING:
+            return TAF_ECALL_STATE_ALERTING;
+        case CallState::CALL_DIALING:
+            return TAF_ECALL_STATE_DIALING;
+        case CallState::CALL_INCOMING:
+            return TAF_ECALL_STATE_INCOMING;
+        case CallState::CALL_ENDED:
+            return TAF_ECALL_STATE_ENDED;
+        default:
+            return TAF_ECALL_STATE_UNKNOWN;
+    }
+}
+
+void taf_ecall::PersistRecoveryContext(bool inProgressHint, bool cleanEnded)
+{
+    if (!inProgressHint) {
+        if (!cleanEnded) {
+            LE_WARN("PersistRecoveryContext(false, false) is ambiguous, treating as clean end");
+        }
+        ClearRecoveryContext();
+        return;
+    }
+
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn(CFG_ECALL_RECOVERY_PATH);
+    le_cfg_SetBool(iteratorRef, CFG_NODE_RECOVERY_VALID, true);
+    le_cfg_SetBool(iteratorRef, CFG_NODE_RECOVERY_INPROGRESS, inProgressHint);
+    le_cfg_SetBool(iteratorRef, CFG_NODE_RECOVERY_CLEANENDED, cleanEnded);
+    le_cfg_SetInt(iteratorRef, CFG_NODE_RECOVERY_PHONEID, ECallObject.phoneId);
+    le_cfg_SetInt(iteratorRef, CFG_NODE_RECOVERY_CALLINDEX, ECallObject.callIndex);
+    le_cfg_SetInt(iteratorRef, CFG_NODE_RECOVERY_ECALLTYPE, (int)ECallObject.type);
+    le_cfg_SetInt(iteratorRef, CFG_NODE_RECOVERY_ECALLSESSION, (int)ECallObject.eCallSession);
+    le_cfg_SetInt(iteratorRef, CFG_NODE_RECOVERY_TAFSTATE, (int)ECallObject.state);
+    le_cfg_SetBool(iteratorRef, CFG_NODE_RECOVERY_WAITFORALACK, ECallObject.waitForALACKPos);
+    le_cfg_SetInt(iteratorRef, CFG_NODE_RECOVERY_REDIALREASON, (int)ECallObject.redialReason);
+    le_cfg_SetBool(iteratorRef, CFG_NODE_RECOVERY_REDIALPENDING, redialInProgress);
+    le_cfg_SetInt(iteratorRef, CFG_NODE_RECOVERY_CALLENDCAUSE, (int)CallEndError);
+
+    if (ECallObject.iCall) {
+        le_cfg_SetInt(iteratorRef, CFG_NODE_RECOVERY_CALLSTATE,
+            (int)ECallObject.iCall->getCallState());
+        le_cfg_SetInt(iteratorRef, CFG_NODE_RECOVERY_CALLDIRECTION,
+            (int)ECallObject.iCall->getCallDirection());
+    }
+
+    le_cfg_CommitTxn(iteratorRef);
+}
+
+bool taf_ecall::LoadRecoveryContext(taf_ECallRecoveryCtx_t* ctxPtr)
+{
+    if (ctxPtr == nullptr) {
+        return false;
+    }
+
+    memset(ctxPtr, 0, sizeof(*ctxPtr));
+    ctxPtr->phoneId = -1;
+    ctxPtr->callIndex = -1;
+    ctxPtr->eCallType = TAF_ECALL_TYPE_UNKNOWN;
+    ctxPtr->eCallSession = ECALL_INIT;
+    ctxPtr->tafState = TAF_ECALL_STATE_UNKNOWN;
+    ctxPtr->redialReason = TAF_ECALL_TERMINATION_REDIAL_REASON_NONE;
+    ctxPtr->callEndCause = telux::tel::CallEndCause::NORMAL;
+
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn(CFG_ECALL_RECOVERY_PATH);
+    ctxPtr->valid = le_cfg_GetBool(iteratorRef, CFG_NODE_RECOVERY_VALID, false);
+    if (!ctxPtr->valid) {
+        le_cfg_CancelTxn(iteratorRef);
+        return false;
+    }
+
+    ctxPtr->inProgressHint = le_cfg_GetBool(iteratorRef, CFG_NODE_RECOVERY_INPROGRESS, false);
+    ctxPtr->cleanEnded = le_cfg_GetBool(iteratorRef, CFG_NODE_RECOVERY_CLEANENDED, false);
+    ctxPtr->phoneId = (int8_t)le_cfg_GetInt(iteratorRef, CFG_NODE_RECOVERY_PHONEID, -1);
+    ctxPtr->callIndex = le_cfg_GetInt(iteratorRef, CFG_NODE_RECOVERY_CALLINDEX, -1);
+    ctxPtr->callState = (telux::tel::CallState)le_cfg_GetInt(iteratorRef, CFG_NODE_RECOVERY_CALLSTATE, 0);
+    ctxPtr->callDirection = (telux::tel::CallDirection)le_cfg_GetInt(iteratorRef, CFG_NODE_RECOVERY_CALLDIRECTION, 0);
+    ctxPtr->callEndCause = (telux::tel::CallEndCause)le_cfg_GetInt(iteratorRef, CFG_NODE_RECOVERY_CALLENDCAUSE, 0);
+    ctxPtr->eCallType = (taf_ecall_Type_t)le_cfg_GetInt(iteratorRef, CFG_NODE_RECOVERY_ECALLTYPE, (int)TAF_ECALL_TYPE_UNKNOWN);
+    ctxPtr->eCallSession = (tafECallSession_t)le_cfg_GetInt(iteratorRef, CFG_NODE_RECOVERY_ECALLSESSION, (int)ECALL_INIT);
+    ctxPtr->tafState = (taf_ecall_State_t)le_cfg_GetInt(iteratorRef, CFG_NODE_RECOVERY_TAFSTATE, (int)TAF_ECALL_STATE_UNKNOWN);
+    ctxPtr->waitForALACKPos = le_cfg_GetBool(iteratorRef, CFG_NODE_RECOVERY_WAITFORALACK, false);
+    ctxPtr->redialPendingHint = le_cfg_GetBool(iteratorRef, CFG_NODE_RECOVERY_REDIALPENDING, false);
+    ctxPtr->redialReason = (taf_ecall_TerminationRedialReason_t)le_cfg_GetInt(iteratorRef, CFG_NODE_RECOVERY_REDIALREASON,
+        (int)TAF_ECALL_TERMINATION_REDIAL_REASON_NONE);
+    le_cfg_CancelTxn(iteratorRef);
+    return true;
+}
+
+bool taf_ecall::BindRecoveredCall(std::shared_ptr<telux::tel::ICall> call,
+    const taf_ECallRecoveryCtx_t* ctxPtr, bool reportState)
+{
+    if (!call || call->getCallState() == telux::tel::CallState::CALL_ENDED) {
+        return false;
+    }
+
+    ECallObject.iCall = call;
+    ECallObject.callIndex = call->getCallIndex();
+    ECallObject.phoneId = call->getPhoneId();
+    ECallObject.eCallSession = MapCallStateToSession(call->getCallState());
+    ECallObject.state = MapCallStateToTafState(call->getCallState());
+    if (ctxPtr != nullptr) {
+        ECallObject.type = ctxPtr->eCallType;
+        ECallObject.waitForALACKPos = ctxPtr->waitForALACKPos;
+        ECallObject.redialReason = ctxPtr->redialReason;
+        CallEndError = ctxPtr->callEndCause;
+        if (ctxPtr->redialPendingHint &&
+            (call->getCallDirection() == telux::tel::CallDirection::INCOMING)) {
+            redialInProgress = true;
+        }
+    }
+
+    SetLastCallPhoneId(ECallObject.phoneId);
+    PersistRecoveryContext(true, false);
+    LE_INFO("Recovered eCall context: phoneId=%d, callIndex=%d, callState=%d, tafState=%d, type=%d",
+        ECallObject.phoneId, ECallObject.callIndex, (int)call->getCallState(),
+        (int)ECallObject.state, (int)ECallObject.type);
+
+    if (reportState && ECallObject.state != TAF_ECALL_STATE_UNKNOWN) {
+        SetStateAndReport(ECallObject.state, ECallObject.phoneId, "");
+    }
+    return true;
+}
+
+bool taf_ecall::IsRedialCapableType(taf_ecall_Type_t type)
+{
+    return (type == TAF_ECALL_TYPE_TEST) ||
+           (type == TAF_ECALL_TYPE_AUTO) ||
+           (type == TAF_ECALL_TYPE_MANUAL);
+}
+
+void taf_ecall::ClearRecoveryContext()
+{
+    excludedCalls.clear();
+    PersistExcludedCalls();
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn(CFG_ECALL_RECOVERY_PATH);
+    le_cfg_SetBool(iteratorRef, CFG_NODE_RECOVERY_VALID, true);
+    le_cfg_SetBool(iteratorRef, CFG_NODE_RECOVERY_INPROGRESS, false);
+    le_cfg_SetBool(iteratorRef, CFG_NODE_RECOVERY_CLEANENDED, true);
+    le_cfg_SetBool(iteratorRef, CFG_NODE_RECOVERY_REDIALPENDING, false);
+    le_cfg_SetInt(iteratorRef, CFG_NODE_RECOVERY_PHONEID, -1);
+    le_cfg_SetInt(iteratorRef, CFG_NODE_RECOVERY_CALLINDEX, -1);
+    le_cfg_SetInt(iteratorRef, CFG_NODE_RECOVERY_TAFSTATE, (int)TAF_ECALL_STATE_ENDED);
+    le_cfg_SetInt(iteratorRef, CFG_NODE_RECOVERY_CALLENDCAUSE, (int)CallEndError);
+    le_cfg_SetInt(iteratorRef, CFG_NODE_RECOVERY_REDIALREASON,
+        (int)TAF_ECALL_TERMINATION_REDIAL_REASON_NONE);
+    le_cfg_CommitTxn(iteratorRef);
+    LE_INFO("eCall recovery context cleared");
+}
+
+void taf_ecall::PersistMsdPdu()
+{
+    char pduHex[(TAF_ECALL_MAX_MSD_LENGTH * 2) + 1] = {0};
+    size_t pduSize = ECallObject.pduMsdSize;
+
+    if (pduSize > TAF_ECALL_MAX_MSD_LENGTH)
+    {
+        LE_ERROR("PersistMsdPdu: pduMsdSize %zu exceeds %d, not persisting",
+            pduSize, TAF_ECALL_MAX_MSD_LENGTH);
+        return;
+    }
+
+    for (size_t i = 0; i < pduSize; i++)
+    {
+        snprintf(&pduHex[i * 2], 3, "%02X", ECallObject.msdPdu[i]);
+    }
+
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn(CFG_ECALL_MSD_PATH);
+    le_cfg_SetString(iteratorRef, CFG_NODE_MSD_PDU, pduHex);
+    le_cfg_SetInt(iteratorRef, CFG_NODE_MSD_SIZE, (int32_t)pduSize);
+    le_cfg_SetBool(iteratorRef, CFG_NODE_MSD_UPDATED, ECallObject.isMsdUpdated);
+    le_cfg_CommitTxn(iteratorRef);
+
+    LE_DEBUG("Persisted MSD pdu, size=%zu, isMsdUpdated=%d", pduSize, ECallObject.isMsdUpdated);
+}
+
+void taf_ecall::LoadMsdPdu()
+{
+    char pduHex[(TAF_ECALL_MAX_MSD_LENGTH * 2) + 1] = {0};
+
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn(CFG_ECALL_MSD_PATH);
+    int32_t storedSize = le_cfg_GetInt(iteratorRef, CFG_NODE_MSD_SIZE, 0);
+    bool isMsdUpdated = le_cfg_GetBool(iteratorRef, CFG_NODE_MSD_UPDATED, false);
+    le_result_t res = le_cfg_GetString(iteratorRef, CFG_NODE_MSD_PDU, pduHex, sizeof(pduHex), "");
+    le_cfg_CancelTxn(iteratorRef);
+
+    if (res != LE_OK)
+    {
+        LE_WARN("LoadMsdPdu: stored PDU does not fit the buffer, ignoring it");
+        return;
+    }
+
+    if (storedSize <= 0)
+    {
+        LE_INFO("No persisted MSD pdu found");
+        return;
+    }
+
+    if (storedSize > TAF_ECALL_MAX_MSD_LENGTH || strlen(pduHex) != (size_t)storedSize * 2)
+    {
+        LE_ERROR("LoadMsdPdu: inconsistent persisted MSD, size=%d, hexLen=%zu, discarding",
+            storedSize, strlen(pduHex));
+        return;
+    }
+
+    uint8_t pdu[TAF_ECALL_MAX_MSD_LENGTH] = {0};
+    for (int32_t i = 0; i < storedSize; i++)
+    {
+        unsigned int byteVal = 0;
+        if (sscanf(&pduHex[i * 2], "%2x", &byteVal) != 1)
+        {
+            LE_ERROR("LoadMsdPdu: cannot decode hex at offset %d, discarding", i * 2);
+            return;
+        }
+        pdu[i] = (uint8_t)byteVal;
+    }
+
+    memcpy(ECallObject.msdPdu, pdu, (size_t)storedSize);
+    ECallObject.pduMsdSize = (size_t)storedSize;
+    ECallObject.isMsdUpdated = isMsdUpdated;
+    LE_INFO("Restored MSD pdu from config tree, size=%d, isMsdUpdated=%d", storedSize, isMsdUpdated);
+}
+
+void taf_ecall::SnapshotExcludedCalls(int phoneId)
+{
+    excludedCalls.clear();
+    if (CallManager) {
+        std::vector<std::shared_ptr<telux::tel::ICall>> callList = CallManager->getInProgressCalls();
+        for (auto &call : callList) {
+            if (!call || (call->getCallState() == telux::tel::CallState::CALL_ENDED) ||
+                (call->getPhoneId() != phoneId) ||
+                (call->getCallDirection() != telux::tel::CallDirection::OUTGOING)) {
+                continue;
+            }
+            if (excludedCalls.size() >= TAF_ECALL_MAX_EXCLUDED_CALLS) {
+                break;
+            }
+            excludedCalls[call->getCallIndex()] = call->getCallDirection();
+            LE_INFO("Exclude existing call phoneId=%d, callIndex=%d, direction=%d",
+                phoneId, call->getCallIndex(), (int)call->getCallDirection());
+        }
+    }
+    PersistExcludedCalls();
+}
+
+bool taf_ecall::IsExcludedCall(int32_t callIndex, telux::tel::CallDirection callDirection)
+{
+    auto it = excludedCalls.find(callIndex);
+    return (it != excludedCalls.end()) && (it->second == callDirection);
+}
+
+void taf_ecall::RemoveExcludedCall(int32_t callIndex)
+{
+    if (excludedCalls.erase(callIndex) > 0) {
+        LE_INFO("Excluded call callIndex=%d ended", callIndex);
+        PersistExcludedCalls();
+    }
+}
+
+void taf_ecall::PersistExcludedCalls()
+{
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn(CFG_ECALL_EXCLUDED_PATH);
+    le_cfg_DeleteNode(iteratorRef, "");
+    for (auto &excluded : excludedCalls) {
+        char node[16];
+        snprintf(node, sizeof(node), "%d", (int)excluded.first);
+        le_cfg_SetInt(iteratorRef, node, (int)excluded.second);
+    }
+    le_cfg_CommitTxn(iteratorRef);
+}
+
+void taf_ecall::LoadExcludedCalls(int phoneId)
+{
+    excludedCalls.clear();
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn(CFG_ECALL_EXCLUDED_PATH);
+    if (le_cfg_GoToFirstChild(iteratorRef) == LE_OK) {
+        do {
+            char node[16] = {0};
+            if (le_cfg_GetNodeName(iteratorRef, "", node, sizeof(node)) == LE_OK) {
+                excludedCalls[(int32_t)atoi(node)] =
+                    (telux::tel::CallDirection)le_cfg_GetInt(iteratorRef, "", 0);
+            }
+        } while ((le_cfg_GoToNextSibling(iteratorRef) == LE_OK) &&
+                 (excludedCalls.size() < TAF_ECALL_MAX_EXCLUDED_CALLS));
+    }
+    le_cfg_CancelTxn(iteratorRef);
+
+    if (CallManager && !excludedCalls.empty()) {
+        std::map<int32_t, telux::tel::CallDirection> liveCalls;
+        std::vector<std::shared_ptr<telux::tel::ICall>> callList = CallManager->getInProgressCalls();
+        for (auto &call : callList) {
+            if (call && (call->getCallState() != telux::tel::CallState::CALL_ENDED) &&
+                (call->getPhoneId() == phoneId) &&
+                IsExcludedCall(call->getCallIndex(), call->getCallDirection())) {
+                liveCalls[call->getCallIndex()] = call->getCallDirection();
+            }
+        }
+        if (liveCalls.size() != excludedCalls.size()) {
+            LE_INFO("Drop %zu excluded calls ended during restart",
+                excludedCalls.size() - liveCalls.size());
+            excludedCalls.swap(liveCalls);
+            PersistExcludedCalls();
+        }
+    }
+    LE_INFO("Loaded %zu excluded calls", excludedCalls.size());
+}
+
+bool taf_ecall::SwitchMtToRedialAttempt(int phoneId, int32_t callIndex)
+{
+    if (!ECallObject.iCall ||
+        (ECallObject.iCall->getCallDirection() != telux::tel::CallDirection::INCOMING) ||
+        (ECallObject.phoneId != phoneId) || (ECallObject.callIndex < 0) ||
+        (ECallObject.callIndex == callIndex) || !IsRedialCapableType(ECallObject.type))
+    {
+        return false;
+    }
+
+    taf_ECallRecoveryCtx_t ctx;
+    if (!redialInProgress && !waitingForRedialVerdict &&
+        !(LoadRecoveryContext(&ctx) && ctx.redialPendingHint)) {
+        return false;
+    }
+
+    LE_INFO("Redial attempt callIndex=%d started, switch from MT callIndex=%d (state=%d)",
+        callIndex, ECallObject.callIndex, (int)ECallObject.iCall->getCallState());
+    SetHeldMtCall(ECallObject.iCall);
+    SetCallIndex(-1);
+    SetCallPhoneId(phoneId);
+    redialInProgress = true;
+    return true;
+}
+
+bool taf_ecall::IsHeldMtCall(int phoneId, int32_t callIndex, telux::tel::CallDirection callDirection)
+{
+    return heldMtCall && (callDirection == telux::tel::CallDirection::INCOMING) &&
+        (heldMtCall->getPhoneId() == phoneId) && (heldMtCall->getCallIndex() == callIndex);
+}
+
+bool taf_ecall::HasLiveHeldMtCall()
+{
+    if (!heldMtCall || !CallManager) {
+        return false;
+    }
+
+    std::vector<std::shared_ptr<telux::tel::ICall>> callList = CallManager->getInProgressCalls();
+    for (auto callIterator = std::begin(callList); callIterator != std::end(callList); ++callIterator) {
+        if ((*callIterator) && ((*callIterator)->getCallState() != telux::tel::CallState::CALL_ENDED) &&
+            IsHeldMtCall((*callIterator)->getPhoneId(), (*callIterator)->getCallIndex(),
+            (*callIterator)->getCallDirection())) {
+            return true;
+        }
+    }
+    LE_INFO("MT callIndex=%d left by the redial attempt is gone", heldMtCall->getCallIndex());
+    SetHeldMtCall(nullptr);
+    return false;
+}
+
+void taf_ecall::SetHeldMtCall(std::shared_ptr<telux::tel::ICall> call)
+{
+    heldMtCall = call;
+
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn(CFG_ECALL_HELDMT_PATH);
+    le_cfg_SetInt(iteratorRef, CFG_NODE_HELDMT_PHONEID, call ? call->getPhoneId() : -1);
+    le_cfg_SetInt(iteratorRef, CFG_NODE_HELDMT_CALLINDEX, call ? call->getCallIndex() : -1);
+    le_cfg_CommitTxn(iteratorRef);
+}
+
+void taf_ecall::LoadHeldMtCall()
+{
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn(CFG_ECALL_HELDMT_PATH);
+    int phoneId = le_cfg_GetInt(iteratorRef, CFG_NODE_HELDMT_PHONEID, -1);
+    int32_t callIndex = le_cfg_GetInt(iteratorRef, CFG_NODE_HELDMT_CALLINDEX, -1);
+    le_cfg_CancelTxn(iteratorRef);
+
+    if ((phoneId < 0) || (callIndex < 0)) {
+        return;
+    }
+
+    std::shared_ptr<telux::tel::ICall> liveCall = nullptr;
+    if (CallManager) {
+        std::vector<std::shared_ptr<telux::tel::ICall>> callList = CallManager->getInProgressCalls();
+        for (auto &call : callList) {
+            if (call && (call->getCallState() != telux::tel::CallState::CALL_ENDED) &&
+                (call->getPhoneId() == phoneId) && (call->getCallIndex() == callIndex) &&
+                (call->getCallDirection() == telux::tel::CallDirection::INCOMING)) {
+                liveCall = call;
+                break;
+            }
+        }
+    }
+
+    if (liveCall) {
+        LE_INFO("Recovered MT callIndex=%d left by the redial attempt, phoneId=%d", callIndex, phoneId);
+    } else {
+        LE_INFO("MT callIndex=%d left by the redial attempt ended during restart", callIndex);
+    }
+    SetHeldMtCall(liveCall);
+}
+
+void taf_ecall::HandleHeldMtCallInfo(int phoneId, int32_t callIndex, telux::tel::CallState callState,
+    telux::tel::CallEndCause callEndCause)
+{
+    if (callState != CallState::CALL_ENDED) {
+        LE_INFO("MT callIndex=%d left by the redial attempt, state=%d, not reported",
+            callIndex, (int)callState);
+        return;
+    }
+
+    SetHeldMtCall(nullptr);
+
+    if ((ECallObject.callIndex >= 0) || redialInProgress || waitingForRedialVerdict ||
+        ((ECallObject.eCallSession != ECALL_INIT) && (ECallObject.eCallSession != ECALL_ENDED))) {
+        LE_INFO("MT callIndex=%d left by the redial attempt ended, attempt in progress, not reported",
+            callIndex);
+        return;
+    }
+
+    LE_INFO("MT callIndex=%d left by the redial attempt ended, report ENDED", callIndex);
+    ECallObject.redialReason = TAF_ECALL_TERMINATION_REDIAL_REASON_NONE;
+    ECallObject.eCallSession = ECALL_ENDED;
+    CallEndError = callEndCause;
+    SetStateAndReport(TAF_ECALL_STATE_ENDED, phoneId, "");
+}
+
+le_result_t taf_ecall::HangupHeldMtCall()
+{
+    if (!HasLiveHeldMtCall()) {
+        return LE_NOT_FOUND;
+    }
+
+    LE_INFO("Hangup MT callIndex=%d left by the redial attempt", heldMtCall->getCallIndex());
+    le_result_t result = LE_FAULT;
+    hangupProm = std::promise<telux::common::ErrorCode>();
+    Status status = heldMtCall->hangup(HangupCb);
+    if (status == Status::SUCCESS) {
+        telux::common::ErrorCode error = hangupProm.get_future().get();
+        if (error == ErrorCode::SUCCESS) {
+            result = LE_OK;
+        }
+    }
+    return result;
+}
+
+bool taf_ecall::HasLiveCallInModem()
+{
+    if (!CallManager) {
+        return false;
+    }
+
+    std::vector<std::shared_ptr<telux::tel::ICall>> callList = CallManager->getInProgressCalls();
+    for (auto callIterator = std::begin(callList); callIterator != std::end(callList); ++callIterator) {
+        if ((*callIterator) && (*callIterator)->getCallState() != telux::tel::CallState::CALL_ENDED) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void taf_ecall::InvalidateStaleRecoveryContext(bool reportEnded)
+{
+    taf_ECallRecoveryCtx_t ctx;
+    if (!LoadRecoveryContext(&ctx)) {
+        return;
+    }
+
+    if (!ctx.inProgressHint && !ctx.redialPendingHint) {
+        return;
+    }
+
+    if (HasLiveCallInModem()) {
+        return;
+    }
+
+    if (redialInProgress && ctx.redialPendingHint) {
+        LE_INFO("Redial period still active, keeping recovery context");
+        return;
+    }
+
+    LE_WARN("Stale eCall recovery context detected (no live call in modem), dropping hints");
+
+    ECallObject.iCall = nullptr;
+    ECallObject.callIndex = -1;
+    ECallObject.phoneId = -1;
+    ECallObject.waitForALACKPos = false;
+    ECallObject.redialReason = TAF_ECALL_TERMINATION_REDIAL_REASON_NONE;
+    ECallObject.eCallSession = ECALL_ENDED;
+    ECallObject.state = TAF_ECALL_STATE_ENDED;
+    CallEndError = ctx.callEndCause;
+    ClearRecoveryContext();
+
+    if (reportEnded && !HasLiveHeldMtCall()) {
+        pendingReportEndedAfterRestart = true;
+        pendingReportEndedPhoneId = ctx.phoneId;
+        LE_INFO("Pending ENDED state report for recovered-but-dead eCall, phoneId=%d", ctx.phoneId);
+    }
+}
+
+bool taf_ecall::TryRecoverActiveCall(bool reportState)
+{
+    if (!CallManager) {
+        LE_ERROR("TryRecoverActiveCall: CallManager is nullptr");
+        return false;
+    }
+
+    taf_ECallRecoveryCtx_t ctx;
+    bool hasCtx = LoadRecoveryContext(&ctx);
+    bool ctxInProgress = hasCtx && ctx.inProgressHint && !ctx.cleanEnded;
+    bool ctxRedialPending = hasCtx && ctx.redialPendingHint;
+
+    int expectedPhoneId = -1;
+    if (ECallObject.phoneId >= 0) {
+        expectedPhoneId = ECallObject.phoneId;
+    } else if (hasCtx && ctx.phoneId >= 0) {
+        expectedPhoneId = ctx.phoneId;
+    } else if (lastCallPhoneId >= 0) {
+        expectedPhoneId = lastCallPhoneId;
+    }
+
+    std::vector<std::shared_ptr<telux::tel::ICall>> callList = CallManager->getInProgressCalls();
+    std::shared_ptr<telux::tel::ICall> exactCall = nullptr;
+    std::shared_ptr<telux::tel::ICall> mtCall = nullptr;
+    std::shared_ptr<telux::tel::ICall> moCall = nullptr;
+    int moCallCount = 0;
+    int candidateCount = 0;
+    bool t9Queried = false;
+    bool t9Active = false;
+
+    for (auto callIterator = std::begin(callList); callIterator != std::end(callList); ++callIterator) {
+        if (!(*callIterator) || (*callIterator)->getCallState() == telux::tel::CallState::CALL_ENDED) {
+            continue;
+        }
+
+        int phoneId = (*callIterator)->getPhoneId();
+        int callIndex = (*callIterator)->getCallIndex();
+        telux::tel::CallDirection candidateDir = (*callIterator)->getCallDirection();
+        if ((expectedPhoneId >= 0) && (phoneId != expectedPhoneId)) {
+            LE_INFO("Recovery candidate skipped: phoneId=%d, expected=%d, callIndex=%d",
+                phoneId, expectedPhoneId, callIndex);
+            continue;
+        }
+
+        if (candidateDir == telux::tel::CallDirection::INCOMING) {
+            if (!t9Queried) {
+                t9Queried = true;
+                t9Active = (GetHlapTimerStatus(TAF_ECALL_TIMER_TYPE_T9) == TAF_ECALL_TIMER_STATUS_ACTIVE);
+            }
+            if (!t9Active) {
+                LE_INFO("Recovery candidate skipped: INCOMING call but T9 not active, phoneId=%d, callIndex=%d",
+                    phoneId, callIndex);
+                continue;
+            }
+        } else if (candidateDir != telux::tel::CallDirection::OUTGOING) {
+            continue;
+        }
+        if (IsExcludedCall(callIndex, candidateDir)) {
+            LE_INFO("Recovery candidate skipped: call existing before the eCall, callIndex=%d",
+                callIndex);
+            continue;
+        }
+        if (IsHeldMtCall(phoneId, callIndex, candidateDir)) {
+            LE_INFO("Recovery candidate skipped: MT left by the redial attempt, callIndex=%d",
+                callIndex);
+            continue;
+        }
+
+        candidateCount++;
+        LE_INFO("Recovery candidate: phoneId=%d, callIndex=%d, state=%d, direction=%d",
+            phoneId, callIndex, (int)(*callIterator)->getCallState(), (int)candidateDir);
+
+        if ((ECallObject.phoneId == phoneId) && (ECallObject.callIndex >= 0) &&
+            (ECallObject.callIndex == callIndex)) {
+            exactCall = *callIterator;
+        } else if (ctxInProgress && (ctx.phoneId == phoneId) && (ctx.callIndex >= 0) &&
+            (ctx.callIndex == callIndex) && (ctx.callDirection == candidateDir)) {
+            exactCall = *callIterator;
+        }
+
+        if (candidateDir == telux::tel::CallDirection::INCOMING) {
+            mtCall = *callIterator;
+        } else {
+            moCall = *callIterator;
+            moCallCount++;
+        }
+    }
+
+    std::shared_ptr<telux::tel::ICall> bindCall = nullptr;
+    if (exactCall) {
+        LE_INFO("Recovery: recorded call found");
+        bindCall = exactCall;
+    } else if (ctxRedialPending && (moCallCount > 0)) {
+        if (moCallCount == 1) {
+            LE_INFO("Recovery: redial attempt found");
+            bindCall = moCall;
+            if (mtCall) {
+                LE_INFO("Recovery: MT callIndex=%d left by the redial attempt", mtCall->getCallIndex());
+                SetHeldMtCall(mtCall);
+            }
+        } else {
+            LE_WARN("Recovery: %d outgoing calls during redial period, cannot identify the attempt",
+                moCallCount);
+        }
+    } else if (mtCall) {
+        LE_INFO("Recovery: PSAP callback in T9 found");
+        bindCall = mtCall;
+    } else if ((ctxInProgress || ctxRedialPending) && (moCallCount == 1)) {
+        LE_INFO("Recovery: single outgoing call found for the eCall in progress");
+        bindCall = moCall;
+    } else if (moCallCount > 1) {
+        LE_WARN("Recovery: %d outgoing calls, cannot identify the eCall", moCallCount);
+    }
+
+    if (!bindCall) {
+        LE_INFO("No recoverable eCall active call found, candidateCount=%d, hasCtx=%d",
+            candidateCount, hasCtx);
+        if (hasCtx && candidateCount == 0 && (ctx.inProgressHint || ctx.redialPendingHint)) {
+            if (ctx.redialPendingHint && (redialInProgress || IsRedialCapableType(ctx.eCallType))) {
+                LE_INFO("No live call but redial period is active, keeping recovery context");
+                return false;
+            }
+            LE_WARN("Recovery context refers to a call that no longer exists, clearing it");
+            ECallObject.iCall = nullptr;
+            ECallObject.callIndex = -1;
+            ECallObject.phoneId = -1;
+            ECallObject.waitForALACKPos = false;
+            ECallObject.redialReason = TAF_ECALL_TERMINATION_REDIAL_REASON_NONE;
+            ECallObject.eCallSession = ECALL_ENDED;
+            ECallObject.state = TAF_ECALL_STATE_ENDED;
+            CallEndError = ctx.callEndCause;
+            ClearRecoveryContext();
+        }
+        return false;
+    }
+
+    return BindRecoveredCall(bindCall, hasCtx ? &ctx : nullptr, reportState);
+}
+
+void taf_ecall::RecoverAfterServiceRestart()
+{
+    taf_ECallRecoveryCtx_t ctx;
+    bool hasCtx = LoadRecoveryContext(&ctx);
+    LoadExcludedCalls(hasCtx ? ctx.phoneId : -1);
+    LoadHeldMtCall();
+    if (!hasCtx || (!ctx.inProgressHint && ctx.cleanEnded)) {
+        if (hasCtx && ctx.cleanEnded) {
+            ECallObject.state = TAF_ECALL_STATE_ENDED;
+            ECallObject.eCallSession = ECALL_ENDED;
+            CallEndError = ctx.callEndCause;
+            LE_INFO("Previous eCall ended cleanly before restart, state restored to ENDED");
+        }
+        LE_INFO("No unfinished eCall recovery context found");
+        return;
+    }
+
+    LE_INFO("Attempting eCall recovery after service restart: phoneId=%d, callIndex=%d, state=%d, type=%d",
+        ctx.phoneId, ctx.callIndex, (int)ctx.tafState, (int)ctx.eCallType);
+
+    if (!TryRecoverActiveCall(true)) {
+        if (ctx.redialPendingHint && HasLiveCallInModem()) {
+            ECallObject.phoneId = ctx.phoneId;
+            ECallObject.callIndex = -1;
+            ECallObject.type = ctx.eCallType;
+            ECallObject.state = ctx.tafState;
+            ECallObject.eCallSession = ctx.eCallSession;
+            ECallObject.redialReason = ctx.redialReason;
+            CallEndError = ctx.callEndCause;
+            redialInProgress = true;
+            LE_WARN("Recovered eCall procedure hint only; active call is not bound yet");
+            return;
+        }
+
+        if (ctx.redialPendingHint && IsRedialCapableType(ctx.eCallType)) {
+            ECallObject.phoneId = ctx.phoneId;
+            ECallObject.callIndex = -1;
+            ECallObject.type = ctx.eCallType;
+            ECallObject.state = ctx.tafState;
+            ECallObject.eCallSession = ctx.eCallSession;
+            ECallObject.redialReason = ctx.redialReason;
+            CallEndError = ctx.callEndCause;
+            redialInProgress = true;
+            PersistRecoveryContext(true, false);
+            LE_WARN("Recovered eCall redial period, waiting for next redial attempt on phoneId=%d",
+                ctx.phoneId);
+            return;
+        }
+
+        LE_WARN("Stale eCall recovery context without active call; reporting ENDED and clearing context");
+        ECallObject.iCall = nullptr;
+        ECallObject.state = TAF_ECALL_STATE_ENDED;
+        ECallObject.eCallSession = ECALL_ENDED;
+        ECallObject.callIndex = -1;
+        ECallObject.phoneId = -1;
+        ECallObject.waitForALACKPos = false;
+        ECallObject.redialReason = TAF_ECALL_TERMINATION_REDIAL_REASON_NONE;
+        CallEndError = ctx.callEndCause;
+        ClearRecoveryContext();
+
+        if (HasLiveHeldMtCall()) {
+            // The MT end is reported by the modem, do not report a missed ENDED for it.
+            LE_INFO("MT left by the redial attempt still in progress, no missed ENDED reported");
+            return;
+        }
+        pendingReportEndedAfterRestart = true;
+        pendingReportEndedPhoneId = ctx.phoneId;
+        LE_INFO("Pending ENDED state report for missed call end, phoneId=%d", ctx.phoneId);
+    }
+}
+
 bool taf_ecall::isIdle()
 {
+    if (!TryRecoverActiveCall(false)) {
+        InvalidateStaleRecoveryContext(false);
+    }
+
     le_ref_IterRef_t iterRef = le_ref_GetIterator(ECallPtrRefMap);
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
@@ -1762,11 +2811,26 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
         return LE_FAULT;
     }
 
+    InvalidateStaleRecoveryContext(false);
+
+    if (TryRecoverActiveCall(false)) {
+        LE_ERROR("Already eCall in progress in modem snapshot");
+        return LE_BUSY;
+    }
+    taf_ECallRecoveryCtx_t recoveryCtx;
+    if (LoadRecoveryContext(&recoveryCtx) && recoveryCtx.redialPendingHint &&
+        recoveryCtx.inProgressHint && !recoveryCtx.cleanEnded && HasLiveCallInModem()) {
+        LE_ERROR("eCall redial/procedure hint is still in progress");
+        return LE_BUSY;
+    }
+
     //Check ECall session
     if (eCallPtr->eCallSession != ECALL_INIT && (eCallPtr->eCallSession != ECALL_ENDED)) {
         LE_ERROR("Already ecall in progress");
         return LE_BUSY;
     }
+
+    SnapshotExcludedCalls(phoneId);
     makeEcallProm = std::promise<telux::common::ErrorCode>();
 
     uint32_t timeStamp = 0;
@@ -1889,6 +2953,12 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
             {
                 ECallObject.type = TAF_ECALL_TYPE_MANUAL;
             }
+            HmsEcallSetType(phoneId, ECallObject.type);
+            ECallObject.phoneId = phoneId;
+            ECallObject.callIndex = -1;
+            redialInProgress = false;
+            waitingForRedialVerdict = false;
+            PersistRecoveryContext(true, false);
             if (false == ECallObject.isMsdUpdated)
             {
                 memset(eCallPtr->msdPdu, 0, TAF_ECALL_MAX_MSD_LENGTH);
@@ -1896,6 +2966,7 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
                 {
                     return LE_FAULT;
                 }
+                PersistMsdPdu();
             }
             return LE_OK;
         }
@@ -1916,6 +2987,19 @@ le_result_t taf_ecall::StartPrivate(taf_ecall_CallRef_t ecallRef,
     if (phoneId < 0) {
         LE_ERROR("%s: failed to resolve phoneId", __func__);
         return LE_FAULT;
+    }
+
+    InvalidateStaleRecoveryContext(false);
+
+    if (TryRecoverActiveCall(false)) {
+        LE_ERROR("Already eCall in progress in modem snapshot");
+        return LE_BUSY;
+    }
+    taf_ECallRecoveryCtx_t recoveryCtx;
+    if (LoadRecoveryContext(&recoveryCtx) && recoveryCtx.redialPendingHint &&
+        recoveryCtx.inProgressHint && !recoveryCtx.cleanEnded && HasLiveCallInModem()) {
+        LE_ERROR("eCall redial/procedure hint is still in progress");
+        return LE_BUSY;
     }
 
     //Check ECall session
@@ -1965,6 +3049,11 @@ le_result_t taf_ecall::StartPrivate(taf_ecall_CallRef_t ecallRef,
                 ECallObject.eCallSession = ECALL_REQUEST;
                 ECallObject.isPrieCallOngoing = true;
                 ECallObject.type = TAF_ECALL_TYPE_PRIVATE;
+                ECallObject.phoneId = phoneId;
+                ECallObject.callIndex = -1;
+                redialInProgress = false;
+                waitingForRedialVerdict = false;
+                PersistRecoveryContext(true, false);
                 return LE_OK;
             }
         }
@@ -1984,10 +3073,27 @@ le_result_t taf_ecall::StopECall(taf_ecall_CallRef_t ecallRef) {
 
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
 
-    std::shared_ptr<ICall> iCall = eCallPtr->iCall;
-    TAF_ERROR_IF_RET_VAL(iCall == nullptr, LE_NOT_FOUND, "iCall is null on eCallPtr(%p)", eCallPtr);
+    bool hasHeldMt = HasLiveHeldMtCall();
+    le_result_t heldMtResult = hasHeldMt ? HangupHeldMtCall() : LE_NOT_FOUND;
 
-    ClearPduMsd();
+    if (eCallPtr->iCall == nullptr) {
+        TryRecoverActiveCall(false);
+    }
+    std::shared_ptr<ICall> iCall = eCallPtr->iCall;
+    if ((iCall == nullptr || iCall->getCallState() == telux::tel::CallState::CALL_ENDED) && hasHeldMt) {
+        LE_INFO("StopECall: only the MT left by the redial attempt is stopped, result=%d",
+            (int)heldMtResult);
+        return heldMtResult;
+    }
+    if (iCall == nullptr) {
+        LE_WARN("StopECall: no live call to stop, clearing stale eCall state");
+        redialInProgress = false;
+        waitingForRedialVerdict = false;
+        InvalidateStaleRecoveryContext(true);
+        return LE_NOT_FOUND;
+    }
+
+    le_result_t result = LE_FAULT;
 
     if(iCall->getCallState() == telux::tel::CallState::CALL_INCOMING)
     {
@@ -1996,7 +3102,7 @@ le_result_t taf_ecall::StopECall(taf_ecall_CallRef_t ecallRef) {
         if (status == Status::SUCCESS) {
             telux::common::ErrorCode error = rejectProm.get_future().get();
             if (error == ErrorCode::SUCCESS) {
-                return LE_OK;
+                result = LE_OK;
             }
         }
     } else {
@@ -2005,12 +3111,17 @@ le_result_t taf_ecall::StopECall(taf_ecall_CallRef_t ecallRef) {
         if (status == Status::SUCCESS) {
             telux::common::ErrorCode error = hangupProm.get_future().get();
             if (error == ErrorCode::SUCCESS) {
-                return LE_OK;
+                result = LE_OK;
             }
         }
     }
 
-    return LE_FAULT;
+    if (result == LE_OK)
+    {
+        ClearPduMsd();
+    }
+
+    return result;
 }
 
 le_result_t taf_ecall::AnswerECall(taf_ecall_CallRef_t ecallRef)
@@ -2018,8 +3129,15 @@ le_result_t taf_ecall::AnswerECall(taf_ecall_CallRef_t ecallRef)
     taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
 
+    if (eCallPtr->iCall == nullptr) {
+        TryRecoverActiveCall(false);
+    }
     std::shared_ptr<ICall> iCall = eCallPtr->iCall;
-    TAF_ERROR_IF_RET_VAL(iCall == nullptr, LE_NOT_FOUND, "iCall is null on eCallPtr(%p)", eCallPtr);
+    if (iCall == nullptr) {
+        LE_WARN("AnswerECall: no live call to answer, clearing stale eCall state");
+        InvalidateStaleRecoveryContext(true);
+        return LE_NOT_FOUND;
+    }
 
     answerProm = std::promise<telux::common::ErrorCode>();
     Status status = iCall->answer(AnswerCb);
@@ -2642,6 +3760,7 @@ le_result_t taf_ecall::ImportMsd( taf_ecall_CallRef_t ecallRef, const uint8_t* p
     memcpy(eCallPtr->msdPdu, pduMsd, msdLength);
     eCallPtr->pduMsdSize = msdLength;
     eCallPtr->isMsdUpdated = true;
+    PersistMsdPdu();
     return LE_OK;
 }
 
@@ -2755,6 +3874,7 @@ le_result_t taf_ecall::SendMsd( taf_ecall_CallRef_t ecallRef)
                 memset(eCallPtr->msdPdu, 0, sizeof(eCallPtr->msdPdu));
                 if (LE_OK == RetrieveEncodedMsdPdu((ECallMsdData) eCallPtr->msd, eCallPtr->msdPdu, &(eCallPtr->pduMsdSize)))
                 {
+                    PersistMsdPdu();
                     return LE_OK;
                 }
             }
@@ -2847,6 +3967,11 @@ void taf_ecall::SetStateAndReport(taf_ecall_State_t state, int phoneId, const st
     stateEvent.state = state;
     stateEvent.phoneId = phoneId;
     le_event_Report(StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+    // ENDED is the final end of the eCall (after all redial attempts). Private eCall has no record.
+    if ((state == TAF_ECALL_STATE_ENDED) && (ECallObject.isPrieCallOngoing == false))
+    {
+        HmsEcallDelete(phoneId);
+    }
     if ((state == TAF_ECALL_STATE_ENDED) && (ECallObject.isPrieCallOngoing == true))
     {
         ECallObject.isMsdUpdated = false;
@@ -2859,6 +3984,7 @@ void taf_ecall::ClearPduMsd()
     memset(ECallObject.msdPdu, 0, sizeof(ECallObject.msdPdu));
     ECallObject.pduMsdSize = 0;
     ECallObject.isMsdUpdated = false;
+    PersistMsdPdu();
 }
 
 taf_ecall_State_t taf_ecall::GetState ( taf_ecall_CallRef_t ecallRef)
@@ -4374,26 +5500,36 @@ le_result_t taf_ecall::IsInProgress(taf_ecall_CallRef_t ecallRef, bool* isInProg
         return LE_BAD_PARAMETER;
     }
 
-    std::shared_ptr<telux::tel::ICall> spCall = nullptr;
-    if (CallManager) {
-        std::vector<std::shared_ptr<telux::tel::ICall>> callList
-           = CallManager->getInProgressCalls();
-        for(auto callIterator = std::begin(callList); callIterator != std::end(callList);
-            ++callIterator) {
-            telux::tel::CallState callState = (*callIterator)->getCallState();
-            if(callState != telux::tel::CallState::CALL_ENDED) {
-               spCall = *callIterator;
-               break;
-            }
-        }
-        if(spCall && eCallPtr->callIndex == spCall->getCallIndex()) {
-            *isInProgress = true;
-        } else {
+    if (eCallPtr->eCallSession != ECALL_INIT && eCallPtr->eCallSession != ECALL_ENDED) {
+        if (eCallPtr->iCall == nullptr && !HasLiveCallInModem()) {
+            LE_WARN("Local session says in-progress but modem has no live call, clearing stale state");
+            InvalidateStaleRecoveryContext(true);
             *isInProgress = false;
+            return LE_OK;
         }
-    } else {
-        return LE_FAULT;
+        *isInProgress = true;
+        return LE_OK;
     }
+
+    if (TryRecoverActiveCall(false)) {
+        *isInProgress = true;
+        return LE_OK;
+    }
+
+    if (HasLiveHeldMtCall()) {
+        *isInProgress = true;
+        return LE_OK;
+    }
+
+    taf_ECallRecoveryCtx_t ctx;
+    if (LoadRecoveryContext(&ctx) && ctx.redialPendingHint && ctx.inProgressHint &&
+        !ctx.cleanEnded && HasLiveCallInModem()) {
+        *isInProgress = true;
+        return LE_OK;
+    }
+
+    InvalidateStaleRecoveryContext(false);
+    *isInProgress = false;
     return LE_OK;
 }
 
@@ -4561,6 +5697,19 @@ taf_ecall_StateChangeHandlerRef_t taf_ecall::AddStateChangeHandler
 
     handlerRef = le_event_AddLayeredHandler("NewStateHandler", StateChangeEventId,
             FirstLayerStateChangeHandler, (void*)handlerPtr);
+
+    if (pendingReportEndedAfterRestart)
+    {
+        pendingReportEndedAfterRestart = false;
+        int8_t reportPhoneId = pendingReportEndedPhoneId;
+        pendingReportEndedPhoneId = -1;
+        LE_INFO("Reporting missed eCall ENDED state to new client, phoneId=%d", reportPhoneId);
+        StateChangeEvent_t stateEvent = { 0 };
+        stateEvent.eCallRef = GetECallReference();
+        stateEvent.state = TAF_ECALL_STATE_ENDED;
+        stateEvent.phoneId = reportPhoneId;
+        le_event_Report(StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+    }
 
     return (taf_ecall_StateChangeHandlerRef_t) handlerRef;
 }

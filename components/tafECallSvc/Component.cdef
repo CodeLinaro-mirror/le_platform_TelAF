@@ -16,6 +16,8 @@ requires:
     api:
     {
         taf_sim.api [optional]
+        taf_hms.api [optional]
+        taf_hmsEcall.api [optional]
     }
 
     component:

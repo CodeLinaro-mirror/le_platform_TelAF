@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <stdint.h>
 
 #include "legato.h"
 #include "interfaces.h"
@@ -131,6 +132,11 @@ static le_timer_Ref_t LocReconnectTimer   = NULL;
 static le_timer_Ref_t GpioReconnectTimer  = NULL;
 
 static uint32_t EcallRetryMs = 1000;
+static bool EcallServerConnected = true;
+/* Guards EcallServerConnected and ECallRef: both are touched by the main event loop
+ * (state handler, reconnect timer) and by the CommandInput thread, which registers its
+ * own disconnect handler for its own IPC session. */
+static le_mutex_Ref_t EcallStateMutex = NULL;
 static uint32_t AudioRetryMs = 1000;
 static uint32_t LocRetryMs   = 1000;
 static uint32_t GpioRetryMs  = 1000;
@@ -539,11 +545,43 @@ static int terminateRegistration()
     return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
+static taf_ecall_CallRef_t EnsureECallRef(void)
+{
+    taf_ecall_CallRef_t ref = NULL;
+
+    le_mutex_Lock(EcallStateMutex);
+    if (ECallRef == NULL) {
+        if (!EcallServerConnected) {
+            le_mutex_Unlock(EcallStateMutex);
+            LE_WARN("EnsureECallRef: server disconnected, cannot create reference");
+            return NULL;
+        }
+        ECallRef = taf_ecall_Create();
+        LE_INFO("EnsureECallRef: created reference %p", ECallRef);
+    }
+    ref = ECallRef;
+    le_mutex_Unlock(EcallStateMutex);
+
+    return ref;
+}
+
+static bool IsEcallServerConnected(void)
+{
+    bool connected;
+
+    le_mutex_Lock(EcallStateMutex);
+    connected = EcallServerConnected;
+    le_mutex_Unlock(EcallStateMutex);
+
+    return connected;
+}
+
 static void* CommandInput(void* contextPtr)
 {
     char input_str[5];
 
     taf_ecall_ConnectService();
+    taf_ecall_SetNonExitServerDisconnectHandler(OnEcallServerDisconnected, NULL);
 
     do {
         if (!isMsgPrinted) {
@@ -567,18 +605,30 @@ static void* CommandInput(void* contextPtr)
 
         if (p != NULL && input_str[0]=='h') {
             printf("User input: %c, so hanging up the call...\n", input_str[0]);
-            le_result_t result =  ECallRef != NULL ? taf_ecall_End(ECallRef) : LE_FAULT;
-            printf("Hangup %s\n", result == LE_OK ? "success." : "failed!!");
-            LE_INFO("CommandInput: hanging up the call, result %d\n", (int) result);
+            if (!IsEcallServerConnected()) {
+                printf("Hangup failed!! (server disconnected, waiting for reconnect)\n");
+                LE_WARN("CommandInput: hangup skipped, server disconnected");
+            } else {
+                taf_ecall_CallRef_t ref = EnsureECallRef();
+                le_result_t result = (ref != NULL) ? taf_ecall_End(ref) : LE_FAULT;
+                printf("Hangup %s\n", result == LE_OK ? "success." : "failed!!");
+                LE_INFO("CommandInput: hanging up the call, result %d\n", (int) result);
+            }
         } else if (p != NULL && input_str[0]=='t') {
             printf("User input: %c, so terminate registration...\n", input_str[0]);
             int res = terminateRegistration();
             LE_INFO("CommandInput: terminate registration, res: %d\n", res);
         } else if (p != NULL && input_str[0]=='a') {
             printf("User input: %c, so answer the call...\n", input_str[0]);
-            le_result_t result =  ECallRef != NULL ? taf_ecall_Answer(ECallRef) : LE_FAULT;
-            printf("Answer %s\n", result == LE_OK ? "success." : "failed!!");
-            LE_INFO("CommandInput: answering the call, result %d\n", (int) result);
+            if (!IsEcallServerConnected()) {
+                printf("Answer failed!! (server disconnected, waiting for reconnect)\n");
+                LE_WARN("CommandInput: answer skipped, server disconnected");
+            } else {
+                taf_ecall_CallRef_t ref = EnsureECallRef();
+                le_result_t result = (ref != NULL) ? taf_ecall_Answer(ref) : LE_FAULT;
+                printf("Answer %s\n", result == LE_OK ? "success." : "failed!!");
+                LE_INFO("CommandInput: answering the call, result %d\n", (int) result);
+            }
         } else if (p != NULL && input_str[0]=='i') {
             printf("User input: %c, so import MSD eg:02251C0680E30A51439E2955D43800800837F80C9FD707F09A94BDD30E55E080000001FFFFE040\n", input_str[0]);
             char msd[2*TAF_ECALL_MAX_MSD_LENGTH+1];
@@ -614,30 +664,51 @@ static void* CommandInput(void* contextPtr)
 
                 if (res == 0)
                 {
-                    res = taf_ecall_ImportMsd(ECallRef, msdPdu, strlen(msd)/2);
-                    LE_INFO("CommandInput: import MSD, res: %d\n", res);
-                    res = taf_ecall_SendMsd(ECallRef);
-                    LE_INFO("CommandInput: send MSD, res: %d\n", res);
+                    taf_ecall_CallRef_t ref = EnsureECallRef();
+                    if (ref == NULL)
+                    {
+                        printf("ImportMsd failed!! (no valid eCall reference)\n");
+                        LE_WARN("CommandInput: import MSD skipped, ref is NULL");
+                    }
+                    else
+                    {
+                        res = taf_ecall_ImportMsd(ref, msdPdu, strlen(msd)/2);
+                        LE_INFO("CommandInput: import MSD, res: %d\n", res);
+                        res = taf_ecall_SendMsd(ref);
+                        LE_INFO("CommandInput: send MSD, res: %d\n", res);
+                    }
                 }
             }
         } else if (p != NULL && input_str[0]=='s') {
             printf("User input: %c, so send MSD...\n", input_str[0]);
-            int res = taf_ecall_SendMsd(ECallRef);
-            LE_INFO("CommandInput: send MSD, res: %d\n", res);
+            taf_ecall_CallRef_t ref = EnsureECallRef();
+            if (ref == NULL) {
+                printf("SendMsd failed!! (no valid eCall reference)\n");
+                LE_WARN("CommandInput: send MSD skipped, ref is NULL");
+            } else {
+                int res = taf_ecall_SendMsd(ref);
+                LE_INFO("CommandInput: send MSD, res: %d\n", res);
+            }
         } else if (p != NULL && input_str[0]=='e') {
             printf("User input: %c, so export MSD by ExportMsd...\n", input_str[0]);
             uint8_t msdRawDataExport[TAF_ECALL_MAX_MSD_LENGTH];
             size_t msdLengthExport = TAF_ECALL_MAX_MSD_LENGTH;
-            int res = taf_ecall_ExportMsd(ECallRef, msdRawDataExport, &msdLengthExport);
-            if (res == 0)
-            {
-                printf("Export MSD with PDU format = ");
-                for (int i = 0; i < msdLengthExport; i++) {
-                    printf("%d ", msdRawDataExport[i]);
+            taf_ecall_CallRef_t ref = EnsureECallRef();
+            if (ref == NULL) {
+                printf("ExportMsd failed!! (no valid eCall reference)\n");
+                LE_WARN("CommandInput: export MSD skipped, ref is NULL");
+            } else {
+                int res = taf_ecall_ExportMsd(ref, msdRawDataExport, &msdLengthExport);
+                if (res == 0)
+                {
+                    printf("Export MSD with PDU format = ");
+                    for (int i = 0; i < msdLengthExport; i++) {
+                        printf("%d ", msdRawDataExport[i]);
+                    }
                 }
+                printf("\n");
+                LE_INFO("CommandInput: export MSD, res: %d\n", res);
             }
-            printf("\n");
-            LE_INFO("CommandInput: export MSD, res: %d\n", res);
         } else if (p != NULL && input_str[0]=='g') {
             printf("User input: %c, so enter the hlap timer type eg: 2...\n", input_str[0]);
             p = fgets(input_str,sizeof(input_str),stdin);
@@ -673,9 +744,9 @@ static void* CommandInput(void* contextPtr)
 static void SignalHandler (int sigNum)
 {
     LE_INFO("Exit eCallDemo app");
+
     if (ECallRef)
     {
-        taf_ecall_End(ECallRef);
         taf_ecall_Delete(ECallRef);
         ECallRef = NULL;
     }
@@ -694,7 +765,16 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
 {
 
     LE_INFO("Ecall state change event, state = %d (%s)", state, ECallStateToString(state));
-    LE_INFO("Ecall state change event, reference = %p", eCallReference);
+    LE_INFO("Ecall state change event, reference = %p", eCallReference );
+
+    if (eCallReference != NULL) {
+        le_mutex_Lock(EcallStateMutex);
+        if (ECallRef == NULL) {
+            ECallRef = eCallReference;
+            LE_INFO("tafECallStateHandler: adopted server reference %p", ECallRef);
+        }
+        le_mutex_Unlock(EcallStateMutex);
+    }
     printf("\n=================\033[1;35mNOTIFICATION\033[0m=================\n");
     printf("Time: %s\n", getCurrentTime());
     printf("Ecall state change event, state = %d\n", state);
@@ -755,16 +835,6 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
     }
 
     printf("\n==============================================\n");
-
-    if (exitApp) {
-        le_thread_Cancel(ECallCmdThreadRef);
-        ECallCmdThreadRef = NULL;
-        exit(EXIT_SUCCESS);
-    } else {
-        le_thread_Cancel(ECallCmdThreadRef);
-        ECallCmdThreadRef = le_thread_Create("ECalltTh", CommandInput, NULL);
-        le_thread_Start(ECallCmdThreadRef);
-    }
 }
 
 static void PrintUsage ()
@@ -1521,6 +1591,34 @@ static int setInitialDialIntervalBetweenDialAttempts()
     return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
+static void SyncECallStateFromServer(const char* phase)
+{
+    taf_ecall_CallRef_t ref = EnsureECallRef();
+    if (!ref) {
+        LE_WARN("%s: cannot obtain eCall reference", phase);
+        return;
+    }
+
+    bool inProgress = false;
+    taf_ecall_IsInProgress(ref, &inProgress);
+    taf_ecall_State_t curState = taf_ecall_GetState(ref);
+    LE_INFO("%s: state=%d (%s), inProgress=%d",
+        phase, curState, ECallStateToString(curState), (int)inProgress);
+    ECallState = curState;
+
+    taf_ecall_Type_t type = taf_ecall_GetType(ECallRef);
+    LE_INFO("eCall type = %d!\n", (int)type);
+
+    if (inProgress) {
+        printf("\n[INFO] An eCall is already in progress, state = %s\n",
+            ECallStateToString(curState));
+    }
+    else if (curState == TAF_ECALL_STATE_END_OF_REDIAL_PERIOD) {
+        printf("\n[INFO] An eCall is waiting for the next redial attempt, state = %s\n",
+            ECallStateToString(curState));
+    }
+}
+
 static void OnEcallServerDisconnected(void* ctx)
 {
     LE_WARN("taf_ecall server disconnected (non-exit); start reconnect timer");
@@ -1535,10 +1633,12 @@ static void OnEcallServerDisconnected(void* ctx)
         le_timer_Start(EcallReconnectTimer);
     }
 
-    if (ECallRef)
-    {
-        ECallRef = NULL;
-    }
+    le_mutex_Lock(EcallStateMutex);
+    EcallServerConnected = false;
+    ECallRef = NULL;
+    le_mutex_Unlock(EcallStateMutex);
+
+    HandlerRef = NULL;
 }
 
 static void EcallReconnectTimerHandler(le_timer_Ref_t t)
@@ -1547,14 +1647,25 @@ static void EcallReconnectTimerHandler(le_timer_Ref_t t)
     if (r == LE_OK)
     {
         LE_WARN("taf_ecall reconnected");
+        le_mutex_Lock(EcallStateMutex);
+        EcallServerConnected = true;
+        le_mutex_Unlock(EcallStateMutex);
 
         taf_ecall_SetNonExitServerDisconnectHandler(OnEcallServerDisconnected, NULL);
 
-        if (HandlerRef)
-        {
-            taf_ecall_RemoveStateChangeHandler(HandlerRef);
-        }
         HandlerRef = taf_ecall_AddStateChangeHandler(tafECallStateHandler, NULL);
+
+        SyncECallStateFromServer("Reconnect sync");
+
+        if (ECallCmdThreadRef) {
+            /* The old thread's IPC session died with the server. Cancel it and start a
+             * fresh one; do not join, the thread is not joinable and may be blocked in
+             * fgets() waiting for user input. */
+            le_thread_Cancel(ECallCmdThreadRef);
+            ECallCmdThreadRef = le_thread_Create("ECalltTh", CommandInput, NULL);
+            le_thread_Start(ECallCmdThreadRef);
+            LE_INFO("Restarted CommandInput thread with fresh IPC session");
+        }
 
         le_timer_Stop(t);
         le_timer_Delete(t);
@@ -1711,6 +1822,7 @@ COMPONENT_INIT
     exitApp = true;
 
     LE_INFO("ECallTestApp COMPONENT_INIT...");
+    EcallStateMutex = le_mutex_CreateNonRecursive("EcallStateMutex");
     signal(SIGINT, SignalHandler);
     signal(SIGTERM, SignalHandler);
 
@@ -1724,6 +1836,16 @@ COMPONENT_INIT
     const char* command = le_arg_GetArg(1);
     HandlerRef = taf_ecall_AddStateChangeHandler(tafECallStateHandler, NULL);
     taf_ecall_SetNonExitServerDisconnectHandler(OnEcallServerDisconnected, NULL);
+
+    bool needsCallRefSync = command != NULL &&
+        (strcmp(command, "start") == 0 || strcmp(command, "end") == 0 ||
+         strcmp(command, "answer") == 0 || strcmp(command, "isInProgress") == 0 ||
+         strcmp(command, "getState") == 0);
+
+    if (needsCallRefSync) {
+        SyncECallStateFromServer("Startup sync");
+    }
+
     if (command == NULL || strcmp(command, "help") == 0)
     {
         PrintUsage();
@@ -1855,6 +1977,9 @@ COMPONENT_INIT
         ECallCmdThreadRef = NULL;
         exit(status);
     } else {
+        if (!needsCallRefSync) {
+            SyncECallStateFromServer("Interactive mode sync");
+        }
         le_thread_Cancel(ECallCmdThreadRef);
         ECallCmdThreadRef = le_thread_Create("ECalltTh", CommandInput, NULL);
         le_thread_Start(ECallCmdThreadRef);

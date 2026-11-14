@@ -585,7 +585,7 @@ void taf_UpdateSvr::UDSMsgHandler
         // This parameter record contains parameter(s), which are required
         // by the server to support the transfer of data.
         // Format and length of this parameter(s) are vehicle manufacturer specific.
-        if ((msgLen - dataPtrPos) > TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE)
+        if ((msgLen - dataPtrPos) > TAF_DIAGUPDATE_MAX_XFER_EXIT_PARAM_REC_SIZE)
         {
             LE_WARN("Message length(%" PRIuS ") is out of range", msgLen - dataPtrPos);
             // UDS_0x37_NRC_13: Block parameter record is overflow
@@ -1812,7 +1812,8 @@ le_result_t taf_UpdateSvr::SendXferExitResp
     taf_diagUpdate_RxXferExitMsgRef_t rxMsgRef,
     taf_diagUpdate_XferExitErrorCode_t errCode,
     const uint8_t* dataPtr,
-    size_t dataSize)
+    size_t dataSize
+)
 {
     le_result_t ret;
 

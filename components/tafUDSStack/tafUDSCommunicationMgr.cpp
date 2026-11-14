@@ -3359,13 +3359,13 @@ le_result_t UdsCommunicationMgr::IndicateRxXferDataReq
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
-    // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
-    if(recvDataLen > UDS_DATA_SIZE)
+    // Received data length shall not be more than the UDS_MAX_DATA_SIZE (MAX limit)
+    if(recvDataLen > UDS_MAX_DATA_SIZE)
     {
         isXferActive.store(false);
-        LE_ERROR("recvDataLen is more than the UDS_DATA_SIZE.");
+        LE_ERROR("recvDataLen (%d) is more than the UDS_MAX_DATA_SIZE.", recvDataLen);
         *isInternalHandle = true;
-        // UDS_0x36_NRC_13: overflow UDS_DATA_SIZE
+        // UDS_0x36_NRC_13: overflow UDS_MAX_DATA_SIZE
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
@@ -5014,7 +5014,7 @@ le_result_t UdsCommunicationMgr::SendUDSResp
             ret = XferDataResp(serviceId, dataPtr, dataSize, err);
         break;
         case REQUEST_TRANSFER_EXIT_REQUEST_ID:
-            ret = ReqXferExitResp(serviceId, err);
+            ret = ReqXferExitResp(serviceId, dataPtr, dataSize, err);
         break;
         case REQUEST_FILE_TRANSFER_REQUEST_ID:
             ret = ReqFileXferResp(serviceId, dataPtr, dataSize, err);
@@ -5921,10 +5921,19 @@ le_result_t UdsCommunicationMgr::XferDataResp
 le_result_t UdsCommunicationMgr::ReqXferExitResp
 (
     uint8_t serviceId,
+    const uint8_t* dataPtr,
+    uint16_t dataSize,
     uint8_t err
 )
 {
     LE_DEBUG("ReqXferExitResp");
+
+    // Check the send dataLength.
+    if (dataSize > UDS_DATA_SIZE - UDS_RESP_XFER_EXIT_BASE_LEN)
+    {
+        LE_ERROR("Send dataLength is more than max size.");
+        return LE_FAULT;
+    }
 
     if (POSITIVE_RESPONSE != err)
     {
@@ -5934,7 +5943,16 @@ le_result_t UdsCommunicationMgr::ReqXferExitResp
     }
 
     sendBuf[0] = REQUEST_TRANSFER_EXIT_RESPONSE_ID;
-    sendDataLen = UDS_RESP_XFER_EXIT_BASE_LEN;
+
+    if (dataPtr != NULL && dataSize != 0)
+    {
+        memcpy(sendBuf + UDS_RESP_XFER_EXIT_BASE_LEN, dataPtr, dataSize);
+        sendDataLen = UDS_RESP_XFER_EXIT_BASE_LEN + dataSize;
+    }
+    else
+    {
+        sendDataLen = UDS_RESP_XFER_EXIT_BASE_LEN;
+    }
 
     isXferActive.store(false);
 
@@ -5975,7 +5993,7 @@ le_result_t UdsCommunicationMgr::ReqDwnldResp
     }
 
     // maxNumberOfBlockLength
-    uint16_t maxNumberOfBlockLen = UDS_DATA_SIZE - 4; // Reduce the source & target addresses.
+    uint16_t maxNumberOfBlockLen = UDS_MAX_DATA_SIZE;
     // lengthFormatIdentifier
     uint8_t nBytes = HowManyChars(maxNumberOfBlockLen);
     uint8_t lengthFormatId = ((nBytes & 0x0F) << 4);
@@ -6025,7 +6043,7 @@ le_result_t UdsCommunicationMgr::ReqFileXferResp
     }
 
     uint16_t filePathAndNameLength = LENGTH_OF_FILE_NAME;
-    uint16_t maxNumberOfBlockLen = UDS_DATA_SIZE - 4; // Reduce the source & target addresses.
+    uint16_t maxNumberOfBlockLen = UDS_MAX_DATA_SIZE;
     uint8_t lengthFormatIdentifier = HowManyChars(maxNumberOfBlockLen);
 
     // Echo DFI_ in response

@@ -222,6 +222,7 @@ namespace tafsvc {
             ~taf_Vlan() {};
 
             void Init(void);
+            void Deinit(void);
             static taf_Vlan &GetInstance();
 
             static void ClientCloseSessionHandler(le_msg_SessionRef_t sessionRef, void *contextPtr);

@@ -10,7 +10,7 @@ requires:
 {
     api:
     {
-        taf_dcs.api
+        taf_dcs.api [optional]
         taf_pm.api
 
     }
@@ -19,6 +19,7 @@ requires:
     {
         lib/libtelux_tel.so
         lib/libtelux_data.so
+        lib/libtelux_platform.so
     }
 
     component:

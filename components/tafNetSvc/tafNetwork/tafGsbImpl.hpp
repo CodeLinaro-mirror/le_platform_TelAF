@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2022-2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -9,12 +9,8 @@
 #include <memory>
 #include <vector>
 #include <iostream>
-#include <telux/data/DataFactory.hpp>
-#include <telux/data/net/BridgeManager.hpp>
 #include "tafSvcIF.hpp"
-
-using namespace telux::data;
-using namespace telux::common;
+#include <future>
 
 namespace tafsvc {
 
@@ -63,15 +59,8 @@ namespace tafsvc {
     class tafGsbCallback
     {
         public:
-            static void onBridgeListResponse(
-                      const std::vector<telux::data::net::BridgeInfo> &infos,
-                      telux::common::ErrorCode error);
-
-            void onResponseCallback(telux::common::ErrorCode error);
-
             tafGsbCallback(){};
             ~tafGsbCallback(){};
-            static std::vector<telux::data::net::BridgeInfo> gsbInfo;
             static le_sem_Ref_t semaphore;
     };
     /*
@@ -100,27 +89,6 @@ namespace tafsvc {
                                                        size_t ifNamePtrSize);
             taf_net_GsbIfType_t GetGsbInterfaceType( taf_net_GsbRef_t gsbRef);
             int32_t GetGsbBandWidth( taf_net_GsbRef_t gsbRef );
-
-            void onInitComplete(telux::common::ServiceStatus status);
-
-             std::promise<le_result_t> GsbSyncPromise;
-
-             le_mem_PoolRef_t gsbListPool;
-             le_mem_PoolRef_t gsbPool;
-             le_mem_PoolRef_t gsbSafeRefPool;
-
-             le_ref_MapRef_t gsbListRefMap;
-             le_ref_MapRef_t gsbSafeRefMap;
-
-        private:
-            std::shared_ptr<telux::data::net::IBridgeManager> gsbManager = nullptr;
-
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-            bool IsSubSystemStatusUpdated=false;
-            std::mutex mMutex;
-            std::condition_variable conVar;
-#endif
     };
 
 }
-

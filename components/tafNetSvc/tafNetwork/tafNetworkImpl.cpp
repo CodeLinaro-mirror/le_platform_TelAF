@@ -67,6 +67,11 @@ void taf_Net::Init(void)
 
 }
 
+void taf_Net::Deinit(void)
+{
+    LE_INFO("data net component deinit...");
+}
+
 taf_Net &taf_Net::GetInstance()
 {
     static taf_Net instance;

@@ -19,8 +19,277 @@
 #include "tafSocksImpl.hpp"
 #include "tafGsbImpl.hpp"
 #include "taf_pa_net.hpp"
+#include <atomic>
+#include <future>
+#include <telux/platform/SubsystemFactory.hpp>
+#include <telux/platform/SubsystemManager.hpp>
 
 using namespace tafsvc;
+
+#define MAX_NUM_OF_DCS_CONN_ATTEMPTS    3
+#define MAX_NUM_OF_DCS_TIMER_REPEAT     2
+#define DCS_DELAY_TIMER_INTERVAL        32000
+#define DCS_CONN_RETRY_TIMER_INTERVAL   1000
+
+static bool IsDcsConnected = false;
+static le_timer_Ref_t DcsRetryTimer = nullptr;
+static le_timer_Ref_t DcsDelayTimer = nullptr;
+static uint32_t DcsTimerRepeat = 0;
+
+static void DcsConnectHandler(le_timer_Ref_t timerRef);
+static void DcsDelayHandler(le_timer_Ref_t timerRef);
+static void DcsDisconnectHandler(void* contextPtr);
+static bool TryConnectDcsService(void);
+
+static void StartDcsRetryTimer(void)
+{
+    if (DcsRetryTimer == nullptr)
+    {
+        DcsRetryTimer = le_timer_Create("dcsRetryTimer");
+        if (DcsRetryTimer == nullptr)
+        {
+            LE_ERROR("Failed to create DCS retry timer");
+            return;
+        }
+        le_timer_SetHandler(DcsRetryTimer, DcsConnectHandler);
+        le_timer_SetWakeup(DcsRetryTimer, false);
+        le_timer_SetMsInterval(DcsRetryTimer, DCS_CONN_RETRY_TIMER_INTERVAL);
+    }
+    // Always reset repeat count before starting to ensure clean retry sequence
+    le_timer_SetRepeat(DcsRetryTimer, MAX_NUM_OF_DCS_CONN_ATTEMPTS);
+    le_timer_Start(DcsRetryTimer);
+}
+
+/*
+ * Try to connect to taf_dcs for 3 times with 1 sec interval.
+ */
+static void DcsConnectHandler(le_timer_Ref_t timerRef)
+{
+    uint32_t expiryCount = le_timer_GetExpiryCount(timerRef);
+    LE_INFO("DCS retry attempt %d/%d", expiryCount, MAX_NUM_OF_DCS_CONN_ATTEMPTS);
+    // An API call may have connected already; TryConnectDcsService() skips connecting again.
+    if (TryConnectDcsService())
+    {
+        le_timer_Stop(DcsRetryTimer);
+        DcsTimerRepeat = 0;
+        if (DcsDelayTimer)
+        {
+            le_timer_Delete(DcsDelayTimer);
+            DcsDelayTimer = nullptr;
+        }
+    }
+    else if (expiryCount == MAX_NUM_OF_DCS_CONN_ATTEMPTS
+            && DcsTimerRepeat < MAX_NUM_OF_DCS_TIMER_REPEAT)
+    {
+        LE_INFO("Stop DCS timer and start after 32secs");
+        le_timer_Stop(DcsRetryTimer);
+        if (DcsDelayTimer == nullptr)
+        {
+            DcsDelayTimer = le_timer_Create("dcsDelayTimer");
+            if (DcsDelayTimer == nullptr)
+            {
+                LE_ERROR("Failed to create DCS delay timer");
+                return;
+            }
+            le_timer_SetHandler(DcsDelayTimer, DcsDelayHandler);
+            le_timer_SetWakeup(DcsDelayTimer, false);
+            le_timer_SetMsInterval(DcsDelayTimer, DCS_DELAY_TIMER_INTERVAL);
+        }
+        le_timer_Start(DcsDelayTimer);
+        DcsTimerRepeat++;
+    }
+    else if (expiryCount >= MAX_NUM_OF_DCS_CONN_ATTEMPTS
+            && DcsTimerRepeat >= MAX_NUM_OF_DCS_TIMER_REPEAT)
+    {
+        LE_ERROR("Failed to connect to taf_dcs after maximum retries");
+        le_timer_Stop(DcsRetryTimer);
+        DcsTimerRepeat = 0;
+        if (DcsDelayTimer)
+        {
+            le_timer_Delete(DcsDelayTimer);
+            DcsDelayTimer = nullptr;
+        }
+    }
+    else
+    {
+        LE_INFO("Retrying taf_dcs connection...");
+    }
+}
+
+/*
+ * Start DCS connect timer again after 32secs.
+ */
+static void DcsDelayHandler(le_timer_Ref_t timerRef)
+{
+    LE_INFO("Stop DCS delay timer and start retry timer");
+    le_timer_Stop(timerRef);
+    StartDcsRetryTimer();
+}
+
+/*
+ * Handle taf_dcs server disconnect � restart retry sequence.
+ */
+static void DcsDisconnectHandler(void* contextPtr)
+{
+    LE_ERROR("taf_dcs server disconnected, starting reconnect retry");
+    IsDcsConnected = false;
+    DcsTimerRepeat = 0;
+    StartDcsRetryTimer();
+}
+
+#define NET_SUBSYSTEM_MANAGER_TIMEOUT   30
+
+/*
+ * Listener for modem (MPSS) operational state changes.
+ */
+class tafNetModemEvtListener : public telux::platform::ISubsystemListener
+{
+    public:
+        void onStateChange(telux::common::SubsystemInfo subsystemInfo,
+            telux::common::OperationalStatus newOperationalStatus) override;
+};
+
+static std::shared_ptr<telux::platform::ISubsystemManager> SubsystemMgr = nullptr;
+static std::shared_ptr<tafNetModemEvtListener> ModemEvtListener = nullptr;
+static le_event_Id_t ModemUnavailableEvId = nullptr;
+static std::atomic<bool> IsModemUnavailable{false};
+
+/*
+ * Called in telsdk thread, forward the modem unavailable event to the main thread.
+ */
+void tafNetModemEvtListener::onStateChange(telux::common::SubsystemInfo subsystemInfo,
+    telux::common::OperationalStatus newOperationalStatus)
+{
+    LE_INFO("Modem operational status changed to %d", (int)newOperationalStatus);
+
+    if (((subsystemInfo.subsystems & telux::common::Subsystem::MPSS) ==
+            telux::common::Subsystem::MPSS) &&
+        (newOperationalStatus == telux::common::OperationalStatus::UNAVAILABLE))
+    {
+        if (IsModemUnavailable.exchange(true))
+        {
+            return;
+        }
+        le_event_Report(ModemUnavailableEvId, &newOperationalStatus,
+            sizeof(newOperationalStatus));
+    }
+}
+
+/*
+ * Release all the resources of the network service.
+ */
+static void taf_net_Deinit(void)
+{
+    LE_INFO("Deinitializing network service");
+
+    if (SubsystemMgr != nullptr && ModemEvtListener != nullptr)
+    {
+        SubsystemMgr->deRegisterListener(ModemEvtListener);
+    }
+
+    if (DcsRetryTimer)
+    {
+        le_timer_Delete(DcsRetryTimer);
+        DcsRetryTimer = nullptr;
+    }
+    if (DcsDelayTimer)
+    {
+        le_timer_Delete(DcsDelayTimer);
+        DcsDelayTimer = nullptr;
+    }
+
+    taf_Socks::GetInstance().Deinit();
+    taf_L2tp::GetInstance().Deinit();
+    taf_Vlan::GetInstance().Deinit();
+    taf_Nat::GetInstance().Deinit();
+    taf_Net::GetInstance().Deinit();
+
+    le_result_t result = taf_pa_net_Deinit();
+    if (result != LE_OK)
+        LE_ERROR("taf_pa_net_Deinit failed, result: %d", result);
+    else
+        LE_INFO("taf_pa_net_Deinit succeeded.");
+}
+
+/*
+ * Handle modem SSR in main thread, deinit and exit so that the supervisor restarts the service.
+ */
+static void ModemUnavailableHandler(void* reportPtr)
+{
+    LE_UNUSED(reportPtr);
+
+    LE_CRIT("Modem SSR detected, exiting for restart");
+    taf_net_Deinit();
+    _exit(EXIT_UNAVAILABLE);
+}
+
+/*
+ * Register the modem state listener to monitor modem SSR. Exit for restart on failure, otherwise
+ * the service would run without being able to recover from modem SSR.
+ */
+static void StartModemMonitor(void)
+{
+    ModemUnavailableEvId = le_event_CreateId("NetModemUnavailable",
+        sizeof(telux::common::OperationalStatus));
+    le_event_AddHandler("NetModemUnavailable", ModemUnavailableEvId, ModemUnavailableHandler);
+
+    auto prom = std::make_shared<std::promise<telux::common::ServiceStatus>>();
+    SubsystemMgr = telux::platform::SubsystemFactory::getInstance().getSubsystemManager(
+        [prom](telux::common::ServiceStatus status)
+        {
+            try {
+                prom->set_value(status);
+            }
+            catch (const std::future_error& e) {
+                LE_ERROR("Future error in subsystem manager callback: %s", e.what());
+            }
+        });
+    if (SubsystemMgr == nullptr)
+    {
+        LE_CRIT("Failed to get subsystem manager, exiting for restart");
+        _exit(EXIT_UNAVAILABLE);
+    }
+
+    auto f = prom->get_future();
+    if (f.wait_for(std::chrono::seconds(NET_SUBSYSTEM_MANAGER_TIMEOUT)) !=
+        std::future_status::ready ||
+        f.get() != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+    {
+        LE_CRIT("Subsystem manager unavailable, exiting for restart");
+        _exit(EXIT_UNAVAILABLE);
+    }
+
+    telux::common::SubsystemInfo info{};
+    info.location   = telux::common::ProcType::LOCAL_PROC;
+    info.subsystems = telux::common::Subsystem::MPSS;
+    ModemEvtListener = std::make_shared<tafNetModemEvtListener>();
+    if (SubsystemMgr->registerListener(ModemEvtListener, {info}) !=
+        telux::common::ErrorCode::SUCCESS)
+    {
+        LE_CRIT("Failed to register modem state listener, exiting for restart");
+        _exit(EXIT_UNAVAILABLE);
+    }
+
+    LE_INFO("Modem state listener registered");
+}
+
+static bool TryConnectDcsService(void)
+{
+    if (IsDcsConnected)
+    {
+        return true;
+    }
+
+    if (taf_dcs_TryConnectService() == LE_OK)
+    {
+        IsDcsConnected = true;
+        taf_dcs_SetNonExitServerDisconnectHandler(DcsDisconnectHandler, nullptr);
+        LE_INFO("Successfully connected to taf_dcs");
+        return true;
+    }
+
+    return false;
+}
 
 void taf_net_init()
 {
@@ -28,6 +297,12 @@ void taf_net_init()
     auto &network = taf_Net::GetInstance();
     network.Init();
     LE_INFO("taf net component init done...\n");
+
+    if (!TryConnectDcsService())
+    {
+        LE_ERROR("Failed to connect to taf_dcs at init, starting retry");
+        StartDcsRetryTimer();
+    }
 
     return;
 }
@@ -101,6 +376,12 @@ le_result_t taf_net_GetInterfaceList(taf_net_InterfaceInfo_t *intfInfoList, size
 
     TAF_ERROR_IF_RET_VAL(intfInfoList == NULL, LE_BAD_PARAMETER, "intfInfoList is NULL!");
     TAF_ERROR_IF_RET_VAL(listSize == NULL, LE_BAD_PARAMETER, "listSize is NULL!");
+
+    if (!TryConnectDcsService())
+    {
+        LE_ERROR("taf_dcs not connected, cannot get interface list");
+        return LE_UNAVAILABLE;
+    }
 
     for(int phoneId = 1; phoneId <= MAX_SLOT_COUNT; phoneId++)
     {
@@ -344,6 +625,12 @@ le_result_t taf_net_SetDefaultGW(const char *namePtr)
 
     TAF_ERROR_IF_RET_VAL(namePtr == NULL, LE_BAD_PARAMETER, "interface name is NULL!");
 
+    if (!TryConnectDcsService())
+    {
+        LE_ERROR("taf_dcs not connected, cannot set default GW");
+        return LE_UNAVAILABLE;
+    }
+
     auto &network = taf_Net::GetInstance();
 
     result = taf_dcs_GetProfileIdByInterfaceName(namePtr, &profileId);
@@ -400,6 +687,12 @@ le_result_t taf_net_GetInterfaceGW(const char *namePtr, char *ipv4AddrPtr, size_
     TAF_ERROR_IF_RET_VAL(ipv4AddrPtr == NULL, LE_BAD_PARAMETER, "ipv4AddrPtr is NULL!");
     TAF_ERROR_IF_RET_VAL(ipv6AddrPtr == NULL, LE_BAD_PARAMETER, "ipv6AddrPtr is NULL!");
 
+    if (!TryConnectDcsService())
+    {
+        LE_ERROR("taf_dcs not connected, cannot get interface GW");
+        return LE_UNAVAILABLE;
+    }
+
     result = taf_dcs_GetProfileIdByInterfaceName(namePtr, &profileId);
     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Can't find profile id by name!");
 
@@ -450,6 +743,12 @@ le_result_t taf_net_SetDNS(const char *namePtr)
     auto &network = taf_Net::GetInstance();
 
     TAF_ERROR_IF_RET_VAL(namePtr == NULL, LE_BAD_PARAMETER, "interface name is NULL!");
+
+    if (!TryConnectDcsService())
+    {
+        LE_ERROR("taf_dcs not connected, cannot set DNS");
+        return LE_UNAVAILABLE;
+    }
 
     result = taf_dcs_GetProfileIdByInterfaceName(namePtr, &profileId);
     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Can't find profile id by name!");
@@ -504,6 +803,12 @@ le_result_t taf_net_GetInterfaceDNS(const char *namePtr,
     TAF_ERROR_IF_RET_VAL(namePtr == NULL, LE_BAD_PARAMETER, "interface name is NULL!");
     TAF_ERROR_IF_RET_VAL(dnsSvrAddrsPtr == NULL, LE_BAD_PARAMETER, "dnsSvrAddrsPtr is NULL!");
 
+    if (!TryConnectDcsService())
+    {
+        LE_ERROR("taf_dcs not connected, cannot get interface DNS");
+        return LE_UNAVAILABLE;
+    }
+
     result = taf_dcs_GetProfileIdByInterfaceName(namePtr, &profileId);
     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Can't find profile id by name!");
 
@@ -536,6 +841,28 @@ le_result_t taf_net_GetInterfaceDNS(const char *namePtr,
     }
 
     return LE_OK;
+}
+
+/*
+ * Check whether the rmnet interface is brought up or not for the given profile id.
+ */
+static bool IsRmnetBringUp(uint32_t profileId)
+{
+    taf_dcs_ProfileRef_t profileRef=NULL;
+    le_result_t result;
+    char interfaceName[TAF_NET_INTERFACE_NAME_MAX_LEN];
+
+    profileRef=taf_dcs_GetProfile(profileId);
+
+    if(profileRef == NULL)
+        return false;
+
+    result=taf_dcs_GetInterfaceName(profileRef, interfaceName, TAF_NET_INTERFACE_NAME_MAX_LEN);
+
+    if(result != LE_OK)
+        return false;
+
+    return true;
 }
 
 /*=============================Destination NAT=========================================*/
@@ -606,9 +933,15 @@ le_result_t taf_net_AddDestNatEntryOnDefaultPdn
 
     TAF_ERROR_IF_RET_VAL(privateIpAddr == NULL, LE_BAD_PARAMETER, "private ip address is NULL!");
 
+    if (!TryConnectDcsService())
+    {
+        LE_ERROR("taf_dcs not connected, cannot add dest NAT entry on default PDN");
+        return LE_UNAVAILABLE;
+    }
+
     profileId = taf_dcs_GetDefaultProfileIndex();
 
-    if(!tafNat.IsRmnetBringUp(profileId))
+    if(!IsRmnetBringUp(profileId))
     {
         LE_ERROR("Rmnet interface is not brought up");
         return LE_FAULT;
@@ -644,9 +977,15 @@ le_result_t taf_net_RemoveDestNatEntryOnDefaultPdn
 
     TAF_ERROR_IF_RET_VAL(privateIpAddr == NULL, LE_BAD_PARAMETER, "private ip address is NULL!");
 
+    if (!TryConnectDcsService())
+    {
+        LE_ERROR("taf_dcs not connected, cannot remove dest NAT entry on default PDN");
+        return LE_UNAVAILABLE;
+    }
+
     profileId = taf_dcs_GetDefaultProfileIndex();
 
-    if(!tafNat.IsRmnetBringUp(profileId))
+    if(!IsRmnetBringUp(profileId))
     {
         LE_ERROR("Rmnet interface is not brought up");
         return LE_FAULT;
@@ -683,7 +1022,13 @@ le_result_t taf_net_AddDestNatEntryOnDemandPdn
 
     TAF_ERROR_IF_RET_VAL(privateIpAddr == NULL, LE_BAD_PARAMETER, "private ip address is NULL!");
 
-    if(!tafNat.IsRmnetBringUp(profileId))
+    if (!TryConnectDcsService())
+    {
+        LE_ERROR("taf_dcs not connected, cannot add dest NAT entry on demand PDN");
+        return LE_UNAVAILABLE;
+    }
+
+    if(!IsRmnetBringUp(profileId))
     {
         LE_ERROR("Rmnet interface is not brought up");
         return LE_FAULT;
@@ -720,7 +1065,13 @@ le_result_t taf_net_RemoveDestNatEntryOnDemandPdn
 
     TAF_ERROR_IF_RET_VAL(privateIpAddr == NULL, LE_BAD_PARAMETER, "private ip address is NULL!");
 
-    if(!tafNat.IsRmnetBringUp(profileId))
+    if (!TryConnectDcsService())
+    {
+        LE_ERROR("taf_dcs not connected, cannot remove dest NAT entry on demand PDN");
+        return LE_UNAVAILABLE;
+    }
+
+    if(!IsRmnetBringUp(profileId))
     {
         LE_ERROR("Rmnet interface is not brought up");
         return LE_FAULT;
@@ -741,9 +1092,15 @@ taf_net_DestNatEntryListRef_t taf_net_GetDestNatEntryListOnDefaultPdn()
     uint32_t profileId;
     auto &tafNat = taf_Nat::GetInstance();
 
+    if (!TryConnectDcsService())
+    {
+        LE_ERROR("taf_dcs not connected, cannot get dest NAT entry list on default PDN");
+        return NULL;
+    }
+
     profileId = taf_dcs_GetDefaultProfileIndex();
 
-    if(!tafNat.IsRmnetBringUp(profileId))
+    if(!IsRmnetBringUp(profileId))
         return NULL;
 
     return tafNat.GetDestNatEntryList(profileId);
@@ -764,7 +1121,13 @@ taf_net_DestNatEntryListRef_t taf_net_GetDestNatEntryListOnDemandPdn
 {
     auto &tafNat = taf_Nat::GetInstance();
 
-    if(!tafNat.IsRmnetBringUp(profileId))
+    if (!TryConnectDcsService())
+    {
+        LE_ERROR("taf_dcs not connected, cannot get dest NAT entry list on demand PDN");
+        return NULL;
+    }
+
+    if(!IsRmnetBringUp(profileId))
     {
         LE_ERROR("Rmnet interface is not brought up");
         return NULL;
@@ -3030,9 +3393,27 @@ int32_t taf_net_GetGsbBandWidth
     return tafGsb.GetGsbBandWidth(gsbRef);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * SIGTERM signal event handler.
+ *
+ * Invoked by the Legato signal event framework when the process receives SIGTERM.
+ */
+//--------------------------------------------------------------------------------------------------
+static void SigTermEventHandler(int sigNum)
+{
+    LE_INFO("SigTermEventHandler signal : %d", sigNum);
+    taf_net_Deinit();
+    exit(EXIT_SUCCESS);
+}
 
 COMPONENT_INIT
 {
+
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, SigTermEventHandler);
+
+    StartModemMonitor();
 
     taf_net_init();
 

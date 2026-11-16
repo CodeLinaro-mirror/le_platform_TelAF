@@ -54,7 +54,6 @@ using namespace tafsvc;
 
 COMPONENT_INIT
 {
-    LE_INFO("tafVoiceCall Service Init...\n");
     auto &myCall = VoiceCallSvc::GetInstance();
     myCall.Init();
 
@@ -165,9 +164,9 @@ taf_voicecall_CallRef_t taf_voicecall_Start
     }
     else
     {
-        LE_INFO("Create callCtrl for phone(%d) and dest(%s)", phoneId, destinationID);
+        LE_DEBUG("Create callCtrl for phone(%d) and dest(%s)", phoneId, VoiceCallSvc::MaskPhoneNumber(destinationID).c_str());
         callCtrlPtr = myCall.CreateCallCtx(phoneId, destinationID, taf_voicecall_Direction_t::OUTGOING);
-        TAF_ERROR_IF_RET_VAL((callCtrlPtr == NULL), NULL, "Cannot create callCtrl for phone(%d) dest(%s)", phoneId, destinationID);
+        TAF_ERROR_IF_RET_VAL((callCtrlPtr == NULL), NULL, "Cannot create callCtrl for phone(%d) dest(%s)", phoneId, VoiceCallSvc::MaskPhoneNumber(destinationID).c_str());
 
         callRef = myCall.SetCallRef(callCtrlPtr); //myCall.setCallRefToSessionCtx(req.callCtrlPtr, sessionCtxPtr);
         TAF_ERROR_IF_RET_VAL((callRef == NULL), NULL, "cannot link callRef to SessionCtx");

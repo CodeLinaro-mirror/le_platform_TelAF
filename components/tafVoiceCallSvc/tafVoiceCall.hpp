@@ -171,6 +171,7 @@ public:
     le_dls_List_t SessionCtxList = LE_DLS_LIST_INIT;
     le_dls_List_t CallCtrlList = LE_DLS_LIST_INIT;
 
+    static std::string MaskPhoneNumber(const char* numberPtr);
     static void commonCallback(taf_pa_voicecall_Ref_t reference, le_result_t result, void* contextPtr)
     {
         auto* ctx = static_cast<CallbackContext*>(contextPtr);

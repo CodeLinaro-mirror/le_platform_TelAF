@@ -12,7 +12,11 @@
  *
  * The diag update service APIs are used by applications to handle transfer requests from UDS
  * clients. The diag update service includes the TransferData(0x36), RequestTransferExit(0x37), and
- * RequestFileTransfer(0x38) services.
+ * RequestFileTransfer(0x38) services. Each API call may require memory allocation for an IPC
+ * payload of up to 64 KiB. For large payloads, the memory is allocated using an skb linear head and
+ * page fragments. To support a maximum data transfer size of approximately 64 KiB, MDS in
+ * tafDoIP.json must be configured to 65536. The maximum data payload that can be transferred is
+ * 65,516 bytes (65,536 bytes maximum IPC payload, minus 20 bytes consumed by other fields).
  *
  * @section c_taf_diagUpdate_binding IPC interfaces binding
  *
@@ -268,10 +272,11 @@ USETYPES taf_types.api;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The maximum size of the payload data in bytes.
+ * The maximum size of the payload data in bytes(65,536-byte IPC payload - 20 bytes consumed by
+ * other fields)
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE MAX_PAYLOAD_SIZE = 4095;
+DEFINE MAX_PAYLOAD_SIZE = 65516;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -282,10 +287,18 @@ DEFINE MAX_PATH_AND_NAME_SIZE = 1024;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The maximum size of the transferRequestParameterRecord.
+ * The maximum size of the transferRequestParameterRecord(65,536-byte IPC payload - 20 bytes
+ * consumed by other fields)
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE MAX_XFER_PARAM_REC_SIZE = 4089;
+DEFINE MAX_XFER_PARAM_REC_SIZE = 65516;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum size of the transferExitRequestParameterRecord(4095 - SID(1))
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_XFER_EXIT_PARAM_REC_SIZE = 4094;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -755,7 +768,7 @@ FUNCTION le_result_t GetXferExitParamRecLen
 FUNCTION le_result_t GetXferExitParamRec
 (
     RxXferExitMsg rxMsgRef                      IN,    ///< Received message reference.
-    uint8 exitDataRec[MAX_XFER_PARAM_REC_SIZE]  OUT    ///< Transfer exit request parameter record.
+    uint8 exitDataRec[MAX_XFER_EXIT_PARAM_REC_SIZE] OUT ///< Transfer exit request parameter record.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -778,7 +791,7 @@ FUNCTION le_result_t SendXferExitResp
 (
     RxXferExitMsg rxMsgRef        IN,    ///< Received message reference.
     XferExitErrorCode errCode     IN,    ///< Error code type.
-    uint8 data[MAX_PAYLOAD_SIZE]  IN     ///< Payload data.
+    uint8 data[MAX_XFER_EXIT_PARAM_REC_SIZE]  IN     ///< Payload data.
 );
 
 //--------------------------------------------------------------------------------------------------

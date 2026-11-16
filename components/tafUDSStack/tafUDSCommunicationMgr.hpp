@@ -22,7 +22,7 @@ namespace uds{
 
     #define UDS_DATA_SIZE 4095
     #define UDS_CERT_MAX_LEN 8192
-    #define UDS_MAX_DATA_SIZE 2*UDS_CERT_MAX_LEN+16 //For PKI uni direction, 8192+8192+16
+    #define UDS_MAX_DATA_SIZE 65518 //MAX_XFER_PARAM_REC_SIZE(65516) + 1(sid) + 1(blockSeqCounter)
     #define UDS_P2_SERVER 50 // Default P2 server interval
     #define UDS_P2_SERVER_MAX 65535 //Maximal P2 server interval
     #define UDS_P2_STAR_SERVER 5000 // Default P2* server interval
@@ -530,7 +530,8 @@ namespace uds{
                     uint16_t dataSize, uint8_t err);
             le_result_t XferDataResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
-            le_result_t ReqXferExitResp(uint8_t serviceId, uint8_t err);
+            le_result_t ReqXferExitResp(uint8_t serviceId, const uint8_t* dataPtr,
+                    uint16_t dataSize, uint8_t err);
             le_result_t ReqFileXferResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
 

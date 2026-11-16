@@ -31,10 +31,6 @@ namespace tafsvc {
     {
         MCS_ADMIN_INIT,                           ///< Init.
         MCS_ADMIN_ERROR,                          ///< Error.
-        MCS_DATA_NOT_CONNECTED_SIM_READY,         ///< Sim ready.
-        MCS_DATA_NOT_CONNECTED_SIM_NOT_READY,     ///< Sim not ready.
-        MCS_DATA_NOT_CONNECTED_NW_REGISTERED,     ///< Network registered.
-        MCS_DATA_NOT_CONNECTED_NW_NOT_REGISTERED, ///< Network unregistered.
         MCS_DATA_NOT_CONNECTED,                   ///< Awaiting user command.
         MCS_DATA_NOT_CONNECTED_RETRYING,          ///< Retry to connect.
         MCS_DATA_NOT_CONNECTED_FAILED,            ///< Data connection failure.
@@ -68,11 +64,7 @@ namespace tafsvc {
     {
         MCS_EVT_INIT = 0,
         MCS_EVT_SET_POLICY_CONF_SYNC,
-        MCS_EVT_SIM_READY,
-        MCS_EVT_SIM_NOT_READY,
         MCS_RADIO_POWER_ON,
-        MCS_EVT_NETWORK_REG_STATE,
-        MCS_EVT_NETWORK_UNREG_STATE,
         MCS_EVT_DATA_START,
         MCS_EVT_DATA_START_SYNC,
         MCS_EVT_DATA_START_RETRY,
@@ -97,18 +89,14 @@ namespace tafsvc {
         MCS_EVT_CONN_RECOVERY_CANCEL,      // Cancel Recovery
         MCS_EVT_CONN_RECOVERY_CANCEL_SYNC,
         MCS_EVT_CONN_RECOVERY_CANCEL_SEND_IND,
-        MCS_EVT_CONN_RECOVERY_INTERRUPTED
+        MCS_EVT_CONN_RECOVERY_INTERRUPTED,
+        MCS_EVT_NW_READY                   // PS registered. Posted by the PS state handler.
     } mcs_EventType_t;
 
     typedef struct
     {
         mcs_EventType_t                   event;
-        union
-        {
-            uint8_t                                 dataId;
-            uint8_t                                 slotId;
-            uint8_t                                 phoneId;
-        };
+        uint8_t                           dataId;
         le_msg_SessionRef_t sessionRef;
         // Result of an asynchronous connectivity test.
         bool                boolResult;
@@ -241,6 +229,15 @@ namespace tafsvc {
         //Timeout
         uint8_t                       startDataTimeout;
         uint8_t                       stopDataTimeout;
+        // Start of the grace period in which "PS not registered" is not counted as a data start
+        // retry. Zero when the grace period has not started.
+        uint64_t                      nwRegGraceStartMs;
+        // The last data start attempt was counted as a retry because PS was not registered.
+        bool                          failedOnNwNotReady;
+        // Reason of the current uncounted wait for SIM ready or PS registration (MCS_NW_WAIT_*),
+        // and the number of consecutive checks with this reason. Used to limit the logs.
+        uint8_t                       nwWaitReason;
+        uint32_t                      nwWaitCheckCount;
     } mcs_DataCtx_t;
 
     class tafMngdConnAdmin: public ITafSvc
@@ -283,11 +280,6 @@ namespace tafsvc {
             // Accessor functions
             mcs_DataCtx_t *GetDataCtx(uint8_t phoneId, uint32_t profileNumber);
             le_event_Id_t  GetStateMachineEventId();
-            static void PowerStateChangeHandler
-            (
-                taf_pm_State_t state,
-                void* contextPtr
-            );
 
         private:
 
@@ -333,13 +325,10 @@ namespace tafsvc {
             void EventSetRadioPowerOn();
             le_result_t EventStartData(uint8_t dataId);
             le_result_t EventStartDataRetry(uint8_t dataId);
+            void EventNwReady(uint8_t dataId);
             le_result_t EventStartDataRetryAppReq(uint8_t dataId, le_msg_SessionRef_t sessionRef);
             le_result_t EventStopData(uint8_t dataId);
             le_result_t EventGetConnectionInfo(uint8_t dataId);
-            le_result_t EventSimReadyState(uint8_t slotId);
-            le_result_t EventSimNotReadyState(uint8_t slotId);
-            le_result_t EventNetworkRegState(uint8_t phoneId);
-            le_result_t EventNetworkUnregState(uint8_t phoneId);
             le_result_t SetPolicyConfigurationJSONs(const char *ConfigFileNamePtr);
 
             void EventDataConnected(uint8_t dataId);
@@ -365,7 +354,6 @@ namespace tafsvc {
             le_result_t getProfileList( profileInfo_t *profileNumberList, int *listSize);
             bool IsStateConnected();
 
-            void ResetDataRetryPeriodicConnCheckValues();
             void ResetDataRetryPeriodicConnCheckValues(uint8_t dataId);
             // Calculate data start retry backoff interval
             uint32_t CalculateBackOffInterval(uint16_t IntervalInSec,
@@ -443,6 +431,10 @@ namespace tafsvc {
             static void SimOffOnIntervalTimerHandler(le_timer_Ref_t timerRef);
             static void MinTimeBetweenTriggersHandler(le_timer_Ref_t timerRef);
             static void MaxTimeBetweenTriggersHandler(le_timer_Ref_t timerRef);
+
+            // Radio event handler
+            static void PsStateChangeHandler(const taf_radio_NetRegStateInd_t* stateIndPtr,
+                                             void* contextPtr);
 
             // Client connect/disconnect handlers
             static void OnClientConnect(le_msg_SessionRef_t sessionRef, void *ctxPtr);

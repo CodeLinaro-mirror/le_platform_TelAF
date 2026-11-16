@@ -3425,17 +3425,8 @@ void StopSyncTimeTasksThread(void)
 
     ReleaseTimer(tafTime.syncTimeTimerRef);
 
-    if (InitNetworkManagerStatus == LE_OK)
-    {
-        InitNetworkManagerStatus = LE_UNAVAILABLE;
-        tafTime.DeregNetworkTimeListener();
-    }
-
-    if (InitGnssManagerStatus == LE_OK)
-    {
-        InitGnssManagerStatus = LE_UNAVAILABLE;
-        tafTime.DeregGnssTimeListener();
-    }
+    InitNetworkManagerStatus = LE_UNAVAILABLE;
+    InitGnssManagerStatus = LE_UNAVAILABLE;
 
     le_thread_Exit(nullptr);
 }
@@ -3478,7 +3469,13 @@ static void TafSigTermEventHandler(int sigNum)
 
     LE_INFO("TafSigTermEventHandler: shutdown completed");
 
-    exit(EXIT_SUCCESS);
+    // Use _exit() rather than exit(): exit() runs C++ static destructors (the taf_Time singleton
+    // releasing its TelSDK managers/listeners, and TelSDK's own static factories) while TelSDK
+    // callback threads are still running, which can crash in teardown. All service resources
+    // have been released above, so skip static destruction. Flush stdio first because _exit()
+    // does not.
+    fflush(NULL);
+    _exit(EXIT_SUCCESS);
 }
 
 //--------------------------------------------------------------------------------------------------

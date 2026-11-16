@@ -69,6 +69,29 @@ taf_FwUpdate &taf_FwUpdate::GetInstance()
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Phases of firmware update session.
+ *
+ * Every phase runs in firmware update thread as one handler call, so pause and cancel are polled at
+ * checkpoints. Only resume, and cancel of a paused phase, are posted as events.
+ */
+//--------------------------------------------------------------------------------------------------
+const taf_UpdatePhase_t taf_FwUpdate::InstallPhase =
+    { TAF_UPDATE_INSTALLING, TAF_UPDATE_INSTALL_PAUSED, true, true, true };
+const taf_UpdatePhase_t taf_FwUpdate::SyncPhase =
+    { TAF_UPDATE_SYNCHRONIZING, TAF_UPDATE_SYNC_PAUSED, true, true, true };
+const taf_UpdatePhase_t taf_FwUpdate::BankSyncPhase =
+    { TAF_UPDATE_SYNCHRONIZING, TAF_UPDATE_SYNC_PAUSED, false, false, true };
+const taf_UpdatePhase_t taf_FwUpdate::ActivationPhase =
+    { TAF_UPDATE_PROBATION, TAF_UPDATE_PROBATION_PAUSED, true, false, true };
+const taf_UpdatePhase_t taf_FwUpdate::PostCheckPhase =
+    { TAF_UPDATE_INSTALLING, TAF_UPDATE_INSTALL_PAUSED, false, false, true };
+const taf_UpdatePhase_t taf_FwUpdate::RollbackPhase =
+    { TAF_UPDATE_ROLLBACK, TAF_UPDATE_ROLLBACK, false, false, true };
+const taf_UpdatePhase_t taf_FwUpdate::PostInstallCancelPhase =
+    { TAF_UPDATE_INSTALLING, TAF_UPDATE_INSTALL_PAUSED, false, false, true };
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Get unpack directory.
  */
 //--------------------------------------------------------------------------------------------------
@@ -293,18 +316,25 @@ void taf_FwUpdate::SetState
     taf_update_State_t state ///< [IN] Update state.
 )
 {
+    // Write a temporary file and rename it, so a power loss never leaves a truncated state file.
+    const char* tmpFile = TAF_FWUPDATE_FOTA_STATE ".tmp";
 
-    FILE* fp = fopen(TAF_FWUPDATE_FOTA_STATE, "w");
+    FILE* fp = fopen(tmpFile, "w");
     if (fp == NULL)
     {
-        LE_ERROR("Can not open state file %s.", TAF_FWUPDATE_FOTA_STATE);
+        LE_ERROR("Can not open state file %s.", tmpFile);
+        return;
     }
-    else
+
+    bool written = (fwrite(&state, sizeof(taf_update_State_t), 1, fp) == 1);
+    written = (fflush(fp) == 0) && written;
+    written = (fsync(fileno(fp)) == 0) && written;
+    written = (fclose(fp) == 0) && written;
+
+    if (!written || rename(tmpFile, TAF_FWUPDATE_FOTA_STATE) != 0)
     {
-        fwrite(&state, sizeof(taf_update_State_t), 1, fp);
-        fflush(fp);
-        fsync(fileno(fp));
-        fclose(fp);
+        LE_ERROR("Can not save state %d to %s, errno = %d.", state, TAF_FWUPDATE_FOTA_STATE, errno);
+        unlink(tmpFile);
     }
 }
 
@@ -369,118 +399,90 @@ void taf_FwUpdate::CleanupContext
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Set pause action in config tree.
+ * Handle a pause or cancel picked up at a checkpoint of running phase, or a cancel of paused phase.
+ *
+ * The data file of an interrupted image is kept for pause, so the image is rewritten on resume.
  */
 //--------------------------------------------------------------------------------------------------
-void taf_FwUpdate::SetPauseAction
+void taf_FwUpdate::HandleInterrupt
 (
-    taf_update_State_t state, ///< [IN] Update state.
-    bool paused               ///< [IN] Pause action.
+    taf_update_State_t running, ///< [IN] Running state of the interrupted phase.
+    taf_UpdateCheckpoint_t cp   ///< [IN] Pending request.
 )
 {
-    le_cfg_IteratorRef_t wrIter;
-    switch (state)
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+
+    if (cp == TAF_UPDATE_CP_CANCEL)
     {
-        case TAF_UPDATE_INSTALLING:
-            wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
-            break;
-        case TAF_UPDATE_SYNCHRONIZING:
-            wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_SYNC_CONTEXT);
-            break;
-        default:
-            LE_ERROR("Can not set pause action.");
-            return;
+        LE_INFO("Cancel operation in state %d.", running);
+        if (running == TAF_UPDATE_INSTALLING)
+        {
+            tafFwUpdate.RemoveUnpackedImages();
+        }
+
+        if (running == TAF_UPDATE_INSTALLING || running == TAF_UPDATE_SYNCHRONIZING)
+        {
+            tafFwUpdate.CleanupContext(running);
+        }
+
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
+        return;
     }
 
-    le_cfg_SetBool(wrIter, "paused", paused);
-    le_cfg_CommitTxn(wrIter);
+    if (cp != TAF_UPDATE_CP_PAUSE)
+    {
+        return;
+    }
+
+    switch (running)
+    {
+        case TAF_UPDATE_INSTALLING:
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_PAUSED);
+            break;
+        case TAF_UPDATE_SYNCHRONIZING:
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_PAUSED);
+            break;
+        case TAF_UPDATE_PROBATION:
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_PAUSED);
+            break;
+        default:
+            LE_ERROR("Pause is not supported in state %d.", running);
+            tafFwUpdate.ctrl.OnFinished();
+            break;
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get pause action from config tree.
+ * Remove the unpacked image files recorded in install context.
  */
 //--------------------------------------------------------------------------------------------------
-bool taf_FwUpdate::GetPauseAction
+void taf_FwUpdate::RemoveUnpackedImages
 (
-    taf_update_State_t state ///< [IN] Update state.
+    void
 )
 {
-    le_cfg_IteratorRef_t rdIter;
-    switch (state)
+    char dataPath[TAF_UPDATE_FILE_PATH_LEN];
+
+    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
+    le_cfg_GoToNode(rdIter, "image");
+
+    if (le_cfg_GoToFirstChild(rdIter) == LE_OK)
     {
-        case TAF_UPDATE_INSTALLING:
-            rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
-            break;
-        case TAF_UPDATE_SYNCHRONIZING:
-            rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_SYNC_CONTEXT);
-            break;
-        default:
-            LE_ERROR("Can not get pause action.");
-            return false;
+        do
+        {
+            dataPath[0] = '\0';
+            le_cfg_GetString(rdIter, "dataPath", dataPath, sizeof(dataPath), "");
+            if (dataPath[0] != '\0' && access(dataPath, F_OK) == 0)
+            {
+                LE_INFO("Remove unpacked image %s.", dataPath);
+                unlink(dataPath);
+            }
+        }
+        while (le_cfg_GoToNextSibling(rdIter) == LE_OK);
     }
 
-    bool paused = le_cfg_GetBool(rdIter, "paused", false);
     le_cfg_CancelTxn(rdIter);
-    return paused;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Set pause action in config tree.
- */
-//--------------------------------------------------------------------------------------------------
-void taf_FwUpdate::SetCancelAction
-(
-    taf_update_State_t state, ///< [IN] Update state.
-    bool cancel               ///< [IN] Cancel action.
-)
-{
-    le_cfg_IteratorRef_t wrIter;
-    switch (state)
-    {
-        case TAF_UPDATE_INSTALLING:
-            wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
-            break;
-        case TAF_UPDATE_SYNCHRONIZING:
-            wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_SYNC_CONTEXT);
-            break;
-        default:
-            LE_ERROR("Can not set pause action.");
-            return;
-    }
-
-    le_cfg_SetBool(wrIter, "cancel", cancel);
-    le_cfg_CommitTxn(wrIter);
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Get cancel action from config tree.
- */
-//--------------------------------------------------------------------------------------------------
-bool taf_FwUpdate::GetCancelAction
-(
-    taf_update_State_t state ///< [IN] Update state.
-)
-{
-    le_cfg_IteratorRef_t rdIter;
-    switch (state)
-    {
-        case TAF_UPDATE_INSTALLING:
-            rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_INSTALL_CONTEXT);
-            break;
-        case TAF_UPDATE_SYNCHRONIZING:
-            rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_SYNC_CONTEXT);
-            break;
-        default:
-            LE_ERROR("Can not get cancel action.");
-            return false;
-    }
-
-    bool cancel = le_cfg_GetBool(rdIter, "cancel", false);
-    le_cfg_CancelTxn(rdIter);
-    return cancel;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -783,37 +785,6 @@ bool taf_FwUpdate::GetImageForUpdate
     le_cfg_CancelTxn(rdIter);
 
     return updated;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Set activation paused in config tree.
- */
-//--------------------------------------------------------------------------------------------------
-void taf_FwUpdate::SetActivationPaused
-(
-    bool paused ///< [IN] Pause state.
-)
-{
-    le_cfg_IteratorRef_t wrIter = le_cfg_CreateWriteTxn(TAF_FWUPDATE_ACTIVATE_CONTEXT);
-    le_cfg_SetBool(wrIter, "paused", paused);
-    le_cfg_CommitTxn(wrIter);
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Get activation pause status from config tree.
- */
-//--------------------------------------------------------------------------------------------------
-bool taf_FwUpdate::GetActivationPaused
-(
-    void
-)
-{
-    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(TAF_FWUPDATE_ACTIVATE_CONTEXT);
-    bool paused = le_cfg_GetBool(rdIter, "paused", false);
-    le_cfg_CancelTxn(rdIter);
-    return paused;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1244,9 +1215,11 @@ void taf_FwUpdate::ReportStatus
 {
     auto &tafUpdate = taf_Update::GetInstance();
     taf_update_StateInd_t report;
+    memset(&report, 0, sizeof(report));
     report.percent = percent;
     report.state = state;
     report.error = error;
+    report.ota = TAF_UPDATE_FOTA;
     le_utf8_Copy(report.name, "firmware update session", TAF_UPDATE_SESSION_NAME_LEN, NULL);
     le_event_Report(tafUpdate.stateEvId, &report, sizeof(taf_update_StateInd_t));
 }
@@ -1371,7 +1344,27 @@ void taf_FwUpdate::UpdateProgress
             break;
     }
 
-    // 2. Report current status to user.
+    // 2. Release the operation controller before the report, so a client which receives a final
+    //    state can start the next operation immediately. Paused state is entered at checkpoint.
+    switch (state)
+    {
+        case TAF_UPDATE_IDLE:
+        case TAF_UPDATE_INSTALL_FAIL:
+        case TAF_UPDATE_INSTALL_SUCCESS:
+        case TAF_UPDATE_PROBATION_SUCCESS:
+        case TAF_UPDATE_PROBATION_FAIL:
+        case TAF_UPDATE_SYNC_SUCCESS:
+        case TAF_UPDATE_SYNC_FAIL:
+        case TAF_UPDATE_ROLLBACK_SUCCESS:
+        case TAF_UPDATE_ROLLBACK_FAIL:
+        case TAF_UPDATE_CANCELLED:
+            tafFwUpdate.ctrl.OnFinished();
+            break;
+        default:
+            break;
+    }
+
+    // 3. Report current status to user.
     tafFwUpdate.ReportStatus(state, tafFwUpdate.percent, tafFwUpdate.error);
 }
 
@@ -1774,8 +1767,8 @@ void taf_FwUpdate::UpdateImage
         sizeof(image));
     while (hasImageToUpdate)
     {
-        if (!tafFwUpdate.GetPauseAction(TAF_UPDATE_INSTALLING) &&
-            !tafFwUpdate.GetCancelAction(TAF_UPDATE_INSTALLING))
+        taf_UpdateCheckpoint_t cp = tafFwUpdate.ctrl.Checkpoint();
+        if (cp == TAF_UPDATE_CP_CONTINUE)
         {
             // 3. Find the partition for flash access.
             uint32_t i = 0;
@@ -1895,6 +1888,17 @@ void taf_FwUpdate::UpdateImage
                     tafFwUpdate.partitions[i].name);
                 for (uint32_t blockIdx = 0; blockIdx < totalBlocks; ++blockIdx)
                 {
+                    cp = tafFwUpdate.ctrl.Checkpoint();
+                    if (cp != TAF_UPDATE_CP_CONTINUE)
+                    {
+                        LE_INFO("Interrupted while erasing %s at block %d.",
+                            tafFwUpdate.partitions[i].name, blockIdx);
+                        taf_pa_flash_CloseMtd(mtdRef);
+                        fclose(fp);
+                        tafFwUpdate.HandleInterrupt(TAF_UPDATE_INSTALLING, cp);
+                        return;
+                    }
+
                     ret = taf_pa_flash_IsGoodBlock(mtdRef, blockIdx);
                     if (ret == 0)
                     {
@@ -1922,6 +1926,17 @@ void taf_FwUpdate::UpdateImage
                 uint32_t remainPages = pages;
                 for (uint32_t blockIdx = 0; blockIdx < totalBlocks; ++blockIdx)
                 {
+                    cp = tafFwUpdate.ctrl.Checkpoint();
+                    if (cp != TAF_UPDATE_CP_CONTINUE)
+                    {
+                        LE_INFO("Interrupted while writing %s at block %d.",
+                            tafFwUpdate.partitions[i].name, blockIdx);
+                        taf_pa_flash_CloseMtd(mtdRef);
+                        fclose(fp);
+                        tafFwUpdate.HandleInterrupt(TAF_UPDATE_INSTALLING, cp);
+                        return;
+                    }
+
                     // Skip the bad blocks.
                     ret = taf_pa_flash_IsGoodBlock(mtdRef, blockIdx);
                     if (ret != 1)
@@ -2015,6 +2030,23 @@ void taf_FwUpdate::UpdateImage
                 int error = 0;
                 for (uint32_t j = 0; j < pages; j++)
                 {
+                    if (j > 0 && (j % TAF_FWUPDATE_CHECKPOINT_PAGES) == 0)
+                    {
+                        cp = tafFwUpdate.ctrl.Checkpoint();
+                        if (cp != TAF_UPDATE_CP_CONTINUE)
+                        {
+                            LE_INFO("Interrupted while writing %s at page %d.",
+                                tafFwUpdate.partitions[i].name, j);
+                            ret = taf_pa_flash_CloseUbi(ubiRef);
+                            if (ret)
+                                LE_ERROR("Fail to close ubi %s, ret = %d, error: %s",
+                                    tafFwUpdate.partitions[i].name, ret, strerror(errno));
+                            fclose(fp);
+                            tafFwUpdate.HandleInterrupt(TAF_UPDATE_INSTALLING, cp);
+                            return;
+                        }
+                    }
+
                     ret = fread(buffer, 1, TAF_FWUPDATE_FLASH_PAGE_SIZE, fp);
                     if (ret < TAF_FWUPDATE_FLASH_PAGE_SIZE)
                     {
@@ -2026,9 +2058,11 @@ void taf_FwUpdate::UpdateImage
                     ret = taf_pa_flash_WriteUbi(ubiRef, buffer, TAF_FWUPDATE_FLASH_PAGE_SIZE);
                     if (ret)
                     {
+                        // Stop at the first error, e.g. the flash is shut down by a reboot.
                         error = errno;
                         LE_ERROR("Can not to write %s at page %d, ret = %d, error: %s",
-                            tafFwUpdate.partitions[i].name, j, ret, strerror(errno));
+                            tafFwUpdate.partitions[i].name, j, ret, strerror(error));
+                        break;
                     }
 
                     percent = (pageUpdated + j) * 100 / totalPages;
@@ -2071,19 +2105,19 @@ void taf_FwUpdate::UpdateImage
         }
         else
         {
-            if (tafFwUpdate.GetCancelAction(TAF_UPDATE_INSTALLING))
-            {
-                LE_INFO("Cancelled during update.");
-                tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
-            }
-            else
-            {
-                LE_INFO("Paused during update.");
-                tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_PAUSED);
-            }
-
+            LE_INFO("Interrupted (%d) during update.", cp);
+            tafFwUpdate.HandleInterrupt(TAF_UPDATE_INSTALLING, cp);
             return;
         }
+    }
+
+    // Pick up the request which arrives while the last image is written.
+    taf_UpdateCheckpoint_t cp = tafFwUpdate.ctrl.Checkpoint();
+    if (cp != TAF_UPDATE_CP_CONTINUE)
+    {
+        LE_INFO("Interrupted (%d) before post installation.", cp);
+        tafFwUpdate.HandleInterrupt(TAF_UPDATE_INSTALLING, cp);
+        return;
     }
 
     // Post process for install success.
@@ -2094,7 +2128,10 @@ void taf_FwUpdate::UpdateImage
         return;
     }
 
-    if (tafFwUpdate.GetCancelAction(TAF_UPDATE_INSTALLING))
+    // Pause and cancel are not supported from now on. The request which arrives during post
+    // processing is handled here.
+    cp = tafFwUpdate.ctrl.DisableInterrupt();
+    if (cp == TAF_UPDATE_CP_CANCEL)
     {
         LE_INFO("Cancelled during post installation.");
         result = tafFwUpdate.CancelPostInstall();
@@ -2105,8 +2142,15 @@ void taf_FwUpdate::UpdateImage
             return;
         }
 
+        tafFwUpdate.CleanupContext(TAF_UPDATE_INSTALLING);
         tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
         return;
+    }
+    else if (cp == TAF_UPDATE_CP_PAUSE)
+    {
+        LE_WARN("Pause is not supported during post installation.");
+        tafFwUpdate.ReportStatus(TAF_UPDATE_INSTALLING, tafFwUpdate.percent,
+            TAF_UPDATE_INVALID_OPERATION);
     }
 
     taf_update_Bank_t bank = TAF_UPDATE_BANK_UNKNOWN;
@@ -2170,8 +2214,8 @@ void taf_FwUpdate::SyncPartition
         sizeof(partition));
     while (hasPartitionToSync)
     {
-        if (!tafFwUpdate.GetPauseAction(TAF_UPDATE_SYNCHRONIZING) &&
-            !tafFwUpdate.GetCancelAction(TAF_UPDATE_SYNCHRONIZING))
+        taf_UpdateCheckpoint_t cp = tafFwUpdate.ctrl.Checkpoint();
+        if (cp == TAF_UPDATE_CP_CONTINUE)
         {
             // 2. Find the partition for sync.
             uint32_t i =0;
@@ -2238,17 +2282,8 @@ void taf_FwUpdate::SyncPartition
         }
         else
         {
-            if (tafFwUpdate.GetCancelAction(TAF_UPDATE_SYNCHRONIZING))
-            {
-                LE_INFO("Cancelled during sync.");
-                tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
-            }
-            else
-            {
-                LE_INFO("Paused during sync.");
-                tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_PAUSED);
-            }
-
+            LE_INFO("Interrupted (%d) during sync.", cp);
+            tafFwUpdate.HandleInterrupt(TAF_UPDATE_SYNCHRONIZING, cp);
             return;
         }
     }
@@ -2294,6 +2329,15 @@ void taf_FwUpdate::StartInstall
     size_t i = 0;
     while (i < NUM_ARRAY_MEMBERS(partitonTableInfo))
     {
+        // Install context is incomplete while unpacking, so only cancel is handled here. A pause
+        // is kept pending until the first checkpoint of image update.
+        if (tafFwUpdate.ctrl.IsCancelRequested())
+        {
+            LE_INFO("Cancelled while unpacking.");
+            tafFwUpdate.HandleInterrupt(TAF_UPDATE_INSTALLING, TAF_UPDATE_CP_CANCEL);
+            return;
+        }
+
         if (tafFwUpdate.UnpackImage(filePath, partitonTableInfo[i].dataPath, &imagePage))
         {
             LE_INFO("Detect %s with %d pages to be updated.", partitonTableInfo[i].partition, imagePage);
@@ -2508,6 +2552,21 @@ void taf_FwUpdate::InstallFirmware
     {
         tafFwUpdate.StartInstall(filePath);
         return;
+    }
+
+    // 4. Delta update is performed by recovery client which can not be paused or cancelled.
+    taf_UpdateCheckpoint_t cp = tafFwUpdate.ctrl.DisableInterrupt();
+    if (cp == TAF_UPDATE_CP_CANCEL)
+    {
+        LE_INFO("Cancelled before delta update.");
+        tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
+        return;
+    }
+    else if (cp == TAF_UPDATE_CP_PAUSE)
+    {
+        LE_WARN("Pause is not supported for delta update.");
+        tafFwUpdate.ReportStatus(TAF_UPDATE_INSTALLING, tafFwUpdate.percent,
+            TAF_UPDATE_INVALID_OPERATION);
     }
 
     // 5. Install pacackeg with recovery client.
@@ -3408,7 +3467,8 @@ void taf_FwUpdate::ActivateComponent
     uint32_t total = tafFwUpdate.GetActivationItemCount();
     while (hasItemToActivate)
     {
-        if (!tafFwUpdate.GetActivationPaused())
+        // Cancel is not supported in activation phase, only pause is picked up here.
+        if (tafFwUpdate.ctrl.Checkpoint() != TAF_UPDATE_CP_PAUSE)
         {
             tafFwUpdate.percent = index * 100 / total;
             if (strncmp(item, "bank_switch", strlen(item)) == 0)
@@ -3518,6 +3578,9 @@ void taf_FwUpdate::ActivateComponent
 //--------------------------------------------------------------------------------------------------
 /**
  * Firmware unpdate handler.
+ *
+ * Every request is validated and recorded by the operation controller before it is posted, so the
+ * handler dispatches by event. Every operation ends with a final or paused state report.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_FwUpdate::FwUpdateHandler
@@ -3527,124 +3590,114 @@ void taf_FwUpdate::FwUpdateHandler
 {
     taf_FwUpdateReq_t* updateReq = (taf_FwUpdateReq_t*)reqPtr;
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-    taf_update_State_t state = tafFwUpdate.GetState();
+    taf_UpdateOpCtrl &ctrl = tafFwUpdate.ctrl;
 
-    switch (state)
+    switch (updateReq->event)
     {
-        case TAF_UPDATE_IDLE:
-            if (updateReq->event == TAF_FWUPDATE_EV_START_INSTALL)
+        case TAF_FWUPDATE_EV_START_INSTALL:
+            LE_INFO("NAD update start.");
+            tafFwUpdate.error = TAF_UPDATE_NONE;
+            tafFwUpdate.InstallFirmware(updateReq->filePath);
+            break;
+        case TAF_FWUPDATE_EV_SYNC:
+            LE_INFO("NAD bank sync start.");
+            tafFwUpdate.error = TAF_UPDATE_NONE;
+            if (tafFwUpdate.PerformBankSync() != LE_OK)
             {
-                LE_INFO("NAD update start.");
-                tafFwUpdate.error = TAF_UPDATE_NONE;
-                tafFwUpdate.InstallFirmware(updateReq->filePath);
+                LE_ERROR("Fail to perform bank sync.");
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
             }
-            else if (updateReq->event == TAF_FWUPDATE_EV_SYNC)
+            else
             {
-                LE_INFO("NAD bank sync start.");
-                tafFwUpdate.error = TAF_UPDATE_NONE;
-                if (tafFwUpdate.PerformBankSync() != LE_OK)
-                {
-                    LE_ERROR("Fail to perform bank sync.");
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
-                }
-                else
-                {
-                    LE_DEBUG("Perform bank sync successfully.");
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_SUCCESS);
-                }
+                LE_DEBUG("Perform bank sync successfully.");
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_SUCCESS);
             }
-            else if (updateReq->event == TAF_FWUPDATE_EV_START_ACTIVATION)
-            {
-                LE_INFO("NAD activation start.");
-                tafFwUpdate.error = TAF_UPDATE_NONE;
-                tafFwUpdate.SetActivationPaused(false);
-                tafFwUpdate.SetState(TAF_UPDATE_PROBATION);
-                tafFwUpdate.SetManifest(updateReq->filePath);
-                tafFwUpdate.ActivateComponent();
-            }
-            else if (updateReq->event == TAF_FWUPDATE_EV_START_SYNC)
-            {
-                LE_INFO("NAD sync start.");
-                tafFwUpdate.error = TAF_UPDATE_NONE;
-                tafFwUpdate.StartSync();
-            }
-            else if (updateReq->event == TAF_FWUPDATE_EV_INSTALL_POST_CHECK)
-            {
-                LE_INFO("Installation post check.");
-                tafFwUpdate.GetPackageDataPath(updateReq->filePath, TAF_UPDATE_FILE_PATH_LEN);
-                tafFwUpdate.InstallPostCheck(updateReq->filePath);
-            }
-            else if (updateReq->event == TAF_FWUPDATE_EV_ROLLBACK)
-            {
-                LE_INFO("Start to rollback.");
-                tafFwUpdate.SetState(TAF_UPDATE_ROLLBACK);
-                le_result_t result = tafFwUpdate.Rollback();
-                if (result == LE_OK)
-                    result = tafFwUpdate.PostProcess(TAF_UPDATE_ROLLBACK_SUCCESS);
+            break;
+        case TAF_FWUPDATE_EV_START_ACTIVATION:
+            LE_INFO("NAD activation start.");
+            tafFwUpdate.error = TAF_UPDATE_NONE;
+            tafFwUpdate.SetState(TAF_UPDATE_PROBATION);
+            tafFwUpdate.SetManifest(updateReq->filePath);
+            tafFwUpdate.ActivateComponent();
+            break;
+        case TAF_FWUPDATE_EV_START_SYNC:
+            LE_INFO("NAD sync start.");
+            tafFwUpdate.error = TAF_UPDATE_NONE;
+            tafFwUpdate.StartSync();
+            break;
+        case TAF_FWUPDATE_EV_INSTALL_POST_CHECK:
+            LE_INFO("Installation post check.");
+            tafFwUpdate.GetPackageDataPath(updateReq->filePath, TAF_UPDATE_FILE_PATH_LEN);
+            tafFwUpdate.InstallPostCheck(updateReq->filePath);
+            break;
+        case TAF_FWUPDATE_EV_ROLLBACK:
+        {
+            LE_INFO("Start to rollback.");
+            tafFwUpdate.SetState(TAF_UPDATE_ROLLBACK);
+            le_result_t result = tafFwUpdate.Rollback();
+            if (result == LE_OK)
+                result = tafFwUpdate.PostProcess(TAF_UPDATE_ROLLBACK_SUCCESS);
 
-                if (result != LE_OK)
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_ROLLBACK_FAIL);
-                else
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_ROLLBACK_SUCCESS);
+            if (result != LE_OK)
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_ROLLBACK_FAIL);
+            else
+                tafFwUpdate.UpdateProgress(TAF_UPDATE_ROLLBACK_SUCCESS);
+            break;
+        }
+        case TAF_FWUPDATE_EV_RESUME_INSTALL:
+            if (!ctrl.OnResume())
+            {
+                LE_INFO("Resume NAD update is superseded.");
+                if (ctrl.IsCancelRequested())
+                    tafFwUpdate.HandleInterrupt(TAF_UPDATE_INSTALLING, TAF_UPDATE_CP_CANCEL);
+                break;
+            }
+
+            LE_INFO("Resume NAD update.");
+            tafFwUpdate.SetState(TAF_UPDATE_INSTALLING);
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALLING);
+            tafFwUpdate.UpdateImage();
+            break;
+        case TAF_FWUPDATE_EV_RESUME_SYNC:
+            if (!ctrl.OnResume())
+            {
+                LE_INFO("Resume NAD sync is superseded.");
+                if (ctrl.IsCancelRequested())
+                    tafFwUpdate.HandleInterrupt(TAF_UPDATE_SYNCHRONIZING, TAF_UPDATE_CP_CANCEL);
+                break;
+            }
+
+            LE_INFO("Resume NAD sync.");
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNCHRONIZING);
+            tafFwUpdate.SyncPartition();
+            break;
+        case TAF_FWUPDATE_EV_RESUME_ACTIVATION:
+            if (!ctrl.OnResume())
+            {
+                LE_INFO("Resume NAD activation is superseded.");
+                break;
+            }
+
+            LE_INFO("Resume NAD activation.");
+            tafFwUpdate.SetState(TAF_UPDATE_PROBATION);
+            tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION);
+            tafFwUpdate.ActivateComponent();
+            break;
+        case TAF_FWUPDATE_EV_CANCEL:
+            // Only posted for a paused operation, a running operation picks up the cancel at
+            // its next checkpoint.
+            if (ctrl.IsPaused() && ctrl.IsCancelRequested())
+            {
+                tafFwUpdate.HandleInterrupt(ctrl.GetRunningState(), TAF_UPDATE_CP_CANCEL);
             }
             else
             {
-                LE_ERROR("Invalid operation (%d) for idle state.", updateReq->event);
-            }
-            break;
-        case TAF_UPDATE_ROLLBACK:
-            LE_ERROR("Invalid operation for rollback state.");
-            break;
-        case TAF_UPDATE_PROBATION:
-            LE_ERROR("Invalid operation for probation state.");
-            break;
-        case TAF_UPDATE_PROBATION_PAUSED:
-            if (updateReq->event == TAF_FWUPDATE_EV_RESUME_ACTIVATION)
-            {
-                LE_INFO("Resume NAD activation.");
-                tafFwUpdate.SetActivationPaused(false);
-                tafFwUpdate.SetState(TAF_UPDATE_PROBATION);
-                tafFwUpdate.ActivateComponent();
-            }
-            else
-            {
-                LE_ERROR("Invalid operation (%d) for probation state.", updateReq->event);
-            }
-            break;
-        case TAF_UPDATE_SYNCHRONIZING:
-            LE_ERROR("Invalid operation for synchronizing state.");
-            break;
-        case TAF_UPDATE_INSTALLING:
-            LE_ERROR("Invalid operation (%d) for installing state.", updateReq->event);
-            break;
-        case TAF_UPDATE_INSTALL_PAUSED:
-            if (updateReq->event == TAF_FWUPDATE_EV_RESUME_INSTALL)
-            {
-                LE_INFO("Resume NAD update.");
-                tafFwUpdate.SetPauseAction(TAF_UPDATE_INSTALLING, false);
-                tafFwUpdate.SetState(TAF_UPDATE_INSTALLING);
-                tafFwUpdate.UpdateImage();
-            }
-            else
-            {
-                LE_ERROR("Invalid operation (%d) for installing state.", updateReq->event);
-            }
-            break;
-        case TAF_UPDATE_SYNC_PAUSED:
-            if (updateReq->event == TAF_FWUPDATE_EV_RESUME_SYNC)
-            {
-                LE_INFO("Resume NAD sync.");
-                tafFwUpdate.SetPauseAction(TAF_UPDATE_SYNCHRONIZING, false);
-                tafFwUpdate.SetState(TAF_UPDATE_SYNCHRONIZING);
-                tafFwUpdate.SyncPartition();
-            }
-            else
-            {
-                LE_ERROR("Invalid operation (%d) for installing state.", updateReq->event);
+                LE_INFO("Cancel is picked up by the running operation.");
             }
             break;
         default:
-            LE_ERROR("Invalid state (%d).", state);
+            LE_ERROR("Invalid operation (%d).", updateReq->event);
+            break;
     }
 }
 
@@ -3746,6 +3799,62 @@ le_result_t taf_FwUpdate::CancelPostInstall
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Cancel an update which is installed successfully but not activated yet.
+ *
+ * For A/B update the next boot bank is switched back to the bank before installation, so the
+ * installed bank will never be booted. It is not permitted after the device boots into the new
+ * bank, rollback must be used instead.
+ *
+ * @return
+ *  - LE_OK            On success, TAF_UPDATE_CANCELLED is reported.
+ *  - LE_NOT_PERMITTED The device has booted into the new bank.
+ *  - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::CancelInstalledUpdate
+(
+    void
+)
+{
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+
+    taf_update_State_t activationState = TAF_UPDATE_IDLE;
+    tafFwUpdate.GetActivationState(&activationState);
+
+    if (activationState == TAF_UPDATE_INSTALL_SUCCESS)
+    {
+        if (tafFwUpdate.IsBankSwitched())
+        {
+            LE_ERROR("Bank is switched, use rollback instead of cancel.");
+            return LE_NOT_PERMITTED;
+        }
+
+        taf_update_Bank_t prevBank = TAF_UPDATE_BANK_UNKNOWN;
+        tafFwUpdate.GetPreviousBank(&prevBank);
+        if (tafFwUpdate.SetActiveBank(prevBank) != LE_OK)
+        {
+            LE_ERROR("Fail to switch back to bank %d.", prevBank);
+            return LE_FAULT;
+        }
+
+        LE_INFO("Next boot bank is switched back to %d.", prevBank);
+
+        // Activation and rollback are rejected for a cancelled update.
+        tafFwUpdate.SetActivationContext(TAF_UPDATE_CANCELLED, prevBank);
+    }
+
+    if (tafFwUpdate.CancelPostInstall() != LE_OK)
+    {
+        LE_ERROR("Failed to cancel post installation.");
+        return LE_FAULT;
+    }
+
+    tafFwUpdate.UpdateProgress(TAF_UPDATE_CANCELLED);
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Intialization.
  */
 //--------------------------------------------------------------------------------------------------
@@ -3775,14 +3884,18 @@ void taf_FwUpdate::Init
             break;
         case TAF_UPDATE_INSTALL_PAUSED:
             LE_INFO("Install paused.");
+            ctrl.Restore(InstallPhase, true);
             break;
         case TAF_UPDATE_PROBATION_PAUSED:
             LE_INFO("Activation paused.");
+            ctrl.Restore(ActivationPhase, true);
             break;
         case TAF_UPDATE_SYNC_PAUSED:
             LE_INFO("Sync paused.");
+            ctrl.Restore(SyncPhase, true);
             break;
         default:
+            // An operation interrupted by power loss, such as INSTALLING, is reset to idle.
             LE_ERROR("FOTA invalid state(%d), reset to idle.", state);
             SetState(TAF_UPDATE_IDLE);
     }

@@ -59,14 +59,19 @@ le_result_t taf_fwupdate_GetFirmwareVersion
  * Install firmware.
  *
  * @return
- *  - LE_FAULT On failure.
+ *  - LE_FAULT On failure, e.g. another firmware operation is ongoing or paused.
  *  - LE_OK    On success.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_fwupdate_Install()
 {
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
     taf_FwUpdateReq_t fwupdateReq;
 
+    TAF_ERROR_IF_RET_VAL(tafFwUpdate.ctrl.RequestStart(taf_FwUpdate::InstallPhase) != LE_OK,
+        LE_FAULT, "Firmware operation is ongoing.");
+
+    memset(&fwupdateReq, 0, sizeof(fwupdateReq));
     fwupdateReq.event = TAF_FWUPDATE_EV_START_INSTALL;
     le_utf8_Copy(fwupdateReq.filePath, TAF_FWUPDATE_LOCAL_PACAKAGE_PATH,
         TAF_UPDATE_FILE_PATH_LEN, NULL);

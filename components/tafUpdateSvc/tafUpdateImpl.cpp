@@ -46,6 +46,450 @@ taf_Update &taf_Update::GetInstance()
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Phase of download plug-in session. Every request is posted to the main thread.
+ */
+//--------------------------------------------------------------------------------------------------
+const taf_UpdatePhase_t taf_Update::DownloadPhase =
+    { TAF_UPDATE_DOWNLOADING, TAF_UPDATE_DOWNLOAD_PAUSED, true, true, false };
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Phase of update plug-in session. UA plug-in does not support cancel.
+ */
+//--------------------------------------------------------------------------------------------------
+const taf_UpdatePhase_t taf_Update::PlugInInstallPhase =
+    { TAF_UPDATE_INSTALLING, TAF_UPDATE_INSTALL_PAUSED, true, false, false };
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Constructor of operation controller.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_UpdateOpCtrl::taf_UpdateOpCtrl
+(
+)
+    : run(RUN_IDLE), phase(), pauseReq(false), cancelReq(false), resumeQueued(false)
+{
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Request to start an operation (IPC side).
+ *
+ * @return
+ *  - LE_OK   The operation is accepted and the controller enters running state.
+ *  - LE_BUSY Another operation is running or paused.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_UpdateOpCtrl::RequestStart
+(
+    const taf_UpdatePhase_t& newPhase ///< [IN] Phase of the operation.
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+
+    if (run != RUN_IDLE)
+    {
+        LE_ERROR("Busy, current state %d.", (run == RUN_PAUSED) ? phase.paused : phase.running);
+        return LE_BUSY;
+    }
+
+    phase = newPhase;
+    run = RUN_RUNNING;
+    pauseReq = false;
+    cancelReq = false;
+    resumeQueued = false;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Request to pause the running operation (IPC side).
+ *
+ * @return
+ *  - LE_OK            Accepted, or already paused/pause pending.
+ *  - LE_UNSUPPORTED   Pause is not supported in current phase.
+ *  - LE_NOT_PERMITTED No such operation, or a cancel is pending.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_UpdateOpCtrl::RequestPause
+(
+    taf_update_State_t running, ///< [IN] Running state of the phase to be paused.
+    bool* postPtr               ///< [OUT] True if caller must post the request to the worker.
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    *postPtr = false;
+
+    if (run == RUN_IDLE || phase.running != running || cancelReq)
+    {
+        LE_ERROR("Pause is not permitted, run = %d, phase = %d, cancel = %d.",
+            run, phase.running, cancelReq);
+        return LE_NOT_PERMITTED;
+    }
+
+    TAF_ERROR_IF_RET_VAL(!phase.canPause, LE_UNSUPPORTED,
+        "Pause is not supported in phase %d.", phase.running);
+
+    if ((run == RUN_PAUSED && !resumeQueued) || pauseReq)
+    {
+        LE_INFO("Already paused or pause is pending.");
+        return LE_OK;
+    }
+
+    pauseReq = true;
+    *postPtr = !phase.workerPolls;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Request to resume the paused operation (IPC side).
+ *
+ * A resume while the pause is still pending withdraws the pause.
+ *
+ * @return
+ *  - LE_OK            Accepted, or already running/resume pending.
+ *  - LE_NOT_PERMITTED No such operation, or a cancel is pending.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_UpdateOpCtrl::RequestResume
+(
+    taf_update_State_t running, ///< [IN] Running state of the phase to be resumed.
+    bool* postPtr               ///< [OUT] True if caller must post the request to the worker.
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    *postPtr = false;
+
+    if (run == RUN_IDLE || phase.running != running || cancelReq)
+    {
+        LE_ERROR("Resume is not permitted, run = %d, phase = %d, cancel = %d.",
+            run, phase.running, cancelReq);
+        return LE_NOT_PERMITTED;
+    }
+
+    if (run == RUN_RUNNING || resumeQueued)
+    {
+        if (pauseReq)
+        {
+            LE_INFO("Withdraw pending pause request.");
+            pauseReq = false;
+        }
+        return LE_OK;
+    }
+
+    resumeQueued = true;
+    *postPtr = true;
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Request to cancel the running or paused operation (IPC side).
+ *
+ * @return
+ *  - LE_OK            Accepted, or cancel is already pending.
+ *  - LE_UNSUPPORTED   Cancel is not supported in current phase.
+ *  - LE_NOT_PERMITTED No such operation.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_UpdateOpCtrl::RequestCancel
+(
+    taf_update_State_t running, ///< [IN] Running state of the phase to be cancelled.
+    bool* postPtr               ///< [OUT] True if caller must post the request to the worker.
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    *postPtr = false;
+
+    if (run == RUN_IDLE || phase.running != running)
+    {
+        LE_ERROR("Cancel is not permitted, run = %d, phase = %d.", run, phase.running);
+        return LE_NOT_PERMITTED;
+    }
+
+    if (cancelReq)
+    {
+        LE_INFO("Cancel is pending.");
+        return LE_OK;
+    }
+
+    TAF_ERROR_IF_RET_VAL(!phase.canCancel, LE_UNSUPPORTED,
+        "Cancel is not supported in phase %d.", phase.running);
+
+    cancelReq = true;
+    pauseReq = false;
+
+    // A polling worker only needs an event when it is parked in paused state without a queued
+    // resume, otherwise the running worker or the queued resume will pick up the cancel.
+    *postPtr = !phase.workerPolls || (run == RUN_PAUSED && !resumeQueued);
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Checkpoint of a running worker (worker side).
+ *
+ * If a pause is pending the controller enters paused state atomically, so a resume issued after
+ * this point is always posted to the worker.
+ *
+ * @return
+ *  - TAF_UPDATE_CP_CANCEL   Worker must stop and finish as cancelled.
+ *  - TAF_UPDATE_CP_PAUSE    Worker must stop and report paused state.
+ *  - TAF_UPDATE_CP_CONTINUE Worker keeps running.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_UpdateCheckpoint_t taf_UpdateOpCtrl::Checkpoint
+(
+    void
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+
+    if (run != RUN_RUNNING)
+        return TAF_UPDATE_CP_CONTINUE;
+
+    if (cancelReq)
+        return TAF_UPDATE_CP_CANCEL;
+
+    if (pauseReq)
+    {
+        pauseReq = false;
+        run = RUN_PAUSED;
+        return TAF_UPDATE_CP_PAUSE;
+    }
+
+    return TAF_UPDATE_CP_CONTINUE;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Disable pause and cancel for the remaining part of current operation (worker side).
+ *
+ * @return The request pending before the interrupt is disabled. A pending pause is dropped.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_UpdateCheckpoint_t taf_UpdateOpCtrl::DisableInterrupt
+(
+    void
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+
+    taf_UpdateCheckpoint_t cp = TAF_UPDATE_CP_CONTINUE;
+    if (cancelReq)
+        cp = TAF_UPDATE_CP_CANCEL;
+    else if (pauseReq)
+        cp = TAF_UPDATE_CP_PAUSE;
+
+    pauseReq = false;
+    phase.canPause = false;
+    phase.canCancel = false;
+    return cp;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Check if a pause is pending.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_UpdateOpCtrl::IsPauseRequested
+(
+    void
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    return (run == RUN_RUNNING) && pauseReq && !cancelReq;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Check if a cancel is pending.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_UpdateOpCtrl::IsCancelRequested
+(
+    void
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    return (run != RUN_IDLE) && cancelReq;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Drop the pending pause, used when the pause can not be performed.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_UpdateOpCtrl::ClearPause
+(
+    void
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    pauseReq = false;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Drop the pending cancel, used when the cancel can not be performed.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_UpdateOpCtrl::ClearCancel
+(
+    void
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    cancelReq = false;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The operation is paused (worker side).
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_UpdateOpCtrl::OnPaused
+(
+    void
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    if (run != RUN_IDLE)
+    {
+        run = RUN_PAUSED;
+        pauseReq = false;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The queued resume is picked up by the worker (worker side).
+ *
+ * @return
+ *  - true  The controller enters running state, worker must resume the operation.
+ *  - false The operation is not paused or a cancel is pending, worker must not resume.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_UpdateOpCtrl::OnResume
+(
+    void
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    resumeQueued = false;
+
+    if (run != RUN_PAUSED || cancelReq)
+        return false;
+
+    run = RUN_RUNNING;
+    return true;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The operation is finished with success, failure or cancellation (worker side).
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_UpdateOpCtrl::OnFinished
+(
+    void
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    run = RUN_IDLE;
+    pauseReq = false;
+    cancelReq = false;
+    resumeQueued = false;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Restore the controller from persisted state at start-up.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_UpdateOpCtrl::Restore
+(
+    const taf_UpdatePhase_t& newPhase, ///< [IN] Phase of the operation.
+    bool paused                        ///< [IN] True if the operation is paused.
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    phase = newPhase;
+    run = paused ? RUN_PAUSED : RUN_RUNNING;
+    pauseReq = false;
+    cancelReq = false;
+    resumeQueued = false;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Check if there is no ongoing operation.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_UpdateOpCtrl::IsIdle
+(
+    void
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    return run == RUN_IDLE;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Check if the operation is paused.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_UpdateOpCtrl::IsPaused
+(
+    void
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    return run == RUN_PAUSED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get running state of current phase, only valid if the controller is not idle.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_update_State_t taf_UpdateOpCtrl::GetRunningState
+(
+    void
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    return phase.running;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get current state from the controller.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_update_State_t taf_UpdateOpCtrl::GetState
+(
+    void
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    switch (run)
+    {
+        case RUN_RUNNING:
+            return phase.running;
+        case RUN_PAUSED:
+            return phase.paused;
+        default:
+            return TAF_UPDATE_IDLE;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Check QOTA header.
  *
  * @return
@@ -170,29 +614,43 @@ void taf_Update::StateLayeredHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Report download status.
+ *
+ * The operation controller is updated before the report is sent, so a client which receives the
+ * report can issue the next request immediately.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_Update::ReportDownloadStatus
 (
     taf_UpdateDownloadSession_t* sessPtr, ///< [IN] Download session.
-    taf_update_State_t state              ///< [IN] Download state to be reported to client.
+    taf_update_State_t state,             ///< [IN] Download state to be reported to client.
+    taf_update_Error_t error              ///< [IN] Error to be reported to client.
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
 
-    if (state == TAF_UPDATE_DOWNLOAD_SUCCESS || state == TAF_UPDATE_DOWNLOAD_FAIL ||
-        state == TAF_UPDATE_CANCELLED)
+    switch (state)
     {
-        sessPtr->state = TAF_UPDATE_IDLE;
-    }
-    else
-    {
-        sessPtr->state = state;
+        case TAF_UPDATE_DOWNLOAD_SUCCESS:
+        case TAF_UPDATE_DOWNLOAD_FAIL:
+        case TAF_UPDATE_CANCELLED:
+            sessPtr->state = TAF_UPDATE_IDLE;
+            tafUpdate.dlCtrl.OnFinished();
+            break;
+        case TAF_UPDATE_DOWNLOAD_PAUSED:
+            sessPtr->state = state;
+            tafUpdate.dlCtrl.OnPaused();
+            break;
+        default:
+            sessPtr->state = state;
+            break;
     }
 
     taf_update_StateInd_t report;
-    report.percent = sessPtr->percent;
+    memset(&report, 0, sizeof(report));
     report.state = state;
+    report.error = error;
+    report.percent = sessPtr->percent;
+    report.ota = TAF_UPDATE_NON_QOTA;
     le_utf8_Copy(report.name, "download session", TAF_UPDATE_SESSION_NAME_LEN, NULL);
     le_event_Report(tafUpdate.stateEvId, &report, sizeof(taf_update_StateInd_t));
 }
@@ -261,6 +719,10 @@ void taf_Update::DownloadTimerHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Download handler.
+ *
+ * Requests are validated by the operation controller before posted. The handler re-checks the
+ * controller because a pending request may be withdrawn or superseded before it is handled.
+ * A failure of the plug-in is reported with current state and TAF_UPDATE_INVALID_OPERATION.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_Update::DownloadHandler
@@ -269,149 +731,152 @@ void taf_Update::DownloadHandler
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
+    taf_UpdateOpCtrl &ctrl = tafUpdate.dlCtrl;
 
     taf_UpdateDlReq_t* dlReq = (taf_UpdateDlReq_t*)reqPtr;
     taf_UpdateDownloadSession_t* sessPtr = dlReq->sessPtr;
+    int ret = 0;
 
-    switch (sessPtr->state)
+    switch (dlReq->event)
     {
-        case TAF_UPDATE_IDLE:
-            if (dlReq->event == TAF_UPDATE_DL_START)
+        case TAF_UPDATE_DL_START:
+            LE_DEBUG("DA plug-in start to download.");
+            sessPtr->state = TAF_UPDATE_DOWNLOADING;
+            sessPtr->percent = 0;
+            ret = (*(tafUpdate.daInfPtr->startDownload))(sessPtr->sessRef);
+            if (ret)
             {
-                LE_DEBUG("DA plug-in start to download.");
-                sessPtr->state = TAF_UPDATE_DOWNLOADING;
-                sessPtr->percent = 0;
-                int ret = (*(tafUpdate.daInfPtr->startDownload))(sessPtr->sessRef);
-                if (ret)
-                {
-                    LE_ERROR("DA plug-in download failed, ret = %d.", ret);
-                    tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_DOWNLOAD_FAIL);
-                }
-                else
-                {
-                    if (tafUpdate.daInfPtr->getProgress == NULL)
-                    {
-                        LE_WARN("DA plug-in get download progress is not supported.");
-                        tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_DOWNLOAD_SUCCESS);
-                    }
-                    else
-                    {
-                        LE_DEBUG("Start download timer.");
-                        le_timer_SetContextPtr(sessPtr->timerRef, (void*)sessPtr);
-                        le_timer_Start(sessPtr->timerRef);
-                    }
-                }
+                LE_ERROR("DA plug-in download failed, ret = %d.", ret);
+                tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_DOWNLOAD_FAIL);
+            }
+            else if (tafUpdate.daInfPtr->getProgress == NULL)
+            {
+                LE_WARN("DA plug-in get download progress is not supported.");
+                tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_DOWNLOAD_SUCCESS);
             }
             else
             {
-                LE_ERROR("DA plug-in is in idle state, invalid event(%d).", dlReq->event);
+                LE_DEBUG("Start download timer.");
+                le_timer_SetContextPtr(sessPtr->timerRef, (void*)sessPtr);
+                le_timer_Start(sessPtr->timerRef);
             }
             break;
-        case TAF_UPDATE_DOWNLOADING:
-            if (dlReq->event == TAF_UPDATE_DL_PAUSE)
+        case TAF_UPDATE_DL_PAUSE:
+            if (!ctrl.IsPauseRequested())
             {
-                LE_DEBUG("DA plug-in pause download.");
-                int ret = (*(tafUpdate.daInfPtr->pauseDownload))(sessPtr->sessRef);
-                if (ret)
-                {
-                    LE_ERROR("DA plug-in pause download failed, ret = %d.", ret);
-                }
-                else
-                {
-                    LE_DEBUG("Stop download timer.");
-                    le_timer_Stop(sessPtr->timerRef);
-
-                    tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_DOWNLOAD_PAUSED);
-                }
+                LE_INFO("Pause download is withdrawn or superseded.");
+                break;
             }
-            else if (dlReq->event == TAF_UPDATE_DL_CANCEL)
-            {
-                LE_DEBUG("DA plug-in cancel download.");
-                int ret = (*(tafUpdate.daInfPtr->cancelDownload))(sessPtr->sessRef);
-                if (ret)
-                {
-                    LE_ERROR("DA plug-in cancel download failed, ret = %d.", ret);
-                }
-                else
-                {
-                    LE_DEBUG("Stop download timer.");
-                    le_timer_Stop(sessPtr->timerRef);
 
-                    tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_CANCELLED);
-                }
+            LE_DEBUG("DA plug-in pause download.");
+            ret = (*(tafUpdate.daInfPtr->pauseDownload))(sessPtr->sessRef);
+            if (ret)
+            {
+                LE_ERROR("DA plug-in pause download failed, ret = %d.", ret);
+                ctrl.ClearPause();
+                tafUpdate.ReportDownloadStatus(sessPtr, ctrl.GetState(),
+                    TAF_UPDATE_INVALID_OPERATION);
             }
             else
             {
-                LE_ERROR("DA plug-in is in downloading state, invalid event(%d).", dlReq->event);
+                LE_DEBUG("Stop download timer.");
+                le_timer_Stop(sessPtr->timerRef);
+                tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_DOWNLOAD_PAUSED);
             }
             break;
-        case TAF_UPDATE_DOWNLOAD_PAUSED:
-            if (dlReq->event == TAF_UPDATE_DL_RESUME)
+        case TAF_UPDATE_DL_RESUME:
+            if (!ctrl.OnResume())
             {
-                LE_DEBUG("DA plug-in resume download.");
-                int ret = (*(tafUpdate.daInfPtr->resumeDownload))(sessPtr->sessRef);
-                if (ret)
-                {
-                    LE_ERROR("DA plug-in resume download failed, ret = %d.", ret);
-                }
-                else
-                {
-                    LE_DEBUG("Restart download timer.");
-                    le_timer_SetContextPtr(sessPtr->timerRef, (void*)sessPtr);
-                    le_timer_Start(sessPtr->timerRef);
-
-                    tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_DOWNLOAD_PAUSED);
-                }
+                LE_INFO("Resume download is superseded.");
+                break;
             }
-            else if (dlReq->event == TAF_UPDATE_DL_CANCEL)
+
+            LE_DEBUG("DA plug-in resume download.");
+            ret = (*(tafUpdate.daInfPtr->resumeDownload))(sessPtr->sessRef);
+            if (ret)
             {
-                LE_DEBUG("DA plug-in cancel download.");
-                int ret = (*(tafUpdate.daInfPtr->cancelDownload))(sessPtr->sessRef);
-                if (ret)
-                {
-                    LE_ERROR("DA plug-in cancel download failed, ret = %d.", ret);
-                }
-                else
-                {
-                    tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_CANCELLED);
-                }
+                LE_ERROR("DA plug-in resume download failed, ret = %d.", ret);
+                ctrl.OnPaused();
+                tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_DOWNLOAD_PAUSED,
+                    TAF_UPDATE_INVALID_OPERATION);
             }
             else
             {
-                LE_ERROR("DA plug-in is in download paused state, invalid event(%d).",
-                    dlReq->event);
+                LE_DEBUG("Restart download timer.");
+                le_timer_SetContextPtr(sessPtr->timerRef, (void*)sessPtr);
+                le_timer_Start(sessPtr->timerRef);
+                tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_DOWNLOADING);
+            }
+            break;
+        case TAF_UPDATE_DL_CANCEL:
+            if (!ctrl.IsCancelRequested())
+            {
+                LE_INFO("Cancel download is superseded.");
+                break;
+            }
+
+            LE_DEBUG("DA plug-in cancel download.");
+            ret = (*(tafUpdate.daInfPtr->cancelDownload))(sessPtr->sessRef);
+            if (ret)
+            {
+                LE_ERROR("DA plug-in cancel download failed, ret = %d.", ret);
+                ctrl.ClearCancel();
+                tafUpdate.ReportDownloadStatus(sessPtr, ctrl.GetState(),
+                    TAF_UPDATE_INVALID_OPERATION);
+            }
+            else
+            {
+                LE_DEBUG("Stop download timer.");
+                le_timer_Stop(sessPtr->timerRef);
+                tafUpdate.ReportDownloadStatus(sessPtr, TAF_UPDATE_CANCELLED);
             }
             break;
         default:
-            LE_ERROR("DA plug-in is in unknown state, state = %d.", sessPtr->state);
+            LE_ERROR("DA plug-in invalid event(%d).", dlReq->event);
+            break;
     }
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Report update status.
+ *
+ * The operation controller is updated before the report is sent, so a client which receives the
+ * report can issue the next request immediately.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_Update::ReportUpdateStatus
 (
     taf_UpdatePlugInSession_t* sessPtr, ///< [IN] Update Plug-In session.
-    taf_update_State_t state            ///< [IN] Update state to be reported to client.
+    taf_update_State_t state,           ///< [IN] Update state to be reported to client.
+    taf_update_Error_t error            ///< [IN] Error to be reported to client.
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
 
-    if (state == TAF_UPDATE_INSTALL_SUCCESS || state == TAF_UPDATE_INSTALL_FAIL)
+    switch (state)
     {
-        sessPtr->state = TAF_UPDATE_IDLE;
-    }
-    else
-    {
-        sessPtr->state = state;
+        case TAF_UPDATE_INSTALL_SUCCESS:
+        case TAF_UPDATE_INSTALL_FAIL:
+        case TAF_UPDATE_CANCELLED:
+            sessPtr->state = TAF_UPDATE_IDLE;
+            tafUpdate.upiCtrl.OnFinished();
+            break;
+        case TAF_UPDATE_INSTALL_PAUSED:
+            sessPtr->state = state;
+            tafUpdate.upiCtrl.OnPaused();
+            break;
+        default:
+            sessPtr->state = state;
+            break;
     }
 
     taf_update_StateInd_t report;
-    report.percent = sessPtr->percent;
+    memset(&report, 0, sizeof(report));
     report.state = state;
+    report.error = error;
+    report.percent = sessPtr->percent;
+    report.ota = TAF_UPDATE_NON_QOTA;
     le_utf8_Copy(report.name, "update plugin session", TAF_UPDATE_SESSION_NAME_LEN, NULL);
     le_event_Report(tafUpdate.stateEvId, &report, sizeof(taf_update_StateInd_t));
 }
@@ -480,6 +945,10 @@ void taf_Update::UpdateTimerHandler
 //--------------------------------------------------------------------------------------------------
 /**
  * Update handler.
+ *
+ * Requests are validated by the operation controller before posted. The handler re-checks the
+ * controller because a pending request may be withdrawn or superseded before it is handled.
+ * A failure of the plug-in is reported with current state and TAF_UPDATE_INVALID_OPERATION.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_Update::UpdateHandler
@@ -488,100 +957,88 @@ void taf_Update::UpdateHandler
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
+    taf_UpdateOpCtrl &ctrl = tafUpdate.upiCtrl;
 
     taf_UpdateReq_t* updateReq = (taf_UpdateReq_t*)reqPtr;
     taf_UpdatePlugInSession_t* sessPtr = updateReq->sessPtr;
+    int ret = 0;
 
-    switch (sessPtr->state)
+    switch (updateReq->event)
     {
-        case TAF_UPDATE_IDLE:
-            if (updateReq->event == TAF_UPDATE_INST_START)
+        case TAF_UPDATE_INST_START:
+            LE_INFO("UA plug-in start to install.");
+            sessPtr->state = TAF_UPDATE_INSTALLING;
+            sessPtr->percent = 0;
+            ret = (*(tafUpdate.uaInfPtr->startInstall))(sessPtr->sessRef, updateReq->filePath);
+            if (ret)
             {
-                LE_INFO("UA plug-in start to install.");
-                sessPtr->state = TAF_UPDATE_INSTALLING;
-                sessPtr->percent = 0;
-                int ret = (*(tafUpdate.uaInfPtr->startInstall))(sessPtr->sessRef,
-                    updateReq->filePath);
-                if (ret)
-                {
-                    LE_ERROR("UA plug-in install failed, ret = %d.", ret);
-                    tafUpdate.ReportUpdateStatus(sessPtr, TAF_UPDATE_INSTALL_FAIL);
-                }
-                else
-                {
-                    if (tafUpdate.uaInfPtr->getProgress == NULL)
-                    {
-                        LE_WARN("UA plug-in get update progress is not supported.");
-                        tafUpdate.ReportUpdateStatus(sessPtr, TAF_UPDATE_INSTALL_SUCCESS);
-                    }
-                    else
-                    {
-                        LE_INFO("Start update timer.");
-                        le_timer_SetContextPtr(sessPtr->timerRef, (void*)sessPtr);
-                        le_timer_Start(sessPtr->timerRef);
-                    }
-                }
+                LE_ERROR("UA plug-in install failed, ret = %d.", ret);
+                tafUpdate.ReportUpdateStatus(sessPtr, TAF_UPDATE_INSTALL_FAIL);
+            }
+            else if (tafUpdate.uaInfPtr->getProgress == NULL)
+            {
+                LE_WARN("UA plug-in get update progress is not supported.");
+                tafUpdate.ReportUpdateStatus(sessPtr, TAF_UPDATE_INSTALL_SUCCESS);
             }
             else
             {
-                LE_ERROR("UA plug-in is in idle state, invalid event(%d).", updateReq->event);
+                LE_INFO("Start update timer.");
+                le_timer_SetContextPtr(sessPtr->timerRef, (void*)sessPtr);
+                le_timer_Start(sessPtr->timerRef);
             }
             break;
-        case TAF_UPDATE_INSTALLING:
-            if (updateReq->event == TAF_UPDATE_INST_PAUSE)
+        case TAF_UPDATE_INST_PAUSE:
+            if (!ctrl.IsPauseRequested())
             {
-                LE_INFO("UA plug-in pause installation.");
-                int ret = (*(tafUpdate.uaInfPtr->pauseInstall))(sessPtr->sessRef);
-                if (ret)
-                {
-                    LE_ERROR("UA plug-in pause installation failed, ret = %d.", ret);
-                }
-                else
-                {
-                    if (tafUpdate.uaInfPtr->getProgress == NULL)
-                    {
-                        LE_ERROR("UA plug-in get update progress is not supported.");
-                    }
-                }
+                LE_INFO("Pause installation is withdrawn or superseded.");
+                break;
+            }
+
+            LE_INFO("UA plug-in pause installation.");
+            ret = (*(tafUpdate.uaInfPtr->pauseInstall))(sessPtr->sessRef);
+            if (ret)
+            {
+                LE_ERROR("UA plug-in pause installation failed, ret = %d.", ret);
+                ctrl.ClearPause();
+                tafUpdate.ReportUpdateStatus(sessPtr, ctrl.GetState(),
+                    TAF_UPDATE_INVALID_OPERATION);
             }
             else
             {
-                LE_ERROR("UA plug-in is in installing state, invalid event(%d).", updateReq->event);
+                LE_INFO("Stop update timer.");
+                le_timer_Stop(sessPtr->timerRef);
+                tafUpdate.ReportUpdateStatus(sessPtr, TAF_UPDATE_INSTALL_PAUSED);
             }
             break;
-        case TAF_UPDATE_INSTALL_PAUSED:
-            if (updateReq->event == TAF_UPDATE_INST_RESUME)
+        case TAF_UPDATE_INST_RESUME:
+            if (!ctrl.OnResume())
             {
-                LE_INFO("UA plug-in resume installation.");
-                int ret = (*(tafUpdate.uaInfPtr->resumeInstall))(sessPtr->sessRef);
-                if (ret)
-                {
-                    LE_ERROR("UA plug-in resume installation failed, ret = %d.", ret);
-                }
-                else
-                {
-                    if (tafUpdate.uaInfPtr->getProgress == NULL)
-                    {
-                        LE_ERROR("UA plug-in get update progress is not supported.");
-                    }
-                    else
-                    {
-                        LE_INFO("Restart update timer.");
-                        le_timer_SetContextPtr(sessPtr->timerRef, (void*)sessPtr);
-                        le_timer_Start(sessPtr->timerRef);
-                    }
-                }
+                LE_INFO("Resume installation is superseded.");
+                break;
+            }
+
+            LE_INFO("UA plug-in resume installation.");
+            ret = (*(tafUpdate.uaInfPtr->resumeInstall))(sessPtr->sessRef);
+            if (ret)
+            {
+                LE_ERROR("UA plug-in resume installation failed, ret = %d.", ret);
+                ctrl.OnPaused();
+                tafUpdate.ReportUpdateStatus(sessPtr, TAF_UPDATE_INSTALL_PAUSED,
+                    TAF_UPDATE_INVALID_OPERATION);
             }
             else
             {
-                LE_ERROR("UA plug-in is in installing state, invalid event(%d).", updateReq->event);
+                LE_INFO("Restart update timer.");
+                le_timer_SetContextPtr(sessPtr->timerRef, (void*)sessPtr);
+                le_timer_Start(sessPtr->timerRef);
+                tafUpdate.ReportUpdateStatus(sessPtr, TAF_UPDATE_INSTALLING);
             }
             break;
         default:
-            LE_ERROR("UA plug-in is in unknown state, state = %d.", sessPtr->state);
+            LE_ERROR("UA plug-in invalid event(%d).", updateReq->event);
+            break;
     }
 }
-
 
 //--------------------------------------------------------------------------------------------------
 /**

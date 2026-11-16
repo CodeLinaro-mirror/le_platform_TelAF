@@ -93,6 +93,18 @@ typedef struct
     le_dls_Link_t link;                          ///< Link
 }taf_DiagVlanIdNode_t;
 
+//-------------------------------------------------------------------------------------------------
+/**
+ * Latest tester state of a VLAN ID.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint16_t vlanId;                             ///< VLAN Id
+    taf_diag_State_t testerState;                ///< Latest tester state.
+    le_dls_Link_t link;                          ///< Link
+}taf_DiagVlanTesterState_t;
+
 // Diag service class
     namespace tafsvc {
         class taf_DiagSvr : public ITafSvc, public taf_UDSInterface
@@ -165,6 +177,13 @@ typedef struct
                 void ClearCancelFileXferCbList(taf_DiagSvc_t* servicePtr);
                 void ClearVlanList(taf_DiagSvc_t* servicePtr);
 
+                // Latest tester state of each VLAN ID.
+                void UpdateTesterState(uint16_t vlanId, taf_diag_State_t state);
+                taf_DiagVlanTesterState_t* FindTesterState(uint16_t vlanId);
+                void NotifyTesterState(taf_TesterStateHandler_t* handlerObjPtr, uint16_t vlanId);
+                void NotifyCurrentTesterState(taf_DiagSvc_t* servicePtr,
+                        taf_TesterStateHandler_t* handlerObjPtr);
+
                 void ClearFileXferStateList(le_dls_List_t* fileXferStateListPtr);
                 le_result_t GetIfNameByVlanIdAndStateList(uint16_t vlanId,
                         le_dls_List_t* fileXferStateListPtr, char* ifNamePtr);
@@ -185,6 +204,10 @@ typedef struct
                 le_ref_MapRef_t ReqHandlerRefMap;
 
                 le_mem_PoolRef_t VlanPool;
+
+                // Latest tester state list.
+                le_dls_List_t testerStateList = LE_DLS_LIST_INIT;
+                le_mem_PoolRef_t TesterStatePool;
 
                 // Event for service.
                 le_event_Id_t TesterStateEvent;

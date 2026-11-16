@@ -1776,6 +1776,7 @@ void taf_PM::TafSigTermEventHandler(int tafSigNum)
     } else {
         LE_DEBUG("Deregistered Listener for service state change on service termination");
     }
+    exit(EXIT_SUCCESS);
 }
 
 #if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)

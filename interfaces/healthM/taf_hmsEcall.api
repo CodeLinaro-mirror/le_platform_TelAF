@@ -1,0 +1,94 @@
+/**
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+**/
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference type for an eCall recovery record.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Record;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * eCall type. Values must stay aligned with taf_ecall_Type_t.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM Type
+{
+    TYPE_UNKNOWN = 0,   ///< Unknown.
+    TYPE_TEST    = 1,   ///< Test eCall.
+    TYPE_AUTO    = 2,   ///< Automatic eCall.
+    TYPE_MANUAL  = 3,   ///< Manual eCall.
+    TYPE_PRIVATE = 4    ///< Private (third-party service) eCall.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the eCall recovery record of a phone. Each phone has at most one record.
+ * If no record exists for the phone, an empty record is created and returned. In a new
+ * record the eCall type is not set.
+ *
+ * @instaging
+ *
+ * @return
+ *  - Record reference on success.
+ *  - NULL if phoneId is invalid or the record cannot be created.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Record GetRecord
+(
+    uint8 phoneId IN     ///< Phone ID 1 or 2, same as used by taf_ecall.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Releases an eCall recovery record. Call it when the eCall has finally ended.
+ *
+ * @instaging
+ *
+ * @return
+ *  - LE_OK            Succeeded.
+ *  - LE_BAD_PARAMETER Invalid reference.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Delete
+(
+    Record recordRef IN  ///< Record reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the eCall type of a record.
+ *
+ * @instaging
+ *
+ * @return
+ *  - LE_OK            Succeeded.
+ *  - LE_BAD_PARAMETER Invalid reference or type (TYPE_UNKNOWN is not allowed).
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetType
+(
+    Record recordRef IN, ///< Record reference.
+    Type   type      IN  ///< eCall type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the eCall type of a record.
+ *
+ * @instaging
+ *
+ * @return
+ *  - LE_OK            Succeeded.
+ *  - LE_NOT_FOUND     The eCall type has not been set.
+ *  - LE_BAD_PARAMETER Invalid reference or NULL output pointer.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetType
+(
+    Record recordRef IN, ///< Record reference.
+    Type   type      OUT ///< eCall type.
+);

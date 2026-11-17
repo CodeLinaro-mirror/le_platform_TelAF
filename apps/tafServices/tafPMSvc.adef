@@ -21,6 +21,7 @@ groups:
     radio
     inet
     locclient
+    logd
 }
 
 executables:

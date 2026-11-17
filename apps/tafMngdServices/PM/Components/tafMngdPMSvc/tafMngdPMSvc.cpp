@@ -48,7 +48,6 @@ le_result_t taf_mngdPm_SetNodeTargetedPowerMode(uint8_t pm_node_id,
     }
     else
     {
-        mpms.targetedPowerMode = targetPowerMode;
         if(targetPowerMode == TAF_MNGDPM_SUSPEND || targetPowerMode == TAF_MNGDPM_SHUTDOWN)
         {
             res = tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
@@ -56,8 +55,10 @@ le_result_t taf_mngdPm_SetNodeTargetedPowerMode(uint8_t pm_node_id,
             {
                 return res;
             }
-            mpms.powerMode.isGraceful = true;
         }
+
+        mpms.targetedPowerMode = targetPowerMode;
+
         // Acquire a wakelock to get notified on last wakeup source release.
         if (mpms.ws != nullptr)
         {
@@ -141,11 +142,7 @@ le_result_t taf_mngdPm_ShutdownReqAsync(taf_mngdPm_ShutdownMode_t mode,
     else
     {
         LE_INFO("Ignore VHAL response when drive is not available");
-        le_result_t res = tafMngdPMSvc::ShutdownNAD();
-        if(res == LE_OK)
-        {
-            mpms.powerMode.isGraceful = false;
-        }
+        tafMngdPMSvc::ShutdownNAD();
         // Send ready incase of driver not available.
         handlerPtr(mode, TAF_MNGDPM_READY, LE_OK, contextPtr);
     }
@@ -249,6 +246,8 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
             mpms.restartCB.sessionRef = taf_mngdPm_GetClientSessionRef();
             (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF,
                     restartReason, tafMngdPMSvc::RestartPrepareRespCB);
+
+            mpms.powerMode.isShutDown = true;
         }
         else if(mode == TAF_MNGDPM_RESTART_MODE_NAD_REBOOT)
         {
@@ -264,6 +263,8 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
             mpms.restartCB.sessionRef = taf_mngdPm_GetClientSessionRef();
             (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_NAD_REBOOT,
                     restartReason, tafMngdPMSvc::RestartPrepareRespCB);
+
+            mpms.powerMode.isRestart = true;
         }
     }
     else
@@ -276,7 +277,6 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
             if(res == LE_OK)
             {
                 mpms.powerMode.isShutDown = true;
-                mpms.powerMode.isGraceful = false;
             }
         }
         else if(mode == TAF_MNGDPM_RESTART_MODE_NAD_REBOOT)
@@ -286,7 +286,6 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
             if(res == LE_OK)
             {
                 mpms.powerMode.isRestart = true;
-                mpms.powerMode.isGraceful = false;
             }
         }
         // Send ready incase of driver not available.
@@ -1347,9 +1346,29 @@ le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
                 }
             }
             mpms.ackClientrecrdSize++;
-            LE_INFO("Received ACK from client %s/%d, regClientrecrd size is %zu ,ackClientrecrd size is:%d",
+            const char* stateName = "UNKNOWN";
+            switch (state)
+            {
+                case TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE:
+                    stateName = "SHUTDOWN_PREPARE";
+                    break;
+                case TAF_MNGDPM_NODE_STATE_RESTART_PREPARE:
+                    stateName = "RESTART_PREPARE";
+                    break;
+                case TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE:
+                    stateName = "SUSPEND_PREPARE";
+                    break;
+                case TAF_MNGDPM_NODE_STATE_RESUME:
+                    stateName = "RESUME";
+                    break;
+            }
+            LE_INFO("Received ACK from client %s/%d for state %s(%d), ref=%p, "
+                    "regClientrecrd size is %zu, ackClientrecrd size is %d",
                     sessionNodePtr->name,
                     sessionNodePtr->procId,
+                    stateName,
+                    state,
+                    Ref,
                     mpms.regClientrecrd.size(),
                     mpms.ackClientrecrdSize);
             //If Last acknowledged client , proceed for ack state change

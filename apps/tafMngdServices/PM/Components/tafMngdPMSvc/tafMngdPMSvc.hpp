@@ -129,11 +129,9 @@ typedef struct
 
 typedef struct
 {
-    bool isGraceful;
     bool isForceful;
     bool isShutDown;
     bool isRestart;
-    bool isSuspend;
     bool isWsAcquired;
     bool isWsNodeAcquired;
 }taf_powerMode_t;

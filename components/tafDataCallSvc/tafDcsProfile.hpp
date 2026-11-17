@@ -15,6 +15,8 @@
 #include "interfaces.h"
 #include "tafDataPa.hpp"
 
+#include <pthread.h>
+
 #include <map>
 #include <string>
 #include <utility>
@@ -133,13 +135,47 @@ struct TafDcsSessionStartEvent_t
 };
 
 /**
- * The structure for sessionStopEvtId_.
- * A profile will be uniquely identified by its profile ID and the phone ID.
+ * The start or stop data session action in progress on a profile.
+ * Only one action can be in progress on a profile at a time.
  */
-struct TafDcsSessionStopEvent_t
+enum TafDcsCallActionType_t
 {
-    TafDcsProfile_t profile;    ///< The profile.
-    taf_dcs_Pdp_t   ipType_pdp; ///< The IP type
+    TAF_DCS_CALL_ACTION_NONE = 0,    ///< No action is in progress.
+    TAF_DCS_CALL_ACTION_SYNC_START,  ///< taf_dcs_StartSession() is in progress.
+    TAF_DCS_CALL_ACTION_ASYNC_START, ///< taf_dcs_StartSessionAsync() is in progress.
+    TAF_DCS_CALL_ACTION_SYNC_STOP,   ///< taf_dcs_StopSession() is in progress.
+    TAF_DCS_CALL_ACTION_ASYNC_STOP   ///< taf_dcs_StopSessionAsync() is in progress.
+};
+
+/**
+ * The details of the start or stop data session action in progress on a profile.
+ */
+struct TafDcsCallAction_t
+{
+    TafDcsCallActionType_t            type;       ///< The action type.
+    le_msg_SessionRef_t               clientRef;  ///< The client which requested the action.
+    taf_dcs_AsyncSessionHandlerFunc_t handlerPtr; ///< The async handler. NULL for sync action.
+    void                              *contextPtr; ///< The context of the async handler.
+};
+
+/**
+ * A client which has started a data session with a profile.
+ * The nodes are allocated from a le_mem pool and linked in a le_dls list of the profile.
+ */
+struct TafDcsClientSession_t
+{
+    le_msg_SessionRef_t clientRef; ///< The client reference.
+    le_dls_Link_t       link;      ///< The link in the client session list.
+};
+
+/**
+ * The context of a PA start or stop data session request, given back by the operation callback.
+ */
+struct TafDcsCallOperationCtx_t
+{
+    taf_dcs_ProfileRef_t       profileRef; ///< The profile reference.
+    taf::pa::data::PhoneId_e   phoneId;    ///< The phone ID.
+    taf::pa::data::ProfileId_e profileId;  ///< The profile ID.
 };
 
 /**
@@ -407,34 +443,23 @@ public:
     void        ResetDataBearerTech();
     le_result_t SetTech(const taf_dcs_Tech_t &tech);
     le_result_t SetUserName(const std::string &name);
+    // Management of the clients which have started a data session with this profile.
     le_result_t AddClient(le_msg_SessionRef_t clientRef, size_t &listSize);
     le_result_t RemoveClient(le_msg_SessionRef_t clientRef, size_t &listSize);
     bool        HasClientCalledSessionStart(le_msg_SessionRef_t clientRef);
+    size_t      GetNumClients();
 
     // Helper function to populate the profile info struct.
     void PopulateProfileInfoStruct(taf::pa::data::ProfileInfo_t &profileInfo) const;
 
-    // Async start session clients management.
-    bool AddStartSessionAsyncClient
-    (
-        le_msg_SessionRef_t client,
-        taf_dcs_AsyncSessionHandlerFunc_t callback,
-        void *context
-    );
-    std::vector<std::tuple<le_msg_SessionRef_t, taf_dcs_AsyncSessionHandlerFunc_t, void *>>
-                                                                GetStartSessionAsyncClients() const;
-    bool RemoveStartSessionAsyncClient(le_msg_SessionRef_t client);
-
-    // Async stop session clients management.
-    bool AddStopSessionAsyncClient
-    (
-        le_msg_SessionRef_t client,
-        taf_dcs_AsyncSessionHandlerFunc_t callback,
-        void *context
-    );
-    std::vector<std::tuple<le_msg_SessionRef_t, taf_dcs_AsyncSessionHandlerFunc_t, void *>>
-                                                                GetStopSessionAsyncClients() const;
-    bool RemoveStopSessionAsyncClient(le_msg_SessionRef_t client);
+    // Management of the start or stop data session action in progress.
+    bool        IsCallActionInProgress();
+    void        BeginCallAction(const TafDcsCallAction_t &action);
+    void        EndCallAction(le_result_t result);
+    bool        FinishCallAction(taf_dcs_ConState_t connState);
+    bool        FailCallAction(bool isStart);
+    le_result_t WaitCallActionDone(uint32_t timeoutSec, bool abandonOnTimeout);
+    void        RemoveAsyncHandler(le_msg_SessionRef_t clientRef);
 
     le_event_Id_t GetSessionStateChangedEventId();
     le_event_Id_t GetQosStatusChangedEventId();
@@ -510,19 +535,29 @@ private:
     // A raw pointer to this object. This is used only for "taf_dcs_ProfileRef_t".
     TafDcsProfile *thisPtr_;
 
-    // The set of all clients who have requested data with this profile.
-    std::set<le_msg_SessionRef_t> dataReqClients_;
-    std::shared_mutex             dataReqClientsSetMutex_;
+    // Mutex to protect the client session list and the call action below.
+    pthread_mutex_t callCtxMutex_;
 
-    // List of clients who have called taf_dcs_StartSessionAsync() for this profile.
-    std::map<le_msg_SessionRef_t, std::pair<taf_dcs_AsyncSessionHandlerFunc_t, void *>>
-        startSessionAsyncRequestorsMap_;
-    mutable std::shared_mutex startSessionAsyncRequestorsMapMutex_;
+    // The list(TafDcsClientSession_t) of all clients which have started a data session with this
+    // profile. The data call is stopped only when the last client stops it.
+    le_dls_List_t clientSessionList_;
 
-    // List of clients who have called taf_dcs_StopSessionAsync() for this profile.
-    std::map<le_msg_SessionRef_t, std::pair<taf_dcs_AsyncSessionHandlerFunc_t, void *>>
-                                                                    stopSessionAsyncRequestorsMap_;
-    mutable std::shared_mutex stopSessionAsyncRequestorsMapMutex_;
+    // The start or stop data session action in progress, and the result of the last action.
+    TafDcsCallAction_t callAction_ = {TAF_DCS_CALL_ACTION_NONE, nullptr, nullptr, nullptr};
+    le_result_t        callActionResult_ = LE_OK;
+    // Signaled when the call action is done.
+    pthread_cond_t     callActionCond_;
+
+    // The memory pool of TafDcsClientSession_t, shared by all profiles.
+    static le_mem_PoolRef_t getClientSessionPool();
+    // Helpers of the client session list. Must be called with callCtxMutex_ locked.
+    TafDcsClientSession_t *findClientSessionLocked(le_msg_SessionRef_t clientRef);
+    le_result_t addClientLocked(le_msg_SessionRef_t clientRef);
+    le_result_t removeClientLocked(le_msg_SessionRef_t clientRef);
+    // End the call action. Must be called with callCtxMutex_ locked.
+    void endCallActionLocked(le_result_t result);
+    // Complete the call action with the result. Must be called with callCtxMutex_ locked.
+    void completeCallActionLocked(le_result_t result);
 
     // The map from which profile references are created. The "inline" keyword is needed to init the
     // variable to a nullptr and requires c++17.
@@ -617,6 +652,8 @@ public:
         void* contextPtr,
         le_msg_SessionRef_t clientRef
     );
+    // Stop the data sessions started by a client, called when the client is disconnected.
+    void SvcStopClientSessions(le_msg_SessionRef_t clientRef);
     le_result_t SvcGetSessionState(taf_dcs_ProfileRef_t,taf_dcs_ConState_t *connStatePtr);
     le_result_t SvcGetDefaultProfileIndexEx (uint8_t phoneId, uint32_t *profileIdPtr);
     le_result_t SvcSetDefaultProfileIndexEx (uint8_t phoneId, uint32_t profileId);
@@ -926,6 +963,31 @@ private:
     // Caller holds qosHandlerMapMutex_.
     void decrementQosListenerAndMaybeReleaseLocked(taf_dcs_ProfileRef_t profileRef);
 
+    // Helpers of start and stop data session.
+    le_result_t getDataCallParams
+    (
+        TafDcsProfile &profile,
+        taf::pa::data::DataCallStartStopParams_t &params
+    );
+    le_result_t preProcessDataCall
+    (
+        TafDcsProfile &profile,
+        bool isStart,
+        le_msg_SessionRef_t clientRef
+    );
+    static bool isCallActionDone(const TafDcsSessionChangeEvent_t &event);
+    static std::shared_ptr<void> newCallOperationCtx
+    (
+        const TafDcsProfile &profile,
+        const taf::pa::data::DataCallStartStopParams_t &params
+    );
+    static void tafPaDataCallOperationCb
+    (
+        const taf::pa::data::DataCallOperationResult_t &operationResult,
+        std::shared_ptr<void> context
+    );
+    static void callOperationFailedHandler(void *param1Ptr, void *param2Ptr);
+
     // Forward declarations for internal event handlers
     static void getProfilesAsyncCb
     (
@@ -940,12 +1002,6 @@ private:
     static void clientDisconnectedEvtHandler(void *reqPtr);
     static void registerSessionStartEvtHandler(void *param1Ptr, void *param2Ptr);
     static void sessionStartEvtHandler(void *reqPtr);
-    static void registerSessionStopEvtHandler(void *param1Ptr, void *param2Ptr);
-    static void sessionStopEvtHandler(void *reqPtr);
-    static void registerStartSessionAsyncRspEventHandler(void *param1Ptr, void *param2Ptr);
-    static void startSessionAsyncRspEventHandler(void *reqPtr);
-    static void registerStopSessionAsyncRspEventHandler(void *param1Ptr, void *param2Ptr);
-    static void stopSessionAsyncRspEventHandler(void *reqPtr);
 
     // PA handlers
     static void registerPaSessionStateChangeEvtHandler(void *param1Ptr, void *param2Ptr);
@@ -1007,10 +1063,6 @@ private:
      */
     std::shared_mutex profileReadWriteMutex_;
 
-    // Promise to synchronize commands.
-    std::promise<le_result_t> syncCmdPromise_;
-    // Flag to check if the promise is waiting for the future or not.
-    std::atomic<bool> isSyncCmdPromiseWaiting_ = false;
     // TODO: Make this configurable
     const uint16_t syncSessionCmdTimeout_ = 60; // 60s timeout for Start and Stop session sync cmd.`
 

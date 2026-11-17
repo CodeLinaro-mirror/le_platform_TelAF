@@ -66,6 +66,16 @@ TafDcsProfile::TafDcsProfile
     userName_ = profileInfo.userName;
     password_ = profileInfo.password;
 
+    // Initialize the client session list and the call action context.
+    clientSessionList_ = LE_DLS_LIST_INIT;
+    pthread_mutex_init(&callCtxMutex_, NULL);
+    // Use the monotonic clock for the timeout of WaitCallActionDone().
+    pthread_condattr_t condAttr;
+    pthread_condattr_init(&condAttr);
+    pthread_condattr_setclock(&condAttr, CLOCK_MONOTONIC);
+    pthread_cond_init(&callActionCond_, &condAttr);
+    pthread_condattr_destroy(&condAttr);
+
     // Store the pointer to this object
     thisPtr_ = this;
     // Create a reference to this object
@@ -79,6 +89,16 @@ TafDcsProfile::~TafDcsProfile()
     LE_INFO("Destructor");
     if (reference_)
         le_ref_DeleteRef(TafDcsProfile::getProfileRefMap(), reference_);
+
+    // Release the client session list and the call action context.
+    le_dls_Link_t *linkPtr = le_dls_Pop(&clientSessionList_);
+    while (NULL != linkPtr)
+    {
+        le_mem_Release(CONTAINER_OF(linkPtr, TafDcsClientSession_t, link));
+        linkPtr = le_dls_Pop(&clientSessionList_);
+    }
+    pthread_cond_destroy(&callActionCond_);
+    pthread_mutex_destroy(&callCtxMutex_);
 }
 
 void TafDcsProfile::PopulateProfileInfoStruct (taf::pa::data::ProfileInfo_t &profileInfo) const
@@ -651,44 +671,87 @@ void TafDcsProfile::RemoveQosFlowRef(taf_dcs_QosFlowRef_t ref)
     }
 }
 
+// This is a static function that returns the memory pool of the client session nodes.
+le_mem_PoolRef_t TafDcsProfile::getClientSessionPool()
+{
+    // The static local variable is created only once even if it is called from multiple threads.
+    static le_mem_PoolRef_t clientSessionPool =
+        le_mem_CreatePool("DcsClientSessionPool", sizeof(TafDcsClientSession_t));
+    return clientSessionPool;
+}
+
+TafDcsClientSession_t *TafDcsProfile::findClientSessionLocked(le_msg_SessionRef_t clientRef)
+{
+    le_dls_Link_t *linkPtr = le_dls_Peek(&clientSessionList_);
+    while (NULL != linkPtr)
+    {
+        TafDcsClientSession_t *sessionPtr = CONTAINER_OF(linkPtr, TafDcsClientSession_t, link);
+        if (sessionPtr->clientRef == clientRef)
+        {
+            return sessionPtr;
+        }
+        linkPtr = le_dls_PeekNext(&clientSessionList_, linkPtr);
+    }
+    return NULL;
+}
+
+le_result_t TafDcsProfile::addClientLocked(le_msg_SessionRef_t clientRef)
+{
+    if (NULL != findClientSessionLocked(clientRef))
+    {
+        LE_DEBUG("Client %p is already in the list", clientRef);
+        return LE_DUPLICATE;
+    }
+
+    TafDcsClientSession_t *sessionPtr =
+        static_cast<TafDcsClientSession_t *>(le_mem_ForceAlloc(getClientSessionPool()));
+    sessionPtr->clientRef = clientRef;
+    sessionPtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&clientSessionList_, &sessionPtr->link);
+    LE_DEBUG("Client %p is added to the list", clientRef);
+    return LE_OK;
+}
+
+le_result_t TafDcsProfile::removeClientLocked(le_msg_SessionRef_t clientRef)
+{
+    TafDcsClientSession_t *sessionPtr = findClientSessionLocked(clientRef);
+    if (NULL == sessionPtr)
+    {
+        LE_DEBUG("Client %p is not in the list", clientRef);
+        return LE_NOT_FOUND;
+    }
+
+    le_dls_Remove(&clientSessionList_, &sessionPtr->link);
+    le_mem_Release(sessionPtr);
+    LE_DEBUG("Client %p is removed from the list", clientRef);
+    return LE_OK;
+}
+
 le_result_t TafDcsProfile::AddClient(le_msg_SessionRef_t clientRef, size_t &listSize)
 {
-    LE_WARN_IF (0 == clientRef, "clientRef is 0");
-    // Insert after locking
-    std::unique_lock lock(dataReqClientsSetMutex_);
-    auto result = dataReqClients_.insert(clientRef);
-    if (result.second)
-        LE_DEBUG("Inserted %p", clientRef);
-    else
-        LE_DEBUG("Already in the set: %p", clientRef);
+    LE_WARN_IF(0 == clientRef, "clientRef is 0");
 
-    // Update the size
-    listSize = dataReqClients_.size();
-    LE_INFO ("Number of clients: %zu", listSize);
+    pthread_mutex_lock(&callCtxMutex_);
+    le_result_t result = addClientLocked(clientRef);
+    listSize = le_dls_NumLinks(&clientSessionList_);
+    pthread_mutex_unlock(&callCtxMutex_);
 
-    return LE_OK;
+    LE_INFO("Add client %p, result: %d, number of clients: %zu", clientRef, TO_INT(result),
+                                                                                    listSize);
+    return result;
 }
 
 le_result_t TafDcsProfile::RemoveClient(le_msg_SessionRef_t clientRef, size_t &listSize)
 {
-    le_result_t result = LE_OK;
     LE_WARN_IF(0 == clientRef, "clientRef is 0");
-    // Erase after locking
-    std::unique_lock lock(dataReqClientsSetMutex_);
-    if (dataReqClients_.erase(clientRef))
-    {
-        LE_INFO("Erased %p", clientRef);
-    }
-    else
-    {
-        LE_INFO("Not available in the set: %p", clientRef);
-        result = LE_NOT_FOUND;
-    }
 
-    // Update the size
-    listSize = dataReqClients_.size();
-    LE_INFO ("Number of clients: %zu", listSize);
+    pthread_mutex_lock(&callCtxMutex_);
+    le_result_t result = removeClientLocked(clientRef);
+    listSize = le_dls_NumLinks(&clientSessionList_);
+    pthread_mutex_unlock(&callCtxMutex_);
 
+    LE_INFO("Remove client %p, result: %d, number of clients: %zu", clientRef, TO_INT(result),
+                                                                                    listSize);
     return result;
 }
 
@@ -696,107 +759,210 @@ bool TafDcsProfile::HasClientCalledSessionStart(le_msg_SessionRef_t clientRef)
 {
     LE_WARN_IF(0 == clientRef, "clientRef is 0");
 
-    // Check after locking
-    std::shared_lock lock(dataReqClientsSetMutex_);
-    auto client = dataReqClients_.find(clientRef);
-    if (client != dataReqClients_.end())
+    pthread_mutex_lock(&callCtxMutex_);
+    bool hasClient = (NULL != findClientSessionLocked(clientRef));
+    pthread_mutex_unlock(&callCtxMutex_);
+
+    LE_DEBUG("Client %p has requested data: %s", clientRef, (hasClient ? "true" : "false"));
+    return hasClient;
+}
+
+size_t TafDcsProfile::GetNumClients()
+{
+    pthread_mutex_lock(&callCtxMutex_);
+    size_t numClients = le_dls_NumLinks(&clientSessionList_);
+    pthread_mutex_unlock(&callCtxMutex_);
+
+    return numClients;
+}
+
+bool TafDcsProfile::IsCallActionInProgress()
+{
+    pthread_mutex_lock(&callCtxMutex_);
+    bool inProgress = (TAF_DCS_CALL_ACTION_NONE != callAction_.type);
+    pthread_mutex_unlock(&callCtxMutex_);
+
+    return inProgress;
+}
+
+// Begin a call action. It must be called before the request is sent to PA, so the session state
+// event from PA can not be missed.
+void TafDcsProfile::BeginCallAction(const TafDcsCallAction_t &action)
+{
+    pthread_mutex_lock(&callCtxMutex_);
+    callAction_ = action;
+    pthread_mutex_unlock(&callCtxMutex_);
+
+    LE_INFO("Phone Id: %d, Profile Id: %d, begin call action: %d, client: %p", phoneId_,
+                                        profileId_, TO_INT(action.type), action.clientRef);
+}
+
+void TafDcsProfile::endCallActionLocked(le_result_t result)
+{
+    LE_INFO("Phone Id: %d, Profile Id: %d, end call action: %d, result: %d", phoneId_,
+                                        profileId_, TO_INT(callAction_.type), TO_INT(result));
+    callAction_ = {TAF_DCS_CALL_ACTION_NONE, nullptr, nullptr, nullptr};
+    callActionResult_ = result;
+    pthread_cond_broadcast(&callActionCond_);
+}
+
+// End the call action without a session state event from PA, e.g. the request is rejected by PA.
+void TafDcsProfile::EndCallAction(le_result_t result)
+{
+    pthread_mutex_lock(&callCtxMutex_);
+    endCallActionLocked(result);
+    pthread_mutex_unlock(&callCtxMutex_);
+}
+
+static bool isStartCallAction(TafDcsCallActionType_t type)
+{
+    return (TAF_DCS_CALL_ACTION_SYNC_START == type) || (TAF_DCS_CALL_ACTION_ASYNC_START == type);
+}
+
+/**
+ * Complete the call action with the result.
+ * If the call action is failed, the client list is rolled back: the client of a start is removed
+ * from the client list, and the client of a stop is added back to the client list.
+ * Then the async handler is called and the sync waiter is woken up.
+ */
+void TafDcsProfile::completeCallActionLocked(le_result_t result)
+{
+    if (LE_OK != result)
     {
-        LE_INFO("Client %p has requested data: true", clientRef);
-        return true;
+        if (isStartCallAction(callAction_.type))
+        {
+            removeClientLocked(callAction_.clientRef);
+        }
+        else
+        {
+            addClientLocked(callAction_.clientRef);
+        }
     }
-    LE_DEBUG("Client %p has requested data: false", clientRef);
-    return false;
-}
 
-// Async start session clients management.
-bool TafDcsProfile::AddStartSessionAsyncClient
-(
-    le_msg_SessionRef_t client,
-    taf_dcs_AsyncSessionHandlerFunc_t callback,
-    void *context
-)
-{
-    // Get a write lock
-    std::unique_lock<std::shared_mutex> lock(startSessionAsyncRequestorsMapMutex_);
-    auto result = startSessionAsyncRequestorsMap_.emplace(client,std::make_pair(callback, context));
-    LE_INFO("Added client %p: %s", client, (result.second ? "true" : "false"));
-    // Returns true if insertion was successful, false if client already exists
-    return result.second;
-}
-
-std::vector<std::tuple<le_msg_SessionRef_t, taf_dcs_AsyncSessionHandlerFunc_t, void *>>
-TafDcsProfile::GetStartSessionAsyncClients() const
-{
-    // Get a read lock
-    std::shared_lock<std::shared_mutex> lock(startSessionAsyncRequestorsMapMutex_);
-
-    std::vector<std::tuple<le_msg_SessionRef_t, taf_dcs_AsyncSessionHandlerFunc_t, void *>> entries;
-    for (const auto &[client, pair] : startSessionAsyncRequestorsMap_)
+    // Call the handler with the lock held, so it can not be removed by RemoveAsyncHandler() at the
+    // same time.
+    if (NULL != callAction_.handlerPtr)
     {
-        LE_DEBUG("Add client %p", client);
-        entries.emplace_back(client, pair.first, pair.second);
+        LE_INFO("Send result %d to client %p", TO_INT(result), callAction_.clientRef);
+        callAction_.handlerPtr(reference_, result, callAction_.contextPtr);
     }
-    LE_INFO("Num entries: %zu", entries.size());
-    return entries;
+
+    endCallActionLocked(result);
 }
 
-bool TafDcsProfile::RemoveStartSessionAsyncClient(le_msg_SessionRef_t client)
+/**
+ * Finish the call action with the final session state from PA.
+ * - A start which does not end in CONNECTED is failed with LE_TERMINATED.
+ * - A stop which does not end in DISCONNECTED is failed with LE_FAULT.
+ *
+ * @return true if a call action was in progress, false otherwise.
+ */
+bool TafDcsProfile::FinishCallAction(taf_dcs_ConState_t connState)
 {
-    //Get a read lock
-    std::shared_lock<std::shared_mutex> lock(startSessionAsyncRequestorsMapMutex_);
-    // Returns true if the entry was removed, false if the key was not found
-    if (startSessionAsyncRequestorsMap_.erase(client))
+    pthread_mutex_lock(&callCtxMutex_);
+
+    if (TAF_DCS_CALL_ACTION_NONE == callAction_.type)
     {
-        LE_INFO("Client :%p was erased.", client);
-        return true;
+        pthread_mutex_unlock(&callCtxMutex_);
+        return false;
     }
-    LE_DEBUG("Client :%p was not erased.", client);
-    return false;
-}
 
-// Async stop session clients management.
-bool TafDcsProfile::AddStopSessionAsyncClient
-(
-    le_msg_SessionRef_t client,
-    taf_dcs_AsyncSessionHandlerFunc_t callback,
-    void *context
-)
-{
-    // Get a write lock
-    std::unique_lock<std::shared_mutex> lock(stopSessionAsyncRequestorsMapMutex_);
-    auto result = stopSessionAsyncRequestorsMap_.insert({client, {callback, context}});
-    LE_INFO("Added client %p: %s", client, (result.second ? "true" : "false"));
-    // Returns true if insertion was successful, false if client already exists
-    return result.second;
-}
-
-std::vector<std::tuple<le_msg_SessionRef_t, taf_dcs_AsyncSessionHandlerFunc_t, void *>>
-TafDcsProfile::GetStopSessionAsyncClients() const
-{
-    // Get a read lock
-    std::shared_lock<std::shared_mutex> lock(stopSessionAsyncRequestorsMapMutex_);
-    std::vector<std::tuple<le_msg_SessionRef_t, taf_dcs_AsyncSessionHandlerFunc_t, void *>> entries;
-    for (const auto &[client, pair] : stopSessionAsyncRequestorsMap_)
+    le_result_t result = LE_OK;
+    if (isStartCallAction(callAction_.type))
     {
-        LE_DEBUG("Add client %p", client);
-        entries.emplace_back(client, pair.first, pair.second);
+        if (TAF_DCS_CONNECTED != connState)
+        {
+            result = LE_TERMINATED;
+        }
     }
-    LE_INFO("Num entries: %zu", entries.size());
-    return entries;
+    else if (TAF_DCS_DISCONNECTED != connState)
+    {
+        result = LE_FAULT;
+    }
+
+    completeCallActionLocked(result);
+    pthread_mutex_unlock(&callCtxMutex_);
+    return true;
 }
 
-bool TafDcsProfile::RemoveStopSessionAsyncClient(le_msg_SessionRef_t client)
+/**
+ * Fail the call action with LE_FAULT, as the start or stop request is failed by TelSDK.
+ *
+ * @return true if a start (isStart is true) or stop (isStart is false) call action was in
+ *         progress, false otherwise.
+ */
+bool TafDcsProfile::FailCallAction(bool isStart)
 {
-    //Get a read lock
-    std::shared_lock<std::shared_mutex> lock(stopSessionAsyncRequestorsMapMutex_);
-    // Returns true if the entry was removed, false if the key was not found
-    if (stopSessionAsyncRequestorsMap_.erase(client))
+    pthread_mutex_lock(&callCtxMutex_);
+
+    if ((TAF_DCS_CALL_ACTION_NONE == callAction_.type) ||
+        (isStart != isStartCallAction(callAction_.type)))
     {
-        LE_INFO("Client %p was erased.", client);
-        return true;
+        pthread_mutex_unlock(&callCtxMutex_);
+        return false;
     }
-    LE_DEBUG("Client %p was not erased.", client);
-    return false;
+
+    completeCallActionLocked(LE_FAULT);
+    pthread_mutex_unlock(&callCtxMutex_);
+    return true;
+}
+
+/**
+ * Wait until the call action in progress is done.
+ *
+ * @return
+ *  - The result of the call action.
+ *  - LE_TIMEOUT if the call action is not done in time. The call action is ended if
+ *    abandonOnTimeout is true, otherwise it is still in progress. When a stop is abandoned, its
+ *    client is added back to the client list, as the data session may still be connected.
+ */
+le_result_t TafDcsProfile::WaitCallActionDone(uint32_t timeoutSec, bool abandonOnTimeout)
+{
+    struct timespec deadline;
+    clock_gettime(CLOCK_MONOTONIC, &deadline);
+    deadline.tv_sec += timeoutSec;
+
+    pthread_mutex_lock(&callCtxMutex_);
+
+    int rc = 0;
+    while ((TAF_DCS_CALL_ACTION_NONE != callAction_.type) && (ETIMEDOUT != rc))
+    {
+        rc = pthread_cond_timedwait(&callActionCond_, &callCtxMutex_, &deadline);
+    }
+
+    le_result_t result = callActionResult_;
+    if (TAF_DCS_CALL_ACTION_NONE != callAction_.type)
+    {
+        LE_ERROR("Phone Id: %d, Profile Id: %d, call action %d timeout", phoneId_, profileId_,
+                                                                        TO_INT(callAction_.type));
+        if (abandonOnTimeout)
+        {
+            // The client of a stop is removed before the request, add it back so that the client
+            // can retry the stop. The client of a start is kept, as the session may connect later.
+            if (!isStartCallAction(callAction_.type))
+            {
+                addClientLocked(callAction_.clientRef);
+            }
+            endCallActionLocked(LE_TIMEOUT);
+        }
+        result = LE_TIMEOUT;
+    }
+
+    pthread_mutex_unlock(&callCtxMutex_);
+    return result;
+}
+
+// Remove the async handler of a disconnected client, so the handler is not called any more.
+void TafDcsProfile::RemoveAsyncHandler(le_msg_SessionRef_t clientRef)
+{
+    pthread_mutex_lock(&callCtxMutex_);
+    if ((TAF_DCS_CALL_ACTION_NONE != callAction_.type) && (clientRef == callAction_.clientRef))
+    {
+        LE_INFO("Remove the async handler of client %p", clientRef);
+        callAction_.handlerPtr = NULL;
+        callAction_.contextPtr = NULL;
+    }
+    pthread_mutex_unlock(&callCtxMutex_);
 }
 
 le_event_Id_t TafDcsProfile::GetSessionStateChangedEventId()

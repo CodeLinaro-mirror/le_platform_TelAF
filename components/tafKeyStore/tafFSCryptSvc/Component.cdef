@@ -1,10 +1,13 @@
 sources:
 {
-    tafFSCrypt.c
+    tafFSCryptSvc.cpp
+    tafFSCryptImpl.cpp
 }
 
-cflags:
+cxxflags:
 {
+    -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/components/tafKeyStore/common
     -I${LEGATO_ROOT}/framework/liblegato
     -I$TELAF_PA_DEFAULT/include/keyStore
     -I$TELAF_PA_DEFAULT/include

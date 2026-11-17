@@ -1,45 +1,27 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
+
+#ifndef TAFFSCRYPT_HPP
+#define TAFFSCRYPT_HPP
 
 #include "legato.h"
 #include "interfaces.h"
+#include "tafSvcIF.hpp"
 
+extern "C" {
 #include "tafFscryptPa.h"
+}
+
+#include "tafPaResultConvert.hpp"
+
+#include "limit.h"
 
 #include <openssl/sha.h>
 #include <openssl/md5.h>
 #include <openssl/err.h>
+#include <openssl/evp.h>
 
 /*
  * v1 policy keys are specified by an arbitrary 8-byte key "descriptor",
@@ -82,7 +64,7 @@
 #define FS_IOC_ADD_ENCRYPTION_KEY                   _IOWR('f', 23, struct fscrypt_add_key_arg)
 #define FS_IOC_REMOVE_ENCRYPTION_KEY                _IOWR('f', 24, struct fscrypt_remove_key_arg)
 #define FS_IOC_REMOVE_ENCRYPTION_KEY_ALL_USERS      _IOWR('f', 25, struct fscrypt_remove_key_arg)
-#define FS_IOC_GET_ENCRYPTION_KEY_STATUS            _IOWR('f', 26, struct fscrypt_get_key_status_arg)
+#define FS_IOC_GET_ENCRYPTION_KEY_STATUS           _IOWR('f', 26, struct fscrypt_get_key_status_arg)
 #define FS_IOC_GET_ENCRYPTION_NONCE                 _IOR('f', 27, uint8_t[16])
 
 //--------------------------------------------------------------------------------------------------
@@ -132,6 +114,21 @@
  */
 //--------------------------------------------------------------------------------------------------
 #define FS_KEY_STATUS_FLAG_ADDED_BY_SELF   0x00000001
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Key name of internal AES GCM key.
+ */
+//--------------------------------------------------------------------------------------------------
+#define FSC_INT_KEY_NAME "fscIntAesGcmKey"
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Key parameters of internal AES GCM key.
+ */
+//--------------------------------------------------------------------------------------------------
+#define INT_KEY_NONCE_LEN 12
+#define INT_KEY_AEAD_LEN  MD5_DIGEST_LENGTH
 
 //--------------------------------------------------------------------------------------------------
 // Data structures
@@ -228,8 +225,76 @@ struct fscrypt_policy
   uint8_t master_key_descriptor[FS_KEY_DESCRIPTOR_SIZE];
 } __attribute__((packed));
 
-/*
-static int cmd_ioc_add_key(uint8_t *key, const char* descriptor, const char *dirpath);
-static int cmd_set_policy(const char* descriptor, const char *dirpath);
-static int cmd_ioc_rm_key(const char* descriptor, const char *dirpath);
-*/
+//--------------------------------------------------------------------------------------------------
+/**
+ * Message list created with 'CreateRxMsgList' function
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_dls_List_t        list;
+}
+taf_fsc_StorageList_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Key structure for standard keys.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_fsc_StorageRef_t storageRef;              ///< Reference to the FS-Crypt storage
+    KeyMgt_KeyFileRef_t  keyFileRef;               ///< Key file reference to the key file
+    le_msg_SessionRef_t  clientSessionRef;         ///< Client session reference
+    char                 dirpath[TAF_FSC_MAX_STORAGE_NAME_SIZE]; ///< Directory path
+    char                 descriptor[FS_KEY_DESCRIPTOR_HEX_SIZE]; ///< Descriptor used for IO control
+    bool                 keyIsAddedToKernel;       ///< True if the key is added to kernel
+}
+taf_fsc_Storage_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * TelAF FS-Crypt Service Class
+ */
+//--------------------------------------------------------------------------------------------------
+namespace tafsvc
+{
+    class taf_FSCrypt : public ITafSvc
+    {
+        public:
+            taf_FSCrypt() {};
+            ~taf_FSCrypt() {};
+            void Init();
+
+            // Static member functions.
+            static taf_FSCrypt &GetInstance();
+            static void RemoveSessionFromStorage(le_msg_SessionRef_t sessionRef, void* contextPtr);
+            static le_result_t InternalCryptoProcess(
+                taf_ks_CryptoPurpose_t  purpose,
+                const uint8_t*          md5DataPtr,
+                size_t                  md5DataSize,
+                const uint8_t*          plainTextPtr,
+                size_t                  plainTextSize,
+                uint8_t*                encryptedDataPtr,
+                size_t*                 encryptedDataSizePtr);
+
+            // Public methods (correspond to the taf_fsc IPC API entries).
+            taf_fsc_StorageRef_t GetStorageRef(const char* dirPath, le_result_t* result);
+            le_result_t LockStorage(taf_fsc_StorageRef_t StorageRef);
+            le_result_t UnlockStorage(taf_fsc_StorageRef_t StorageRef);
+            le_result_t DeleteStorage(taf_fsc_StorageRef_t StorageRef);
+
+        private:
+            // Internal helpers.
+            le_result_t FindAppStorageRef(
+                KeyMgt_KeyFileRef_t     keyFileRef,
+                const char              dirPath[TAF_FSC_MAX_STORAGE_NAME_SIZE],
+                char                    descriptor[FS_KEY_DESCRIPTOR_HEX_SIZE],
+                taf_fsc_StorageRef_t*   storageRef);
+
+            // Storage object.
+            le_ref_MapRef_t StorageRefMap_;
+            le_mem_PoolRef_t StoragePool_;
+    };
+}
+#endif /* #ifndef TAFFSCRYPT_HPP */

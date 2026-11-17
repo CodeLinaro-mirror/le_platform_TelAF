@@ -4654,8 +4654,8 @@ static void TestTafGnssRestart
     LE_TEST_INFO("taf_locGnss_ForceFactoryRestart() API is called to check whether it returns"
         " Not supported state or not");
     result = taf_locGnss_ForceFactoryRestart();
-    LE_TEST_OK(result == LE_CAP_UNSUPPORTED,
-               "taf_locGnss_ForceFactoryRestart-capability result");
+    LE_TEST_OK(result == LE_UNSUPPORTED,
+               "taf_locGnss_ForceFactoryRestart-LE_UNSUPPORTED");
 
     //212. Get Leap Seconds-LE_OK
     LE_TEST_INFO("taf_locGnss_GetLeapSeconds() API is triggerred to get Leap Seconds");

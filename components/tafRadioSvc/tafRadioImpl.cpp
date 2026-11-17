@@ -1439,7 +1439,7 @@ static void LteCphyCaHandler
  *      - LE_TIMEOUT if the PA layer returned TAF_PA_TIMEOUT.
  *      - LE_OUT_OF_RANGE if the PA layer returned TAF_PA_OUT_OF_RANGE.
  *      - LE_BAD_PARAMETER if the PA layer returned TAF_PA_BAD_PARAMETER.
- *      - LE_UNSUPPORTED if the PA layer returned TAF_PA_UNSUPPORTED.
+ *      - LE_CAP_UNSUPPORTED if the PA layer returned TAF_PA_UNSUPPORTED.
  *      - LE_CAP_NOT_IMPLEMENTED if the PA layer returned TAF_PA_NOT_IMPLEMENTED.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1461,7 +1461,7 @@ le_result_t Utility::Convert::Result
         case TAF_PA_BAD_PARAMETER:
             return LE_BAD_PARAMETER;
         case TAF_PA_UNSUPPORTED:
-            return LE_UNSUPPORTED;
+            return LE_CAP_UNSUPPORTED;
         case TAF_PA_NOT_IMPLEMENTED:
             return LE_CAP_NOT_IMPLEMENTED;
         default:
